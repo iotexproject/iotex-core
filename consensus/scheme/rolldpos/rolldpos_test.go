@@ -32,8 +32,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -46,6 +46,37 @@ import (
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
+
+var testAddrs = []*iotxaddress.Address{
+	newTestAddr(),
+	newTestAddr(),
+	newTestAddr(),
+	newTestAddr(),
+	newTestAddr(),
+}
+
+func newTestAddr() *iotxaddress.Address {
+	pk, sk, err := crypto.EC283.NewKeyPair()
+	if err != nil {
+		logger.Panic().Err(err).Msg("error when creating test IoTeX address")
+	}
+	pkHash := keypair.HashPubKey(pk)
+	addr := address.New(config.Default.Chain.ID, pkHash[:])
+	iotxAddr := iotxaddress.Address{
+		PublicKey:  pk,
+		PrivateKey: sk,
+		RawAddress: addr.IotxAddress(),
+	}
+	return &iotxAddr
+}
+
+func test21Addrs() []*iotxaddress.Address {
+	addrs := make([]*iotxaddress.Address, 0)
+	for i := 0; i < 21; i++ {
+		addrs = append(addrs, newTestAddr())
+	}
+	return addrs
+}
 
 func TestRollDPoSCtx(t *testing.T) {
 	t.Parallel()
@@ -455,90 +486,6 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	assert.Equal(t, candidates, m.Candidates)
 }
 
-func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	r, err := NewRollDPoSBuilder().
-		SetConfig(config.RollDPoS{}).
-		SetAddr(newTestAddr()).
-		SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
-		SetActPool(mock_actpool.NewMockActPool(ctrl)).
-		SetBroadcast(func(_ proto.Message) error {
-			return nil
-		}).
-		Build()
-	assert.NoError(t, err)
-	assert.NotNil(t, r)
-
-	// Test propose msg
-	addr := newTestAddr()
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
-	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, testutil.TestGasLimit, big.NewInt(10))
-	require.NoError(t, err)
-	selfPubKey := testaddress.IotxAddrinfo["producer"].PublicKey
-	vote, err := testutil.SignedVote(addr, addr, 2, testutil.TestGasLimit, big.NewInt(10))
-	require.NoError(t, err)
-	var prevHash hash.Hash32B
-	blk := block.NewBlockDeprecated(
-		1,
-		1,
-		prevHash,
-		testutil.TimestampNow(),
-		selfPubKey,
-		[]action.SealedEnvelope{transfer, vote},
-	)
-	roundNum := uint32(0)
-	blkHash := blk.HashBlock()
-	data, err := blk.Serialize()
-	require.NoError(t, err)
-	pMsg := iproto.ProposePb{
-		Hash:     blkHash[:],
-		Block:    data,
-		Height:   blk.Height(),
-		Proposer: addr.RawAddress,
-		Round:    roundNum,
-	}
-	pEvt, err := r.ctx.newProposeBlkEvtFromProposePb(&pMsg)
-	assert.NoError(t, err)
-	assert.NotNil(t, pEvt)
-	assert.NotNil(t, pEvt.block)
-
-	// Test proposal endorse msg
-	en := endorsement.NewEndorsement(
-		endorsement.NewConsensusVote(
-			blkHash[:],
-			blk.Height(),
-			roundNum,
-			endorsement.PROPOSAL,
-		),
-		addr,
-	)
-	msg := en.ToProtoMsg()
-
-	eEvt, err := r.ctx.newEndorseEvtWithEndorsePb(msg)
-	assert.NoError(t, err)
-	assert.NotNil(t, eEvt)
-
-	// Test commit endorse msg
-	en = endorsement.NewEndorsement(
-		endorsement.NewConsensusVote(
-			blkHash[:],
-			blk.Height(),
-			roundNum,
-			endorsement.LOCK,
-		),
-		addr,
-	)
-	msg = en.ToProtoMsg()
-	eEvt, err = r.ctx.newEndorseEvtWithEndorsePb(msg)
-	assert.NoError(t, err)
-	assert.NotNil(t, eEvt)
-}
-
 func TestUpdateSeed(t *testing.T) {
 	require := require.New(t)
 	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
@@ -547,8 +494,6 @@ func TestUpdateSeed(t *testing.T) {
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(context.Background()))
 	ctx := rollDPoSCtx{cfg: config.Default.Consensus.RollDPoS, chain: chain, epoch: epochCtx{seed: lastSeed}}
-	fsm := cFSM{ctx: &ctx}
-
 	var err error
 	const numNodes = 21
 	addresses := make([]string, numNodes)
@@ -629,11 +574,11 @@ func TestUpdateSeed(t *testing.T) {
 	height := chain.TipHeight()
 	require.Equal(int(height), 20)
 
-	newSeed, err := fsm.ctx.updateSeed()
+	newSeed, err := ctx.updateSeed()
 	require.NoError(err)
 	require.True(len(newSeed) > 0)
-	require.NotEqual(fsm.ctx.epoch.seed, newSeed)
-	fmt.Println(fsm.ctx.epoch.seed)
+	require.NotEqual(ctx.epoch.seed, newSeed)
+	fmt.Println(ctx.epoch.seed)
 	fmt.Println(newSeed)
 }
 
@@ -681,7 +626,7 @@ func (o *directOverlay) Broadcast(msg proto.Message) error {
 	if cMsg, ok := msg.(*iproto.ConsensusPb); ok {
 		for _, r := range o.peers {
 			if err := r.HandleConsensusMsg(cMsg); err != nil {
-				return errors.Wrap(err, "error when handling block propose directly")
+				return errors.Wrap(err, "error when handling consensus message directly")
 			}
 		}
 	}
@@ -706,10 +651,10 @@ func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.ProposerInterval = time.Second
-		cfg.Consensus.RollDPoS.AcceptProposeTTL = 2000 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 2000 * time.Millisecond
-		cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 2000 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.ProposerInterval = 1 * time.Second
+		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 400 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 200 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 		cfg.Consensus.RollDPoS.NumSubEpochs = 1
 		// TODO: re-enable DKG
@@ -827,7 +772,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 4*time.Second, func() (bool, error) {
 			for _, chain := range chains {
 				if blk, err := chain.GetBlockByHeight(1); blk == nil || err != nil {
 					return false, nil

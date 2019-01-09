@@ -282,10 +282,10 @@ func TestValidateRollDPoS(t *testing.T) {
 	cfg.NodeType = DelegateType
 	cfg.Consensus.Scheme = RollDPoSScheme
 
-	cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 3 * time.Second
-	cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 3 * time.Second
-	cfg.Consensus.RollDPoS.AcceptProposeTTL = 3 * time.Second
-	cfg.Consensus.RollDPoS.ProposerInterval = 8 * time.Second
+	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.FSM.ProposerInterval = 8 * time.Second
 	err := ValidateRollDPoS(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
@@ -294,7 +294,7 @@ func TestValidateRollDPoS(t *testing.T) {
 		strings.Contains(err.Error(), "roll-DPoS ttl sum is larger than proposer interval"),
 	)
 
-	cfg.Consensus.RollDPoS.EventChanSize = 0
+	cfg.Consensus.RollDPoS.FSM.EventChanSize = 0
 	err = ValidateRollDPoS(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
@@ -303,7 +303,7 @@ func TestValidateRollDPoS(t *testing.T) {
 		strings.Contains(err.Error(), "roll-DPoS event chan size should be greater than 0"),
 	)
 
-	cfg.Consensus.RollDPoS.EventChanSize = 1
+	cfg.Consensus.RollDPoS.FSM.EventChanSize = 1
 	cfg.Consensus.RollDPoS.NumDelegates = 0
 	err = ValidateRollDPoS(cfg)
 	require.NotNil(t, err)
