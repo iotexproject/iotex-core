@@ -23,7 +23,7 @@ type Builder struct{ blk Block }
 func NewBuilder(ra RunnableActions) *Builder {
 	return &Builder{
 		blk: Block{
-			Header: &Header{
+			Header: Header{
 				version:   version.ProtocolVersion,
 				height:    ra.blockHeight,
 				timestamp: ra.blockTimeStamp,

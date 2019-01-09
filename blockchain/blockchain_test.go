@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -427,7 +428,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf).Build()
 	selp, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
@@ -450,7 +451,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf2).Build()
 	selp2, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
@@ -651,7 +652,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf).Build()
 	selp, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
@@ -674,7 +675,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf2).Build()
 	selp2, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
