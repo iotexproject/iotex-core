@@ -40,6 +40,8 @@ struct Block {
     amount string
     forged int
     size int
+    txRoot string
+    stateRoot string
 }
 
 struct Transfer {
@@ -439,4 +441,7 @@ interface Explorer {
 
     // estimate gas for smart contract
     estimateGasForSmartContract(request Execution) int
+
+    // get the state root hash of a given block height
+    getStateRootHash(blockHeight int) string
 }

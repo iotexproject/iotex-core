@@ -820,6 +820,8 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			totalSize += transfer.TotalSize()
 		}
 
+		txRoot := blk.TxRoot()
+		stateRoot := blk.StateRoot()
 		explorerBlock := explorer.Block{
 			ID:         hex.EncodeToString(hash[:]),
 			Height:     int64(blockHeaderPb.Height),
@@ -833,6 +835,8 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 				Name:    "",
 				Address: keypair.EncodePublicKey(blk.PublicKey()),
 			},
+			TxRoot:    hex.EncodeToString(txRoot[:]),
+			StateRoot: hex.EncodeToString(stateRoot[:]),
 		}
 
 		res = append(res, explorerBlock)
@@ -865,6 +869,8 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		totalSize += transfer.TotalSize()
 	}
 
+	txRoot := blk.TxRoot()
+	stateRoot := blk.StateRoot()
 	explorerBlock := explorer.Block{
 		ID:         blkID,
 		Height:     int64(blkHeaderPb.Height),
@@ -878,6 +884,8 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 			Name:    "",
 			Address: keypair.EncodePublicKey(blk.PublicKey()),
 		},
+		TxRoot:    hex.EncodeToString(txRoot[:]),
+		StateRoot: hex.EncodeToString(stateRoot[:]),
 	}
 
 	return explorerBlock, nil
@@ -1524,6 +1532,15 @@ func (exp *Service) EstimateGasForVote() (int64, error) {
 // EstimateGasForSmartContract suggest gas for smart contract
 func (exp *Service) EstimateGasForSmartContract(execution explorer.Execution) (int64, error) {
 	return exp.gs.estimateGasForSmartContract(execution)
+}
+
+// GetStateRootHash gets the state root hash of a given block height
+func (exp *Service) GetStateRootHash(blockHeight int64) (string, error) {
+	rootHash, err := exp.bc.GetFactory().RootHashByHeight(uint64(blockHeight))
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(rootHash[:]), nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer

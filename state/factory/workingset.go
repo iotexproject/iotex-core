@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -128,6 +129,13 @@ func (ws *workingSet) RunActions(
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	ws.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
+	// Persis the historical accountTrie's root hash
+	ws.cb.Put(
+		AccountKVNameSpace,
+		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)),
+		rootHash[:],
+		"failed to store accountTrie's root hash",
+	)
 
 	return ws.RootHash(), receipts, nil
 }
