@@ -699,6 +699,18 @@ func (bc *blockchain) MintNewBlock(
 	}
 	actions = append(actions, selp)
 
+	if err := bc.validator.ValidateActionsOnly(
+		actions,
+		true,
+		nil,
+		nil,
+		producer.PublicKey,
+		bc.ChainID(),
+		bc.tipHeight+1,
+	); err != nil {
+		return nil, err
+	}
+
 	ra := block.NewRunnableActionsBuilder().
 		SetHeight(bc.tipHeight + 1).
 		SetTimeStamp(bc.now()).
@@ -1049,15 +1061,11 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 }
 
 func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) error {
-	if bc.validator == nil {
-		logger.Panic().Msg("no block validator")
-	}
-
 	validateTimer := bc.timerFactory.NewTimer("validate")
 	err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash, containCoinbase)
 	validateTimer.End()
 	if err != nil {
-		return errors.Wrapf(err, "Failed to validate block on height %d", bc.tipHeight)
+		return errors.Wrapf(err, "error when validating block %d", blk.Height())
 	}
 	// run actions and update state factory
 	ws, err := bc.sf.NewWorkingSet()

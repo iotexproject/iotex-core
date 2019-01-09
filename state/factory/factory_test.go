@@ -1051,6 +1051,25 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 	require.Equal(uint64(10), height)
 }
 
+func TestFactory_RootHashByHeight(t *testing.T) {
+	cfg := config.Default
+	ctx := context.Background()
+	sf, err := NewFactory(cfg, InMemTrieOption())
+	require.NoError(t, err)
+	require.NoError(t, sf.Start(ctx))
+	defer require.NoError(t, sf.Stop(ctx))
+
+	ws, err := sf.NewWorkingSet()
+	require.NoError(t, err)
+	_, _, err = ws.RunActions(nil, 1, nil)
+	require.NoError(t, err)
+	require.NoError(t, sf.Commit(ws))
+
+	rootHash, err := sf.RootHashByHeight(1)
+	require.NoError(t, err)
+	require.NotEqual(t, hash.ZeroHash32B, rootHash)
+}
+
 func compareStrings(actual []string, expected []string) bool {
 	act := make(map[string]bool)
 	for i := 0; i < len(actual); i++ {

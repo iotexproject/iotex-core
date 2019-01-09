@@ -51,6 +51,7 @@ type (
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		AccountState(string) (*state.Account, error)
 		RootHash() hash.Hash32B
+		RootHashByHeight(uint64) (hash.Hash32B, error)
 		Height() (uint64, error)
 		NewWorkingSet() (WorkingSet, error)
 		Commit(WorkingSet) error
@@ -207,6 +208,20 @@ func (sf *factory) RootHash() hash.Hash32B {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	return sf.rootHash()
+}
+
+// RootHashByHeight returns the hash of the root node of the state trie at a given height
+func (sf *factory) RootHashByHeight(blockHeight uint64) (hash.Hash32B, error) {
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+
+	data, err := sf.dao.Get(AccountKVNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)))
+	if err != nil {
+		return hash.ZeroHash32B, err
+	}
+	var rootHash hash.Hash32B
+	copy(rootHash[:], data)
+	return rootHash, nil
 }
 
 // Height returns factory's height
