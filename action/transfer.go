@@ -70,9 +70,11 @@ func NewTransfer(
 func NewCoinBaseTransfer(nonce uint64, amount *big.Int, recipient string) *Transfer {
 	return &Transfer{
 		AbstractAction: AbstractAction{
-			nonce:   nonce,
-			version: version.ProtocolVersion,
-			dstAddr: recipient,
+			nonce:    nonce,
+			version:  version.ProtocolVersion,
+			dstAddr:  recipient,
+			gasLimit: TransferBaseIntrinsicGas,
+			gasPrice: big.NewInt(0),
 		},
 		amount: amount,
 		// payload is empty for now

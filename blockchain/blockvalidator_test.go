@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
@@ -106,7 +107,7 @@ func TestWrongNonce(t *testing.T) {
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["producer"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf).Build()
 	cbselp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(err)
@@ -269,7 +270,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetDestinationAddress(ta.IotxAddrinfo["producer"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(coinbaseTsf).Build()
 	cb, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(err)

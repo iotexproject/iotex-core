@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -71,7 +72,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	validator := ap.actionEnvelopeValidators[0]
 	// Case I: Over-gassed transfer
-	tsf, err := testutil.SignedTransfer(addr1, addr1, 1, big.NewInt(1), nil, blockchain.GasLimit+1, big.NewInt(0))
+	tsf, err := testutil.SignedTransfer(addr1, addr1, 1, big.NewInt(1), nil, genesis.ActionGasLimit+1, big.NewInt(0))
 	require.NoError(err)
 
 	err = validator.Validate(context.Background(), tsf)
@@ -256,13 +257,21 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.Add(overBalTsf)
 	require.Equal(action.ErrBalance, errors.Cause(err))
 	// Case VI: over gas limit
-	creationExecution, err := action.NewExecution(addr1.RawAddress, action.EmptyAddress, uint64(5), big.NewInt(int64(0)), blockchain.GasLimit+100, big.NewInt(10), []byte{})
+	creationExecution, err := action.NewExecution(
+		addr1.RawAddress,
+		action.EmptyAddress,
+		uint64(5),
+		big.NewInt(int64(0)),
+		genesis.ActionGasLimit,
+		big.NewInt(10),
+		[]byte{},
+	)
 	require.NoError(err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(5).
 		SetGasPrice(big.NewInt(10)).
-		SetGasLimit(blockchain.GasLimit + 100).
+		SetGasLimit(genesis.ActionGasLimit + 1).
 		SetAction(creationExecution).
 		SetDestinationAddress(action.EmptyAddress).Build()
 	selp, err = action.Sign(elp, addr1.RawAddress, addr1.PrivateKey)

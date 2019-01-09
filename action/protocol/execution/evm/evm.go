@@ -18,14 +18,12 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
-
-// GasLimit is the total gas limit could be consumed in a block
-const GasLimit = uint64(1000000000)
 
 // ErrInconsistentNonce is the error that the nonce is different from executor's nonce
 var ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
@@ -95,7 +93,7 @@ func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp 
 		BlockNumber: new(big.Int).SetUint64(blkHeight),
 		Time:        new(big.Int).SetInt64(blkTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    GasLimit,
+		GasLimit:    genesis.ActionGasLimit,
 		GasPrice:    execution.GasPrice(),
 	}
 
