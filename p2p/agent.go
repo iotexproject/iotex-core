@@ -207,7 +207,7 @@ func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) (err error) {
 	}
 	p2pCtx, ok := GetContext(ctx)
 	if !ok {
-		err = fmt.Errorf("P2P context doesn't exist")
+		err = errors.New("P2P context doesn't exist")
 		return
 	}
 	broadcast := p2ppb.BroadcastMsg{ChainId: p2pCtx.ChainID, Addr: p.Self().String(), MsgType: msgType, MsgBody: msgBody}
@@ -240,7 +240,7 @@ func (p *Agent) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) (
 	}
 	p2pCtx, ok := GetContext(ctx)
 	if !ok {
-		err = fmt.Errorf("P2P context doesn't exist")
+		err = errors.New("P2P context doesn't exist")
 		return
 	}
 	unicast := p2ppb.UnicastMsg{ChainId: p2pCtx.ChainID, Addr: p.Self().String(), MsgType: msgType, MsgBody: msgBody}

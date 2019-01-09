@@ -8,7 +8,6 @@ package explorer
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"net"
 
@@ -1418,7 +1417,7 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 		}
 	}
 	if targetSubChain.ID != uint32(subChainID) {
-		return nil, fmt.Errorf("sub-chain %d is not found in operation", subChainID)
+		return nil, errors.Errorf("sub-chain %d is not found in operation", subChainID)
 	}
 	subChainAddr, err := address.BytesToAddress(targetSubChain.Addr)
 	if err != nil {
