@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
@@ -21,9 +22,9 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -119,7 +120,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 
 	for _, opt := range opts {
 		if err := opt(sf, cfg); err != nil {
-			logger.Error().Err(err).Msgf("Failed to execute state factory creation option %p", opt)
+			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
 			return nil, err
 		}
 	}
@@ -141,7 +142,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		[]string{"default", strconv.FormatUint(uint64(cfg.Chain.ID), 10)},
 	)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to generate prometheus timer factory")
+		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sf.timerFactory = timerFactory
 

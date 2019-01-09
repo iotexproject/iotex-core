@@ -8,7 +8,6 @@ package rolldpos
 
 import (
 	"context"
-	"encoding/hex"
 	"time"
 
 	"github.com/facebookgo/clock"
@@ -16,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -28,8 +28,8 @@ import (
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -90,29 +90,26 @@ func (ctx *rollDPoSCtx) OnConsensusReached() error {
 	}
 	// Commit and broadcast the pending block
 	if err := ctx.chain.CommitBlock(pendingBlock.Block); err != nil {
-		logger.Error().
-			Err(err).
-			Uint64("block", pendingBlock.Height()).
-			Msg("error when committing a block")
+		log.L().Error("Error when committing a block.",
+			zap.Error(err),
+			zap.Uint64("blockHeight", pendingBlock.Height()))
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
 	ctx.actPool.Reset()
 	// Broadcast the committed block to the network
 	if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
 		if err := ctx.Broadcast(blkProto); err != nil {
-			logger.Error().
-				Err(err).
-				Uint64("block", pendingBlock.Height()).
-				Msg("error when broadcasting blkProto")
+			log.L().Error("Error when broadcasting blkProto.",
+				zap.Error(err),
+				zap.Uint64("blockHeight", pendingBlock.Height()))
 		}
 		// putblock to parent chain if the current node is proposer and current chain is a sub chain
 		if ctx.round.proposer == ctx.addr.RawAddress && ctx.chain.ChainAddress() != "" {
 			putBlockToParentChain(ctx.rootChainAPI, ctx.chain.ChainAddress(), ctx.addr, pendingBlock.Block)
 		}
 	} else {
-		logger.Error().
-			Uint64("block", pendingBlock.Height()).
-			Msg("error when converting a block into a proto msg")
+		log.L().Error("Error whenconverting a block into a proto msg.",
+			zap.Uint64("blockHeight", pendingBlock.Height()))
 	}
 	return nil
 }
@@ -154,25 +151,23 @@ func (ctx *rollDPoSCtx) MintBlock() (Block, error) {
 
 func (ctx *rollDPoSCtx) validateProposeBlock(blk Block, expectedProposer string) bool {
 	blkHash := blk.Hash()
-	errorLog := logger.Error().
-		Uint64("expectedHeight", ctx.round.height).
-		Str("expectedProposer", expectedProposer).
-		Str("hash", hex.EncodeToString(blkHash[:]))
+	errorLog := log.L().With(zap.Uint64("expectedHeight", ctx.round.height),
+		zap.String("expectedProposer", expectedProposer),
+		log.Hex("hash", blkHash))
 	if blk.Height() != ctx.round.height {
-		errorLog.Uint64("blockHeight", blk.Height()).
-			Msg("error when validating the block height")
+		errorLog.Error("Error when validating the block height.",
+			zap.Uint64("blockHeight", blk.Height()))
 		return false
 	}
 	producer := blk.Proposer()
 
 	if producer == "" || producer != expectedProposer {
-		errorLog.Str("proposer", producer).
-			Msg("error when validating the block proposer")
+		errorLog.Error("Error when validating the block proposer.", zap.String("proposer", producer))
 		return false
 	}
 	block := blk.(*blockWrapper)
 	if !block.VerifySignature() {
-		errorLog.Msg("error when validating the block signature")
+		errorLog.Error("Error when validating the block signature.")
 		return false
 	}
 	// TODO: in long term, block in process and after process should be represented differently
@@ -186,13 +181,13 @@ func (ctx *rollDPoSCtx) validateProposeBlock(blk Block, expectedProposer string)
 			containCoinbase = false
 		} else if err := verifyDKGSignature(block.Block, ctx.epoch.seed); err != nil {
 			// Verify dkg signature failed
-			errorLog.Err(err).Msg("Failed to verify the DKG signature")
+			errorLog.Error("Failed to verify the DKG signature.", zap.Error(err))
 			return false
 		}
 
 	}
 	if err := ctx.chain.ValidateBlock(block.Block, containCoinbase); err != nil {
-		errorLog.Err(err).Msg("error when validating the proposed block")
+		errorLog.Error("error when validating the proposed block", zap.Error(err))
 		return false
 	}
 
@@ -377,7 +372,7 @@ func (ctx *rollDPoSCtx) calcProposer(height uint64, delegates []string) (uint32,
 		return timeSlotIndex, delegates[(height)%uint64(numDelegates)], nil
 	}
 	// TODO: should downgrade to debug level in the future
-	logger.Info().Uint32("slot", timeSlotIndex).Msg("calculate time slot offset")
+	log.L().Info("Calculate time slot offset.", zap.Uint32("slot", timeSlotIndex))
 	timeSlotMtc.WithLabelValues().Set(float64(timeSlotIndex))
 	return timeSlotIndex, delegates[(height+uint64(timeSlotIndex))%uint64(numDelegates)], nil
 }
@@ -419,28 +414,24 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*block.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Info().
-		Uint64("height", blk.Height()).
-		Int("secretProposals", len(blk.SecretProposals)).
-		Msg("minted a new secret block")
+	log.L().Info("minted a new secret block",
+		zap.Uint64("height", blk.Height()),
+		zap.Int("secretProposals", len(blk.SecretProposals)))
 	return blk, nil
 }
 
 // mintCommonBlock picks the actions and creates a common block to propose
 func (ctx *rollDPoSCtx) mintCommonBlock() (*block.Block, error) {
 	actions := ctx.actPool.PickActs()
-	logger.Debug().
-		Int("action", len(actions)).
-		Msg("pick actions from the action pool")
+	log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actions)))
 	blk, err := ctx.chain.MintNewBlock(actions, ctx.addr, &ctx.epoch.dkgAddress,
 		ctx.epoch.seed, "")
 	if err != nil {
 		return nil, err
 	}
-	logger.Info().
-		Uint64("height", blk.Height()).
-		Int("actions", len(blk.Actions)).
-		Msg("minted a new block")
+	log.L().Info("Minted a new block.",
+		zap.Uint64("height", blk.Height()),
+		zap.Int("actions", len(blk.Actions)))
 	return blk, nil
 }
 
@@ -604,10 +595,9 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 			return errors.Wrap(err, "error when casting a proto msg to endorse")
 		}
 		if eEvt.height() <= tipHeight && eEvt.endorse.Endorser() != r.ctx.addr.RawAddress {
-			logger.Debug().
-				Uint64("event height", eEvt.height()).
-				Uint64("Chain Height", tipHeight).
-				Msg("ignore old endorsement message")
+			log.L().Debug("ignore old endorsement message",
+				zap.Uint64("eventHeight", eEvt.height()),
+				zap.Uint64("chainHeight", tipHeight))
 			return nil
 		}
 		r.cfsm.produce(eEvt, 0)

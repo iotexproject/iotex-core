@@ -20,9 +20,9 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // ErrInconsistentNonce is the error that the nonce is different from executor's nonce
@@ -123,7 +123,7 @@ func GetHashFn(stateDB *StateDBAdapter) func(n uint64) common.Hash {
 func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 	executorNonce := stateDB.GetNonce(ps.context.Origin)
 	if executorNonce > ps.nonce {
-		logger.Error().Msgf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
+		log.S().Errorf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
 		// TODO ignore inconsistent nonce problem until the actions are executed sequentially
 		// return ErrInconsistentNonce
 	}
@@ -187,7 +187,7 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
-	logger.Debug().Msgf("Receipt: %+v, %v", receipt, err)
+	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return receipt, err
 }
 
@@ -222,7 +222,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 		// create contract
 		var evmContractAddress common.Address
 		ret, evmContractAddress, remainingGas, err = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
-		logger.Warn().Hex("contract addrHash", evmContractAddress[:]).Msg("evm.Create")
+		log.L().Warn("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}

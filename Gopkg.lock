@@ -1036,6 +1036,21 @@
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:c52caf7bd44f92e54627a31b85baf06a68333a196b3d8d241480a774733dcf8b"
+  name = "go.uber.org/zap"
+  packages = [
+    ".",
+    "buffer",
+    "internal/bufferpool",
+    "internal/color",
+    "internal/exit",
+    "zapcore",
+  ]
+  pruneopts = "UT"
+  revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
+  version = "v1.9.1"
+
+[[projects]]
   branch = "master"
   digest = "1:5a01de1ee1bead3d948208ae3531e2f49936062804545d723e0fb5d0f416582e"
   name = "golang.org/x/crypto"
@@ -1153,6 +1168,7 @@
     "github.com/zjshen14/go-p2p",
     "go.uber.org/automaxprocs",
     "go.uber.org/config",
+    "go.uber.org/zap",
     "golang.org/x/crypto/blake2b",
     "golang.org/x/net/context",
     "golang.org/x/sync/errgroup",

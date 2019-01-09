@@ -11,7 +11,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/iotexproject/iotex-core/logger"
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // FileExists checks if a file or a directory already exists
@@ -26,7 +28,7 @@ func FileExists(path string) bool {
 func GetFileAbsPath(filename string) string {
 	pwd, err := os.Getwd()
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Fail to get absolute path of genesis actions yaml file")
+		log.L().Fatal("Fail to get absolute path of genesis actions yaml file.", zap.Error(err))
 	}
 	firstIndex := strings.LastIndex(pwd, "iotex-core")
 	index := strings.Index(pwd[firstIndex:], "/")

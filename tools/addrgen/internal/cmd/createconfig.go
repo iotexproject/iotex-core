@@ -11,9 +11,10 @@ import (
 	"io/ioutil"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // createConfigCmd represents the create-config command
@@ -24,7 +25,7 @@ var createConfigCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		public, private, err := crypto.EC283.NewKeyPair()
 		if err != nil {
-			logger.Fatal().Err(err).Msg("failed to create key pair")
+			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
 		cfgStr := fmt.Sprintf(
 			`chain:
@@ -35,7 +36,7 @@ var createConfigCmd = &cobra.Command{
 			public,
 		)
 		if err := ioutil.WriteFile(_outputFile, []byte(cfgStr), 0666); err != nil {
-			logger.Fatal().Err(err).Msgf("failed to write file")
+			log.L().Fatal("failed to write file", zap.Error(err))
 		}
 	},
 }

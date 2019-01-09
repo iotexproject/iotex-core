@@ -10,12 +10,13 @@ import (
 	"encoding/hex"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/rds"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Server is the container of the index service
@@ -36,7 +37,7 @@ func NewServer(
 		hexEncodedNodeAddr: "",
 	}
 	if err := bc.AddSubscriber(indexer); err != nil {
-		logger.Error().Err(err).Msg("error when subscribe to block")
+		log.L().Error("Error when subscribe to block.", zap.Error(err))
 		return nil
 	}
 
@@ -72,7 +73,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	if err := s.idx.rds.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when shutting down explorer http server")
 	}
-	logger.Info().Msgf("Unsubscribe block creation for chain %d", s.bc.ChainID())
+	log.L().Info("Unsubscribe block creation.", zap.Uint32("chainID", s.bc.ChainID()))
 	if err := s.bc.RemoveSubscriber(s.idx); err != nil {
 		return errors.Wrap(err, "error when unsubscribe block creation")
 	}

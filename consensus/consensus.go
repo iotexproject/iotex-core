@@ -12,6 +12,7 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -22,9 +23,9 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -84,27 +85,24 @@ func NewConsensus(
 	cs := &IotxConsensus{cfg: cfg.Consensus}
 	mintBlockCB := func() (*block.Block, error) {
 		acts := ap.PickActs()
-		logger.Debug().
-			Int("actions", len(acts)).
-			Msg("pick actions")
+		log.L().Debug("Pick actions.", zap.Int("actions", len(acts)))
 
 		blk, err := bc.MintNewBlock(acts, GetAddr(cfg), nil,
 			nil, "")
 		if err != nil {
-			logger.Error().Err(err).Msg("Failed to mint a block")
+			log.L().Error("Failed to mint a block.", zap.Error(err))
 			return nil, err
 		}
-		logger.Info().
-			Uint64("height", blk.Height()).
-			Int("length", len(blk.Actions)).
-			Msg("created a new block")
+		log.L().Info("Created a new block.",
+			zap.Uint64("height", blk.Height()),
+			zap.Int("length", len(blk.Actions)))
 		return blk, nil
 	}
 
 	commitBlockCB := func(blk *block.Block) error {
 		err := bc.CommitBlock(blk)
 		if err != nil {
-			logger.Error().Err(err).Int64("Height", int64(blk.Height())).Msg("Failed to commit the block")
+			log.L().Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 		}
 		// Remove transfers in this block from ActPool and reset ActPool state
 		ap.Reset()
@@ -146,11 +144,11 @@ func NewConsensus(
 					subChainAddr := address.New(cfg.Chain.ID, rootChainAddr.Payload())
 					pubKey, err := keypair.DecodePublicKey(rawc.PubKey)
 					if err != nil {
-						logger.Error().Err(err).Msg("error when convert candidate PublicKey")
+						log.L().Error("Error when convert candidate PublicKey.", zap.Error(err))
 					}
 					votes, ok := big.NewInt(0).SetString(rawc.TotalVote, 10)
 					if !ok {
-						logger.Error().Err(err).Msg("error when setting candidate total votes")
+						log.L().Error("Error when setting candidate total votes.", zap.Error(err))
 					}
 					cs = append(cs, &state.Candidate{
 						Address:          subChainAddr.IotxAddress(),
@@ -166,7 +164,7 @@ func NewConsensus(
 		}
 		cs.scheme, err = bd.Build()
 		if err != nil {
-			logger.Panic().Err(err).Msg("error when constructing RollDPoS")
+			log.L().Panic("Error when constructing RollDPoS.", zap.Error(err))
 		}
 	case config.NOOPScheme:
 		cs.scheme = scheme.NewNoop()
@@ -187,9 +185,7 @@ func NewConsensus(
 
 // Start starts running the consensus algorithm
 func (c *IotxConsensus) Start(ctx context.Context) error {
-	logger.Info().
-		Str("scheme", c.cfg.Scheme).
-		Msg("Starting IotxConsensus scheme")
+	log.L().Info("Starting IotxConsensus scheme.", zap.String("scheme", c.cfg.Scheme))
 
 	err := c.scheme.Start(ctx)
 	if err != nil {
@@ -200,9 +196,7 @@ func (c *IotxConsensus) Start(ctx context.Context) error {
 
 // Stop stops running the consensus algorithm
 func (c *IotxConsensus) Stop(ctx context.Context) error {
-	logger.Info().
-		Str("scheme", c.cfg.Scheme).
-		Msg("Stopping IotxConsensus scheme")
+	log.L().Info("Stopping IotxConsensus scheme.", zap.String("scheme", c.cfg.Scheme))
 
 	err := c.scheme.Stop(ctx)
 	if err != nil {
@@ -230,15 +224,15 @@ func (c *IotxConsensus) Scheme() scheme.Scheme {
 func GetAddr(cfg config.Config) *iotxaddress.Address {
 	addr, err := cfg.BlockchainAddress()
 	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create new consensus")
+		log.L().Panic("Fail to create new consensus.", zap.Error(err))
 	}
 	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
 	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create new consensus")
+		log.L().Panic("Fail to create new consensus.", zap.Error(err))
 	}
 	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to create new consensus")
+		log.L().Panic("Fail to create new consensus.", zap.Error(err))
 	}
 	return &iotxaddress.Address{
 		PublicKey:  pk,

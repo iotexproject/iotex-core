@@ -10,8 +10,9 @@ import (
 	"errors"
 
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type (
@@ -58,7 +59,7 @@ func (factory *TimerFactory) NewTimer(labels ...string) *Timer {
 		return &Timer{}
 	}
 	if len(labels) > len(factory.labelNames) {
-		logger.Error().Msg("Two many timer labels")
+		log.L().Error("Two many timer labels")
 		return &Timer{}
 	}
 	return &Timer{

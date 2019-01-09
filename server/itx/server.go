@@ -15,6 +15,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -26,8 +27,8 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/p2p"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
@@ -243,23 +244,23 @@ func (s *Server) Dispatcher() dispatcher.Dispatcher {
 func StartServer(svr *Server, cfg config.Config) {
 	ctx := context.Background()
 	if err := svr.Start(ctx); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start server.")
+		log.L().Fatal("Failed to start server.", zap.Error(err))
 		return
 	}
 	defer func() {
 		if err := svr.Stop(ctx); err != nil {
-			logger.Panic().Err(err).Msg("Failed to stop server.")
+			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()
 
 	if cfg.System.HeartbeatInterval > 0 {
 		task := routine.NewRecurringTask(NewHeartbeatHandler(svr).Log, cfg.System.HeartbeatInterval)
 		if err := task.Start(ctx); err != nil {
-			logger.Panic().Err(err).Msg("Failed to start heartbeat routine.")
+			log.L().Panic("Failed to start heartbeat routine.", zap.Error(err))
 		}
 		defer func() {
 			if err := task.Stop(ctx); err != nil {
-				logger.Panic().Err(err).Msg("Failed to stop heartbeat routine.")
+				log.L().Panic("Failed to stop heartbeat routine.", zap.Error(err))
 			}
 		}()
 	}
@@ -272,7 +273,7 @@ func StartServer(svr *Server, cfg config.Config) {
 				fmt.Sprintf(":%d", cfg.System.HTTPProfilingPort),
 				nil,
 			); err != nil {
-				logger.Error().Err(err).Msg("error when serving performance profiling data")
+				log.L().Error("Error when serving performance profiling data.", zap.Error(err))
 			}
 		}()
 	}
@@ -280,10 +281,11 @@ func StartServer(svr *Server, cfg config.Config) {
 	if cfg.System.HTTPMetricsPort > 0 {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
+		log.RegisterLevelConfigMux(mux)
 		port := fmt.Sprintf(":%d", cfg.System.HTTPMetricsPort)
 		go func() {
 			if err := http.ListenAndServe(port, mux); err != nil {
-				logger.Error().Err(err).Msg("error when serving performance profiling data")
+				log.L().Error("Error when serving metrics data.", zap.Error(err))
 			}
 		}()
 	}

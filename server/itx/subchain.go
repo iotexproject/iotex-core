@@ -12,11 +12,12 @@ import (
 	"path"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 func (s *Server) runSubChain(addr address.Address, subChain *mainchain.SubChain) error {
@@ -63,7 +64,7 @@ func (s *Server) isSubChainRunning(chainID uint32) bool {
 func (s *Server) HandleBlock(blk *block.Block) error {
 	runnableSubChains, err := s.mainChainProtocol.SubChainsInOperation()
 	if err != nil {
-		logger.Error().Err(err).Msg("error when getting the sub-chains in operation slice")
+		log.L().Error("Error when getting the sub-chains in operation slice.", zap.Error(err))
 	}
 	for _, runnableSubChain := range runnableSubChains {
 		if s.isSubChainRunning(runnableSubChain.ID) {
@@ -71,31 +72,26 @@ func (s *Server) HandleBlock(blk *block.Block) error {
 		}
 		addr, err := address.BytesToAddress(runnableSubChain.Addr)
 		if err != nil {
-			logger.Error().
-				Err(err).
-				Uint32("chainID", runnableSubChain.ID).
-				Msg("error when getting the sub-chain address")
+			log.L().Error("Error when getting the sub-chain address",
+				zap.Error(err),
+				zap.Uint32("chainID", runnableSubChain.ID))
 			continue
 		}
 		subChain, err := s.mainChainProtocol.SubChain(addr)
 		if err != nil {
-			logger.Error().
-				Err(err).
-				Uint32("chainID", subChain.ChainID).
-				Msg("error when getting the sub-chain state")
+			log.L().Error("Error when getting the sub-chain state.",
+				zap.Error(err),
+				zap.Uint32("chainID", subChain.ChainID))
 			continue
 		}
 		if subChain.StartHeight <= blk.Height() {
 			if err := s.runSubChain(addr, subChain); err != nil {
-				logger.Error().
-					Err(err).
-					Uint32("chainID", subChain.ChainID).
-					Msg("error when put sub-chain service in operation")
+				log.L().Error("Error when put sub-chain service in operation.",
+					zap.Error(err),
+					zap.Uint32("chainID", subChain.ChainID))
 				continue
 			}
-			logger.Info().
-				Uint32("chainID", subChain.ChainID).
-				Msg("started the sub-chain")
+			log.L().Info("Started the sub-chain.", zap.Uint32("chainID", subChain.ChainID))
 		}
 	}
 	return nil
