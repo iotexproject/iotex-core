@@ -74,39 +74,6 @@ message ConsensusPb {
     bytes data = 5;
 }
 
-// corresponding to pre-prepare pharse in view change protocol
-message ProposePb {
-    string proposer = 1;
-    uint64 height = 2;
-    uint32 round = 3;
-    bytes hash = 4;
-    bytes block = 5;
-    EndorsementSet lockProof = 6;
-}
-
-// corresponding to prepare and pre-prepare phase in view change protocol
-message EndorsePb {
-    enum ConsensusVoteTopic {
-        PROPOSAL = 0;
-        LOCK = 1;
-        COMMIT = 2;
-    }
-    uint64 height = 1;
-    uint32 round = 2;
-    bytes blockHash = 3;
-    ConsensusVoteTopic topic = 4;
-    string endorser = 5;
-    bytes endorserPubKey = 6;
-    bool decision = 7;
-    bytes signature = 8;
-}
-
-message EndorsementSet {
-    bytes blockHash = 1;
-    uint32 round = 2;
-    repeated EndorsePb endorsements = 3;
-}
-
 // Candidates and list of candidates
 message Candidate {
     string address = 1;

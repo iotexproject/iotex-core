@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/endorsement/proto"
 )
 
 var (
@@ -39,16 +39,16 @@ func NewSet(blkHash []byte) *Set {
 }
 
 // FromProto converts protobuf to endorsement set
-func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
+func (s *Set) FromProto(sPb *endorsementPb.EndorsementSet) error {
 	s.blkHash = sPb.BlockHash
 	s.round = sPb.Round
 	s.endorsements = []*Endorsement{}
 	for _, ePb := range sPb.Endorsements {
-		en, err := FromProtoMsg(ePb)
-		if err != nil {
+		en := Endorsement{}
+		if err := en.FromProtoMsg(ePb); err != nil {
 			return err
 		}
-		s.endorsements = append(s.endorsements, en)
+		s.endorsements = append(s.endorsements, &en)
 	}
 
 	return nil
@@ -58,9 +58,6 @@ func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
 func (s *Set) AddEndorsement(en *Endorsement) error {
 	if !bytes.Equal(en.ConsensusVote().BlkHash, s.blkHash) {
 		return ErrInvalidHash
-	}
-	if !en.VerifySignature() {
-		return ErrInvalidEndorsement
 	}
 	for i, e := range s.endorsements {
 		if e.Endorser() != en.Endorser() {
@@ -117,13 +114,13 @@ func (s *Set) NumOfValidEndorsements(topics map[ConsensusVoteTopic]bool, endorse
 }
 
 // ToProto convert the endorsement set to protobuf
-func (s *Set) ToProto() *iproto.EndorsementSet {
-	endorsements := make([]*iproto.EndorsePb, 0, len(s.endorsements))
+func (s *Set) ToProto() *endorsementPb.EndorsementSet {
+	endorsements := make([]*endorsementPb.Endorsement, 0, len(s.endorsements))
 	for _, en := range s.endorsements {
 		endorsements = append(endorsements, en.ToProtoMsg())
 	}
 
-	return &iproto.EndorsementSet{
+	return &endorsementPb.EndorsementSet{
 		BlockHash:    s.blkHash[:],
 		Round:        s.round,
 		Endorsements: endorsements,
