@@ -8,7 +8,6 @@ package actpool
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -147,7 +146,7 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	hash := act.Hash()
 	// Reject action if it already exists in pool
 	if _, exist := ap.allActions[hash]; exist {
-		return fmt.Errorf("reject existed action: %x", hash)
+		return errors.Errorf("reject existed action: %x", hash)
 	}
 
 	// envelope validation

@@ -8,7 +8,6 @@ package consensus
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/facebookgo/clock"
@@ -180,7 +179,7 @@ func NewConsensus(
 			cfg.Consensus.BlockCreationInterval,
 		)
 	default:
-		return nil, fmt.Errorf("unexpected IotxConsensus scheme %s", cfg.Consensus.Scheme)
+		return nil, errors.Errorf("unexpected IotxConsensus scheme %s", cfg.Consensus.Scheme)
 	}
 
 	return cs, nil
