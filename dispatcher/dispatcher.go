@@ -294,6 +294,7 @@ func (d *IotxDispatcher) HandleBroadcast(chainID uint32, message proto.Message) 
 		logger.Warn().
 			Uint32("chainID", chainID).
 			Msg("chainID has not been registered in dispatcher")
+		d.subscribersMU.RUnlock()
 		return
 	}
 	d.subscribersMU.RUnlock()
