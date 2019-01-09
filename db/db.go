@@ -10,9 +10,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"

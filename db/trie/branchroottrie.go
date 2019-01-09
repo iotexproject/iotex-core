@@ -11,10 +11,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/boltdb/bolt"
 	"github.com/dgraph-io/badger"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
 )

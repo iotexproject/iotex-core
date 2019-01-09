@@ -13,10 +13,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/boltdb/bolt"
 	"github.com/dgraph-io/badger"
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
