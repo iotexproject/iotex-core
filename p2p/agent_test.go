@@ -46,7 +46,7 @@ func TestBroadcast(t *testing.T) {
 				defer mutex.Unlock()
 				testMsg, ok := msg.(*iproto.TestPayload)
 				require.True(t, ok)
-				var idx uint8 = testMsg.MsgBody[0]
+				idx := testMsg.MsgBody[0]
 				if _, ok = counts[idx]; ok {
 					counts[idx]++
 				} else {
@@ -66,7 +66,8 @@ func TestBroadcast(t *testing.T) {
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 			mutex.RLock()
 			defer mutex.RUnlock()
-			return counts[uint8(i)] == n, nil
+			// Broadcast message will be skipped by the source node
+			return counts[uint8(i)] == n-1, nil
 		}))
 	}
 }
@@ -83,6 +84,7 @@ func TestUnicast(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	counts := make(map[uint8]int)
+	var src string
 	var mutex sync.RWMutex
 	for i := 0; i < n; i++ {
 		cfg := config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}
@@ -93,7 +95,7 @@ func TestUnicast(t *testing.T) {
 			cfg,
 			func(_ uint32, _ proto.Message) {
 			},
-			func(_ uint32, _ net.Addr, msg proto.Message) {
+			func(_ uint32, addr net.Addr, msg proto.Message) {
 				mutex.Lock()
 				defer mutex.Unlock()
 				testMsg, ok := msg.(*iproto.TestPayload)
@@ -104,6 +106,7 @@ func TestUnicast(t *testing.T) {
 				} else {
 					counts[idx] = 1
 				}
+				src = addr.String()
 			},
 		)
 		agents = append(agents, agent)
@@ -121,7 +124,7 @@ func TestUnicast(t *testing.T) {
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 			mutex.RLock()
 			defer mutex.RUnlock()
-			return counts[uint8(i)] == n-1, nil
+			return counts[uint8(i)] == n-1 && src == agents[i].Self().String(), nil
 		}))
 	}
 }

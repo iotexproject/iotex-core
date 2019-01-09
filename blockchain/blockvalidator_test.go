@@ -357,7 +357,15 @@ func TestWrongAddress(t *testing.T) {
 		AddActions(selp).
 		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(t, err)
-	err = val.verifyActions(&blk1, true)
+	err = val.ValidateActionsOnly(
+		blk1.Actions,
+		true,
+		blk1.SecretWitness,
+		blk1.SecretProposals,
+		blk1.PublicKey(),
+		blk1.ChainID(),
+		blk1.Height(),
+	)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating recipient's address"))
 
@@ -379,7 +387,15 @@ func TestWrongAddress(t *testing.T) {
 		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(t, err)
 
-	err = val.verifyActions(&blk2, true)
+	err = val.ValidateActionsOnly(
+		blk2.Actions,
+		true,
+		blk2.SecretWitness,
+		blk2.SecretProposals,
+		blk2.PublicKey(),
+		blk2.ChainID(),
+		blk2.Height(),
+	)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating votee's address"))
 
@@ -400,7 +416,15 @@ func TestWrongAddress(t *testing.T) {
 		AddActions(selp).
 		SignAndBuild(ta.IotxAddrinfo["producer"])
 	require.NoError(t, err)
-	err = val.verifyActions(&blk3, true)
+	err = val.ValidateActionsOnly(
+		blk3.Actions,
+		true,
+		blk3.SecretWitness,
+		blk3.SecretProposals,
+		blk3.PublicKey(),
+		blk3.ChainID(),
+		blk3.Height(),
+	)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating contract's address"))
 }
@@ -432,7 +456,15 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 		"")
 	require.NoError(t, err)
 	validator := validator{}
-	require.NoError(t, validator.verifyActions(blk, true))
+	require.NoError(t, validator.ValidateActionsOnly(
+		blk.Actions,
+		true,
+		blk.SecretWitness,
+		blk.SecretProposals,
+		blk.PublicKey(),
+		blk.ChainID(),
+		blk.Height(),
+	))
 }
 
 func TestValidateSecretBlock(t *testing.T) {
