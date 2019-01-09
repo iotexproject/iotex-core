@@ -275,6 +275,54 @@ func TestCreateBlockchain(t *testing.T) {
 	require.Equal(5, int(height))
 }
 
+func TestBlockchain_MintNewBlock(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Default
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	require.NoError(t, bc.Start(ctx))
+	defer require.NoError(t, bc.Stop(ctx))
+
+	pkStr, err := hex.DecodeString(Gen.CreatorPubKey)
+	require.NoError(t, err)
+	pk, err := keypair.BytesToPublicKey(pkStr)
+	// The signature should only matches the transfer amount 3000000000
+	sig, err := hex.DecodeString("49fc01738d045ff21c9645baca8c90d476b7e56629c99fd5162a3f410c1a0e707ffa4c00e1a0087c4c7dd0fdc0cbe19030357a56e9d0fb506418e5e7b164ff0daefaedad704f5f01")
+	require.NoError(t, err)
+
+	cases := make(map[int64]bool)
+	cases[0] = true
+	cases[1] = false
+	for k, v := range cases {
+		tsf, err := action.NewTransfer(
+			1,
+			big.NewInt(3000000000+k),
+			Gen.CreatorAddr(config.Default.Chain.ID),
+			ta.IotxAddrinfo["producer"].RawAddress,
+			[]byte{}, uint64(100000),
+			big.NewInt(10),
+		)
+		require.NoError(t, err)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetAction(tsf).
+			SetDestinationAddress(ta.IotxAddrinfo["producer"].RawAddress).
+			SetNonce(1).
+			SetGasLimit(100000).
+			SetGasPrice(big.NewInt(10)).Build()
+
+		selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pk, sig)
+		_, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"], nil, nil, "")
+		if v {
+			require.NoError(t, err)
+		} else {
+			require.Error(t, err)
+		}
+	}
+
+}
+
 type MockSubscriber struct {
 	counter int
 	mu      sync.RWMutex
