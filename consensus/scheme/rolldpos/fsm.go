@@ -608,6 +608,7 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eEndorseLockTimeout {
 		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
+	consensusMtc.WithLabelValues("false").Inc()
 	numCommitEndorsements := 0
 	if m.ctx.round.block != nil {
 		blkHashHex := hex.EncodeToString(m.ctx.round.block.Hash())
@@ -622,7 +623,7 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 			)
 		}
 	}
-	log.L().Warn("Didn't collect enough commit endorse before timeout.",
+	log.L().Warn("Consensus didn't reach: didn't collect enough commit endorse before timeout.",
 		zap.Uint64("height", m.ctx.round.height),
 		zap.Int("numCommitEndorsements", numCommitEndorsements))
 
