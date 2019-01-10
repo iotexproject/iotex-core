@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -291,17 +292,18 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		NodeType   string     `yaml:"nodeType"`
-		Network    Network    `yaml:"network"`
-		Chain      Chain      `yaml:"chain"`
-		ActPool    ActPool    `yaml:"actPool"`
-		Consensus  Consensus  `yaml:"consensus"`
-		BlockSync  BlockSync  `yaml:"blockSync"`
-		Dispatcher Dispatcher `yaml:"dispatcher"`
-		Explorer   Explorer   `yaml:"explorer"`
-		Indexer    Indexer    `yaml:"indexer"`
-		System     System     `yaml:"system"`
-		DB         DB         `yaml:"db"`
+		NodeType   string           `yaml:"nodeType"`
+		Network    Network          `yaml:"network"`
+		Chain      Chain            `yaml:"chain"`
+		ActPool    ActPool          `yaml:"actPool"`
+		Consensus  Consensus        `yaml:"consensus"`
+		BlockSync  BlockSync        `yaml:"blockSync"`
+		Dispatcher Dispatcher       `yaml:"dispatcher"`
+		Explorer   Explorer         `yaml:"explorer"`
+		Indexer    Indexer          `yaml:"indexer"`
+		System     System           `yaml:"system"`
+		DB         DB               `yaml:"db"`
+		Log        log.GlobalConfig `yaml:"log"`
 	}
 
 	// Validate is the interface of validating the config

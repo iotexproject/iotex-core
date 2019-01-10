@@ -9,10 +9,12 @@ package blocksync
 import (
 	"sync"
 
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type bCheckinResult int
@@ -60,11 +62,10 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 		return false, bCheckinHigher
 	}
 	b.blocks[blkHeight] = blk
-	l := logger.With().
-		Uint64("recvHeight", blkHeight).
-		Uint64("confirmedHeight", confirmedHeight).
-		Str("source", "blockBuffer").
-		Logger()
+	l := log.L().With(
+		zap.Uint64("recvHeight", blkHeight),
+		zap.Uint64("confirmedHeight", confirmedHeight),
+		zap.String("source", "blockBuffer"))
 	var heightToSync uint64
 	for heightToSync = confirmedHeight + 1; heightToSync <= confirmedHeight+b.size; heightToSync++ {
 		blk, ok := b.blocks[heightToSync]
@@ -73,16 +74,16 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 		}
 		delete(b.blocks, heightToSync)
 		if err := commitBlock(b.bc, b.ap, blk); err != nil {
-			l.Error().Err(err).Uint64("syncHeight", heightToSync).Msg("Failed to commit the block.")
+			l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
 			break
 		}
 		b.commitHeight = heightToSync
-		l.Info().Uint64("syncedHeight", heightToSync).Msg("Successfully committed block.")
+		l.Info("Successfully committed block.", zap.Uint64("syncedHeight", heightToSync))
 	}
 
 	// clean up on memory leak
 	if len(b.blocks) > int(b.size)*2 {
-		l.Warn().Int("bufferSize", len(b.blocks)).Msg("blockBuffer is leaking memory.")
+		l.Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", len(b.blocks)))
 		for h := range b.blocks {
 			if h <= confirmedHeight {
 				delete(b.blocks, h)

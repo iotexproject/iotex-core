@@ -17,6 +17,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/CoderZhi/go-ethereum/common"
 
@@ -27,9 +28,9 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -205,7 +206,7 @@ func (sct *smartContractTest) run(r *require.Assertions) {
 
 func TestProtocol_Handle(t *testing.T) {
 	testEVM := func(t *testing.T) {
-		logger.Info().Msgf("Test EVM")
+		log.S().Info("Test EVM")
 		require := require.New(t)
 		testutil.CleanupPath(t, testTriePath)
 		defer testutil.CleanupPath(t, testTriePath)
@@ -309,7 +310,7 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err = action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
 
-		logger.Info().Msgf("execution %+v", execution)
+		log.S().Infof("execution %+v", execution)
 		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
@@ -343,7 +344,7 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err = action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
 
-		logger.Info().Msgf("execution %+v", execution)
+		log.S().Infof("execution %+v", execution)
 		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
@@ -380,7 +381,7 @@ func TestProtocol_Handle(t *testing.T) {
 	}
 
 	testRollDice := func(t *testing.T) {
-		logger.Warn().Msg("======= Test RollDice")
+		log.S().Warn("======= Test RollDice")
 		require := require.New(t)
 		testutil.CleanupPath(t, testTriePath)
 		defer testutil.CleanupPath(t, testTriePath)
@@ -443,7 +444,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
 
-		logger.Warn().Msg("======= Deposit to contract")
+		log.S().Info("======= Test RollDice")
 		eHash := execution.Hash()
 		r, _ := bc.GetReceiptByExecutionHash(eHash)
 		require.Equal(eHash, r.Hash)
@@ -460,7 +461,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
-		logger.Info().Msgf("execution %+v", execution)
+		log.S().Infof("execution %+v", execution)
 
 		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
@@ -472,7 +473,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		require.Equal(0, balance.Cmp(big.NewInt(500000000)))
 
-		logger.Info().Msg("Roll Dice")
+		log.S().Info("Roll Dice")
 		data, _ = hex.DecodeString("797d9fbd000000000000000000000000fd99ea5ad63d9d3a8a4d614bcae1380695022558")
 		execution, err = action.NewExecution(
 			ta.IotxAddrinfo["producer"].RawAddress, contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
@@ -485,7 +486,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
-		logger.Info().Msgf("execution %+v\n", execution)
+		log.S().Infof("execution %+v\n", execution)
 
 		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
@@ -502,7 +503,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		require.Equal(0, balance.Cmp(big.NewInt(400000000)))
 
-		logger.Info().Msg("Roll Dice To Self")
+		log.S().Info("Roll Dice To Self")
 		balance, err = bc.Balance(ta.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(err)
 		data, _ = hex.DecodeString("2885ad2c")
@@ -517,7 +518,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetGasLimit(120000).SetGasPrice(big.NewInt(10)).Build()
 		selp, err = action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 		require.NoError(err)
-		logger.Info().Msgf("execution %+v\n", execution)
+		log.S().Infof("execution %+v\n", execution)
 
 		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
@@ -526,7 +527,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(bc.CommitBlock(blk))
 		balance, err = bc.Balance(ta.IotxAddrinfo["bravo"].RawAddress)
 		require.NoError(err)
-		logger.Info().Msgf("balance: %d", balance)
+		log.S().Infof("balance: %d", balance)
 		require.Equal(0, balance.Cmp(big.NewInt(12000000+100000000-274950)))
 	}
 
@@ -608,7 +609,7 @@ func TestProtocol_Handle(t *testing.T) {
 		code := stateDB.GetCode(evmContractAddrHash)
 		require.Equal(data[335:len(data)-32], code)
 
-		logger.Warn().Msg("======= Transfer to alfa")
+		log.S().Info("======= Transfer to alfa")
 		data, _ = hex.DecodeString("a9059cbb")
 		alfa := hash.ZeroHash32B
 		to, _ := iotxaddress.GetPubkeyHash(ta.IotxAddrinfo["alfa"].RawAddress)
@@ -619,7 +620,7 @@ func TestProtocol_Handle(t *testing.T) {
 		binary.BigEndian.PutUint64(h, 10000)
 		data = append(data, alfa[:]...)
 		data = append(data, value[:]...)
-		logger.Warn().Hex("v", data[:]).Msg("TestER")
+		log.L().Warn("TestER", zap.Binary("v", data[:]))
 		execution, err = action.NewExecution(
 			ta.IotxAddrinfo["producer"].RawAddress, contract, 2, big.NewInt(0), uint64(10000000), big.NewInt(0), data)
 		require.NoError(err)
@@ -642,7 +643,7 @@ func TestProtocol_Handle(t *testing.T) {
 		binary.BigEndian.PutUint64(h, 20000)
 		data = append(data, bravo[:]...)
 		data = append(data, value[:]...)
-		logger.Warn().Hex("v", data[:]).Msg("TestER")
+		log.L().Warn("TestER", zap.Binary("v", data[:]))
 		ex2, err := action.NewExecution(
 			ta.IotxAddrinfo["producer"].RawAddress, contract, 3, big.NewInt(0), uint64(10000000), big.NewInt(0), data)
 		require.NoError(err)
@@ -660,7 +661,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
 
-		logger.Warn().Msg("======= Transfer to bravo")
+		log.S().Info("======= Transfer to bravo")
 		// alfa send 2000 to bravo
 		data, _ = hex.DecodeString("a9059cbb")
 		value = hash.ZeroHash32B
@@ -668,7 +669,7 @@ func TestProtocol_Handle(t *testing.T) {
 		binary.BigEndian.PutUint64(h, 2000)
 		data = append(data, bravo[:]...)
 		data = append(data, value[:]...)
-		logger.Warn().Hex("v", data[:]).Msg("TestER")
+		log.L().Warn("TestER", zap.Binary("v", data[:]))
 		ex3, err := action.NewExecution(
 			ta.IotxAddrinfo["alfa"].RawAddress, contract, 1, big.NewInt(0), uint64(10000000), big.NewInt(0), data)
 		require.NoError(err)
@@ -690,7 +691,7 @@ func TestProtocol_Handle(t *testing.T) {
 		// get balance
 		data, _ = hex.DecodeString("70a08231")
 		data = append(data, alfa[:]...)
-		logger.Warn().Hex("v", data[:]).Msg("TestER")
+		log.L().Warn("TestER", zap.Binary("v", data[:]))
 		execution, err = action.NewExecution(
 			ta.IotxAddrinfo["producer"].RawAddress, contract, 4, big.NewInt(0), uint64(10000000), big.NewInt(0), data)
 		require.NoError(err)

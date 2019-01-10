@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 func TestServer(t *testing.T) {
@@ -29,7 +30,7 @@ func TestServer(t *testing.T) {
 	}
 	resp, err := client.Get("http://127.0.0.1:14004")
 	if err != nil {
-		logger.Error().Err(err).Msg("Error:")
+		log.L().Error("Got Error.", zap.Error(err))
 	} else {
 		require.Equal("200 OK", resp.Status)
 	}

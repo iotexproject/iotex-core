@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
@@ -27,9 +28,9 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	exp "github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -99,10 +100,10 @@ func TestTwoChains(t *testing.T) {
 			return false, errors.New("error when converting balance string to big int")
 		}
 		if balance.Cmp(big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx))) < 0 {
-			logger.Info().Str("balance", balance.String()).Msg("balance is not enough yet")
+			log.L().Info("Balance is not enough yet.", zap.String("balance", balance.String()))
 			return false, nil
 		}
-		logger.Info().Str("balance", balance.String()).Msg("balance is already enough")
+		log.L().Info("Balance is already enough.", zap.String("balance", balance.String()))
 		return true, nil
 	}))
 

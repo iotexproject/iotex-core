@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -26,8 +27,8 @@ import (
 	"github.com/iotexproject/iotex-core/explorer"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/p2p"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -90,7 +91,7 @@ func New(
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
 	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
-		logger.Warn().Msg("Chain db and trie db are falling back to fresh ones")
+		log.L().Warn("Chain db and trie db are falling back to fresh ones.")
 		if err := os.Rename(cfg.Chain.ChainDBPath, cfg.Chain.ChainDBPath+".old"); err != nil {
 			return nil, errors.Wrap(err, "failed to rename old chain db")
 		}
@@ -226,11 +227,10 @@ func (cs *ChainService) HandleAction(actPb *iproto.ActionPb) error {
 		return err
 	}
 	if err := cs.actpool.Add(act); err != nil {
-		logger.Debug().
-			Err(err).
-			Str("src", act.SrcAddr()).
-			Uint64("nonce", act.Nonce()).
-			Msg("Failed to add action")
+		log.L().Debug("Failed to add action.",
+			zap.Error(err),
+			zap.String("src", act.SrcAddr()),
+			zap.Uint64("nonce", act.Nonce()))
 		return err
 	}
 	return nil

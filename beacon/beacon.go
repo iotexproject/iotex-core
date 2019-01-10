@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 const (
@@ -30,7 +30,7 @@ func NewBeacon() (Beacon, error) {
 	b := Beacon{seed: []byte(startSeed), hash: hash}
 
 	if err != nil {
-		logger.Error().Msg("Beacon hash function failed to initialize")
+		log.L().Error("Beacon hash function failed to initialize")
 	}
 
 	return b, err

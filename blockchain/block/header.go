@@ -7,11 +7,12 @@
 package block
 
 import (
-	"github.com/rs/zerolog"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Header defines the struct of block header
@@ -97,15 +98,12 @@ func (h Header) ByteStream() []byte {
 }
 
 // HeaderLogger returns a new logger with block header fields' value.
-func (h Header) HeaderLogger(l *zerolog.Logger) *zerolog.Logger {
-	ctxl := l.With().
-		Uint32("version", h.version).
-		Uint32("chainID", h.chainID).
-		Uint64("height", h.height).
-		Int64("timeStamp", h.timestamp).
-		Hex("prevBlockHash", h.prevBlockHash[:]).
-		Hex("txRoot", h.txRoot[:]).
-		Hex("stateRoot", h.stateRoot[:]).
-		Logger()
-	return &ctxl
+func (h Header) HeaderLogger(l *zap.Logger) *zap.Logger {
+	return l.With(zap.Uint32("version", h.version),
+		zap.Uint32("chainID", h.chainID),
+		zap.Uint64("height", h.height),
+		zap.Int64("timeStamp", h.timestamp),
+		log.Hex("prevBlockHash", h.prevBlockHash[:]),
+		log.Hex("txRoot", h.txRoot[:]),
+		log.Hex("stateRoot", h.stateRoot[:]))
 }

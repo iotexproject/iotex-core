@@ -7,21 +7,23 @@
 package testaddress
 
 import (
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // ConstructAddress constructs an iotex address
 func ConstructAddress(chainID uint32, pubkey, prikey string) *iotxaddress.Address {
 	pubk, err := keypair.DecodePublicKey(pubkey)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to construct the address")
+		log.L().Error("Failed to construct the address.", zap.Error(err))
 	}
 	prik, err := keypair.DecodePrivateKey(prikey)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to construct the address")
+		log.L().Error("Failed to construct the address.", zap.Error(err))
 	}
 	pkHash := keypair.HashPubKey(pubk)
 	addr := address.New(chainID, pkHash[:])

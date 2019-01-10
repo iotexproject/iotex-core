@@ -15,12 +15,14 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/util"
@@ -54,7 +56,7 @@ func main() {
 
 	chainAddrs, err := util.LoadAddresses(injectorConfigPath, uint32(1))
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to load addresses from config path")
+		log.L().Fatal("Failed to load addresses from config path", zap.Error(err))
 	}
 	admins := chainAddrs[len(chainAddrs)-numAdmins:]
 	delegates := chainAddrs[:len(chainAddrs)-numAdmins]
@@ -74,14 +76,12 @@ func main() {
 		configs[i] = config
 	}
 
-	initLogger()
-
 	// Create mini-cluster
 	svrs := make([]*itx.Server, numNodes)
 	for i := 0; i < numNodes; i++ {
 		svr, err := itx.NewServer(configs[i])
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Failed to create server.")
+			log.L().Fatal("Failed to create server.", zap.Error(err))
 		}
 		svrs[i] = svr
 	}
@@ -93,7 +93,7 @@ func main() {
 	if err := testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		return svrs[0].ChainService(uint32(1)).Explorer().Port() == 14004, nil
 	}); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start explorer JSON-RPC server")
+		log.L().Fatal("Failed to start explorer JSON-RPC server", zap.Error(err))
 	}
 
 	// target address for jrpc connection. Default is "127.0.0.1:14004"
@@ -102,7 +102,7 @@ func main() {
 
 	counter, err := util.InitCounter(client, chainAddrs)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to initialize nonce counter")
+		log.L().Fatal("Failed to initialize nonce counter", zap.Error(err))
 	}
 
 	// Inject actions to first node
@@ -135,7 +135,7 @@ func main() {
 		eHash, err := util.DeployContract(client, counter, delegates, executionGasLimit, executionGasPrice,
 			deployExecData, retryNum, retryInterval)
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Failed to deploy smart contract")
+			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
 		}
 		// Wait until the smart contract is successfully deployed
 		var receipt *action.Receipt
@@ -143,7 +143,7 @@ func main() {
 			receipt, err = svrs[0].ChainService(uint32(1)).Blockchain().GetReceiptByExecutionHash(eHash)
 			return receipt != nil, nil
 		}); err != nil {
-			logger.Fatal().Err(err).Msg("Failed to get receipt of execution deployment")
+			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
 		}
 		contract := receipt.ContractAddress
 
@@ -166,7 +166,7 @@ func main() {
 
 			stateHeights[i], err = chains[i].GetFactory().Height()
 			if err != nil {
-				logger.Error().Msg(fmt.Sprintf("Node %d: Can not get State height", i))
+				log.S().Errorf("Node %d: Can not get State height", i)
 			}
 			bcHeights[i] = chains[i].TipHeight()
 			minTimeout = int(configs[i].Consensus.RollDPoS.Delay/time.Second - configs[i].Consensus.RollDPoS.ProposerInterval/time.Second)
@@ -176,24 +176,24 @@ func main() {
 			}
 			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / configs[i].Consensus.RollDPoS.ProposerInterval)
 
-			logger.Info().Msg(fmt.Sprintf("Node#%d blockchain height: %d", i, bcHeights[i]))
-			logger.Info().Msg(fmt.Sprintf("Node#%d state      height: %d", i, stateHeights[i]))
-			logger.Info().Msg(fmt.Sprintf("Node#%d ideal      height: %d", i, idealHeight[i]))
+			log.S().Infof("Node#%d blockchain height: %d", i, bcHeights[i])
+			log.S().Infof("Node#%d state      height: %d", i, stateHeights[i])
+			log.S().Infof("Node#%d ideal      height: %d", i, idealHeight[i])
 
 			if bcHeights[i] != stateHeights[i] {
-				logger.Error().Msg(fmt.Sprintf("Node#%d: State height does not match blockchain height", i))
+				log.S().Errorf("Node#%d: State height does not match blockchain height", i)
 			}
 			if math.Abs(float64(bcHeights[i]-idealHeight[i])) > 1 {
-				logger.Error().Msg(fmt.Sprintf("blockchain in Node#%d is behind the expected height", i))
+				log.S().Errorf("blockchain in Node#%d is behind the expected height", i)
 			}
 		}
 
 		for i := 0; i < numNodes; i++ {
 			for j := i + 1; j < numNodes; j++ {
 				if math.Abs(float64(bcHeights[i]-bcHeights[j])) > 1 {
-					logger.Error().Msg(fmt.Sprintf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j))
+					log.S().Errorf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j)
 				} else {
-					logger.Info().Msg(fmt.Sprintf("blockchain in Node#%d and blockchain in Node#%d are sync", i, j))
+					log.S().Infof("blockchain in Node#%d and blockchain in Node#%d are sync", i, j)
 				}
 			}
 		}
@@ -247,13 +247,4 @@ func newConfig(
 	cfg.Explorer.Port = explorerPort
 
 	return cfg
-}
-
-func initLogger() {
-	l, err := logger.New()
-	if err != nil {
-		logger.Warn().Err(err).Msg("Cannot config logger, use default one.")
-	} else {
-		logger.SetLogger(l)
-	}
 }

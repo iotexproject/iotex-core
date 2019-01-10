@@ -9,8 +9,8 @@ package crypto
 import (
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Merkle tree struct
@@ -24,7 +24,7 @@ type Merkle struct {
 func NewMerkleTree(leaves []hash.Hash32B) *Merkle {
 	size := len(leaves)
 	if size == 0 {
-		logger.Warn().Msg("Try to create merkle tree with empty leaf list!")
+		log.L().Warn("Try to create merkle tree with empty leaf list!")
 		return nil
 	}
 

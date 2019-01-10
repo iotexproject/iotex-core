@@ -12,11 +12,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // TODO: HeartbeatHandler opens encapsulation of a few structs to inspect the internal status, we need to find a better
@@ -52,22 +53,21 @@ func (h *HeartbeatHandler) Log() {
 	// Dispatcher metrics
 	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)
 	if !ok {
-		logger.Error().Msg("dispatcher is not the instance of IotxDispatcher")
+		log.L().Error("dispatcher is not the instance of IotxDispatcher")
 		return
 	}
 	numDPEvts := len(*dp.EventChan())
 	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
 	if err != nil {
-		logger.Error().Msg("error when serializing the dispatcher event audit map")
+		log.L().Error("error when serializing the dispatcher event audit map")
 		return
 	}
 
 	numPeers := len(p2pAgent.Neighbors())
-	logger.Info().
-		Int("numPeers", numPeers).
-		Int("pendingDispatcherEvents", numDPEvts).
-		Str("pendingDispatcherEventsAudit", string(dpEvtsAudit)).
-		Msg("node status")
+	log.L().Info("Node status.",
+		zap.Int("numPeers", numPeers),
+		zap.Int("pendingDispatcherEvents", numDPEvts),
+		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))
 
 	heartbeatMtc.WithLabelValues("numPeers", "node").Set(float64(numPeers))
 	heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(numDPEvts))
@@ -76,7 +76,7 @@ func (h *HeartbeatHandler) Log() {
 		// Consensus metrics
 		cs, ok := c.Consensus().(*consensus.IotxConsensus)
 		if !ok {
-			logger.Error().Msg("consensus is not the instance of IotxConsensus")
+			log.L().Info("consensus is not the instance of IotxConsensus.")
 			return
 		}
 		rolldpos, ok := cs.Scheme().(*rolldpos.RollDPoS)
@@ -86,7 +86,7 @@ func (h *HeartbeatHandler) Log() {
 			numPendingEvts = rolldpos.NumPendingEvts()
 			state = rolldpos.CurrentState()
 		} else {
-			logger.Debug().Msg("scheme is not the instance of RollDPoS")
+			log.L().Debug("scheme is not the instance of RollDPoS")
 		}
 
 		// Block metrics
@@ -96,15 +96,15 @@ func (h *HeartbeatHandler) Log() {
 		actPoolCapacity := c.ActionPool().GetCapacity()
 		targetHeight := c.BlockSync().TargetHeight()
 
-		logger.Info().
-			Int("rolldposEvents", numPendingEvts).
-			Str("fsmState", string(state)).
-			Uint64("blockchainHeight", height).
-			Uint64("actpoolSize", actPoolSize).
-			Uint64("actpoolCapacity", actPoolCapacity).
-			Uint32("chainID", c.ChainID()).
-			Uint64("targetHeight", targetHeight).
-			Msg("chain service status")
+		log.L().Info("chain service status",
+			zap.Int("rolldposEvents", numPendingEvts),
+			zap.String("fsmState", string(state)),
+			zap.Uint64("blockchainHeight", height),
+			zap.Uint64("actpoolSize", actPoolSize),
+			zap.Uint64("actpoolCapacity", actPoolCapacity),
+			zap.Uint32("chainID", c.ChainID()),
+			zap.Uint64("targetHeight", targetHeight),
+		)
 
 		chainIDStr := strconv.FormatUint(uint64(c.ChainID()), 10)
 		heartbeatMtc.WithLabelValues("pendingRolldposEvents", chainIDStr).Set(float64(numPendingEvts))
