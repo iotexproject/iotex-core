@@ -21,7 +21,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/p2p/pb"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -78,7 +77,7 @@ func NewAgent(cfg config.Network, broadcastHandler HandleBroadcast, unicastHandl
 // Start connects into P2P network
 func (p *Agent) Start(ctx context.Context) error {
 	ready := make(chan interface{})
-	p2p.SetLogger(logger.Logger())
+	p2p.SetLogger(log.L())
 	opts := []p2p.Option{
 		p2p.HostName(p.cfg.Host),
 		p2p.Port(p.cfg.Port),
