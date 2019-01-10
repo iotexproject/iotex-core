@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -32,7 +32,7 @@ func (n *Noop) Stop(_ context.Context) error { return nil }
 
 // HandleConsensusMsg handles incoming consensus message
 func (n *Noop) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming consensus message")
+	log.L().Warn("Noop scheme does not handle incoming consensus message.")
 	return nil
 }
 

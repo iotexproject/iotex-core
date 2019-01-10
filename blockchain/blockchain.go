@@ -17,6 +17,7 @@ import (
 	"github.com/dgraph-io/badger"
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -29,10 +30,10 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -260,7 +261,7 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	}
 	for _, opt := range opts {
 		if err := opt(chain, cfg); err != nil {
-			logger.Error().Err(err).Msgf("Failed to execute blockchain creation option %p", opt)
+			log.S().Errorf("Failed to execute blockchain creation option %p: %v", opt, err)
 			return nil
 		}
 	}
@@ -271,19 +272,19 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		[]string{"default", strconv.FormatUint(uint64(cfg.Chain.ID), 10)},
 	)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to generate prometheus timer factory")
+		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	chain.timerFactory = timerFactory
 	// Set block validator
 	pubKey, _, err := cfg.KeyPair()
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get key pair of producer")
+		log.L().Error("Failed to get key pair of producer.", zap.Error(err))
 		return nil
 	}
 	pkHash := keypair.HashPubKey(pubKey)
 	address := address.New(cfg.Chain.ID, pkHash[:])
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to get producer's address by public key")
+		log.L().Error("Failed to get producer's address by public key.", zap.Error(err))
 		return nil
 	}
 	chain.validator = &validator{sf: chain.sf, validatorAddr: address.IotxAddress()}
@@ -373,7 +374,7 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
 	if blk == nil || err != nil {
 		return blk, err
 	}
-	blk.HeaderLogger(logger.Logger()).Debug().Msg("get a block")
+	blk.HeaderLogger(log.L()).Debug("Get block.")
 	return blk, err
 }
 
@@ -804,7 +805,7 @@ func (bc *blockchain) StateByAddr(address string) (*state.Account, error) {
 	if bc.sf != nil {
 		s, err := bc.sf.AccountState(address)
 		if err != nil {
-			logger.Warn().Err(err).Str("Address", address)
+			log.L().Warn("Failed to get account.", zap.String("address", address), zap.Error(err))
 			return nil, errors.New("account does not exist")
 		}
 		return s, nil
@@ -829,7 +830,7 @@ func (bc *blockchain) Validator() Validator {
 func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	logger.Info().Msg("Add a subscriber")
+	log.L().Info("Add a subscriber.")
 	if s == nil {
 		return errors.New("subscriber could not be nil")
 	}
@@ -844,7 +845,7 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 	for i, sub := range bc.blocklistener {
 		if sub == s {
 			bc.blocklistener = append(bc.blocklistener[:i], bc.blocklistener[i+1:]...)
-			logger.Info().Msg("Successfully unsubscribe block creation")
+			log.L().Info("Successfully unsubscribe block creation.")
 			return nil
 		}
 	}
@@ -1054,9 +1055,10 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get factory's height")
 	}
-	logger.Info().
-		Uint64("blockchain height", bc.tipHeight).Uint64("factory height", factoryHeight).
-		Msg("Restarting blockchain")
+	log.L().Info("Restarting blockchain.",
+		zap.Uint64("chainHeight",
+			bc.tipHeight),
+		zap.Uint64("factoryHeight", factoryHeight))
 	return nil
 }
 
@@ -1076,7 +1078,7 @@ func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) erro
 	root, _, err := bc.runActions(blk.RunnableActions(), ws, true)
 	runTimer.End()
 	if err != nil {
-		logger.Panic().Err(err).Msgf("Failed to update state on height %d", bc.tipHeight)
+		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bc.tipHeight), zap.Error(err))
 	}
 
 	if err = blk.VerifyStateRoot(root); err != nil {
@@ -1093,7 +1095,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	// Check if it is already exists, and return earlier
 	blkHash, err := bc.dao.getBlockHash(blk.Height())
 	if blkHash != hash.ZeroHash32B {
-		logger.Debug().Uint64("height", blk.Height()).Msg("Block already exists")
+		log.L().Debug("Block already exists.", zap.Uint64("height", blk.Height()))
 		return nil
 	}
 	// If it's a ready db io error, return earlier with the error
@@ -1121,7 +1123,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		// detach working set so it can be freed by GC
 		blk.WorkingSet = nil
 		if err != nil {
-			logger.Panic().Err(err).Msg("Error when commiting states")
+			log.L().Panic("Error when commiting states.", zap.Error(err))
 		}
 
 		// write smart contract receipt into DB
@@ -1132,8 +1134,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 		}
 	}
-	blk.HeaderLogger(logger.Logger()).Info().
-		Hex("tipHash", bc.tipHash[:]).Msg("Committed a block.")
+	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", bc.tipHash[:]))
 	return nil
 }
 
@@ -1164,7 +1165,7 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 	for _, s := range bc.blocklistener {
 		go func(bcs BlockCreationSubscriber, b *block.Block) {
 			if err := bcs.HandleBlock(b); err != nil {
-				logger.Error().Err(err).Msg("Failed to handle new block")
+				log.L().Error("Failed to handle new block.", zap.Error(err))
 			}
 		}(s, blk)
 	}

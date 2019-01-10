@@ -16,10 +16,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -198,17 +199,17 @@ func (m *cFSM) Start(c context.Context) error {
 			case evt := <-m.evtq:
 				timeoutEvt, ok := evt.(*timeoutEvt)
 				if ok && timeoutEvt.timestamp().Before(m.ctx.round.timestamp) {
-					logger.Debug().Msg("timeoutEvt is stale")
+					log.L().Debug("timeoutEvt is stale")
 					continue
 				}
 				chainHeight := m.ctx.chain.TipHeight()
 				eventHeight := evt.height()
 				if _, ok := evt.(*proposeBlkEvt); ok && eventHeight <= chainHeight {
-					logger.Debug().Uint64("event height", eventHeight).Uint64("chain height", chainHeight).Msg("skip old proposal")
+					log.L().Debug("skip old proposal", zap.Uint64("eventHeight", eventHeight), zap.Uint64("chainHeight", chainHeight))
 					continue
 				}
 				if eEvt, ok := evt.(*endorseEvt); ok && eventHeight <= chainHeight && eEvt.endorse.Endorser() != m.ctx.addr.RawAddress {
-					logger.Debug().Uint64("event height", eventHeight).Uint64("chain height", chainHeight).Msg("skip old endorsement")
+					log.L().Debug("skip old endorsement", zap.Uint64("eventHeight", eventHeight), zap.Uint64("chainHeight", chainHeight))
 					continue
 				}
 				src := m.fsm.CurrentState()
@@ -216,26 +217,23 @@ func (m *cFSM) Start(c context.Context) error {
 					if errors.Cause(err) == fsm.ErrTransitionNotFound {
 						if m.ctx.clock.Now().Sub(evt.timestamp()) <= m.ctx.cfg.UnmatchedEventTTL {
 							m.produce(evt, m.ctx.cfg.UnmatchedEventInterval)
-							logger.Debug().
-								Str("src", string(src)).
-								Str("evt", string(evt.Type())).
-								Err(err).
-								Msg("consensusEvt state transition could find the match")
+							log.L().Debug("consensusEvt state transition could find the match",
+								zap.String("src", string(src)),
+								zap.String("evt", string(evt.Type())),
+								zap.Error(err))
 						}
 					} else {
-						logger.Error().
-							Str("src", string(src)).
-							Str("evt", string(evt.Type())).
-							Err(err).
-							Msg("consensusEvt state transition fails")
+						log.L().Error("consensusEvt state transition fails",
+							zap.String("src", string(src)),
+							zap.String("evt", string(evt.Type())),
+							zap.Error(err))
 					}
 				} else {
 					dst := m.fsm.CurrentState()
-					logger.Debug().
-						Str("src", string(src)).
-						Str("dst", string(dst)).
-						Str("evt", string(evt.Type())).
-						Msg("consensusEvt state transition happens")
+					log.L().Debug("consensusEvt state transition happens",
+						zap.String("src", string(src)),
+						zap.String("dst", string(dst)),
+						zap.String("evt", string(evt.Type())))
 				}
 			}
 		}
@@ -286,7 +284,7 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 	if !m.ctx.cfg.EnableDKG {
 		m.ctx.epoch.seed = crypto.CryptoSeed
 	} else if m.ctx.epoch.seed, err = m.ctx.updateSeed(); err != nil {
-		logger.Error().Err(err).Msg("Failed to generate new seed from last epoch")
+		log.L().Error("Failed to generate new seed from last epoch.", zap.Error(err))
 	}
 	delegates, err := m.ctx.rollingDelegates(epochNum)
 	if err != nil {
@@ -309,17 +307,12 @@ func (m *cFSM) handleRollDelegatesEvt(_ fsm.Event) (fsm.State, error) {
 
 		// Trigger the event to generate DKG
 		m.produce(m.newCEvt(eGenerateDKG), 0)
-
-		logger.Info().
-			Uint64("epoch", epochNum).
-			Msg("current node is the delegate")
+		log.L().Info("Current node is the delegate.", zap.Uint64("epoch", epochNum))
 		return sDKGGeneration, nil
 	}
 	// Else, stay at the current state and check again later
 	m.produce(m.newCEvt(eRollDelegates), m.ctx.cfg.DelegateInterval)
-	logger.Info().
-		Uint64("epoch", epochNum).
-		Msg("current node is not the delegate")
+	log.L().Info("Current node is NOT the delegate.", zap.Uint64("epoch", epochNum))
 	return sEpochStart, nil
 }
 
@@ -327,7 +320,7 @@ func (m *cFSM) handleGenerateDKGEvt(_ fsm.Event) (fsm.State, error) {
 	if m.ctx.shouldHandleDKG() {
 		// TODO: numDelegates will be configurable later on
 		if len(m.ctx.epoch.delegates) != 21 {
-			logger.Panic().Msg("Number of delegates is incorrect for DKG generation")
+			log.L().Panic("Number of delegates is incorrect for DKG generation")
 		}
 		secrets, witness, err := m.ctx.generateDKGSecrets()
 		if err != nil {
@@ -354,9 +347,7 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 
 	proposer, height, round, err := m.ctx.rotatedProposer()
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Msg("error when getting the proposer")
+		log.L().Error("error when getting the proposer", zap.Error(err))
 		return sEpochStart, err
 	}
 	if m.ctx.round.height != height {
@@ -382,15 +373,14 @@ func (m *cFSM) handleStartRoundEvt(_ fsm.Event) (fsm.State, error) {
 }
 
 func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
-	log := logger.Info().
-		Str("proposer", m.ctx.round.proposer).
-		Uint64("height", m.ctx.round.height).
-		Uint32("round", m.ctx.round.number)
+	l := log.L().With(zap.String("proposer", m.ctx.round.proposer),
+		zap.Uint64("height", m.ctx.round.height),
+		zap.Uint32("round", m.ctx.round.number))
 	if m.ctx.round.proposer != m.ctx.addr.RawAddress {
-		log.Msg("current node is not the proposer")
+		l.Info("current node is not the proposer")
 		return sAcceptPropose, nil
 	}
-	log.Msg("current node is the proposer")
+	l.Info("current node is the proposer")
 	blk, err := m.ctx.MintBlock()
 	if err != nil {
 		return sEpochStart, errors.Wrap(err, "error when minting a block")
@@ -399,13 +389,11 @@ func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
 	proposeBlkEvtProto := proposeBlkEvt.toProtoMsg()
 	// Notify itself
 	h := blk.Hash()
-	logger.Info().Str("blockHash", hex.EncodeToString(h[:])).Msg("Broadcast init proposal.")
+	log.L().Info("Broadcast init proposal.", zap.String("blockHash", hex.EncodeToString(h)))
 	m.produce(proposeBlkEvt, 0)
 	// Notify other delegates
 	if err := m.ctx.Broadcast(proposeBlkEvtProto); err != nil {
-		logger.Error().
-			Err(err).
-			Msg("error when broadcasting proposeBlkEvt")
+		log.L().Error("Error when broadcasting proposeBlkEvt.", zap.Error(err))
 	}
 	return sAcceptPropose, nil
 }
@@ -431,11 +419,10 @@ func (m *cFSM) handleProposeBlockTimeout(evt fsm.Event) (fsm.State, error) {
 	if evt.Type() != eProposeBlockTimeout {
 		return sEpochStart, errors.Errorf("invalid event type %s", evt.Type())
 	}
-	logger.Warn().
-		Str("proposer", m.ctx.round.proposer).
-		Uint64("height", m.ctx.round.height).
-		Uint32("round", m.ctx.round.number).
-		Msg("didn't receive the proposed block before timeout")
+	log.L().Warn("Didn't receive the proposed block before timeout.",
+		zap.String("proposer", m.ctx.round.proposer),
+		zap.Uint64("height", m.ctx.round.height),
+		zap.Uint32("round", m.ctx.round.number))
 
 	return sAcceptProposalEndorse, nil
 }
@@ -454,24 +441,21 @@ func (m *cFSM) validateEndorse(
 	expectedConsensusTopics map[endorsement.ConsensusVoteTopic]bool,
 ) bool {
 	if !m.isDelegateEndorsement(en.Endorser()) {
-		logger.Error().
-			Str("endorser", en.Endorser()).
-			Msg("error when validating the endorser's delegation")
+		log.L().Error("Error when validating the endorser's delegation.",
+			zap.String("endorser", en.Endorser()))
 		return false
 	}
 	vote := en.ConsensusVote()
 	if _, ok := expectedConsensusTopics[vote.Topic]; !ok {
-		logger.Error().
-			Interface("expectedConsensusTopics", expectedConsensusTopics).
-			Uint8("consensusTopic", uint8(vote.Topic)).
-			Msg("error when validating the endorse topic")
+		log.L().Error("Error when validating the endorse topic.",
+			zap.Any("expectedConsensusTopics", expectedConsensusTopics),
+			zap.Uint8("consensusTopic", uint8(vote.Topic)))
 		return false
 	}
 	if vote.Height != m.ctx.round.height {
-		logger.Error().
-			Uint64("height", vote.Height).
-			Uint64("expectedHeight", m.ctx.round.height).
-			Msg("error when validating the endorse height")
+		log.L().Error("Error when validating the endorse height.",
+			zap.Uint64("height", vote.Height),
+			zap.Uint64("expectedHeight", m.ctx.round.height))
 		return false
 	}
 
@@ -547,9 +531,7 @@ func (m *cFSM) broadcastConsensusVote(
 	m.produce(cEvt, 0)
 	// Notify other delegates
 	if err := m.ctx.Broadcast(cEvtProto); err != nil {
-		logger.Error().
-			Err(err).
-			Msg("error when broadcasting commitEvtProto")
+		log.L().Error("Error when broadcasting commitEvtProto.", zap.Error(err))
 	}
 }
 
@@ -594,10 +576,9 @@ func (m *cFSM) handleEndorseProposalTimeout(evt fsm.Event) (fsm.State, error) {
 		}
 	}
 
-	logger.Warn().
-		Uint64("height", m.ctx.round.height).
-		Int("numProposalEndorsements", numProposalEndorsements).
-		Msg("didn't collect enough proposal endorses before timeout")
+	log.L().Warn("Didn't collect enough proposal endorses before timeout.",
+		zap.Uint64("height", m.ctx.round.height),
+		zap.Int("numProposalEndorsements", numProposalEndorsements))
 
 	return sAcceptLockEndorse, nil
 }
@@ -641,10 +622,9 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 			)
 		}
 	}
-	logger.Warn().
-		Uint64("height", m.ctx.round.height).
-		Int("numCommitEndorsements", numCommitEndorsements).
-		Msg("didn't collect enough commit endorse before timeout")
+	log.L().Warn("Didn't collect enough commit endorse before timeout.",
+		zap.Uint64("height", m.ctx.round.height),
+		zap.Int("numCommitEndorsements", numCommitEndorsements))
 
 	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sRoundStart, nil
@@ -652,11 +632,9 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 
 func (m *cFSM) handleEndorseCommitEvt(evt fsm.Event) (fsm.State, error) {
 	consensusMtc.WithLabelValues("true").Inc()
-	logger.Info().
-		Uint64("block", m.ctx.round.height).
-		Msg("consensus reached")
+	log.L().Info("Consensus reached.", zap.Uint64("block", m.ctx.round.height))
 	if err := m.ctx.OnConsensusReached(); err != nil {
-		logger.Error().Err(err).Msg("failed to commit block on consensus reached")
+		log.L().Error("Failed to commit block on consensus reached.", zap.Error(err))
 	}
 	m.produce(m.newCEvt(eFinishEpoch), 0)
 	return sRoundStart, nil

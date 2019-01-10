@@ -15,15 +15,16 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -109,8 +110,9 @@ loop:
 			for _, admin := range admins {
 				addrDetails, err := client.GetAddressDetails(admin.RawAddress)
 				if err != nil {
-					logger.Fatal().Err(err).Str("addr", admin.RawAddress).
-						Msg("Failed to inject actions by APS")
+					log.L().Fatal("Failed to inject actions by APS",
+						zap.Error(err),
+						zap.String("addr", admin.RawAddress))
 				}
 				nonce := uint64(addrDetails.PendingNonce)
 				counter[admin.RawAddress] = nonce
@@ -118,8 +120,9 @@ loop:
 			for _, delegate := range delegates {
 				addrDetails, err := client.GetAddressDetails(delegate.RawAddress)
 				if err != nil {
-					logger.Fatal().Err(err).Str("addr", delegate.RawAddress).
-						Msg("Failed to inject actions by APS")
+					log.L().Fatal("Failed to inject actions by APS",
+						zap.Error(err),
+						zap.String("addr", delegate.RawAddress))
 				}
 				nonce := uint64(addrDetails.PendingNonce)
 				counter[delegate.RawAddress] = nonce
@@ -281,7 +284,7 @@ func DeployContract(
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrap(err, "failed to create signed execution")
 	}
-	logger.Info().Msg("Created signed execution")
+	log.L().Info("Created signed execution")
 
 	injectExecution(selp, execution, client, retryNum, retryInterval)
 	return selp.Hash(), nil
@@ -307,10 +310,10 @@ func injectTransfer(
 	selp, tsf, err := createSignedTransfer(sender, recipient, blockchain.ConvertIotxToRau(amount), nonce, gasLimit,
 		gasPrice, payload)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject transfer")
+		log.L().Fatal("Failed to inject transfer", zap.Error(err))
 	}
 
-	logger.Info().Msg("Created signed transfer")
+	log.L().Info("Created signed transfer")
 
 	request := explorer.SendTransferRequest{
 		Version:      int64(selp.Version()),
@@ -335,21 +338,9 @@ func injectTransfer(
 		time.Sleep(time.Duration(retryInterval) * time.Second)
 	}
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to inject transfer")
+		log.L().Error("Failed to inject transfer", zap.Error(err))
 	}
-	logger.Info().Msg("Sent out the signed transfer: ")
-
-	logger.Info().Int64("Version", request.Version).Msg(" ")
-	logger.Info().Int64("Nonce", request.Nonce).Msg(" ")
-	logger.Info().Str("amount", request.Amount).Msg(" ")
-	logger.Info().Str("Sender", request.Sender).Msg(" ")
-	logger.Info().Str("Recipient", request.Recipient).Msg(" ")
-	logger.Info().Str("payload", request.Payload).Msg(" ")
-	logger.Info().Str("Sender Public Key", request.SenderPubKey).Msg(" ")
-	logger.Info().Int64("Gas Limit", request.GasLimit).Msg(" ")
-	logger.Info().Str("Gas Price", request.GasPrice).Msg(" ")
-	logger.Info().Str("Signature", request.Signature).Msg(" ")
-	logger.Info().Bool("isCoinbase", request.IsCoinbase).Msg(" ")
+	log.S().Infof("Sent out the signed transfer: %+v", request)
 
 	if wg != nil {
 		wg.Done()
@@ -369,10 +360,10 @@ func injectVote(
 ) {
 	selp, _, err := createSignedVote(sender, recipient, nonce, gasLimit, gasPrice)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
+		log.L().Fatal("Failed to inject vote", zap.Error(err))
 	}
 
-	logger.Info().Msg("Created signed vote")
+	log.L().Info("Created signed vote")
 
 	request := explorer.SendVoteRequest{
 		Version:     int64(selp.Version()),
@@ -393,17 +384,9 @@ func injectVote(
 		time.Sleep(time.Duration(retryInterval) * time.Second)
 	}
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to inject vote")
+		log.L().Error("Failed to inject vote", zap.Error(err))
 	}
-	logger.Info().Msg("Sent out the signed vote: ")
-
-	logger.Info().Int64("Version", request.Version).Msg(" ")
-	logger.Info().Int64("Nonce", request.Nonce).Msg(" ")
-	logger.Info().Str("Sender Public Key", request.VoterPubKey).Msg(" ")
-	logger.Info().Str("Recipient Address", request.Votee).Msg(" ")
-	logger.Info().Int64("Gas Limit", request.GasLimit)
-	logger.Info().Str("Gas Price", request.GasPrice)
-	logger.Info().Str("Signature", request.Signature).Msg(" ")
+	log.S().Infof("Sent out the signed vote: %+v", request)
 
 	if wg != nil {
 		wg.Done()
@@ -425,10 +408,10 @@ func injectExecInteraction(
 ) {
 	selp, execution, err := createSignedExecution(executor, contract, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject execution")
+		log.L().Fatal("Failed to inject execution", zap.Error(err))
 	}
 
-	logger.Info().Msg("Created signed execution")
+	log.L().Info("Created signed execution")
 
 	injectExecution(selp, execution, c, retryNum, retryInterval)
 	if wg != nil {
@@ -592,17 +575,7 @@ func injectExecution(
 		time.Sleep(time.Duration(retryInterval) * time.Second)
 	}
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to inject execution")
+		log.L().Error("Failed to inject execution", zap.Error(err))
 	}
-	logger.Info().Msg("Sent out the signed execution: ")
-
-	logger.Info().Int64("Version", request.Version).Msg(" ")
-	logger.Info().Int64("Nonce", request.Nonce).Msg(" ")
-	logger.Info().Str("amount", request.Amount).Msg(" ")
-	logger.Info().Str("Executor", request.Executor).Msg(" ")
-	logger.Info().Str("Contract", request.Contract).Msg(" ")
-	logger.Info().Int64("Gas", request.GasLimit).Msg(" ")
-	logger.Info().Str("Gas Price", request.GasPrice).Msg(" ")
-	logger.Info().Str("data", request.Data)
-	logger.Info().Str("Signature", request.Signature).Msg(" ")
+	log.S().Infof("Sent out the signed execution: %+v", request)
 }

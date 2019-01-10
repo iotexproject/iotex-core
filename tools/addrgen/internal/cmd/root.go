@@ -8,8 +8,9 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -22,6 +23,6 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		logger.Fatal().Err(err).Msg("failed to add cmd")
+		log.L().Fatal("failed to add cmd", zap.Error(err))
 	}
 }

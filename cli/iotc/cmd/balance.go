@@ -10,8 +10,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // balanceCmd represents the balance command
@@ -28,12 +29,12 @@ var balanceCmd = &cobra.Command{
 func balance(args []string) string {
 	client, err := getClient()
 	if err != nil {
-		logger.Error().Err(err).Msg("cannot getexplorer client")
+		log.L().Error("Cannot getexplorer client.", zap.Error(err))
 		return ""
 	}
 	balance, err := client.GetAddressBalance(args[0])
 	if err != nil {
-		logger.Error().Err(err).Msgf("cannot get balance for address %s", args[0])
+		log.S().Errorf("cannot get balance for address %s: %v.", args[0], err)
 		return ""
 	}
 	return fmt.Sprintf("Address %s balance: %s", args[0], balance)

@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
@@ -27,9 +28,9 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -1479,7 +1480,7 @@ func newTestCFSM(
 func newTestAddr() *iotxaddress.Address {
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		logger.Panic().Err(err).Msg("error when creating test IoTeX address")
+		log.L().Panic("Error when creating test IoTeX address.", zap.Error(err))
 	}
 	pkHash := keypair.HashPubKey(pk)
 	addr := address.New(config.Default.Chain.ID, pkHash[:])

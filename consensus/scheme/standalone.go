@@ -11,9 +11,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -31,17 +32,15 @@ type standaloneHandler struct {
 }
 
 func (s *standaloneHandler) Run() {
-	logger.Info().
-		Str("at", time.Now().String()).
-		Msg("created a new block")
+	log.L().Info("Created a new block.", zap.String("at", time.Now().String()))
 	blk, err := s.createCb()
 	if err != nil {
-		logger.Error().Err(err)
+		log.L().Error("Failed to create.", zap.Error(err))
 		return
 	}
 
 	if err := s.commitCb(blk); err != nil {
-		logger.Error().Err(err)
+		log.L().Error("Failed to commit.", zap.Error(err))
 		return
 	}
 	s.pubCb(blk)
@@ -72,7 +71,7 @@ func (n *Standalone) Stop(ctx context.Context) error {
 
 // HandleConsensusMsg handles incoming consensus message
 func (n *Standalone) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming block propose requests")
+	log.L().Warn("Noop scheme does not handle incoming block propose requests.")
 	return nil
 }
 

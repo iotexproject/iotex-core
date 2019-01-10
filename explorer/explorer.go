@@ -15,6 +15,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
@@ -26,9 +27,9 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -1048,7 +1049,7 @@ func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetr
 
 // SendTransfer sends a transfer
 func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp explorer.SendTransferResponse, err error) {
-	logger.Debug().Msg("receive send transfer request")
+	log.L().Debug("receive send transfer request")
 
 	defer func() {
 		succeed := "true"
@@ -1079,7 +1080,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 
 // SendVote sends a vote
 func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.SendVoteResponse, err error) {
-	logger.Debug().Msg("receive send vote request")
+	log.L().Debug("receive send vote request")
 
 	defer func() {
 		succeed := "true"
@@ -1132,7 +1133,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 
 // PutSubChainBlock put block merkel root on root chain.
 func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockRequest) (resp explorer.PutSubChainBlockResponse, err error) {
-	logger.Debug().Msg("receive put block request")
+	log.L().Debug("receive put block request")
 
 	defer func() {
 		succeed := "true"
@@ -1199,7 +1200,7 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 
 // SendAction is the API to send an action to blockchain.
 func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.SendActionResponse, err error) {
-	logger.Debug().Msg("receive send action request")
+	log.L().Debug("receive send action request")
 
 	defer func() {
 		succeed := "true"
@@ -1216,7 +1217,7 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 
 	// broadcast to the network
 	if err = exp.broadcastHandler(exp.bc.ChainID(), &action); err != nil {
-		logger.Warn().Err(err).Msg("failed to broadcast SendAction request.")
+		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), &action)
@@ -1241,7 +1242,7 @@ func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
 
 // SendSmartContract sends a smart contract
 func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explorer.SendSmartContractResponse, err error) {
-	logger.Debug().Msg("receive send smart contract request")
+	log.L().Debug("receive send smart contract request")
 
 	defer func() {
 		succeed := "true"
@@ -1304,7 +1305,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 
 // ReadExecutionState reads the state in a contract address specified by the slot
 func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, error) {
-	logger.Debug().Msg("receive read smart contract request")
+	log.L().Debug("receive read smart contract request")
 
 	actPb, err := convertExplorerExecutionToActionPb(&execution)
 	if err != nil {

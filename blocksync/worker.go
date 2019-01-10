@@ -10,8 +10,10 @@ import (
 	"context"
 	"sync"
 
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
@@ -82,12 +84,14 @@ func (w *syncWorker) Sync() {
 
 	peers := w.neighborsHandler()
 	if len(peers) == 0 {
-		logger.Debug().Msg("No peer exist to sync with.")
+		log.L().Debug("No peer exist to sync with.")
 		return
 	}
 	intervals := w.buf.GetBlocksIntervalsToSync(w.targetHeight)
 	if intervals != nil {
-		logger.Info().Interface("intervals", intervals).Uint64("targetHeight", w.targetHeight).Msg("block sync intervals.")
+		log.L().Info("block sync intervals.",
+			zap.Any("intervals", intervals),
+			zap.Uint64("targetHeight", w.targetHeight))
 	}
 	for _, interval := range intervals {
 		w.rrIdx %= len(peers)
@@ -95,7 +99,7 @@ func (w *syncWorker) Sync() {
 		if err := w.unicastHandler(p, &pb.BlockSync{
 			Start: interval.Start, End: interval.End,
 		}); err != nil {
-			logger.Warn().Err(err).Msg("Failed to sync block.")
+			log.L().Warn("Failed to sync block.", zap.Error(err))
 		}
 		w.rrIdx++
 	}

@@ -10,15 +10,16 @@ import (
 	"io/ioutil"
 	"math/big"
 
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -103,7 +104,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 		amount := ConvertIotxToRau(transfer.Amount)
 		_, err := account.LoadOrCreateAccount(ws, recipientAddr, amount)
 		if err != nil {
-			logger.Panic().Err(err).Msg("failed to add initial allocation")
+			log.L().Panic("Failed to add initial allocation.", zap.Error(err))
 		}
 		alloc.Add(alloc, amount)
 	}
@@ -112,7 +113,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 	creatorAddr := Gen.CreatorAddr(chainCfg.ID)
 	_, err := account.LoadOrCreateAccount(ws, creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
 	if err != nil {
-		logger.Panic().Err(err).Msg("failed to add creator")
+		log.L().Panic("Failed to add creator.", zap.Error(err))
 	}
 
 	// TODO: convert vote to state operation as well
@@ -128,7 +129,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 			big.NewInt(0),
 		)
 		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to create the new vote action")
+			log.L().Panic("Fail to create the new vote action.", zap.Error(err))
 		}
 		bd := action.EnvelopeBuilder{}
 		elp := bd.SetDestinationAddress(address).
@@ -167,14 +168,14 @@ func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.Priva
 	if len(pubK) > 0 {
 		publicKey, err := keypair.DecodePublicKey(pubK)
 		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to decode public key")
+			log.L().Panic("Fail to decode public key.", zap.Error(err))
 		}
 		pk = publicKey
 	}
 	if len(priK) > 0 {
 		privateKey, err := keypair.DecodePrivateKey(priK)
 		if err != nil {
-			logger.Panic().Err(err).Msg("Fail to decode private key")
+			log.L().Panic("Fail to decode private key.", zap.Error(err))
 		}
 		sk = privateKey
 	}
@@ -198,11 +199,11 @@ func loadGenesisData(chainCfg config.Chain) GenesisAction {
 
 	actionsBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		logger.Panic().Err(err).Msg("Fail to load genesis data")
+		log.L().Panic("Fail to load genesis data.", zap.Error(err))
 	}
 	actions := GenesisAction{}
 	if err := yaml.Unmarshal(actionsBytes, &actions); err != nil {
-		logger.Panic().Err(err).Msg("Fail to unmarshal genesis data")
+		log.L().Panic("Fail to unmarshal genesis data.", zap.Error(err))
 	}
 	return actions
 }

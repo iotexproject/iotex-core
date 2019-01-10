@@ -18,11 +18,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-p2p"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/p2p/pb"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -168,7 +170,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			); err != nil {
 				return errors.Wrapf(err, "error when connecting bootstrap node %s", randBootstrapNodeAddr)
 			}
-			logger.Info().Str("address", randBootstrapNodeAddr).Msg("Connected bootstrap node")
+			log.L().Info("Connected bootstrap node.", zap.String("address", randBootstrapNodeAddr))
 		}
 	}
 	if err := host.JoinOverlay(); err != nil {
@@ -266,7 +268,7 @@ func (p *Agent) Neighbors() []net.Addr {
 	neighbors := make([]net.Addr, 0)
 	addrs, err := p.host.Neighbors()
 	if err != nil {
-		logger.Logger().Debug().Err(err).Msg("Error when getting the neighbors")
+		log.L().Debug("Error when getting the neighbors.", zap.Error(err))
 		// Usually it's because no closest peers
 		return neighbors
 	}
@@ -293,7 +295,7 @@ func exponentialRetry(f func() error, retryInterval time.Duration, numRetries in
 		if err = f(); err == nil {
 			return
 		}
-		logger.Error().Err(err).Msg("Error happens, will retry")
+		log.L().Error("Error happens, will retry.", zap.Error(err))
 		time.Sleep(retryInterval)
 		retryInterval *= 2
 	}
