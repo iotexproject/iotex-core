@@ -10,13 +10,14 @@ syntax = "proto3";
 package iproto;
 
 import "action.proto";
+import "google/protobuf/timestamp.proto";
 
 // header of a block
 message BlockHeaderPb {
     uint32 version = 1;
     uint32 chainID = 2;
     uint64 height = 3;
-    int64 timestamp = 4;
+    google.protobuf.Timestamp timestamp = 4;
     bytes prevBlockHash = 5;
     bytes txRoot = 6;
     bytes stateRoot = 7;
@@ -63,7 +64,7 @@ message ConsensusPb {
     uint64 height = 1;
     uint32 round = 2;
     ConsensusMessageType type = 3;
-    uint64 timestamp = 4;
+    google.protobuf.Timestamp timestamp = 4;
     bytes data = 5;
 }
 

@@ -11,6 +11,7 @@ import (
 	"errors"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -66,7 +67,9 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.Version = b.Header.version
 	pbHeader.ChainID = b.Header.chainID
 	pbHeader.Height = b.Header.height
-	pbHeader.Timestamp = b.Header.timestamp
+	pbHeader.Timestamp = &timestamp.Timestamp{
+		Seconds: b.Header.Timestamp(),
+	}
 	pbHeader.PrevBlockHash = b.Header.prevBlockHash[:]
 	pbHeader.TxRoot = b.Header.txRoot[:]
 	pbHeader.StateRoot = b.Header.stateRoot[:]
@@ -100,7 +103,7 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	b.Header.version = pbBlock.GetHeader().GetVersion()
 	b.Header.chainID = pbBlock.GetHeader().GetChainID()
 	b.Header.height = pbBlock.GetHeader().GetHeight()
-	b.Header.timestamp = pbBlock.GetHeader().GetTimestamp()
+	b.Header.timestamp = pbBlock.GetHeader().GetTimestamp().GetSeconds()
 	copy(b.Header.prevBlockHash[:], pbBlock.GetHeader().GetPrevBlockHash())
 	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetTxRoot())
 	copy(b.Header.stateRoot[:], pbBlock.GetHeader().GetStateRoot())

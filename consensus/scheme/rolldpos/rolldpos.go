@@ -12,6 +12,7 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
@@ -232,11 +233,13 @@ func (ctx *rollDPoSCtx) Broadcast(msg proto.Message) error {
 		return err
 	}
 	consensusMsg := &iproto.ConsensusPb{
-		Height:    ctx.round.height,
-		Round:     ctx.round.number,
-		Type:      t,
-		Data:      data,
-		Timestamp: uint64(ctx.clock.Now().Unix()),
+		Height: ctx.round.height,
+		Round:  ctx.round.number,
+		Type:   t,
+		Data:   data,
+		Timestamp: &timestamp.Timestamp{
+			Seconds: ctx.clock.Now().Unix(),
+		},
 	}
 
 	return ctx.broadcastHandler(consensusMsg)
