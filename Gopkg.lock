@@ -52,14 +52,6 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
-  digest = "1:0f98f59e9a2f4070d66f0c9c39561f68fcd1dc837b22a852d28d0003aebd1b1e"
-  name = "github.com/boltdb/bolt"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8"
-  version = "v1.3.1"
-
-[[projects]]
   branch = "master"
   digest = "1:c0decf632843204d2b8781de7b26e7038584e2dcccc7e2f401e88ae85b1df2b7"
   name = "github.com/btcsuite/btcd"
@@ -995,6 +987,14 @@
   revision = "95672e2c3e848397cfe4fa4eeade05e6f85c2a56"
 
 [[projects]]
+  digest = "1:3762d59edaa6e5c71d5e594c020c8391f274ff283e9c30fb43c518ec59a3f9b3"
+  name = "go.etcd.io/bbolt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "7ee3ded59d4835e10f3e7d0f7603c42aa5e83820"
+  version = "v1.3.1-etcd.8"
+
+[[projects]]
   digest = "1:3c1a69cdae3501bf75e76d0d86dc6f2b0a7421bc205c0cb7b96b19eed464a34d"
   name = "go.uber.org/atomic"
   packages = ["."]
@@ -1149,7 +1149,6 @@
     "github.com/CoderZhi/go-ethereum/core/types",
     "github.com/CoderZhi/go-ethereum/core/vm",
     "github.com/CoderZhi/go-ethereum/params",
-    "github.com/boltdb/bolt",
     "github.com/coopernurse/barrister-go",
     "github.com/dgraph-io/badger",
     "github.com/facebookgo/clock",
@@ -1166,6 +1165,7 @@
     "github.com/stretchr/testify/require",
     "github.com/zjshen14/go-fsm",
     "github.com/zjshen14/go-p2p",
+    "go.etcd.io/bbolt",
     "go.uber.org/automaxprocs",
     "go.uber.org/config",
     "go.uber.org/zap",
