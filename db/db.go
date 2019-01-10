@@ -12,10 +12,25 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
+
+var (
+	dbBatchSizelMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_db_batch_size",
+			Help: "DB batch size",
+		},
+		[]string{},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(dbBatchSizelMtc)
+}
 
 var (
 	// ErrInvalidDB indicates invalid operation attempted to Blockchain database
@@ -106,6 +121,7 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 			b.Unlock()
 		}
 	}()
+	dbBatchSizelMtc.WithLabelValues().Set(float64(b.Size()))
 	for i := 0; i < b.Size(); i++ {
 		write, err := b.Entry(i)
 		if err != nil {

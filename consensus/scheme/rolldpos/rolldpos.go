@@ -42,12 +42,21 @@ var (
 		},
 		[]string{},
 	)
+
+	blockIntervalMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_consensus_block_interval",
+			Help: "Consensus block interval",
+		},
+		[]string{},
+	)
 )
 
 const sigSize = 5 // number of uint32s in BLS sig
 
 func init() {
 	prometheus.MustRegister(timeSlotMtc)
+	prometheus.MustRegister(blockIntervalMtc)
 }
 
 var (
@@ -95,6 +104,14 @@ func (ctx *rollDPoSCtx) OnConsensusReached() error {
 			zap.Uint64("blockHeight", pendingBlock.Height()))
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
+	prevBlk, err := ctx.chain.GetBlockByHeight(pendingBlock.Block.Height() - 1)
+	if err != nil {
+		log.L().Error("Error when getting the previous block.",
+			zap.Error(err),
+			zap.Uint64("height", pendingBlock.Block.Height()-1),
+		)
+	}
+	blockIntervalMtc.WithLabelValues().Set(float64(pendingBlock.Block.Timestamp() - prevBlk.Timestamp()))
 	ctx.actPool.Reset()
 	// Broadcast the committed block to the network
 	if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
