@@ -616,8 +616,8 @@ func (m *cFSM) handleEndorseLockTimeout(evt fsm.Event) (fsm.State, error) {
 		if endorsementSet != nil {
 			numCommitEndorsements = endorsementSet.NumOfValidEndorsements(
 				map[endorsement.ConsensusVoteTopic]bool{
-					endorsement.PROPOSAL: false,
-					endorsement.COMMIT:   true,
+					endorsement.LOCK:   true,
+					endorsement.COMMIT: true,
 				},
 				m.ctx.epoch.delegates,
 			)
