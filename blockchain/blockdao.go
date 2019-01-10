@@ -9,8 +9,8 @@ package blockchain
 import (
 	"context"
 
-	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
