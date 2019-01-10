@@ -615,9 +615,8 @@ func TestUpdateSeed(t *testing.T) {
 			PrivateKey: ec283SKList[i],
 			RawAddress: addresses[i],
 		}
-		blk, err := chain.MintNewBlock(nil, &iotxAddr,
-			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]},
-			lastSeed, "")
+		blk, err := chain.MintNewBlock(nil, iotxAddr.PublicKey, iotxAddr.PrivateKey, iotxAddr.RawAddress,
+			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]}, lastSeed, "")
 		require.NoError(err)
 		require.NoError(verifyDKGSignature(blk, lastSeed))
 		require.NoError(chain.ValidateBlock(blk, true))

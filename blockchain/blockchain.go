@@ -122,14 +122,21 @@ type Blockchain interface {
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
 		actions []action.SealedEnvelope,
-		producer *iotxaddress.Address,
+		producerPubKey keypair.PublicKey,
+		producerPriKey keypair.PrivateKey,
+		producerAddr string,
 		dkgAddress *iotxaddress.DKGAddress,
 		seed []byte,
 		data string,
 	) (*block.Block, error)
 	// MintNewSecretBlock creates a new DKG secret block with given DKG secrets and witness
-	MintNewSecretBlock(secretProposals []*action.SecretProposal, secretWitness *action.SecretWitness,
-		producer *iotxaddress.Address) (*block.Block, error)
+	MintNewSecretBlock(
+		secretProposals []*action.SecretProposal,
+		secretWitness *action.SecretWitness,
+		producerPubKey keypair.PublicKey,
+		producerPriKey keypair.PrivateKey,
+		producerAddr string,
+	) (*block.Block, error)
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *block.Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
@@ -677,7 +684,9 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, containCoinbase bool) erro
 
 func (bc *blockchain) MintNewBlock(
 	actions []action.SealedEnvelope,
-	producer *iotxaddress.Address,
+	producerPubKey keypair.PublicKey,
+	producerPriKey keypair.PrivateKey,
+	producerAddr string,
 	dkgAddress *iotxaddress.DKGAddress,
 	seed []byte,
 	data string,
@@ -687,14 +696,14 @@ func (bc *blockchain) MintNewBlock(
 	defer bc.timerFactory.NewTimer("MintNewBlock").End()
 
 	// Use block height as the nonce for coinbase transfer
-	cb := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producer.RawAddress)
+	cb := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producerAddr)
 	bd := action.EnvelopeBuilder{}
 	// TODO the nonce is wrong, if bd also submit actions
 	elp := bd.SetNonce(bc.tipHeight + 1).
-		SetDestinationAddress(producer.RawAddress).
+		SetDestinationAddress(producerAddr).
 		SetGasLimit(cb.GasLimit()).
 		SetAction(cb).Build()
-	selp, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	selp, err := action.Sign(elp, producerAddr, producerPriKey)
 	if err != nil {
 		return nil, err
 	}
@@ -705,7 +714,7 @@ func (bc *blockchain) MintNewBlock(
 		true,
 		nil,
 		nil,
-		producer.PublicKey,
+		producerPubKey,
 		bc.ChainID(),
 		bc.tipHeight+1,
 	); err != nil {
@@ -713,10 +722,10 @@ func (bc *blockchain) MintNewBlock(
 	}
 
 	ra := block.NewRunnableActionsBuilder().
-		SetHeight(bc.tipHeight + 1).
+		SetHeight(bc.tipHeight+1).
 		SetTimeStamp(bc.now()).
 		AddActions(actions...).
-		Build(producer)
+		Build(producerAddr, producerPubKey)
 
 	// run execution and update state trie root hash
 	ws, err := bc.sf.NewWorkingSet()
@@ -742,7 +751,7 @@ func (bc *blockchain) MintNewBlock(
 
 	blk, err := blkbd.SetStateRoot(root).
 		SetReceipts(rc).
-		SignAndBuild(producer)
+		SignAndBuild(producerPubKey, producerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create block")
 	}
@@ -755,15 +764,17 @@ func (bc *blockchain) MintNewBlock(
 func (bc *blockchain) MintNewSecretBlock(
 	secretProposals []*action.SecretProposal,
 	secretWitness *action.SecretWitness,
-	producer *iotxaddress.Address,
+	producerPubKey keypair.PublicKey,
+	producerPriKey keypair.PrivateKey,
+	producerAddr string,
 ) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
 	ra := block.NewRunnableActionsBuilder().
-		SetHeight(bc.tipHeight + 1).
+		SetHeight(bc.tipHeight+1).
 		SetTimeStamp(bc.now()).
-		Build(producer)
+		Build(producerAddr, producerPubKey)
 
 	// run execution and update state trie root hash
 	ws, err := bc.sf.NewWorkingSet()
@@ -782,7 +793,7 @@ func (bc *blockchain) MintNewSecretBlock(
 		SetSecretProposals(secretProposals).
 		SetReceipts(receipts).
 		SetStateRoot(root).
-		SignAndBuild(producer)
+		SignAndBuild(producerPubKey, producerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create block")
 	}
@@ -953,7 +964,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
 			AddActions(acts...).
-			Build(iaddr)
+			Build(iaddr.RawAddress, iaddr.PublicKey)
 		// run execution and update state trie root hash
 		root, receipts, err := bc.runActions(racts, ws, false)
 		if err != nil {
@@ -965,7 +976,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetPrevBlockHash(Gen.ParentHash).
 			SetReceipts(receipts).
 			SetStateRoot(root).
-			SignAndBuild(iaddr)
+			SignAndBuild(iaddr.PublicKey, iaddr.PrivateKey)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -973,11 +984,11 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
-			Build(iaddr)
+			Build(iaddr.RawAddress, iaddr.PublicKey)
 		genesis, err = block.NewBuilder(racts).
 			SetChainID(bc.ChainID()).
 			SetPrevBlockHash(hash.ZeroHash32B).
-			SignAndBuild(iaddr)
+			SignAndBuild(iaddr.PublicKey, iaddr.PrivateKey)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -1018,7 +1029,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
 			AddActions(acts...).
-			Build(iaddr)
+			Build(iaddr.RawAddress, iaddr.PublicKey)
 		// run execution and update state trie root hash
 		if _, _, err := bc.runActions(racts, ws, false); err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
