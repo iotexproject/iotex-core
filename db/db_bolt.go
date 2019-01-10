@@ -140,6 +140,8 @@ func (b *boltDB) Commit(batch KVStoreBatch) error {
 
 	}()
 
+	dbBatchSizelMtc.WithLabelValues().Set(float64(batch.Size()))
+
 	var err error
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
