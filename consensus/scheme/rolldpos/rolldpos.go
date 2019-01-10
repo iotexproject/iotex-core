@@ -106,10 +106,10 @@ func (ctx *rollDPoSCtx) OnConsensusReached() error {
 	// Remove transfers in this block from ActPool and reset ActPool state
 	prevBlk, err := ctx.chain.GetBlockByHeight(pendingBlock.Block.Height() - 1)
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Uint64("height", pendingBlock.Block.Height()-1).
-			Msg("Error when getting the previous block")
+		log.L().Error("Error when getting the previous block.",
+			zap.Error(err),
+			zap.Uint64("height", pendingBlock.Block.Height()-1),
+		)
 	}
 	blockIntervalMtc.WithLabelValues().Set(float64(pendingBlock.Block.Timestamp() - prevBlk.Timestamp()))
 	ctx.actPool.Reset()
