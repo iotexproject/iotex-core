@@ -980,11 +980,11 @@
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
-  digest = "1:3aa4692fbb3eca905100602ce026ddbb307ad2366f0995243834deef33eb4f5b"
+  digest = "1:598e5e64cb3e92ae8f4517c9657114a7335dd8af08496361f2838149701ef4d0"
   name = "github.com/zjshen14/go-p2p"
   packages = ["."]
   pruneopts = "UT"
-  revision = "95672e2c3e848397cfe4fa4eeade05e6f85c2a56"
+  revision = "6591d74be57eb3441abeff3e2f3a8b61fdf6b69e"
 
 [[projects]]
   digest = "1:3762d59edaa6e5c71d5e594c020c8391f274ff283e9c30fb43c518ec59a3f9b3"
@@ -1169,6 +1169,7 @@
     "go.uber.org/automaxprocs",
     "go.uber.org/config",
     "go.uber.org/zap",
+    "go.uber.org/zap/zapcore",
     "golang.org/x/crypto/blake2b",
     "golang.org/x/net/context",
     "golang.org/x/sync/errgroup",
