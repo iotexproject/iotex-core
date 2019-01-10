@@ -44,7 +44,7 @@
 
 [[constraint]]
   name = "github.com/zjshen14/go-p2p"
-  revision = "95672e2c3e848397cfe4fa4eeade05e6f85c2a56"
+  revision = "6591d74be57eb3441abeff3e2f3a8b61fdf6b69e"
 
 [[constraint]]
   name = "go.uber.org/config"
