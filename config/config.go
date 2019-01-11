@@ -123,8 +123,9 @@ var (
 			MaxTransferPayloadBytes: 1024,
 		},
 		Indexer: Indexer{
-			Enabled:  false,
-			NodeAddr: "",
+			Enabled:           false,
+			NodeAddr:          "",
+			WhetherLocalStore: true,
 		},
 		System: System{
 			HeartbeatInterval:     10 * time.Second,
@@ -242,8 +243,9 @@ type (
 
 	// Indexer is the index service config
 	Indexer struct {
-		Enabled  bool   `yaml:"enabled"`
-		NodeAddr string `yaml:"nodeAddr"`
+		Enabled           bool   `yaml:"enabled"`
+		NodeAddr          string `yaml:"nodeAddr"`
+		WhetherLocalStore bool   `yaml:"whetherLocalStore"`
 	}
 
 	// System is the system config
