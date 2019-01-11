@@ -48,50 +48,6 @@ func NewServer(
 	}
 }
 
-func (s *Server) createTablesInLocal(ctx context.Context) error {
-	// create action tables
-	if _, err := s.idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +
-		"TEXT NOT NULL, [action_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-	if _, err := s.idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS action_to_block ([node_address] TEXT NOT NULL, [action_hash] " +
-		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-
-	// create transfer tables
-	if _, err := s.idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS transfer_history ([node_address] TEXT NOT NULL, [user_address] " +
-		"TEXT NOT NULL, [transfer_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-	if _, err := s.idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS transfer_to_block ([node_address] TEXT NOT NULL, [transfer_hash] " +
-		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-
-	// create vote tables
-	if _, err := s.idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS vote_history ([node_address] TEXT NOT NULL, [user_address] " +
-		"TEXT NOT NULL, [vote_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-	if _, err := s.idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS vote_to_block ([node_address] TEXT NOT NULL, [vote_hash] " +
-		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-
-	// create execution tables
-	if _, err := s.idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS execution_history ([node_address] TEXT NOT NULL, [user_address] " +
-		"TEXT NOT NULL, [execution_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-	if _, err := s.idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS execution_to_block ([node_address] TEXT NOT NULL, [execution_hash] " +
-		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Start starts the explorer server
 func (s *Server) Start(ctx context.Context) error {
 	addr := s.cfg.Indexer.NodeAddr
@@ -117,7 +73,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	if s.cfg.Indexer.WhetherLocalStore {
 		// local store use sqlite3
-		if err := s.createTablesInLocal(ctx); err != nil {
+		if err := s.idx.CreateTablesInLocal(); err != nil {
 			return errors.Wrap(err, "error when initial tables")
 		}
 	}

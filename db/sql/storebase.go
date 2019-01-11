@@ -8,10 +8,10 @@ package sql
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"sync"
 
-	"database/sql"
 	"github.com/rs/zerolog"
 
 	// this is required for sqlite3 usage

@@ -516,3 +516,48 @@ func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, err
 	copy(hash[:], parsedRows[0].(*ActionToBlock).BlockHash)
 	return hash, nil
 }
+
+// CreateTablesInLocal creates tables in local database
+func (idx *Indexer) CreateTablesInLocal() error {
+	// create action tables
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +
+		"TEXT NOT NULL, [action_hash] BLOB(32) NOT NULL)"); err != nil {
+		return err
+	}
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS action_to_block ([node_address] TEXT NOT NULL, [action_hash] " +
+		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
+		return err
+	}
+
+	// create transfer tables
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS transfer_history ([node_address] TEXT NOT NULL, [user_address] " +
+		"TEXT NOT NULL, [transfer_hash] BLOB(32) NOT NULL)"); err != nil {
+		return err
+	}
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS transfer_to_block ([node_address] TEXT NOT NULL, [transfer_hash] " +
+		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
+		return err
+	}
+
+	// create vote tables
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS vote_history ([node_address] TEXT NOT NULL, [user_address] " +
+		"TEXT NOT NULL, [vote_hash] BLOB(32) NOT NULL)"); err != nil {
+		return err
+	}
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS vote_to_block ([node_address] TEXT NOT NULL, [vote_hash] " +
+		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
+		return err
+	}
+
+	// create execution tables
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS execution_history ([node_address] TEXT NOT NULL, [user_address] " +
+		"TEXT NOT NULL, [execution_hash] BLOB(32) NOT NULL)"); err != nil {
+		return err
+	}
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS execution_to_block ([node_address] TEXT NOT NULL, [execution_hash] " +
+		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
+		return err
+	}
+
+	return nil
+}

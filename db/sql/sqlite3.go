@@ -7,9 +7,10 @@
 package sql
 
 import (
-	"github.com/iotexproject/iotex-core/config"
 	// this is required for sqlite3 usage
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/iotexproject/iotex-core/config"
 )
 
 // NewSQLite3 instantiates an sqlite3

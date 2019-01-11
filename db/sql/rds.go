@@ -11,6 +11,7 @@ import (
 
 	// we need mysql import because it's called in file, (but compile will complain because there is no display)
 	_ "github.com/go-sql-driver/mysql"
+
 	"github.com/iotexproject/iotex-core/config"
 )
 

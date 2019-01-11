@@ -8,10 +8,10 @@ package sql
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 
-	"database/sql"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
