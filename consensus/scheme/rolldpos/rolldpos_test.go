@@ -293,7 +293,7 @@ func TestGenerateDKGSecrets(t *testing.T) {
 
 	secrets, witness, err := ctx.generateDKGSecrets()
 	assert.NoError(t, err)
-	assert.Equal(t, iotxaddress.CreateID(ctx.addr.RawAddress), ctx.epoch.dkgAddress.ID)
+	assert.Equal(t, iotxaddress.CreateID(ctx.encodedAddr), ctx.epoch.dkgAddress.ID)
 	assert.NotNil(t, secrets)
 	assert.NotNil(t, witness)
 }
@@ -354,9 +354,12 @@ func TestNewRollDPoS(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("normal", func(t *testing.T) {
+		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
-			SetAddr(newTestAddr()).
+			SetAddr(addr.RawAddress).
+			SetPubKey(addr.PublicKey).
+			SetPriKey(addr.PrivateKey).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
@@ -367,9 +370,12 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.NotNil(t, r)
 	})
 	t.Run("mock-clock", func(t *testing.T) {
+		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
-			SetAddr(newTestAddr()).
+			SetAddr(addr.RawAddress).
+			SetPubKey(addr.PublicKey).
+			SetPriKey(addr.PrivateKey).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
@@ -384,9 +390,12 @@ func TestNewRollDPoS(t *testing.T) {
 	})
 
 	t.Run("root chain API", func(t *testing.T) {
+		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
-			SetAddr(newTestAddr()).
+			SetAddr(addr.RawAddress).
+			SetPubKey(addr.PublicKey).
+			SetPriKey(addr.PrivateKey).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
@@ -400,9 +409,12 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.NotNil(t, r.ctx.rootChainAPI)
 	})
 	t.Run("missing-dep", func(t *testing.T) {
+		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
-			SetAddr(newTestAddr()).
+			SetAddr(addr.RawAddress).
+			SetPubKey(addr.PublicKey).
+			SetPriKey(addr.PrivateKey).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
@@ -434,9 +446,12 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		{Address: candidates[4]},
 	}, nil).AnyTimes()
 
+	addr := newTestAddr()
 	r, err := NewRollDPoSBuilder().
 		SetConfig(config.RollDPoS{NumDelegates: 4}).
-		SetAddr(newTestAddr()).
+		SetAddr(addr.RawAddress).
+		SetPubKey(addr.PublicKey).
+		SetPriKey(addr.PrivateKey).
 		SetBlockchain(blockchain).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
 		SetBroadcast(func(_ proto.Message) error {
@@ -461,9 +476,12 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	addr := newTestAddr()
 	r, err := NewRollDPoSBuilder().
 		SetConfig(config.RollDPoS{}).
-		SetAddr(newTestAddr()).
+		SetAddr(addr.RawAddress).
+		SetPubKey(addr.PublicKey).
+		SetPriKey(addr.PrivateKey).
 		SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
 		SetBroadcast(func(_ proto.Message) error {
@@ -474,7 +492,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	assert.NotNil(t, r)
 
 	// Test propose msg
-	addr := newTestAddr()
+	addr = newTestAddr()
 	a := testaddress.IotxAddrinfo["alfa"]
 	b := testaddress.IotxAddrinfo["bravo"]
 	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, testutil.TestGasLimit, big.NewInt(10))
@@ -515,7 +533,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 			roundNum,
 			endorsement.PROPOSAL,
 		),
-		addr,
+		addr.PublicKey,
+		addr.PrivateKey,
+		addr.RawAddress,
 	)
 	msg := en.ToProtoMsg()
 
@@ -531,7 +551,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 			roundNum,
 			endorsement.LOCK,
 		),
-		addr,
+		addr.PublicKey,
+		addr.PrivateKey,
+		addr.RawAddress,
 	)
 	msg = en.ToProtoMsg()
 	eEvt, err = r.cfsm.newEndorseEvtWithEndorsePb(msg)
@@ -656,7 +678,9 @@ func makeTestRollDPoSCtx(
 	}
 	return &rollDPoSCtx{
 		cfg:              cfg,
-		addr:             addr,
+		encodedAddr:      addr.RawAddress,
+		pubKey:           addr.PublicKey,
+		priKey:           addr.PrivateKey,
 		chain:            chain,
 		actPool:          actPool,
 		broadcastHandler: broadcastCB,
@@ -779,7 +803,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 			p2ps = append(p2ps, p2p)
 
 			consensus, err := NewRollDPoSBuilder().
-				SetAddr(chainAddrs[i]).
+				SetAddr(chainAddrs[i].RawAddress).
+				SetPubKey(chainAddrs[i].PublicKey).
+				SetPriKey(chainAddrs[i].PrivateKey).
 				SetConfig(cfg.Consensus.RollDPoS).
 				SetBlockchain(chain).
 				SetActPool(actPool).

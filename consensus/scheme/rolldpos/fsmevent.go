@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	fsm "github.com/iotexproject/go-fsm"
+	"github.com/iotexproject/go-fsm"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -122,10 +122,12 @@ func newEndorseEvt(
 	blkHash []byte,
 	height uint64,
 	round uint32,
-	endorser *iotxaddress.Address,
+	endorserPubKey keypair.PublicKey,
+	endorserPriKey keypair.PrivateKey,
+	endorserAddr string,
 	c clock.Clock,
 ) *endorseEvt {
-	endorse := endorsement.NewEndorsement(endorsement.NewConsensusVote(blkHash, height, round, topic), endorser)
+	endorse := endorsement.NewEndorsement(endorsement.NewConsensusVote(blkHash, height, round, topic), endorserPubKey, endorserPriKey, endorserAddr)
 
 	return newEndorseEvtWithEndorse(endorse, c)
 }
