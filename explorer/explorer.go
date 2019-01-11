@@ -681,19 +681,9 @@ func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int
 }
 
 // GetReceiptByExecutionID gets receipt with corresponding execution id
+// Deprecated
 func (exp *Service) GetReceiptByExecutionID(id string) (explorer.Receipt, error) {
-	bytes, err := hex.DecodeString(id)
-	if err != nil {
-		return explorer.Receipt{}, err
-	}
-	var executionHash hash.Hash32B
-	copy(executionHash[:], bytes)
-	receipt, err := exp.bc.GetReceiptByExecutionHash(executionHash)
-	if err != nil {
-		return explorer.Receipt{}, err
-	}
-
-	return convertReceiptToExplorerReceipt(receipt)
+	return exp.GetReceiptByActionID(id)
 }
 
 // GetReceiptByActionID gets receipt with corresponding action id

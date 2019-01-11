@@ -9,6 +9,7 @@ package blockchain
 import (
 	"context"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -28,7 +30,6 @@ const (
 	blockVoteBlockMappingNS             = "vote<->block"
 	blockExecutionBlockMappingNS        = "execution<->block"
 	blockActionBlockMappingNS           = "action<->block"
-	blockExecutionReceiptMappingNS      = "ex<->receipt"
 	blockActionReceiptMappingNS         = "action<->receipt"
 	blockAddressTransferMappingNS       = "address<->transfer"
 	blockAddressTransferCountMappingNS  = "address<->transfercount"
@@ -38,6 +39,7 @@ const (
 	blockAddressExecutionCountMappingNS = "address<->executioncount"
 	blockAddressActionMappingNS         = "address<->action"
 	blockAddressActionCountMappingNS    = "address<->actioncount"
+	receiptsNS                          = "receipts"
 )
 
 var (
@@ -641,31 +643,29 @@ func (dao *blockDAO) getTotalActions() (uint64, error) {
 	return enc.MachineEndian.Uint64(value), nil
 }
 
-// TODO: To be deprecated
-// getReceiptByExecutionHash returns the receipt by execution hash
-func (dao *blockDAO) getReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
-	value, err := dao.kvstore.Get(blockExecutionReceiptMappingNS, h[:])
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get receipt for execution %x", h[:])
-	}
-	r := action.Receipt{}
-	if err := r.Deserialize(value); err != nil {
-		return nil, err
-	}
-	return &r, nil
-}
-
 // getReceiptByActionHash returns the receipt by execution hash
 func (dao *blockDAO) getReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
-	value, err := dao.kvstore.Get(blockActionReceiptMappingNS, h[:])
+	heightBytes, err := dao.kvstore.Get(blockActionReceiptMappingNS, h[:])
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get receipt for action %x", h[:])
+		return nil, errors.Wrapf(err, "failed to get receipt index for action %x", h)
 	}
-	r := action.Receipt{}
-	if err := r.Deserialize(value); err != nil {
+	receiptsBytes, err := dao.kvstore.Get(receiptsNS, heightBytes)
+	if err != nil {
+		height := enc.MachineEndian.Uint64(heightBytes)
+		return nil, errors.Wrapf(err, "failed to get receipts of block %d", height)
+	}
+	receipts := iproto.Receipts{}
+	if err := proto.Unmarshal(receiptsBytes, &receipts); err != nil {
 		return nil, err
 	}
-	return &r, nil
+	for _, receipt := range receipts.Receipts {
+		r := action.Receipt{}
+		r.ConvertFromReceiptPb(receipt)
+		if r.Hash == h {
+			return &r, nil
+		}
+	}
+	return nil, errors.Errorf("receipt of action %x isn't found", h)
 }
 
 // putBlock puts a block
@@ -1037,20 +1037,29 @@ func putActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 }
 
 // putReceipts store receipt into db
-func (dao *blockDAO) putReceipts(blk *block.Block) error {
-	if blk.Receipts == nil {
+func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt) error {
+	if blkReceipts == nil {
 		return nil
 	}
+	receipts := iproto.Receipts{}
 	batch := db.NewBatch()
-	for _, r := range blk.Receipts {
-		v, err := r.Serialize()
-		if err != nil {
-			return errors.Wrapf(err, "failed to serialize receipt %x", r.Hash[:])
-		}
-		// TODO: To be deprecated
-		batch.Put(blockExecutionReceiptMappingNS, r.Hash[:], v, "failed to put receipt for execution %x", r.Hash[:])
-		batch.Put(blockActionReceiptMappingNS, r.Hash[:], v, "failed to put receipt for action %x", r.Hash[:])
+	var heightBytes [8]byte
+	enc.MachineEndian.PutUint64(heightBytes[:], blkHeight)
+	for _, r := range blkReceipts {
+		receipts.Receipts = append(receipts.Receipts, r.ConvertToReceiptPb())
+		batch.Put(
+			blockActionReceiptMappingNS,
+			r.Hash[:],
+			heightBytes[:],
+			"Failed to put receipt index for action %x",
+			r.Hash[:],
+		)
 	}
+	receiptsBytes, err := proto.Marshal(&receipts)
+	if err != nil {
+		return err
+	}
+	batch.Put(receiptsNS, heightBytes[:], receiptsBytes, "Failed to put receipts of block %d", blkHeight)
 	return dao.kvstore.Commit(batch)
 }
 
