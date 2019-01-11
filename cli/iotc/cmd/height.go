@@ -10,8 +10,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // heightCmd represents the height command
@@ -28,11 +29,11 @@ var heightCmd = &cobra.Command{
 func height() string {
 	client, err := getClient()
 	if err != nil {
-		logger.Error().Err(err).Msg("cannot get explorer client")
+		log.L().Error("Cannot get explorer client.", zap.Error(err))
 	}
 	tip, err := client.GetBlockchainHeight()
 	if err != nil {
-		logger.Error().Err(err).Msg("cannot get blockchain height")
+		log.L().Error("Cannot get blockchain height.", zap.Error(err))
 		return ""
 	}
 	return fmt.Sprintf("blockchain height: %d", tip)

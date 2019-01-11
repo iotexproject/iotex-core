@@ -20,8 +20,8 @@ import (
 )
 
 func TestPutBlock(t *testing.T) {
-	addr := testaddress.Addrinfo["producer"]
-	addr2 := testaddress.Addrinfo["echo"]
+	addr := testaddress.IotxAddrinfo["producer"]
+	addr2 := testaddress.IotxAddrinfo["echo"]
 	assertPB := func(pb *PutBlock) {
 		assert.Equal(t, uint32(version.ProtocolVersion), pb.version)
 		assert.Equal(t, uint64(1), pb.Nonce())
@@ -48,7 +48,7 @@ func TestPutBlock(t *testing.T) {
 }
 
 func TestPutBlockProto(t *testing.T) {
-	addr2 := testaddress.Addrinfo["echo"]
+	addr2 := testaddress.IotxAddrinfo["echo"]
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := &PutBlock{
@@ -70,8 +70,8 @@ func TestPutBlockProto(t *testing.T) {
 }
 
 func TestPutBlockByteStream(t *testing.T) {
-	addr := testaddress.Addrinfo["producer"]
-	addr2 := testaddress.Addrinfo["echo"]
+	addr := testaddress.IotxAddrinfo["producer"]
+	addr2 := testaddress.IotxAddrinfo["echo"]
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	roots["10003"] = byteutil.BytesTo32B([]byte("10003"))

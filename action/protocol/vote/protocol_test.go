@@ -44,9 +44,9 @@ func TestProtocol_Handle(t *testing.T) {
 	p := NewProtocol(nil)
 
 	// Create three accounts
-	addr1 := testaddress.Addrinfo["alfa"].RawAddress
-	addr2 := testaddress.Addrinfo["bravo"].RawAddress
-	addr3 := testaddress.Addrinfo["charlie"].RawAddress
+	addr1 := testaddress.IotxAddrinfo["alfa"].RawAddress
+	addr2 := testaddress.IotxAddrinfo["bravo"].RawAddress
+	addr3 := testaddress.IotxAddrinfo["charlie"].RawAddress
 	pkHash1, _ := iotxaddress.AddressToPKHash(addr1)
 	pkHash2, _ := iotxaddress.AddressToPKHash(addr2)
 	pkHash3, _ := iotxaddress.AddressToPKHash(addr3)
@@ -135,11 +135,11 @@ func TestProtocol_Validate(t *testing.T) {
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(
-		testaddress.Addrinfo["producer"].RawAddress,
+		testaddress.IotxAddrinfo["producer"].RawAddress,
 		big.NewInt(0),
 	)
 	_, err = bc.CreateState(
-		testaddress.Addrinfo["alfa"].RawAddress,
+		testaddress.IotxAddrinfo["alfa"].RawAddress,
 		big.NewInt(0),
 	)
 	require.NoError(err)
@@ -155,15 +155,15 @@ func TestProtocol_Validate(t *testing.T) {
 	err = protocol.Validate(context.Background(), vote)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	// Case II: Invalid votee address
-	vote, err = action.NewVote(1, testaddress.Addrinfo["producer"].RawAddress, "123", uint64(100000),
+	vote, err = action.NewVote(1, testaddress.IotxAddrinfo["producer"].RawAddress, "123", uint64(100000),
 		big.NewInt(0))
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), vote)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating votee's address"))
 	// Case III: Votee is not a candidate
-	vote2, err := action.NewVote(1, testaddress.Addrinfo["producer"].RawAddress,
-		testaddress.Addrinfo["alfa"].RawAddress, uint64(100000), big.NewInt(0))
+	vote2, err := action.NewVote(1, testaddress.IotxAddrinfo["producer"].RawAddress,
+		testaddress.IotxAddrinfo["alfa"].RawAddress, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), vote2)
 	require.Equal(action.ErrVotee, errors.Cause(err))

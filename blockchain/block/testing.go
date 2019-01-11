@@ -24,7 +24,7 @@ type TestingBuilder struct{ blk Block }
 func NewTestingBuilder() *TestingBuilder {
 	return &TestingBuilder{
 		blk: Block{
-			Header: &Header{
+			Header: Header{
 				version: version.ProtocolVersion,
 			},
 		},
@@ -50,7 +50,7 @@ func (b *TestingBuilder) SetHeight(h uint64) *TestingBuilder {
 }
 
 // SetTimeStamp sets the time stamp for block which is building.
-func (b *TestingBuilder) SetTimeStamp(ts uint64) *TestingBuilder {
+func (b *TestingBuilder) SetTimeStamp(ts int64) *TestingBuilder {
 	b.blk.Header.timestamp = ts
 	return b
 }
@@ -127,12 +127,12 @@ func NewBlockDeprecated(
 	chainID uint32,
 	height uint64,
 	prevBlockHash hash.Hash32B,
-	timestamp uint64,
+	timestamp int64,
 	producer keypair.PublicKey,
 	actions []action.SealedEnvelope,
 ) *Block {
 	block := &Block{
-		Header: &Header{
+		Header: Header{
 			version:       version.ProtocolVersion,
 			chainID:       chainID,
 			height:        height,
@@ -156,13 +156,13 @@ func NewSecretBlockDeprecated(
 	chainID uint32,
 	height uint64,
 	prevBlockHash hash.Hash32B,
-	timestamp uint64,
+	timestamp int64,
 	producer keypair.PublicKey,
 	secretProposals []*action.SecretProposal,
 	secretWitness *action.SecretWitness,
 ) *Block {
 	block := &Block{
-		Header: &Header{
+		Header: Header{
 			version:       version.ProtocolVersion,
 			chainID:       chainID,
 			height:        height,

@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "a3ce028b4a2de9f843ff6b5bb8234da8"
-const BarristerDateGenerated int64 = 1545331373998000000
+const BarristerChecksum string = "930ad8ed4154e09b1263a8f435f6934d"
+const BarristerDateGenerated int64 = 1546625898440000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -36,6 +36,8 @@ type Block struct {
 	Amount     string         `json:"amount"`
 	Forged     int64          `json:"forged"`
 	Size       int64          `json:"size"`
+	TxRoot     string         `json:"txRoot"`
+	StateRoot  string         `json:"stateRoot"`
 }
 
 type Transfer struct {
@@ -346,6 +348,7 @@ type Explorer interface {
 	EstimateGasForTransfer(request SendTransferRequest) (int64, error)
 	EstimateGasForVote() (int64, error)
 	EstimateGasForSmartContract(request Execution) (int64, error)
+	GetStateRootHash(blockHeight int64) (string, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -1167,6 +1170,24 @@ func (_p ExplorerProxy) EstimateGasForSmartContract(request Execution) (int64, e
 	return int64(0), _err
 }
 
+func (_p ExplorerProxy) GetStateRootHash(blockHeight int64) (string, error) {
+	_res, _err := _p.client.Call("Explorer.getStateRootHash", blockHeight)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getStateRootHash").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(string)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getStateRootHash returned invalid type: %v", _t)
+			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return "", _err
+}
+
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
 	return NewServer(idl, &barrister.JsonSerializer{forceASCII}, explorer)
 }
@@ -1387,6 +1408,20 @@ var IdlJsonRaw = `[
             {
                 "name": "size",
                 "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "txRoot",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "stateRoot",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -4098,6 +4133,26 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "getStateRootHash",
+                "comment": "get the state root hash of a given block height",
+                "params": [
+                    {
+                        "name": "blockHeight",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "string",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -4114,7 +4169,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1545331373998,
-        "checksum": "a3ce028b4a2de9f843ff6b5bb8234da8"
+        "date_generated": 1546625898440,
+        "checksum": "930ad8ed4154e09b1263a8f435f6934d"
     }
 ]`

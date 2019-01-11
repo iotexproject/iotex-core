@@ -15,8 +15,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/address/bech32"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -29,14 +29,14 @@ func TestNewAddress(t *testing.T) {
 	require.NotNil(addr.PrivateKey)
 	require.NotNil(addr.PublicKey)
 	require.NotEqual("", addr.RawAddress)
-	logger.Info().Str("Generated address", addr.RawAddress).Msg("NewAddress")
-	logger.Info().Hex("Generated public key", addr.PublicKey[:]).Msg("NewAddress")
-	logger.Info().Hex("Generated private key", addr.PrivateKey[:]).Msg("NewAddress")
+	log.S().Info("Generated address ", addr.RawAddress)
+	log.S().Info("Generated public key ", hex.EncodeToString(addr.PublicKey[:]))
+	log.S().Info("Generated private key ", hex.EncodeToString(addr.PrivateKey[:]))
 	p2pkh := keypair.HashPubKey(addr.PublicKey)
 	p2pkh1, err := GetPubkeyHash(addr.RawAddress)
 	require.NoError(err)
 	require.Equal(p2pkh[:], p2pkh1)
-	logger.Info().Hex("P2PKH", p2pkh[:]).Msg("NewAddress")
+	log.S().Info("P2PKH ", hex.EncodeToString(p2pkh[:]))
 
 	p2pkhSlice, err := hex.DecodeString("36500e9520e13d02bea26a08e99b6e7145fa6c10")
 	require.NoError(err)

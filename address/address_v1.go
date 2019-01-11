@@ -8,12 +8,13 @@ package address
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address/bech32"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // V1 is a singleton and defines V1 address metadata
@@ -115,12 +116,12 @@ func (addr *AddrV1) Bech32() string {
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {
-		logger.Error().Err(err).Msg("error when grouping the payload into 5 bit groups")
+		log.L().Panic("Error when grouping the payload into 5 bit groups.", zap.Error(err))
 		return ""
 	}
 	encodedAddr, err := bech32.Encode(prefix(), grouped)
 	if err != nil {
-		logger.Error().Err(err).Msg("error when encoding bytes into a base32 string")
+		log.L().Panic("Error when encoding bytes into a base32 string.", zap.Error(err))
 		return ""
 	}
 	return encodedAddr
@@ -140,7 +141,7 @@ func (addr *AddrV1) IotxAddress() string {
 	enc.MachineEndian.PutUint32(chainIDBytes[:], addr.chainID)
 	iotxAddr, err := iotxaddress.GetAddressByHash(isTestNet, chainIDBytes[:], addr.pkHash[:])
 	if err != nil {
-		logger.Error().Err(err).Msg("error when converting address to the iotex address")
+		log.L().Panic("Error when converting address to the iotex address.", zap.Error(err))
 		return ""
 	}
 	return iotxAddr.RawAddress

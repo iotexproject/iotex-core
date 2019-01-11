@@ -18,7 +18,7 @@ import (
 )
 
 func TestStopSubChain(t *testing.T) {
-	addr := testaddress.Addrinfo["producer"]
+	addr := testaddress.IotxAddrinfo["producer"]
 	assertStop := func(stop *StopSubChain) {
 		assert.Equal(t, uint32(version.ProtocolVersion), stop.version)
 		assert.Equal(t, uint64(1), stop.Nonce())
@@ -41,7 +41,7 @@ func TestStopSubChain(t *testing.T) {
 }
 
 func TestStopSubChainProto(t *testing.T) {
-	addr := testaddress.Addrinfo["producer"]
+	addr := testaddress.IotxAddrinfo["producer"]
 	assertStop := func(stop *StopSubChain) {
 		assert.Equal(t, uint64(10003), stop.StopHeight())
 	}

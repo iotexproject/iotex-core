@@ -617,3 +617,16 @@ func (m *MockExplorer) EstimateGasForSmartContract(request explorer.Execution) (
 func (mr *MockExplorerMockRecorder) EstimateGasForSmartContract(request interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForSmartContract", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForSmartContract), request)
 }
+
+// GetStateRootHash mocks base method
+func (m *MockExplorer) GetStateRootHash(blockHeight int64) (string, error) {
+	ret := m.ctrl.Call(m, "GetStateRootHash", blockHeight)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStateRootHash indicates an expected call of GetStateRootHash
+func (mr *MockExplorerMockRecorder) GetStateRootHash(blockHeight interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateRootHash", reflect.TypeOf((*MockExplorer)(nil).GetStateRootHash), blockHeight)
+}

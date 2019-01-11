@@ -56,7 +56,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinSkipNil, re)
 
-	blk, err := chain.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk, err := chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	moved, re = b.Flush(blk)
@@ -68,7 +68,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(0),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -80,7 +80,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(5),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -92,7 +92,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(5),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -104,7 +104,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(500),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -155,7 +155,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(2),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result := b.Flush(blk)
@@ -166,7 +166,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(4),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -177,7 +177,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(5),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -188,7 +188,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(6),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -199,7 +199,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(8),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -210,7 +210,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(14),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -221,7 +221,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(16),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Addrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -232,7 +232,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert.Len(b.GetBlocksIntervalsToSync(5), 2)
 	assert.Len(b.GetBlocksIntervalsToSync(1), 1)
 
-	blk, err = chain.MintNewBlock(nil, ta.Addrinfo["producer"],
+	blk, err = chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	b.Flush(blk)

@@ -10,8 +10,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 var limit int
@@ -30,12 +31,12 @@ var transfersCmd = &cobra.Command{
 func transfers(args []string) string {
 	client, err := getClient()
 	if err != nil {
-		logger.Error().Err(err).Msg("cannot get explorer client")
+		log.L().Error("Cannot get explorer client.", zap.Error(err))
 		return ""
 	}
 	transfers, err := client.GetTransfersByAddress(args[0], 0, int64(limit))
 	if err != nil {
-		logger.Error().Err(err).Msgf("cannot get transfers for address %s", args[0])
+		log.S().Errorf("Cannot get transfers for address %s: %v.", args[0], err)
 		return ""
 	}
 	var res string

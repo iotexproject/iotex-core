@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
@@ -27,12 +28,13 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -543,6 +545,46 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
+		blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		assert.NoError(t, err)
+		assert.Equal(t, sAcceptProposalEndorse, state)
+		e := <-cfsm.evtq
+		evt, ok := e.(*endorseEvt)
+		require.True(t, ok)
+		assert.Equal(t, eEndorseProposal, evt.Type())
+		assert.Equal(t, 1, broadcastCount)
+	})
+
+	t.Run("cannot-skip-validation", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
+
+		cfsm := newTestCFSM(
+			t,
+			testAddrs[2],
+			testAddrs[2],
+			ctrl,
+			delegates,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Times(1)
+			},
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
+			},
+			clock.New(),
+		)
+		cfsm.ctx.epoch = epoch
+		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
+
+		blk, err := cfsm.ctx.MintBlock()
+		assert.NoError(t, err)
+		// The block's working set is nil though the blocker's producer is the current node
+		blk.(*blockWrapper).WorkingSet = nil
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
@@ -949,6 +991,7 @@ func TestOneDelegate(t *testing.T) {
 	// propose block
 	blk, err := cfsm.ctx.MintBlock()
 	require.NoError(err)
+	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
 	state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
@@ -1032,6 +1075,7 @@ func TestTwoDelegates(t *testing.T) {
 	// propose block
 	blk, err := cfsm.ctx.MintBlock()
 	require.NoError(err)
+	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
 	state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
@@ -1319,8 +1363,8 @@ func newTestCFSM(
 	broadcastCB func(proto.Message) error,
 	clock clock.Clock,
 ) *cFSM {
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, 100000, big.NewInt(10))
 	require.NoError(t, err)
 	vote, err := testutil.SignedVote(a, a, 2, 100000, big.NewInt(10))
@@ -1436,7 +1480,7 @@ func newTestCFSM(
 func newTestAddr() *iotxaddress.Address {
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		logger.Panic().Err(err).Msg("error when creating test IoTeX address")
+		log.L().Panic("Error when creating test IoTeX address.", zap.Error(err))
 	}
 	pkHash := keypair.HashPubKey(pk)
 	addr := address.New(config.Default.Chain.ID, pkHash[:])

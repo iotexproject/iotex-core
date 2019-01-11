@@ -44,12 +44,6 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
-  name = "github.com/boltdb/bolt"
-  packages = ["."]
-  revision = "2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8"
-  version = "v1.3.1"
-
-[[projects]]
   branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = ["btcec"]
@@ -126,11 +120,13 @@
   version = "v1.2.0"
 
 [[projects]]
+  digest = "1:51958a9d82a82a677688d5b149225d4f578e0381bf59773962cc760badaef8b0"
   name = "github.com/golang/protobuf"
   packages = [
     "jsonpb",
     "proto",
-    "ptypes/struct"
+    "ptypes/struct",
+    "ptypes/timestamp",
   ]
   revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
   version = "v1.2.0"
@@ -667,16 +663,7 @@
   revision = "b1a0a9a36d7453ba0f62578b99712f3a6c5f82d1"
 
 [[projects]]
-  name = "github.com/rs/zerolog"
-  packages = [
-    ".",
-    "internal/cbor",
-    "internal/json"
-  ]
-  revision = "8747b7b3a51b5d08ee7ac50eaf4869edaf9f714a"
-  version = "v1.11.0"
-
-[[projects]]
+  digest = "1:919bb3aa6d9d0b67648c219fa4925312bc3c2872da19e818fa769e9c97a2b643"
   name = "github.com/spaolacci/murmur3"
   packages = ["."]
   revision = "9f5d223c60793748f04a9d5b4b4eacddfc1f755d"
@@ -775,9 +762,19 @@
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
+  digest = "1:598e5e64cb3e92ae8f4517c9657114a7335dd8af08496361f2838149701ef4d0"
   name = "github.com/zjshen14/go-p2p"
   packages = ["."]
-  revision = "95672e2c3e848397cfe4fa4eeade05e6f85c2a56"
+  pruneopts = "UT"
+  revision = "6591d74be57eb3441abeff3e2f3a8b61fdf6b69e"
+
+[[projects]]
+  digest = "1:3762d59edaa6e5c71d5e594c020c8391f274ff283e9c30fb43c518ec59a3f9b3"
+  name = "go.etcd.io/bbolt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "7ee3ded59d4835e10f3e7d0f7603c42aa5e83820"
+  version = "v1.3.1-etcd.8"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -811,6 +808,21 @@
   packages = ["."]
   revision = "3c4937480c32f4c13a875a1829af76c98ca3d40a"
   version = "v1.1.0"
+
+[[projects]]
+  digest = "1:c52caf7bd44f92e54627a31b85baf06a68333a196b3d8d241480a774733dcf8b"
+  name = "go.uber.org/zap"
+  packages = [
+    ".",
+    "buffer",
+    "internal/bufferpool",
+    "internal/color",
+    "internal/exit",
+    "zapcore",
+  ]
+  pruneopts = "UT"
+  revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
+  version = "v1.9.1"
 
 [[projects]]
   branch = "master"
@@ -892,6 +904,36 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fdcc3cbe8d90c4148c4e58bfada1a6d723876d7bc23375429e668b65ef7daedf"
+  input-imports = [
+    "github.com/CoderZhi/go-ethereum/common",
+    "github.com/CoderZhi/go-ethereum/core/types",
+    "github.com/CoderZhi/go-ethereum/core/vm",
+    "github.com/CoderZhi/go-ethereum/params",
+    "github.com/coopernurse/barrister-go",
+    "github.com/dgraph-io/badger",
+    "github.com/facebookgo/clock",
+    "github.com/go-sql-driver/mysql",
+    "github.com/golang/mock/gomock",
+    "github.com/golang/protobuf/jsonpb",
+    "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes/timestamp",
+    "github.com/pkg/errors",
+    "github.com/prometheus/client_golang/prometheus",
+    "github.com/prometheus/client_golang/prometheus/promhttp",
+    "github.com/spf13/cobra",
+    "github.com/stretchr/testify/assert",
+    "github.com/stretchr/testify/require",
+    "github.com/zjshen14/go-fsm",
+    "github.com/zjshen14/go-p2p",
+    "go.etcd.io/bbolt",
+    "go.uber.org/automaxprocs",
+    "go.uber.org/config",
+    "go.uber.org/zap",
+    "go.uber.org/zap/zapcore",
+    "golang.org/x/crypto/blake2b",
+    "golang.org/x/net/context",
+    "golang.org/x/sync/errgroup",
+    "gopkg.in/yaml.v2",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

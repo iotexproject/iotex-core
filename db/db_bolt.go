@@ -10,8 +10,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/config"
 )
@@ -139,6 +139,8 @@ func (b *boltDB) Commit(batch KVStoreBatch) error {
 		}
 
 	}()
+
+	dbBatchSizelMtc.WithLabelValues().Set(float64(batch.Size()))
 
 	var err error
 	numRetries := b.config.NumRetries

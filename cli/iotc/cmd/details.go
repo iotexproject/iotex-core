@@ -10,8 +10,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // detailsCmd represents the details command
@@ -28,12 +29,12 @@ var detailsCmd = &cobra.Command{
 func details(args []string) string {
 	client, err := getClient()
 	if err != nil {
-		logger.Error().Err(err).Msg("cannot get explorer client")
+		log.L().Error("Cannot get explorer client.", zap.Error(err))
 		return ""
 	}
 	det, err := client.GetAddressDetails(args[0])
 	if err != nil {
-		logger.Error().Err(err).Msgf("cannot get details for address %s", args[0])
+		log.S().Errorf("Cannot get details for address %s: %v.", args[0], err)
 		return ""
 	}
 	return fmt.Sprintf("Address %s nonce: %d\n", args[0], det.Nonce) +

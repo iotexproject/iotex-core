@@ -51,8 +51,8 @@ func TestNoncePriorityQueue(t *testing.T) {
 
 func TestActQueue_Put(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
 	vote1, err := testutil.SignedVote(a, b, 2, 0, big.NewInt(0))
 	require.NoError(err)
@@ -77,8 +77,8 @@ func TestActQueue_Put(t *testing.T) {
 
 func TestActQueue_FilterNonce(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
 	tsf1, err := testutil.SignedTransfer(a, b, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
@@ -100,8 +100,8 @@ func TestActQueue_FilterNonce(t *testing.T) {
 
 func TestActQueue_UpdateNonce(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
 	tsf1, err := testutil.SignedTransfer(a, b, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
@@ -132,8 +132,8 @@ func TestActQueue_UpdateNonce(t *testing.T) {
 
 func TestActQueue_PendingActs(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
 	vote1, err := testutil.SignedVote(a, b, 2, 0, big.NewInt(0))
 	require.NoError(err)
@@ -163,8 +163,8 @@ func TestActQueue_PendingActs(t *testing.T) {
 
 func TestActQueue_AllActs(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
 	vote1, err := testutil.SignedVote(a, b, 1, 0, big.NewInt(0))
 	require.NoError(err)
@@ -180,8 +180,8 @@ func TestActQueue_AllActs(t *testing.T) {
 
 func TestActQueue_removeActs(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
 	tsf1, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)

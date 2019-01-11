@@ -21,6 +21,8 @@ package bech32
 import (
 	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
@@ -34,14 +36,13 @@ func Decode(bech string) (string, []byte, error) {
 	// be at least 8 characters, since it needs a non-empty HRP, a
 	// separator, and a 6 character checksum.
 	if len(bech) < 8 || len(bech) > 90 {
-		return "", nil, fmt.Errorf("invalid bech32 string length %d",
+		return "", nil, errors.Errorf("invalid bech32 string length %d",
 			len(bech))
 	}
 	// Only	ASCII characters between 33 and 126 are allowed.
 	for i := 0; i < len(bech); i++ {
 		if bech[i] < 33 || bech[i] > 126 {
-			return "", nil, fmt.Errorf("invalid character in "+
-				"string: '%c'", bech[i])
+			return "", nil, errors.Errorf("invalid character in string: '%c'", bech[i])
 		}
 	}
 
@@ -49,8 +50,7 @@ func Decode(bech string) (string, []byte, error) {
 	lower := strings.ToLower(bech)
 	upper := strings.ToUpper(bech)
 	if bech != lower && bech != upper {
-		return "", nil, fmt.Errorf("string not all lowercase or all " +
-			"uppercase")
+		return "", nil, errors.New("string not all lowercase or all uppercase")
 	}
 
 	bech = lower
@@ -61,7 +61,7 @@ func Decode(bech string) (string, []byte, error) {
 	// or if the string is more than 90 characters in total.
 	one := strings.LastIndexByte(bech, '1')
 	if one < 1 || one+7 > len(bech) {
-		return "", nil, fmt.Errorf("invalid index of 1")
+		return "", nil, errors.New("invalid index of 1")
 	}
 
 	// The human-readable part is everything before the last '1'.
@@ -72,8 +72,7 @@ func Decode(bech string) (string, []byte, error) {
 	// 'charset'.
 	decoded, err := toBytes(data)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed converting data to bytes: "+
-			"%v", err)
+		return "", nil, errors.Errorf("failed converting data to bytes: %v", err)
 	}
 
 	if !bech32VerifyChecksum(hrp, decoded) {
@@ -85,7 +84,7 @@ func Decode(bech string) (string, []byte, error) {
 			moreInfo = fmt.Sprintf("Expected %v, got %v.",
 				expected, checksum)
 		}
-		return "", nil, fmt.Errorf("checksum failed. " + moreInfo)
+		return "", nil, errors.Errorf("checksum failed: %s.", moreInfo)
 	}
 
 	// We exclude the last 6 bytes, which is the checksum.
@@ -105,8 +104,7 @@ func Encode(hrp string, data []byte) (string, error) {
 	// represented using the specified charset.
 	dataChars, err := toChars(combined)
 	if err != nil {
-		return "", fmt.Errorf("unable to convert data bytes to chars: "+
-			"%v", err)
+		return "", errors.Errorf("unable to convert data bytes to chars: %v", err)
 	}
 	return hrp + "1" + dataChars, nil
 }
@@ -118,8 +116,7 @@ func toBytes(chars string) ([]byte, error) {
 	for i := 0; i < len(chars); i++ {
 		index := strings.IndexByte(charset, chars[i])
 		if index < 0 {
-			return nil, fmt.Errorf("invalid character not part of "+
-				"charset: %v", chars[i])
+			return nil, errors.Errorf("invalid character not part of charset: %v", chars[i])
 		}
 		decoded = append(decoded, byte(index))
 	}
@@ -132,7 +129,7 @@ func toChars(data []byte) (string, error) {
 	result := make([]byte, 0, len(data))
 	for _, b := range data {
 		if int(b) >= len(charset) {
-			return "", fmt.Errorf("invalid data byte: %v", b)
+			return "", errors.Errorf("invalid data byte: %v", b)
 		}
 		result = append(result, charset[b])
 	}
@@ -143,7 +140,7 @@ func toChars(data []byte) (string, error) {
 // to a byte slice where each byte is encoding toBits bits.
 func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) {
 	if fromBits < 1 || fromBits > 8 || toBits < 1 || toBits > 8 {
-		return nil, fmt.Errorf("only bit groups between 1 and 8 allowed")
+		return nil, errors.New("only bit groups between 1 and 8 allowed")
 	}
 
 	// The final bytes, each byte encoding toBits bits.
@@ -202,7 +199,7 @@ func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) 
 
 	// Any incomplete group must be <= 4 bits, and all zeroes.
 	if filledBits > 0 && (filledBits > 4 || nextByte != 0) {
-		return nil, fmt.Errorf("invalid incomplete group")
+		return nil, errors.New("invalid incomplete group")
 	}
 
 	return regrouped, nil

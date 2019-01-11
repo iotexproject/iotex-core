@@ -11,11 +11,12 @@ import (
 
 	"github.com/facebookgo/clock"
 	fsm "github.com/zjshen14/go-fsm"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -95,7 +96,7 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 	}
 	block := &block.Block{}
 	if err := block.Deserialize(pMsg.Block); err != nil {
-		logger.Error().Err(err).Msg("failed to deserialize block")
+		log.L().Error("Failed to deserialize block.", zap.Error(err))
 		return nil
 	}
 	var lockProof *endorsement.Set
@@ -103,7 +104,7 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 		lockProof = &endorsement.Set{}
 		err := lockProof.FromProto(pMsg.LockProof)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to generate proposeBlkEvt from protobuf")
+			log.L().Error("Failed to generate proposeBlkEvt from protobuf.", zap.Error(err))
 			return nil
 		}
 	}

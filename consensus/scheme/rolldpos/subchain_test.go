@@ -28,8 +28,8 @@ func TestPutBlockToParentChain(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	addr := testaddress.Addrinfo["producer"]
-	subAddr := testaddress.Addrinfo["echo"]
+	addr := testaddress.IotxAddrinfo["producer"]
+	subAddr := testaddress.IotxAddrinfo["echo"]
 	blk := block.Block{}
 	blkpb := &iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{

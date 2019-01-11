@@ -4,16 +4,21 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package testutil
+// A warrper for Zerolog (https://github.com/rs/zerolog)
+//
+// Package log provides a global logger for zerolog.
+// derived from https://github.com/rs/zerolog/blob/master/log/log.go
+// putting here to get a better integration
 
-import "github.com/facebookgo/clock"
+package log
 
-// TimestampNow get now timestamp from new clock
-func TimestampNow() int64 {
-	return TimestampNowFromClock(clock.New())
-}
+import (
+	"encoding/hex"
 
-// TimestampNowFromClock get now timestamp from specific clock
-func TimestampNowFromClock(c clock.Clock) int64 {
-	return c.Now().Unix()
+	"go.uber.org/zap"
+)
+
+// Hex creates a zap field which convert binary to hex.
+func Hex(k string, d []byte) zap.Field {
+	return zap.String(k, hex.EncodeToString(d))
 }

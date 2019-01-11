@@ -8,7 +8,6 @@ package explorer
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"net"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
@@ -27,9 +27,9 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -175,7 +175,7 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 					return []explorer.Transfer{}, errors.Wrapf(err,
 						"failed to convert transfer %v to explorer's JSON transfer", selps[i])
 				}
-				explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+				explorerTransfer.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 				explorerTransfer.BlockID = blkID
 				res = append(res, explorerTransfer)
 			}
@@ -308,7 +308,7 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 		if err != nil {
 			return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", selp)
 		}
-		explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+		explorerTransfer.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 		explorerTransfer.BlockID = blkID
 		res = append(res, explorerTransfer)
 		num++
@@ -357,7 +357,7 @@ func (exp *Service) GetLastVotesByRange(startBlockHeight int64, offset int64, li
 			if err != nil {
 				return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", selps[i])
 			}
-			explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+			explorerVote.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 			explorerVote.BlockID = blkID
 			res = append(res, explorerVote)
 		}
@@ -490,7 +490,7 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 		if err != nil {
 			return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", selp)
 		}
-		explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+		explorerVote.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 		explorerVote.BlockID = blkID
 		res = append(res, explorerVote)
 		num++
@@ -540,7 +540,7 @@ func (exp *Service) GetLastExecutionsByRange(startBlockHeight int64, offset int6
 				return []explorer.Execution{}, errors.Wrapf(err,
 					"failed to convert execution %v to explorer's JSON execution", selps[i])
 			}
-			explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+			explorerExecution.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 			explorerExecution.BlockID = blkID
 			res = append(res, explorerExecution)
 		}
@@ -672,7 +672,7 @@ func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int
 		if err != nil {
 			return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", selp)
 		}
-		explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+		explorerExecution.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 		explorerExecution.BlockID = blkID
 		res = append(res, explorerExecution)
 		num++
@@ -820,10 +820,12 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			totalSize += transfer.TotalSize()
 		}
 
+		txRoot := blk.TxRoot()
+		stateRoot := blk.StateRoot()
 		explorerBlock := explorer.Block{
 			ID:         hex.EncodeToString(hash[:]),
 			Height:     int64(blockHeaderPb.Height),
-			Timestamp:  int64(blockHeaderPb.Timestamp),
+			Timestamp:  blockHeaderPb.GetTimestamp().GetSeconds(),
 			Transfers:  int64(len(transfers)),
 			Votes:      int64(len(votes)),
 			Executions: int64(len(executions)),
@@ -833,6 +835,8 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 				Name:    "",
 				Address: keypair.EncodePublicKey(blk.PublicKey()),
 			},
+			TxRoot:    hex.EncodeToString(txRoot[:]),
+			StateRoot: hex.EncodeToString(stateRoot[:]),
 		}
 
 		res = append(res, explorerBlock)
@@ -865,10 +869,12 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		totalSize += transfer.TotalSize()
 	}
 
+	txRoot := blk.TxRoot()
+	stateRoot := blk.StateRoot()
 	explorerBlock := explorer.Block{
 		ID:         blkID,
 		Height:     int64(blkHeaderPb.Height),
-		Timestamp:  int64(blkHeaderPb.Timestamp),
+		Timestamp:  blkHeaderPb.GetTimestamp().GetSeconds(),
 		Transfers:  int64(len(transfers)),
 		Votes:      int64(len(votes)),
 		Executions: int64(len(executions)),
@@ -878,6 +884,8 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 			Name:    "",
 			Address: keypair.EncodePublicKey(blk.PublicKey()),
 		},
+		TxRoot:    hex.EncodeToString(txRoot[:]),
+		StateRoot: hex.EncodeToString(stateRoot[:]),
 	}
 
 	return explorerBlock, nil
@@ -1041,7 +1049,7 @@ func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetr
 
 // SendTransfer sends a transfer
 func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp explorer.SendTransferResponse, err error) {
-	logger.Debug().Msg("receive send transfer request")
+	log.L().Debug("receive send transfer request")
 
 	defer func() {
 		succeed := "true"
@@ -1072,7 +1080,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 
 // SendVote sends a vote
 func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.SendVoteResponse, err error) {
-	logger.Debug().Msg("receive send vote request")
+	log.L().Debug("receive send vote request")
 
 	defer func() {
 		succeed := "true"
@@ -1125,7 +1133,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 
 // PutSubChainBlock put block merkel root on root chain.
 func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockRequest) (resp explorer.PutSubChainBlockResponse, err error) {
-	logger.Debug().Msg("receive put block request")
+	log.L().Debug("receive put block request")
 
 	defer func() {
 		succeed := "true"
@@ -1192,7 +1200,7 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 
 // SendAction is the API to send an action to blockchain.
 func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.SendActionResponse, err error) {
-	logger.Debug().Msg("receive send action request")
+	log.L().Debug("receive send action request")
 
 	defer func() {
 		succeed := "true"
@@ -1209,7 +1217,7 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 
 	// broadcast to the network
 	if err = exp.broadcastHandler(exp.bc.ChainID(), &action); err != nil {
-		logger.Warn().Err(err).Msg("failed to broadcast SendAction request.")
+		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	// send to actpool via dispatcher
 	exp.dp.HandleBroadcast(exp.bc.ChainID(), &action)
@@ -1234,7 +1242,7 @@ func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
 
 // SendSmartContract sends a smart contract
 func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explorer.SendSmartContractResponse, err error) {
-	logger.Debug().Msg("receive send smart contract request")
+	log.L().Debug("receive send smart contract request")
 
 	defer func() {
 		succeed := "true"
@@ -1297,7 +1305,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 
 // ReadExecutionState reads the state in a contract address specified by the slot
 func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, error) {
-	logger.Debug().Msg("receive read smart contract request")
+	log.L().Debug("receive read smart contract request")
 
 	actPb, err := convertExplorerExecutionToActionPb(&execution)
 	if err != nil {
@@ -1410,7 +1418,7 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 		}
 	}
 	if targetSubChain.ID != uint32(subChainID) {
-		return nil, fmt.Errorf("sub-chain %d is not found in operation", subChainID)
+		return nil, errors.Errorf("sub-chain %d is not found in operation", subChainID)
 	}
 	subChainAddr, err := address.BytesToAddress(targetSubChain.Addr)
 	if err != nil {
@@ -1526,6 +1534,15 @@ func (exp *Service) EstimateGasForSmartContract(execution explorer.Execution) (i
 	return exp.gs.estimateGasForSmartContract(execution)
 }
 
+// GetStateRootHash gets the state root hash of a given block height
+func (exp *Service) GetStateRootHash(blockHeight int64) (string, error) {
+	rootHash, err := exp.bc.GetFactory().RootHashByHeight(uint64(blockHeight))
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(rootHash[:]), nil
+}
+
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
 func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B, idx *indexservice.Server, useRDS bool) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
@@ -1564,7 +1581,7 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 	if explorerTransfer, err = convertTsfToExplorerTsf(selp, false); err != nil {
 		return explorerTransfer, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", selp)
 	}
-	explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	explorerTransfer.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	explorerTransfer.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerTransfer, nil
 }
@@ -1607,7 +1624,7 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 	if explorerVote, err = convertVoteToExplorerVote(selp, false); err != nil {
 		return explorerVote, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", selp)
 	}
-	explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	explorerVote.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	explorerVote.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerVote, nil
 }
@@ -1650,7 +1667,7 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	if explorerExecution, err = convertExecutionToExplorerExecution(selp, false); err != nil {
 		return explorerExecution, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", selp)
 	}
-	explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	explorerExecution.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	explorerExecution.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerExecution, nil
 }
@@ -1688,7 +1705,7 @@ func getCreateDeposit(
 	if err != nil {
 		return explorer.CreateDeposit{}, err
 	}
-	cd.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	cd.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	cd.BlockID = hex.EncodeToString(blkHash[:])
 	return cd, nil
 }
@@ -1750,7 +1767,7 @@ func getSettleDeposit(
 	if err != nil {
 		return explorer.SettleDeposit{}, err
 	}
-	sd.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	sd.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	sd.BlockID = hex.EncodeToString(blkHash[:])
 	return sd, nil
 }

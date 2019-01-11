@@ -7,7 +7,6 @@
 package keystore
 
 import (
-	"encoding/json"
 	"path/filepath"
 
 	"github.com/pkg/errors"
@@ -16,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
@@ -52,58 +50,55 @@ func NewMemAccountManager() *AccountManager {
 }
 
 // Contains returns whether keystore contains the given account
-func (m *AccountManager) Contains(rawAddr string) (bool, error) {
-	return m.keystore.Has(rawAddr)
+func (m *AccountManager) Contains(encodedAddr string) (bool, error) {
+	return m.keystore.Has(encodedAddr)
 }
 
 // Remove removes the given account if exists
-func (m *AccountManager) Remove(rawAddr string) error {
-	return m.keystore.Remove(rawAddr)
+func (m *AccountManager) Remove(encodedAddr string) error {
+	return m.keystore.Remove(encodedAddr)
 }
 
-// NewAccount creates a new account
-func (m *AccountManager) NewAccount() (*iotxaddress.Address, error) {
+// NewAccount creates and stores a new account
+func (m *AccountManager) NewAccount() (keypair.PrivateKey, error) {
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate key pair")
+		return keypair.ZeroPrivateKey, errors.Wrap(err, "failed to generate key pair")
 	}
-	// TODO: need to fix the chain ID
 	pkHash := keypair.HashPubKey(pk)
+	// TODO: need to fix the chain ID
 	addr := address.New(config.Default.Chain.ID, pkHash[:])
-	iotxAddr := iotxaddress.Address{
-		PublicKey:  pk,
-		PrivateKey: sk,
-		RawAddress: addr.IotxAddress(),
+	if err := m.keystore.Store(addr.Bech32(), sk); err != nil {
+		return keypair.ZeroPrivateKey, errors.Wrapf(err, "failed to store account %s", addr.Bech32())
 	}
-	if err := m.keystore.Store(iotxAddr.RawAddress, &iotxAddr); err != nil {
-		return nil, errors.Wrapf(err, "failed to store account %s", iotxAddr.RawAddress)
-	}
-	return &iotxAddr, nil
+	return sk, nil
 }
 
 // Import imports key bytes and stores it as a new account
 func (m *AccountManager) Import(keyBytes []byte) error {
-	var key Key
-	if err := json.Unmarshal(keyBytes, &key); err != nil {
-		return errors.Wrap(err, "failed to unmarshal key")
-	}
-	address, err := keyToAddr(&key)
+	priKey, err := keypair.BytesToPrivateKey(keyBytes)
 	if err != nil {
-		return errors.Wrap(err, "fail to convert key to address")
+		return errors.Wrap(err, "failed to convert bytes to private key")
 	}
-	if err := m.keystore.Store(address.RawAddress, address); err != nil {
-		return errors.Wrapf(err, "failed to store account %s", address.RawAddress)
+	pubKey, err := crypto.EC283.NewPubKey(priKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to derive public key from private key")
+	}
+	pkHash := keypair.HashPubKey(pubKey)
+	addr := address.New(config.Default.Chain.ID, pkHash[:])
+	if err := m.keystore.Store(addr.Bech32(), priKey); err != nil {
+		return errors.Wrapf(err, "failed to store account %s", addr.Bech32())
 	}
 	return nil
 }
 
 // SignAction signs an action envelope.
-func (m *AccountManager) SignAction(rawAddr string, elp action.Envelope) (action.SealedEnvelope, error) {
-	addr, err := m.keystore.Get(rawAddr)
+func (m *AccountManager) SignAction(encodedAddr string, elp action.Envelope) (action.SealedEnvelope, error) {
+	key, err := m.keystore.Get(encodedAddr)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to get account %s", rawAddr)
+		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to get the private key of account %s", encodedAddr)
 	}
-	selp, err := action.Sign(elp, addr.RawAddress, addr.PrivateKey)
+	selp, err := action.Sign(elp, encodedAddr, key)
 	if err != nil {
 		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
@@ -111,10 +106,10 @@ func (m *AccountManager) SignAction(rawAddr string, elp action.Envelope) (action
 }
 
 // SignHash signs a hash
-func (m *AccountManager) SignHash(rawAddr string, hash []byte) ([]byte, error) {
-	addr, err := m.keystore.Get(rawAddr)
+func (m *AccountManager) SignHash(encodedAddr string, hash []byte) ([]byte, error) {
+	key, err := m.keystore.Get(encodedAddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get account %s", rawAddr)
+		return nil, errors.Wrapf(err, "failed to get the private key of account %s", encodedAddr)
 	}
-	return crypto.EC283.Sign(addr.PrivateKey, hash), nil
+	return crypto.EC283.Sign(key, hash), nil
 }

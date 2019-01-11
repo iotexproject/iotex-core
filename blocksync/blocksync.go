@@ -11,14 +11,15 @@ import (
 	"net"
 
 	"github.com/golang/protobuf/proto"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -125,7 +126,7 @@ func (bs *blockSyncer) TargetHeight() uint64 {
 
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
-	logger.Debug().Msg("Starting block syncer")
+	log.L().Debug("Starting block syncer.")
 	bs.commitHeight = bs.buf.CommitHeight()
 	if err := bs.chaser.Start(ctx); err != nil {
 		return err
@@ -135,7 +136,7 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop(ctx context.Context) error {
-	logger.Debug().Msg("Stopping block syncer")
+	log.L().Debug("Stopping block syncer.")
 	if err := bs.chaser.Stop(ctx); err != nil {
 		return err
 	}
@@ -153,9 +154,9 @@ func (bs *blockSyncer) ProcessBlock(blk *block.Block) error {
 	moved, re := bs.buf.Flush(blk)
 	switch re {
 	case bCheckinLower:
-		logger.Debug().Msg("Drop block lower than buffer's accept height.")
+		log.L().Debug("Drop block lower than buffer's accept height.")
 	case bCheckinExisting:
-		logger.Debug().Msg("Drop block exists in buffer.")
+		log.L().Debug("Drop block exists in buffer.")
 	case bCheckinHigher:
 		needSync = true
 	case bCheckinValid:
@@ -199,7 +200,7 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *iproto.BlockSync)
 			node.NewTCPNode(sender),
 			&iproto.BlockContainer{Block: blk.ConvertToBlockPb()},
 		); err != nil {
-			logger.Warn().Err(err).Msg("Failed to response to ProcessSyncRequest.")
+			log.L().Warn("Failed to response to ProcessSyncRequest.", zap.Error(err))
 		}
 	}
 	return nil
@@ -213,5 +214,5 @@ func (bs *blockSyncer) Chase() {
 	}
 	// commit height hasn't changed since last chase interval
 	bs.worker.SetTargetHeight(bs.bc.TipHeight() + 1)
-	logger.Info().Uint64("stuck", bs.commitHeight).Msg("Chaser")
+	log.L().Info("Chaser is chasing.", zap.Uint64("stuck", bs.commitHeight))
 }
