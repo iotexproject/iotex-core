@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	d "github.com/iotexproject/iotex-core/db"
+	s "github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
@@ -75,7 +75,7 @@ type (
 // Indexer handles the index build for blocks
 type Indexer struct {
 	cfg                config.Indexer
-	rds                d.Store
+	rds                s.Store
 	hexEncodedNodeAddr string
 }
 
@@ -173,7 +173,7 @@ func (idx *Indexer) GetTransferHistory(userAddr string) ([]hash.Hash32B, error) 
 	}
 
 	var transferHistory TransferHistory
-	parsedRows, err := d.ParseSQLRows(rows, &transferHistory)
+	parsedRows, err := s.ParseSQLRows(rows, &transferHistory)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse results")
 	}
@@ -217,7 +217,7 @@ func (idx *Indexer) GetBlockByTransfer(transferHash hash.Hash32B) (hash.Hash32B,
 	}
 
 	var transferToBlock TransferToBlock
-	parsedRows, err := d.ParseSQLRows(rows, &transferToBlock)
+	parsedRows, err := s.ParseSQLRows(rows, &transferToBlock)
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
 	}
@@ -269,7 +269,7 @@ func (idx *Indexer) GetVoteHistory(userAddr string) ([]hash.Hash32B, error) {
 	}
 
 	var voteHistory VoteHistory
-	parsedRows, err := d.ParseSQLRows(rows, &voteHistory)
+	parsedRows, err := s.ParseSQLRows(rows, &voteHistory)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse results")
 	}
@@ -313,7 +313,7 @@ func (idx *Indexer) GetBlockByVote(voteHash hash.Hash32B) (hash.Hash32B, error) 
 	}
 
 	var voteToBlock VoteToBlock
-	parsedRows, err := d.ParseSQLRows(rows, &voteToBlock)
+	parsedRows, err := s.ParseSQLRows(rows, &voteToBlock)
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
 	}
@@ -365,7 +365,7 @@ func (idx *Indexer) GetExecutionHistory(userAddr string) ([]hash.Hash32B, error)
 	}
 
 	var executionHistory ExecutionHistory
-	parsedRows, err := d.ParseSQLRows(rows, &executionHistory)
+	parsedRows, err := s.ParseSQLRows(rows, &executionHistory)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse results")
 	}
@@ -409,7 +409,7 @@ func (idx *Indexer) GetBlockByExecution(executionHash hash.Hash32B) (hash.Hash32
 	}
 
 	var executionToBlock ExecutionToBlock
-	parsedRows, err := d.ParseSQLRows(rows, &executionToBlock)
+	parsedRows, err := s.ParseSQLRows(rows, &executionToBlock)
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
 	}
@@ -460,7 +460,7 @@ func (idx *Indexer) GetActionHistory(userAddr string) ([]hash.Hash32B, error) {
 	}
 
 	var actionHistory ActionHistory
-	parsedRows, err := d.ParseSQLRows(rows, &actionHistory)
+	parsedRows, err := s.ParseSQLRows(rows, &actionHistory)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse results")
 	}
@@ -503,7 +503,7 @@ func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, err
 	}
 
 	var actionToBlock ActionToBlock
-	parsedRows, err := d.ParseSQLRows(rows, &actionToBlock)
+	parsedRows, err := s.ParseSQLRows(rows, &actionToBlock)
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
 	}

@@ -17,8 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/rds"
+	"github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -29,7 +28,7 @@ var (
 )
 
 func TestIndexService(t *testing.T) {
-	testRDSStorePutGet := func(rdsStore db.Store, t *testing.T) {
+	testRDSStorePutGet := func(rdsStore sql.Store, t *testing.T) {
 		t.Skip("Skipping when RDS credentail not provided.")
 
 		require := require.New(t)
@@ -184,6 +183,6 @@ func TestIndexService(t *testing.T) {
 	t.Run("Indexer", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
-		testRDSStorePutGet(rds.NewAwsRDS(cfg), t)
+		testRDSStorePutGet(sql.NewAwsRDS(cfg), t)
 	})
 }

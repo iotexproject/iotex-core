@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db/rds"
+	"github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -60,7 +60,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	s.idx.hexEncodedNodeAddr = addr
 
-	s.idx.rds = rds.NewAwsRDS(&s.cfg.DB.RDS)
+	s.idx.rds = sql.NewAwsRDS(&s.cfg.DB.RDS)
 	if err := s.idx.rds.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when start rds store")
 	}

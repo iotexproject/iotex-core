@@ -47,7 +47,7 @@
   branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = ["btcec"]
-  revision = "7d2daa5bfef28c5e282571bc06416516936115ee"
+  revision = "67e573d211ace594f1366b4ce9d39726c4b19bd0"
 
 [[projects]]
   branch = "master"
@@ -84,7 +84,7 @@
   branch = "master"
   name = "github.com/dgryski/go-farm"
   packages = ["."]
-  revision = "3adb47b1fb0f6d9efcc5051a6c62e2e413ac85a9"
+  revision = "2de33835d10275975374b37b2dcfd22c9020a1f5"
 
 [[projects]]
   branch = "master"
@@ -110,23 +110,22 @@
     "io",
     "proto"
   ]
-  revision = "4cbf7e384e768b4e01799441fdf2a706a5635ae7"
-  version = "v1.2.0"
+  revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/golang/mock"
   packages = ["gomock"]
-  revision = "51421b967af1f557f93a59e0057aaf15ca02e29c"
-  version = "v1.2.0"
+  revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
+  version = "v1.1.1"
 
 [[projects]]
-  digest = "1:51958a9d82a82a677688d5b149225d4f578e0381bf59773962cc760badaef8b0"
   name = "github.com/golang/protobuf"
   packages = [
     "jsonpb",
     "proto",
     "ptypes/struct",
-    "ptypes/timestamp",
+    "ptypes/timestamp"
   ]
   revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
   version = "v1.2.0"
@@ -142,6 +141,18 @@
   packages = ["."]
   revision = "66b9c49e59c6c48f0ffce28c2d8b8a5678502c6d"
   version = "v1.4.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/gxed/GoEndian"
+  packages = ["."]
+  revision = "0f5c6873267e5abf306ffcdfcfa4bf77517ef4a7"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/gxed/eventfd"
+  packages = ["."]
+  revision = "80a92cca79a8041496ccc9dd773fcb52a57ec6f9"
 
 [[projects]]
   branch = "master"
@@ -292,23 +303,12 @@
     ".",
     "config",
     "p2p/host/basic",
-    "p2p/host/relay",
-    "p2p/host/routed",
     "p2p/protocol/identify",
     "p2p/protocol/identify/pb",
     "p2p/protocol/ping"
   ]
-  revision = "1a0c9bc9f4ef2a3213c4b6e0161bac35f3de15f9"
-  version = "v6.0.29"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/libp2p/go-libp2p-autonat"
-  packages = [
-    ".",
-    "pb"
-  ]
-  revision = "93b1787f76de807b9ab3a7c7edd45cf906139bdb"
+  revision = "9356373d00ab1aef3e20c8202b682f93799acf78"
+  version = "v6.0.23"
 
 [[projects]]
   name = "github.com/libp2p/go-libp2p-circuit"
@@ -327,12 +327,6 @@
   ]
   revision = "274de1bb6c27780863df6b230c91324ab481dab2"
   version = "v2.0.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/libp2p/go-libp2p-discovery"
-  packages = ["."]
-  revision = "cc4105e21706452e5b0f7e05390f987017188d31"
 
 [[projects]]
   name = "github.com/libp2p/go-libp2p-host"
@@ -497,15 +491,25 @@
 
 [[projects]]
   name = "github.com/libp2p/go-reuseport"
-  packages = ["."]
-  revision = "b3fd01f43ca522cd465bc82eb8a6d00be6b3039b"
-  version = "v0.2.0"
+  packages = [
+    ".",
+    "poll",
+    "singlepoll"
+  ]
+  revision = "dd0c37d7767bc38280bd9813145b65f8bd560629"
+  version = "v0.1.18"
 
 [[projects]]
   name = "github.com/libp2p/go-reuseport-transport"
   packages = ["."]
   revision = "58ea7103ffb4b5eb248c4421e60fdb30e9a56dad"
   version = "v0.1.11"
+
+[[projects]]
+  name = "github.com/libp2p/go-sockaddr"
+  packages = ["net"]
+  revision = "5c3ac7e71ec1941a0c2ed4271535d9427feb829c"
+  version = "v1.0.3"
 
 [[projects]]
   name = "github.com/libp2p/go-stream-muxer"
@@ -538,10 +542,10 @@
   version = "v0.0.4"
 
 [[projects]]
-  branch = "master"
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
-  revision = "3fa1c550ffa69b74dc4bfd5109b4e218f32c87cf"
+  revision = "c7c4067b79cc51e6dfdcef5c702e74b1e0fa7c75"
+  version = "v1.10.0"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
@@ -559,7 +563,7 @@
   branch = "master"
   name = "github.com/minio/sha256-simd"
   packages = ["."]
-  revision = "66352e71c5e1cd598fa97be77a56fe3973730042"
+  revision = "51976451ce1942acbb55707a983ed232fa027110"
 
 [[projects]]
   name = "github.com/mr-tron/base58"
@@ -570,8 +574,8 @@
 [[projects]]
   name = "github.com/multiformats/go-multiaddr"
   packages = ["."]
-  revision = "8c3eb5dc1c12c5723d5b1d7de82abfa0e6f719d7"
-  version = "v1.4.0"
+  revision = "2b4e098f3e0aa2c8bc960f0e4bdc3247efc3749c"
+  version = "v1.3.0"
 
 [[projects]]
   name = "github.com/multiformats/go-multiaddr-dns"
@@ -582,8 +586,8 @@
 [[projects]]
   name = "github.com/multiformats/go-multiaddr-net"
   packages = ["."]
-  revision = "c75d1cac17a0d84dbf8b2c53c61f0ebf0575183a"
-  version = "v1.7.1"
+  revision = "cba4f9fea8613343eb7ecc4ddadd8e7298a00c39"
+  version = "v1.6.3"
 
 [[projects]]
   name = "github.com/multiformats/go-multibase"
@@ -616,8 +620,8 @@
 [[projects]]
   name = "github.com/pkg/errors"
   packages = ["."]
-  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
-  version = "v0.8.1"
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -632,8 +636,8 @@
     "prometheus/internal",
     "prometheus/promhttp"
   ]
-  revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
-  version = "v0.9.2"
+  revision = "abad2d1bd44235a26707c172eab6bca5bf2dbad3"
+  version = "v0.9.1"
 
 [[projects]]
   branch = "master"
@@ -649,7 +653,7 @@
     "internal/bitbucket.org/ww/goautoneg",
     "model"
   ]
-  revision = "b1c43a6df3aedba268353d940b5974f05037ed5c"
+  revision = "1f2c4f3cd6db5fd6f68f36af6b6d5d936fd93c4e"
 
 [[projects]]
   branch = "master"
@@ -660,10 +664,19 @@
     "nfs",
     "xfs"
   ]
-  revision = "b1a0a9a36d7453ba0f62578b99712f3a6c5f82d1"
+  revision = "185b4288413d2a0dd0806f78c90dde719829e5ae"
 
 [[projects]]
-  digest = "1:919bb3aa6d9d0b67648c219fa4925312bc3c2872da19e818fa769e9c97a2b643"
+  name = "github.com/rs/zerolog"
+  packages = [
+    ".",
+    "internal/cbor",
+    "internal/json"
+  ]
+  revision = "8747b7b3a51b5d08ee7ac50eaf4869edaf9f714a"
+  version = "v1.11.0"
+
+[[projects]]
   name = "github.com/spaolacci/murmur3"
   packages = ["."]
   revision = "9f5d223c60793748f04a9d5b4b4eacddfc1f755d"
@@ -687,8 +700,8 @@
     "assert",
     "require"
   ]
-  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
-  version = "v1.3.0"
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
 
 [[projects]]
   branch = "master"
@@ -762,17 +775,13 @@
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
-  digest = "1:598e5e64cb3e92ae8f4517c9657114a7335dd8af08496361f2838149701ef4d0"
   name = "github.com/zjshen14/go-p2p"
   packages = ["."]
-  pruneopts = "UT"
   revision = "6591d74be57eb3441abeff3e2f3a8b61fdf6b69e"
 
 [[projects]]
-  digest = "1:3762d59edaa6e5c71d5e594c020c8391f274ff283e9c30fb43c518ec59a3f9b3"
   name = "go.etcd.io/bbolt"
   packages = ["."]
-  pruneopts = "UT"
   revision = "7ee3ded59d4835e10f3e7d0f7603c42aa5e83820"
   version = "v1.3.1-etcd.8"
 
@@ -810,7 +819,6 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:c52caf7bd44f92e54627a31b85baf06a68333a196b3d8d241480a774733dcf8b"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -818,9 +826,8 @@
     "internal/bufferpool",
     "internal/color",
     "internal/exit",
-    "zapcore",
+    "zapcore"
   ]
-  pruneopts = "UT"
   revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
   version = "v1.9.1"
 
@@ -834,7 +841,7 @@
     "ripemd160",
     "sha3"
   ]
-  revision = "ff983b9c42bc9fbf91556e191cc8efb585c16908"
+  revision = "3d3f9f413869b949e48070b5bc593aa22cc2b8f2"
 
 [[projects]]
   branch = "master"
@@ -847,13 +854,13 @@
     "internal/timeseries",
     "trace"
   ]
-  revision = "927f97764cc334a6575f4b7a1584a147864d5723"
+  revision = "adae6a3d119ae4890b46832a2e88a95adc62b8e7"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sync"
   packages = ["errgroup"]
-  revision = "37e7f081c4d4c64e13b10787722085407fe5d15f"
+  revision = "42b317875d0fa942474b76e1b46a6060d720ae6e"
 
 [[projects]]
   branch = "master"
@@ -863,7 +870,7 @@
     "unix",
     "windows"
   ]
-  revision = "1775db3f06b568179d273425900dd09125831dd5"
+  revision = "93218def8b18e66adbdab3eca8ec334700329f1f"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -892,48 +899,18 @@
 [[projects]]
   name = "google.golang.org/appengine"
   packages = ["cloudsql"]
-  revision = "e9657d882bb81064595ca3b56cbe2546bbabf7b1"
-  version = "v1.4.0"
+  revision = "4a4468ece617fc8205e99368fa2200e9d1fad421"
+  version = "v1.3.0"
 
 [[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
-  version = "v2.2.2"
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  version = "v2.2.1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  input-imports = [
-    "github.com/CoderZhi/go-ethereum/common",
-    "github.com/CoderZhi/go-ethereum/core/types",
-    "github.com/CoderZhi/go-ethereum/core/vm",
-    "github.com/CoderZhi/go-ethereum/params",
-    "github.com/coopernurse/barrister-go",
-    "github.com/dgraph-io/badger",
-    "github.com/facebookgo/clock",
-    "github.com/go-sql-driver/mysql",
-    "github.com/golang/mock/gomock",
-    "github.com/golang/protobuf/jsonpb",
-    "github.com/golang/protobuf/proto",
-    "github.com/golang/protobuf/ptypes/timestamp",
-    "github.com/pkg/errors",
-    "github.com/prometheus/client_golang/prometheus",
-    "github.com/prometheus/client_golang/prometheus/promhttp",
-    "github.com/spf13/cobra",
-    "github.com/stretchr/testify/assert",
-    "github.com/stretchr/testify/require",
-    "github.com/zjshen14/go-fsm",
-    "github.com/zjshen14/go-p2p",
-    "go.etcd.io/bbolt",
-    "go.uber.org/automaxprocs",
-    "go.uber.org/config",
-    "go.uber.org/zap",
-    "go.uber.org/zap/zapcore",
-    "golang.org/x/crypto/blake2b",
-    "golang.org/x/net/context",
-    "golang.org/x/sync/errgroup",
-    "gopkg.in/yaml.v2",
-  ]
+  inputs-digest = "dcb6075380e9a68268290f2144a5fe8148e67ba901cfe9784a571f6edc6695b8"
   solver-name = "gps-cdcl"
   solver-version = 1

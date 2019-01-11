@@ -1,4 +1,10 @@
-package db
+// Copyright (c) 2019 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+package sql
 
 import (
 	"context"
@@ -23,8 +29,8 @@ type Store interface {
 	Transact(txFunc func(*sql.Tx) error) (err error)
 }
 
-// sqlbase is local sqlite3
-type sqlbase struct {
+// storebase is local sqlite3
+type storebase struct {
 	mutex      sync.RWMutex
 	db         *sql.DB
 	connectStr string
@@ -36,11 +42,11 @@ var logger = zerolog.New(os.Stderr).Level(zerolog.InfoLevel).With().Timestamp().
 
 // NewSQLBase instantiates an sqlite3
 func NewSQLBase(driverName string, connectStr string) Store {
-	return &sqlbase{db: nil, connectStr: connectStr, driverName: driverName}
+	return &storebase{db: nil, connectStr: connectStr, driverName: driverName}
 }
 
 // Start opens the SQL (creates new file if not existing yet)
-func (s *sqlbase) Start(_ context.Context) error {
+func (s *storebase) Start(_ context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -58,7 +64,7 @@ func (s *sqlbase) Start(_ context.Context) error {
 }
 
 // Stop closes the SQL
-func (s *sqlbase) Stop(_ context.Context) error {
+func (s *storebase) Stop(_ context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -71,7 +77,7 @@ func (s *sqlbase) Stop(_ context.Context) error {
 }
 
 // Stop closes the SQL
-func (s *sqlbase) GetDB() *sql.DB {
+func (s *storebase) GetDB() *sql.DB {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -79,10 +85,7 @@ func (s *sqlbase) GetDB() *sql.DB {
 }
 
 // Transact wrap the transaction
-func (s *sqlbase) Transact(txFunc func(*sql.Tx) error) (err error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
+func (s *storebase) Transact(txFunc func(*sql.Tx) error) (err error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
