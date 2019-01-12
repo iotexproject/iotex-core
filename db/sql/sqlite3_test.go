@@ -17,7 +17,7 @@ func TestSQLite3StorePutGet(t *testing.T) {
 	testRDSStorePutGet := TestStorePutGet
 
 	path := "explorer.db"
-	cfg := &config.SQLITE3{
+	cfg := config.SQLITE3{
 		SQLite3File: path,
 	}
 	t.Run("SQLite3 Store", func(t *testing.T) {
@@ -29,7 +29,7 @@ func TestSQLite3StoreTransaction(t *testing.T) {
 	testSQLite3StoreTransaction := TestStoreTransaction
 
 	path := "explorer.db"
-	cfg := &config.SQLITE3{
+	cfg := config.SQLITE3{
 		SQLite3File: path,
 	}
 	t.Run("SQLite3 Store", func(t *testing.T) {

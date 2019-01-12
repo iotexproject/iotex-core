@@ -30,7 +30,7 @@ type Store interface {
 }
 
 // storebase is local sqlite3
-type storebase struct {
+type storeBase struct {
 	mutex      sync.RWMutex
 	db         *sql.DB
 	connectStr string
@@ -41,12 +41,12 @@ type storebase struct {
 var logger = zerolog.New(os.Stderr).Level(zerolog.InfoLevel).With().Timestamp().Logger()
 
 // NewSQLBase instantiates an sqlite3
-func NewSQLBase(driverName string, connectStr string) Store {
-	return &storebase{db: nil, connectStr: connectStr, driverName: driverName}
+func newSQLBase(driverName string, connectStr string) Store {
+	return &storeBase{db: nil, connectStr: connectStr, driverName: driverName}
 }
 
 // Start opens the SQL (creates new file if not existing yet)
-func (s *storebase) Start(_ context.Context) error {
+func (s *storeBase) Start(_ context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -64,7 +64,7 @@ func (s *storebase) Start(_ context.Context) error {
 }
 
 // Stop closes the SQL
-func (s *storebase) Stop(_ context.Context) error {
+func (s *storeBase) Stop(_ context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -77,7 +77,7 @@ func (s *storebase) Stop(_ context.Context) error {
 }
 
 // Stop closes the SQL
-func (s *storebase) GetDB() *sql.DB {
+func (s *storeBase) GetDB() *sql.DB {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -85,7 +85,7 @@ func (s *storebase) GetDB() *sql.DB {
 }
 
 // Transact wrap the transaction
-func (s *storebase) Transact(txFunc func(*sql.Tx) error) (err error) {
+func (s *storeBase) Transact(txFunc func(*sql.Tx) error) (err error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err

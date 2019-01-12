@@ -62,20 +62,18 @@ func (s *Server) Start(ctx context.Context) error {
 
 	if s.cfg.Indexer.WhetherLocalStore {
 		// local store use sqlite3
-		s.idx.store = sql.NewSQLite3(&s.cfg.DB.SQLITE3)
+		s.idx.store = sql.NewSQLite3(s.cfg.DB.SQLITE3)
 	} else {
 		// remote store use aws rds
-		s.idx.store = sql.NewAwsRDS(&s.cfg.DB.RDS)
+		s.idx.store = sql.NewAwsRDS(s.cfg.DB.RDS)
 	}
 	if err := s.idx.store.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when start store")
 	}
 
-	if s.cfg.Indexer.WhetherLocalStore {
-		// local store use sqlite3
-		if err := s.idx.CreateTablesInLocal(); err != nil {
-			return errors.Wrap(err, "error when initial tables")
-		}
+	// local store use sqlite3
+	if err := s.idx.CreateTablesInLocal(); err != nil {
+		return errors.Wrap(err, "error when initial tables")
 	}
 
 	return nil

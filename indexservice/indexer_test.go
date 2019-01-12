@@ -181,13 +181,13 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 func TestIndexServiceOnSqlite3(t *testing.T) {
 	t.Run("Indexer", func(t *testing.T) {
-		testSQLite3StorePutGet(sql.NewSQLite3(&config.Default.DB.SQLITE3), t)
+		testSQLite3StorePutGet(sql.NewSQLite3(config.Default.DB.SQLITE3), t)
 	})
 }
 
 func TestIndexServiceOnAwsRDS(t *testing.T) {
 	t.Skip("Skipping when RDS credentail not provided.")
 	t.Run("Indexer", func(t *testing.T) {
-		testSQLite3StorePutGet(sql.NewAwsRDS(&config.Default.DB.RDS), t)
+		testSQLite3StorePutGet(sql.NewAwsRDS(config.Default.DB.RDS), t)
 	})
 }

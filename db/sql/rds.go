@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2018 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -16,9 +16,9 @@ import (
 )
 
 // NewAwsRDS instantiates an aws rds
-func NewAwsRDS(cfg *config.RDS) Store {
+func NewAwsRDS(cfg config.RDS) Store {
 	connectStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
 		cfg.AwsRDSUser, cfg.AwsPass, cfg.AwsRDSEndpoint, cfg.AwsRDSPort, cfg.AwsDBName,
 	)
-	return NewSQLBase("mysql", connectStr)
+	return newSQLBase("mysql", connectStr)
 }
