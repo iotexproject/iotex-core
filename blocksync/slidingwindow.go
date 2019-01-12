@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 const (
@@ -92,14 +93,15 @@ func (sw *SlidingWindow) updateState() {
 	default:
 		sw.State = Open
 	}
-	logger.Debug().
-		Uint64("close", sw.close).
-		Uint64("open", sw.open).
-		Msg("blocksync window")
-	logger.Debug().
-		Int("prevState", sw.prevState).
-		Int("state", sw.State).
-		Msg("blocksync state")
+
+	log.L().Debug("blocksync window",
+		zap.Uint64("close", sw.close),
+		zap.Uint64("open", sw.open))
+
+	log.L().Debug("blocksync state",
+		zap.Uint64("close", sw.close),
+		zap.Int("prevState", sw.prevState),
+		zap.Int("state", sw.State))
 }
 
 // Update updates the window [close, open]

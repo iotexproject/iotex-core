@@ -18,14 +18,12 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
-
-// GasLimit is the total gas limit could be consumed in a block
-const GasLimit = uint64(1000000000)
 
 // ErrInconsistentNonce is the error that the nonce is different from executor's nonce
 var ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
@@ -95,7 +93,7 @@ func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp 
 		BlockNumber: new(big.Int).SetUint64(blkHeight),
 		Time:        new(big.Int).SetInt64(blkTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    GasLimit,
+		GasLimit:    genesis.ActionGasLimit,
 		GasPrice:    execution.GasPrice(),
 	}
 
@@ -125,7 +123,7 @@ func GetHashFn(stateDB *StateDBAdapter) func(n uint64) common.Hash {
 func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 	executorNonce := stateDB.GetNonce(ps.context.Origin)
 	if executorNonce > ps.nonce {
-		logger.Error().Msgf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
+		log.S().Errorf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
 		// TODO ignore inconsistent nonce problem until the actions are executed sequentially
 		// return ErrInconsistentNonce
 	}
@@ -189,7 +187,7 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
-	logger.Debug().Msgf("Receipt: %+v, %v", receipt, err)
+	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return receipt, err
 }
 
@@ -224,13 +222,14 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 		// create contract
 		var evmContractAddress common.Address
 		ret, evmContractAddress, remainingGas, err = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
-		logger.Warn().Hex("contract addrHash", evmContractAddress[:]).Msg("evm.Create")
+		log.L().Warn("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
 		contractAddress := address.New(stateDB.cm.ChainID(), evmContractAddress.Bytes())
 		contractRawAddress = contractAddress.IotxAddress()
 	} else {
+		stateDB.SetNonce(evmParams.context.Origin, stateDB.GetNonce(evmParams.context.Origin)+1)
 		// process contract
 		ret, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
 	}
@@ -240,9 +239,14 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 	if err == vm.ErrInsufficientBalance {
 		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 	}
+	refund := (evmParams.gas - remainingGas) / 2
+	if refund > stateDB.GetRefund() {
+		refund = stateDB.GetRefund()
+	}
+	remainingGas += refund
 	if err != nil {
 		// TODO (zhi) should we refund if any error
-		return nil, evmParams.gas, 0, contractRawAddress, err
+		// return nil, evmParams.gas, 0, contractRawAddress, err
 	}
 	// TODO (zhi) figure out what the following function does
 	// stateDB.Finalise(true)

@@ -8,17 +8,17 @@ package actpool
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // ActPool is the interface of actpool
@@ -99,7 +99,7 @@ func (ap *actPool) Reset() {
 		// Reset pending balance for each account
 		balance, err := ap.bc.Balance(from)
 		if err != nil {
-			logger.Error().Err(err).Msg("Error when resetting actpool state")
+			log.L().Error("Error when resetting actpool state.", zap.Error(err))
 			return
 		}
 		queue.SetPendingBalance(balance)
@@ -107,7 +107,7 @@ func (ap *actPool) Reset() {
 		// Reset pending nonce and remove invalid actions for each account
 		confirmedNonce, err := ap.bc.Nonce(from)
 		if err != nil {
-			logger.Error().Err(err).Msg("Error when resetting actpool state")
+			log.L().Error("Error when resetting actpool state.", zap.Error(err))
 			return
 		}
 		pendingNonce := confirmedNonce + 1
@@ -129,9 +129,8 @@ func (ap *actPool) PickActs() []action.SealedEnvelope {
 			actions = append(actions, act)
 			numActs++
 			if ap.cfg.MaxNumActsToPick > 0 && numActs >= ap.cfg.MaxNumActsToPick {
-				logger.Debug().
-					Uint64("limit", ap.cfg.MaxNumActsToPick).
-					Msg("reach the max number of actions to pick")
+				log.L().Debug("Reach the max number of actions to pick.",
+					zap.Uint64("limit", ap.cfg.MaxNumActsToPick))
 				return actions
 			}
 		}
@@ -161,7 +160,7 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	hash := act.Hash()
 	// Reject action if it already exists in pool
 	if _, exist := ap.allActions[hash]; exist {
-		return fmt.Errorf("reject existed action: %x", hash)
+		return errors.Errorf("reject existed action: %x", hash)
 	}
 
 	// envelope validation
@@ -261,10 +260,10 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 
 	if actNonce-queue.StartNonce() >= ap.cfg.MaxNumActsPerAcct {
 		// Nonce exceeds current range
-		logger.Debug().
-			Hex("hash", hash[:]).
-			Uint64("startNonce", queue.StartNonce()).Uint64("actNonce", actNonce).
-			Msg("Rejecting action because nonce is too large")
+		log.L().Debug("Rejecting action because nonce is too large.",
+			log.Hex("hash", hash[:]),
+			zap.Uint64("startNonce", queue.StartNonce()),
+			zap.Uint64("actNonce", actNonce))
 		return errors.Wrapf(action.ErrNonce, "nonce too large")
 	}
 
@@ -294,7 +293,7 @@ func (ap *actPool) removeConfirmedActs() {
 	for from, queue := range ap.accountActs {
 		confirmedNonce, err := ap.bc.Nonce(from)
 		if err != nil {
-			logger.Error().Err(err).Msg("Error when removing confirmed actions")
+			log.L().Error("Error when removing confirmed actions", zap.Error(err))
 			return
 		}
 		pendingNonce := confirmedNonce + 1
@@ -312,9 +311,7 @@ func (ap *actPool) removeConfirmedActs() {
 func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 	for _, act := range acts {
 		hash := act.Hash()
-		logger.Debug().
-			Hex("hash", hash[:]).
-			Msg("Removed invalidated action")
+		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		delete(ap.allActions, hash)
 	}
 }

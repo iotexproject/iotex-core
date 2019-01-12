@@ -488,6 +488,19 @@ func (mr *MockExplorerMockRecorder) GetReceiptByExecutionID(id interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByExecutionID", reflect.TypeOf((*MockExplorer)(nil).GetReceiptByExecutionID), id)
 }
 
+// GetReceiptByActionID mocks base method
+func (m *MockExplorer) GetReceiptByActionID(id string) (explorer.Receipt, error) {
+	ret := m.ctrl.Call(m, "GetReceiptByActionID", id)
+	ret0, _ := ret[0].(explorer.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetReceiptByActionID indicates an expected call of GetReceiptByActionID
+func (mr *MockExplorerMockRecorder) GetReceiptByActionID(id interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByActionID", reflect.TypeOf((*MockExplorer)(nil).GetReceiptByActionID), id)
+}
+
 // ReadExecutionState mocks base method
 func (m *MockExplorer) ReadExecutionState(request explorer.Execution) (string, error) {
 	ret := m.ctrl.Call(m, "ReadExecutionState", request)
@@ -603,4 +616,17 @@ func (m *MockExplorer) EstimateGasForSmartContract(request explorer.Execution) (
 // EstimateGasForSmartContract indicates an expected call of EstimateGasForSmartContract
 func (mr *MockExplorerMockRecorder) EstimateGasForSmartContract(request interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForSmartContract", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForSmartContract), request)
+}
+
+// GetStateRootHash mocks base method
+func (m *MockExplorer) GetStateRootHash(blockHeight int64) (string, error) {
+	ret := m.ctrl.Call(m, "GetStateRootHash", blockHeight)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStateRootHash indicates an expected call of GetStateRootHash
+func (mr *MockExplorerMockRecorder) GetStateRootHash(blockHeight interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateRootHash", reflect.TypeOf((*MockExplorer)(nil).GetStateRootHash), blockHeight)
 }

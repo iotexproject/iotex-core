@@ -7,32 +7,32 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 	"testing"
 
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestAddBalance(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
@@ -56,16 +56,65 @@ func TestAddBalance(t *testing.T) {
 	require.Equal(0, amount.Cmp(big.NewInt(80000)))
 }
 
-func TestForEachStorage(t *testing.T) {
+func TestRefundAPIs(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Explorer.Enabled = true
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+	require.Zero(stateDB.GetRefund())
+	refund := uint64(1024)
+	stateDB.AddRefund(refund)
+	require.Equal(refund, stateDB.GetRefund())
+}
+
+func TestEmptyAndCode(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Explorer.Enabled = true
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	mcm.EXPECT().ChainID().Times(4).Return(uint32(1))
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+	require.True(stateDB.Empty(addr))
+	stateDB.CreateAccount(addr)
+	require.True(stateDB.Empty(addr))
+	stateDB.SetCode(addr, []byte("0123456789"))
+	require.True(bytes.Equal(stateDB.GetCode(addr), []byte("0123456789")))
+	require.False(stateDB.Empty(addr))
+}
+
+func TestForEachStorage(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	cfg := config.Default
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
@@ -97,19 +146,41 @@ func TestForEachStorage(t *testing.T) {
 	require.Equal(0, len(kvs))
 }
 
-func TestSnapshotAndSuicide(t *testing.T) {
-	// TODO: temp disable until we solve the memory thrash/leak issue
-	return
-
+func TestNonce(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Explorer.Enabled = true
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	mcm.EXPECT().ChainID().Times(3).Return(uint32(1))
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+	require.Equal(uint64(0), stateDB.GetNonce(addr))
+	stateDB.SetNonce(addr, 1)
+	require.Equal(uint64(1), stateDB.GetNonce(addr))
+}
+
+func TestSnapshotAndRevert(t *testing.T) {
+	// TODO: temp disable until we solve the memory thrash/leak issue
+	return
+
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	cfg := config.Default
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
@@ -125,7 +196,9 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	code := []byte("test contract creation")
 	addr1 := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	cntr1 := common.HexToAddress("01fc246633470cf62ae2a956d21e8d481c3a69e1")
+	cntr3 := common.HexToAddress("956d21e8d481c3a6901fc246633470cf62ae2ae1")
 	cntr2 := common.HexToAddress("3470cf62ae2a956d38d481c3a69e121e01fc2466")
+	cntr4 := common.HexToAddress("121e01fc24663470cf62ae2a956d38d481c3a69e")
 	k1 := byteutil.BytesTo32B(hash.Hash160b([]byte("cat")))
 	v1 := byteutil.BytesTo32B(hash.Hash256b([]byte("cat")))
 	k2 := byteutil.BytesTo32B(hash.Hash160b([]byte("dog")))
@@ -142,8 +215,13 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	require.Equal(code, v)
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr1[:]), k1, v1))
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr1[:]), k2, v2))
+	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr3[:]), k3, v4))
 	require.False(stateDB.Suicide(cntr2))
 	require.False(stateDB.Exist(cntr2))
+	require.False(stateDB.Suicide(cntr4))
+	require.False(stateDB.Exist(cntr4))
+	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
+	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))
 	require.Equal(0, stateDB.Snapshot())
 
 	stateDB.AddBalance(addr1, addAmount)
@@ -154,59 +232,28 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	require.Equal(code, v)
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k3, v3))
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k4, v4))
-	// kill contract 1
+	// kill contract 1 and 3
 	require.True(stateDB.Suicide(cntr1))
 	require.True(stateDB.Exist(cntr1))
+	require.True(stateDB.Suicide(cntr3))
+	require.True(stateDB.Exist(cntr3))
+	stateDB.AddPreimage(common.BytesToHash(v3[:]), []byte("hen"))
 	require.Equal(1, stateDB.Snapshot())
 
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k3, v1))
 	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k4, v2))
 	require.True(stateDB.Suicide(addr1))
 	require.True(stateDB.Exist(addr1))
+	stateDB.AddPreimage(common.BytesToHash(v4[:]), []byte("fox"))
 	require.Equal(2, stateDB.Snapshot())
 
-	stateDB.RevertToSnapshot(1)
-	// cntr1 killed, but still exists before commit
-	require.True(stateDB.HasSuicided(cntr1))
-	require.True(stateDB.Exist(cntr1))
-	w, _ := stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
-	require.Equal(v3, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
-	require.Equal(v4, w)
-	// cntr2 is normal
-	require.False(stateDB.HasSuicided(cntr2))
-	require.True(stateDB.Exist(cntr2))
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k3)
-	require.Equal(v3, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k4)
-	require.Equal(v4, w)
-	// addr1 has balance 80000
-	require.False(stateDB.HasSuicided(addr1))
-	require.True(stateDB.Exist(addr1))
-	amount := stateDB.GetBalance(addr1)
-	require.Equal(0, amount.Cmp(big.NewInt(80000)))
-
-	stateDB.RevertToSnapshot(0)
-	// cntr1 is normal
-	require.False(stateDB.HasSuicided(cntr1))
-	require.True(stateDB.Exist(cntr1))
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
-	require.Equal(v1, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
-	require.Equal(v2, w)
-	// cntr2 does not exist
-	require.False(stateDB.Exist(cntr2))
-	// addr1 has balance 40000
-	require.False(stateDB.HasSuicided(addr1))
-	require.True(stateDB.Exist(addr1))
-	amount = stateDB.GetBalance(addr1)
-	require.Equal(0, amount.Cmp(addAmount))
-
 	stateDB.RevertToSnapshot(2)
-	// cntr1 killed, but still exists before commit
+	// cntr1 and 3 killed, but still exists before commit
 	require.True(stateDB.HasSuicided(cntr1))
 	require.True(stateDB.Exist(cntr1))
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
+	require.True(stateDB.HasSuicided(cntr3))
+	require.True(stateDB.Exist(cntr3))
+	w, _ := stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
 	require.Equal(v3, w)
 	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
 	require.Equal(v4, w)
@@ -220,12 +267,147 @@ func TestSnapshotAndSuicide(t *testing.T) {
 	// addr1 also killed
 	require.True(stateDB.HasSuicided(addr1))
 	require.True(stateDB.Exist(addr1))
-	amount = stateDB.GetBalance(addr1)
+	amount := stateDB.GetBalance(addr1)
 	require.Equal(0, amount.Cmp(big.NewInt(0)))
+	v, _ = stateDB.preimages[common.BytesToHash(v1[:])]
+	require.Equal([]byte("cat"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v2[:])]
+	require.Equal([]byte("dog"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v3[:])]
+	require.Equal([]byte("hen"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v4[:])]
+	require.Equal([]byte("fox"), v)
+
+	stateDB.RevertToSnapshot(1)
+	// cntr1 and 3 killed, but still exists before commit
+	require.True(stateDB.HasSuicided(cntr1))
+	require.True(stateDB.Exist(cntr1))
+	require.True(stateDB.HasSuicided(cntr3))
+	require.True(stateDB.Exist(cntr3))
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
+	require.Equal(v3, w)
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
+	require.Equal(v4, w)
+	// cntr2 is normal
+	require.False(stateDB.HasSuicided(cntr2))
+	require.True(stateDB.Exist(cntr2))
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k3)
+	require.Equal(v3, w)
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k4)
+	require.Equal(v4, w)
+	// addr1 has balance 80000
+	require.False(stateDB.HasSuicided(addr1))
+	require.True(stateDB.Exist(addr1))
+	amount = stateDB.GetBalance(addr1)
+	require.Equal(0, amount.Cmp(big.NewInt(80000)))
+	v, _ = stateDB.preimages[common.BytesToHash(v1[:])]
+	require.Equal([]byte("cat"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v2[:])]
+	require.Equal([]byte("dog"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v3[:])]
+	require.Equal([]byte("hen"), v)
+	_, ok := stateDB.preimages[common.BytesToHash(v4[:])]
+	require.False(ok)
+
+	stateDB.RevertToSnapshot(0)
+	// cntr1 and 3 is normal
+	require.False(stateDB.HasSuicided(cntr1))
+	require.True(stateDB.Exist(cntr1))
+	require.False(stateDB.HasSuicided(cntr3))
+	require.True(stateDB.Exist(cntr3))
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
+	require.Equal(v1, w)
+	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
+	require.Equal(v2, w)
+	// cntr2 and 4 does not exist
+	require.False(stateDB.Exist(cntr2))
+	require.False(stateDB.Exist(cntr4))
+	// addr1 has balance 40000
+	require.False(stateDB.HasSuicided(addr1))
+	require.True(stateDB.Exist(addr1))
+	amount = stateDB.GetBalance(addr1)
+	require.Equal(0, amount.Cmp(addAmount))
+	v, _ = stateDB.preimages[common.BytesToHash(v1[:])]
+	require.Equal([]byte("cat"), v)
+	v, _ = stateDB.preimages[common.BytesToHash(v2[:])]
+	require.Equal([]byte("dog"), v)
+	_, ok = stateDB.preimages[common.BytesToHash(v3[:])]
+	require.False(ok)
+	_, ok = stateDB.preimages[common.BytesToHash(v4[:])]
+	require.False(ok)
 
 	require.NoError(stateDB.commitContracts())
 	stateDB.clear()
-	require.False(stateDB.Exist(addr1))
-	require.False(stateDB.Exist(cntr1))
-	require.True(stateDB.Exist(cntr2))
+	require.True(stateDB.Exist(addr1))
+	require.True(stateDB.Exist(cntr1))
+	require.False(stateDB.Exist(cntr2))
+	require.False(stateDB.Exist(cntr4))
+}
+
+func TestGetBalanceOnError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	sm.EXPECT().GetDB().Return(nil).AnyTimes()
+	sm.EXPECT().GetCachedBatch().Return(nil).AnyTimes()
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	mcm.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+
+	errs := []error{
+		state.ErrStateNotExist,
+		errors.New("other error"),
+	}
+	for _, err := range errs {
+		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(err).Times(1)
+		addr := common.HexToAddress("test address")
+		stateDB := NewStateDBAdapter(mcm, sm, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+		amount := stateDB.GetBalance(addr)
+		assert.Equal(t, big.NewInt(0), amount)
+	}
+}
+
+func TestPreimage(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.Background()
+	cfg := config.Default
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	mcm := mock_chainmanager.NewMockChainManager(ctrl)
+	mcm.EXPECT().ChainID().AnyTimes().Return(uint32(1))
+	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
+
+	v1 := hash.Hash256b([]byte("cat"))
+	v2 := hash.Hash256b([]byte("dog"))
+	v3 := hash.Hash256b([]byte("hen"))
+	stateDB.AddPreimage(common.BytesToHash(v1), []byte("cat"))
+	stateDB.AddPreimage(common.BytesToHash(v2), []byte("dog"))
+	stateDB.AddPreimage(common.BytesToHash(v3), []byte("hen"))
+	// this won't overwrite preimage of v1
+	stateDB.AddPreimage(common.BytesToHash(v1), []byte("fox"))
+	require.NoError(stateDB.commitContracts())
+	stateDB.clear()
+	k, _ := stateDB.cb.Get(PreimageKVNameSpace, v1)
+	require.Equal([]byte("cat"), k)
+	k, _ = stateDB.cb.Get(PreimageKVNameSpace, v2)
+	require.Equal([]byte("dog"), k)
+	k, _ = stateDB.cb.Get(PreimageKVNameSpace, v3)
+	require.Equal([]byte("hen"), k)
+
+	require.NoError(stateDB.dao.Commit(stateDB.cb))
+	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v1)
+	require.Equal([]byte("cat"), k)
+	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v2)
+	require.Equal([]byte("dog"), k)
+	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v3)
+	require.Equal([]byte("hen"), k)
 }

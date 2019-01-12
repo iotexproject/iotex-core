@@ -15,6 +15,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -26,8 +27,8 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/p2p"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
@@ -36,7 +37,7 @@ type Server struct {
 	cfg                  config.Config
 	rootChainService     *chainservice.ChainService
 	chainservices        map[uint32]*chainservice.ChainService
-	p2p                  network.Overlay
+	p2pAgent             *p2p.Agent
 	dispatcher           dispatcher.Dispatcher
 	mainChainProtocol    *mainchain.Protocol
 	initializedSubChains map[uint32]bool
@@ -55,25 +56,19 @@ func NewInMemTestServer(cfg config.Config) (*Server, error) {
 }
 
 func newServer(cfg config.Config, testing bool) (*Server, error) {
-	// create P2P network and BlockSync
-	p2p := network.NewOverlay(cfg.Network)
-
 	// create dispatcher instance
 	dispatcher, err := dispatcher.NewDispatcher(cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
-	p2p.AttachDispatcher(dispatcher)
-
+	p2pAgent := p2p.NewAgent(cfg.Network, dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	chains := make(map[uint32]*chainservice.ChainService)
-
 	var cs *chainservice.ChainService
-
 	var opts []chainservice.Option
 	if testing {
 		opts = []chainservice.Option{chainservice.WithTesting()}
 	}
-	cs, err = chainservice.New(cfg, p2p, dispatcher, opts...)
+	cs, err = chainservice.New(cfg, p2pAgent, dispatcher, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
@@ -101,7 +96,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
 		cfg:                  cfg,
-		p2p:                  p2p,
+		p2pAgent:             p2pAgent,
 		dispatcher:           dispatcher,
 		rootChainService:     cs,
 		chainservices:        chains,
@@ -115,19 +110,19 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
+	if err := s.p2pAgent.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting P2P agent")
+	}
 	if err := s.rootChainService.Blockchain().AddSubscriber(s); err != nil {
 		return errors.Wrap(err, "error when starting sub-chain starter")
 	}
 	for _, cs := range s.chainservices {
 		if err := cs.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping blockchain")
+			return errors.Wrap(err, "error when starting blockchain")
 		}
 	}
 	if err := s.dispatcher.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting dispatcher")
-	}
-	if err := s.p2p.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when starting P2P networks")
 	}
 
 	return nil
@@ -138,9 +133,6 @@ func (s *Server) Stop(ctx context.Context) error {
 	if err := s.rootChainService.Blockchain().RemoveSubscriber(s); err != nil {
 		return errors.Wrap(err, "error when unsubscribing root chain block creation")
 	}
-	if err := s.p2p.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping P2P networks")
-	}
 	if err := s.dispatcher.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping dispatcher")
 	}
@@ -149,11 +141,16 @@ func (s *Server) Stop(ctx context.Context) error {
 			return errors.Wrap(err, "error when stopping blockchain")
 		}
 	}
+	if err := s.p2pAgent.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping P2P agent")
+	}
 	return nil
 }
 
 // NewSubChainService creates a new chain service in this server.
 func (s *Server) NewSubChainService(cfg config.Config) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	return s.newSubChainService(cfg)
 }
 
@@ -163,7 +160,7 @@ func (s *Server) newSubChainService(cfg config.Config) error {
 		mainChainAPI = s.rootChainService.Explorer().Explorer()
 	}
 	opts := []chainservice.Option{chainservice.WithRootChainAPI(mainChainAPI)}
-	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
+	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
 		return err
 	}
@@ -194,7 +191,7 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 		chainservice.WithTesting(),
 		chainservice.WithRootChainAPI(mainChainAPI),
 	}
-	cs, err := chainservice.New(cfg, s.p2p, s.dispatcher, opts...)
+	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
 		return err
 	}
@@ -217,6 +214,8 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 
 // StopChainService stops the chain service run in the server.
 func (s *Server) StopChainService(ctx context.Context, id uint32) error {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	c, ok := s.chainservices[id]
 	if !ok {
 		return errors.New("Chain ID does not match any existing chains")
@@ -224,13 +223,17 @@ func (s *Server) StopChainService(ctx context.Context, id uint32) error {
 	return c.Stop(ctx)
 }
 
-// P2P returns the P2P network
-func (s *Server) P2P() network.Overlay {
-	return s.p2p
+// P2PAgent returns the P2P agent
+func (s *Server) P2PAgent() *p2p.Agent {
+	return s.p2pAgent
 }
 
 // ChainService returns the chainservice hold in Server with given id.
-func (s *Server) ChainService(id uint32) *chainservice.ChainService { return s.chainservices[id] }
+func (s *Server) ChainService(id uint32) *chainservice.ChainService {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.chainservices[id]
+}
 
 // Dispatcher returns the Dispatcher
 func (s *Server) Dispatcher() dispatcher.Dispatcher {
@@ -241,23 +244,23 @@ func (s *Server) Dispatcher() dispatcher.Dispatcher {
 func StartServer(svr *Server, cfg config.Config) {
 	ctx := context.Background()
 	if err := svr.Start(ctx); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start server.")
+		log.L().Fatal("Failed to start server.", zap.Error(err))
 		return
 	}
 	defer func() {
 		if err := svr.Stop(ctx); err != nil {
-			logger.Panic().Err(err).Msg("Failed to stop server.")
+			log.L().Panic("Failed to stop server.", zap.Error(err))
 		}
 	}()
 
 	if cfg.System.HeartbeatInterval > 0 {
 		task := routine.NewRecurringTask(NewHeartbeatHandler(svr).Log, cfg.System.HeartbeatInterval)
 		if err := task.Start(ctx); err != nil {
-			logger.Panic().Err(err).Msg("Failed to start heartbeat routine.")
+			log.L().Panic("Failed to start heartbeat routine.", zap.Error(err))
 		}
 		defer func() {
 			if err := task.Stop(ctx); err != nil {
-				logger.Panic().Err(err).Msg("Failed to stop heartbeat routine.")
+				log.L().Panic("Failed to stop heartbeat routine.", zap.Error(err))
 			}
 		}()
 	}
@@ -270,7 +273,7 @@ func StartServer(svr *Server, cfg config.Config) {
 				fmt.Sprintf(":%d", cfg.System.HTTPProfilingPort),
 				nil,
 			); err != nil {
-				logger.Error().Err(err).Msg("error when serving performance profiling data")
+				log.L().Error("Error when serving performance profiling data.", zap.Error(err))
 			}
 		}()
 	}
@@ -278,10 +281,11 @@ func StartServer(svr *Server, cfg config.Config) {
 	if cfg.System.HTTPMetricsPort > 0 {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
+		log.RegisterLevelConfigMux(mux)
 		port := fmt.Sprintf(":%d", cfg.System.HTTPMetricsPort)
 		go func() {
 			if err := http.ListenAndServe(port, mux); err != nil {
-				logger.Error().Err(err).Msg("error when serving performance profiling data")
+				log.L().Error("Error when serving metrics data.", zap.Error(err))
 			}
 		}()
 	}

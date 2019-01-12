@@ -15,14 +15,16 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -108,8 +110,9 @@ loop:
 			for _, admin := range admins {
 				addrDetails, err := client.GetAddressDetails(admin.RawAddress)
 				if err != nil {
-					logger.Fatal().Err(err).Str("addr", admin.RawAddress).
-						Msg("Failed to inject actions by APS")
+					log.L().Fatal("Failed to inject actions by APS",
+						zap.Error(err),
+						zap.String("addr", admin.RawAddress))
 				}
 				nonce := uint64(addrDetails.PendingNonce)
 				counter[admin.RawAddress] = nonce
@@ -117,8 +120,9 @@ loop:
 			for _, delegate := range delegates {
 				addrDetails, err := client.GetAddressDetails(delegate.RawAddress)
 				if err != nil {
-					logger.Fatal().Err(err).Str("addr", delegate.RawAddress).
-						Msg("Failed to inject actions by APS")
+					log.L().Fatal("Failed to inject actions by APS",
+						zap.Error(err),
+						zap.String("addr", delegate.RawAddress))
 				}
 				nonce := uint64(addrDetails.PendingNonce)
 				counter[delegate.RawAddress] = nonce
@@ -136,7 +140,7 @@ loop:
 					big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
 			case 2:
 				executor, nonce := createExecutionInjection(counter, delegates)
-				go injectExecution(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 					uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)),
 					executionData, retryNum, retryInterval)
 			}
@@ -180,7 +184,7 @@ func InjectByInterval(
 		time.Sleep(time.Second * time.Duration(interval))
 
 		executor, nonce := createExecutionInjection(counter, delegates)
-		injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+		injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 			uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
 		time.Sleep(time.Second * time.Duration(interval))
 
@@ -212,7 +216,7 @@ func InjectByInterval(
 			time.Sleep(time.Second * time.Duration(interval))
 
 			executor, nonce := createExecutionInjection(counter, delegates)
-			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+			injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
@@ -227,7 +231,7 @@ func InjectByInterval(
 			time.Sleep(time.Second * time.Duration(interval))
 
 			executor, nonce := createExecutionInjection(counter, delegates)
-			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+			injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 
@@ -255,12 +259,35 @@ func InjectByInterval(
 	case executionNum > 0:
 		for executionNum > 0 {
 			executor, nonce := createExecutionInjection(counter, delegates)
-			injectExecution(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
+			injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
 			time.Sleep(time.Second * time.Duration(interval))
 			executionNum--
 		}
 	}
+}
+
+// DeployContract deploys a smart contract before starting action injections
+func DeployContract(
+	client explorer.Explorer,
+	counter map[string]uint64,
+	delegates []*iotxaddress.Address,
+	executionGasLimit int,
+	executionGasPrice int,
+	executionData string,
+	retryNum int,
+	retryInterval int,
+) (hash.Hash32B, error) {
+	executor, nonce := createExecutionInjection(counter, delegates)
+	selp, execution, err := createSignedExecution(executor, action.EmptyAddress, nonce, big.NewInt(0),
+		uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData)
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrap(err, "failed to create signed execution")
+	}
+	log.L().Info("Created signed execution")
+
+	injectExecution(selp, execution, client, retryNum, retryInterval)
+	return selp.Hash(), nil
 }
 
 func injectTransfer(
@@ -283,10 +310,10 @@ func injectTransfer(
 	selp, tsf, err := createSignedTransfer(sender, recipient, blockchain.ConvertIotxToRau(amount), nonce, gasLimit,
 		gasPrice, payload)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject transfer")
+		log.L().Fatal("Failed to inject transfer", zap.Error(err))
 	}
 
-	logger.Info().Msg("Created signed transfer")
+	log.L().Info("Created signed transfer")
 
 	request := explorer.SendTransferRequest{
 		Version:      int64(selp.Version()),
@@ -311,21 +338,9 @@ func injectTransfer(
 		time.Sleep(time.Duration(retryInterval) * time.Second)
 	}
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to inject transfer")
+		log.L().Error("Failed to inject transfer", zap.Error(err))
 	}
-	logger.Info().Msg("Sent out the signed transfer: ")
-
-	logger.Info().Int64("Version", request.Version).Msg(" ")
-	logger.Info().Int64("Nonce", request.Nonce).Msg(" ")
-	logger.Info().Str("amount", request.Amount).Msg(" ")
-	logger.Info().Str("Sender", request.Sender).Msg(" ")
-	logger.Info().Str("Recipient", request.Recipient).Msg(" ")
-	logger.Info().Str("payload", request.Payload).Msg(" ")
-	logger.Info().Str("Sender Public Key", request.SenderPubKey).Msg(" ")
-	logger.Info().Int64("Gas Limit", request.GasLimit).Msg(" ")
-	logger.Info().Str("Gas Price", request.GasPrice).Msg(" ")
-	logger.Info().Str("Signature", request.Signature).Msg(" ")
-	logger.Info().Bool("isCoinbase", request.IsCoinbase).Msg(" ")
+	log.S().Infof("Sent out the signed transfer: %+v", request)
 
 	if wg != nil {
 		wg.Done()
@@ -345,10 +360,10 @@ func injectVote(
 ) {
 	selp, _, err := createSignedVote(sender, recipient, nonce, gasLimit, gasPrice)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject vote")
+		log.L().Fatal("Failed to inject vote", zap.Error(err))
 	}
 
-	logger.Info().Msg("Created signed vote")
+	log.L().Info("Created signed vote")
 
 	request := explorer.SendVoteRequest{
 		Version:     int64(selp.Version()),
@@ -369,24 +384,16 @@ func injectVote(
 		time.Sleep(time.Duration(retryInterval) * time.Second)
 	}
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to inject vote")
+		log.L().Error("Failed to inject vote", zap.Error(err))
 	}
-	logger.Info().Msg("Sent out the signed vote: ")
-
-	logger.Info().Int64("Version", request.Version).Msg(" ")
-	logger.Info().Int64("Nonce", request.Nonce).Msg(" ")
-	logger.Info().Str("Sender Public Key", request.VoterPubKey).Msg(" ")
-	logger.Info().Str("Recipient Address", request.Votee).Msg(" ")
-	logger.Info().Int64("Gas Limit", request.GasLimit)
-	logger.Info().Str("Gas Price", request.GasPrice)
-	logger.Info().Str("Signature", request.Signature).Msg(" ")
+	log.S().Infof("Sent out the signed vote: %+v", request)
 
 	if wg != nil {
 		wg.Done()
 	}
 }
 
-func injectExecution(
+func injectExecInteraction(
 	wg *sync.WaitGroup,
 	c explorer.Explorer,
 	executor *iotxaddress.Address,
@@ -401,48 +408,12 @@ func injectExecution(
 ) {
 	selp, execution, err := createSignedExecution(executor, contract, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to inject execution")
+		log.L().Fatal("Failed to inject execution", zap.Error(err))
 	}
 
-	logger.Info().Msg("Created signed execution")
+	log.L().Info("Created signed execution")
 
-	request := explorer.Execution{
-		Version:        int64(selp.Version()),
-		Nonce:          int64(selp.Nonce()),
-		Executor:       selp.SrcAddr(),
-		Contract:       selp.DstAddr(),
-		ExecutorPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
-		GasLimit:       int64(selp.GasLimit()),
-		Data:           hex.EncodeToString(execution.Data()),
-		Signature:      hex.EncodeToString(selp.Signature()),
-	}
-	if execution.Amount() != nil {
-		request.Amount = execution.Amount().String()
-	}
-	if selp.GasPrice() != nil {
-		request.GasPrice = selp.GasPrice().String()
-	}
-	for i := 0; i < retryNum; i++ {
-		if _, err = c.SendSmartContract(request); err == nil {
-			break
-		}
-		time.Sleep(time.Duration(retryInterval) * time.Second)
-	}
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to inject execution")
-	}
-	logger.Info().Msg("Sent out the signed execution: ")
-
-	logger.Info().Int64("Version", request.Version).Msg(" ")
-	logger.Info().Int64("Nonce", request.Nonce).Msg(" ")
-	logger.Info().Str("amount", request.Amount).Msg(" ")
-	logger.Info().Str("Executor", request.Executor).Msg(" ")
-	logger.Info().Str("Contract", request.Contract).Msg(" ")
-	logger.Info().Int64("Gas", request.GasLimit).Msg(" ")
-	logger.Info().Str("Gas Price", request.GasPrice).Msg(" ")
-	logger.Info().Str("data", request.Data)
-	logger.Info().Str("Signature", request.Signature).Msg(" ")
-
+	injectExecution(selp, execution, c, retryNum, retryInterval)
 	if wg != nil {
 		wg.Done()
 	}
@@ -571,4 +542,40 @@ func createSignedExecution(
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}
 	return selp, execution, nil
+}
+
+func injectExecution(
+	selp action.SealedEnvelope,
+	execution *action.Execution,
+	c explorer.Explorer,
+	retryNum int,
+	retryInterval int,
+) {
+	request := explorer.Execution{
+		Version:        int64(selp.Version()),
+		Nonce:          int64(selp.Nonce()),
+		Executor:       selp.SrcAddr(),
+		Contract:       selp.DstAddr(),
+		ExecutorPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
+		GasLimit:       int64(selp.GasLimit()),
+		Data:           hex.EncodeToString(execution.Data()),
+		Signature:      hex.EncodeToString(selp.Signature()),
+	}
+	if execution.Amount() != nil {
+		request.Amount = execution.Amount().String()
+	}
+	if selp.GasPrice() != nil {
+		request.GasPrice = selp.GasPrice().String()
+	}
+	var err error
+	for i := 0; i < retryNum; i++ {
+		if _, err = c.SendSmartContract(request); err == nil {
+			break
+		}
+		time.Sleep(time.Duration(retryInterval) * time.Second)
+	}
+	if err != nil {
+		log.L().Error("Failed to inject execution", zap.Error(err))
+	}
+	log.S().Infof("Sent out the signed execution: %+v", request)
 }

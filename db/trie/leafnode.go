@@ -10,6 +10,8 @@ import (
 	"bytes"
 
 	"github.com/golang/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/db/trie/triepb"
 )
 
 type leafNode struct {
@@ -30,7 +32,7 @@ func newLeafNodeAndPutIntoDB(
 	return l, nil
 }
 
-func newLeafNodeFromProtoPb(pb *LeafPb) *leafNode {
+func newLeafNodeFromProtoPb(pb *triepb.LeafPb) *leafNode {
 	return &leafNode{key: pb.Path, value: pb.Value}
 }
 
@@ -98,9 +100,9 @@ func (l *leafNode) serialize() []byte {
 	if l.ser != nil {
 		return l.ser
 	}
-	pb := &NodePb{
-		Node: &NodePb_Leaf{
-			Leaf: &LeafPb{
+	pb := &triepb.NodePb{
+		Node: &triepb.NodePb_Leaf{
+			Leaf: &triepb.LeafPb{
 				Path:  l.key[:],
 				Value: l.value,
 			},

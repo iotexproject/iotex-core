@@ -8,11 +8,13 @@ package factory
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
@@ -20,9 +22,9 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -50,6 +52,7 @@ type (
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		AccountState(string) (*state.Account, error)
 		RootHash() hash.Hash32B
+		RootHashByHeight(uint64) (hash.Hash32B, error)
 		Height() (uint64, error)
 		NewWorkingSet() (WorkingSet, error)
 		Commit(WorkingSet) error
@@ -117,7 +120,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 
 	for _, opt := range opts {
 		if err := opt(sf, cfg); err != nil {
-			logger.Error().Err(err).Msgf("Failed to execute state factory creation option %p", opt)
+			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
 			return nil, err
 		}
 	}
@@ -139,7 +142,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		[]string{"default", strconv.FormatUint(uint64(cfg.Chain.ID), 10)},
 	)
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to generate prometheus timer factory")
+		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sf.timerFactory = timerFactory
 
@@ -208,6 +211,20 @@ func (sf *factory) RootHash() hash.Hash32B {
 	return sf.rootHash()
 }
 
+// RootHashByHeight returns the hash of the root node of the state trie at a given height
+func (sf *factory) RootHashByHeight(blockHeight uint64) (hash.Hash32B, error) {
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+
+	data, err := sf.dao.Get(AccountKVNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)))
+	if err != nil {
+		return hash.ZeroHash32B, err
+	}
+	var rootHash hash.Hash32B
+	copy(rootHash[:], data)
+	return rootHash, nil
+}
+
 // Height returns factory's height
 func (sf *factory) Height() (uint64, error) {
 	sf.mutex.RLock()
@@ -228,14 +245,18 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 // Commit persists all changes in RunActions() into the DB
 func (sf *factory) Commit(ws WorkingSet) error {
 	if ws == nil {
-		return nil
+		return errors.New("working set doesn't exist")
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	defer sf.timerFactory.NewTimer("Commit").End()
 	if sf.currentChainHeight != ws.Version() {
 		// another working set with correct version already committed, do nothing
-		return nil
+		return fmt.Errorf(
+			"current state height %d doesn't match working set version %d",
+			sf.currentChainHeight,
+			ws.Version(),
+		)
 	}
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")

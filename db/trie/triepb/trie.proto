@@ -7,7 +7,7 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
-package trie;
+package triepb;
 
 message branchNodePb {
     uint32 index = 1;

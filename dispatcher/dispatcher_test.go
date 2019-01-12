@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/p2p/node"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -47,8 +47,7 @@ func stopDispatcher(ctx context.Context, d Dispatcher, t *testing.T) {
 func setTestCase() []proto.Message {
 	return []proto.Message{
 		&pb.ActionPb{},
-		&pb.ProposePb{},
-		&pb.EndorsePb{},
+		&pb.ConsensusPb{},
 		&pb.BlockPb{},
 		&pb.BlockSync{},
 		&pb.BlockContainer{},
@@ -65,10 +64,9 @@ func TestHandleBroadcast(t *testing.T) {
 	ctx, d := startDispatcher(t)
 	defer stopDispatcher(ctx, d, t)
 
-	done := make(chan bool, 1000)
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleBroadcast(config.Default.Chain.ID, msg, done)
+			d.HandleBroadcast(config.Default.Chain.ID, msg)
 		}
 	}
 }
@@ -81,10 +79,9 @@ func TestHandleTell(t *testing.T) {
 	ctx, d := startDispatcher(t)
 	defer stopDispatcher(ctx, d, t)
 
-	done := make(chan bool, 1000)
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleTell(config.Default.Chain.ID, node.NewTCPNode("192.168.0.0:10000"), msg, done)
+			d.HandleTell(config.Default.Chain.ID, node.NewTCPNode("192.168.0.0:10000"), msg)
 		}
 	}
 }
@@ -108,10 +105,6 @@ func (s *DummySubscriber) HandleAction(*pb.ActionPb) error {
 	return nil
 }
 
-func (s *DummySubscriber) HandleBlockPropose(*pb.ProposePb) error {
-	return nil
-}
-
-func (s *DummySubscriber) HandleEndorse(*pb.EndorsePb) error {
+func (s *DummySubscriber) HandleConsensusMsg(*pb.ConsensusPb) error {
 	return nil
 }

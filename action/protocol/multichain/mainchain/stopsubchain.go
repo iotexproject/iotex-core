@@ -8,7 +8,6 @@ package mainchain
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -43,7 +42,7 @@ func (p *Protocol) validateSubChainOwnership(
 		return account, err
 	}
 	if !bytes.Equal(ownerPKHash[:], senderPKHash[:]) {
-		return account, fmt.Errorf("sender %s is not the owner of sub-chain %x", sender, ownerPKHash)
+		return account, errors.Errorf("sender %s is not the owner of sub-chain %x", sender, ownerPKHash)
 	}
 	return account, nil
 }
@@ -51,7 +50,7 @@ func (p *Protocol) validateSubChainOwnership(
 func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.StateManager) error {
 	stopHeight := stop.StopHeight()
 	if stopHeight <= sm.Height() {
-		return fmt.Errorf("stop height %d should not be lower than chain height %d", stopHeight, sm.Height())
+		return errors.Errorf("stop height %d should not be lower than chain height %d", stopHeight, sm.Height())
 	}
 	subChainAddr := stop.ChainAddress()
 	subChain, err := p.subChainToStop(subChainAddr)
@@ -75,7 +74,7 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 		return errors.Wrapf(err, "error when getting the account of sender %s", stop.SrcAddr())
 	}
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	protocol.SetNonce(stop, acct)
+	account.SetNonce(stop, acct)
 	if err := account.StoreAccount(sm, stop.SrcAddr(), acct); err != nil {
 		return err
 	}
@@ -86,11 +85,7 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 	}
 	subChainsInOp, deleted := subChainsInOp.Delete(subChain.ChainID)
 	if !deleted {
-		return fmt.Errorf("address %s is not on a sub-chain in operation", subChainAddr)
+		return errors.Errorf("address %s is not on a sub-chain in operation", subChainAddr)
 	}
-	if err := sm.PutState(SubChainsInOperationKey, subChainsInOp); err != nil {
-		return err
-	}
-
-	return nil
+	return sm.PutState(SubChainsInOperationKey, subChainsInOp)
 }

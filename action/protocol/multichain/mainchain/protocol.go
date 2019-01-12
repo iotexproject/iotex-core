@@ -8,7 +8,6 @@ package mainchain
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -114,7 +113,7 @@ func (p *Protocol) accountWithEnoughBalance(
 		return nil, errors.Wrapf(err, "error when getting the account of address %s", sender)
 	}
 	if account.Balance.Cmp(balance) < 0 {
-		return nil, fmt.Errorf("%s doesn't have at least required balance %d", sender, balance)
+		return nil, errors.Errorf("%s doesn't have at least required balance %d", sender, balance)
 	}
 	return account, nil
 }

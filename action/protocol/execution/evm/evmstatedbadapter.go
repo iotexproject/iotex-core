@@ -7,11 +7,14 @@
 package evm
 
 import (
+	"bytes"
+	"fmt"
 	"math/big"
 
 	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/CoderZhi/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -19,8 +22,8 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -32,6 +35,9 @@ type (
 	// contractMap records the contracts being changed
 	contractMap map[hash.PKHash]Contract
 
+	// preimageMap records the preimage of hash reported by VM
+	preimageMap map[common.Hash][]byte
+
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
 		cm               protocol.ChainManager
@@ -41,10 +47,13 @@ type (
 		blockHeight      uint64
 		blockHash        hash.Hash32B
 		executionHash    hash.Hash32B
+		refund           uint64
 		cachedContract   contractMap
 		contractSnapshot map[int]contractMap   // snapshots of contracts
 		suicided         deleteAccount         // account/contract calling Suicide
 		suicideSnapshot  map[int]deleteAccount // snapshots of suicide accounts
+		preimages        preimageMap
+		preimageSnapshot map[int]preimageMap
 		dao              db.KVStore
 		cb               db.CachedBatch
 	}
@@ -64,6 +73,8 @@ func NewStateDBAdapter(cm protocol.ChainManager, sm protocol.StateManager, block
 		contractSnapshot: make(map[int]contractMap),
 		suicided:         make(deleteAccount),
 		suicideSnapshot:  make(map[int]deleteAccount),
+		preimages:        make(preimageMap),
+		preimageSnapshot: make(map[int]preimageMap),
 		dao:              sm.GetDB(),
 		cb:               sm.GetCachedBatch(),
 	}
@@ -85,11 +96,11 @@ func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	_, err := account.LoadOrCreateAccount(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
 	if err != nil {
-		logger.Error().Err(err).Msg("CreateAccount")
+		log.L().Error("Failed to create account.", zap.Error(err))
 		// stateDB.logError(err)
 		return
 	}
-	logger.Debug().Hex("addrHash", evmAddr[:]).Msg("CreateAccount")
+	log.L().Debug("Called CreateAccount.", log.Hex("addrHash", evmAddr[:]))
 }
 
 // SubBalance subtracts balance from account
@@ -98,17 +109,17 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 		return
 	}
 	// stateDB.GetBalance(evmAddr)
-	logger.Debug().Msgf("SubBalance %v from %s", amount, evmAddr.Hex())
+	log.L().Debug(fmt.Sprintf("SubBalance %v from %s", amount, evmAddr.Hex()))
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	state, err := stateDB.AccountState(addr.IotxAddress())
 	if err != nil {
-		logger.Error().Err(err).Msg("SubBalance")
+		log.L().Error("Failed to sub balance.", zap.Error(err))
 		stateDB.logError(err)
 		return
 	}
 	state.SubBalance(amount)
 	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), state); err != nil {
-		logger.Error().Err(err).Msg("Failed to update pending account changes to trie")
+		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 	}
 	// stateDB.GetBalance(evmAddr)
 }
@@ -119,18 +130,18 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 		return
 	}
 	// stateDB.GetBalance(evmAddr)
-	logger.Debug().Msgf("AddBalance %v to %s", amount, evmAddr.Hex())
+	log.L().Debug(fmt.Sprintf("AddBalance %v from %s", amount, evmAddr.Hex()))
 
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	state, err := account.LoadOrCreateAccount(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
 	if err != nil {
-		logger.Error().Err(err).Hex("addrHash", evmAddr[:]).Msg("AddBalance")
+		log.L().Error("Failed to add balance.", log.Hex("addrHash", evmAddr[:]))
 		stateDB.logError(err)
 		return
 	}
 	state.AddBalance(amount)
 	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), state); err != nil {
-		logger.Error().Err(err).Msg("Failed to update pending account changes to trie")
+		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 	}
 }
 
@@ -139,10 +150,10 @@ func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	state, err := stateDB.AccountState(addr.IotxAddress())
 	if err != nil {
-		logger.Error().Err(err).Msg("GetBalance")
-		return nil
+		log.L().Error("Failed to get balance.", zap.Error(err))
+		return big.NewInt(0)
 	}
-	logger.Debug().Msgf("Balance of %s is %v", evmAddr.Hex(), state.Balance)
+	log.L().Debug(fmt.Sprintf("Balance of %s is %v", evmAddr.Hex(), state.Balance))
 
 	return state.Balance
 }
@@ -152,28 +163,46 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	state, err := stateDB.AccountState(addr.IotxAddress())
 	if err != nil {
-		logger.Error().Err(err).Msg("GetNonce")
+		log.L().Error("Failed to get nonce.", zap.Error(err))
 		// stateDB.logError(err)
 		return 0
 	}
-	logger.Debug().Uint64("nonce", state.Nonce).Msg("GetNonce")
+	log.L().Debug("Called GetNonce.",
+		zap.String("address", addr.IotxAddress()),
+		zap.Uint64("nonce", state.Nonce))
 	return state.Nonce
 }
 
 // SetNonce sets the nonce of account
-func (stateDB *StateDBAdapter) SetNonce(common.Address, uint64) {
-	logger.Error().Msg("SetNonce is not implemented")
+func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
+	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	s, err := stateDB.AccountState(addr.IotxAddress())
+	if err != nil {
+		log.L().Error("Failed to set nonce.", zap.Error(err))
+		// stateDB.logError(err)
+		return
+	}
+	log.L().Debug("Called SetNonce.",
+		zap.String("address", addr.IotxAddress()),
+		zap.Uint64("nonce", nonce))
+	s.Nonce = nonce
+	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), s); err != nil {
+		log.L().Error("Failed to set nonce.", zap.Error(err))
+		// stateDB.logError(err)
+	}
 }
 
 // AddRefund adds refund
-func (stateDB *StateDBAdapter) AddRefund(uint64) {
-	logger.Error().Msg("AddRefund is not implemented")
+func (stateDB *StateDBAdapter) AddRefund(gas uint64) {
+	log.L().Debug("Called AddRefund.", zap.Uint64("gas", gas))
+	// stateDB.journal.append(refundChange{prev: self.refund})
+	stateDB.refund += gas
 }
 
 // GetRefund gets refund
 func (stateDB *StateDBAdapter) GetRefund() uint64 {
-	logger.Error().Msg("GetRefund is not implemented")
-	return 0
+	log.L().Debug("Called GetRefund.")
+	return stateDB.refund
 }
 
 // Suicide kills the contract
@@ -181,7 +210,7 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	s, err := stateDB.AccountState(addr.IotxAddress())
 	if err != nil || s == state.EmptyAccount {
-		logger.Debug().Msgf("account %s does not exist", addr.IotxAddress())
+		log.L().Debug("Account does not exist.", zap.String("address", addr.IotxAddress()))
 		return false
 	}
 	// clears the account balance
@@ -204,36 +233,44 @@ func (stateDB *StateDBAdapter) HasSuicided(evmAddr common.Address) bool {
 // Exist checks the existence of an address
 func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	logger.Debug().Msgf("Check existence of %s, %x", addr.IotxAddress(), evmAddr[:])
+	log.L().Debug("Check existence.", zap.String("address", addr.IotxAddress()), log.Hex("addrHash", evmAddr[:]))
 	if s, err := stateDB.AccountState(addr.IotxAddress()); err != nil || s == state.EmptyAccount {
-		logger.Debug().Msgf("account %s does not exist", addr.IotxAddress())
+		log.L().Debug("Account does not exist.", zap.String("address", addr.IotxAddress()))
 		return false
 	}
 	return true
 }
 
-// Empty empties the contract
-func (stateDB *StateDBAdapter) Empty(common.Address) bool {
-	logger.Debug().Msg("Empty is not implemented")
-	return false
+// Empty returns true if the the contract is empty
+func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
+	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	log.L().Debug("Check whether the contract is empty.")
+	s, err := stateDB.AccountState(addr.IotxAddress())
+	if err != nil || s == state.EmptyAccount {
+		return true
+	}
+	// TODO: delete hash.ZeroHash32B
+	return s.Nonce == 0 &&
+		s.Balance.Sign() == 0 &&
+		(len(s.CodeHash) == 0 || bytes.Equal(s.CodeHash, hash.ZeroHash32B[:]))
 }
 
 // RevertToSnapshot reverts the state factory to the state at a given snapshot
 func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// TODO: temp disable until we solve the memory thrash/leak issue
-	logger.Debug().Msg("RevertToSnapshot is not implemented")
+	log.L().Debug("RevertToSnapshot is not implemented.")
 	return
 
 	if err := stateDB.sm.Revert(snapshot); err != nil {
 		err := errors.New("unexpected error: state manager's Revert() failed")
-		logger.Error().Err(err).Msg("failed to RevertToSnapshot")
+		log.L().Error("Failed to revert to snapshot.", zap.Error(err))
 		// stateDB.err = err
 		return
 	}
 	ds, ok := stateDB.suicideSnapshot[snapshot]
 	if !ok {
 		// this should not happen, b/c we save the suicide accounts on a successful return of Snapshot(), but check anyway
-		logger.Error().Msgf("failed to get snapshot = %d", snapshot)
+		log.L().Error("Failed to get snapshot.", zap.Int("snapshot", snapshot))
 		return
 	}
 	// restore the suicide accounts
@@ -244,22 +281,25 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
 	for addr, c := range stateDB.cachedContract {
 		if err := c.LoadRoot(); err != nil {
-			logger.Error().Msgf("failed to load root for contract %x", addr)
+			log.L().Error("Failed to load root for contract.", log.Hex("addrHash", addr[:]))
 			return
 		}
 	}
+	// restore preimages
+	stateDB.preimages = nil
+	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
 }
 
 // Snapshot returns the snapshot id
 func (stateDB *StateDBAdapter) Snapshot() int {
 	// TODO: temp disable until we solve the memory thrash/leak issue
-	logger.Debug().Msg("Snapshot is not implemented")
+	log.L().Debug("Snapshot is not implemented.")
 	return 0
 
 	sn := stateDB.sm.Snapshot()
 	if _, ok := stateDB.suicideSnapshot[sn]; ok {
 		err := errors.New("unexpected error: duplicate snapshot version")
-		logger.Error().Err(err).Msg("failed to Snapshot")
+		log.L().Error("Failed to snapshot.", zap.Error(err))
 		// stateDB.err = err
 		return sn
 	}
@@ -275,12 +315,18 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 		c[k] = v.Snapshot()
 	}
 	stateDB.contractSnapshot[sn] = c
+	// save a copy of preimages
+	p := make(preimageMap)
+	for k, v := range stateDB.preimages {
+		p[k] = v
+	}
+	stateDB.preimageSnapshot[sn] = p
 	return sn
 }
 
 // AddLog adds log
 func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
-	logger.Debug().Msgf("AddLog %+v\n", evmLog)
+	log.L().Debug("Called AddLog.", zap.Any("log", evmLog))
 	addr := address.New(stateDB.cm.ChainID(), evmLog.Address.Bytes())
 	var topics []hash.Hash32B
 	for _, evmTopic := range evmLog.Topics {
@@ -304,9 +350,13 @@ func (stateDB *StateDBAdapter) Logs() []*action.Log {
 	return stateDB.logs
 }
 
-// AddPreimage adds the preimage
-func (stateDB *StateDBAdapter) AddPreimage(common.Hash, []byte) {
-	logger.Error().Msg("AddPreimage is not implemented")
+// AddPreimage adds the preimage of a hash
+func (stateDB *StateDBAdapter) AddPreimage(hash common.Hash, preimage []byte) {
+	if _, ok := stateDB.preimages[hash]; !ok {
+		b := make([]byte, len(preimage))
+		copy(b, preimage)
+		stateDB.preimages[hash] = b
+	}
 }
 
 // ForEachStorage loops each storage
@@ -361,7 +411,7 @@ func (stateDB *StateDBAdapter) GetCodeHash(evmAddr common.Address) common.Hash {
 	}
 	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
-		logger.Error().Err(err).Msg("GetCodeHash")
+		log.L().Error("Failed to get code hash.", zap.Error(err))
 		// TODO (zhi) not all err should be logged
 		// stateDB.logError(err)
 		return codeHash
@@ -376,20 +426,20 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 	if contract, ok := stateDB.cachedContract[addr]; ok {
 		code, err := contract.GetCode()
 		if err != nil {
-			logger.Error().Err(err).Msg("GetCode")
+			log.L().Error("Failed to get code hash.", zap.Error(err))
 			return nil
 		}
 		return code
 	}
 	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to load account state for address %x", addr)
+		log.L().Error("Failed to load account state for address.", log.Hex("addrHash", addr[:]))
 		return nil
 	}
 	code, err := stateDB.dao.Get(CodeKVNameSpace, account.CodeHash[:])
 	if err != nil {
 		// TODO: Suppress the as it's too much now
-		// logger.Error().Err(err).Msg("Failed to get code from trie")
+		//log.L().Error("Failed to get code from trie.", zap.Error(err))
 		return nil
 	}
 	return code
@@ -401,7 +451,7 @@ func (stateDB *StateDBAdapter) GetCodeSize(evmAddr common.Address) int {
 	if code == nil {
 		return 0
 	}
-	logger.Debug().Hex("addrHash", evmAddr[:]).Msg("GetCodeSize")
+	log.L().Debug("Called GetCodeSize.", log.Hex("addrHash", evmAddr[:]))
 	return len(code)
 }
 
@@ -414,7 +464,7 @@ func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 	}
 	contract, err := stateDB.getContract(addr)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to get contract for address %x", addr)
+		log.L().Error("Failed to get contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
 	}
 	contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
 }
@@ -424,10 +474,10 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 	storage := common.Hash{}
 	v, err := stateDB.getContractState(byteutil.BytesTo20B(evmAddr[:]), byteutil.BytesTo32B(k[:]))
 	if err != nil {
-		logger.Error().Err(err).Msg("GetState")
+		log.L().Error("Failed to get state.", zap.Error(err))
 		return storage
 	}
-	logger.Debug().Hex("addrHash", evmAddr[:]).Hex("k", k[:]).Msg("GetState")
+	log.L().Debug("Called GetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
 	copy(storage[:], v[:])
 	return storage
 }
@@ -435,10 +485,10 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 // SetState sets state
 func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash) {
 	if err := stateDB.setContractState(byteutil.BytesTo20B(evmAddr[:]), byteutil.BytesTo32B(k[:]), byteutil.BytesTo32B(v[:])); err != nil {
-		logger.Error().Err(err).Msg("SetState")
+		log.L().Error("Failed to set state.", zap.Error(err))
 		return
 	}
-	logger.Debug().Hex("addrHash", evmAddr[:]).Hex("k", k[:]).Hex("v", v[:]).Msg("SetState")
+	log.L().Debug("Called SetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
 }
 
 // getContractState returns contract's storage value
@@ -489,6 +539,12 @@ func (stateDB *StateDBAdapter) commitContracts() error {
 			return errors.Wrapf(err, "failed to delete suicide account/contract %x", addr[:])
 		}
 	}
+	// write preimages to DB
+	for k, v := range stateDB.preimages {
+		h := make([]byte, len(k))
+		copy(h, k[:])
+		stateDB.cb.Put(PreimageKVNameSpace, h, v, "failed to put hash %x preimage %x", k, v)
+	}
 	return nil
 }
 
@@ -527,8 +583,12 @@ func (stateDB *StateDBAdapter) clear() {
 	stateDB.contractSnapshot = nil
 	stateDB.suicided = nil
 	stateDB.suicideSnapshot = nil
+	stateDB.preimages = nil
+	stateDB.preimageSnapshot = nil
 	stateDB.cachedContract = make(contractMap)
 	stateDB.contractSnapshot = make(map[int]contractMap)
 	stateDB.suicided = make(deleteAccount)
 	stateDB.suicideSnapshot = make(map[int]deleteAccount)
+	stateDB.preimages = make(preimageMap)
+	stateDB.preimageSnapshot = make(map[int]preimageMap)
 }

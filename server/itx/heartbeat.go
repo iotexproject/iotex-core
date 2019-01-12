@@ -9,16 +9,15 @@ package itx
 import (
 	"encoding/json"
 	"strconv"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zjshen14/go-fsm"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // TODO: HeartbeatHandler opens encapsulation of a few structs to inspect the internal status, we need to find a better
@@ -49,46 +48,26 @@ func NewHeartbeatHandler(s *Server) *HeartbeatHandler {
 // Log executes the logging logic
 func (h *HeartbeatHandler) Log() {
 	// Network metrics
-	p2p, ok := h.s.P2P().(*network.IotxOverlay)
-	if !ok {
-		logger.Error().Msg("value is not the instance of IotxOverlay")
-		return
-	}
-	numPeers := network.LenSyncMap(p2p.PM.Peers)
-	lastOutTime := time.Unix(0, 0)
-	p2p.PM.Peers.Range(func(_, value interface{}) bool {
-		p, ok := value.(*network.Peer)
-		if !ok {
-			logger.Error().Msg("value is not the instance of Peer")
-			return true
-		}
-		if p.LastResTime.After(lastOutTime) {
-			lastOutTime = p.LastResTime
-		}
-		return true
-	})
-	lastInTime := p2p.RPC.LastReqTime()
+	p2pAgent := h.s.P2PAgent()
 
 	// Dispatcher metrics
 	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)
 	if !ok {
-		logger.Error().Msg("dispatcher is not the instance of IotxDispatcher")
+		log.L().Error("dispatcher is not the instance of IotxDispatcher")
 		return
 	}
 	numDPEvts := len(*dp.EventChan())
 	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
 	if err != nil {
-		logger.Error().Msg("error when serializing the dispatcher event audit map")
+		log.L().Error("error when serializing the dispatcher event audit map")
 		return
 	}
 
-	logger.Info().
-		Uint("numPeers", numPeers).
-		Time("lastOut", lastOutTime).
-		Time("lastIn", lastInTime).
-		Int("pendingDispatcherEvents", numDPEvts).
-		Str("pendingDispatcherEventsAudit", string(dpEvtsAudit)).
-		Msg("node status")
+	numPeers := len(p2pAgent.Neighbors())
+	log.L().Info("Node status.",
+		zap.Int("numPeers", numPeers),
+		zap.Int("pendingDispatcherEvents", numDPEvts),
+		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))
 
 	heartbeatMtc.WithLabelValues("numPeers", "node").Set(float64(numPeers))
 	heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(numDPEvts))
@@ -97,7 +76,7 @@ func (h *HeartbeatHandler) Log() {
 		// Consensus metrics
 		cs, ok := c.Consensus().(*consensus.IotxConsensus)
 		if !ok {
-			logger.Error().Msg("consensus is not the instance of IotxConsensus")
+			log.L().Info("consensus is not the instance of IotxConsensus.")
 			return
 		}
 		rolldpos, ok := cs.Scheme().(*rolldpos.RollDPoS)
@@ -107,7 +86,7 @@ func (h *HeartbeatHandler) Log() {
 			numPendingEvts = rolldpos.NumPendingEvts()
 			state = rolldpos.CurrentState()
 		} else {
-			logger.Debug().Msg("scheme is not the instance of RollDPoS")
+			log.L().Debug("scheme is not the instance of RollDPoS")
 		}
 
 		// Block metrics
@@ -117,15 +96,15 @@ func (h *HeartbeatHandler) Log() {
 		actPoolCapacity := c.ActionPool().GetCapacity()
 		targetHeight := c.BlockSync().TargetHeight()
 
-		logger.Info().
-			Int("rolldposEvents", numPendingEvts).
-			Str("fsmState", string(state)).
-			Uint64("blockchainHeight", height).
-			Uint64("actpoolSize", actPoolSize).
-			Uint64("actpoolCapacity", actPoolCapacity).
-			Uint32("chainID", c.ChainID()).
-			Uint64("targetHeight", targetHeight).
-			Msg("chain service status")
+		log.L().Info("chain service status",
+			zap.Int("rolldposEvents", numPendingEvts),
+			zap.String("fsmState", string(state)),
+			zap.Uint64("blockchainHeight", height),
+			zap.Uint64("actpoolSize", actPoolSize),
+			zap.Uint64("actpoolCapacity", actPoolCapacity),
+			zap.Uint32("chainID", c.ChainID()),
+			zap.Uint64("targetHeight", targetHeight),
+		)
 
 		chainIDStr := strconv.FormatUint(uint64(c.ChainID()), 10)
 		heartbeatMtc.WithLabelValues("pendingRolldposEvents", chainIDStr).Set(float64(numPendingEvts))

@@ -50,7 +50,7 @@ func TestValidateDeposit(t *testing.T) {
 
 	p := NewProtocol(chain)
 
-	addr1 := testaddress.Addrinfo["producer"].RawAddress
+	addr1 := testaddress.IotxAddrinfo["producer"].RawAddress
 	addr, err := address.IotxAddressToAddress(addr1)
 	require.NoError(t, err)
 	addr2 := address.New(2, addr.Payload()).IotxAddress()
@@ -63,14 +63,14 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	_, err = account.LoadOrCreateAccount(
 		ws,
-		testaddress.Addrinfo["producer"].RawAddress,
+		testaddress.IotxAddrinfo["producer"].RawAddress,
 		big.NewInt(1000),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -121,7 +121,7 @@ func TestMutateDeposit(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	addr1 := testaddress.Addrinfo["producer"].RawAddress
+	addr1 := testaddress.IotxAddrinfo["producer"].RawAddress
 	addr, err := address.IotxAddressToAddress(addr1)
 	require.NoError(t, err)
 	addr2 := address.New(2, addr.Payload()).IotxAddress()
@@ -138,7 +138,7 @@ func TestMutateDeposit(t *testing.T) {
 			OperationDeposit:   big.NewInt(2),
 			StartHeight:        100,
 			ParentHeightOffset: 10,
-			OwnerPublicKey:     testaddress.Addrinfo["producer"].PublicKey,
+			OwnerPublicKey:     testaddress.IotxAddrinfo["producer"].PublicKey,
 			CurrentHeight:      200,
 			DepositCount:       300,
 		},

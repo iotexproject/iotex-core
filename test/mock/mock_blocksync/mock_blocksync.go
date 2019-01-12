@@ -7,8 +7,7 @@ package mock_blocksync
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	blockchain "github.com/iotexproject/iotex-core/blockchain"
-	network "github.com/iotexproject/iotex-core/network"
+	block "github.com/iotexproject/iotex-core/blockchain/block"
 	proto "github.com/iotexproject/iotex-core/proto"
 	reflect "reflect"
 )
@@ -72,18 +71,6 @@ func (mr *MockBlockSyncMockRecorder) TargetHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TargetHeight", reflect.TypeOf((*MockBlockSync)(nil).TargetHeight))
 }
 
-// P2P mocks base method
-func (m *MockBlockSync) P2P() network.Overlay {
-	ret := m.ctrl.Call(m, "P2P")
-	ret0, _ := ret[0].(network.Overlay)
-	return ret0
-}
-
-// P2P indicates an expected call of P2P
-func (mr *MockBlockSyncMockRecorder) P2P() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "P2P", reflect.TypeOf((*MockBlockSync)(nil).P2P))
-}
-
 // ProcessSyncRequest mocks base method
 func (m *MockBlockSync) ProcessSyncRequest(sender string, sync *proto.BlockSync) error {
 	ret := m.ctrl.Call(m, "ProcessSyncRequest", sender, sync)
@@ -97,7 +84,7 @@ func (mr *MockBlockSyncMockRecorder) ProcessSyncRequest(sender, sync interface{}
 }
 
 // ProcessBlock mocks base method
-func (m *MockBlockSync) ProcessBlock(blk *blockchain.Block) error {
+func (m *MockBlockSync) ProcessBlock(blk *block.Block) error {
 	ret := m.ctrl.Call(m, "ProcessBlock", blk)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -109,7 +96,7 @@ func (mr *MockBlockSyncMockRecorder) ProcessBlock(blk interface{}) *gomock.Call 
 }
 
 // ProcessBlockSync mocks base method
-func (m *MockBlockSync) ProcessBlockSync(blk *blockchain.Block) error {
+func (m *MockBlockSync) ProcessBlockSync(blk *block.Block) error {
 	ret := m.ctrl.Call(m, "ProcessBlockSync", blk)
 	ret0, _ := ret[0].(error)
 	return ret0

@@ -13,11 +13,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 )
-
-// GasLimit is the total gas limit could be consumed in a block
-const GasLimit = uint64(1000000000)
 
 // GenericValidator is the validator for generic action verification
 type GenericValidator struct {
@@ -44,7 +42,7 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 		}
 	}
 	// Reject over-gassed action
-	if act.GasLimit() > GasLimit {
+	if act.GasLimit() > genesis.ActionGasLimit {
 		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")
 	}
 	// Reject action with insufficient gas limit

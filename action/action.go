@@ -13,9 +13,9 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -162,7 +162,7 @@ func (sealed SealedEnvelope) Proto() *iproto.ActionPb {
 	case *SettleDeposit:
 		actPb.Action = &iproto.ActionPb_SettleDeposit{SettleDeposit: act.Proto()}
 	default:
-		logger.Panic().Msgf("cannot convert type of action %T \r\n", act)
+		log.S().Panicf("Cannot convert type of action %T.\r\n", act)
 	}
 	return actPb
 }

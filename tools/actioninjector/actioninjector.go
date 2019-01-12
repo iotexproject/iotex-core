@@ -15,9 +15,10 @@ import (
 	"time"
 
 	_ "go.uber.org/automaxprocs"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/explorer"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/tools/util"
 )
 
@@ -99,14 +100,14 @@ func main() {
 
 	addrs, err := util.LoadAddresses(configPath, uint32(chainID))
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to load addresses from config path")
+		log.L().Fatal("Failed to load addresses from config path", zap.Error(err))
 	}
 	admins := addrs[len(addrs)-adminNumber:]
 	delegates := addrs[:len(addrs)-adminNumber]
 
 	counter, err := util.InitCounter(proxy, addrs)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to initialize nonce counter")
+		log.L().Fatal("Failed to initialize nonce counter", zap.Error(err))
 	}
 
 	// APS Mode

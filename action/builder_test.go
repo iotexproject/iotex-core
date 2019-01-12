@@ -17,8 +17,8 @@ import (
 )
 
 func TestActionBuilder(t *testing.T) {
-	srcAddr := testaddress.Addrinfo["producer"]
-	dstAddr := testaddress.Addrinfo["echo"]
+	srcAddr := testaddress.IotxAddrinfo["producer"]
+	dstAddr := testaddress.IotxAddrinfo["echo"]
 	bd := &Builder{}
 	act := bd.SetVersion(version.ProtocolVersion).
 		SetNonce(2).

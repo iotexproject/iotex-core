@@ -11,12 +11,12 @@ import (
 
 	"github.com/facebookgo/clock"
 	fsm "github.com/zjshen14/go-fsm"
+	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -55,12 +55,13 @@ func (e *consensusEvt) timestamp() time.Time { return e.ts }
 
 type proposeBlkEvt struct {
 	consensusEvt
-	block     *blockchain.Block
+
+	block     Block
 	lockProof *endorsement.Set
 }
 
 func newProposeBlkEvt(
-	block *blockchain.Block,
+	block Block,
 	lockProof *endorsement.Set,
 	round uint32,
 	c clock.Clock,
@@ -77,12 +78,15 @@ func (e *proposeBlkEvt) toProtoMsg() *iproto.ProposePb {
 	if e.lockProof != nil {
 		lockProof = e.lockProof.ToProto()
 	}
+	data, _ := e.block.Serialize()
 
 	return &iproto.ProposePb{
-		Block:     e.block.ConvertToBlockPb(),
+		Height:    e.block.Height(),
+		Hash:      e.block.Hash(),
+		Block:     data,
 		LockProof: lockProof,
 		Round:     e.r,
-		Proposer:  e.block.ProducerAddress(),
+		Proposer:  e.block.Proposer(),
 	}
 }
 
@@ -90,8 +94,9 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 	if pMsg.Block == nil {
 		return nil
 	}
-	block := &blockchain.Block{}
-	if err := block.ConvertFromBlockPb(pMsg.Block); err != nil {
+	block := &block.Block{}
+	if err := block.Deserialize(pMsg.Block); err != nil {
+		log.L().Error("Failed to deserialize block.", zap.Error(err))
 		return nil
 	}
 	var lockProof *endorsement.Set
@@ -99,12 +104,12 @@ func newProposeBlkEvtFromProtoMsg(pMsg *iproto.ProposePb, c clock.Clock) *propos
 		lockProof = &endorsement.Set{}
 		err := lockProof.FromProto(pMsg.LockProof)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to generate proposeBlkEvt from protobuf")
+			log.L().Error("Failed to generate proposeBlkEvt from protobuf.", zap.Error(err))
 			return nil
 		}
 	}
 
-	return newProposeBlkEvt(block, lockProof, pMsg.Round, c)
+	return newProposeBlkEvt(&blockWrapper{block, pMsg.Round}, lockProof, pMsg.Round, c)
 }
 
 type endorseEvt struct {
@@ -114,7 +119,7 @@ type endorseEvt struct {
 
 func newEndorseEvt(
 	topic endorsement.ConsensusVoteTopic,
-	blkHash hash.Hash32B,
+	blkHash []byte,
 	height uint64,
 	round uint32,
 	endorser *iotxaddress.Address,

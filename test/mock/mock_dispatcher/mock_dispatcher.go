@@ -85,28 +85,16 @@ func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSyncRequest", reflect.TypeOf((*MockSubscriber)(nil).HandleSyncRequest), arg0, arg1)
 }
 
-// HandleBlockPropose mocks base method
-func (m *MockSubscriber) HandleBlockPropose(arg0 *proto0.ProposePb) error {
-	ret := m.ctrl.Call(m, "HandleBlockPropose", arg0)
+// HandleConsensusMsg mocks base method
+func (m *MockSubscriber) HandleConsensusMsg(arg0 *proto0.ConsensusPb) error {
+	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// HandleBlockPropose indicates an expected call of HandleBlockPropose
-func (mr *MockSubscriberMockRecorder) HandleBlockPropose(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockPropose", reflect.TypeOf((*MockSubscriber)(nil).HandleBlockPropose), arg0)
-}
-
-// HandleEndorse mocks base method
-func (m *MockSubscriber) HandleEndorse(arg0 *proto0.EndorsePb) error {
-	ret := m.ctrl.Call(m, "HandleEndorse", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// HandleEndorse indicates an expected call of HandleEndorse
-func (mr *MockSubscriberMockRecorder) HandleEndorse(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleEndorse", reflect.TypeOf((*MockSubscriber)(nil).HandleEndorse), arg0)
+// HandleConsensusMsg indicates an expected call of HandleConsensusMsg
+func (mr *MockSubscriberMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockSubscriber)(nil).HandleConsensusMsg), arg0)
 }
 
 // MockDispatcher is a mock of Dispatcher interface
@@ -167,21 +155,21 @@ func (mr *MockDispatcherMockRecorder) AddSubscriber(arg0, arg1 interface{}) *gom
 }
 
 // HandleBroadcast mocks base method
-func (m *MockDispatcher) HandleBroadcast(arg0 uint32, arg1 proto.Message, arg2 chan bool) {
-	m.ctrl.Call(m, "HandleBroadcast", arg0, arg1, arg2)
+func (m *MockDispatcher) HandleBroadcast(arg0 uint32, arg1 proto.Message) {
+	m.ctrl.Call(m, "HandleBroadcast", arg0, arg1)
 }
 
 // HandleBroadcast indicates an expected call of HandleBroadcast
-func (mr *MockDispatcherMockRecorder) HandleBroadcast(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBroadcast", reflect.TypeOf((*MockDispatcher)(nil).HandleBroadcast), arg0, arg1, arg2)
+func (mr *MockDispatcherMockRecorder) HandleBroadcast(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBroadcast", reflect.TypeOf((*MockDispatcher)(nil).HandleBroadcast), arg0, arg1)
 }
 
 // HandleTell mocks base method
-func (m *MockDispatcher) HandleTell(arg0 uint32, arg1 net.Addr, arg2 proto.Message, arg3 chan bool) {
-	m.ctrl.Call(m, "HandleTell", arg0, arg1, arg2, arg3)
+func (m *MockDispatcher) HandleTell(arg0 uint32, arg1 net.Addr, arg2 proto.Message) {
+	m.ctrl.Call(m, "HandleTell", arg0, arg1, arg2)
 }
 
 // HandleTell indicates an expected call of HandleTell
-func (mr *MockDispatcherMockRecorder) HandleTell(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleTell", reflect.TypeOf((*MockDispatcher)(nil).HandleTell), arg0, arg1, arg2, arg3)
+func (mr *MockDispatcherMockRecorder) HandleTell(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleTell", reflect.TypeOf((*MockDispatcher)(nil).HandleTell), arg0, arg1, arg2)
 }

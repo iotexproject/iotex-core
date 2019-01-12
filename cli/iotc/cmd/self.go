@@ -28,17 +28,14 @@ func self() string {
 	/*
 		cfg, err := getCfg()
 		if err != nil {
-			logger.Error().Err(err).Msg("unable to find config file")
 			return ""
 		}
 		pubk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
 		if err != nil {
-			logger.Error().Err(err).Msg("unable to decode pubkey")
 			return ""
 		}
 		addr, err := iotxaddress.GetAddress(pubk, iotxaddress.IsTestnet, iotxaddress.ChainID)
 		if err != nil {
-			logger.Error().Err(err).Msg("unable to construct address from pubkey")
 			return ""
 		}
 

@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/facebookgo/clock"
@@ -21,11 +22,12 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	_hash "github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state/factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -43,7 +45,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		1,
 		big.NewInt(3000000000),
 		Gen.CreatorAddr(config.Default.Chain.ID),
-		ta.Addrinfo["producer"].RawAddress,
+		ta.IotxAddrinfo["producer"].RawAddress,
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
 	)
@@ -52,14 +54,14 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	sig, _ := hex.DecodeString("49fc01738d045ff21c9645baca8c90d476b7e56629c99fd5162a3f410c1a0e707ffa4c00e1a0087c4c7dd0fdc0cbe19030357a56e9d0fb506418e5e7b164ff0daefaedad704f5f01")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
-		SetDestinationAddress(ta.Addrinfo["producer"].RawAddress).
+		SetDestinationAddress(ta.IotxAddrinfo["producer"].RawAddress).
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
 
 	selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pubk, sig)
 
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	if err != nil {
 		return err
@@ -72,34 +74,38 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	}
 	// Add block 1
 	// test --> A, B, C, D, E, F
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["alfa"], 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 2, big.NewInt(30), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 2, big.NewInt(30), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["charlie"], 3, big.NewInt(50), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf3, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["charlie"], 3, big.NewInt(50), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["delta"], 4, big.NewInt(70), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf4, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["delta"], 4, big.NewInt(70), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf5, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["echo"], 5, big.NewInt(110), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf5, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["echo"], 5, big.NewInt(110), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf6, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["foxtrot"], 6, big.NewInt(50<<20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf6, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["foxtrot"], 6, big.NewInt(50<<20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
 	accMap := make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 
+<<<<<<< HEAD
 	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.Addrinfo["producer"], nil, nil, "")
+=======
+	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, ta.IotxAddrinfo["producer"], nil, nil, "")
+>>>>>>> a957c454dd5566e0c402aa0d597d2ab28791f491
 	if err != nil {
 		return err
 	}
@@ -112,27 +118,27 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
-	tsf1, err = testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["alfa"], 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err = testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["alfa"], 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf2, err = testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["bravo"], 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err = testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["bravo"], 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf3, err = testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["delta"], 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf3, err = testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["delta"], 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf4, err = testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["echo"], 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf4, err = testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["echo"], 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf5, err = testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["producer"], 5, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf5, err = testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["producer"], 5, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}, ta.Addrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}, ta.IotxAddrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -149,26 +155,30 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	// Add block 3
 	// Delta --> B, E, F, test
-	tsf1, err = testutil.SignedTransfer(ta.Addrinfo["delta"], ta.Addrinfo["bravo"], 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err = testutil.SignedTransfer(ta.IotxAddrinfo["delta"], ta.IotxAddrinfo["bravo"], 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf2, err = testutil.SignedTransfer(ta.Addrinfo["delta"], ta.Addrinfo["echo"], 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err = testutil.SignedTransfer(ta.IotxAddrinfo["delta"], ta.IotxAddrinfo["echo"], 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf3, err = testutil.SignedTransfer(ta.Addrinfo["delta"], ta.Addrinfo["foxtrot"], 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf3, err = testutil.SignedTransfer(ta.IotxAddrinfo["delta"], ta.IotxAddrinfo["foxtrot"], 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf4, err = testutil.SignedTransfer(ta.Addrinfo["delta"], ta.Addrinfo["producer"], 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf4, err = testutil.SignedTransfer(ta.IotxAddrinfo["delta"], ta.IotxAddrinfo["producer"], 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
+<<<<<<< HEAD
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 
 	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.Addrinfo["producer"], nil, nil, "")
+=======
+	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, ta.IotxAddrinfo["producer"], nil, nil, "")
+>>>>>>> a957c454dd5566e0c402aa0d597d2ab28791f491
 	if err != nil {
 		return err
 	}
@@ -181,35 +191,35 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	// Add block 4
 	// Delta --> A, B, C, D, F, test
-	tsf1, err = testutil.SignedTransfer(ta.Addrinfo["echo"], ta.Addrinfo["alfa"], 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err = testutil.SignedTransfer(ta.IotxAddrinfo["echo"], ta.IotxAddrinfo["alfa"], 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf2, err = testutil.SignedTransfer(ta.Addrinfo["echo"], ta.Addrinfo["bravo"], 2, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err = testutil.SignedTransfer(ta.IotxAddrinfo["echo"], ta.IotxAddrinfo["bravo"], 2, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf3, err = testutil.SignedTransfer(ta.Addrinfo["echo"], ta.Addrinfo["charlie"], 3, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf3, err = testutil.SignedTransfer(ta.IotxAddrinfo["echo"], ta.IotxAddrinfo["charlie"], 3, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf4, err = testutil.SignedTransfer(ta.Addrinfo["echo"], ta.Addrinfo["delta"], 4, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf4, err = testutil.SignedTransfer(ta.IotxAddrinfo["echo"], ta.IotxAddrinfo["delta"], 4, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf5, err = testutil.SignedTransfer(ta.Addrinfo["echo"], ta.Addrinfo["foxtrot"], 5, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf5, err = testutil.SignedTransfer(ta.IotxAddrinfo["echo"], ta.IotxAddrinfo["foxtrot"], 5, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf6, err = testutil.SignedTransfer(ta.Addrinfo["echo"], ta.Addrinfo["producer"], 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf6, err = testutil.SignedTransfer(ta.IotxAddrinfo["echo"], ta.IotxAddrinfo["producer"], 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], 6, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["charlie"], 6, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	vote2, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["alfa"], 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote2, err := testutil.SignedVote(ta.IotxAddrinfo["alfa"], ta.IotxAddrinfo["alfa"], 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
@@ -218,7 +228,12 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1}
 	accMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2}
 
+<<<<<<< HEAD
 	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.Addrinfo["producer"], nil, nil, "")
+=======
+	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6, vote1, vote2},
+		ta.IotxAddrinfo["producer"], nil, nil, "")
+>>>>>>> a957c454dd5566e0c402aa0d597d2ab28791f491
 	if err != nil {
 		return err
 	}
@@ -238,8 +253,6 @@ func TestCreateBlockchain(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
-	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
@@ -271,18 +284,18 @@ func TestCreateBlockchain(t *testing.T) {
 	fmt.Printf("Marshaling Block pass\n")
 
 	// deserialize
-	deserialize := Block{}
+	deserialize := block.Block{}
 	err = deserialize.Deserialize(data)
 	require.Nil(err)
 	fmt.Printf("Unmarshaling Block pass\n")
 
-	hash := genesis.HashBlock()
-	require.Equal(hash, deserialize.HashBlock())
-	fmt.Printf("Serialize/Deserialize Block hash = %x match\n", hash)
+	blkhash := genesis.HashBlock()
+	require.Equal(blkhash, deserialize.HashBlock())
+	fmt.Printf("Serialize/Deserialize Block hash = %x match\n", blkhash)
 
-	hash = genesis.CalculateTxRoot()
-	require.Equal(hash, deserialize.CalculateTxRoot())
-	fmt.Printf("Serialize/Deserialize Block merkle = %x match\n", hash)
+	blkhash = genesis.CalculateTxRoot()
+	require.Equal(blkhash, deserialize.CalculateTxRoot())
+	fmt.Printf("Serialize/Deserialize Block merkle = %x match\n", blkhash)
 
 	// add 4 sample blocks
 	require.Nil(addTestingTsfBlocks(bc))
@@ -290,14 +303,71 @@ func TestCreateBlockchain(t *testing.T) {
 	require.Equal(5, int(height))
 }
 
-type MockSubscriber struct {
-	counter int
+func TestBlockchain_MintNewBlock(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Default
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	require.NoError(t, bc.Start(ctx))
+	defer require.NoError(t, bc.Stop(ctx))
+
+	pkStr, err := hex.DecodeString(Gen.CreatorPubKey)
+	require.NoError(t, err)
+	pk, err := keypair.BytesToPublicKey(pkStr)
+	// The signature should only matches the transfer amount 3000000000
+	sig, err := hex.DecodeString("49fc01738d045ff21c9645baca8c90d476b7e56629c99fd5162a3f410c1a0e707ffa4c00e1a0087c4c7dd0fdc0cbe19030357a56e9d0fb506418e5e7b164ff0daefaedad704f5f01")
+	require.NoError(t, err)
+
+	cases := make(map[int64]bool)
+	cases[0] = true
+	cases[1] = false
+	for k, v := range cases {
+		tsf, err := action.NewTransfer(
+			1,
+			big.NewInt(3000000000+k),
+			Gen.CreatorAddr(config.Default.Chain.ID),
+			ta.IotxAddrinfo["producer"].RawAddress,
+			[]byte{}, uint64(100000),
+			big.NewInt(10),
+		)
+		require.NoError(t, err)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetAction(tsf).
+			SetDestinationAddress(ta.IotxAddrinfo["producer"].RawAddress).
+			SetNonce(1).
+			SetGasLimit(100000).
+			SetGasPrice(big.NewInt(10)).Build()
+
+		selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pk, sig)
+		_, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"], nil, nil, "")
+		if v {
+			require.NoError(t, err)
+		} else {
+			require.Error(t, err)
+		}
+	}
+
 }
 
-func (ms *MockSubscriber) HandleBlock(blk *Block) error {
+type MockSubscriber struct {
+	counter int
+	mu      sync.RWMutex
+}
+
+func (ms *MockSubscriber) HandleBlock(blk *block.Block) error {
+	ms.mu.Lock()
 	tsfs, _, _ := action.ClassifyActions(blk.Actions)
 	ms.counter += len(tsfs)
+	ms.mu.Unlock()
 	return nil
+}
+
+func (ms *MockSubscriber) Counter() int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+	return ms.counter
 }
 
 func TestLoadBlockchainfromDB(t *testing.T) {
@@ -309,11 +379,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = big.NewInt(0)
-
 	cfg := config.Default
-	cfg.DB.UseBadgerDB = true // test with badgerDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
@@ -335,14 +401,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	ms := &MockSubscriber{counter: 0}
 	err = bc.AddSubscriber(ms)
 	require.Nil(err)
-	require.Equal(0, ms.counter)
+	require.Equal(0, ms.Counter())
 
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 	require.Nil(addTestingTsfBlocks(bc))
 	err = bc.Stop(ctx)
 	require.NoError(err)
-	require.Equal(27, ms.counter)
+	require.Equal(27, ms.Counter())
 
 	// Load a blockchain from DB
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -356,15 +422,15 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NotNil(bc)
 
 	// check hash<-->height mapping
-	hash, err := bc.GetHashByHeight(0)
+	blkhash, err := bc.GetHashByHeight(0)
 	require.Nil(err)
-	height, err = bc.GetHeightByHash(hash)
+	height, err = bc.GetHeightByHash(blkhash)
 	require.Nil(err)
 	require.Equal(uint64(0), height)
-	blk, err := bc.GetBlockByHash(hash)
+	blk, err := bc.GetBlockByHash(blkhash)
 	require.Nil(err)
-	require.Equal(hash, blk.HashBlock())
-	fmt.Printf("Genesis hash = %x\n", hash)
+	require.Equal(blkhash, blk.HashBlock())
+	fmt.Printf("Genesis hash = %x\n", blkhash)
 
 	hash1, err := bc.GetHashByHeight(1)
 	require.Nil(err)
@@ -416,7 +482,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Equal(hash5, blk.HashBlock())
 	fmt.Printf("block 5 hash = %x\n", hash5)
 
-	empblk, err := bc.GetBlockByHash(_hash.ZeroHash32B)
+	empblk, err := bc.GetBlockByHash(hash.ZeroHash32B)
 	require.Nil(empblk)
 	require.NotNil(err.Error())
 
@@ -426,57 +492,62 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	// add wrong blocks
 	h := bc.TipHeight()
-	hash = bc.TipHash()
+	blkhash = bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
 	require.Nil(err)
-	require.Equal(hash, blk.HashBlock())
-	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
+	require.Equal(blkhash, blk.HashBlock())
+	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 
 	// add block with wrong height
-	cbTsf := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	cbTsf := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.IotxAddrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["bravo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].PrivateKey)
+	selp, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
 
-	blk = NewBlock(0, h+2, hash, testutil.TimestampNow(), ta.Addrinfo["bravo"].PublicKey, []action.SealedEnvelope{selp})
-	err = bc.ValidateBlock(blk, true)
+	nblk, err := block.NewTestingBuilder().
+		SetChainID(0).
+		SetHeight(h + 2).
+		SetPrevBlockHash(blkhash).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(selp).SignAndBuild(ta.IotxAddrinfo["bravo"])
+	require.NoError(err)
+
+	err = bc.ValidateBlock(&nblk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
-	cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.IotxAddrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["bravo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf2).Build()
-	selp2, err := action.Sign(elp, ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].PrivateKey)
+	selp2, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
 
-	blk = NewBlock(
-		0,
-		h+1,
-		_hash.ZeroHash32B,
-		testutil.TimestampNow(),
-		ta.Addrinfo["bravo"].PublicKey,
-		[]action.SealedEnvelope{selp2},
-	)
-	err = bc.ValidateBlock(blk, true)
+	nblk, err = block.NewTestingBuilder().
+		SetChainID(0).
+		SetHeight(h + 1).
+		SetPrevBlockHash(hash.ZeroHash32B).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(selp2).SignAndBuild(ta.IotxAddrinfo["bravo"])
+	require.NoError(err)
+	err = bc.ValidateBlock(&nblk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
-	// cannot add existing block again
+	// add existing block again will have no effect
 	blk, err = bc.GetBlockByHeight(3)
 	require.NotNil(blk)
 	require.Nil(err)
-	err = bc.(*blockchain).commitBlock(blk)
-	require.NotNil(err)
+	require.NoError(bc.(*blockchain).commitBlock(blk))
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 	// check all Tx from block 4
@@ -486,9 +557,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	tsfs, votes, _ := action.ClassifyActions(blk.Actions)
 	for _, transfer := range tsfs {
 		transferHash := transfer.Hash()
-		hash, err := bc.GetBlockHashByTransferHash(transferHash)
+		blkhash, err := bc.GetBlockHashByTransferHash(transferHash)
 		require.Nil(err)
-		require.Equal(hash, hash5)
+		require.Equal(blkhash, hash5)
 		transfer1, err := bc.GetTransferByTransferHash(transferHash)
 		require.Nil(err)
 		require.Equal(transfer1.Hash(), transferHash)
@@ -496,35 +567,35 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	for _, vote := range votes {
 		voteHash := vote.Hash()
-		hash, err := bc.GetBlockHashByVoteHash(voteHash)
+		blkhash, err := bc.GetBlockHashByVoteHash(voteHash)
 		require.Nil(err)
-		require.Equal(hash, hash5)
+		require.Equal(blkhash, hash5)
 		vote1, err := bc.GetVoteByVoteHash(voteHash)
 		require.Nil(err)
 		require.Equal(vote1.Hash(), voteHash)
 	}
 
-	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].RawAddress)
+	fromTransfers, err := bc.GetTransfersFromAddress(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	require.Equal(len(fromTransfers), 5)
 
-	toTransfers, err := bc.GetTransfersToAddress(ta.Addrinfo["charlie"].RawAddress)
+	toTransfers, err := bc.GetTransfersToAddress(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	require.Equal(len(toTransfers), 2)
 
-	fromVotes, err := bc.GetVotesFromAddress(ta.Addrinfo["charlie"].RawAddress)
+	fromVotes, err := bc.GetVotesFromAddress(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	require.Equal(len(fromVotes), 1)
 
-	fromVotes, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].RawAddress)
+	fromVotes, err = bc.GetVotesFromAddress(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.Nil(err)
 	require.Equal(len(fromVotes), 1)
 
-	toVotes, err := bc.GetVotesToAddress(ta.Addrinfo["charlie"].RawAddress)
+	toVotes, err := bc.GetVotesToAddress(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	require.Equal(len(toVotes), 1)
 
-	toVotes, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].RawAddress)
+	toVotes, err = bc.GetVotesToAddress(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.Nil(err)
 	require.Equal(len(toVotes), 1)
 
@@ -536,9 +607,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Nil(err)
 	require.Equal(totalVotes, uint64(23))
 
-	_, err = bc.GetTransferByTransferHash(_hash.ZeroHash32B)
+	_, err = bc.GetTransferByTransferHash(hash.ZeroHash32B)
 	require.NotNil(err)
-	_, err = bc.GetVoteByVoteHash(_hash.ZeroHash32B)
+	_, err = bc.GetVoteByVoteHash(hash.ZeroHash32B)
 	require.NotNil(err)
 	_, err = bc.StateByAddr("")
 	require.NotNil(err)
@@ -551,8 +622,6 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 	ctx := context.Background()
-	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = big.NewInt(0)
 	cfg := config.Default
 	cfg.DB.UseBadgerDB = false // test with boltDB
 	cfg.Chain.TrieDBPath = testTriePath
@@ -595,15 +664,15 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	}()
 	require.NotNil(bc)
 	// check hash<-->height mapping
-	hash, err := bc.GetHashByHeight(0)
+	blkhash, err := bc.GetHashByHeight(0)
 	require.Nil(err)
-	height, err = bc.GetHeightByHash(hash)
+	height, err = bc.GetHeightByHash(blkhash)
 	require.Nil(err)
 	require.Equal(uint64(0), height)
-	blk, err := bc.GetBlockByHash(hash)
+	blk, err := bc.GetBlockByHash(blkhash)
 	require.Nil(err)
-	require.Equal(hash, blk.HashBlock())
-	fmt.Printf("Genesis hash = %x\n", hash)
+	require.Equal(blkhash, blk.HashBlock())
+	fmt.Printf("Genesis hash = %x\n", blkhash)
 	hash1, err := bc.GetHashByHeight(1)
 	require.Nil(err)
 	height, err = bc.GetHeightByHash(hash1)
@@ -640,7 +709,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Nil(err)
 	require.Equal(hash4, blk.HashBlock())
 	fmt.Printf("block 4 hash = %x\n", hash4)
-	empblk, err := bc.GetBlockByHash(_hash.ZeroHash32B)
+	empblk, err := bc.GetBlockByHash(hash.ZeroHash32B)
 	require.Nil(empblk)
 	require.NotNil(err.Error())
 	blk, err = bc.GetBlockByHeight(60000)
@@ -648,55 +717,60 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NotNil(err)
 	// add wrong blocks
 	h := bc.TipHeight()
-	hash = bc.TipHash()
+	blkhash = bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
 	require.Nil(err)
-	require.Equal(hash, blk.HashBlock())
-	fmt.Printf("Current tip = %d hash = %x\n", h, hash)
+	require.Equal(blkhash, blk.HashBlock())
+	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 	// add block with wrong height
-	cbTsf := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	cbTsf := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.IotxAddrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["bravo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].PrivateKey)
+	selp, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
 
-	blk = NewBlock(0, h+2, hash, testutil.TimestampNow(), ta.Addrinfo["bravo"].PublicKey, []action.SealedEnvelope{selp})
-	err = bc.ValidateBlock(blk, true)
+	nblk, err := block.NewTestingBuilder().
+		SetChainID(0).
+		SetHeight(h + 2).
+		SetPrevBlockHash(blkhash).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(selp).SignAndBuild(ta.IotxAddrinfo["bravo"])
+	require.NoError(err)
+
+	err = bc.ValidateBlock(&nblk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// add block with zero prev hash
-	cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.Addrinfo["bravo"].RawAddress)
+	cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(50), ta.IotxAddrinfo["bravo"].RawAddress)
 	require.NotNil(cbTsf2)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["bravo"].RawAddress).
-		SetGasLimit(protocol.GasLimit).
+		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
+		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf2).Build()
-	selp2, err := action.Sign(elp, ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].PrivateKey)
+	selp2, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
 
-	blk = NewBlock(
-		0,
-		h+1,
-		_hash.ZeroHash32B,
-		testutil.TimestampNow(),
-		ta.Addrinfo["bravo"].PublicKey,
-		[]action.SealedEnvelope{selp2},
-	)
-	err = bc.ValidateBlock(blk, true)
+	nblk, err = block.NewTestingBuilder().
+		SetChainID(0).
+		SetHeight(h + 1).
+		SetPrevBlockHash(hash.ZeroHash32B).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(selp2).SignAndBuild(ta.IotxAddrinfo["bravo"])
+	require.NoError(err)
+	err = bc.ValidateBlock(&nblk, true)
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
-	// cannot add existing block again
+	// add existing block again will have no effect
 	blk, err = bc.GetBlockByHeight(3)
 	require.NotNil(blk)
 	require.Nil(err)
-	err = bc.(*blockchain).commitBlock(blk)
-	require.NotNil(err)
+	require.NoError(bc.(*blockchain).commitBlock(blk))
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 	// check all Tx from block 4
 	blk, err = bc.GetBlockByHeight(4)
@@ -717,25 +791,25 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		_, err = bc.GetVoteByVoteHash(voteHash)
 		require.NotNil(err)
 	}
-	_, err = bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].RawAddress)
+	_, err = bc.GetTransfersFromAddress(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.NotNil(err)
-	_, err = bc.GetTransfersToAddress(ta.Addrinfo["charlie"].RawAddress)
+	_, err = bc.GetTransfersToAddress(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.NotNil(err)
-	_, err = bc.GetVotesFromAddress(ta.Addrinfo["charlie"].RawAddress)
+	_, err = bc.GetVotesFromAddress(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.NotNil(err)
-	_, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].RawAddress)
+	_, err = bc.GetVotesFromAddress(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.NotNil(err)
-	_, err = bc.GetVotesToAddress(ta.Addrinfo["charlie"].RawAddress)
+	_, err = bc.GetVotesToAddress(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.NotNil(err)
-	_, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].RawAddress)
+	_, err = bc.GetVotesToAddress(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.NotNil(err)
 	_, err = bc.GetTotalTransfers()
 	require.NotNil(err)
 	_, err = bc.GetTotalVotes()
 	require.NotNil(err)
-	_, err = bc.GetTransferByTransferHash(_hash.ZeroHash32B)
+	_, err = bc.GetTransferByTransferHash(hash.ZeroHash32B)
 	require.NotNil(err)
-	_, err = bc.GetVoteByVoteHash(_hash.ZeroHash32B)
+	_, err = bc.GetVoteByVoteHash(hash.ZeroHash32B)
 	require.NotNil(err)
 	_, err = bc.StateByAddr("")
 	require.NotNil(err)
@@ -773,8 +847,6 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.NumCandidates = 2
-	// Disable block reward to make bookkeeping easier
-	Gen.BlockReward = big.NewInt(0)
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
@@ -805,11 +877,11 @@ func TestCoinbaseTransfer(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	sf.AddActionHandlers(account.NewProtocol())
 	require.Nil(err)
 	require.NoError(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
 
-	Gen.BlockReward = big.NewInt(0)
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
@@ -818,24 +890,19 @@ func TestCoinbaseTransfer(t *testing.T) {
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
 
-	actions := []action.SealedEnvelope{}
-	blk, err := bc.MintNewBlock(actions, ta.Addrinfo["producer"], nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{}, ta.IotxAddrinfo["alfa"], nil, nil, "")
 	require.Nil(err)
-	s, err := bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	s, err := bc.StateByAddr(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.Nil(err)
-	b := s.Balance
-	require.True(b.String() == Gen.TotalSupply.String())
+	require.Equal(big.NewInt(0), s.Balance)
 	require.Nil(bc.ValidateBlock(blk, true))
 	require.Nil(bc.CommitBlock(blk))
 	height = bc.TipHeight()
 	require.True(height == 1)
 	require.True(len(blk.Actions) == 1)
-	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.Nil(err)
-	b = s.Balance
-	expectedBalance := big.NewInt(0)
-	expectedBalance.Add(Gen.TotalSupply, Gen.BlockReward)
-	require.True(b.String() == expectedBalance.String())
+	require.Equal(Gen.BlockReward, s.Balance)
 }
 
 func TestBlockchain_StateByAddr(t *testing.T) {
@@ -881,8 +948,8 @@ func TestBlocks(t *testing.T) {
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	a := ta.Addrinfo["alfa"]
-	c := ta.Addrinfo["bravo"]
+	a := ta.IotxAddrinfo["alfa"]
+	c := ta.IotxAddrinfo["bravo"]
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	_, err = account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(100000))
@@ -892,7 +959,7 @@ func TestBlocks(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    ta.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -907,7 +974,7 @@ func TestBlocks(t *testing.T) {
 			require.NoError(err)
 			acts = append(acts, tsf)
 		}
-		blk, _ := bc.MintNewBlock(acts, ta.Addrinfo["producer"], nil, nil, "")
+		blk, _ := bc.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil, nil, "")
 		require.Nil(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
 	}
@@ -934,8 +1001,8 @@ func TestActions(t *testing.T) {
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	a := ta.Addrinfo["alfa"]
-	c := ta.Addrinfo["bravo"]
+	a := ta.IotxAddrinfo["alfa"]
+	c := ta.IotxAddrinfo["bravo"]
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	_, err = account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(100000))
@@ -945,7 +1012,7 @@ func TestActions(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    ta.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -953,7 +1020,7 @@ func TestActions(t *testing.T) {
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
-	val := validator{sf: sf, validatorAddr: ""}
+	val := &validator{sf: sf, validatorAddr: ""}
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	acts := []action.SealedEnvelope{}
@@ -966,7 +1033,7 @@ func TestActions(t *testing.T) {
 		require.NoError(err)
 		acts = append(acts, vote)
 	}
-	blk, _ := bc.MintNewBlock(acts, ta.Addrinfo["producer"], nil,
+	blk, _ := bc.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil,
 		nil, "")
 	require.Nil(val.Validate(blk, 0, blk.PrevHash(), true))
 }
@@ -1051,9 +1118,9 @@ func TestMintDKGBlock(t *testing.T) {
 		require.NoError(err)
 		require.NoError(chain.ValidateBlock(blk, true))
 		require.NoError(chain.CommitBlock(blk))
-		require.Equal(pkList[i], blk.Header.DKGPubkey)
-		require.Equal(idList[i], blk.Header.DKGID)
-		require.True(len(blk.Header.DKGBlockSig) > 0)
+		require.Equal(pkList[i], blk.DKGPubkey())
+		require.Equal(idList[i], blk.DKGID())
+		require.True(len(blk.DKGSignature()) > 0)
 	}
 	height, err := chain.GetFactory().Height()
 	require.NoError(err)
@@ -1061,4 +1128,89 @@ func TestMintDKGBlock(t *testing.T) {
 	candidates, err := chain.CandidatesByHeight(height)
 	require.NoError(err)
 	require.Equal(21, len(candidates))
+}
+
+func TestStartExistingBlockchain(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+
+	// Disable block reward to make bookkeeping easier
+	Gen.BlockReward = big.NewInt(0)
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	sf.AddActionHandlers(account.NewProtocol())
+
+	// Create a blockchain from scratch
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NotNil(bc)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
+	sf.AddActionHandlers(vote.NewProtocol(bc))
+	require.NoError(bc.Start(ctx))
+
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+		require.NoError(bc.Stop(ctx))
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+	}()
+
+	require.NoError(addTestingTsfBlocks(bc))
+	require.True(5 == bc.TipHeight())
+
+	// delete state db and recover to tip
+	testutil.CleanupPath(t, testTriePath)
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(vote.NewProtocol(bc))
+	chain, ok := bc.(*blockchain)
+	require.True(ok)
+	chain.sf = sf
+	require.NoError(chain.startExistingBlockchain(0))
+	height, _ := chain.sf.Height()
+	require.Equal(bc.TipHeight(), height)
+
+	// recover to height 3
+	testutil.CleanupPath(t, testTriePath)
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(context.Background()))
+	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(vote.NewProtocol(bc))
+	chain.sf = sf
+	require.NoError(chain.startExistingBlockchain(3))
+	height, _ = chain.sf.Height()
+	require.Equal(bc.TipHeight(), height)
+	require.True(3 == height)
+}
+
+func addCreatorToFactory(sf factory.Factory) error {
+	ws, err := sf.NewWorkingSet()
+	if err != nil {
+		return err
+	}
+	if _, err = account.LoadOrCreateAccount(ws, ta.IotxAddrinfo["producer"].RawAddress, Gen.TotalSupply); err != nil {
+		return err
+	}
+	gasLimit := testutil.TestGasLimit
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			ProducerAddr:    ta.IotxAddrinfo["producer"].RawAddress,
+			GasLimit:        &gasLimit,
+			EnableGasCharge: testutil.EnableGasCharge,
+		})
+	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
+		return err
+	}
+	return sf.Commit(ws)
 }

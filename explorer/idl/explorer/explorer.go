@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "06a39b831ced3f5278b1e3d233c20b7a"
-const BarristerDateGenerated int64 = 1542081143388000000
+const BarristerChecksum string = "930ad8ed4154e09b1263a8f435f6934d"
+const BarristerDateGenerated int64 = 1546625898440000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -36,6 +36,8 @@ type Block struct {
 	Amount     string         `json:"amount"`
 	Forged     int64          `json:"forged"`
 	Size       int64          `json:"size"`
+	TxRoot     string         `json:"txRoot"`
+	StateRoot  string         `json:"stateRoot"`
 }
 
 type Transfer struct {
@@ -336,6 +338,7 @@ type Explorer interface {
 	SendAction(request SendActionRequest) (SendActionResponse, error)
 	GetPeers() (GetPeersResponse, error)
 	GetReceiptByExecutionID(id string) (Receipt, error)
+	GetReceiptByActionID(id string) (Receipt, error)
 	ReadExecutionState(request Execution) (string, error)
 	GetBlockOrActionByHash(hashStr string) (GetBlkOrActResponse, error)
 	CreateDeposit(request CreateDepositRequest) (CreateDepositResponse, error)
@@ -345,6 +348,7 @@ type Explorer interface {
 	EstimateGasForTransfer(request SendTransferRequest) (int64, error)
 	EstimateGasForVote() (int64, error)
 	EstimateGasForSmartContract(request Execution) (int64, error)
+	GetStateRootHash(blockHeight int64) (string, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -986,6 +990,24 @@ func (_p ExplorerProxy) GetReceiptByExecutionID(id string) (Receipt, error) {
 	return Receipt{}, _err
 }
 
+func (_p ExplorerProxy) GetReceiptByActionID(id string) (Receipt, error) {
+	_res, _err := _p.client.Call("Explorer.getReceiptByActionID", id)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getReceiptByActionID").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Receipt{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(Receipt)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getReceiptByActionID returned invalid type: %v", _t)
+			return Receipt{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return Receipt{}, _err
+}
+
 func (_p ExplorerProxy) ReadExecutionState(request Execution) (string, error) {
 	_res, _err := _p.client.Call("Explorer.readExecutionState", request)
 	if _err == nil {
@@ -1146,6 +1168,24 @@ func (_p ExplorerProxy) EstimateGasForSmartContract(request Execution) (int64, e
 		return _cast, nil
 	}
 	return int64(0), _err
+}
+
+func (_p ExplorerProxy) GetStateRootHash(blockHeight int64) (string, error) {
+	_res, _err := _p.client.Call("Explorer.getStateRootHash", blockHeight)
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getStateRootHash").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(string)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getStateRootHash returned invalid type: %v", _t)
+			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return "", _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -1368,6 +1408,20 @@ var IdlJsonRaw = `[
             {
                 "name": "size",
                 "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "txRoot",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "stateRoot",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -3883,6 +3937,26 @@ var IdlJsonRaw = `[
                 }
             },
             {
+                "name": "getReceiptByActionID",
+                "comment": "get receipt by action id",
+                "params": [
+                    {
+                        "name": "id",
+                        "type": "string",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "Receipt",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
+            },
+            {
                 "name": "readExecutionState",
                 "comment": "read execution state",
                 "params": [
@@ -4059,6 +4133,26 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "getStateRootHash",
+                "comment": "get the state root hash of a given block height",
+                "params": [
+                    {
+                        "name": "blockHeight",
+                        "type": "int",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
+                    }
+                ],
+                "returns": {
+                    "name": "",
+                    "type": "string",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -4075,7 +4169,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1542081143388,
-        "checksum": "06a39b831ced3f5278b1e3d233c20b7a"
+        "date_generated": 1546625898440,
+        "checksum": "930ad8ed4154e09b1263a8f435f6934d"
     }
 ]`

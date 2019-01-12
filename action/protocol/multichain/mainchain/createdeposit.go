@@ -7,7 +7,6 @@
 package mainchain
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -70,7 +69,7 @@ func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.St
 	}
 	inOp, ok := subChainsInOp.Get(addr.ChainID())
 	if !ok {
-		return nil, InOperation{}, fmt.Errorf("address %s is not on a sub-chain in operation", deposit.Recipient())
+		return nil, InOperation{}, errors.Errorf("address %s is not on a sub-chain in operation", deposit.Recipient())
 	}
 	return account, inOp, nil
 }
@@ -84,7 +83,7 @@ func (p *Protocol) mutateDeposit(
 	// Subtract the balance from sender account
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, deposit.Amount())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	protocol.SetNonce(deposit, acct)
+	account.SetNonce(deposit, acct)
 	if err := account.StoreAccount(sm, deposit.Sender(), acct); err != nil {
 		return nil, err
 	}
@@ -127,10 +126,9 @@ func (p *Protocol) mutateDeposit(
 		return nil, err
 	}
 	receipt := action.Receipt{
-		ReturnValue: value[:],
-		Status:      0,
-		// TODO
-		//Hash:            deposit.Hash(),
+		ReturnValue:     value[:],
+		Status:          0,
+		Hash:            deposit.Hash(),
 		GasConsumed:     gas,
 		ContractAddress: addr.IotxAddress(),
 	}

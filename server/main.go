@@ -14,14 +14,16 @@ package main
 import (
 	"flag"
 	"fmt"
+	glog "log"
 	"os"
 
 	_ "net/http/pprof"
 
 	_ "go.uber.org/automaxprocs"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -42,7 +44,7 @@ func init() {
 func main() {
 	cfg, err := config.New()
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to new config.")
+		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
 
 	initLogger(cfg)
@@ -50,16 +52,16 @@ func main() {
 	// create and start the node
 	svr, err := itx.NewServer(cfg)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create server.")
+		log.L().Fatal("Failed to create server.", zap.Error(err))
 	}
 
 	cfgsub, err := config.NewSub()
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to new sub chain config.")
+		log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
 	}
 	if cfgsub.Chain.ID != 0 {
 		if err := svr.NewSubChainService(cfgsub); err != nil {
-			logger.Fatal().Err(err).Msg("Failed to new sub chain.")
+			log.L().Fatal("Failed to new sub chain.", zap.Error(err))
 		}
 	}
 
@@ -69,18 +71,14 @@ func main() {
 func initLogger(cfg config.Config) {
 	addr, err := cfg.BlockchainAddress()
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to get producer address from pub/kri key.")
+		glog.Fatalln("Failed to get producer address from pub/kri key: ", err)
 		return
 	}
-	l, err := logger.New()
-	if err != nil {
-		logger.Warn().Err(err).Msg("Cannot config logger, use default one.")
-	} else {
-		logger.SetLogger(
-			l.With().
-				Str("iotxAddr", addr.IotxAddress()).
-				Str("networkAddress", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)).
-				Str("nodeType", cfg.NodeType).Logger(),
-		)
+	if err := log.InitGlobal(cfg.Log, zap.Fields(
+		zap.String("iotxAddr", addr.IotxAddress()),
+		zap.String("networkAddress", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
+		zap.String("nodeType", cfg.NodeType),
+	)); err != nil {
+		glog.Println("Cannot config global logger, use default one: ", err)
 	}
 }

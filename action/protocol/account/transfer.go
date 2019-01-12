@@ -80,7 +80,7 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCt
 			return errors.Wrapf(err, "failed to update the Balance of sender %s", tsf.Sender())
 		}
 		// update sender Nonce
-		protocol.SetNonce(tsf, sender)
+		SetNonce(tsf, sender)
 		// put updated sender's state to trie
 		if err := StoreAccount(sm, tsf.Sender(), sender); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")

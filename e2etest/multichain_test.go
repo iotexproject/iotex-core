@@ -11,12 +11,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
+	"path"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
@@ -25,23 +28,20 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	exp "github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestTwoChains(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping the two chains test in short mode.")
-	}
-
+	dir := os.TempDir()
 	cleanDB := func() {
-		testutil.CleanupPath(t, "./trie.db")
-		testutil.CleanupPath(t, "./chain.db")
-		testutil.CleanupPath(t, "./chain-2-trie.db")
-		testutil.CleanupPath(t, "./chain-2-chain.db")
+		testutil.CleanupPath(t, path.Join(dir, "./trie.db"))
+		testutil.CleanupPath(t, path.Join(dir, "./chain.db"))
+		testutil.CleanupPath(t, path.Join(dir, "./chain-2-trie.db"))
+		testutil.CleanupPath(t, path.Join(dir, "./chain-2-chain.db"))
 	}
 
 	cleanDB()
@@ -51,10 +51,13 @@ func TestTwoChains(t *testing.T) {
 	cfg.Consensus.BlockCreationInterval = time.Second
 	cfg.Chain.ProducerPrivKey = "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
 	cfg.Chain.ProducerPubKey = "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
-	cfg.Chain.TrieDBPath = "./trie.db"
-	cfg.Chain.ChainDBPath = "./chain.db"
+	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
+	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
 	cfg.Chain.EnableSubChainStartInGenesis = true
 	cfg.Explorer.Enabled = true
+	cfg.Explorer.Port = testutil.RandomPort()
+	cfg.Network.Port = testutil.RandomPort()
+	cfg.Network.BootstrapNodes = []string{fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)}
 
 	svr, err := itx.NewServer(cfg)
 	require.NoError(t, err)
@@ -66,20 +69,18 @@ func TestTwoChains(t *testing.T) {
 		require.NoError(t, svr.Stop(ctx))
 	}()
 
-	time.Sleep(time.Second)
-
-	sk, err := keypair.DecodePrivateKey("d2df3528ff384d41cc9688c354cd301a09f91d95582eb8034a6eff140e7539cb17b53401")
-	sk1, err := keypair.DecodePrivateKey("574f3b95c1afac4c5541ce705654bd92028e6b06bc07655647dd2637528dd98976f0c401")
+	sk1, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
-	pk, err := crypto.EC283.NewPubKey(sk)
-	require.NoError(t, err)
-	pkHash := keypair.HashPubKey(pk)
-
 	pk1, err := crypto.EC283.NewPubKey(sk1)
 	require.NoError(t, err)
 	pkHash1 := keypair.HashPubKey(pk1)
-	addr1 := address.New(1, pkHash[:])
-	addr2 := address.New(2, pkHash1[:])
+	addr1 := address.New(1, pkHash1[:])
+	sk2, err := keypair.DecodePrivateKey("574f3b95c1afac4c5541ce705654bd92028e6b06bc07655647dd2637528dd98976f0c401")
+	require.NoError(t, err)
+	pk2, err := crypto.EC283.NewPubKey(sk2)
+	require.NoError(t, err)
+	pkHash2 := keypair.HashPubKey(pk2)
+	addr2 := address.New(2, pkHash2[:])
 
 	mainChainClient := exp.NewExplorerProxy(
 		fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(cfg.Chain.ID).Explorer().Port()),
@@ -99,10 +100,10 @@ func TestTwoChains(t *testing.T) {
 			return false, errors.New("error when converting balance string to big int")
 		}
 		if balance.Cmp(big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx))) < 0 {
-			logger.Info().Str("balance", balance.String()).Msg("balance is not enough yet")
+			log.L().Info("Balance is not enough yet.", zap.String("balance", balance.String()))
 			return false, nil
 		}
-		logger.Info().Str("balance", balance.String()).Msg("balance is already enough")
+		log.L().Info("Balance is already enough.", zap.String("balance", balance.String()))
 		return true, nil
 	}))
 
@@ -125,7 +126,7 @@ func TestTwoChains(t *testing.T) {
 		SetNonce(uint64(details.Nonce) + 1).
 		SetDestinationAddress(addr2.IotxAddress()).
 		SetGasLimit(testutil.TestGasLimit).Build()
-	selp, err := action.Sign(elp, addr1.IotxAddress(), sk)
+	selp, err := action.Sign(elp, addr1.IotxAddress(), sk1)
 	require.NoError(t, err)
 
 	createRes, err := mainChainClient.CreateDeposit(explorer.CreateDepositRequest{
@@ -184,7 +185,7 @@ func TestTwoChains(t *testing.T) {
 		SetNonce(nonce).
 		SetDestinationAddress(addr2.IotxAddress()).
 		SetGasLimit(testutil.TestGasLimit).Build()
-	selp, err = action.Sign(elp, addr1.IotxAddress(), sk)
+	selp, err = action.Sign(elp, addr1.IotxAddress(), sk1)
 	require.NoError(t, err)
 
 	settleRes, err := subChainClient.SettleDeposit(explorer.SettleDepositRequest{

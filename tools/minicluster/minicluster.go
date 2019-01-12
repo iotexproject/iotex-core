@@ -15,11 +15,14 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/util"
@@ -35,9 +38,16 @@ func main() {
 	var timeout int
 	// aps indicates how many actions to be injected in one second. Default is 0
 	var aps float64
+	// smart contract deployment data. Default is "608060405234801561001057600080fd5b506102f5806100206000396000f3006080604052600436106100615763ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416632885ad2c8114610066578063797d9fbd14610070578063cd5e3c5d14610091578063d0e30db0146100b8575b600080fd5b61006e6100c0565b005b61006e73ffffffffffffffffffffffffffffffffffffffff600435166100cb565b34801561009d57600080fd5b506100a6610159565b60408051918252519081900360200190f35b61006e610229565b6100c9336100cb565b565b60006100d5610159565b6040805182815290519192507fbae72e55df73720e0f671f4d20a331df0c0dc31092fda6c573f35ff7f37f283e919081900360200190a160405173ffffffffffffffffffffffffffffffffffffffff8316906305f5e100830280156108fc02916000818181858888f19350505050158015610154573d6000803e3d6000fd5b505050565b604080514460208083019190915260001943014082840152825180830384018152606090920192839052815160009360059361021a9360029391929182918401908083835b602083106101bd5780518252601f19909201916020918201910161019e565b51815160209384036101000a600019018019909216911617905260405191909301945091925050808303816000865af11580156101fe573d6000803e3d6000fd5b5050506040513d602081101561021357600080fd5b5051610261565b81151561022357fe5b06905090565b60408051348152905133917fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c919081900360200190a2565b600080805b60208110156102c25780600101602060ff160360080260020a848260208110151561028d57fe5b7f010000000000000000000000000000000000000000000000000000000000000091901a810204029190910190600101610266565b50929150505600a165627a7a72305820a426929891673b0a04d7163b60113d28e7d0f48ea667680ba48126c182b872c10029"
+	var deployExecData string
+	// smart contract interaction data. Default is "d0e30db0"
+	var interactExecData string
 
 	flag.IntVar(&timeout, "timeout", 100, "duration of running nightly build")
 	flag.Float64Var(&aps, "aps", 1, "actions to be injected per second")
+	flag.StringVar(&deployExecData, "deploy-data", "608060405234801561001057600080fd5b506102f5806100206000396000f3006080604052600436106100615763ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416632885ad2c8114610066578063797d9fbd14610070578063cd5e3c5d14610091578063d0e30db0146100b8575b600080fd5b61006e6100c0565b005b61006e73ffffffffffffffffffffffffffffffffffffffff600435166100cb565b34801561009d57600080fd5b506100a6610159565b60408051918252519081900360200190f35b61006e610229565b6100c9336100cb565b565b60006100d5610159565b6040805182815290519192507fbae72e55df73720e0f671f4d20a331df0c0dc31092fda6c573f35ff7f37f283e919081900360200190a160405173ffffffffffffffffffffffffffffffffffffffff8316906305f5e100830280156108fc02916000818181858888f19350505050158015610154573d6000803e3d6000fd5b505050565b604080514460208083019190915260001943014082840152825180830384018152606090920192839052815160009360059361021a9360029391929182918401908083835b602083106101bd5780518252601f19909201916020918201910161019e565b51815160209384036101000a600019018019909216911617905260405191909301945091925050808303816000865af11580156101fe573d6000803e3d6000fd5b5050506040513d602081101561021357600080fd5b5051610261565b81151561022357fe5b06905090565b60408051348152905133917fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c919081900360200190a2565b600080805b60208110156102c25780600101602060ff160360080260020a848260208110151561028d57fe5b7f010000000000000000000000000000000000000000000000000000000000000091901a810204029190910190600101610266565b50929150505600a165627a7a72305820a426929891673b0a04d7163b60113d28e7d0f48ea667680ba48126c182b872c10029",
+		"smart contract deployment data")
+	flag.StringVar(&interactExecData, "interact-data", "d0e30db0", "smart contract interaction data")
 	flag.Parse()
 
 	// path of config file containing all the public/private key paris of addresses getting transfers
@@ -46,7 +56,7 @@ func main() {
 
 	chainAddrs, err := util.LoadAddresses(injectorConfigPath, uint32(1))
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to load addresses from config path")
+		log.L().Fatal("Failed to load addresses from config path", zap.Error(err))
 	}
 	admins := chainAddrs[len(chainAddrs)-numAdmins:]
 	delegates := chainAddrs[:len(chainAddrs)-numAdmins]
@@ -66,14 +76,12 @@ func main() {
 		configs[i] = config
 	}
 
-	initLogger()
-
 	// Create mini-cluster
 	svrs := make([]*itx.Server, numNodes)
 	for i := 0; i < numNodes; i++ {
 		svr, err := itx.NewServer(configs[i])
 		if err != nil {
-			logger.Fatal().Err(err).Msg("Failed to create server.")
+			log.L().Fatal("Failed to create server.", zap.Error(err))
 		}
 		svrs[i] = svr
 	}
@@ -85,7 +93,7 @@ func main() {
 	if err := testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		return svrs[0].ChainService(uint32(1)).Explorer().Port() == 14004, nil
 	}); err != nil {
-		logger.Fatal().Err(err).Msg("Failed to start explorer JSON-RPC server")
+		log.L().Fatal("Failed to start explorer JSON-RPC server", zap.Error(err))
 	}
 
 	// target address for jrpc connection. Default is "127.0.0.1:14004"
@@ -94,7 +102,7 @@ func main() {
 
 	counter, err := util.InitCounter(client, chainAddrs)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to initialize nonce counter")
+		log.L().Fatal("Failed to initialize nonce counter", zap.Error(err))
 	}
 
 	// Inject actions to first node
@@ -109,16 +117,12 @@ func main() {
 		voteGasLimit := 1000000
 		// vote gas price. Default is 10
 		voteGasPrice := 10
-		// smart contract address. Default is "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
-		contract := "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
 		// execution amount. Default is 0
 		executionAmount := 0
 		// execution gas limit. Default is 1200000
 		executionGasLimit := 1200000
 		// execution gas price. Default is 10
 		executionGasPrice := 10
-		// execution data. Default is "2885ad2c"
-		executionData := "2885ad2c"
 		// maximum number of rpc retries. Default is 5
 		retryNum := 5
 		// sleeping period between two consecutive rpc retries in seconds. Default is 1
@@ -126,9 +130,26 @@ func main() {
 		// reset interval indicates the interval to reset nonce counter in seconds. Default is 60
 		resetInterval := 60
 		d := time.Duration(timeout) * time.Second
+
+		// First deploy a smart contract which can be interacted by injected executions
+		eHash, err := util.DeployContract(client, counter, delegates, executionGasLimit, executionGasPrice,
+			deployExecData, retryNum, retryInterval)
+		if err != nil {
+			log.L().Fatal("Failed to deploy smart contract", zap.Error(err))
+		}
+		// Wait until the smart contract is successfully deployed
+		var receipt *action.Receipt
+		if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+			receipt, err = svrs[0].ChainService(uint32(1)).Blockchain().GetReceiptByExecutionHash(eHash)
+			return receipt != nil, nil
+		}); err != nil {
+			log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
+		}
+		contract := receipt.ContractAddress
+
 		wg := &sync.WaitGroup{}
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
-			contract, executionAmount, executionGasLimit, executionGasPrice, executionData, client, admins, delegates, d,
+			contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, client, admins, delegates, d,
 			retryNum, retryInterval, resetInterval)
 		wg.Wait()
 
@@ -145,7 +166,7 @@ func main() {
 
 			stateHeights[i], err = chains[i].GetFactory().Height()
 			if err != nil {
-				logger.Error().Msg(fmt.Sprintf("Node %d: Can not get State height", i))
+				log.S().Errorf("Node %d: Can not get State height", i)
 			}
 			bcHeights[i] = chains[i].TipHeight()
 			minTimeout = int(configs[i].Consensus.RollDPoS.Delay/time.Second - configs[i].Consensus.RollDPoS.ProposerInterval/time.Second)
@@ -155,24 +176,24 @@ func main() {
 			}
 			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / configs[i].Consensus.RollDPoS.ProposerInterval)
 
-			logger.Info().Msg(fmt.Sprintf("Node#%d blockchain height: %d", i, bcHeights[i]))
-			logger.Info().Msg(fmt.Sprintf("Node#%d state      height: %d", i, stateHeights[i]))
-			logger.Info().Msg(fmt.Sprintf("Node#%d ideal      height: %d", i, idealHeight[i]))
+			log.S().Infof("Node#%d blockchain height: %d", i, bcHeights[i])
+			log.S().Infof("Node#%d state      height: %d", i, stateHeights[i])
+			log.S().Infof("Node#%d ideal      height: %d", i, idealHeight[i])
 
 			if bcHeights[i] != stateHeights[i] {
-				logger.Error().Msg(fmt.Sprintf("Node#%d: State height does not match blockchain height", i))
+				log.S().Errorf("Node#%d: State height does not match blockchain height", i)
 			}
 			if math.Abs(float64(bcHeights[i]-idealHeight[i])) > 1 {
-				logger.Error().Msg(fmt.Sprintf("blockchain in Node#%d is behind the expected height", i))
+				log.S().Errorf("blockchain in Node#%d is behind the expected height", i)
 			}
 		}
 
 		for i := 0; i < numNodes; i++ {
 			for j := i + 1; j < numNodes; j++ {
 				if math.Abs(float64(bcHeights[i]-bcHeights[j])) > 1 {
-					logger.Error().Msg(fmt.Sprintf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j))
+					log.S().Errorf("blockchain in Node#%d and blockchain in Node#%d are not sync", i, j)
 				} else {
-					logger.Info().Msg(fmt.Sprintf("blockchain in Node#%d and blockchain in Node#%d are sync", i, j))
+					log.S().Infof("blockchain in Node#%d and blockchain in Node#%d are sync", i, j)
 				}
 			}
 		}
@@ -193,12 +214,8 @@ func newConfig(
 
 	cfg.NodeType = config.DelegateType
 
-	cfg.Network.AllowMultiConnsPerHost = true
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689"}
-	cfg.Network.NumPeersUpperBound = numNodes
-	cfg.Network.NumPeersLowerBound = numNodes
-	cfg.Network.TTL = 1
 
 	cfg.Chain.ID = 1
 	cfg.Chain.GenesisActionsPath = genesisConfigPath
@@ -230,13 +247,4 @@ func newConfig(
 	cfg.Explorer.Port = explorerPort
 
 	return cfg
-}
-
-func initLogger() {
-	l, err := logger.New()
-	if err != nil {
-		logger.Warn().Err(err).Msg("Cannot config logger, use default one.")
-	} else {
-		logger.SetLogger(l)
-	}
 }

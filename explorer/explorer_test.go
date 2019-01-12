@@ -17,6 +17,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -42,7 +43,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
-	"github.com/iotexproject/iotex-core/test/mock/mock_network"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -55,12 +56,12 @@ const (
 func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	// test --> A, B, C, D, E, F
-	tsf, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["charlie"], 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["charlie"], 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
 
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{tsf}, ta.Addrinfo["producer"],
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{tsf}, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	if err != nil {
 		return err
@@ -74,32 +75,32 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	// Add block 2
 	// Charlie --> A, B, D, E, test
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["alfa"], 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["alfa"], 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["bravo"], 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["bravo"], 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["delta"], 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf3, err := testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["delta"], 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["producer"], 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf4, err := testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["producer"], 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["charlie"], 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	execution1, err := testutil.SignedExecution(ta.Addrinfo["charlie"], ta.Addrinfo["delta"].RawAddress, 6,
+	execution1, err := testutil.SignedExecution(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["delta"].RawAddress, 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	if err != nil {
 		return err
 	}
-	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}, ta.Addrinfo["producer"],
+	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}, ta.IotxAddrinfo["producer"],
 		nil, nil, ""); err != nil {
 		return err
 	}
@@ -111,7 +112,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 3
-	if blk, err = bc.MintNewBlock(nil, ta.Addrinfo["producer"], nil,
+	if blk, err = bc.MintNewBlock(nil, ta.IotxAddrinfo["producer"], nil,
 		nil, ""); err != nil {
 		return err
 	}
@@ -123,25 +124,25 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	vote1, err = testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err = testutil.SignedVote(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["charlie"], 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	vote2, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["alfa"], 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote2, err := testutil.SignedVote(ta.IotxAddrinfo["alfa"], ta.IotxAddrinfo["alfa"], 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	execution1, err = testutil.SignedExecution(ta.Addrinfo["charlie"], ta.Addrinfo["delta"].RawAddress, 8,
+	execution1, err = testutil.SignedExecution(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["delta"].RawAddress, 8,
 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	if err != nil {
 		return err
 	}
-	execution2, err := testutil.SignedExecution(ta.Addrinfo["alfa"], ta.Addrinfo["delta"].RawAddress, 2,
+	execution2, err := testutil.SignedExecution(ta.IotxAddrinfo["alfa"], ta.IotxAddrinfo["delta"].RawAddress, 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	if err != nil {
 		return err
 	}
-	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{vote1, vote2, execution1, execution2}, ta.Addrinfo["producer"],
+	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{vote1, vote2, execution1, execution2}, ta.IotxAddrinfo["producer"],
 		nil, nil, ""); err != nil {
 		return err
 	}
@@ -152,19 +153,19 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 }
 
 func addActsToActPool(ap actpool.ActPool) error {
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["alfa"], 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"], ta.Addrinfo["producer"], 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["producer"], 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	execution1, err := testutil.SignedExecution(ta.Addrinfo["producer"], ta.Addrinfo["delta"].RawAddress, 5,
+	execution1, err := testutil.SignedExecution(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["delta"].RawAddress, 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	if err != nil {
 		return err
@@ -197,8 +198,6 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
-	// Disable block reward to make bookkeeping easier
-	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	ctx := context.Background()
@@ -229,31 +228,31 @@ func TestExplorerApi(t *testing.T) {
 		gs:  GasStation{bc, explorerCfg},
 	}
 
-	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
+	transfers, err := svc.GetTransfersByAddress(ta.IotxAddrinfo["charlie"].RawAddress, 0, 10)
 	require.Nil(err)
 	require.Equal(5, len(transfers))
 
-	votes, err := svc.GetVotesByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
+	votes, err := svc.GetVotesByAddress(ta.IotxAddrinfo["charlie"].RawAddress, 0, 10)
 	require.Nil(err)
 	require.Equal(4, len(votes))
 
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 2)
+	votes, err = svc.GetVotesByAddress(ta.IotxAddrinfo["charlie"].RawAddress, 0, 2)
 	require.Nil(err)
 	require.Equal(2, len(votes))
 
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["alfa"].RawAddress, 0, 10)
+	votes, err = svc.GetVotesByAddress(ta.IotxAddrinfo["alfa"].RawAddress, 0, 10)
 	require.Nil(err)
 	require.Equal(2, len(votes))
 
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["delta"].RawAddress, 0, 10)
+	votes, err = svc.GetVotesByAddress(ta.IotxAddrinfo["delta"].RawAddress, 0, 10)
 	require.Nil(err)
 	require.Equal(0, len(votes))
 
-	executions, err := svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
+	executions, err := svc.GetExecutionsByAddress(ta.IotxAddrinfo["charlie"].RawAddress, 0, 10)
 	require.Nil(err)
 	require.Equal(2, len(executions))
 
-	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["alfa"].RawAddress, 0, 10)
+	executions, err = svc.GetExecutionsByAddress(ta.IotxAddrinfo["alfa"].RawAddress, 0, 10)
 	require.Nil(err)
 	require.Equal(1, len(executions))
 
@@ -375,7 +374,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(int64(15), stats.Aps)
 
 	// success
-	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].RawAddress)
+	balance, err := svc.GetAddressBalance(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	require.Equal("3", balance)
 
@@ -384,12 +383,12 @@ func TestExplorerApi(t *testing.T) {
 	require.Error(err)
 
 	// success
-	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].RawAddress)
+	addressDetails, err := svc.GetAddressDetails(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	require.Equal("3", addressDetails.TotalBalance)
 	require.Equal(int64(8), addressDetails.Nonce)
 	require.Equal(int64(9), addressDetails.PendingNonce)
-	require.Equal(ta.Addrinfo["charlie"].RawAddress, addressDetails.Address)
+	require.Equal(ta.IotxAddrinfo["charlie"].RawAddress, addressDetails.Address)
 
 	// error
 	_, err = svc.GetAddressDetails("")
@@ -403,27 +402,27 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 
 	// success
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].RawAddress, 0, 3)
+	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.IotxAddrinfo["producer"].RawAddress, 0, 3)
 	require.Nil(err)
 	require.Equal(2, len(transfers))
 	require.Equal(int64(2), transfers[0].Nonce)
 	require.Equal(int64(4), transfers[1].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].RawAddress, 0, 3)
+	votes, err = svc.GetUnconfirmedVotesByAddress(ta.IotxAddrinfo["producer"].RawAddress, 0, 3)
 	require.Nil(err)
 	require.Equal(1, len(votes))
 	require.Equal(int64(3), votes[0].Nonce)
-	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].RawAddress, 0, 3)
+	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.IotxAddrinfo["producer"].RawAddress, 0, 3)
 	require.Nil(err)
 	require.Equal(1, len(executions))
 	require.Equal(int64(5), executions[0].Nonce)
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].RawAddress, 1, 1)
+	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.IotxAddrinfo["producer"].RawAddress, 1, 1)
 	require.Nil(err)
 	require.Equal(1, len(transfers))
 	require.Equal(int64(4), transfers[0].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].RawAddress, 1, 1)
+	votes, err = svc.GetUnconfirmedVotesByAddress(ta.IotxAddrinfo["producer"].RawAddress, 1, 1)
 	require.Nil(err)
 	require.Equal(0, len(votes))
-	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].RawAddress, 1, 1)
+	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.IotxAddrinfo["producer"].RawAddress, 1, 1)
 	require.Nil(err)
 	require.Equal(0, len(executions))
 
@@ -466,7 +465,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Execution)
 	require.Equal(&votes[0], res.Vote)
 
-	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].RawAddress, 0, 10)
+	executions, err = svc.GetExecutionsByAddress(ta.IotxAddrinfo["charlie"].RawAddress, 0, 10)
 	require.NoError(err)
 	res, err = svc.GetBlockOrActionByHash(executions[0].ID)
 	require.NoError(err)
@@ -568,21 +567,23 @@ func TestService_SendTransfer(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	r := explorer.SendTransferRequest{
 		Version:      0x1,
 		Nonce:        1,
-		Sender:       ta.Addrinfo["producer"].RawAddress,
-		Recipient:    ta.Addrinfo["alfa"].RawAddress,
+		Sender:       ta.IotxAddrinfo["producer"].RawAddress,
+		Recipient:    ta.IotxAddrinfo["alfa"].RawAddress,
 		Amount:       big.NewInt(1).String(),
 		GasPrice:     big.NewInt(0).String(),
-		SenderPubKey: keypair.EncodePublicKey(ta.Addrinfo["producer"].PublicKey),
+		SenderPubKey: keypair.EncodePublicKey(ta.IotxAddrinfo["producer"].PublicKey),
 		Signature:    "",
 		Payload:      "",
 	}
@@ -592,6 +593,7 @@ func TestService_SendTransfer(t *testing.T) {
 	gas, err := svc.EstimateGasForTransfer(r)
 	require.Nil(err)
 	require.Equal(gas, int64(10000))
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_SendVote(t *testing.T) {
@@ -602,19 +604,21 @@ func TestService_SendVote(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	r := explorer.SendVoteRequest{
 		Version:     0x1,
 		Nonce:       1,
-		Voter:       ta.Addrinfo["producer"].RawAddress,
-		Votee:       ta.Addrinfo["alfa"].RawAddress,
-		VoterPubKey: keypair.EncodePublicKey(ta.Addrinfo["producer"].PublicKey),
+		Voter:       ta.IotxAddrinfo["producer"].RawAddress,
+		Votee:       ta.IotxAddrinfo["alfa"].RawAddress,
+		VoterPubKey: keypair.EncodePublicKey(ta.IotxAddrinfo["producer"].PublicKey),
 		GasPrice:    big.NewInt(0).String(),
 		Signature:   "",
 	}
@@ -625,6 +629,7 @@ func TestService_SendVote(t *testing.T) {
 	gas, err := svc.EstimateGasForVote()
 	require.Nil(err)
 	require.Equal(gas, int64(10000))
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_SendSmartContract(t *testing.T) {
@@ -635,10 +640,13 @@ func TestService_SendSmartContract(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p, gs: GasStation{chain, config.Explorer{}}}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}, gs: GasStation{chain, config.Explorer{}}}
 
-	execution, err := testutil.SignedExecution(ta.Addrinfo["producer"], ta.Addrinfo["delta"].RawAddress, 1,
+	execution, err := testutil.SignedExecution(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["delta"].RawAddress, 1,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	require.NoError(err)
 	explorerExecution, _ := convertExecutionToExplorerExecution(execution, true)
@@ -654,12 +662,12 @@ func TestService_SendSmartContract(t *testing.T) {
 	require.Equal(gas, int64(1000))
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	response, err := svc.SendSmartContract(explorerExecution)
 	require.NotNil(response.Hash)
 	require.Nil(err)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestServicePutSubChainBlock(t *testing.T) {
@@ -670,8 +678,11 @@ func TestServicePutSubChainBlock(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}}
 
 	request := explorer.PutSubChainBlockRequest{}
 	response, err := svc.PutSubChainBlock(request)
@@ -679,8 +690,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	require.NotNil(err)
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	roots := []explorer.PutSubChainBlockMerkelRoot{
 		{
@@ -691,8 +701,8 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	r := explorer.PutSubChainBlockRequest{
 		Version:       0x1,
 		Nonce:         1,
-		SenderAddress: ta.Addrinfo["producer"].RawAddress,
-		SenderPubKey:  keypair.EncodePublicKey(ta.Addrinfo["producer"].PublicKey),
+		SenderAddress: ta.IotxAddrinfo["producer"].RawAddress,
+		SenderPubKey:  keypair.EncodePublicKey(ta.IotxAddrinfo["producer"].PublicKey),
 		GasPrice:      big.NewInt(0).String(),
 		Signature:     "",
 		Roots:         roots,
@@ -701,6 +711,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	response, err = svc.PutSubChainBlock(r)
 	require.NotNil(response.Hash)
 	require.Nil(err)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestServiceSendAction(t *testing.T) {
@@ -711,8 +722,11 @@ func TestServiceSendAction(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{bc: chain, dp: mDp, p2p: p2p}
+	broadcastHandlerCount := 0
+	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ uint32, _ proto.Message) error {
+		broadcastHandlerCount++
+		return nil
+	}}
 
 	request := explorer.SendActionRequest{}
 	_, err := svc.SendAction(request)
@@ -727,7 +741,7 @@ func TestServiceSendAction(t *testing.T) {
 	pb := action.NewPutBlock(
 		1,
 		"",
-		ta.Addrinfo["producer"].RawAddress,
+		ta.IotxAddrinfo["producer"].RawAddress,
 		100,
 		roots,
 		10000,
@@ -737,7 +751,7 @@ func TestServiceSendAction(t *testing.T) {
 	elp := bd.SetAction(pb).
 		SetDestinationAddress("").
 		SetGasLimit(10000).SetNonce(1).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	selp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(err)
 
 	var marshaler jsonpb.Marshaler
@@ -747,11 +761,11 @@ func TestServiceSendAction(t *testing.T) {
 	require.NoError(err)
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(1)
+	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
 	_, err = svc.SendAction(request)
 	require.NoError(err)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestServiceGetPeers(t *testing.T) {
@@ -761,15 +775,20 @@ func TestServiceGetPeers(t *testing.T) {
 	defer ctrl.Finish()
 
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{dp: mDp, p2p: p2p}
+	svc := Service{
+		dp: mDp,
+		neighborsHandler: func() []net.Addr {
 
-	p2p.EXPECT().GetPeers().Return([]net.Addr{
-		&node.Node{Addr: "127.0.0.1:10002"},
-		&node.Node{Addr: "127.0.0.1:10003"},
-		&node.Node{Addr: "127.0.0.1:10004"},
-	})
-	p2p.EXPECT().Self().Return(&node.Node{Addr: "127.0.0.1:10001"})
+			return []net.Addr{
+				&node.Node{Addr: "127.0.0.1:10002"},
+				&node.Node{Addr: "127.0.0.1:10003"},
+				&node.Node{Addr: "127.0.0.1:10004"},
+			}
+		},
+		selfHandler: func() net.Addr {
+			return node.NewTCPNode("127.0.0.1:10001")
+		},
+	}
 
 	response, err := svc.GetPeers()
 	require.Nil(err)
@@ -783,8 +802,7 @@ func TestTransferPayloadBytesLimit(t *testing.T) {
 	defer ctrl.Finish()
 
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	svc := Service{cfg: config.Explorer{MaxTransferPayloadBytes: 8}, dp: mDp, p2p: p2p}
+	svc := Service{cfg: config.Explorer{MaxTransferPayloadBytes: 8}, dp: mDp}
 	var payload [9]byte
 	req := explorer.SendTransferRequest{
 		Payload: hex.EncodeToString(payload[:]),
@@ -857,8 +875,6 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	require.NoError(addCreatorToFactory(sf))
-	// Disable block reward to make bookkeeping easier
-	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	// create chain
 	ctx := context.Background()
@@ -882,10 +898,10 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
 	// data, _ := hex.DecodeString("6060604052600436106100565763ffffffff7c010000000000000000000000000000000000000000000000000000000060003504166341c0e1b581146100585780637bf786f81461006b578063fbf788d61461009c575b005b341561006357600080fd5b6100566100ca565b341561007657600080fd5b61008a600160a060020a03600435166100f1565b60405190815260200160405180910390f35b34156100a757600080fd5b610056600160a060020a036004351660243560ff60443516606435608435610103565b60005433600160a060020a03908116911614156100ef57600054600160a060020a0316ff5b565b60016020526000908152604090205481565b600160a060020a0385166000908152600160205260408120548190861161012957600080fd5b3087876040516c01000000000000000000000000600160a060020a03948516810282529290931690910260148301526028820152604801604051809103902091506001828686866040516000815260200160405260006040516020015260405193845260ff90921660208085019190915260408085019290925260608401929092526080909201915160208103908084039060008661646e5a03f115156101cf57600080fd5b505060206040510351600054600160a060020a039081169116146101f257600080fd5b50600160a060020a03808716600090815260016020526040902054860390301631811161026257600160a060020a0387166000818152600160205260409081902088905582156108fc0290839051600060405180830381858888f19350505050151561025d57600080fd5b6102b7565b6000547f2250e2993c15843b32621c89447cc589ee7a9f049c026986e545d3c2c0c6f97890600160a060020a0316604051600160a060020a03909116815260200160405180910390a186600160a060020a0316ff5b505050505050505600a165627a7a72305820533e856fc37e3d64d1706bcc7dfb6b1d490c8d566ea498d9d01ec08965a896ca0029")
 
-	execution, err := testutil.SignedExecution(ta.Addrinfo["producer"], action.EmptyAddress, 1,
+	execution, err := testutil.SignedExecution(ta.IotxAddrinfo["producer"], action.EmptyAddress, 1,
 		big.NewInt(0), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), data)
 	require.NoError(err)
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{execution}, ta.Addrinfo["producer"], nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{execution}, ta.IotxAddrinfo["producer"], nil, nil, "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
@@ -908,32 +924,34 @@ func TestService_CreateDeposit(t *testing.T) {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	dp := mock_dispatcher.NewMockDispatcher(ctrl)
-	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
+	broadcastHandlerCount := 0
 	svc := Service{
 		cfg: cfg.Explorer,
 		bc:  bc,
-		p2p: p2p,
-		dp:  dp,
+		broadcastHandler: func(_ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
+			return nil
+		},
+		dp: dp,
 	}
 
 	deposit := action.NewCreateDeposit(
 		10,
 		big.NewInt(10000),
-		ta.Addrinfo["producer"].RawAddress,
+		ta.IotxAddrinfo["producer"].RawAddress,
 		// Test explorer only, so that it doesn't matter the address is not on sub-chain
-		ta.Addrinfo["alfa"].RawAddress,
+		ta.IotxAddrinfo["alfa"].RawAddress,
 		1000,
 		big.NewInt(100),
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(deposit).
 		SetGasLimit(1000).
-		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].RawAddress).
+		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.IotxAddrinfo["alfa"].RawAddress).
 		SetNonce(10).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	selp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(err)
 
 	res, error := svc.CreateDeposit(explorer.CreateDepositRequest{
@@ -950,6 +968,7 @@ func TestService_CreateDeposit(t *testing.T) {
 	require.NoError(error)
 	hash := deposit.Hash()
 	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_SettleDeposit(t *testing.T) {
@@ -964,33 +983,35 @@ func TestService_SettleDeposit(t *testing.T) {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	dp := mock_dispatcher.NewMockDispatcher(ctrl)
-	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	p2p := mock_network.NewMockOverlay(ctrl)
-	p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any()).Times(1)
 
+	broadcastHandlerCount := 0
 	svc := Service{
 		cfg: cfg.Explorer,
 		bc:  bc,
-		p2p: p2p,
-		dp:  dp,
+		broadcastHandler: func(_ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
+			return nil
+		},
+		dp: dp,
 	}
 
 	deposit := action.NewSettleDeposit(
 		10,
 		big.NewInt(10000),
 		100000,
-		ta.Addrinfo["producer"].RawAddress,
+		ta.IotxAddrinfo["producer"].RawAddress,
 		// Test explorer only, so that it doesn't matter the address is not on sub-chain
-		ta.Addrinfo["alfa"].RawAddress,
+		ta.IotxAddrinfo["alfa"].RawAddress,
 		1000,
 		big.NewInt(100),
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(deposit).
 		SetGasLimit(1000).
-		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].RawAddress).
+		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.IotxAddrinfo["alfa"].RawAddress).
 		SetNonce(10).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["producer"].RawAddress, ta.Addrinfo["producer"].PrivateKey)
+	selp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 	require.NoError(err)
 
 	res, error := svc.SettleDeposit(explorer.SettleDepositRequest{
@@ -1008,6 +1029,7 @@ func TestService_SettleDeposit(t *testing.T) {
 	require.NoError(error)
 	hash := deposit.Hash()
 	require.Equal(hex.EncodeToString(hash[:]), res.Hash)
+	assert.Equal(t, 1, broadcastHandlerCount)
 }
 
 func TestService_GetDeposits(t *testing.T) {
@@ -1024,7 +1046,7 @@ func TestService_GetDeposits(t *testing.T) {
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
 	bc.EXPECT().GetFactory().Return(sf).AnyTimes()
-	subChainAddr, err := address.IotxAddressToAddress(ta.Addrinfo["producer"].RawAddress)
+	subChainAddr, err := address.IotxAddressToAddress(ta.IotxAddrinfo["producer"].RawAddress)
 	require.NoError(err)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
@@ -1043,7 +1065,7 @@ func TestService_GetDeposits(t *testing.T) {
 			DepositCount: 2,
 		},
 	))
-	depositAddr1, err := address.IotxAddressToAddress(ta.Addrinfo["alfa"].RawAddress)
+	depositAddr1, err := address.IotxAddressToAddress(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.NoError(err)
 	require.NoError(ws.PutState(
 		mainchain.DepositAddress(subChainAddr.Bytes(), 0),
@@ -1053,7 +1075,7 @@ func TestService_GetDeposits(t *testing.T) {
 			Confirmed: false,
 		},
 	))
-	depositAddr2, err := address.IotxAddressToAddress(ta.Addrinfo["bravo"].RawAddress)
+	depositAddr2, err := address.IotxAddressToAddress(ta.IotxAddrinfo["bravo"].RawAddress)
 	require.NoError(err)
 	require.NoError(ws.PutState(
 		mainchain.DepositAddress(subChainAddr.Bytes(), 1),
@@ -1102,19 +1124,35 @@ func TestService_GetDeposits(t *testing.T) {
 	assert.Equal(1, len(deposits))
 }
 
+func TestService_GetStateRootHash(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	sf := mock_factory.NewMockFactory(ctrl)
+	bc.EXPECT().GetFactory().Return(sf).AnyTimes()
+	rootHash := byteutil.BytesTo32B(hash.Hash256b([]byte("test")))
+	sf.EXPECT().RootHashByHeight(gomock.Any()).Return(rootHash, nil).Times(1)
+
+	defer ctrl.Finish()
+
+	svc := Service{bc: bc}
+	rootHashStr, err := svc.GetStateRootHash(1)
+	assert.NoError(t, err)
+	assert.Equal(t, hex.EncodeToString(rootHash[:]), rootHashStr)
+}
+
 func addCreatorToFactory(sf factory.Factory) error {
 	ws, err := sf.NewWorkingSet()
 	if err != nil {
 		return err
 	}
-	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].RawAddress,
+	if _, err = account.LoadOrCreateAccount(ws, ta.IotxAddrinfo["producer"].RawAddress,
 		blockchain.Gen.TotalSupply); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    ta.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    ta.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})

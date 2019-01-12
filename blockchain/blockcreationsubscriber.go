@@ -6,7 +6,9 @@
 
 package blockchain
 
+import "github.com/iotexproject/iotex-core/blockchain/block"
+
 // BlockCreationSubscriber is an interface which will get notified when a block is created
 type BlockCreationSubscriber interface {
-	HandleBlock(*Block) error
+	HandleBlock(*block.Block) error
 }

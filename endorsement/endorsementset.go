@@ -11,8 +11,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -27,13 +25,13 @@ var (
 
 // Set is a collection of endorsements for block
 type Set struct {
-	blkHash      hash.Hash32B
+	blkHash      []byte
 	round        uint32 // locked round number
 	endorsements []*Endorsement
 }
 
 // NewSet creates an endorsement set
-func NewSet(blkHash hash.Hash32B) *Set {
+func NewSet(blkHash []byte) *Set {
 	return &Set{
 		blkHash:      blkHash,
 		endorsements: []*Endorsement{},
@@ -42,7 +40,7 @@ func NewSet(blkHash hash.Hash32B) *Set {
 
 // FromProto converts protobuf to endorsement set
 func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
-	s.blkHash = byteutil.BytesTo32B(sPb.BlockHash)
+	s.blkHash = sPb.BlockHash
 	s.round = sPb.Round
 	s.endorsements = []*Endorsement{}
 	for _, ePb := range sPb.Endorsements {
@@ -58,7 +56,7 @@ func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
 
 // AddEndorsement adds an endorsement with the right block hash and signature
 func (s *Set) AddEndorsement(en *Endorsement) error {
-	if !bytes.Equal(en.ConsensusVote().BlkHash[:], s.blkHash[:]) {
+	if !bytes.Equal(en.ConsensusVote().BlkHash, s.blkHash) {
 		return ErrInvalidHash
 	}
 	if !en.VerifySignature() {
@@ -83,7 +81,7 @@ func (s *Set) AddEndorsement(en *Endorsement) error {
 }
 
 // BlockHash returns the hash of the endorsed block
-func (s *Set) BlockHash() hash.Hash32B {
+func (s *Set) BlockHash() []byte {
 	return s.blkHash
 }
 

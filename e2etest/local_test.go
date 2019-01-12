@@ -9,10 +9,12 @@ package e2etest
 import (
 	"context"
 	"math/big"
+	"net"
 	"sort"
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -22,7 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -42,8 +44,6 @@ func TestLocalCommit(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 
-	blockchain.Gen.BlockReward = big.NewInt(0)
-
 	cfg, err := newTestConfig()
 	require.Nil(err)
 
@@ -57,11 +57,21 @@ func TestLocalCommit(t *testing.T) {
 	require.NotNil(bc)
 	require.NoError(addTestingTsfBlocks(bc))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
-	require.NotNil(svr.P2P())
+	require.NotNil(svr.P2PAgent())
 
 	// create client
-	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	p := network.NewOverlay(cfg.Network)
+	cfg, err = newTestConfig()
+	require.Nil(err)
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
+	p := p2p.NewAgent(
+		cfg.Network,
+		func(_ uint32, _ proto.Message) {
+
+		},
+		func(_ uint32, _ net.Addr, _ proto.Message) {
+
+		},
+	)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 
@@ -73,93 +83,100 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// check balance
-	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
+	s, err := bc.StateByAddr(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.Nil(err)
 	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["bravo"].RawAddress)
 	require.Nil(err)
 	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["delta"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["delta"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["echo"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["echo"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["foxtrot"].RawAddress)
 	require.Nil(err)
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242883")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["producer"].RawAddress)
 	require.Nil(err)
 	test := s.Balance
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
-	require.Equal(blockchain.ConvertIotxToRau(3000000000).String(), change.String())
+	require.Equal(
+		big.NewInt(0).Add(
+			blockchain.ConvertIotxToRau(3000000000),
+			big.NewInt(0).Mul(
+				blockchain.Gen.BlockReward,
+				big.NewInt(int64(bc.TipHeight())),
+			),
+		),
+		change,
+	)
 	t.Log("Total balance match")
 
 	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {
 		return
 	}
-	height := bc.TipHeight()
-	require.Nil(err)
-	require.True(height == 5)
+	require.True(5 == bc.TipHeight())
 
 	// create local chain
 	testutil.CleanupPath(t, testTriePath2)
 	testutil.CleanupPath(t, testDBPath2)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	require.NoError(copyDB(testTriePath, testTriePath2))
+	require.NoError(copyDB(testDBPath, testDBPath2))
 	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NotNil(chain)
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(ctx))
-	require.Nil(addTestingTsfBlocks(chain))
-	height = chain.TipHeight()
-	require.Nil(err)
-	require.True(height == 5)
+	require.True(5 == bc.TipHeight())
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 		testutil.CleanupPath(t, testTriePath2)
 		testutil.CleanupPath(t, testDBPath2)
 	}()
 
+	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
 	// transfer 1
 	// C --> A
-	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["charlie"], ta.Addrinfo["alfa"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(ta.IotxAddrinfo["charlie"].RawAddress)
+	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["alfa"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	act1 := tsf1.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(cfg.Chain.ID, act1); err != nil {
+		if err := p.Broadcast(p2pCtx, act1); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -168,7 +185,7 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(err)
 
 	acts := svr.ChainService(chainID).ActionPool().PickActs()
-	blk1, err := chain.MintNewBlock(acts, ta.Addrinfo["producer"], nil,
+	blk1, err := chain.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -176,18 +193,18 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, _ = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["foxtrot"], ta.Addrinfo["delta"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(ta.IotxAddrinfo["foxtrot"].RawAddress)
+	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["foxtrot"], ta.IotxAddrinfo["delta"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{tsf2}, ta.Addrinfo["producer"], nil, nil, "")
+	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{tsf2}, ta.IotxAddrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act2 := tsf2.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(cfg.Chain.ID, act2); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act2); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -197,18 +214,18 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 3
 	// B --> B
-	s, _ = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["bravo"], ta.Addrinfo["bravo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(ta.IotxAddrinfo["bravo"].RawAddress)
+	tsf3, err := testutil.SignedTransfer(ta.IotxAddrinfo["bravo"], ta.IotxAddrinfo["bravo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{tsf3}, ta.Addrinfo["producer"], nil, nil, "")
+	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{tsf3}, ta.IotxAddrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act3 := tsf3.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(cfg.Chain.ID, act3); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act3); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -218,18 +235,18 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 4
 	// test --> E
-	s, _ = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["echo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(ta.IotxAddrinfo["producer"].RawAddress)
+	tsf4, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["echo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{tsf4}, ta.Addrinfo["producer"], nil, nil, "")
+	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{tsf4}, ta.IotxAddrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act4 := tsf4.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(cfg.Chain.ID, act4); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act4); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -237,71 +254,79 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 	// wait 4 blocks being picked and committed
-	err = p.Broadcast(cfg.Chain.ID, blk2.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk2.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(cfg.Chain.ID, blk4.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk4.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(cfg.Chain.ID, blk1.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk1.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(cfg.Chain.ID, blk3.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk3.ConvertToBlockPb())
 	require.NoError(err)
-	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 9, nil
 	})
 	require.Nil(err)
-	height = bc.TipHeight()
-	require.Equal(9, int(height))
+	require.True(9 == bc.TipHeight())
 
 	// check balance
-	s, err = bc.StateByAddr(ta.Addrinfo["alfa"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.Nil(err)
 	change = s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "24")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["bravo"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["charlie"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "46")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["delta"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["delta"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "70")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["echo"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["echo"].RawAddress)
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "101")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["foxtrot"].RawAddress)
 	require.Nil(err)
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242882")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["producer"].RawAddress)
+	s, err = bc.StateByAddr(ta.IotxAddrinfo["producer"].RawAddress)
 	require.Nil(err)
 	test = s.Balance
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
 
-	require.Equal(blockchain.ConvertIotxToRau(3000000000).String(), change.String())
+	require.Equal(
+		big.NewInt(0).Add(
+			blockchain.ConvertIotxToRau(3000000000),
+			big.NewInt(0).Mul(
+				blockchain.Gen.BlockReward,
+				big.NewInt(int64(bc.TipHeight())),
+			),
+		),
+		change,
+	)
 	t.Log("Total balance match")
 }
 
@@ -325,6 +350,7 @@ func TestLocalSync(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
+	require.NotNil(svr.P2PAgent())
 	require.Nil(addTestingTsfBlocks(bc))
 
 	blk, err := bc.GetBlockByHeight(1)
@@ -342,25 +368,25 @@ func TestLocalSync(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(5)
 	require.Nil(err)
 	hash5 := blk.HashBlock()
-
-	p2 := svr.P2P()
-	require.NotNil(p2)
+	require.NotNil(svr.P2PAgent())
 
 	testutil.CleanupPath(t, testTriePath2)
 	testutil.CleanupPath(t, testDBPath2)
 
+	cfg, err = newTestConfig()
+	require.Nil(err)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 
 	// Create client
 	cfg.NodeType = config.FullNodeType
-	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
 	require.Nil(err)
 	require.Nil(cli.Start(ctx))
 	require.NotNil(cli.ChainService(chainID).Blockchain())
-	require.NotNil(cli.P2P())
+	require.NotNil(cli.P2PAgent())
 
 	defer func() {
 		require.Nil(cli.Stop(ctx))
@@ -371,10 +397,15 @@ func TestLocalSync(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath2)
 	}()
 
-	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, func() (bool, error) { return len(svr.P2P().GetPeers()) >= 1, nil })
+	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
+		return len(svr.P2PAgent().Neighbors()) >= 1, nil
+	})
 	require.Nil(err)
 
-	err = svr.P2P().Broadcast(cfg.Chain.ID, blk.ConvertToBlockPb())
+	err = svr.P2PAgent().Broadcast(
+		p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID}),
+		blk.ConvertToBlockPb(),
+	)
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
 		blk1, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
@@ -403,7 +434,7 @@ func TestLocalSync(t *testing.T) {
 			hash4 == blk4.HashBlock() &&
 			hash5 == blk5.HashBlock(), nil
 	})
-	err = testutil.WaitUntil(time.Millisecond*10, time.Second*5, check)
+	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, check)
 	require.Nil(err)
 
 	// verify 4 received blocks
@@ -435,8 +466,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg.Chain.NumCandidates = 2
 	require.Nil(err)
 
-	blockchain.Gen.BlockReward = big.NewInt(0)
-
 	// create node
 	ctx := context.Background()
 	svr, err := itx.NewServer(cfg)
@@ -449,8 +478,18 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(addTestingTsfBlocks(bc))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
-	cfg.Network.BootstrapNodes = []string{svr.P2P().Self().String()}
-	p := network.NewOverlay(cfg.Network)
+	cfg, err = newTestConfig()
+	require.NoError(err)
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
+	p := p2p.NewAgent(
+		cfg.Network,
+		func(_ uint32, _ proto.Message) {
+
+		},
+		func(_ uint32, addr net.Addr, _ proto.Message) {
+
+		},
+	)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
 
@@ -460,15 +499,15 @@ func TestVoteLocalCommit(t *testing.T) {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
 	}()
-
-	height := bc.TipHeight()
-	require.True(height == 5)
+	require.True(5 == bc.TipHeight())
 
 	// create local chain
 	testutil.CleanupPath(t, testTriePath2)
 	testutil.CleanupPath(t, testDBPath2)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	require.NoError(copyDB(testTriePath, testTriePath2))
+	require.NoError(copyDB(testDBPath, testDBPath2))
 	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(account.NewProtocol(),
@@ -476,9 +515,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NotNil(chain)
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
 	require.NoError(chain.Start(ctx))
-	require.Nil(addTestingTsfBlocks(chain))
-	height = chain.TipHeight()
-	require.True(height == 5)
+	require.True(5 == bc.TipHeight())
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 		testutil.CleanupPath(t, testTriePath2)
@@ -487,25 +524,25 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 1
 	// Alfa, Bravo and Charlie selfnomination
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["alfa"], 7, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["alfa"], 7, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["bravo"], 8, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 8, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["charlie"], 9, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf3, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["charlie"], 9, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"], ta.Addrinfo["delta"], 10, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf4, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["delta"], 10, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	vote1, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["alfa"], 1, 100000, big.NewInt(0))
+	vote1, err := testutil.SignedVote(ta.IotxAddrinfo["alfa"], ta.IotxAddrinfo["alfa"], 1, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	vote2, err := testutil.SignedVote(ta.Addrinfo["bravo"], ta.Addrinfo["bravo"], 1, 100000, big.NewInt(0))
+	vote2, err := testutil.SignedVote(ta.IotxAddrinfo["bravo"], ta.IotxAddrinfo["bravo"], 1, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	vote3, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["charlie"], 6, 100000, big.NewInt(0))
+	vote3, err := testutil.SignedVote(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["charlie"], 6, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	act1 := vote1.Proto()
@@ -516,26 +553,27 @@ func TestVoteLocalCommit(t *testing.T) {
 	acttsf3 := tsf3.Proto()
 	acttsf4 := tsf4.Proto()
 
-	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act1); err != nil {
+	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act1); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, act2); err != nil {
+		if err := p.Broadcast(p2pCtx, act2); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, act3); err != nil {
+		if err := p.Broadcast(p2pCtx, act3); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, acttsf1); err != nil {
+		if err := p.Broadcast(p2pCtx, acttsf1); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, acttsf2); err != nil {
+		if err := p.Broadcast(p2pCtx, acttsf2); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, acttsf3); err != nil {
+		if err := p.Broadcast(p2pCtx, acttsf3); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, acttsf4); err != nil {
+		if err := p.Broadcast(p2pCtx, acttsf4); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -544,14 +582,14 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 
 	acts := svr.ChainService(chainID).ActionPool().PickActs()
-	blk1, err := chain.MintNewBlock(acts, ta.Addrinfo["producer"], nil,
+	blk1, err := chain.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
 	require.Nil(chain.CommitBlock(blk1))
 
-	require.NoError(p.Broadcast(chainID, blk1.ConvertToBlockPb()))
-	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	require.NoError(p.Broadcast(p2pCtx, blk1.ConvertToBlockPb()))
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 6, nil
 	})
@@ -561,22 +599,22 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 2
 	// Vote A -> B, C -> A
-	vote4, err := testutil.SignedVote(ta.Addrinfo["alfa"], ta.Addrinfo["bravo"], uint64(2), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(ta.IotxAddrinfo["alfa"], ta.IotxAddrinfo["bravo"], uint64(2), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	vote5, err := testutil.SignedVote(ta.Addrinfo["charlie"], ta.Addrinfo["alfa"], uint64(7), uint64(100000), big.NewInt(0))
+	vote5, err := testutil.SignedVote(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["alfa"], uint64(7), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{vote4, vote5}, ta.Addrinfo["producer"], nil, nil, "")
+	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{vote4, vote5}, ta.IotxAddrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act4 := vote4.Proto()
 	act5 := vote5.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act4); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act4); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(chainID, act5); err != nil {
+		if err := p.Broadcast(p2pCtx, act5); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -584,8 +622,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	require.NoError(p.Broadcast(chainID, blk2.ConvertToBlockPb()))
-	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	require.NoError(p.Broadcast(p2pCtx, blk2.ConvertToBlockPb()))
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 7, nil
 	})
@@ -602,23 +640,23 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["alfa"].RawAddress, candidatesAddr[0])
-	require.Equal(ta.Addrinfo["bravo"].RawAddress, candidatesAddr[1])
+	require.Equal(ta.IotxAddrinfo["alfa"].RawAddress, candidatesAddr[0])
+	require.Equal(ta.IotxAddrinfo["bravo"].RawAddress, candidatesAddr[1])
 
 	// Add block 3
 	// D self nomination
-	vote6, err := testutil.SignedVote(ta.Addrinfo["delta"], ta.Addrinfo["delta"], 5, 100000, big.NewInt(0))
+	vote6, err := testutil.SignedVote(ta.IotxAddrinfo["delta"], ta.IotxAddrinfo["delta"], 5, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{vote6}, ta.Addrinfo["producer"],
+	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{vote6}, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act6 := vote6.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act6); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act6); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -626,10 +664,10 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	err = p.Broadcast(chainID, blk3.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk3.ConvertToBlockPb())
 	require.NoError(err)
 
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 8, nil
 	})
@@ -646,27 +684,27 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["bravo"].RawAddress, candidatesAddr[0])
-	require.Equal(ta.Addrinfo["delta"].RawAddress, candidatesAddr[1])
+	require.Equal(ta.IotxAddrinfo["bravo"].RawAddress, candidatesAddr[0])
+	require.Equal(ta.IotxAddrinfo["delta"].RawAddress, candidatesAddr[1])
 
 	// Add block 4
 	// Unvote B
-	vote7, err := action.NewVote(uint64(2), ta.Addrinfo["bravo"].RawAddress, "", uint64(100000), big.NewInt(0))
+	vote7, err := action.NewVote(uint64(2), ta.IotxAddrinfo["bravo"].RawAddress, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(vote7).SetNonce(2).SetDestinationAddress("").SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].RawAddress, ta.Addrinfo["bravo"].PrivateKey)
+	selp, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
 
-	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{selp}, ta.Addrinfo["producer"],
+	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act7 := selp.Proto()
-	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(chainID, act7); err != nil {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if err := p.Broadcast(p2pCtx, act7); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -674,10 +712,10 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	err = p.Broadcast(chainID, blk4.ConvertToBlockPb())
+	err = p.Broadcast(p2pCtx, blk4.ConvertToBlockPb())
 	require.NoError(err)
 
-	err = testutil.WaitUntil(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 9, nil
 	})
@@ -694,8 +732,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["alfa"].RawAddress, candidatesAddr[0])
-	require.Equal(ta.Addrinfo["delta"].RawAddress, candidatesAddr[1])
+	require.Equal(ta.IotxAddrinfo["alfa"].RawAddress, candidatesAddr[0])
+	require.Equal(ta.IotxAddrinfo["delta"].RawAddress, candidatesAddr[1])
 }
 
 func TestBlockchainRecovery(t *testing.T) {
@@ -703,8 +741,6 @@ func TestBlockchainRecovery(t *testing.T) {
 
 	testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
-
-	blockchain.Gen.BlockReward = big.NewInt(0)
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -729,17 +765,18 @@ func TestBlockchainRecovery(t *testing.T) {
 	// stop server and delete state db
 	require.NoError(svr.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
 
 	// restart server
 	svr, err = itx.NewServer(cfg)
 	require.Nil(err)
 	require.NoError(svr.Start(ctx))
 
-	blockchainHeight := svr.ChainService(cfg.Chain.ID).Blockchain().TipHeight()
-	factoryHeight, err := svr.ChainService(cfg.Chain.ID).Blockchain().GetFactory().Height()
-	require.NoError(err)
+	bc = svr.ChainService(chainID).Blockchain()
+	require.NotNil(bc)
+	blockchainHeight := bc.TipHeight()
+	factoryHeight, _ := bc.GetFactory().Height()
 	require.Equal(blockchainHeight, factoryHeight)
+	require.True(5 == blockchainHeight)
 }
 
 func newTestConfig() (config.Config, error) {
@@ -747,7 +784,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Network.Port = 0
+	cfg.Network.Port = testutil.RandomPort()
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 

@@ -14,22 +14,33 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/syncmap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(block *Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error
+	Validate(block *block.Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error
+	// ValidateActionsOnly validates the actions only
+	ValidateActionsOnly(
+		actions []action.SealedEnvelope,
+		containCoinbase bool,
+		secretWitness *action.SecretWitness,
+		secretProposals []*action.SecretProposal,
+		pk keypair.PublicKey,
+		chainID uint32,
+		height uint64,
+	) error
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
@@ -60,7 +71,7 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error {
+func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error {
 	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
@@ -69,7 +80,15 @@ func (v *validator) Validate(blk *Block, tipHeight uint64, tipHash hash.Hash32B,
 	}
 
 	if v.sf != nil {
-		return v.verifyActions(blk, containCoinbase)
+		return v.ValidateActionsOnly(
+			blk.Actions,
+			containCoinbase,
+			blk.SecretWitness,
+			blk.SecretProposals,
+			blk.PublicKey(),
+			blk.ChainID(),
+			blk.Height(),
+		)
 	}
 
 	return nil
@@ -85,19 +104,28 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
 }
 
-func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
+func (v *validator) ValidateActionsOnly(
+	actions []action.SealedEnvelope,
+	containCoinbase bool,
+	secretWitness *action.SecretWitness,
+	secretProposals []*action.SecretProposal,
+	pk keypair.PublicKey,
+	chainID uint32,
+	height uint64,
+) error {
 	// Verify transfers, votes, executions, witness, and secrets
 	confirmedNonceMap := make(map[string]uint64)
-	accountNonceMap := &syncmap.Map{}
-	producerPKHash := keypair.HashPubKey(blk.Header.Pubkey)
-	producerAddr := address.New(blk.Header.chainID, producerPKHash[:])
+	accountNonceMap := &sync.Map{}
+	producerPKHash := keypair.HashPubKey(pk)
+	producerAddr := address.New(chainID, producerPKHash[:])
 	var coinbaseCounter int
 	var correctVerifications uint64
 	var expectedVerifications uint64
-	var actionError error
+	errChan := make(chan error, len(actions))
+	defer close(errChan)
 	var wg sync.WaitGroup
 
-	for _, selp := range blk.Actions {
+	for _, selp := range actions {
 		// TODO: Maybe need more strict measurement to validate a coinbase transfer
 		if act, ok := selp.Action().(*action.Transfer); ok && act.IsCoinbase() {
 			coinbaseCounter++
@@ -116,7 +144,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 		ctx := protocol.WithValidateActionsCtx(context.Background(),
 			&protocol.ValidateActionsCtx{
 				NonceTracker: accountNonceMap,
-				BlockHeight:  blk.Height(),
+				BlockHeight:  height,
 				ProducerAddr: producerAddr.IotxAddress(),
 			})
 
@@ -126,7 +154,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 			go func(validator protocol.ActionEnvelopeValidator, selp action.SealedEnvelope, counter *uint64) {
 				defer wg.Done()
 				if err := validator.Validate(ctx, selp); err != nil {
-					actionError = err
+					errChan <- err
 					return
 				}
 				atomic.AddUint64(counter, uint64(1))
@@ -139,7 +167,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 			go func(validator protocol.ActionValidator, act action.Action, counter *uint64) {
 				defer wg.Done()
 				if err := validator.Validate(ctx, act); err != nil {
-					actionError = err
+					errChan <- err
 					return
 				}
 				atomic.AddUint64(counter, uint64(1))
@@ -150,7 +178,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	wg.Wait()
 
 	if correctVerifications != expectedVerifications {
-		return errors.Wrap(actionError, "failed to validate action")
+		return errors.Wrap(<-errChan, "failed to validate action")
 	}
 
 	if containCoinbase && coinbaseCounter != 1 || !containCoinbase && coinbaseCounter != 0 {
@@ -158,30 +186,30 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	}
 
 	// Verify Witness
-	if blk.SecretWitness != nil {
+	if secretWitness != nil {
 		// Verify witness sender address
-		if _, err := iotxaddress.GetPubkeyHash(blk.SecretWitness.SrcAddr()); err != nil {
-			return errors.Wrapf(err, "failed to validate witness sender's address %s", blk.SecretWitness.SrcAddr())
+		if _, err := iotxaddress.GetPubkeyHash(secretWitness.SrcAddr()); err != nil {
+			return errors.Wrapf(err, "failed to validate witness sender's address %s", secretWitness.SrcAddr())
 		}
 		// Store the nonce of the witness sender and verify later
-		if _, ok := confirmedNonceMap[blk.SecretWitness.SrcAddr()]; !ok {
-			accountNonce, err := v.sf.Nonce(blk.SecretWitness.SrcAddr())
+		if _, ok := confirmedNonceMap[secretWitness.SrcAddr()]; !ok {
+			accountNonce, err := v.sf.Nonce(secretWitness.SrcAddr())
 			if err != nil {
 				return errors.Wrap(err, "failed to get the nonce of secret sender")
 			}
-			confirmedNonceMap[blk.SecretWitness.SrcAddr()] = accountNonce
-			accountNonceMap.Store(blk.SecretWitness.SrcAddr(), make([]uint64, 0))
+			confirmedNonceMap[secretWitness.SrcAddr()] = accountNonce
+			accountNonceMap.Store(secretWitness.SrcAddr(), make([]uint64, 0))
 		}
-		value, _ := accountNonceMap.Load(blk.SecretWitness.SrcAddr())
+		value, _ := accountNonceMap.Load(secretWitness.SrcAddr())
 		nonceList, ok := value.([]uint64)
 		if !ok {
-			return errors.Errorf("failed to load received nonces for account %s", blk.SecretWitness.SrcAddr())
+			return errors.Errorf("failed to load received nonces for account %s", secretWitness.SrcAddr())
 		}
-		accountNonceMap.Store(blk.SecretWitness.SrcAddr(), append(nonceList, blk.SecretWitness.Nonce()))
+		accountNonceMap.Store(secretWitness.SrcAddr(), append(nonceList, secretWitness.Nonce()))
 	}
 
 	// Verify Secrets
-	for _, sp := range blk.SecretProposals {
+	for _, sp := range secretProposals {
 		// Verify address
 		if _, err := iotxaddress.GetPubkeyHash(sp.SrcAddr()); err != nil {
 			return errors.Wrapf(err, "failed to validate secret sender's address %s", sp.SrcAddr())
@@ -202,14 +230,14 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 		value, _ := accountNonceMap.Load(sp.SrcAddr())
 		nonceList, ok := value.([]uint64)
 		if !ok {
-			return errors.Errorf("failed to load received nonces for account %s", blk.SecretWitness.SrcAddr())
+			return errors.Errorf("failed to load received nonces for account %s", secretWitness.SrcAddr())
 		}
 		accountNonceMap.Store(sp.SrcAddr(), append(nonceList, sp.Nonce()))
 
 		// verify secret if the validator is recipient
 		if v.validatorAddr == sp.DstAddr() {
 			validatorID := iotxaddress.CreateID(v.validatorAddr)
-			result, err := crypto.DKG.ShareVerify(validatorID, sp.Secret(), blk.SecretWitness.Witness())
+			result, err := crypto.DKG.ShareVerify(validatorID, sp.Secret(), secretWitness.Witness())
 			if err == nil {
 				err = ErrDKGSecretProposal
 			}
@@ -219,7 +247,7 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 		}
 	}
 
-	if blk.Header.height > 0 {
+	if height > 0 {
 		//Verify each account's Nonce
 		for address := range confirmedNonceMap {
 			// The nonce of each action should be increasing, unique and consecutive
@@ -232,7 +260,14 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 			sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
 			for i, nonce := range receivedNonces {
 				if nonce != confirmedNonce+uint64(i+1) {
-					return errors.Wrap(action.ErrNonce, "action nonce is not continuously increasing")
+					return errors.Wrapf(
+						action.ErrNonce,
+						"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
+						i,
+						nonce,
+						address,
+						confirmedNonce,
+					)
 				}
 			}
 		}
@@ -240,42 +275,43 @@ func (v *validator) verifyActions(blk *Block, containCoinbase bool) error {
 	return nil
 }
 
-func verifyHeightAndHash(blk *Block, tipHeight uint64, tipHash hash.Hash32B) error {
+func verifyHeightAndHash(blk *block.Block, tipHeight uint64, tipHash hash.Hash32B) error {
 	if blk == nil {
 		return ErrInvalidBlock
 	}
 	// verify new block has height incremented by 1
-	if blk.Header.height != 0 && blk.Header.height != tipHeight+1 {
+	if blk.Height() != 0 && blk.Height() != tipHeight+1 {
 		return errors.Wrapf(
 			ErrInvalidTipHeight,
 			"wrong block height %d, expecting %d",
-			blk.Header.height,
+			blk.Height(),
 			tipHeight+1)
 	}
 	// verify new block has correctly linked to current tip
-	if blk.Header.prevBlockHash != tipHash {
+	if blk.PrevHash() != tipHash {
+		blk.HeaderLogger(log.L()).Error("Previous block hash doesn't match.",
+			log.Hex("expectedBlockHash", tipHash[:]))
 		return errors.Wrapf(
 			ErrInvalidBlock,
 			"wrong prev hash %x, expecting %x",
-			blk.Header.prevBlockHash,
+			blk.PrevHash(),
 			tipHash)
 	}
 	return nil
 }
 
-func verifySigAndRoot(blk *Block) error {
-	if blk.Header.height > 0 {
+func verifySigAndRoot(blk *block.Block) error {
+	if blk.Height() > 0 {
 		// verify new block's signature is correct
-		blkHash := blk.HashBlock()
-		if !crypto.EC283.Verify(blk.Header.Pubkey, blkHash[:], blk.Header.blockSig) {
+		if !blk.VerifySignature() {
 			return errors.Wrapf(
 				ErrInvalidBlock,
 				"failed to verify block's signature with public key: %x",
-				blk.Header.Pubkey)
+				blk.PublicKey())
 		}
 	}
 
-	hashExpect := blk.Header.txRoot
+	hashExpect := blk.TxRoot()
 	hashActual := blk.CalculateTxRoot()
 	if !bytes.Equal(hashExpect[:], hashActual[:]) {
 		return errors.Wrapf(

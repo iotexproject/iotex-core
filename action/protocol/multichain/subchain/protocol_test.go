@@ -26,8 +26,6 @@ import (
 )
 
 func TestValidateDeposit(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
@@ -39,8 +37,8 @@ func TestValidateDeposit(t *testing.T) {
 		1,
 		big.NewInt(1000),
 		10000,
-		testaddress.Addrinfo["producer"].RawAddress,
-		testaddress.Addrinfo["alfa"].RawAddress,
+		testaddress.IotxAddrinfo["producer"].RawAddress,
+		testaddress.IotxAddrinfo["alfa"].RawAddress,
 		testutil.TestGasLimit,
 		big.NewInt(0),
 	)
@@ -58,7 +56,7 @@ func TestValidateDeposit(t *testing.T) {
 	exp.EXPECT().GetDeposits(gomock.Any(), gomock.Any(), gomock.Any()).Return([]explorer.Deposit{
 		{
 			Amount:    "100",
-			Address:   testaddress.Addrinfo["alfa"].RawAddress,
+			Address:   testaddress.IotxAddrinfo["alfa"].RawAddress,
 			Confirmed: false,
 		},
 	}, nil).Times(2)
@@ -78,7 +76,7 @@ func TestValidateDeposit(t *testing.T) {
 	exp.EXPECT().GetDeposits(gomock.Any(), gomock.Any(), gomock.Any()).Return([]explorer.Deposit{
 		{
 			Amount:    "100",
-			Address:   testaddress.Addrinfo["alfa"].RawAddress,
+			Address:   testaddress.IotxAddrinfo["alfa"].RawAddress,
 			Confirmed: true,
 		},
 	}, nil).Times(1)
@@ -89,8 +87,6 @@ func TestValidateDeposit(t *testing.T) {
 }
 
 func TestMutateDeposit(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
@@ -102,8 +98,8 @@ func TestMutateDeposit(t *testing.T) {
 		1,
 		big.NewInt(1000),
 		10000,
-		testaddress.Addrinfo["producer"].RawAddress,
-		testaddress.Addrinfo["alfa"].RawAddress,
+		testaddress.IotxAddrinfo["producer"].RawAddress,
+		testaddress.IotxAddrinfo["alfa"].RawAddress,
 		testutil.TestGasLimit,
 		big.NewInt(0),
 	)
@@ -118,11 +114,11 @@ func TestMutateDeposit(t *testing.T) {
 	require.NoError(t, protocol.mutateDeposit(deposit, ws))
 	require.NoError(t, bc.GetFactory().Commit(ws))
 
-	account1, err := bc.GetFactory().AccountState(testaddress.Addrinfo["producer"].RawAddress)
+	account1, err := bc.GetFactory().AccountState(testaddress.IotxAddrinfo["producer"].RawAddress)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), account1.Nonce)
 
-	account2, err := bc.GetFactory().AccountState(testaddress.Addrinfo["alfa"].RawAddress)
+	account2, err := bc.GetFactory().AccountState(testaddress.IotxAddrinfo["alfa"].RawAddress)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(1000), account2.Balance)
 

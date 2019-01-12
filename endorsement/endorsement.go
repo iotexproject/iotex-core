@@ -8,13 +8,14 @@ package endorsement
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -33,14 +34,14 @@ const (
 
 // ConsensusVote is a vote on a given topic for a block on a specific height
 type ConsensusVote struct {
-	BlkHash hash.Hash32B
+	BlkHash []byte
 	Height  uint64
 	Round   uint32
 	Topic   ConsensusVoteTopic
 }
 
 // NewConsensusVote creates a consensus vote
-func NewConsensusVote(blkHash hash.Hash32B, height uint64, round uint32, topic ConsensusVoteTopic) *ConsensusVote {
+func NewConsensusVote(blkHash []byte, height uint64, round uint32, topic ConsensusVoteTopic) *ConsensusVote {
 	return &ConsensusVote{
 		blkHash,
 		height,
@@ -116,7 +117,7 @@ func (en *Endorsement) ToProtoMsg() *iproto.EndorsePb {
 	case COMMIT:
 		topic = iproto.EndorsePb_COMMIT
 	default:
-		logger.Error().Msgf("Endorsement object is of the wrong topic")
+		log.L().Error("Endorsement object is of the wrong topic.")
 		return nil
 	}
 	pubkey := en.EndorserPublicKey()
@@ -146,17 +147,16 @@ func FromProtoMsg(endorsePb *iproto.EndorsePb) (*Endorsement, error) {
 		return nil, errors.New("Invalid topic")
 	}
 	vote := NewConsensusVote(
-		byteutil.BytesTo32B(endorsePb.BlockHash),
+		endorsePb.BlockHash,
 		endorsePb.Height,
 		endorsePb.Round,
 		topic,
 	)
 	pubKey, err := keypair.BytesToPublicKey(endorsePb.EndorserPubKey)
 	if err != nil {
-		logger.Error().
-			Err(err).
-			Bytes("endorserPubKey", endorsePb.EndorserPubKey).
-			Msg("error when constructing endorse from proto message")
+		log.L().Error("Error when constructing endorse from proto message.",
+			zap.Error(err),
+			log.Hex("endorserPubKey", endorsePb.EndorserPubKey))
 		return nil, err
 	}
 	return &Endorsement{

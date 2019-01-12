@@ -11,9 +11,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/logger"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -31,17 +32,15 @@ type standaloneHandler struct {
 }
 
 func (s *standaloneHandler) Run() {
-	logger.Info().
-		Str("at", time.Now().String()).
-		Msg("created a new block")
+	log.L().Info("Created a new block.", zap.String("at", time.Now().String()))
 	blk, err := s.createCb()
 	if err != nil {
-		logger.Error().Err(err)
+		log.L().Error("Failed to create.", zap.Error(err))
 		return
 	}
 
 	if err := s.commitCb(blk); err != nil {
-		logger.Error().Err(err)
+		log.L().Error("Failed to commit.", zap.Error(err))
 		return
 	}
 	s.pubCb(blk)
@@ -65,23 +64,14 @@ func (n *Standalone) Start(ctx context.Context) error {
 	return n.task.Start(ctx)
 }
 
-// SetDoneStream does nothing in Standalone (only used in simulator)
-func (n *Standalone) SetDoneStream(done chan bool) {}
-
 // Stop stops the service for a standalone
 func (n *Standalone) Stop(ctx context.Context) error {
 	return n.task.Stop(ctx)
 }
 
-// HandleBlockPropose handles incoming block propose
-func (n *Standalone) HandleBlockPropose(propose *iproto.ProposePb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming block propose requests")
-	return nil
-}
-
-// HandleEndorse handles incoming block propose
-func (n *Standalone) HandleEndorse(endorse *iproto.EndorsePb) error {
-	logger.Warn().Msg("Noop scheme does not handle incoming endorse requests")
+// HandleConsensusMsg handles incoming consensus message
+func (n *Standalone) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
+	log.L().Warn("Noop scheme does not handle incoming block propose requests.")
 	return nil
 }
 

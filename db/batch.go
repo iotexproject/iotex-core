@@ -21,7 +21,6 @@ type (
 	// b := NewBatch()
 	// and keep batching Put/Delete operation into it
 	// b.Put(bucket, k, v)
-	// b.PutIfNotExists(bucket, k, v)
 	// b.Delete(bucket, k, v)
 	// once it's done, call KVStore interface's Commit() to persist to underlying DB
 	// KVStore.Commit(b)
@@ -36,8 +35,6 @@ type (
 		ClearAndUnlock()
 		// Put insert or update a record identified by (namespace, key)
 		Put(string, []byte, []byte, string, ...interface{})
-		// PutIfNotExists puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
-		PutIfNotExists(string, []byte, []byte, string, ...interface{}) error
 		// Delete deletes a record by (namespace, key)
 		Delete(string, []byte, string, ...interface{})
 		// Size returns the size of batch
@@ -50,6 +47,8 @@ type (
 		CloneBatch() KVStoreBatch
 		// batch puts an entry into the write queue
 		batch(op int32, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{})
+		// truncate the write queue
+		truncate(int)
 	}
 
 	// writeInfo is the struct to store Put/Delete operation info
@@ -80,10 +79,6 @@ type (
 		Revert(int) error
 		// clone clones the cached batch
 		clone() CachedBatch
-		// kvBatch returns the embedded KVStoreBatch
-		kvBatch() KVStoreBatch
-		// kvCache returns the embedded KVStoreCache
-		kvCache() KVStoreCache
 	}
 
 	// cachedBatch implements the CachedBatch interface
@@ -91,8 +86,9 @@ type (
 		lock sync.RWMutex
 		KVStoreBatch
 		KVStoreCache
-		tag       int                 // latest snapshot + 1
-		snapshots map[int]CachedBatch // saved snapshots
+		tag        int            // latest snapshot + 1
+		batchShots []int          // snapshots of batch are merely size of write queue at time of snapshot
+		cacheShots []KVStoreCache // snapshots of cache
 	}
 )
 
@@ -101,8 +97,6 @@ const (
 	Put int32 = iota
 	// Delete indicate the type of write operation to be Delete
 	Delete int32 = 1
-	// PutIfNotExists indicate the type of write operation to be PutIfNotExists
-	PutIfNotExists int32 = 2
 )
 
 // NewBatch returns a batch
@@ -131,14 +125,6 @@ func (b *baseKVStoreBatch) Put(namespace string, key, value []byte, errorFormat 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	b.batch(Put, namespace, key, value, errorFormat, errorArgs)
-}
-
-// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (b *baseKVStoreBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	b.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
-	return nil
 }
 
 // Delete deletes a record
@@ -195,6 +181,11 @@ func (b *baseKVStoreBatch) batch(op int32, namespace string, key, value []byte, 
 		})
 }
 
+// truncate the write queue
+func (b *baseKVStoreBatch) truncate(size int) {
+	b.writeQueue = b.writeQueue[:size]
+}
+
 //======================================
 // CachedBatch implementation
 //======================================
@@ -204,7 +195,8 @@ func NewCachedBatch() CachedBatch {
 	return &cachedBatch{
 		KVStoreBatch: NewBatch(),
 		KVStoreCache: NewKVCache(),
-		snapshots:    make(map[int]CachedBatch),
+		batchShots:   make([]int, 0),
+		cacheShots:   make([]KVStoreCache, 0),
 	}
 }
 
@@ -225,8 +217,10 @@ func (cb *cachedBatch) ClearAndUnlock() {
 	cb.KVStoreBatch.Clear()
 	// clear all saved snapshots
 	cb.tag = 0
-	cb.snapshots = nil
-	cb.snapshots = make(map[int]CachedBatch)
+	cb.batchShots = nil
+	cb.cacheShots = nil
+	cb.batchShots = make([]int, 0)
+	cb.cacheShots = make([]KVStoreCache, 0)
 }
 
 // Put inserts a <key, value> record
@@ -236,19 +230,6 @@ func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat stri
 	h := cb.hash(namespace, key)
 	cb.Write(h, value)
 	cb.batch(Put, namespace, key, value, errorFormat, errorArgs)
-}
-
-// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (cb *cachedBatch) PutIfNotExists(namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) error {
-	cb.lock.Lock()
-	defer cb.lock.Unlock()
-	// TODO: bug, this is not a valid check whether the instance exists
-	h := cb.hash(namespace, key)
-	if err := cb.WriteIfNotExist(h, value); err != nil {
-		return err
-	}
-	cb.batch(PutIfNotExists, namespace, key, value, errorFormat, errorArgs)
-	return nil
 }
 
 // Delete deletes a record
@@ -268,8 +249,10 @@ func (cb *cachedBatch) Clear() {
 	cb.KVStoreBatch.Clear()
 	// clear all saved snapshots
 	cb.tag = 0
-	cb.snapshots = nil
-	cb.snapshots = make(map[int]CachedBatch)
+	cb.batchShots = nil
+	cb.cacheShots = nil
+	cb.batchShots = make([]int, 0)
+	cb.cacheShots = make([]KVStoreCache, 0)
 }
 
 // Get retrieves a record
@@ -285,8 +268,9 @@ func (cb *cachedBatch) Snapshot() int {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	defer func() { cb.tag++ }()
-	// save a clone of current batch/cache
-	cb.snapshots[cb.tag] = cb.clone()
+	// save a copy of current batch/cache
+	cb.batchShots = append(cb.batchShots, cb.Size())
+	cb.cacheShots = append(cb.cacheShots, cb.KVStoreCache.Clone())
 	return cb.tag
 }
 
@@ -295,13 +279,15 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	// throw error if the snapshot number does not exist
-	if _, ok := cb.snapshots[snapshot]; !ok {
+	if snapshot < 0 || snapshot >= cb.tag {
 		return errors.Wrapf(ErrInvalidDB, "invalid snapshot number = %d", snapshot)
 	}
-	cb.KVStoreBatch = nil
+	cb.tag = snapshot + 1
+	cb.batchShots = cb.batchShots[:cb.tag]
+	cb.KVStoreBatch.truncate(cb.batchShots[snapshot])
+	cb.cacheShots = cb.cacheShots[:cb.tag]
 	cb.KVStoreCache = nil
-	cb.KVStoreBatch = cb.snapshots[snapshot].kvBatch()
-	cb.KVStoreCache = cb.snapshots[snapshot].kvCache()
+	cb.KVStoreCache = cb.cacheShots[snapshot]
 	return nil
 }
 
@@ -322,14 +308,4 @@ func (cb *cachedBatch) clone() CachedBatch {
 		KVStoreBatch: cb.CloneBatch(),
 		KVStoreCache: cb.KVStoreCache.Clone(),
 	}
-}
-
-// kvBatch returns the embedded KVStoreBatch
-func (cb *cachedBatch) kvBatch() KVStoreBatch {
-	return cb.KVStoreBatch
-}
-
-// kvCache returns the embedded KVStoreCache
-func (cb *cachedBatch) kvCache() KVStoreCache {
-	return cb.KVStoreCache
 }

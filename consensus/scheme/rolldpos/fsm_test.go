@@ -9,29 +9,32 @@ package rolldpos
 import (
 	"context"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_network"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -60,7 +63,7 @@ func TestBackdoorEvt(t *testing.T) {
 			mockBlockchain.EXPECT().TipHeight().Return(uint64(0)).Times(8)
 		},
 		func(_ *mock_actpool.MockActPool) {},
-		func(_ *mock_network.MockOverlay) {},
+		nil,
 		clock.New(),
 	)
 	cfsm, err := newConsensusFSM(ctx)
@@ -298,38 +301,68 @@ func TestHandleInitBlockEvt(t *testing.T) {
 		delegates[i] = addr.RawAddress
 	}
 
-	cfsm := newTestCFSM(
-		t,
-		test21Addrs[2],
-		test21Addrs[2],
-		ctrl,
-		delegates,
-		nil,
-		func(p2p *mock_network.MockOverlay) {
-			p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-		},
-		clock.New(),
-	)
-	cfsm.ctx.epoch.numSubEpochs = uint(2)
-	cfsm.ctx.round = roundCtx{
-		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
-		proposer:        delegates[2],
-	}
-
-	t.Run("secret-block", func(t *testing.T) {
-		cfsm.ctx.epoch.subEpochNum = uint64(0)
-		s, err := cfsm.handleInitBlockProposeEvt(cfsm.newCEvt(eInitBlockPropose))
-		require.NoError(t, err)
-		require.Equal(t, sAcceptPropose, s)
-		e := <-cfsm.evtq
-		require.Equal(t, eProposeBlock, e.Type())
-		pbe, ok := e.(*proposeBlkEvt)
-		require.True(t, ok)
-		require.NotNil(t, pbe.block)
-		require.Equal(t, len(delegates), len(pbe.block.SecretProposals))
-		require.NotNil(t, pbe.block.SecretWitness)
-	})
+	/*
+		t.Run("secret-block", func(t *testing.T) {
+			broadcastCount := 0
+			var broadcastMutex sync.Mutex
+			cfsm := newTestCFSM(
+				t,
+				test21Addrs[2],
+				test21Addrs[2],
+				ctrl,
+				delegates,
+				nil,
+				func(_ proto.Message) error {
+					broadcastMutex.Lock()
+					defer broadcastMutex.Unlock()
+					broadcastCount++
+					return nil
+				},
+				clock.New(),
+			)
+			cfsm.ctx.epoch.numSubEpochs = uint(2)
+			cfsm.ctx.round = roundCtx{
+				endorsementSets: make(map[string]*endorsement.Set),
+				proposer:        delegates[2],
+			}
+			cfsm.ctx.epoch.subEpochNum = uint64(0)
+			s, err := cfsm.handleInitBlockProposeEvt(cfsm.newCEvt(eInitBlockPropose))
+			require.NoError(t, err)
+			require.Equal(t, sAcceptPropose, s)
+			e := <-cfsm.evtq
+			require.Equal(t, eProposeBlock, e.Type())
+			pbe, ok := e.(*proposeBlkEvt)
+			require.True(t, ok)
+			require.NotNil(t, pbe.block)
+			blk := &blockchain.Block{}
+			require.NoError(t, blk.Deserialize(pbe.block.Data()))
+			require.Equal(t, len(delegates), len(blk.SecretProposals))
+			require.NotNil(t, blk.SecretWitness)
+		})
+	*/
 	t.Run("normal-block", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
+		cfsm := newTestCFSM(
+			t,
+			test21Addrs[2],
+			test21Addrs[2],
+			ctrl,
+			delegates,
+			nil,
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
+			},
+			clock.New(),
+		)
+		cfsm.ctx.epoch.numSubEpochs = uint(2)
+		cfsm.ctx.round = roundCtx{
+			endorsementSets: make(map[string]*endorsement.Set),
+			proposer:        delegates[2],
+		}
 		cfsm.ctx.epoch.subEpochNum = uint64(1)
 		s, err := cfsm.handleInitBlockProposeEvt(cfsm.newCEvt(eInitBlockPropose))
 		require.NoError(t, err)
@@ -339,9 +372,12 @@ func TestHandleInitBlockEvt(t *testing.T) {
 		pbe, ok := e.(*proposeBlkEvt)
 		require.True(t, ok)
 		require.NotNil(t, pbe.block)
-		transfers, votes, _ := action.ClassifyActions(pbe.block.Actions)
+		blk := pbe.block.(*blockWrapper)
+		require.NotNil(t, blk)
+		transfers, votes, _ := action.ClassifyActions(blk.Actions)
 		require.Equal(t, 1, len(transfers))
 		require.Equal(t, 1, len(votes))
+		assert.Equal(t, 1, broadcastCount)
 	})
 }
 
@@ -365,11 +401,14 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 	round := roundCtx{
 		height:          2,
 		number:          0,
-		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		endorsementSets: make(map[string]*endorsement.Set),
 		proposer:        delegates[2],
 	}
 
 	t.Run("pass-validation", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
+
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
@@ -377,17 +416,21 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			nil,
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
 			},
 			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
 
-		blk, err := cfsm.ctx.mintCommonBlock()
-
+		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
+		assert.NotNil(t, blk)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 
 		assert.NoError(t, err)
@@ -396,9 +439,13 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
+		assert.Equal(t, 1, broadcastCount)
 	})
 
 	t.Run("pass-validation-time-rotation", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
+
 		clock := clock.NewMock()
 		cfsm := newTestCFSM(
 			t,
@@ -407,8 +454,11 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			ctrl,
 			delegates,
 			nil,
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
 			},
 			clock,
 		)
@@ -420,7 +470,11 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		clock.Add(11 * time.Second)
 		blk, err := cfsm.ctx.mintCommonBlock()
 		assert.NoError(t, err)
-		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		block := &blockWrapper{
+			blk,
+			cfsm.ctx.round.number,
+		}
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(block, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 		e := <-cfsm.evtq
@@ -436,15 +490,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cevt, ok := e.(*consensusEvt)
 		require.True(t, ok)
 		assert.Equal(t, eInitBlockPropose, cevt.Type())
-		blk.Header.Pubkey = testAddrs[3].PublicKey
-		err = blk.SignBlock(testAddrs[3])
-		assert.NoError(t, err)
-		state, err = cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
-		assert.NoError(t, err)
-		assert.Equal(t, sAcceptProposalEndorse, state)
-		<-cfsm.evtq
-		require.True(t, ok)
-		assert.Equal(t, eEndorseProposal, evt.Type())
+		assert.Equal(t, delegates[3], cfsm.ctx.round.proposer)
 	})
 
 	t.Run("fail-validation", func(t *testing.T) {
@@ -462,15 +508,20 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
 
-		blk, err := cfsm.ctx.mintCommonBlock()
+		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
+		cfsm.ctx.round.block = blk
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptPropose, state)
 	})
 
 	t.Run("skip-validation", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
+
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[2],
@@ -480,16 +531,21 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Times(0)
 			},
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
 			},
 			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
 
-		blk, err := cfsm.ctx.mintCommonBlock()
+		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
+		blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
@@ -497,6 +553,46 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseProposal, evt.Type())
+		assert.Equal(t, 1, broadcastCount)
+	})
+
+	t.Run("cannot-skip-validation", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
+
+		cfsm := newTestCFSM(
+			t,
+			testAddrs[2],
+			testAddrs[2],
+			ctrl,
+			delegates,
+			func(chain *mock_blockchain.MockBlockchain) {
+				chain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Times(1)
+			},
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
+			},
+			clock.New(),
+		)
+		cfsm.ctx.epoch = epoch
+		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
+
+		blk, err := cfsm.ctx.MintBlock()
+		assert.NoError(t, err)
+		// The block's working set is nil though the blocker's producer is the current node
+		blk.(*blockWrapper).WorkingSet = nil
+		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
+		assert.NoError(t, err)
+		assert.Equal(t, sAcceptProposalEndorse, state)
+		e := <-cfsm.evtq
+		evt, ok := e.(*endorseEvt)
+		require.True(t, ok)
+		assert.Equal(t, eEndorseProposal, evt.Type())
+		assert.Equal(t, 1, broadcastCount)
 	})
 
 	t.Run("invalid-proposer", func(t *testing.T) {
@@ -512,8 +608,9 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
 
-		blk, err := cfsm.ctx.mintCommonBlock()
+		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
@@ -539,9 +636,10 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		cfsm.ctx.cfg.ProposerInterval = 10 * time.Second
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
 
 		clock.Add(11 * time.Second)
-		blk, err := cfsm.ctx.mintCommonBlock()
+		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
 		state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 		assert.NoError(t, err)
@@ -552,6 +650,9 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 	})
 
 	t.Run("timeout", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
+
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[2],
@@ -561,8 +662,11 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 			func(chain *mock_blockchain.MockBlockchain) {
 				chain.EXPECT().ValidateBlock(gomock.Any(), gomock.Any()).Times(0)
 			},
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(0)
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
 			},
 			clock.New(),
 		)
@@ -572,6 +676,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 		state, err := cfsm.handleProposeBlockTimeout(cfsm.newCEvt(eProposeBlockTimeout))
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
+		assert.Equal(t, 0, broadcastCount)
 	})
 }
 
@@ -593,11 +698,14 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		numSubEpochs: uint(1),
 	}
 	round := roundCtx{
-		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		endorsementSets: make(map[string]*endorsement.Set),
 		proposer:        delegates[2],
 	}
 
 	t.Run("gather-endorses", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
+
 		cfsm := newTestCFSM(
 			t,
 			testAddrs[0],
@@ -608,32 +716,38 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 				chain.EXPECT().ChainAddress().AnyTimes().Return(config.Default.Chain.Address)
 			},
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
 			},
 			clock.New(),
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
 
-		blk, err := cfsm.ctx.mintCommonBlock()
+		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
+		assert.NotNil(t, blk)
 		cfsm.ctx.round.block = blk
+		blkHash := blk.Hash()
 
 		// First endorse prepare
-		eEvt := newEndorseEvt(endorsement.PROPOSAL, blk.HashBlock(), round.height, round.number, testAddrs[0], cfsm.ctx.clock)
+		eEvt := newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[0], cfsm.ctx.clock)
 		state, err := cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Second endorse prepare
-		eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.HashBlock(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[1], cfsm.ctx.clock)
 		state, err = cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Third endorse prepare, could move on
-		eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.HashBlock(), round.height, round.number, testAddrs[2], cfsm.ctx.clock)
+		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[2], cfsm.ctx.clock)
 		state, err = cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptLockEndorse, state)
@@ -641,6 +755,7 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		evt, ok := e.(*endorseEvt)
 		require.True(t, ok)
 		assert.Equal(t, eEndorseLock, evt.Type())
+		assert.Equal(t, 1, broadcastCount)
 	})
 
 	t.Run("timeout", func(t *testing.T) {
@@ -659,8 +774,9 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		)
 		cfsm.ctx.epoch = epoch
 		cfsm.ctx.round = round
+		cfsm.ctx.cfg.EnableDKG = false
 
-		blk, err := cfsm.ctx.mintCommonBlock()
+		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
 
@@ -683,59 +799,69 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 	}
 
 	round := roundCtx{
-		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		endorsementSets: make(map[string]*endorsement.Set),
 		proposer:        delegates[2],
 	}
+	/*
+		t.Run("gather-commits-secret-block", func(t *testing.T) {
+			broadcastCount := 0
+			var broadcastMutex sync.Mutex
+			cfsm := newTestCFSM(
+				t,
+				test21Addrs[0],
+				test21Addrs[2],
+				ctrl,
+				delegates,
+				func(chain *mock_blockchain.MockBlockchain) {
+					chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
+					chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
+					chain.EXPECT().ChainAddress().AnyTimes().Return(config.Default.Chain.Address)
+				},
+				func(_ proto.Message) error {
+					broadcastMutex.Lock()
+					defer broadcastMutex.Unlock()
+					broadcastCount++
+					return nil
+				},
+				clock.New(),
+			)
+			cfsm.ctx.epoch.numSubEpochs = uint(2)
+			cfsm.ctx.epoch.subEpochNum = uint64(0)
+			cfsm.ctx.epoch.delegates = delegates
+			cfsm.ctx.epoch.committedSecrets = make(map[string][]uint32)
+			cfsm.ctx.round = round
 
-	t.Run("gather-commits-secret-block", func(t *testing.T) {
-		cfsm := newTestCFSM(
-			t,
-			test21Addrs[0],
-			test21Addrs[2],
-			ctrl,
-			delegates,
-			func(chain *mock_blockchain.MockBlockchain) {
-				chain.EXPECT().CommitBlock(gomock.Any()).Return(nil).Times(1)
-				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
-				chain.EXPECT().ChainAddress().AnyTimes().Return(config.Default.Chain.Address)
-			},
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-			},
-			clock.New(),
-		)
-		cfsm.ctx.epoch.numSubEpochs = uint(2)
-		cfsm.ctx.epoch.subEpochNum = uint64(0)
-		cfsm.ctx.epoch.delegates = delegates
-		cfsm.ctx.epoch.committedSecrets = make(map[string][]uint32)
-		cfsm.ctx.round = round
+			blk, err := cfsm.ctx.MintBlock()
+			assert.NoError(t, err)
+			cfsm.ctx.round.block = blk
+			blkHash := blk.Hash()
 
-		blk, err := cfsm.ctx.mintBlock()
-		assert.NoError(t, err)
-		cfsm.ctx.round.block = blk
+			for i := 0; i < 14; i++ {
+				eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[i], cfsm.ctx.clock)
+				state, err := cfsm.handleEndorseLockEvt(eEvt)
+				assert.NoError(t, err)
+				assert.Equal(t, sAcceptLockEndorse, state)
+				assert.Equal(t, 0, len(cfsm.ctx.epoch.committedSecrets))
+			}
 
-		for i := 0; i < 14; i++ {
-			eEvt := newEndorseEvt(endorsement.LOCK, blk.HashBlock(), round.height, round.number, test21Addrs[i], cfsm.ctx.clock)
+			// 15th endorse prepare, could move on
+			eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[14], cfsm.ctx.clock)
 			state, err := cfsm.handleEndorseLockEvt(eEvt)
 			assert.NoError(t, err)
-			assert.Equal(t, sAcceptLockEndorse, state)
-			assert.Equal(t, 0, len(cfsm.ctx.epoch.committedSecrets))
-		}
-
-		// 15th endorse prepare, could move on
-		eEvt := newEndorseEvt(endorsement.LOCK, blk.HashBlock(), round.height, round.number, test21Addrs[14], cfsm.ctx.clock)
-		state, err := cfsm.handleEndorseLockEvt(eEvt)
-		assert.NoError(t, err)
-		assert.Equal(t, sAcceptCommitEndorse, state)
-		evt := <-cfsm.evtq
-		assert.Equal(t, eEndorseCommit, evt.Type())
-		state, err = cfsm.handleEndorseCommitEvt(evt)
-		assert.NoError(t, err)
-		assert.Equal(t, sRoundStart, state)
-		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
-		assert.Equal(t, 1, len(cfsm.ctx.epoch.committedSecrets))
-	})
+			assert.Equal(t, sAcceptCommitEndorse, state)
+			evt := <-cfsm.evtq
+			assert.Equal(t, eEndorseCommit, evt.Type())
+			state, err = cfsm.handleEndorseCommitEvt(evt)
+			assert.NoError(t, err)
+			assert.Equal(t, sRoundStart, state)
+			assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
+			assert.Equal(t, 1, len(cfsm.ctx.epoch.committedSecrets))
+			assert.Equal(t, 2, broadcastCount)
+		})
+	*/
 	t.Run("gather-commits-common-block", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
 		cfsm := newTestCFSM(
 			t,
 			test21Addrs[0],
@@ -747,8 +873,11 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 				chain.EXPECT().ChainAddress().AnyTimes().Return(config.Default.Chain.Address)
 			},
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
 			},
 			clock.New(),
 		)
@@ -757,19 +886,20 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		cfsm.ctx.epoch.delegates = delegates
 		cfsm.ctx.round = round
 
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
+		blkHash := blk.Hash()
 
 		for i := 0; i < 14; i++ {
-			eEvt := newEndorseEvt(endorsement.LOCK, blk.HashBlock(), round.height, round.number, test21Addrs[i], cfsm.ctx.clock)
+			eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[i], cfsm.ctx.clock)
 			state, err := cfsm.handleEndorseLockEvt(eEvt)
 			assert.NoError(t, err)
 			assert.Equal(t, sAcceptLockEndorse, state)
 		}
 
 		// 15th endorse prepare, could move on
-		eEvt := newEndorseEvt(endorsement.LOCK, blk.HashBlock(), round.height, round.number, test21Addrs[14], cfsm.ctx.clock)
+		eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[14], cfsm.ctx.clock)
 		state, err := cfsm.handleEndorseLockEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptCommitEndorse, state)
@@ -779,8 +909,11 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, sRoundStart, state)
 		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
+		assert.Equal(t, 2, broadcastCount)
 	})
 	t.Run("timeout-blocking", func(t *testing.T) {
+		broadcastCount := 0
+		var broadcastMutex sync.Mutex
 		cfsm := newTestCFSM(
 			t,
 			test21Addrs[0],
@@ -792,13 +925,16 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 				chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 				chain.EXPECT().ChainAddress().AnyTimes().Return(config.Default.Chain.Address)
 			},
-			func(p2p *mock_network.MockOverlay) {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(0)
+			func(_ proto.Message) error {
+				broadcastMutex.Lock()
+				defer broadcastMutex.Unlock()
+				broadcastCount++
+				return nil
 			},
 			clock.New(),
 		)
 
-		blk, err := cfsm.ctx.mintBlock()
+		blk, err := cfsm.ctx.MintBlock()
 		assert.NoError(t, err)
 		cfsm.ctx.round.block = blk
 
@@ -806,6 +942,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, sRoundStart, state)
 		assert.Equal(t, eFinishEpoch, (<-cfsm.evtq).Type())
+		assert.Equal(t, 0, broadcastCount)
 	})
 }
 
@@ -823,9 +960,11 @@ func TestOneDelegate(t *testing.T) {
 	}
 	round := roundCtx{
 		height:          2,
-		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		endorsementSets: make(map[string]*endorsement.Set),
 		proposer:        delegates[0],
 	}
+	broadcastCount := 0
+	var broadcastMutex sync.Mutex
 	cfsm := newTestCFSM(
 		t,
 		testAddrs[0],
@@ -837,8 +976,11 @@ func TestOneDelegate(t *testing.T) {
 			chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			chain.EXPECT().TipHeight().Return(uint64(2)).Times(1)
 		},
-		func(p2p *mock_network.MockOverlay) {
-			p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(4)
+		func(_ proto.Message) error {
+			broadcastMutex.Lock()
+			defer broadcastMutex.Unlock()
+			broadcastCount++
+			return nil
 		},
 		clock.New(),
 	)
@@ -847,8 +989,9 @@ func TestOneDelegate(t *testing.T) {
 	cfsm.ctx.cfg.EnableDKG = false
 
 	// propose block
-	blk, err := cfsm.ctx.mintCommonBlock()
+	blk, err := cfsm.ctx.MintBlock()
 	require.NoError(err)
+	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
 	state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
@@ -884,6 +1027,7 @@ func TestOneDelegate(t *testing.T) {
 	state, err = cfsm.handleFinishEpochEvt(cEvt)
 	require.Equal(sEpochStart, state)
 	require.NoError(err)
+	assert.Equal(t, 4, broadcastCount)
 }
 
 func TestTwoDelegates(t *testing.T) {
@@ -900,9 +1044,11 @@ func TestTwoDelegates(t *testing.T) {
 	}
 	round := roundCtx{
 		height:          2,
-		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		endorsementSets: make(map[string]*endorsement.Set),
 		proposer:        delegates[0],
 	}
+	broadcastCount := 0
+	var broadcastMutex sync.Mutex
 	cfsm := newTestCFSM(
 		t,
 		testAddrs[0],
@@ -914,8 +1060,11 @@ func TestTwoDelegates(t *testing.T) {
 			chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			chain.EXPECT().TipHeight().Return(uint64(2)).Times(2)
 		},
-		func(p2p *mock_network.MockOverlay) {
-			p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(4)
+		func(_ proto.Message) error {
+			broadcastMutex.Lock()
+			defer broadcastMutex.Unlock()
+			broadcastCount++
+			return nil
 		},
 		clock.New(),
 	)
@@ -924,8 +1073,9 @@ func TestTwoDelegates(t *testing.T) {
 	cfsm.ctx.cfg.EnableDKG = false
 
 	// propose block
-	blk, err := cfsm.ctx.mintCommonBlock()
+	blk, err := cfsm.ctx.MintBlock()
 	require.NoError(err)
+	blk.(*blockWrapper).WorkingSet = mock_factory.NewMockWorkingSet(ctrl)
 	state, err := cfsm.handleProposeBlockEvt(newProposeBlkEvt(blk, nil, cfsm.ctx.round.number, cfsm.ctx.clock))
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
@@ -937,7 +1087,7 @@ func TestTwoDelegates(t *testing.T) {
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
-	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.HashBlock(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
@@ -949,7 +1099,7 @@ func TestTwoDelegates(t *testing.T) {
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
-	eEvt = newEndorseEvt(endorsement.LOCK, blk.HashBlock(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptCommitEndorse, state)
 	require.NoError(err)
@@ -969,6 +1119,7 @@ func TestTwoDelegates(t *testing.T) {
 	state, err = cfsm.handleFinishEpochEvt(cEvt)
 	require.Equal(sRoundStart, state)
 	require.NoError(err)
+	assert.Equal(t, 4, broadcastCount)
 }
 
 func TestThreeDelegates(t *testing.T) {
@@ -985,9 +1136,11 @@ func TestThreeDelegates(t *testing.T) {
 	}
 	round := roundCtx{
 		height:          2,
-		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		endorsementSets: make(map[string]*endorsement.Set),
 		proposer:        delegates[2],
 	}
+	broadcastCount := 0
+	var broadcastMutex sync.Mutex
 	cfsm := newTestCFSM(
 		t,
 		testAddrs[0],
@@ -999,8 +1152,11 @@ func TestThreeDelegates(t *testing.T) {
 			chain.EXPECT().ChainID().AnyTimes().Return(config.Default.Chain.ID)
 			chain.EXPECT().TipHeight().Return(uint64(2)).Times(2)
 		},
-		func(p2p *mock_network.MockOverlay) {
-			p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).Times(3)
+		func(_ proto.Message) error {
+			broadcastMutex.Lock()
+			defer broadcastMutex.Unlock()
+			broadcastCount++
+			return nil
 		},
 		clock.New(),
 	)
@@ -1008,22 +1164,22 @@ func TestThreeDelegates(t *testing.T) {
 	cfsm.ctx.round = round
 	cfsm.ctx.cfg.EnableDKG = false
 
-	blk, err := cfsm.ctx.mintCommonBlock()
+	blk, err := cfsm.ctx.MintBlock()
 	require.NoError(err)
 	cfsm.ctx.round.block = blk
 	// endorse proposal
 	// handle self endorsement
-	eEvt := newEndorseEvt(endorsement.PROPOSAL, blk.HashBlock(), round.height, round.number, testAddrs[0], cfsm.ctx.clock)
+	eEvt := newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[0], cfsm.ctx.clock)
 	state, err := cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
 	// handle delegate 1's endorsement
-	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.HashBlock(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
 	// handle delegate 2's endorsement
-	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.HashBlock(), round.height, round.number, testAddrs[2], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[2], cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
@@ -1037,12 +1193,12 @@ func TestThreeDelegates(t *testing.T) {
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
 	// handle delegate 1's endorsement
-	eEvt = newEndorseEvt(endorsement.LOCK, blk.HashBlock(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
 	// handle delegate 2's endorsement
-	eEvt = newEndorseEvt(endorsement.LOCK, blk.HashBlock(), round.height, round.number, testAddrs[2], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[2], cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.NoError(err)
 	require.Equal(sAcceptCommitEndorse, state)
@@ -1061,6 +1217,7 @@ func TestThreeDelegates(t *testing.T) {
 	state, err = cfsm.handleFinishEpochEvt(cEvt)
 	require.Equal(sRoundStart, state)
 	require.NoError(err)
+	assert.Equal(t, 3, broadcastCount)
 }
 
 func TestHandleFinishEpochEvt(t *testing.T) {
@@ -1082,7 +1239,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 		numSubEpochs: uint(2),
 	}
 	round := roundCtx{
-		endorsementSets: make(map[hash.Hash32B]*endorsement.Set),
+		endorsementSets: make(map[string]*endorsement.Set),
 		proposer:        delegates[2],
 	}
 	t.Run("dkg-not-finished", func(t *testing.T) {
@@ -1203,17 +1360,17 @@ func newTestCFSM(
 	ctrl *gomock.Controller,
 	delegates []string,
 	mockChain func(*mock_blockchain.MockBlockchain),
-	mockP2P func(*mock_network.MockOverlay),
+	broadcastCB func(proto.Message) error,
 	clock clock.Clock,
 ) *cFSM {
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, 100000, big.NewInt(10))
 	require.NoError(t, err)
 	vote, err := testutil.SignedVote(a, a, 2, 100000, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
-	lastBlk := blockchain.NewBlock(
+	lastBlk := block.NewBlockDeprecated(
 		config.Default.Chain.ID,
 		1,
 		prevHash,
@@ -1221,17 +1378,16 @@ func newTestCFSM(
 		proposer.PublicKey,
 		make([]action.SealedEnvelope, 0),
 	)
-	blkToMint := blockchain.NewBlock(
-		config.Default.Chain.ID,
-		2,
-		lastBlk.HashBlock(),
-		testutil.TimestampNowFromClock(clock),
-		proposer.PublicKey,
-		[]action.SealedEnvelope{transfer, vote},
-	)
-	blkToMint.SignBlock(proposer)
+	blkToMint, err := block.NewTestingBuilder().
+		SetChainID(config.Default.Chain.ID).
+		SetHeight(2).
+		SetPrevBlockHash(lastBlk.HashBlock()).
+		SetTimeStamp(testutil.TimestampNowFromClock(clock)).
+		AddActions(transfer, vote).
+		SignAndBuild(proposer)
+	require.NoError(t, err)
 
-	var secretBlkToMint *blockchain.Block
+	var secretBlkToMint block.Block
 	var proposerSecrets [][]uint32
 	var proposerWitness [][]byte
 	if len(delegates) == 21 {
@@ -1255,16 +1411,15 @@ func newTestCFSM(
 		secretWitness, err := action.NewSecretWitness(nonce, proposer.RawAddress, witness)
 		require.NoError(t, err)
 
-		secretBlkToMint = blockchain.NewSecretBlock(
-			config.Default.Chain.ID,
-			2,
-			lastBlk.HashBlock(),
-			testutil.TimestampNowFromClock(clock),
-			proposer.PublicKey,
-			secretProposals,
-			secretWitness,
-		)
-		secretBlkToMint.SignBlock(proposer)
+		secretBlkToMint, err = block.NewTestingBuilder().
+			SetChainID(config.Default.Chain.ID).
+			SetHeight(2).
+			SetPrevBlockHash(lastBlk.HashBlock()).
+			SetTimeStamp(testutil.TimestampNowFromClock(clock)).
+			SetSecretProposals(secretProposals).
+			SetSecretWitness(secretWitness).
+			SignAndBuild(proposer)
+		require.NoError(t, err)
 	}
 
 	ctx := makeTestRollDPoSCtx(
@@ -1286,9 +1441,9 @@ func newTestCFSM(
 			blockchain.EXPECT().GetBlockByHeight(uint64(21)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().GetBlockByHeight(uint64(22)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
-				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(blkToMint, nil).AnyTimes()
+				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&blkToMint, nil).AnyTimes()
 			blockchain.EXPECT().
-				MintNewSecretBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(secretBlkToMint, nil).AnyTimes()
+				MintNewSecretBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(&secretBlkToMint, nil).AnyTimes()
 			blockchain.EXPECT().
 				Nonce(gomock.Any()).Return(uint64(0), nil).AnyTimes()
 			blockchain.EXPECT().
@@ -1314,13 +1469,7 @@ func newTestCFSM(
 			actPool.EXPECT().Reset().AnyTimes()
 			actPool.EXPECT().PendingActionMap().AnyTimes()
 		},
-		func(p2p *mock_network.MockOverlay) {
-			if mockP2P == nil {
-				p2p.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-			} else {
-				mockP2P(p2p)
-			}
-		},
+		broadcastCB,
 		clock,
 	)
 	ctx.epoch.delegates = delegates
@@ -1335,7 +1484,7 @@ func newTestCFSM(
 func newTestAddr() *iotxaddress.Address {
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		logger.Panic().Err(err).Msg("error when creating test IoTeX address")
+		log.L().Panic("Error when creating test IoTeX address.", zap.Error(err))
 	}
 	pkHash := keypair.HashPubKey(pk)
 	addr := address.New(config.Default.Chain.ID, pkHash[:])

@@ -7,8 +7,9 @@
 package mainchain
 
 import (
-	"fmt"
 	"sort"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -37,7 +38,7 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, sm protocol.StateManager)
 		return err
 	}
 
-	protocol.SetNonce(pb, acct)
+	account.SetNonce(pb, acct)
 	return account.StoreAccount(sm, pb.ProducerAddress(), acct)
 }
 
@@ -46,7 +47,7 @@ func (p *Protocol) validatePutBlock(pb *action.PutBlock, sm protocol.StateManage
 
 	// can only emit on one height
 	if _, exist := p.getBlockProof(pb.SubChainAddress(), pb.Height()); exist {
-		return fmt.Errorf("block %d already exists", pb.Height())
+		return errors.Errorf("block %d already exists", pb.Height())
 	}
 	return nil
 }

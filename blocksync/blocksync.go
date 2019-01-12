@@ -8,42 +8,76 @@ package blocksync
 
 import (
 	"context"
+	"net"
 
-	"github.com/pkg/errors"
+	"github.com/golang/protobuf/proto"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
-	"github.com/iotexproject/iotex-core/network/node"
+	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
 )
+
+type (
+	// Unicast sends a unicast message to the given address
+	Unicast func(addr net.Addr, msg proto.Message) error
+	// Neighbors returns the neighbors' addresses
+	Neighbors func() []net.Addr
+)
+
+// Config represents the config to setup blocksync
+type Config struct {
+	unicastHandler   Unicast
+	neighborsHandler Neighbors
+}
+
+// Option is the option to override the blocksync config
+type Option func(cfg *Config) error
+
+// WithUnicast is the option to set the unicast callback
+func WithUnicast(unicastHandler Unicast) Option {
+	return func(cfg *Config) error {
+		cfg.unicastHandler = unicastHandler
+		return nil
+	}
+}
+
+// WithNeighbors is the option to set the neighbors callback
+func WithNeighbors(neighborsHandler Neighbors) Option {
+	return func(cfg *Config) error {
+		cfg.neighborsHandler = neighborsHandler
+		return nil
+	}
+}
 
 // BlockSync defines the interface of blocksyncer
 type BlockSync interface {
 	lifecycle.StartStopper
 
 	TargetHeight() uint64
-	P2P() network.Overlay
-	ProcessSyncRequest(sender string, sync *pb.BlockSync) error
-	ProcessBlock(blk *blockchain.Block) error
-	ProcessBlockSync(blk *blockchain.Block) error
+	ProcessSyncRequest(sender string, sync *iproto.BlockSync) error
+	ProcessBlock(blk *block.Block) error
+	ProcessBlockSync(blk *block.Block) error
 }
 
 // blockSyncer implements BlockSync interface
 type blockSyncer struct {
-	ackBlockCommit bool   // acknowledges latest committed block
-	ackBlockSync   bool   // acknowledges old block from sync request
-	ackSyncReq     bool   // acknowledges incoming Sync request
-	commitHeight   uint64 // last commit block height
-	buf            *blockBuffer
-	worker         *syncWorker
-	bc             blockchain.Blockchain
-	p2p            network.Overlay
-	chaser         *routine.RecurringTask
+	ackBlockCommit   bool   // acknowledges latest committed block
+	ackBlockSync     bool   // acknowledges old block from sync request
+	ackSyncReq       bool   // acknowledges incoming Sync request
+	commitHeight     uint64 // last commit block height
+	buf              *blockBuffer
+	worker           *syncWorker
+	bc               blockchain.Blockchain
+	unicastHandler   Unicast
+	neighborsHandler Neighbors
+	chaser           *routine.RecurringTask
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -51,30 +85,33 @@ func NewBlockSyncer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
 	ap actpool.ActPool,
-	p2p network.Overlay,
+	opts ...Option,
 ) (BlockSync, error) {
-	if chain == nil || ap == nil || p2p == nil {
-		return nil, errors.New("cannot create BlockSync: missing param")
-	}
 	bufSize := cfg.BlockSync.BufferSize
 	if cfg.IsFullnode() {
 		bufSize <<= 3
 	}
 	buf := &blockBuffer{
-		blocks: make(map[uint64]*blockchain.Block),
+		blocks: make(map[uint64]*block.Block),
 		bc:     chain,
 		ap:     ap,
 		size:   bufSize,
 	}
-	w := newSyncWorker(chain.ChainID(), cfg, p2p, buf)
+	bsCfg := Config{}
+	for _, opt := range opts {
+		if err := opt(&bsCfg); err != nil {
+			return nil, err
+		}
+	}
 	bs := &blockSyncer{
-		ackBlockCommit: cfg.IsDelegate() || cfg.IsFullnode(),
-		ackBlockSync:   cfg.IsDelegate() || cfg.IsFullnode(),
-		ackSyncReq:     cfg.IsDelegate() || cfg.IsFullnode(),
-		bc:             chain,
-		buf:            buf,
-		p2p:            p2p,
-		worker:         w,
+		ackBlockCommit:   cfg.IsDelegate() || cfg.IsFullnode(),
+		ackBlockSync:     cfg.IsDelegate() || cfg.IsFullnode(),
+		ackSyncReq:       cfg.IsDelegate() || cfg.IsFullnode(),
+		bc:               chain,
+		buf:              buf,
+		unicastHandler:   bsCfg.unicastHandler,
+		neighborsHandler: bsCfg.neighborsHandler,
+		worker:           newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
 	}
 	bs.chaser = routine.NewRecurringTask(bs.Chase, cfg.BlockSync.Interval*10)
 	return bs, nil
@@ -82,30 +119,24 @@ func NewBlockSyncer(
 
 // TargetHeight returns the target height to sync to
 func (bs *blockSyncer) TargetHeight() uint64 {
+	bs.worker.mu.RLock()
+	defer bs.worker.mu.RUnlock()
 	return bs.worker.targetHeight
-}
-
-// P2P returns the network overlay object
-func (bs *blockSyncer) P2P() network.Overlay {
-	return bs.p2p
 }
 
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
-	logger.Debug().Msg("Starting block syncer")
+	log.L().Debug("Starting block syncer.")
+	bs.commitHeight = bs.buf.CommitHeight()
 	if err := bs.chaser.Start(ctx); err != nil {
 		return err
 	}
-	if err := bs.worker.Start(ctx); err != nil {
-		return err
-	}
-	bs.commitHeight = bs.buf.CommitHeight()
-	return nil
+	return bs.worker.Start(ctx)
 }
 
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop(ctx context.Context) error {
-	logger.Debug().Msg("Stopping block syncer")
+	log.L().Debug("Stopping block syncer.")
 	if err := bs.chaser.Stop(ctx); err != nil {
 		return err
 	}
@@ -113,7 +144,7 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 }
 
 // ProcessBlock processes an incoming latest committed block
-func (bs *blockSyncer) ProcessBlock(blk *blockchain.Block) error {
+func (bs *blockSyncer) ProcessBlock(blk *block.Block) error {
 	if !bs.ackBlockCommit {
 		// node is not meant to handle latest committed block, simply exit
 		return nil
@@ -123,9 +154,9 @@ func (bs *blockSyncer) ProcessBlock(blk *blockchain.Block) error {
 	moved, re := bs.buf.Flush(blk)
 	switch re {
 	case bCheckinLower:
-		logger.Debug().Msg("Drop block lower than buffer's accept height.")
+		log.L().Debug("Drop block lower than buffer's accept height.")
 	case bCheckinExisting:
-		logger.Debug().Msg("Drop block exists in buffer.")
+		log.L().Debug("Drop block exists in buffer.")
 	case bCheckinHigher:
 		needSync = true
 	case bCheckinValid:
@@ -140,7 +171,7 @@ func (bs *blockSyncer) ProcessBlock(blk *blockchain.Block) error {
 	return nil
 }
 
-func (bs *blockSyncer) ProcessBlockSync(blk *blockchain.Block) error {
+func (bs *blockSyncer) ProcessBlockSync(blk *block.Block) error {
 	if !bs.ackBlockSync {
 		// node is not meant to handle sync block, simply exit
 		return nil
@@ -153,7 +184,7 @@ func (bs *blockSyncer) ProcessBlockSync(blk *blockchain.Block) error {
 }
 
 // ProcessSyncRequest processes a block sync request
-func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) error {
+func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *iproto.BlockSync) error {
 	if !bs.ackSyncReq {
 		// node is not meant to handle sync request, simply exit
 		return nil
@@ -165,8 +196,11 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *pb.BlockSync) err
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		if err := bs.p2p.Tell(bs.bc.ChainID(), node.NewTCPNode(sender), &pb.BlockContainer{Block: blk.ConvertToBlockPb()}); err != nil {
-			logger.Warn().Err(err).Msg("Failed to response to ProcessSyncRequest.")
+		if err := bs.unicastHandler(
+			node.NewTCPNode(sender),
+			&iproto.BlockContainer{Block: blk.ConvertToBlockPb()},
+		); err != nil {
+			log.L().Warn("Failed to response to ProcessSyncRequest.", zap.Error(err))
 		}
 	}
 	return nil
@@ -180,5 +214,5 @@ func (bs *blockSyncer) Chase() {
 	}
 	// commit height hasn't changed since last chase interval
 	bs.worker.SetTargetHeight(bs.bc.TipHeight() + 1)
-	logger.Info().Uint64("stuck", bs.commitHeight).Msg("Chaser")
+	log.L().Info("Chaser is chasing.", zap.Uint64("stuck", bs.commitHeight))
 }

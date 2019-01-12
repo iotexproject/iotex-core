@@ -83,7 +83,15 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
 	require.Equal(2, s2)
+	require.NoError(s.AddBalance(big.NewInt(6)))
+	require.Equal(big.NewInt(13), s.Balance)
+	require.NoError(ws.PutState(tHash, s))
 
+	require.NoError(ws.Revert(s2))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(15), s.Balance)
+	require.NoError(ws.State(tHash, s))
+	require.Equal(big.NewInt(7), s.Balance)
 	require.NoError(ws.Revert(s1))
 	require.NoError(ws.State(sHash, s))
 	require.Equal(big.NewInt(10), s.Balance)
@@ -92,11 +100,6 @@ func TestSnapshot(t *testing.T) {
 	require.NoError(ws.State(sHash, s))
 	require.Equal(big.NewInt(5), s.Balance)
 	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
-	require.NoError(ws.Revert(s2))
-	require.NoError(ws.State(sHash, s))
-	require.Equal(big.NewInt(15), s.Balance)
-	require.NoError(ws.State(tHash, s))
-	require.Equal(big.NewInt(7), s.Balance)
 }
 
 // Test configure: candidateSize = 2, candidateBufferSize = 3
@@ -204,12 +207,12 @@ func TestSnapshot(t *testing.T) {
 
 func TestCandidates(t *testing.T) {
 	// Create three dummy iotex addresses
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
-	c := testaddress.Addrinfo["charlie"]
-	d := testaddress.Addrinfo["delta"]
-	e := testaddress.Addrinfo["echo"]
-	f := testaddress.Addrinfo["foxtrot"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
+	c := testaddress.IotxAddrinfo["charlie"]
+	d := testaddress.IotxAddrinfo["delta"]
+	e := testaddress.IotxAddrinfo["echo"]
+	f := testaddress.IotxAddrinfo["foxtrot"]
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
@@ -254,7 +257,7 @@ func TestCandidates(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -285,7 +288,7 @@ func TestCandidates(t *testing.T) {
 	zeroGasLimit := uint64(0)
 	zctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &zeroGasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -886,8 +889,8 @@ func TestCandidates(t *testing.T) {
 
 func TestUnvote(t *testing.T) {
 	// Create three dummy iotex addresses
-	a := testaddress.Addrinfo["alfa"]
-	b := testaddress.Addrinfo["bravo"]
+	a := testaddress.IotxAddrinfo["alfa"]
+	b := testaddress.IotxAddrinfo["bravo"]
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -921,7 +924,7 @@ func TestUnvote(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -1046,6 +1049,25 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 	height, err = sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(10), height)
+}
+
+func TestFactory_RootHashByHeight(t *testing.T) {
+	cfg := config.Default
+	ctx := context.Background()
+	sf, err := NewFactory(cfg, InMemTrieOption())
+	require.NoError(t, err)
+	require.NoError(t, sf.Start(ctx))
+	defer require.NoError(t, sf.Stop(ctx))
+
+	ws, err := sf.NewWorkingSet()
+	require.NoError(t, err)
+	_, _, err = ws.RunActions(nil, 1, nil)
+	require.NoError(t, err)
+	require.NoError(t, sf.Commit(ws))
+
+	rootHash, err := sf.RootHashByHeight(1)
+	require.NoError(t, err)
+	require.NotEqual(t, hash.ZeroHash32B, rootHash)
 }
 
 func compareStrings(actual []string, expected []string) bool {

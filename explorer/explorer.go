@@ -8,12 +8,14 @@ package explorer
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
+	"net"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
@@ -25,11 +27,10 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
-	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -61,16 +62,27 @@ func init() {
 	prometheus.MustRegister(requestMtc)
 }
 
+type (
+	// Broadcast sends a broadcast message to the whole network
+	Broadcast func(chainID uint32, msg proto.Message) error
+	// Neighbors returns the neighbors' addresses
+	Neighbors func() []net.Addr
+	// Self returns the self network address
+	Self func() net.Addr
+)
+
 // Service provide api for user to query blockchain data
 type Service struct {
-	bc  blockchain.Blockchain
-	c   consensus.Consensus
-	dp  dispatcher.Dispatcher
-	ap  actpool.ActPool
-	gs  GasStation
-	p2p network.Overlay
-	cfg config.Explorer
-	idx *indexservice.Server
+	bc               blockchain.Blockchain
+	c                consensus.Consensus
+	dp               dispatcher.Dispatcher
+	ap               actpool.ActPool
+	gs               GasStation
+	broadcastHandler Broadcast
+	neighborsHandler Neighbors
+	selfHandler      Self
+	cfg              config.Explorer
+	idx              *indexservice.Server
 	// TODO: the way to make explorer to access the data model managed by main-chain protocol is hack. We need to
 	// refactor the code later
 	mainChain *mainchain.Protocol
@@ -163,7 +175,7 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 					return []explorer.Transfer{}, errors.Wrapf(err,
 						"failed to convert transfer %v to explorer's JSON transfer", selps[i])
 				}
-				explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+				explorerTransfer.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 				explorerTransfer.BlockID = blkID
 				res = append(res, explorerTransfer)
 			}
@@ -296,7 +308,7 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 		if err != nil {
 			return []explorer.Transfer{}, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", selp)
 		}
-		explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+		explorerTransfer.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 		explorerTransfer.BlockID = blkID
 		res = append(res, explorerTransfer)
 		num++
@@ -345,7 +357,7 @@ func (exp *Service) GetLastVotesByRange(startBlockHeight int64, offset int64, li
 			if err != nil {
 				return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", selps[i])
 			}
-			explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+			explorerVote.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 			explorerVote.BlockID = blkID
 			res = append(res, explorerVote)
 		}
@@ -478,7 +490,7 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 		if err != nil {
 			return []explorer.Vote{}, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", selp)
 		}
-		explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+		explorerVote.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 		explorerVote.BlockID = blkID
 		res = append(res, explorerVote)
 		num++
@@ -528,7 +540,7 @@ func (exp *Service) GetLastExecutionsByRange(startBlockHeight int64, offset int6
 				return []explorer.Execution{}, errors.Wrapf(err,
 					"failed to convert execution %v to explorer's JSON execution", selps[i])
 			}
-			explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+			explorerExecution.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 			explorerExecution.BlockID = blkID
 			res = append(res, explorerExecution)
 		}
@@ -660,7 +672,7 @@ func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int
 		if err != nil {
 			return []explorer.Execution{}, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", selp)
 		}
-		explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+		explorerExecution.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 		explorerExecution.BlockID = blkID
 		res = append(res, explorerExecution)
 		num++
@@ -677,6 +689,22 @@ func (exp *Service) GetReceiptByExecutionID(id string) (explorer.Receipt, error)
 	var executionHash hash.Hash32B
 	copy(executionHash[:], bytes)
 	receipt, err := exp.bc.GetReceiptByExecutionHash(executionHash)
+	if err != nil {
+		return explorer.Receipt{}, err
+	}
+
+	return convertReceiptToExplorerReceipt(receipt)
+}
+
+// GetReceiptByActionID gets receipt with corresponding action id
+func (exp *Service) GetReceiptByActionID(id string) (explorer.Receipt, error) {
+	bytes, err := hex.DecodeString(id)
+	if err != nil {
+		return explorer.Receipt{}, err
+	}
+	var actionHash hash.Hash32B
+	copy(actionHash[:], bytes)
+	receipt, err := exp.bc.GetReceiptByActionHash(actionHash)
 	if err != nil {
 		return explorer.Receipt{}, err
 	}
@@ -792,10 +820,12 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			totalSize += transfer.TotalSize()
 		}
 
+		txRoot := blk.TxRoot()
+		stateRoot := blk.StateRoot()
 		explorerBlock := explorer.Block{
 			ID:         hex.EncodeToString(hash[:]),
 			Height:     int64(blockHeaderPb.Height),
-			Timestamp:  int64(blockHeaderPb.Timestamp),
+			Timestamp:  blockHeaderPb.GetTimestamp().GetSeconds(),
 			Transfers:  int64(len(transfers)),
 			Votes:      int64(len(votes)),
 			Executions: int64(len(executions)),
@@ -803,8 +833,10 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			Size:       int64(totalSize),
 			GenerateBy: explorer.BlockGenerator{
 				Name:    "",
-				Address: keypair.EncodePublicKey(blk.Header.Pubkey),
+				Address: keypair.EncodePublicKey(blk.PublicKey()),
 			},
+			TxRoot:    hex.EncodeToString(txRoot[:]),
+			StateRoot: hex.EncodeToString(stateRoot[:]),
 		}
 
 		res = append(res, explorerBlock)
@@ -837,10 +869,12 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		totalSize += transfer.TotalSize()
 	}
 
+	txRoot := blk.TxRoot()
+	stateRoot := blk.StateRoot()
 	explorerBlock := explorer.Block{
 		ID:         blkID,
 		Height:     int64(blkHeaderPb.Height),
-		Timestamp:  int64(blkHeaderPb.Timestamp),
+		Timestamp:  blkHeaderPb.GetTimestamp().GetSeconds(),
 		Transfers:  int64(len(transfers)),
 		Votes:      int64(len(votes)),
 		Executions: int64(len(executions)),
@@ -848,8 +882,10 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		Size:       int64(totalSize),
 		GenerateBy: explorer.BlockGenerator{
 			Name:    "",
-			Address: keypair.EncodePublicKey(blk.Header.Pubkey),
+			Address: keypair.EncodePublicKey(blk.PublicKey()),
 		},
+		TxRoot:    hex.EncodeToString(txRoot[:]),
+		StateRoot: hex.EncodeToString(stateRoot[:]),
 	}
 
 	return explorerBlock, nil
@@ -1013,7 +1049,7 @@ func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetr
 
 // SendTransfer sends a transfer
 func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp explorer.SendTransferResponse, err error) {
-	logger.Debug().Msg("receive send transfer request")
+	log.L().Debug("receive send transfer request")
 
 	defer func() {
 		succeed := "true"
@@ -1028,11 +1064,11 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		return explorer.SendTransferResponse{}, err
 	}
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err = exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	tsf := &action.SealedEnvelope{}
 	if err := tsf.LoadProto(actPb); err != nil {
@@ -1044,7 +1080,7 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 
 // SendVote sends a vote
 func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.SendVoteResponse, err error) {
-	logger.Debug().Msg("receive send vote request")
+	log.L().Debug("receive send vote request")
 
 	defer func() {
 		succeed := "true"
@@ -1066,9 +1102,9 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	if !ok {
 		return explorer.SendVoteResponse{}, errors.New("failed to set vote gas price")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Vote{
-			Vote: &pb.VotePb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Vote{
+			Vote: &iproto.VotePb{
 				VoteeAddress: voteJSON.Votee,
 			},
 		},
@@ -1081,11 +1117,11 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	v := &action.SealedEnvelope{}
 	if err := v.LoadProto(actPb); err != nil {
@@ -1097,7 +1133,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 
 // PutSubChainBlock put block merkel root on root chain.
 func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockRequest) (resp explorer.PutSubChainBlockResponse, err error) {
-	logger.Debug().Msg("receive put block request")
+	log.L().Debug("receive put block request")
 
 	defer func() {
 		succeed := "true"
@@ -1120,20 +1156,20 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		return explorer.PutSubChainBlockResponse{}, errors.New("failed to set vote gas price")
 	}
 
-	roots := make([]*pb.MerkleRoot, 0)
+	roots := make([]*iproto.MerkleRoot, 0)
 	for _, mr := range putBlockJSON.Roots {
 		v, err := hex.DecodeString(mr.Value)
 		if err != nil {
 			return explorer.PutSubChainBlockResponse{}, err
 		}
-		roots = append(roots, &pb.MerkleRoot{
+		roots = append(roots, &iproto.MerkleRoot{
 			Name:  mr.Name,
 			Value: v,
 		})
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_PutBlock{
-			PutBlock: &pb.PutBlockPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_PutBlock{
+			PutBlock: &iproto.PutBlockPb{
 				SubChainAddress: putBlockJSON.SubChainAddress,
 				Height:          uint64(putBlockJSON.Height),
 				Roots:           roots,
@@ -1148,11 +1184,11 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.PutSubChainBlockResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	v := &action.SealedEnvelope{}
 	if err := v.LoadProto(actPb); err != nil {
@@ -1164,7 +1200,7 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 
 // SendAction is the API to send an action to blockchain.
 func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.SendActionResponse, err error) {
-	logger.Debug().Msg("receive send action request")
+	log.L().Debug("receive send action request")
 
 	defer func() {
 		succeed := "true"
@@ -1173,18 +1209,18 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 		}
 		requestMtc.WithLabelValues("SendAction", succeed).Inc()
 	}()
-	var action pb.ActionPb
+	var action iproto.ActionPb
 
 	if err := jsonpb.UnmarshalString(req.Payload, &action); err != nil {
 		return explorer.SendActionResponse{}, err
 	}
 
 	// broadcast to the network
-	if err = exp.p2p.Broadcast(exp.bc.ChainID(), &action); err != nil {
-		logger.Warn().Err(err).Msg("failed to broadcast SendAction request.")
+	if err = exp.broadcastHandler(exp.bc.ChainID(), &action); err != nil {
+		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), &action, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), &action)
 
 	// TODO: include action hash
 	return explorer.SendActionResponse{}, nil
@@ -1193,20 +1229,20 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 // GetPeers return a list of node peers and itself's network addsress info.
 func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
 	var peers []explorer.Node
-	for _, p := range exp.p2p.GetPeers() {
+	for _, p := range exp.neighborsHandler() {
 		peers = append(peers, explorer.Node{
 			Address: p.String(),
 		})
 	}
 	return explorer.GetPeersResponse{
-		Self:  explorer.Node{Address: exp.p2p.Self().String()},
+		Self:  explorer.Node{Address: exp.selfHandler().String()},
 		Peers: peers,
 	}, nil
 }
 
 // SendSmartContract sends a smart contract
 func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explorer.SendSmartContractResponse, err error) {
-	logger.Debug().Msg("receive send smart contract request")
+	log.L().Debug("receive send smart contract request")
 
 	defer func() {
 		succeed := "true"
@@ -1236,9 +1272,9 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	if !ok {
 		return explorer.SendSmartContractResponse{}, errors.New("failed to set execution gas price")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Execution{
-			Execution: &pb.ExecutionPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Execution{
+			Execution: &iproto.ExecutionPb{
 				Amount:   amount.Bytes(),
 				Contract: execution.Contract,
 				Data:     data,
@@ -1253,11 +1289,11 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	sc := &action.SealedEnvelope{}
 	if err := sc.LoadProto(actPb); err != nil {
@@ -1269,7 +1305,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 
 // ReadExecutionState reads the state in a contract address specified by the slot
 func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, error) {
-	logger.Debug().Msg("receive read smart contract request")
+	log.L().Debug("receive read smart contract request")
 
 	actPb, err := convertExplorerExecutionToActionPb(&execution)
 	if err != nil {
@@ -1338,9 +1374,9 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	if !ok {
 		return res, errors.New("error when converting gas price string into big int type")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_CreateDeposit{
-			CreateDeposit: &pb.CreateDepositPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_CreateDeposit{
+			CreateDeposit: &iproto.CreateDepositPb{
 				Amount:    amount.Bytes(),
 				Recipient: req.Recipient,
 			},
@@ -1355,11 +1391,11 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	}
 
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	selp := &action.SealedEnvelope{}
 	if err := selp.LoadProto(actPb); err != nil {
@@ -1382,7 +1418,7 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 		}
 	}
 	if targetSubChain.ID != uint32(subChainID) {
-		return nil, fmt.Errorf("sub-chain %d is not found in operation", subChainID)
+		return nil, errors.Errorf("sub-chain %d is not found in operation", subChainID)
 	}
 	subChainAddr, err := address.BytesToAddress(targetSubChain.Addr)
 	if err != nil {
@@ -1447,9 +1483,9 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 	if !ok {
 		return res, errors.New("error when converting gas price string into big int type")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_SettleDeposit{
-			SettleDeposit: &pb.SettleDepositPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_SettleDeposit{
+			SettleDeposit: &iproto.SettleDepositPb{
 				Amount:    amount.Bytes(),
 				Index:     uint64(req.Index),
 				Recipient: req.Recipient,
@@ -1464,11 +1500,11 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.p2p.Broadcast(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb, nil)
+	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
 
 	deposit := &action.SealedEnvelope{}
 	if err := deposit.LoadProto(actPb); err != nil {
@@ -1496,6 +1532,15 @@ func (exp *Service) EstimateGasForVote() (int64, error) {
 // EstimateGasForSmartContract suggest gas for smart contract
 func (exp *Service) EstimateGasForSmartContract(execution explorer.Execution) (int64, error) {
 	return exp.gs.estimateGasForSmartContract(execution)
+}
+
+// GetStateRootHash gets the state root hash of a given block height
+func (exp *Service) GetStateRootHash(blockHeight int64) (string, error) {
+	rootHash, err := exp.bc.GetFactory().RootHashByHeight(uint64(blockHeight))
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(rootHash[:]), nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
@@ -1536,7 +1581,7 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 	if explorerTransfer, err = convertTsfToExplorerTsf(selp, false); err != nil {
 		return explorerTransfer, errors.Wrapf(err, "failed to convert transfer %v to explorer's JSON transfer", selp)
 	}
-	explorerTransfer.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	explorerTransfer.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	explorerTransfer.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerTransfer, nil
 }
@@ -1579,7 +1624,7 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 	if explorerVote, err = convertVoteToExplorerVote(selp, false); err != nil {
 		return explorerVote, errors.Wrapf(err, "failed to convert vote %v to explorer's JSON vote", selp)
 	}
-	explorerVote.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	explorerVote.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	explorerVote.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerVote, nil
 }
@@ -1622,7 +1667,7 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	if explorerExecution, err = convertExecutionToExplorerExecution(selp, false); err != nil {
 		return explorerExecution, errors.Wrapf(err, "failed to convert execution %v to explorer's JSON execution", selp)
 	}
-	explorerExecution.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	explorerExecution.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	explorerExecution.BlockID = hex.EncodeToString(blkHash[:])
 	return explorerExecution, nil
 }
@@ -1660,7 +1705,7 @@ func getCreateDeposit(
 	if err != nil {
 		return explorer.CreateDeposit{}, err
 	}
-	cd.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	cd.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	cd.BlockID = hex.EncodeToString(blkHash[:])
 	return cd, nil
 }
@@ -1722,7 +1767,7 @@ func getSettleDeposit(
 	if err != nil {
 		return explorer.SettleDeposit{}, err
 	}
-	sd.Timestamp = int64(blk.ConvertToBlockHeaderPb().Timestamp)
+	sd.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
 	sd.BlockID = hex.EncodeToString(blkHash[:])
 	return sd, nil
 }
@@ -1863,7 +1908,7 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 	}, nil
 }
 
-func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*pb.ActionPb, error) {
+func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iproto.ActionPb, error) {
 	executorPubKey, err := keypair.StringToPubKeyBytes(execution.ExecutorPubKey)
 	if err != nil {
 		return nil, err
@@ -1884,9 +1929,9 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*pb.Acti
 	if !ok {
 		return nil, errors.New("failed to set execution gas price")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Execution{
-			Execution: &pb.ExecutionPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Execution{
+			Execution: &iproto.ExecutionPb{
 				Amount:   amount.Bytes(),
 				Contract: execution.Contract,
 				Data:     data,
@@ -1904,7 +1949,7 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*pb.Acti
 }
 
 func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
-	MaxTransferPayloadBytes uint64) (*pb.ActionPb, error) {
+	MaxTransferPayloadBytes uint64) (*iproto.ActionPb, error) {
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return nil, err
@@ -1933,9 +1978,9 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
 	if !ok {
 		return nil, errors.New("failed to set transfer gas price")
 	}
-	actPb := &pb.ActionPb{
-		Action: &pb.ActionPb_Transfer{
-			Transfer: &pb.TransferPb{
+	actPb := &iproto.ActionPb{
+		Action: &iproto.ActionPb_Transfer{
+			Transfer: &iproto.TransferPb{
 				Amount:     amount.Bytes(),
 				Recipient:  tsfJSON.Recipient,
 				Payload:    payload,

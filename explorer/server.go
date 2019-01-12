@@ -13,6 +13,7 @@ import (
 
 	"github.com/coopernurse/barrister-go"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
@@ -23,9 +24,42 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
-	"github.com/iotexproject/iotex-core/logger"
-	"github.com/iotexproject/iotex-core/network"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
+
+// Config represents the config to setup explorer
+type Config struct {
+	broadcastHandler Broadcast
+	neighborsHandler Neighbors
+	selfHandler      Self
+}
+
+// Option is the option to override the explorer config
+type Option func(cfg *Config) error
+
+// WithBroadcast is the option to set the broadcast callback
+func WithBroadcast(broadcastHandler Broadcast) Option {
+	return func(cfg *Config) error {
+		cfg.broadcastHandler = broadcastHandler
+		return nil
+	}
+}
+
+// WithNeighbors is the option to set the neighbors callback
+func WithNeighbors(neighborsHandler Neighbors) Option {
+	return func(cfg *Config) error {
+		cfg.neighborsHandler = neighborsHandler
+		return nil
+	}
+}
+
+// WithSelf is the option to set the self callback
+func WithSelf(selfHandler Self) Option {
+	return func(cfg *Config) error {
+		cfg.selfHandler = selfHandler
+		return nil
+	}
+}
 
 // Server is the container of the explorer service
 type Server struct {
@@ -43,22 +77,30 @@ func NewServer(
 	consensus consensus.Consensus,
 	dispatcher dispatcher.Dispatcher,
 	actPool actpool.ActPool,
-	p2p network.Overlay,
 	idx *indexservice.Server,
-) *Server {
+	opts ...Option,
+) (*Server, error) {
+	expCfg := Config{}
+	for _, opt := range opts {
+		if err := opt(&expCfg); err != nil {
+			return nil, err
+		}
+	}
 	return &Server{
 		cfg: cfg,
 		exp: &Service{
-			bc:  chain,
-			c:   consensus,
-			dp:  dispatcher,
-			ap:  actPool,
-			p2p: p2p,
-			cfg: cfg,
-			idx: idx,
-			gs:  GasStation{bc: chain, cfg: cfg},
+			bc:               chain,
+			c:                consensus,
+			dp:               dispatcher,
+			ap:               actPool,
+			broadcastHandler: expCfg.broadcastHandler,
+			neighborsHandler: expCfg.neighborsHandler,
+			selfHandler:      expCfg.selfHandler,
+			cfg:              cfg,
+			idx:              idx,
+			gs:               GasStation{bc: chain, cfg: cfg},
 		},
-	}
+	}, nil
 }
 
 // SetMainChainProtocol sets the main-chain side multi-chain protocol
@@ -81,20 +123,22 @@ func (s *Server) Start(_ context.Context) error {
 		s.httpSvr = http.Server{Handler: &corsAdaptor{expSvr: s.jrpcSvr}}
 		listener, err := net.Listen("tcp", ":"+portStr)
 		if err != nil {
-			logger.Panic().Err(err).Msg("error when creating network listener")
+			log.L().Panic("Error when creating network listener", zap.Error(err))
 		}
-		logger.Info().Msgf("Starting Explorer JSON-RPC server on %s", listener.Addr().String())
+		log.S().Infof("Starting Explorer JSON-RPC server on %s", listener.Addr().String())
 		_, port, err := net.SplitHostPort(listener.Addr().String())
 		if err != nil {
-			logger.Panic().Err(err).Msgf("error when spliting addr %s", listener.Addr().String())
+			log.L().Panic("Error when spliting address.",
+				zap.String("address", listener.Addr().String()),
+				zap.Error(err))
 		}
 		s.port, err = strconv.Atoi(port)
 		if err != nil {
-			logger.Panic().Err(err).Msgf("error when converting port %s to int", port)
+			log.L().Panic("Error when converting port to int.", zap.String("port", port), zap.Error(err))
 		}
 		started <- true
 		if err := s.httpSvr.Serve(listener); err != nil && err != http.ErrServerClosed {
-			logger.Panic().Err(err).Msg("error when serving JSON-RPC requests")
+			log.L().Panic("Error when serving JSON-RPC requests.", zap.Error(err))
 		}
 	}(started)
 	<-started
@@ -122,13 +166,13 @@ type logFilter struct{}
 
 // PreInvoke implement empty preinvoke
 func (f logFilter) PreInvoke(r *barrister.RequestResponse) bool {
-	logger.Debug().Msgf("logFilter: PreInvoke of method: %s", r.Method)
+	log.S().Debugf("logFilter: PreInvoke of method: %s", r.Method)
 	return true
 }
 
 // PostInvoke implement empty postinvoke
 func (f logFilter) PostInvoke(r *barrister.RequestResponse) bool {
-	logger.Debug().Msgf("logFilter: PostInvoke of method: %s", r.Method)
+	log.S().Debugf("logFilter: PostInvoke of method: %s", r.Method)
 	return true
 }
 
