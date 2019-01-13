@@ -20,5 +20,5 @@ func NewAwsRDS(cfg config.RDS) Store {
 	connectStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
 		cfg.AwsRDSUser, cfg.AwsPass, cfg.AwsRDSEndpoint, cfg.AwsRDSPort, cfg.AwsDBName,
 	)
-	return newSQLBase("mysql", connectStr)
+	return newStoreBase("mysql", connectStr)
 }

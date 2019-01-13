@@ -15,5 +15,5 @@ import (
 
 // NewSQLite3 instantiates an sqlite3
 func NewSQLite3(cfg config.SQLITE3) Store {
-	return newSQLBase("sqlite3", cfg.SQLite3File)
+	return newStoreBase("sqlite3", cfg.SQLite3File)
 }

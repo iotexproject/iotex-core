@@ -71,8 +71,8 @@ func (s *Server) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when start store")
 	}
 
-	// local store use sqlite3
-	if err := s.idx.CreateTablesInLocal(); err != nil {
+	// create local table
+	if err := s.idx.CreateTablesIfNotExist(); err != nil {
 		return errors.Wrap(err, "error when initial tables")
 	}
 

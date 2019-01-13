@@ -517,8 +517,8 @@ func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, err
 	return hash, nil
 }
 
-// CreateTablesInLocal creates tables in local database
-func (idx *Indexer) CreateTablesInLocal() error {
+// CreateTablesIfNotExist creates tables in local database
+func (idx *Indexer) CreateTablesIfNotExist() error {
 	// create action tables
 	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +
 		"TEXT NOT NULL, [action_hash] BLOB(32) NOT NULL)"); err != nil {

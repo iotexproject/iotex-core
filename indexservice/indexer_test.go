@@ -41,7 +41,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 		store:              store,
 		hexEncodedNodeAddr: nodeAddr,
 	}
-	err = idx.CreateTablesInLocal()
+	err = idx.CreateTablesIfNotExist()
 	require.Nil(err)
 
 	blk := block.Block{}

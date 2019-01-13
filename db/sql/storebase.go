@@ -40,8 +40,8 @@ type storeBase struct {
 // logger is initialized with default settings
 var logger = zerolog.New(os.Stderr).Level(zerolog.InfoLevel).With().Timestamp().Logger()
 
-// NewSQLBase instantiates an sqlite3
-func newSQLBase(driverName string, connectStr string) Store {
+// NewStoreBase instantiates an store base
+func newStoreBase(driverName string, connectStr string) Store {
 	return &storeBase{db: nil, connectStr: connectStr, driverName: driverName}
 }
 
