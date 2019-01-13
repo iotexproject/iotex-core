@@ -123,8 +123,9 @@ var (
 			MaxTransferPayloadBytes: 1024,
 		},
 		Indexer: Indexer{
-			Enabled:  false,
-			NodeAddr: "",
+			Enabled:           false,
+			NodeAddr:          "",
+			WhetherLocalStore: true,
 		},
 		System: System{
 			HeartbeatInterval:     10 * time.Second,
@@ -135,6 +136,9 @@ var (
 		DB: DB{
 			UseBadgerDB: false,
 			NumRetries:  3,
+			SQLITE3: SQLITE3{
+				SQLite3File: "./explorer.db",
+			},
 		},
 	}
 
@@ -239,8 +243,9 @@ type (
 
 	// Indexer is the index service config
 	Indexer struct {
-		Enabled  bool   `yaml:"enabled"`
-		NodeAddr string `yaml:"nodeAddr"`
+		Enabled           bool   `yaml:"enabled"`
+		NodeAddr          string `yaml:"nodeAddr"`
+		WhetherLocalStore bool   `yaml:"whetherLocalStore"`
 	}
 
 	// System is the system config
@@ -274,6 +279,9 @@ type (
 
 		// RDS is the config for rds
 		RDS RDS `yaml:"RDS"`
+
+		// SQLite3 is the config for SQLITE3
+		SQLITE3 SQLITE3 `yaml:"SQLITE3"`
 	}
 
 	// RDS is the cloud rds config
@@ -288,6 +296,12 @@ type (
 		AwsPass string `yaml:"awsPass"`
 		// AwsDBName is the db name of aws rds
 		AwsDBName string `yaml:"awsDBName"`
+	}
+
+	// SQLITE3 is the local sqlite3 config
+	SQLITE3 struct {
+		// SQLite3File is the sqlite3 db file
+		SQLite3File string `yaml:"sqlite3File"`
 	}
 
 	// Config is the root config struct, each package's config should be put as its sub struct

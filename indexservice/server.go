@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db/rds"
+	"github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -33,7 +33,7 @@ func NewServer(
 ) *Server {
 	indexer := &Indexer{
 		cfg:                cfg.Indexer,
-		rds:                nil,
+		store:              nil,
 		hexEncodedNodeAddr: "",
 	}
 	if err := bc.AddSubscriber(indexer); err != nil {
@@ -60,9 +60,20 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	s.idx.hexEncodedNodeAddr = addr
 
-	s.idx.rds = rds.NewAwsRDS(&s.cfg.DB.RDS)
-	if err := s.idx.rds.Start(ctx); err != nil {
-		return errors.Wrap(err, "error when start rds store")
+	if s.cfg.Indexer.WhetherLocalStore {
+		// local store use sqlite3
+		s.idx.store = sql.NewSQLite3(s.cfg.DB.SQLITE3)
+	} else {
+		// remote store use aws rds
+		s.idx.store = sql.NewAwsRDS(s.cfg.DB.RDS)
+	}
+	if err := s.idx.store.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when start store")
+	}
+
+	// create local table
+	if err := s.idx.CreateTablesIfNotExist(); err != nil {
+		return errors.Wrap(err, "error when initial tables")
 	}
 
 	return nil
@@ -70,7 +81,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 // Stop stops the explorer server
 func (s *Server) Stop(ctx context.Context) error {
-	if err := s.idx.rds.Stop(ctx); err != nil {
+	if err := s.idx.store.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when shutting down explorer http server")
 	}
 	log.L().Info("Unsubscribe block creation.", zap.Uint32("chainID", s.bc.ChainID()))
