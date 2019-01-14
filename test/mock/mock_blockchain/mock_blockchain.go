@@ -542,9 +542,9 @@ func (mr *MockBlockchainMockRecorder) MintNewBlock(actions, producer, dkgAddress
 }
 
 // MintNewBlockWithActionIterator mocks base method
-func (m *MockBlockchain) MintNewBlockWithActionIterator(actionMap map[string][]action.SealedEnvelope, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*blockchain.Block, error) {
+func (m *MockBlockchain) MintNewBlockWithActionIterator(actionMap map[string][]action.SealedEnvelope, producer *iotxaddress.Address, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlockWithActionIterator", actionMap, producer, dkgAddress, seed, data)
-	ret0, _ := ret[0].(*blockchain.Block)
+	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -8,17 +8,15 @@ package blockchain
 
 import (
 	"context"
-	"math/big"
-	"strconv"
-	"sync"
-	"sync/atomic"
-	"time"
-
 	"github.com/dgraph-io/badger"
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
+	"math/big"
+	"strconv"
+	"sync"
+	"sync/atomic"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -769,6 +767,7 @@ func (bc *blockchain) MintNewBlockWithActionIterator(
 ) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
+	defer bc.timerFactory.NewTimer("MintNewBlock").End()
 
 	// Use block height as the nonce for coinbase transfer
 	cb := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producer.RawAddress)
@@ -779,69 +778,66 @@ func (bc *blockchain) MintNewBlockWithActionIterator(
 		SetGasLimit(cb.GasLimit()).
 		SetAction(cb).Build()
 	selp, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	gasLimit := genesis.BlockGasLimit
+	// initial action iterator
+	actionIterator := actioniterator.NewActionIterator(actionMap)
+	actions, err := PickAction(&gasLimit, actionIterator)
+	// include coinbase transfer
+	actions = append(actions, selp)
+
+	if err := bc.validator.ValidateActionsOnly(
+		actions,
+		true,
+		nil,
+		nil,
+		producer.PublicKey,
+		bc.ChainID(),
+		bc.tipHeight+1,
+	); err != nil {
+		return nil, err
+	}
+
+	ra := block.NewRunnableActionsBuilder().
+		SetHeight(bc.tipHeight + 1).
+		SetTimeStamp(bc.now()).
+		AddActions(actions...).
+		Build(producer)
 
 	// run execution and update state trie root hash
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	blkHeight := bc.tipHeight + 1
-	blkHash := bc.tipHash
-	producerPubKey := producer.PublicKey
-	blkTimestamp := bc.now()
-	pkHash := keypair.HashPubKey(producerPubKey)
-	addr := address.New(bc.config.Chain.ID, pkHash[:])
-	producerAddr := addr.IotxAddress()
-	gasLimit := GasLimit
+	root, rc, err := bc.runActions(ra, ws, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", bc.tipHeight+1)
+	}
 
-	// update state factory
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight:     blkHeight,
-			BlockHash:       blkHash,
-			ProducerPubKey:  producerPubKey,
-			BlockTimeStamp:  time.Unix(int64(blkTimestamp), 0).Unix(),
-			ProducerAddr:    producerAddr,
-			GasLimit:        &gasLimit,
-			EnableGasCharge: bc.config.Chain.EnableGasCharge,
-		})
-	actionIterator := actioniterator.NewActionIterator(actionMap)
-	appliedActionList, receiptMap, err := PickAction(ctx, ws, bc, &gasLimit, actionIterator)
-	// include coinbase transfer
-	appliedActionList = append(appliedActionList, selp)
+	blkbd := block.NewBuilder(ra).
+		SetChainID(bc.config.Chain.ID).
+		SetPrevBlockHash(bc.tipHash)
 
-	// initial a block with empty actions
-	blk := NewBlock(bc.config.Chain.ID, blkHeight, blkHash, blkTimestamp,
-		producerPubKey, appliedActionList)
-	blk.Header.DKGID = []byte{}
-	blk.Header.DKGPubkey = []byte{}
-	blk.Header.DKGBlockSig = []byte{}
 	if dkgAddress != nil && len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
-		blk.Header.DKGID = dkgAddress.ID
-		blk.Header.DKGPubkey = dkgAddress.PublicKey
-		var err error
-		if _, blk.Header.DKGBlockSig, err = crypto.BLS.SignShare(dkgAddress.PrivateKey, seed); err != nil {
+		_, sig, err := crypto.BLS.SignShare(dkgAddress.PrivateKey, seed)
+		if err != nil {
 			return nil, errors.Wrap(err, "Failed to do DKG sign")
 		}
+		blkbd.SetDKG(dkgAddress.ID, dkgAddress.PublicKey, sig)
 	}
-	blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
-	if bc.sf == nil {
-		return nil, errors.New("statefactory cannot be nil")
-	}
-	for k, v := range receiptMap {
-		blk.Receipts[k] = v
-	}
-	root, err := bc.runActionsWithActionIterator(ctx, blk, ws, false)
+
+	blk, err := blkbd.SetStateRoot(root).
+		SetReceipts(rc).
+		SignAndBuild(producer)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", blk.Height())
+		return nil, errors.Wrapf(err, "Failed to create block")
 	}
-	blk.Header.stateRoot = root
-	if err := blk.SignBlock(producer); err != nil {
-		return blk, err
-	}
-	// attach working set to be committed to state factory
-	blk.workingSet = ws
-	return blk, nil
+	blk.WorkingSet = ws
+
+	return &blk, nil
 }
 
 // MintNewSecretBlock creates a new block with given DKG secrets and witness
@@ -1249,28 +1245,6 @@ func (bc *blockchain) runActions(acts block.RunnableActions, ws factory.WorkingS
 		})
 
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
-}
-
-func (bc *blockchain) runActionsWithActionIterator(
-	ctx context.Context,
-	blk *block.Block,
-	ws factory.WorkingSet,
-	verify bool,
-) (hash.Hash32B, error) {
-	root, receipts, err := ws.RunActions(ctx, blk.Height(), blk.Actions)
-	if err != nil {
-		return root, err
-	}
-	if verify {
-		// verify state root hash match
-		if err = blk.VerifyStateRoot(root); err != nil {
-			return root, err
-		}
-	}
-	for hash, receipt := range receipts {
-		blk.Receipts[hash] = receipt
-	}
-	return root, nil
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {

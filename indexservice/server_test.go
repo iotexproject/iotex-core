@@ -14,8 +14,6 @@ import (
 )
 
 func TestServer(t *testing.T) {
-	t.Skip("Skipping when RDS credentail not provided.")
-
 	require := require.New(t)
 
 	// create chain
@@ -25,7 +23,7 @@ func TestServer(t *testing.T) {
 	err := svr.Start(nil)
 	require.Nil(err)
 
-	db := svr.idx.rds.GetDB()
+	db := svr.idx.store.GetDB()
 
 	// get
 	_, err = db.Prepare("SELECT * FROM transfer_history WHERE node_address=?")

@@ -101,11 +101,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap := make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 
-<<<<<<< HEAD
-	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.Addrinfo["producer"], nil, nil, "")
-=======
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, ta.IotxAddrinfo["producer"], nil, nil, "")
->>>>>>> a957c454dd5566e0c402aa0d597d2ab28791f491
+	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -145,7 +141,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 
-	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.Addrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
@@ -171,14 +167,11 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-<<<<<<< HEAD
+
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 
-	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.Addrinfo["producer"], nil, nil, "")
-=======
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, ta.IotxAddrinfo["producer"], nil, nil, "")
->>>>>>> a957c454dd5566e0c402aa0d597d2ab28791f491
+	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -228,12 +221,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1}
 	accMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2}
 
-<<<<<<< HEAD
-	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.Addrinfo["producer"], nil, nil, "")
-=======
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6, vote1, vote2},
-		ta.IotxAddrinfo["producer"], nil, nil, "")
->>>>>>> a957c454dd5566e0c402aa0d597d2ab28791f491
+	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
