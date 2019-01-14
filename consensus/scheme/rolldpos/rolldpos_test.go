@@ -122,8 +122,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		clock,
 	)
 
-	epoch, height, err := ctx.calcEpochNumAndHeight()
-	require.NoError(t, err)
+	epoch, height := ctx.calcEpochNumAndHeight()
 	assert.Equal(t, uint64(2), epoch)
 	assert.Equal(t, uint64(9), height)
 
@@ -211,9 +210,7 @@ func TestIsEpochFinished(t *testing.T) {
 		ctx.epoch.height = 1
 		ctx.epoch.numSubEpochs = 2
 
-		finished, err := ctx.isEpochFinished()
-		require.NoError(t, err)
-		assert.False(t, finished)
+		assert.False(t, ctx.isEpochFinished())
 	})
 	t.Run("finished", func(t *testing.T) {
 		ctx := makeTestRollDPoSCtx(
@@ -234,9 +231,7 @@ func TestIsEpochFinished(t *testing.T) {
 		ctx.epoch.height = 1
 		ctx.epoch.numSubEpochs = 2
 
-		finished, err := ctx.isEpochFinished()
-		require.NoError(t, err)
-		assert.True(t, finished)
+		assert.True(t, ctx.isEpochFinished())
 	})
 }
 

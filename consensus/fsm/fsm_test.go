@@ -48,8 +48,8 @@ func TestBackdoorEvt(t *testing.T) {
 	require.NotNil(cfsm)
 	require.Equal(sPrepare, cfsm.CurrentState())
 
-	cfsm.Start(context.Background())
-	defer cfsm.Stop(context.Background())
+	require.NoError(cfsm.Start(context.Background()))
+	defer require.NoError(cfsm.Stop(context.Background()))
 
 	for _, state := range consensusStates {
 		backdoorEvt := &ConsensusEvent{
@@ -92,10 +92,7 @@ func TestStateTransitions(t *testing.T) {
 
 	t.Run("prepare", func(t *testing.T) {
 		t.Run("with-error", func(t *testing.T) {
-			mockCtx.EXPECT().Prepare().Return(
-				time.Duration(10*time.Second),
-				errors.New("some error"),
-			).Times(1)
+			mockCtx.EXPECT().Prepare().Return(10*time.Second, errors.New("some error")).Times(1)
 			state, err := cfsm.prepare(nil)
 			require.Error(err)
 			require.Equal(sPrepare, state)
@@ -106,7 +103,7 @@ func TestStateTransitions(t *testing.T) {
 		})
 		t.Run("is-not-delegate", func(t *testing.T) {
 			mockCtx.EXPECT().IsDelegate().Return(false).Times(1)
-			mockCtx.EXPECT().Prepare().Return(time.Duration(10*time.Second), nil).Times(1)
+			mockCtx.EXPECT().Prepare().Return(10*time.Second, nil).Times(1)
 			state, err := cfsm.prepare(nil)
 			require.NoError(err)
 			require.Equal(sPrepare, state)

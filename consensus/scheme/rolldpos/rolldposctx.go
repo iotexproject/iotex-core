@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/fsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
@@ -79,7 +78,6 @@ type rollDPoSCtx struct {
 	rootChainAPI     explorer.Explorer
 	// candidatesByHeightFunc is only used for testing purpose
 	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
-	sync                   blocksync.BlockSync
 	mutex                  sync.RWMutex
 }
 
@@ -513,7 +511,7 @@ func (ctx *rollDPoSCtx) isProposedBlock(hash []byte) bool {
 	}
 	blkHash := ctx.round.block.Hash()
 
-	return bytes.Equal(hash[:], blkHash[:])
+	return bytes.Equal(hash, blkHash)
 }
 
 func (ctx *rollDPoSCtx) isDelegateEndorsement(endorser string) bool {
@@ -592,7 +590,7 @@ func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 		return []string{}, errors.Wrapf(ErrNotEnoughCandidates, "only %d delegates from the candidate pool", len(candidates))
 	}
 
-	var candidatesAddress []string
+	candidatesAddress := []string{}
 	for _, candidate := range candidates {
 		candidatesAddress = append(candidatesAddress, candidate.Address)
 	}
@@ -603,13 +601,13 @@ func (ctx *rollDPoSCtx) rollingDelegates(epochNum uint64) ([]string, error) {
 
 // calcEpochNum calculates the epoch ordinal number and the epoch start height offset, which is based on the height of
 // the next block to be produced
-func (ctx *rollDPoSCtx) calcEpochNumAndHeight() (uint64, uint64, error) {
+func (ctx *rollDPoSCtx) calcEpochNumAndHeight() (uint64, uint64) {
 	height := ctx.chain.TipHeight()
 	numDlgs := ctx.cfg.NumDelegates
 	numSubEpochs := ctx.getNumSubEpochs()
 	epochNum := height/(uint64(numDlgs)*uint64(numSubEpochs)) + 1
 	epochHeight := uint64(numDlgs)*uint64(numSubEpochs)*(epochNum-1) + 1
-	return epochNum, epochHeight, nil
+	return epochNum, epochHeight
 }
 
 // calcSubEpochNum calculates the sub-epoch ordinal number
@@ -716,14 +714,7 @@ func (ctx *rollDPoSCtx) Prepare() (time.Duration, error) {
 		ctx.epoch.dkgAddress.PublicKey = dkgPubKey
 		ctx.epoch.dkgAddress.PrivateKey = dkgPriKey
 	}
-	epochNum, epochHeight, err := ctx.calcEpochNumAndHeight()
-	if err != nil {
-		// Even if error happens, we still need to schedule next check of delegate to tolerate transit error
-		return ctx.cfg.DelegateInterval, errors.Wrap(
-			err,
-			"error when determining the epoch ordinal number and start height offset",
-		)
-	}
+	epochNum, epochHeight := ctx.calcEpochNumAndHeight()
 	if epochNum != ctx.epoch.num {
 		delegates, err := ctx.updateSeedAndRollingDelegates(epochNum)
 		if err != nil {
@@ -932,14 +923,14 @@ func (ctx *rollDPoSCtx) calcQuorum(decisions map[string]bool) (bool, bool) {
 }
 
 // isEpochFinished checks the epoch is finished or not
-func (ctx *rollDPoSCtx) isEpochFinished() (bool, error) {
+func (ctx *rollDPoSCtx) isEpochFinished() bool {
 	height := ctx.chain.TipHeight()
 	// if the height of the last committed block is already the last one should be minted from this epochStart, go back
 	// to epochStart start
 	if height >= ctx.epoch.height+uint64(uint(len(ctx.epoch.delegates))*ctx.epoch.numSubEpochs)-1 {
-		return true, nil
+		return true
 	}
-	return false, nil
+	return false
 }
 
 // isDKGFinished checks the DKG sub-epoch is finished or not
@@ -950,10 +941,7 @@ func (ctx *rollDPoSCtx) isDKGFinished() bool {
 
 // updateSeed returns the seed for the next epoch
 func (ctx *rollDPoSCtx) updateSeed() ([]byte, error) {
-	epochNum, epochHeight, err := ctx.calcEpochNumAndHeight()
-	if err != nil {
-		return hash.Hash256b(ctx.epoch.seed), errors.Wrap(err, "Failed to do decode seed")
-	}
+	epochNum, epochHeight := ctx.calcEpochNumAndHeight()
 	if epochNum <= 1 {
 		return crypto.CryptoSeed, nil
 	}

@@ -18,7 +18,8 @@ import (
 )
 
 /**
- * TODO: For the nodes received correct proposal, add proposer's proposal endorse without signature, which could be replaced with real signature
+ * TODO: For the nodes received correct proposal, add proposer's proposal endorse
+ * without signature, which could be replaced with real signature
  */
 var (
 	consensusMtc = prometheus.NewCounterVec(
@@ -97,7 +98,7 @@ type ConsensusFSM struct {
 	wg    sync.WaitGroup
 }
 
-// NewConsensusFSM retuns a new fsm
+// NewConsensusFSM returns a new fsm
 func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 	cm := &ConsensusFSM{
 		evtq:  make(chan *ConsensusEvent, cfg.EventChanSize),
@@ -390,6 +391,7 @@ func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event) (fsm.State, e
 	m.ctx.LoggerWithStats().Debug().Int64("ts", m.clock.Now().Unix()).Msg("LOCKED")
 	lockEndorsement, err := m.ctx.NewLockEndorsement()
 	if err != nil {
+		// TODO: review return state
 		m.ProducePrepareEvent(0)
 		return sPrepare, err
 	}
@@ -424,6 +426,7 @@ func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error
 	m.ctx.LoggerWithStats().Debug().Int64("ts", m.clock.Now().Unix()).Msg("Ready to pre-commit")
 	preCommitEndorsement, err := m.ctx.NewPreCommitEndorsement()
 	if err != nil {
+		// TODO: Review return state
 		m.ProducePrepareEvent(0)
 
 		return sPrepare, err
