@@ -85,5 +85,5 @@ func (factory *TimerFactory) log(value float64, labels ...string) {
 }
 
 func (factory *TimerFactory) now() int64 {
-	return factory.clk.Now().Unix()
+	return factory.clk.Now().UnixNano()
 }
