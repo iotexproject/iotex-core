@@ -173,12 +173,13 @@ func main() {
 				log.S().Errorf("Node %d: Can not get State height", i)
 			}
 			bcHeights[i] = chains[i].TipHeight()
-			minTimeout = int(configs[i].Consensus.RollDPoS.Delay/time.Second - configs[i].Consensus.RollDPoS.FSM.ProposerInterval/time.Second)
+			cfg := configs[i].Consensus.RollDPoS
+			minTimeout = int(cfg.Delay/time.Second - cfg.FSM.ProposerInterval/time.Second)
 			netTimeout = 0
 			if timeout > minTimeout {
 				netTimeout = timeout - minTimeout
 			}
-			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / configs[i].Consensus.RollDPoS.FSM.ProposerInterval)
+			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.FSM.ProposerInterval)
 
 			log.S().Infof("Node#%d blockchain height: %d", i, bcHeights[i])
 			log.S().Infof("Node#%d state      height: %d", i, stateHeights[i])

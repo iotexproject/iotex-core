@@ -91,7 +91,7 @@ type endorsementWrapper struct {
 }
 
 func (ew *endorsementWrapper) Hash() []byte {
-	return ew.ConsensusVote().BlkHash[:]
+	return ew.ConsensusVote().BlkHash
 }
 
 func (ew *endorsementWrapper) Height() uint64 {
@@ -193,10 +193,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
 	// Compute the epoch ordinal number
-	epochNum, _, err := r.ctx.calcEpochNumAndHeight()
-	if err != nil {
-		return metrics, errors.Wrap(err, "error when calculating the epoch ordinal number")
-	}
+	epochNum, _ := r.ctx.calcEpochNumAndHeight()
 	// Compute delegates
 	delegates, err := r.ctx.rollingDelegates(epochNum)
 	if err != nil {
