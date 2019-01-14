@@ -709,6 +709,7 @@ func (bc *blockchain) MintNewBlock(
 	}
 	actions = append(actions, selp)
 
+	validateActionsOnlyTimer := bc.timerFactory.NewTimer("ValidateActionsOnly")
 	if err := bc.validator.ValidateActionsOnly(
 		actions,
 		true,
@@ -718,8 +719,10 @@ func (bc *blockchain) MintNewBlock(
 		bc.ChainID(),
 		bc.tipHeight+1,
 	); err != nil {
+		validateActionsOnlyTimer.End()
 		return nil, err
 	}
+	validateActionsOnlyTimer.End()
 
 	ra := block.NewRunnableActionsBuilder().
 		SetHeight(bc.tipHeight+1).
