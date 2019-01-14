@@ -8,15 +8,16 @@ package blockchain
 
 import (
 	"context"
+	"math/big"
+	"strconv"
+	"sync"
+	"sync/atomic"
+
 	"github.com/dgraph-io/badger"
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
-	"math/big"
-	"strconv"
-	"sync"
-	"sync/atomic"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"

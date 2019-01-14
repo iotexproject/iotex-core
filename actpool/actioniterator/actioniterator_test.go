@@ -10,9 +10,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/stretchr/testify/require"
 )
 
 func TestActionIterator(t *testing.T) {

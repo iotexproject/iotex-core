@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"github.com/CoderZhi/go-ethereum/core/vm"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 )
