@@ -13,9 +13,9 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/zjshen14/go-fsm"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
