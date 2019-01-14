@@ -430,7 +430,8 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*block.Block, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create the secret witness")
 	}
-	blk, err := ctx.chain.MintNewSecretBlock(secretProposals, secretWitness, ctx.addr)
+	blk, err := ctx.chain.MintNewSecretBlock(secretProposals, secretWitness, ctx.addr.PublicKey, ctx.addr.PrivateKey,
+		ctx.addr.RawAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -444,8 +445,8 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*block.Block, error) {
 func (ctx *rollDPoSCtx) mintCommonBlock() (*block.Block, error) {
 	actions := ctx.actPool.PickActs()
 	log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actions)))
-	blk, err := ctx.chain.MintNewBlock(actions, ctx.addr, &ctx.epoch.dkgAddress,
-		ctx.epoch.seed, "")
+	blk, err := ctx.chain.MintNewBlock(actions, ctx.addr.PublicKey, ctx.addr.PrivateKey, ctx.addr.RawAddress,
+		&ctx.epoch.dkgAddress, ctx.epoch.seed, "")
 	if err != nil {
 		return nil, err
 	}

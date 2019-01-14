@@ -61,8 +61,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pubk, sig)
 
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
-		nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6},
+		ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -132,7 +134,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5},
+		ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -161,7 +165,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -208,7 +213,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	}
 
 	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6, vote1, vote2},
-		ta.IotxAddrinfo["producer"], nil, nil, "")
+		ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -313,7 +319,9 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			SetGasPrice(big.NewInt(10)).Build()
 
 		selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pk, sig)
-		_, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"], nil, nil, "")
+		_, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"].PublicKey,
+			ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+			nil, "")
 		if v {
 			require.NoError(t, err)
 		} else {
@@ -862,7 +870,8 @@ func TestCoinbaseTransfer(t *testing.T) {
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
 
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{}, ta.IotxAddrinfo["alfa"], nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{}, ta.IotxAddrinfo["alfa"].PublicKey,
+		ta.IotxAddrinfo["alfa"].PrivateKey, ta.IotxAddrinfo["alfa"].RawAddress, nil, nil, "")
 	require.Nil(err)
 	s, err := bc.StateByAddr(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.Nil(err)
@@ -946,7 +955,8 @@ func TestBlocks(t *testing.T) {
 			require.NoError(err)
 			acts = append(acts, tsf)
 		}
-		blk, _ := bc.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil, nil, "")
+		blk, _ := bc.MintNewBlock(acts, ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+			ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 		require.Nil(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
 	}
@@ -1005,8 +1015,8 @@ func TestActions(t *testing.T) {
 		require.NoError(err)
 		acts = append(acts, vote)
 	}
-	blk, _ := bc.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil,
-		nil, "")
+	blk, _ := bc.MintNewBlock(acts, ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	require.Nil(val.Validate(blk, 0, blk.PrevHash(), true))
 }
 
@@ -1085,7 +1095,7 @@ func TestMintDKGBlock(t *testing.T) {
 			PrivateKey: ec283SKList[i],
 			RawAddress: addresses[i],
 		}
-		blk, err := chain.MintNewBlock(nil, &iotxAddr,
+		blk, err := chain.MintNewBlock(nil, iotxAddr.PublicKey, iotxAddr.PrivateKey, iotxAddr.RawAddress,
 			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]}, lastSeed, "")
 		require.NoError(err)
 		require.NoError(chain.ValidateBlock(blk, true))
