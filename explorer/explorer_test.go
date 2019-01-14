@@ -61,8 +61,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		return err
 	}
 
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{tsf}, ta.IotxAddrinfo["producer"],
-		nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{tsf}, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -100,8 +100,9 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}, ta.IotxAddrinfo["producer"],
-		nil, nil, ""); err != nil {
+	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1},
+		ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, ""); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
@@ -112,7 +113,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 3
-	if blk, err = bc.MintNewBlock(nil, ta.IotxAddrinfo["producer"], nil,
+	if blk, err = bc.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
 		nil, ""); err != nil {
 		return err
 	}
@@ -142,8 +144,9 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{vote1, vote2, execution1, execution2}, ta.IotxAddrinfo["producer"],
-		nil, nil, ""); err != nil {
+	if blk, err = bc.MintNewBlock([]action.SealedEnvelope{vote1, vote2, execution1, execution2},
+		ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, ""); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
@@ -901,7 +904,8 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	execution, err := testutil.SignedExecution(ta.IotxAddrinfo["producer"], action.EmptyAddress, 1,
 		big.NewInt(0), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), data)
 	require.NoError(err)
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{execution}, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err := bc.MintNewBlock([]action.SealedEnvelope{execution}, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
