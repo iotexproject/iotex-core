@@ -97,8 +97,10 @@ func runExecution(
 	if err != nil {
 		return nil, err
 	}
+	actionMap := make(map[string][]action.SealedEnvelope)
+	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
-		[]action.SealedEnvelope{selp},
+		actionMap,
 		ta.IotxAddrinfo["producer"],
 		nil,
 		nil,
@@ -260,7 +262,9 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
 
-		blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+		actionMap := make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -311,7 +315,9 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
-		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+		actionMap = make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -345,7 +351,9 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
-		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+		actionMap = make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -369,7 +377,9 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err = action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
 
-		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["alfa"],
+		actionMap = make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["alfa"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -438,7 +448,9 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
 
-		blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+		actionMap := make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -463,7 +475,9 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		log.S().Infof("execution %+v", execution)
 
-		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+		actionMap = make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -488,7 +502,9 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		log.S().Infof("execution %+v\n", execution)
 
-		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+		actionMap = make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -520,7 +536,9 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		log.S().Infof("execution %+v\n", execution)
 
-		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+		actionMap = make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -587,7 +605,9 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err := action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
 
-		blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+		actionMap := make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -656,7 +676,9 @@ func TestProtocol_Handle(t *testing.T) {
 		selp2, err := action.Sign(elp2, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
 
-		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp, selp2}, ta.IotxAddrinfo["producer"], nil, nil, "")
+		actionMap = make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp, selp2}
+		blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -682,7 +704,9 @@ func TestProtocol_Handle(t *testing.T) {
 		selp3, err := action.Sign(elp, ta.IotxAddrinfo["alfa"].RawAddress, ta.IotxAddrinfo["alfa"].PrivateKey)
 		require.NoError(err)
 
-		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp3}, ta.IotxAddrinfo["alfa"],
+		actionMap = make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp3}
+		blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["alfa"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
@@ -703,7 +727,9 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err = action.Sign(elp, ta.IotxAddrinfo["producer"].RawAddress, ta.IotxAddrinfo["producer"].PrivateKey)
 		require.NoError(err)
 
-		blk, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+		actionMap = make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 			nil, nil, "")
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))

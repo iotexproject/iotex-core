@@ -7,14 +7,12 @@
 package blockchain
 
 import (
-	"github.com/CoderZhi/go-ethereum/core/vm"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 )
 
 // PickAction returns picked action list
-func PickAction(gasLimit *uint64, actionIterator actioniterator.ActionIterator) ([]action.SealedEnvelope, error) {
+func PickAction(gasLimit uint64, actionIterator actioniterator.ActionIterator) ([]action.SealedEnvelope, error) {
 	pickedActions := make([]action.SealedEnvelope, 0)
 
 	for {
@@ -23,39 +21,14 @@ func PickAction(gasLimit *uint64, actionIterator actioniterator.ActionIterator) 
 			break
 		}
 
-		var err error
-		switch nextAction.Action().(type) {
-		case *action.Transfer, *action.Vote:
-			gas, err := nextAction.IntrinsicGas()
-			if err != nil {
-				break
-			}
-			if *(gasLimit) < gas {
-				err = action.ErrHitGasLimit
-				break
-			}
-			*(gasLimit) -= gas
-		case *action.Execution:
-			// use gaslimit for now, will change to real gas later
-			gas := nextAction.GasLimit()
-			if *(gasLimit) < gas {
-				err = action.ErrHitGasLimit
-				break
-			}
-			*(gasLimit) -= gas
-		}
-		if err == nil {
-			pickedActions = append(pickedActions, nextAction)
-			continue
-		}
-
-		// error handling
-		if err == action.ErrHitGasLimit || err == action.ErrOutOfGas || err == vm.ErrOutOfGas {
+		// use gaslimit for now, will change to real gas later
+		gas := nextAction.GasLimit()
+		if gasLimit < gas {
+			//err = action.ErrHitGasLimit
 			break
-		} else {
-			// do not handle other erros
-			pickedActions = append(pickedActions, nextAction)
 		}
+		gasLimit -= gas
+		pickedActions = append(pickedActions, nextAction)
 	}
 
 	return pickedActions, nil

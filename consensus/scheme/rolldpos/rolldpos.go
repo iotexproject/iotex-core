@@ -444,7 +444,7 @@ func (ctx *rollDPoSCtx) mintSecretBlock() (*block.Block, error) {
 func (ctx *rollDPoSCtx) mintCommonBlock() (*block.Block, error) {
 	actionMap := ctx.actPool.PendingActionMap()
 	log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
-	blk, err := ctx.chain.MintNewBlockWithActionIterator(actionMap, ctx.addr, &ctx.epoch.dkgAddress,
+	blk, err := ctx.chain.MintNewBlock(actionMap, ctx.addr, &ctx.epoch.dkgAddress,
 		ctx.epoch.seed, "")
 	if err != nil {
 		return nil, err

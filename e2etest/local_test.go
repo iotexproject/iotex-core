@@ -184,8 +184,8 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	acts := svr.ChainService(chainID).ActionPool().PickActs()
-	blk1, err := chain.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil,
+	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
+	blk1, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -197,7 +197,9 @@ func TestLocalCommit(t *testing.T) {
 	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["foxtrot"], ta.IotxAddrinfo["delta"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{tsf2}, ta.IotxAddrinfo["producer"], nil, nil, "")
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf2.SrcAddr()] = []action.SealedEnvelope{tsf2}
+	blk2, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
@@ -218,7 +220,9 @@ func TestLocalCommit(t *testing.T) {
 	tsf3, err := testutil.SignedTransfer(ta.IotxAddrinfo["bravo"], ta.IotxAddrinfo["bravo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{tsf3}, ta.IotxAddrinfo["producer"], nil, nil, "")
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf3.SrcAddr()] = []action.SealedEnvelope{tsf3}
+	blk3, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
 	require.Nil(chain.CommitBlock(blk3))
@@ -239,7 +243,9 @@ func TestLocalCommit(t *testing.T) {
 	tsf4, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["echo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{tsf4}, ta.IotxAddrinfo["producer"], nil, nil, "")
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf4.SrcAddr()] = []action.SealedEnvelope{tsf4}
+	blk4, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
 	require.Nil(chain.CommitBlock(blk4))
@@ -581,8 +587,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	acts := svr.ChainService(chainID).ActionPool().PickActs()
-	blk1, err := chain.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil,
+	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
+	blk1, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -603,7 +609,10 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	vote5, err := testutil.SignedVote(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["alfa"], uint64(7), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{vote4, vote5}, ta.IotxAddrinfo["producer"], nil, nil, "")
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[vote4.SrcAddr()] = []action.SealedEnvelope{vote4}
+	actionMap[vote5.SrcAddr()] = []action.SealedEnvelope{vote5}
+	blk2, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
@@ -648,7 +657,9 @@ func TestVoteLocalCommit(t *testing.T) {
 	vote6, err := testutil.SignedVote(ta.IotxAddrinfo["delta"], ta.IotxAddrinfo["delta"], 5, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{vote6}, ta.IotxAddrinfo["producer"],
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[vote6.SrcAddr()] = []action.SealedEnvelope{vote6}
+	blk3, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
@@ -696,7 +707,9 @@ func TestVoteLocalCommit(t *testing.T) {
 	selp, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
 	require.NoError(err)
 
-	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+	blk4, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))

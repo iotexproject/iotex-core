@@ -61,7 +61,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pubk, sig)
 
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"],
+	actionMap := make(map[string][]action.SealedEnvelope)
+	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+	blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
 		nil, nil, "")
 	if err != nil {
 		return err
@@ -101,7 +103,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap := make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 
-	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -134,14 +136,10 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}, ta.IotxAddrinfo["producer"], nil, nil, "")
-	if err != nil {
-		return err
-	}
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 
-	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
@@ -171,7 +169,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 
-	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -221,7 +219,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1}
 	accMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2}
 
-	blk, err = bc.MintNewBlockWithActionIterator(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock(accMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -329,7 +327,9 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			SetGasPrice(big.NewInt(10)).Build()
 
 		selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pk, sig)
-		_, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"], nil, nil, "")
+		actionMap := make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		_, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 		if v {
 			require.NoError(t, err)
 		} else {
@@ -878,7 +878,8 @@ func TestCoinbaseTransfer(t *testing.T) {
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
 
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{}, ta.IotxAddrinfo["alfa"], nil, nil, "")
+	actionMap := make(map[string][]action.SealedEnvelope)
+	blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["alfa"], nil, nil, "")
 	require.Nil(err)
 	s, err := bc.StateByAddr(ta.IotxAddrinfo["alfa"].RawAddress)
 	require.Nil(err)
@@ -957,12 +958,15 @@ func TestBlocks(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		acts := []action.SealedEnvelope{}
+		actionMap := make(map[string][]action.SealedEnvelope)
+		actionMap[a.RawAddress] = []action.SealedEnvelope{}
 		for i := 0; i < 1000; i++ {
 			tsf, err := testutil.SignedTransfer(a, c, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 			require.NoError(err)
 			acts = append(acts, tsf)
+			actionMap[a.RawAddress] = append(actionMap[a.RawAddress], tsf)
 		}
-		blk, _ := bc.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil, nil, "")
+		blk, _ := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
 		require.Nil(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
 	}
@@ -1011,17 +1015,17 @@ func TestActions(t *testing.T) {
 	val := &validator{sf: sf, validatorAddr: ""}
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	acts := []action.SealedEnvelope{}
+	actionMap := make(map[string][]action.SealedEnvelope)
 	for i := 0; i < 5000; i++ {
 		tsf, err := testutil.SignedTransfer(a, c, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 		require.NoError(err)
-		acts = append(acts, tsf)
+		actionMap[a.RawAddress] = append(actionMap[a.RawAddress], tsf)
 
 		vote, err := testutil.SignedVote(a, a, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 		require.NoError(err)
-		acts = append(acts, vote)
+		actionMap[a.RawAddress] = append(actionMap[a.RawAddress], vote)
 	}
-	blk, _ := bc.MintNewBlock(acts, ta.IotxAddrinfo["producer"], nil,
+	blk, _ := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil,
 		nil, "")
 	require.Nil(val.Validate(blk, 0, blk.PrevHash(), true))
 }
