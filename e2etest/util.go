@@ -44,7 +44,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-	blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	if err != nil {
 		return err
 	}
@@ -83,7 +85,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
-	blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	if err != nil {
 		return err
 	}
@@ -118,7 +122,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	}
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
-	blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock(actionMap,
+		ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -149,7 +155,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	}
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
-	blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	if err != nil {
 		return err
 	}
@@ -186,9 +194,12 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
-	blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err = bc.MintNewBlock(actionMap,
+		ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	if err != nil {
 		return err
 	}

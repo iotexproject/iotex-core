@@ -63,8 +63,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[tsf.SrcAddr()] = []action.SealedEnvelope{tsf}
-	blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
-		nil, nil, "")
+	blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -104,8 +104,9 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}
-	if blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
-		nil, nil, ""); err != nil {
+	if blk, err = bc.MintNewBlock(actionMap,
+		ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, ""); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
@@ -116,7 +117,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 3
-	if blk, err = bc.MintNewBlock(nil, ta.IotxAddrinfo["producer"], nil,
+	if blk, err = bc.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
 		nil, ""); err != nil {
 		return err
 	}
@@ -149,8 +151,9 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1, execution1}
 	actionMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2, execution2}
-	if blk, err = bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
-		nil, nil, ""); err != nil {
+	if blk, err = bc.MintNewBlock(actionMap,
+		ta.IotxAddrinfo["producer"].PublicKey, ta.IotxAddrinfo["producer"].PrivateKey,
+		ta.IotxAddrinfo["producer"].RawAddress, nil, nil, ""); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
@@ -910,7 +913,8 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	require.NoError(err)
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[execution.SrcAddr()] = []action.SealedEnvelope{execution}
-	blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk, err := bc.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil, nil, "")
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 

@@ -87,8 +87,8 @@ func NewConsensus(
 		actionMap := ap.PendingActionMap()
 		log.L().Debug("Pick actions.", zap.Int("actions", len(actionMap)))
 
-		blk, err := bc.MintNewBlock(actionMap, GetAddr(cfg), nil,
-			nil, "")
+		blk, err := bc.MintNewBlock(actionMap, GetAddr(cfg).PublicKey, GetAddr(cfg).PrivateKey, GetAddr(cfg).RawAddress,
+			nil, nil, "")
 		if err != nil {
 			log.L().Error("Failed to mint a block.", zap.Error(err))
 			return nil, err

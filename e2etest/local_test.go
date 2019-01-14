@@ -185,7 +185,8 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(err)
 
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
-	blk1, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil,
+	blk1, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -199,7 +200,9 @@ func TestLocalCommit(t *testing.T) {
 
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[tsf2.SrcAddr()] = []action.SealedEnvelope{tsf2}
-	blk2, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk2, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
@@ -222,7 +225,9 @@ func TestLocalCommit(t *testing.T) {
 
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[tsf3.SrcAddr()] = []action.SealedEnvelope{tsf3}
-	blk3, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk3, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
 	require.Nil(chain.CommitBlock(blk3))
@@ -245,7 +250,9 @@ func TestLocalCommit(t *testing.T) {
 
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[tsf4.SrcAddr()] = []action.SealedEnvelope{tsf4}
-	blk4, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk4, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
 	require.Nil(chain.CommitBlock(blk4))
@@ -588,7 +595,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
-	blk1, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil,
+	blk1, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -612,7 +620,9 @@ func TestVoteLocalCommit(t *testing.T) {
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[vote4.SrcAddr()] = []action.SealedEnvelope{vote4}
 	actionMap[vote5.SrcAddr()] = []action.SealedEnvelope{vote5}
-	blk2, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"], nil, nil, "")
+	blk2, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
 	require.Nil(chain.CommitBlock(blk2))
@@ -659,8 +669,9 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[vote6.SrcAddr()] = []action.SealedEnvelope{vote6}
-	blk3, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
-		nil, nil, "")
+	blk3, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
 	require.Nil(chain.CommitBlock(blk3))
@@ -709,8 +720,9 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-	blk4, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"],
-		nil, nil, "")
+	blk4, err := chain.MintNewBlock(actionMap, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
 	require.Nil(chain.CommitBlock(blk4))
