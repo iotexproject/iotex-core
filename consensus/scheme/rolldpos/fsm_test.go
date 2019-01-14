@@ -1441,9 +1441,11 @@ func newTestCFSM(
 			blockchain.EXPECT().GetBlockByHeight(uint64(21)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().GetBlockByHeight(uint64(22)).Return(lastBlk, nil).AnyTimes()
 			blockchain.EXPECT().
-				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&blkToMint, nil).AnyTimes()
+				MintNewBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any()).Return(&blkToMint, nil).AnyTimes()
 			blockchain.EXPECT().
-				MintNewSecretBlock(gomock.Any(), gomock.Any(), gomock.Any()).Return(&secretBlkToMint, nil).AnyTimes()
+				MintNewSecretBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any()).Return(&secretBlkToMint, nil).AnyTimes()
 			blockchain.EXPECT().
 				Nonce(gomock.Any()).Return(uint64(0), nil).AnyTimes()
 			if mockChain == nil {
