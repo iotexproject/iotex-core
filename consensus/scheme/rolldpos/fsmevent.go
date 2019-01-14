@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	fsm "github.com/zjshen14/go-fsm"
+	fsm "github.com/iotexproject/go-fsm"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
