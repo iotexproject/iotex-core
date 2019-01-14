@@ -24,7 +24,6 @@ func PickAction(gasLimit uint64, actionIterator actioniterator.ActionIterator) (
 		// use gaslimit for now, will change to real gas later
 		gas := nextAction.GasLimit()
 		if gasLimit < gas {
-			//err = action.ErrHitGasLimit
 			break
 		}
 		gasLimit -= gas
