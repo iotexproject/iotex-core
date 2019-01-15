@@ -16,8 +16,8 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "addrgen [command] [flags]",
-	Short: "Command-line interface for IoTeX address generator",
-	Long:  "addrgen is a command-line interface to generate IoTex address.",
+	Short: "Command-line interface for address generator",
+	Long:  "addrgen is a command-line interface to generate address.",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

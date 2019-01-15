@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -41,7 +41,7 @@ func LoadAndDeleteCandidates(sm protocol.StateManager, addr string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get most recent candidates from trie")
 	}
-	addrHash, err := iotxaddress.AddressToPKHash(addr)
+	addrHash, err := address.Bech32ToPKHash(addr)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert address to public key hash")
 	}
@@ -93,7 +93,7 @@ func ConstructKey(height uint64) hash.PKHash {
 // addCandidate adds a new candidate to candidateMap
 func addCandidate(candidateMap map[hash.PKHash]*state.Candidate, vote *action.Vote, height uint64) error {
 	votePubkey := vote.VoterPublicKey()
-	voterPKHash, err := iotxaddress.AddressToPKHash(vote.Voter())
+	voterPKHash, err := address.Bech32ToPKHash(vote.Voter())
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
 	}
@@ -115,7 +115,7 @@ func updateCandidate(
 	totalWeight *big.Int,
 	blockHeight uint64,
 ) error {
-	addrHash, err := iotxaddress.AddressToPKHash(addr)
+	addrHash, err := address.Bech32ToPKHash(addr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
 	}

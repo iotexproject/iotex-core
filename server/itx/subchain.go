@@ -30,7 +30,7 @@ func (s *Server) runSubChain(addr address.Address, subChain *mainchain.SubChain)
 	// TODO: get rid of the hack config modification
 	cfg := s.cfg
 	cfg.Chain.ID = subChain.ChainID
-	cfg.Chain.Address = addr.IotxAddress()
+	cfg.Chain.Address = addr.Bech32()
 	cfg.Chain.ChainDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.ChainDBPath)
 	cfg.Chain.TrieDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.TrieDBPath)
 	cfg.Chain.GenesisActionsPath = ""

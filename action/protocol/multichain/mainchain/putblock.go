@@ -14,7 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -29,7 +29,7 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, sm protocol.StateManager)
 		return err
 	}
 	// Update the block producer's nonce
-	addrHash, err := iotxaddress.AddressToPKHash(pb.ProducerAddress())
+	addrHash, err := address.Bech32ToPKHash(pb.ProducerAddress())
 	if err != nil {
 		return err
 	}

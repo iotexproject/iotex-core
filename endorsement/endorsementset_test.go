@@ -20,51 +20,51 @@ func TestAddEndorsement(t *testing.T) {
 	set := NewSet(hash1)
 	// Successfully add an endorsement
 	cv := NewConsensusVote(hash1, 1, 2, PROPOSAL)
-	en := NewEndorsement(cv, testaddress.IotxAddrinfo["producer"].PublicKey, testaddress.IotxAddrinfo["producer"].PrivateKey, testaddress.IotxAddrinfo["producer"].RawAddress)
+	en := NewEndorsement(cv, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32())
 	require.NoError(set.AddEndorsement(en))
 	require.Equal(1, len(set.endorsements))
 	// Add an endorsement with from a different endorser
 	cv = NewConsensusVote(hash1, 1, 2, PROPOSAL)
-	en = NewEndorsement(cv, testaddress.IotxAddrinfo["alfa"].PublicKey, testaddress.IotxAddrinfo["alfa"].PrivateKey, testaddress.IotxAddrinfo["alfa"].RawAddress)
+	en = NewEndorsement(cv, testaddress.Keyinfo["alfa"].PubKey, testaddress.Keyinfo["alfa"].PriKey, testaddress.Addrinfo["alfa"].Bech32())
 	require.Equal(nil, set.AddEndorsement(en))
 	require.Equal(2, len(set.endorsements))
 	// Add an endorsement with different hash
 	cv = NewConsensusVote(hash2, 1, 2, PROPOSAL)
-	en = NewEndorsement(cv, testaddress.IotxAddrinfo["producer"].PublicKey, testaddress.IotxAddrinfo["producer"].PrivateKey, testaddress.IotxAddrinfo["producer"].RawAddress)
+	en = NewEndorsement(cv, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32())
 	require.Equal(ErrInvalidHash, set.AddEndorsement(en))
 	require.Equal(2, len(set.endorsements))
 	// Add an endorsement with expired round number
 	cv = NewConsensusVote(hash1, 1, 1, PROPOSAL)
-	en = NewEndorsement(cv, testaddress.IotxAddrinfo["producer"].PublicKey, testaddress.IotxAddrinfo["producer"].PrivateKey, testaddress.IotxAddrinfo["producer"].RawAddress)
+	en = NewEndorsement(cv, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32())
 	require.Equal(ErrExpiredEndorsement, set.AddEndorsement(en))
 	require.Equal(2, len(set.endorsements))
 	// Add an endorsement with advance round number
 	cv = NewConsensusVote(hash1, 1, 3, PROPOSAL)
-	en = NewEndorsement(cv, testaddress.IotxAddrinfo["producer"].PublicKey, testaddress.IotxAddrinfo["producer"].PrivateKey, testaddress.IotxAddrinfo["producer"].RawAddress)
+	en = NewEndorsement(cv, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32())
 	require.Equal(nil, set.AddEndorsement(en))
 	require.Equal(2, len(set.endorsements))
 	// Add an endorsement of an existing endorser
 	cv = NewConsensusVote(hash1, 1, 2, LOCK)
-	en = NewEndorsement(cv, testaddress.IotxAddrinfo["alfa"].PublicKey, testaddress.IotxAddrinfo["alfa"].PrivateKey, testaddress.IotxAddrinfo["alfa"].RawAddress)
+	en = NewEndorsement(cv, testaddress.Keyinfo["alfa"].PubKey, testaddress.Keyinfo["alfa"].PriKey, testaddress.Addrinfo["alfa"].Bech32())
 	require.Equal(nil, set.AddEndorsement(en))
 	require.Equal(3, len(set.endorsements))
 	require.Equal(1, set.NumOfValidEndorsements(map[ConsensusVoteTopic]bool{
 		LOCK: true,
 	}, []string{
-		testaddress.IotxAddrinfo["producer"].RawAddress,
-		testaddress.IotxAddrinfo["alfa"].RawAddress,
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(),
 	}))
 	require.Equal(2, set.NumOfValidEndorsements(map[ConsensusVoteTopic]bool{
 		PROPOSAL: true,
 	}, []string{
-		testaddress.IotxAddrinfo["producer"].RawAddress,
-		testaddress.IotxAddrinfo["alfa"].RawAddress,
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(),
 	}))
 	require.Equal(2, set.NumOfValidEndorsements(map[ConsensusVoteTopic]bool{
 		LOCK:     true,
 		PROPOSAL: true,
 	}, []string{
-		testaddress.IotxAddrinfo["producer"].RawAddress,
-		testaddress.IotxAddrinfo["alfa"].RawAddress,
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(),
 	}))
 }

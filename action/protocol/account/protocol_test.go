@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -30,18 +29,15 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewMemKVStore()))
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	require.Nil(err)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	addrHash, err := iotxaddress.AddressToPKHash(addr.RawAddress)
-	require.NoError(err)
-	s, err := LoadAccount(ws, addrHash)
+	addrv1 := testaddress.Addrinfo["producer"]
+	s, err := LoadAccount(ws, addrv1.PublicKeyHash())
 	require.NoError(err)
 	require.Equal(s, state.EmptyAccount)
-	s, err = LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(5))
+	s, err = LoadOrCreateAccount(ws, addrv1.Bech32(), big.NewInt(5))
 	require.NoError(err)
-	s, err = LoadAccount(ws, addrHash)
+	s, err = LoadAccount(ws, addrv1.PublicKeyHash())
 	require.NoError(err)
 	require.Equal(uint64(0x0), s.Nonce)
 	require.Equal("5", s.Balance.String())
@@ -49,14 +45,14 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
 	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
-	ss, err := sf.AccountState(addr.RawAddress)
+	ss, err := sf.AccountState(addrv1.Bech32())
 	require.Nil(err)
 	require.Equal(uint64(0x0), ss.Nonce)
 	require.Equal("5", ss.Balance.String())

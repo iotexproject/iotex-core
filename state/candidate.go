@@ -13,10 +13,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -135,11 +134,11 @@ func CandidatesToMap(candidates CandidateList) (map[hash.PKHash]*Candidate, erro
 		if candidate == nil {
 			return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")
 		}
-		pkHash, err := iotxaddress.GetPubkeyHash(candidate.Address)
+		pkHash, err := address.Bech32ToPKHash(candidate.Address)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get the hash of the address")
 		}
-		candidateMap[byteutil.BytesTo20B(pkHash)] = candidate
+		candidateMap[pkHash] = candidate
 	}
 	return candidateMap, nil
 }

@@ -50,10 +50,9 @@ func TestValidateDeposit(t *testing.T) {
 
 	p := NewProtocol(chain)
 
-	addr1 := testaddress.IotxAddrinfo["producer"].RawAddress
-	addr, err := address.IotxAddressToAddress(addr1)
-	require.NoError(t, err)
-	addr2 := address.New(2, addr.Payload()).IotxAddress()
+	addr := testaddress.Addrinfo["producer"]
+	addr1 := addr.Bech32()
+	addr2 := address.New(2, addr.Payload()).Bech32()
 
 	deposit := action.NewCreateDeposit(1, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit, nil)
@@ -63,14 +62,14 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	_, err = account.LoadOrCreateAccount(
 		ws,
-		testaddress.IotxAddrinfo["producer"].RawAddress,
+		testaddress.Addrinfo["producer"].Bech32(),
 		big.NewInt(1000),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -121,10 +120,9 @@ func TestMutateDeposit(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	addr1 := testaddress.IotxAddrinfo["producer"].RawAddress
-	addr, err := address.IotxAddressToAddress(addr1)
-	require.NoError(t, err)
-	addr2 := address.New(2, addr.Payload()).IotxAddress()
+	addr := testaddress.Addrinfo["producer"]
+	addr1 := addr.Bech32()
+	addr2 := address.New(2, addr.Payload()).Bech32()
 	subChainAddr, err := createSubChainAddress(addr1, 0)
 	require.NoError(t, err)
 
@@ -138,7 +136,7 @@ func TestMutateDeposit(t *testing.T) {
 			OperationDeposit:   big.NewInt(2),
 			StartHeight:        100,
 			ParentHeightOffset: 10,
-			OwnerPublicKey:     testaddress.IotxAddrinfo["producer"].PublicKey,
+			OwnerPublicKey:     testaddress.Keyinfo["producer"].PubKey,
 			CurrentHeight:      200,
 			DepositCount:       300,
 		},
@@ -184,5 +182,5 @@ func TestMutateDeposit(t *testing.T) {
 	gas, err := act.IntrinsicGas()
 	assert.NoError(t, err)
 	assert.Equal(t, gas, receipt.GasConsumed)
-	assert.Equal(t, address.New(1, subChainAddr[:]).IotxAddress(), receipt.ContractAddress)
+	assert.Equal(t, address.New(1, subChainAddr[:]).Bech32(), receipt.ContractAddress)
 }

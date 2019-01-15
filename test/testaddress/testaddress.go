@@ -9,7 +9,6 @@ package testaddress
 import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
@@ -32,48 +31,61 @@ const (
 	prikeyProducer = "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
 )
 
-// IotxAddrinfo contains the iotxaddress information
-var IotxAddrinfo map[string]*iotxaddress.Address
+// Key indicates the public key and private key of an account
+type Key struct {
+	PubKey keypair.PublicKey
+	PriKey keypair.PrivateKey
+}
 
 // Addrinfo contains the address information
-var Addrinfo map[string]address.Address
+var Addrinfo map[string]*address.AddrV1
+
+// Keyinfo contains the private key information
+var Keyinfo map[string]*Key
 
 func init() {
-	IotxAddrinfo = make(map[string]*iotxaddress.Address)
-	Addrinfo = make(map[string]address.Address)
+	Addrinfo = make(map[string]*address.AddrV1)
+	Keyinfo = make(map[string]*Key)
 
 	chainID := config.Default.Chain.ID
 
-	IotxAddrinfo["producer"] = ConstructAddress(chainID, pubkeyProducer, prikeyProducer)
-	IotxAddrinfo["alfa"] = ConstructAddress(chainID, pubkeyA, prikeyA)
-	IotxAddrinfo["bravo"] = ConstructAddress(chainID, pubkeyB, prikeyB)
-	IotxAddrinfo["charlie"] = ConstructAddress(chainID, pubkeyC, prikeyC)
-	IotxAddrinfo["delta"] = ConstructAddress(chainID, pubkeyD, prikeyD)
-	IotxAddrinfo["echo"] = ConstructAddress(chainID, pubkeyE, prikeyE)
-	IotxAddrinfo["foxtrot"] = ConstructAddress(chainID, pubkeyF, prikeyF)
-	IotxAddrinfo["galilei"] = ConstructAddress(chainID, pubkeyG, prikeyG)
-
 	pubKey, _ := keypair.DecodePublicKey(pubkeyProducer)
+	priKey, _ := keypair.DecodePrivateKey(prikeyProducer)
 	Addrinfo["producer"] = address.V1.New(chainID, keypair.HashPubKey(pubKey))
+	Keyinfo["producer"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	pubKey, _ = keypair.DecodePublicKey(pubkeyA)
+	priKey, _ = keypair.DecodePrivateKey(prikeyA)
 	Addrinfo["alfa"] = address.V1.New(chainID, keypair.HashPubKey(pubKey))
+	Keyinfo["alfa"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	pubKey, _ = keypair.DecodePublicKey(pubkeyB)
+	priKey, _ = keypair.DecodePrivateKey(prikeyB)
 	Addrinfo["bravo"] = address.V1.New(chainID, keypair.HashPubKey(pubKey))
+	Keyinfo["bravo"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	pubKey, _ = keypair.DecodePublicKey(pubkeyC)
+	priKey, _ = keypair.DecodePrivateKey(prikeyC)
 	Addrinfo["charlie"] = address.V1.New(chainID, keypair.HashPubKey(pubKey))
+	Keyinfo["charlie"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	pubKey, _ = keypair.DecodePublicKey(pubkeyD)
+	priKey, _ = keypair.DecodePrivateKey(prikeyD)
 	Addrinfo["delta"] = address.V1.New(chainID, keypair.HashPubKey(pubKey))
+	Keyinfo["delta"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	pubKey, _ = keypair.DecodePublicKey(pubkeyE)
+	priKey, _ = keypair.DecodePrivateKey(prikeyE)
 	Addrinfo["echo"] = address.V1.New(chainID, keypair.HashPubKey(pubKey))
+	Keyinfo["echo"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	pubKey, _ = keypair.DecodePublicKey(pubkeyF)
+	priKey, _ = keypair.DecodePrivateKey(prikeyF)
 	Addrinfo["foxtrot"] = address.V1.New(chainID, keypair.HashPubKey(pubKey))
+	Keyinfo["foxtrot"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	pubKey, _ = keypair.DecodePublicKey(pubkeyG)
+	priKey, _ = keypair.DecodePrivateKey(prikeyG)
 	Addrinfo["galilei"] = address.V1.New(chainID, keypair.HashPubKey(pubKey))
+	Keyinfo["galilei"] = &Key{PubKey: pubKey, PriKey: priKey}
 }

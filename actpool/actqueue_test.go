@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -51,16 +50,14 @@ func TestNoncePriorityQueue(t *testing.T) {
 
 func TestActQueue_Put(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
-	vote1, err := testutil.SignedVote(a, b, 2, 0, big.NewInt(0))
+	vote1, err := testutil.SignedVote(addr1, addr2, priKey1, 2, 0, big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(vote1)
 	require.NoError(err)
 	require.Equal(uint64(2), q.index[0])
 	require.NotNil(q.items[vote1.Nonce()])
-	tsf2, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf2, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(tsf2)
 	require.NoError(err)
@@ -69,7 +66,7 @@ func TestActQueue_Put(t *testing.T) {
 	require.Equal(uint64(2), heap.Pop(&q.index))
 	require.Equal(vote1, q.items[uint64(2)])
 	// tsf3 is a replacement transfer
-	tsf3, err := testutil.SignedTransfer(a, b, 1, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(tsf3)
 	require.NotNil(err)
@@ -77,14 +74,12 @@ func TestActQueue_Put(t *testing.T) {
 
 func TestActQueue_FilterNonce(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
-	tsf1, err := testutil.SignedTransfer(a, b, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	vote2, err := testutil.SignedVote(a, b, 2, 0, big.NewInt(0))
+	vote2, err := testutil.SignedVote(addr1, addr2, priKey1, 2, 0, big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(a, b, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, addr2, priKey1, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(tsf1)
 	require.NoError(err)
@@ -100,18 +95,16 @@ func TestActQueue_FilterNonce(t *testing.T) {
 
 func TestActQueue_UpdateNonce(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
-	tsf1, err := testutil.SignedTransfer(a, b, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(a, b, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
+	tsf2, err := testutil.SignedTransfer(addr1, addr2, priKey1, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(a, b, 4, big.NewInt(10000), nil, uint64(0), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, addr2, priKey1, 4, big.NewInt(10000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := testutil.SignedTransfer(a, b, 6, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
+	tsf4, err := testutil.SignedTransfer(addr1, addr2, priKey1, 6, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	vote5, err := testutil.SignedVote(a, b, 2, 0, big.NewInt(0))
+	vote5, err := testutil.SignedVote(addr1, addr2, priKey1, 2, 0, big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(tsf1)
 	require.NoError(err)
@@ -132,18 +125,16 @@ func TestActQueue_UpdateNonce(t *testing.T) {
 
 func TestActQueue_PendingActs(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
-	vote1, err := testutil.SignedVote(a, b, 2, 0, big.NewInt(0))
+	vote1, err := testutil.SignedVote(addr1, addr2, priKey1, 2, 0, big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(a, b, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf2, err := testutil.SignedTransfer(addr1, addr2, priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(a, b, 5, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, addr2, priKey1, 5, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := testutil.SignedTransfer(a, b, 6, big.NewInt(10000), nil, uint64(0), big.NewInt(0))
+	tsf4, err := testutil.SignedTransfer(addr1, addr2, priKey1, 6, big.NewInt(10000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := testutil.SignedTransfer(a, b, 7, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
+	tsf5, err := testutil.SignedTransfer(addr1, addr2, priKey1, 7, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(vote1)
 	require.NoError(err)
@@ -163,12 +154,10 @@ func TestActQueue_PendingActs(t *testing.T) {
 
 func TestActQueue_AllActs(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
-	vote1, err := testutil.SignedVote(a, b, 1, 0, big.NewInt(0))
+	vote1, err := testutil.SignedVote(addr1, addr2, priKey1, 1, 0, big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(a, b, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, addr2, priKey1, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(vote1)
 	require.NoError(err)
@@ -180,14 +169,12 @@ func TestActQueue_AllActs(t *testing.T) {
 
 func TestActQueue_removeActs(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
 	q := NewActQueue().(*actQueue)
-	tsf1, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	vote2, err := testutil.SignedVote(a, b, 2, 0, big.NewInt(0))
+	vote2, err := testutil.SignedVote(addr1, addr2, priKey1, 2, 0, big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(a, b, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, addr2, priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(tsf1)
 	require.NoError(err)
@@ -200,11 +187,11 @@ func TestActQueue_removeActs(t *testing.T) {
 	require.Equal(0, len(q.items))
 	require.Equal([]action.SealedEnvelope{tsf1, vote2, tsf3}, removed)
 
-	tsf4, err := testutil.SignedTransfer(a, b, 4, big.NewInt(10000), nil, uint64(0), big.NewInt(0))
+	tsf4, err := testutil.SignedTransfer(addr1, addr2, priKey1, 4, big.NewInt(10000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := testutil.SignedTransfer(a, b, 5, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
+	tsf5, err := testutil.SignedTransfer(addr1, addr2, priKey1, 5, big.NewInt(100000), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
-	vote6, err := testutil.SignedVote(a, b, 6, 0, big.NewInt(0))
+	vote6, err := testutil.SignedVote(addr1, addr2, priKey1, 6, 0, big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(tsf4)
 	require.NoError(err)

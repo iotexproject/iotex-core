@@ -182,7 +182,7 @@ func (b *Block) ProducerAddress() string {
 	pkHash := keypair.HashPubKey(b.Header.pubkey)
 	addr := address.New(b.Header.chainID, pkHash[:])
 
-	return addr.IotxAddress()
+	return addr.Bech32()
 }
 
 // RunnableActions abstructs RunnableActions from a Block.
@@ -193,7 +193,7 @@ func (b *Block) RunnableActions() RunnableActions {
 		blockHeight:         b.Header.height,
 		blockTimeStamp:      b.Header.timestamp,
 		blockProducerPubKey: b.Header.pubkey,
-		blockProducerAddr:   addr.IotxAddress(),
+		blockProducerAddr:   addr.Bech32(),
 		actions:             b.Actions,
 	}
 }

@@ -20,12 +20,12 @@ func TestBuilder(t *testing.T) {
 	ra := NewRunnableActionsBuilder().
 		SetHeight(1).
 		SetTimeStamp(testutil.TimestampNow()).
-		Build(ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PublicKey)
+		Build(ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PubKey)
 
 	nblk, err := NewBuilder(ra).
 		SetChainID(0).
 		SetPrevBlockHash(hash.ZeroHash32B).
-		SignAndBuild(ta.IotxAddrinfo["bravo"].PublicKey, ta.IotxAddrinfo["bravo"].PrivateKey)
+		SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(t, err)
 
 	require.True(t, nblk.VerifySignature())

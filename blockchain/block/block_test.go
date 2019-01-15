@@ -44,85 +44,87 @@ func TestBasicHash(t *testing.T) {
 func TestMerkle(t *testing.T) {
 	require := require.New(t)
 
-	producer := ta.IotxAddrinfo["producer"]
+	producerAddr := ta.Addrinfo["producer"].Bech32()
+	producerPubKey := ta.Keyinfo["producer"].PubKey
+	producerPriKey := ta.Keyinfo["producer"].PriKey
 	amount := uint64(50 << 22)
 	// create testing transactions
-	cbtsf0 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), producer.RawAddress)
+	cbtsf0 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), producerAddr)
 	require.NotNil(cbtsf0)
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
-		SetDestinationAddress(producer.RawAddress).
+		SetDestinationAddress(producerAddr).
 		SetGasLimit(100).
 		SetAction(cbtsf0).Build()
-	selp0, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	selp0, err := action.Sign(elp, producerAddr, producerPriKey)
 	require.NoError(err)
 
-	cbtsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.IotxAddrinfo["alfa"].RawAddress)
+	cbtsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["alfa"].Bech32())
 	require.NotNil(cbtsf1)
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.IotxAddrinfo["alfa"].RawAddress).
+		SetDestinationAddress(ta.Addrinfo["alfa"].Bech32()).
 		SetGasLimit(100).
 		SetAction(cbtsf1).Build()
-	selp1, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	selp1, err := action.Sign(elp, producerAddr, producerPriKey)
 	require.NoError(err)
 
-	cbtsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.IotxAddrinfo["bravo"].RawAddress)
+	cbtsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["bravo"].Bech32())
 	require.NotNil(cbtsf2)
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.IotxAddrinfo["bravo"].RawAddress).
+		SetDestinationAddress(ta.Addrinfo["bravo"].Bech32()).
 		SetGasLimit(100).
 		SetAction(cbtsf2).Build()
-	selp2, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	selp2, err := action.Sign(elp, producerAddr, producerPriKey)
 	require.NoError(err)
 
-	cbtsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.IotxAddrinfo["charlie"].RawAddress)
+	cbtsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["charlie"].Bech32())
 	require.NotNil(cbtsf3)
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.IotxAddrinfo["charlie"].RawAddress).
+		SetDestinationAddress(ta.Addrinfo["charlie"].Bech32()).
 		SetGasLimit(100).
 		SetAction(cbtsf3).Build()
-	selp3, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	selp3, err := action.Sign(elp, producerAddr, producerPriKey)
 	require.NoError(err)
 
-	cbtsf4 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.IotxAddrinfo["echo"].RawAddress)
+	cbtsf4 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["echo"].Bech32())
 	require.NotNil(cbtsf4)
 	bd = action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.IotxAddrinfo["echo"].RawAddress).
+		SetDestinationAddress(ta.Addrinfo["echo"].Bech32()).
 		SetGasLimit(100).
 		SetAction(cbtsf4).Build()
-	selp4, err := action.Sign(elp, producer.RawAddress, producer.PrivateKey)
+	selp4, err := action.Sign(elp, producerAddr, producerPriKey)
 	require.NoError(err)
 
 	// verify tx hash
-	hash0, e := hex.DecodeString("4ef861f8ed4d99377a149ca2a114bd7b224ea93f8e9258a9691f0c6a30ac5c4e")
+	hash0, e := hex.DecodeString("debc6d2f6f1dc15a40ba61b29cc55a2c9db5858a8d6a73cec6182ce40770fd25")
 	require.NoError(e)
 	actual := cbtsf0.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash0, actual[:])
 
-	hash1, e := hex.DecodeString("201990668742dd16825ce64446f2002f2b52814ee40242fba767edeca0b9d311")
+	hash1, e := hex.DecodeString("cadd4699d1a5e38da309f929352462c53a397b77707a7fd4efd3957e3e2680c1")
 	require.NoError(e)
 	actual = cbtsf1.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash1, actual[:])
 
-	hash2, e := hex.DecodeString("c3c94823d6f60ac5743c9524405c6353b3d6b7b7fd95a7b9e6b48cdfa9f8c6b2")
+	hash2, e := hex.DecodeString("951e1e2083fca4cd92521e45885caaa2d1f1d2ca4f6f77b03484a7d94d0fb145")
 	require.NoError(e)
 	actual = cbtsf2.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash2, actual[:])
 
-	hash3, e := hex.DecodeString("ba12ca7a859da93df536a3a1748294b3b29e96c1dc2a214db41d312391fdbed0")
+	hash3, e := hex.DecodeString("4de5c01a68ceccac32bbeaeb8b9051c82d090617b58148010235f3e3b15898a2")
 	require.NoError(e)
 	actual = cbtsf3.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash3, actual[:])
 
-	hash4, e := hex.DecodeString("53cacd3e5d5f907c6b8463fb5a191c35c0267b61814f216f3d6a97b6c375c5d9")
+	hash4, e := hex.DecodeString("bccac6f4514f6a218591135fee6b0f710df641b32c85fac6357fae8acf92dadf")
 	require.NoError(e)
 	actual = cbtsf4.Hash()
 	t.Logf("actual hash = %x", actual[:])
@@ -159,7 +161,7 @@ func TestMerkle(t *testing.T) {
 		0,
 		hash.ZeroHash32B,
 		testutil.TimestampNow(),
-		ta.IotxAddrinfo["producer"].PublicKey,
+		producerPubKey,
 		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
 	)
 	hash := block.CalculateTxRoot()
@@ -170,7 +172,8 @@ func TestMerkle(t *testing.T) {
 
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
-	sender := ta.IotxAddrinfo["producer"]
+	senderAddr := ta.Addrinfo["producer"].Bech32()
+	senderPubKey := ta.Keyinfo["producer"].PubKey
 	require.NoError(t, blk.ConvertFromBlockPb(&iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{
 			Version: version.ProtocolVersion,
@@ -181,8 +184,8 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Action: &iproto.ActionPb_Transfer{
 					Transfer: &iproto.TransferPb{},
 				},
-				Sender:       sender.RawAddress,
-				SenderPubKey: sender.PublicKey[:],
+				Sender:       senderAddr,
+				SenderPubKey: senderPubKey[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        101,
 			},
@@ -190,8 +193,8 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Action: &iproto.ActionPb_Transfer{
 					Transfer: &iproto.TransferPb{},
 				},
-				Sender:       sender.RawAddress,
-				SenderPubKey: sender.PublicKey[:],
+				Sender:       senderAddr,
+				SenderPubKey: senderPubKey[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        102,
 			},
@@ -199,8 +202,8 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Action: &iproto.ActionPb_Vote{
 					Vote: &iproto.VotePb{},
 				},
-				Sender:       sender.RawAddress,
-				SenderPubKey: sender.PublicKey[:],
+				Sender:       senderAddr,
+				SenderPubKey: senderPubKey[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        103,
 			},
@@ -208,8 +211,8 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Action: &iproto.ActionPb_Vote{
 					Vote: &iproto.VotePb{},
 				},
-				Sender:       sender.RawAddress,
-				SenderPubKey: sender.PublicKey[:],
+				Sender:       senderAddr,
+				SenderPubKey: senderPubKey[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        104,
 			},

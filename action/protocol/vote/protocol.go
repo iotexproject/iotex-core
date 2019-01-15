@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -166,7 +166,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	}
 	// check if votee's address is valid
 	if vote.Votee() != action.EmptyAddress {
-		if _, err := iotxaddress.GetPubkeyHash(vote.Votee()); err != nil {
+		if _, err := address.Bech32ToAddress(vote.Votee()); err != nil {
 			return errors.Wrapf(err, "error when validating votee's address %s", vote.Votee())
 		}
 	}

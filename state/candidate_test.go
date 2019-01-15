@@ -13,38 +13,35 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestCandidate(t *testing.T) {
 	require := require.New(t)
 
 	cand1 := &Candidate{
-		Address: "io1qyqsyqcy0av2reec8lrrth063uj8xkuugmmtu3tm2pahu9",
+		Address: testaddress.Addrinfo["alfa"].Bech32(),
 		Votes:   big.NewInt(1),
 	}
 	cand2 := &Candidate{
-		Address: "io1qyqsyqcyl7ge4df3g94rzxvd2acldsfvdtq22kvf2ws722",
+		Address: testaddress.Addrinfo["bravo"].Bech32(),
 		Votes:   big.NewInt(2),
 	}
 	cand3 := &Candidate{
-		Address: "io1qyqsyqcyf64rhvaj2y70q66yzkrpkhl52428vm5v88gqah",
+		Address: testaddress.Addrinfo["charlie"].Bech32(),
 		Votes:   big.NewInt(3),
 	}
 
-	pkHash, err := iotxaddress.GetPubkeyHash(cand1.Address)
+	cand1Hash, err := address.Bech32ToPKHash(cand1.Address)
 	require.NoError(err)
-	cand1Hash := byteutil.BytesTo20B(pkHash)
 
-	pkHash, err = iotxaddress.GetPubkeyHash(cand2.Address)
+	cand2Hash, err := address.Bech32ToPKHash(cand2.Address)
 	require.NoError(err)
-	cand2Hash := byteutil.BytesTo20B(pkHash)
 
-	pkHash, err = iotxaddress.GetPubkeyHash(cand3.Address)
+	cand3Hash, err := address.Bech32ToPKHash(cand3.Address)
 	require.NoError(err)
-	cand3Hash := byteutil.BytesTo20B(pkHash)
 
 	candidateMap := make(map[hash.PKHash]*Candidate)
 	candidateMap[cand1Hash] = cand1
@@ -56,9 +53,9 @@ func TestCandidate(t *testing.T) {
 	require.Equal(3, len(candidateList))
 	sort.Sort(candidateList)
 
-	require.Equal("io1qyqsyqcyf64rhvaj2y70q66yzkrpkhl52428vm5v88gqah", candidateList[0].Address)
-	require.Equal("io1qyqsyqcyl7ge4df3g94rzxvd2acldsfvdtq22kvf2ws722", candidateList[1].Address)
-	require.Equal("io1qyqsyqcy0av2reec8lrrth063uj8xkuugmmtu3tm2pahu9", candidateList[2].Address)
+	require.Equal(testaddress.Addrinfo["charlie"].Bech32(), candidateList[0].Address)
+	require.Equal(testaddress.Addrinfo["bravo"].Bech32(), candidateList[1].Address)
+	require.Equal(testaddress.Addrinfo["alfa"].Bech32(), candidateList[2].Address)
 
 	candidatesBytes, err := candidateList.Serialize()
 	require.NoError(err)
@@ -66,9 +63,9 @@ func TestCandidate(t *testing.T) {
 	err = candidates.Deserialize(candidatesBytes)
 	require.NoError(err)
 	require.Equal(3, len(candidates))
-	require.Equal("io1qyqsyqcyf64rhvaj2y70q66yzkrpkhl52428vm5v88gqah", candidates[0].Address)
-	require.Equal("io1qyqsyqcyl7ge4df3g94rzxvd2acldsfvdtq22kvf2ws722", candidates[1].Address)
-	require.Equal("io1qyqsyqcy0av2reec8lrrth063uj8xkuugmmtu3tm2pahu9", candidates[2].Address)
+	require.Equal(testaddress.Addrinfo["charlie"].Bech32(), candidates[0].Address)
+	require.Equal(testaddress.Addrinfo["bravo"].Bech32(), candidates[1].Address)
+	require.Equal(testaddress.Addrinfo["alfa"].Bech32(), candidates[2].Address)
 
 	candidateMap, err = CandidatesToMap(candidateList)
 	require.NoError(err)

@@ -21,11 +21,11 @@ import (
 )
 
 func (p *Protocol) subChainToStop(subChainAddr string) (*SubChain, error) {
-	iotxAddr, err := address.IotxAddressToAddress(subChainAddr)
+	addr, err := address.Bech32ToAddress(subChainAddr)
 	if err != nil {
 		return nil, err
 	}
-	return p.SubChain(iotxAddr)
+	return p.SubChain(addr)
 }
 
 func (p *Protocol) validateSubChainOwnership(
