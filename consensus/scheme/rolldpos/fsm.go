@@ -208,7 +208,7 @@ func (m *cFSM) Start(c context.Context) error {
 					log.L().Debug("skip old proposal", zap.Uint64("eventHeight", eventHeight), zap.Uint64("chainHeight", chainHeight))
 					continue
 				}
-				if eEvt, ok := evt.(*endorseEvt); ok && eventHeight <= chainHeight && eEvt.endorse.Endorser() != m.ctx.addr.RawAddress {
+				if eEvt, ok := evt.(*endorseEvt); ok && eventHeight <= chainHeight && eEvt.endorse.Endorser() != m.ctx.encodedAddr {
 					log.L().Debug("skip old endorsement", zap.Uint64("eventHeight", eventHeight), zap.Uint64("chainHeight", chainHeight))
 					continue
 				}
@@ -376,7 +376,7 @@ func (m *cFSM) handleInitBlockProposeEvt(evt fsm.Event) (fsm.State, error) {
 	l := log.L().With(zap.String("proposer", m.ctx.round.proposer),
 		zap.Uint64("height", m.ctx.round.height),
 		zap.Uint32("round", m.ctx.round.number))
-	if m.ctx.round.proposer != m.ctx.addr.RawAddress {
+	if m.ctx.round.proposer != m.ctx.encodedAddr {
 		l.Info("current node is not the proposer")
 		return sAcceptPropose, nil
 	}
@@ -667,7 +667,7 @@ func (m *cFSM) handleFinishEpochEvt(evt fsm.Event) (fsm.State, error) {
 
 func (m *cFSM) isDelegate(delegates []string) bool {
 	for _, d := range delegates {
-		if m.ctx.addr.RawAddress == d {
+		if m.ctx.encodedAddr == d {
 			return true
 		}
 	}
@@ -731,7 +731,7 @@ func (m *cFSM) newEndorseEvtWithEndorsePb(ePb *iproto.EndorsePb) (*endorseEvt, e
 }
 
 func (m *cFSM) newEndorseEvt(blkHash []byte, topic endorsement.ConsensusVoteTopic) *endorseEvt {
-	return newEndorseEvt(topic, blkHash, m.ctx.round.height, m.ctx.round.number, m.ctx.addr, m.ctx.clock)
+	return newEndorseEvt(topic, blkHash, m.ctx.round.height, m.ctx.round.number, m.ctx.pubKey, m.ctx.priKey, m.ctx.encodedAddr, m.ctx.clock)
 }
 
 func (m *cFSM) newTimeoutEvt(t fsm.EventType) *timeoutEvt {

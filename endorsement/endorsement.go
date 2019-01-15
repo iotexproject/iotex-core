@@ -12,7 +12,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -69,13 +68,13 @@ type Endorsement struct {
 }
 
 // NewEndorsement creates an Endorsement for an consensus vote
-func NewEndorsement(object *ConsensusVote, endorser *iotxaddress.Address) *Endorsement {
+func NewEndorsement(object *ConsensusVote, endorserPubKey keypair.PublicKey, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
 	hash := object.Hash()
 	return &Endorsement{
 		object:         object,
-		endorser:       endorser.RawAddress,
-		endorserPubkey: endorser.PublicKey,
-		signature:      crypto.EC283.Sign(endorser.PrivateKey, hash[:]),
+		endorser:       endorserAddr,
+		endorserPubkey: endorserPubKey,
+		signature:      crypto.EC283.Sign(endorserPriKey, hash[:]),
 	}
 }
 

@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -87,8 +86,8 @@ func NewConsensus(
 		acts := ap.PickActs()
 		log.L().Debug("Pick actions.", zap.Int("actions", len(acts)))
 
-		blk, err := bc.MintNewBlock(acts, GetAddr(cfg).PublicKey, GetAddr(cfg).PrivateKey, GetAddr(cfg).RawAddress,
-			nil, nil, "")
+		pk, sk, addr := GetAddr(cfg)
+		blk, err := bc.MintNewBlock(acts, pk, sk, addr, nil, nil, "")
 		if err != nil {
 			log.L().Error("Failed to mint a block.", zap.Error(err))
 			return nil, err
@@ -120,8 +119,11 @@ func NewConsensus(
 	clock := clock.New()
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
+		pk, sk, addr := GetAddr(cfg)
 		bd := rolldpos.NewRollDPoSBuilder().
-			SetAddr(GetAddr(cfg)).
+			SetAddr(addr).
+			SetPubKey(pk).
+			SetPriKey(sk).
 			SetConfig(cfg.Consensus.RollDPoS).
 			SetBlockchain(bc).
 			SetActPool(ap).
@@ -221,7 +223,7 @@ func (c *IotxConsensus) Scheme() scheme.Scheme {
 }
 
 // GetAddr returns the iotex address
-func GetAddr(cfg config.Config) *iotxaddress.Address {
+func GetAddr(cfg config.Config) (keypair.PublicKey, keypair.PrivateKey, string) {
 	addr, err := cfg.BlockchainAddress()
 	if err != nil {
 		log.L().Panic("Fail to create new consensus.", zap.Error(err))
@@ -234,9 +236,5 @@ func GetAddr(cfg config.Config) *iotxaddress.Address {
 	if err != nil {
 		log.L().Panic("Fail to create new consensus.", zap.Error(err))
 	}
-	return &iotxaddress.Address{
-		PublicKey:  pk,
-		PrivateKey: sk,
-		RawAddress: addr.IotxAddress(),
-	}
+	return pk, sk, addr.IotxAddress()
 }

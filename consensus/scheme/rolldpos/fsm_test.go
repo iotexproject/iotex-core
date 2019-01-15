@@ -735,19 +735,19 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		blkHash := blk.Hash()
 
 		// First endorse prepare
-		eEvt := newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[0], cfsm.ctx.clock)
+		eEvt := newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[0].PublicKey, testAddrs[0].PrivateKey, testAddrs[0].RawAddress, cfsm.ctx.clock)
 		state, err := cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Second endorse prepare
-		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
 		state, err = cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Third endorse prepare, could move on
-		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[2], cfsm.ctx.clock)
+		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[2].PublicKey, testAddrs[2].PrivateKey, testAddrs[2].RawAddress, cfsm.ctx.clock)
 		state, err = cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptLockEndorse, state)
@@ -892,14 +892,14 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		blkHash := blk.Hash()
 
 		for i := 0; i < 14; i++ {
-			eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[i], cfsm.ctx.clock)
+			eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[i].PublicKey, test21Addrs[i].PrivateKey, test21Addrs[i].RawAddress, cfsm.ctx.clock)
 			state, err := cfsm.handleEndorseLockEvt(eEvt)
 			assert.NoError(t, err)
 			assert.Equal(t, sAcceptLockEndorse, state)
 		}
 
 		// 15th endorse prepare, could move on
-		eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[14], cfsm.ctx.clock)
+		eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[14].PublicKey, test21Addrs[14].PrivateKey, test21Addrs[14].RawAddress, cfsm.ctx.clock)
 		state, err := cfsm.handleEndorseLockEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptCommitEndorse, state)
@@ -1087,7 +1087,7 @@ func TestTwoDelegates(t *testing.T) {
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
-	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
@@ -1099,7 +1099,7 @@ func TestTwoDelegates(t *testing.T) {
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
-	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptCommitEndorse, state)
 	require.NoError(err)
@@ -1169,17 +1169,17 @@ func TestThreeDelegates(t *testing.T) {
 	cfsm.ctx.round.block = blk
 	// endorse proposal
 	// handle self endorsement
-	eEvt := newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[0], cfsm.ctx.clock)
+	eEvt := newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[0].PublicKey, testAddrs[0].PrivateKey, testAddrs[0].RawAddress, cfsm.ctx.clock)
 	state, err := cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
 	// handle delegate 1's endorsement
-	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
 	// handle delegate 2's endorsement
-	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[2], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[2].PublicKey, testAddrs[2].PrivateKey, testAddrs[2].RawAddress, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
@@ -1193,12 +1193,12 @@ func TestThreeDelegates(t *testing.T) {
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
 	// handle delegate 1's endorsement
-	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
 	// handle delegate 2's endorsement
-	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[2], cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[2].PublicKey, testAddrs[2].PrivateKey, testAddrs[2].RawAddress, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.NoError(err)
 	require.Equal(sAcceptCommitEndorse, state)
