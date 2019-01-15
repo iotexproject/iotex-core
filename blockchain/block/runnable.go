@@ -8,7 +8,6 @@ package block
 
 import (
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
@@ -79,9 +78,9 @@ func (b *RunnableActionsBuilder) AddActions(acts ...action.SealedEnvelope) *Runn
 }
 
 // Build signs and then builds a block.
-func (b *RunnableActionsBuilder) Build(producer *iotxaddress.Address) RunnableActions {
-	b.ra.blockProducerAddr = producer.RawAddress
-	b.ra.blockProducerPubKey = producer.PublicKey
+func (b *RunnableActionsBuilder) Build(producerAddr string, producerPubKey keypair.PublicKey) RunnableActions {
+	b.ra.blockProducerAddr = producerAddr
+	b.ra.blockProducerPubKey = producerPubKey
 	b.ra.txHash = calculateTxRoot(b.ra.actions)
 	return b.ra
 }
