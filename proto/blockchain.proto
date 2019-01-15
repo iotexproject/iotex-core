@@ -37,6 +37,11 @@ message BlockPb {
     repeated ActionPb actions = 2;
 }
 
+// Receipts consists of a collection of recepit
+message Receipts {
+    repeated ReceiptPb receipts = 1;
+}
+
 // index of block raw data file
 message BlockIndex {
     uint64 start = 1;

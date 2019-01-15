@@ -13,6 +13,8 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -701,4 +703,32 @@ func TestBlockDAO(t *testing.T) {
 		defer testutil.CleanupPath(t, path)
 		testDeleteDao(db.NewOnDiskDB(cfg), t)
 	})
+}
+
+func TestBlockDao_putReceipts(t *testing.T) {
+	blkDao := newBlockDAO(db.NewMemKVStore(), true)
+	receipts := []*action.Receipt{
+		{
+			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ReturnValue:     []byte("1"),
+			Status:          1,
+			GasConsumed:     1,
+			ContractAddress: "1",
+			Logs:            []*action.Log{},
+		},
+		{
+			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ReturnValue:     []byte("2"),
+			Status:          2,
+			GasConsumed:     2,
+			ContractAddress: "2",
+			Logs:            []*action.Log{},
+		},
+	}
+	require.NoError(t, blkDao.putReceipts(1, receipts))
+	for _, receipt := range receipts {
+		r, err := blkDao.getReceiptByActionHash(receipt.Hash)
+		require.NoError(t, err)
+		assert.Equal(t, receipt.Hash, r.Hash)
+	}
 }

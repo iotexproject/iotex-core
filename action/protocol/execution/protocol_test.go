@@ -116,7 +116,7 @@ func runExecution(
 		return nil, err
 	}
 
-	return bc.GetReceiptByExecutionHash(exec.Hash())
+	return bc.GetReceiptByActionHash(exec.Hash())
 }
 
 func (sct *smartContractTest) prepareBlockchain(
@@ -269,7 +269,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(1, len(blk.Receipts))
 
 		eHash := execution.Hash()
-		r, _ := bc.GetReceiptByExecutionHash(eHash)
+		r, _ := bc.GetReceiptByActionHash(eHash)
 		require.Equal(eHash, r.Hash)
 		h, _ := iotxaddress.GetPubkeyHash(r.ContractAddress)
 		contractAddrHash := byteutil.BytesTo20B(h)
@@ -326,7 +326,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(byte(15), v[31])
 
 		eHash = execution.Hash()
-		r, _ = bc.GetReceiptByExecutionHash(eHash)
+		r, _ = bc.GetReceiptByActionHash(eHash)
 		require.Equal(eHash, r.Hash)
 
 		// read from key 0
@@ -352,7 +352,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(1, len(blk.Receipts))
 
 		eHash = execution.Hash()
-		r, _ = bc.GetReceiptByExecutionHash(eHash)
+		r, _ = bc.GetReceiptByActionHash(eHash)
 		require.Equal(eHash, r.Hash)
 
 		data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
@@ -443,7 +443,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		log.S().Info("======= Test RollDice")
 		eHash := execution.Hash()
-		r, _ := bc.GetReceiptByExecutionHash(eHash)
+		r, _ := bc.GetReceiptByActionHash(eHash)
 		require.Equal(eHash, r.Hash)
 		contractAddr := r.ContractAddress
 		data, _ = hex.DecodeString("d0e30db0")
@@ -588,7 +588,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(1, len(blk.Receipts))
 
 		eHash := execution.Hash()
-		r, _ := bc.GetReceiptByExecutionHash(eHash)
+		r, _ := bc.GetReceiptByActionHash(eHash)
 		require.Equal(eHash, r.Hash)
 		contract := r.ContractAddress
 		h, _ := iotxaddress.GetPubkeyHash(contract)
@@ -702,7 +702,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		// verify balance
 		eHash = execution.Hash()
-		r, _ = bc.GetReceiptByExecutionHash(eHash)
+		r, _ = bc.GetReceiptByActionHash(eHash)
 		require.Equal(eHash, r.Hash)
 		h = r.ReturnValue[len(r.ReturnValue)-8:]
 		amount := binary.BigEndian.Uint64(h)
