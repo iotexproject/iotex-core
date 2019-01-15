@@ -92,8 +92,6 @@ type Blockchain interface {
 	GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error)
 	// GetBlockHashByExecutionHash returns Block hash by execution hash
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
-	// GetReceiptByExecutionHash returns the receipt by execution hash
-	GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error)
 	// GetReceiptByActionHash returns the receipt by action hash
 	GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error)
 	// GetActionsFromAddress returns actions from address
@@ -575,15 +573,6 @@ func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B,
 		return hash.ZeroHash32B, errors.New("explorer not enabled")
 	}
 	return bc.dao.getBlockHashByExecutionHash(h)
-}
-
-// TODO: To be deprecated
-// GetReceiptByExecutionHash returns the receipt by execution hash
-func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
-	}
-	return bc.dao.getReceiptByExecutionHash(h)
 }
 
 // GetReceiptByActionHash returns the receipt by action hash
@@ -1142,7 +1131,11 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 		// write smart contract receipt into DB
 		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
-		err = bc.dao.putReceipts(blk)
+		blkReceipts := make([]*action.Receipt, 0)
+		for _, receipt := range blk.Receipts {
+			blkReceipts = append(blkReceipts, receipt)
+		}
+		err = bc.dao.putReceipts(blk.Height(), blkReceipts)
 		receiptTimer.End()
 		if err != nil {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
