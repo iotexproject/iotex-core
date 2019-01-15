@@ -28,8 +28,6 @@ func NewGenericValidator(cm ChainManager) *GenericValidator { return &GenericVal
 
 // Validate validates a generic action
 func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelope) error {
-	v.mu.Lock()
-	defer v.mu.Unlock()
 
 	// TODO skip coinbase transfer for now because nonce is wrong.
 	if a, ok := act.Action().(*action.Transfer); ok && a.IsCoinbase() {
@@ -69,12 +67,10 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 	}
 	// Check if action's nonce is in correct order
 	if validateInBlock {
-		value, _ := vaCtx.NonceTracker.Load(act.SrcAddr())
-		nonceList, ok := value.([]uint64)
-		if !ok {
-			return errors.Errorf("failed to load received nonces for account %s", act.SrcAddr())
+		vaCtx.NonceTracker <- ActionIndex{
+			SrcAddr: act.SrcAddr(),
+			Nonce:   act.Nonce(),
 		}
-		vaCtx.NonceTracker.Store(act.SrcAddr(), append(nonceList, act.Nonce()))
 	}
 	return nil
 }

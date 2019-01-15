@@ -11,7 +11,6 @@ import (
 	"context"
 	"sort"
 	"sync"
-	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -114,72 +113,116 @@ func (v *validator) ValidateActionsOnly(
 	height uint64,
 ) error {
 	// Verify transfers, votes, executions, witness, and secrets
-	confirmedNonceMap := make(map[string]uint64)
-	accountNonceMap := &sync.Map{}
-	producerPKHash := keypair.HashPubKey(pk)
-	producerAddr := address.New(chainID, producerPKHash[:])
-	var coinbaseCounter int
-	var correctVerifications uint64
-	var expectedVerifications uint64
 	errChan := make(chan error, len(actions))
-	defer close(errChan)
-	var wg sync.WaitGroup
+	nonceTracker := make(chan protocol.ActionIndex, len(actions)+len(secretProposals)+1)
 
+	if err := v.validateActions(
+		actions,
+		containCoinbase,
+		secretWitness,
+		secretProposals,
+		pk,
+		chainID,
+		height,
+		nonceTracker,
+		errChan,
+	); err != nil {
+		close(errChan)
+		close(nonceTracker)
+		return err
+	}
+
+	close(errChan)
+	for err := range errChan {
+		close(nonceTracker)
+		return errors.Wrap(err, "failed to validate action")
+	}
+
+	close(nonceTracker)
+	if height > 0 {
+		accountNonceMap := make(map[string][]uint64)
+		for idx := range nonceTracker {
+			if _, ok := accountNonceMap[idx.SrcAddr]; !ok {
+				accountNonceMap[idx.SrcAddr] = make([]uint64, 0)
+			}
+			accountNonceMap[idx.SrcAddr] = append(accountNonceMap[idx.SrcAddr], idx.Nonce)
+		}
+		//Verify each account's Nonce
+		for srcAddr, receivedNonces := range accountNonceMap {
+			confirmedNonce, err := v.sf.Nonce(srcAddr)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
+			}
+			sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
+			for i, nonce := range receivedNonces {
+				if nonce != confirmedNonce+uint64(i+1) {
+					return errors.Wrapf(
+						action.ErrNonce,
+						"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
+						i,
+						nonce,
+						srcAddr,
+						confirmedNonce,
+					)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (v *validator) validateActions(
+	actions []action.SealedEnvelope,
+	containCoinbase bool,
+	secretWitness *action.SecretWitness,
+	secretProposals []*action.SecretProposal,
+	pk keypair.PublicKey,
+	chainID uint32,
+	height uint64,
+	nonceTracker chan protocol.ActionIndex,
+	errChan chan error,
+) error {
+	coinbaseCounter := 0
+	producerPK := keypair.HashPubKey(pk)
+	producerAddr := address.New(chainID, producerPK[:])
+
+	var wg sync.WaitGroup
 	for _, selp := range actions {
 		// TODO: Maybe need more strict measurement to validate a coinbase transfer
 		if act, ok := selp.Action().(*action.Transfer); ok && act.IsCoinbase() {
 			coinbaseCounter++
-		} else {
-			// Store the nonce of the sender and verify later
-			if _, ok := confirmedNonceMap[selp.SrcAddr()]; !ok {
-				accountNonce, err := v.sf.Nonce(selp.SrcAddr())
-				if err != nil {
-					return errors.Wrap(err, "failed to get the confirmed nonce of action sender")
-				}
-				confirmedNonceMap[selp.SrcAddr()] = accountNonce
-				accountNonceMap.Store(selp.SrcAddr(), make([]uint64, 0))
-			}
 		}
 
 		ctx := protocol.WithValidateActionsCtx(context.Background(),
 			&protocol.ValidateActionsCtx{
-				NonceTracker: accountNonceMap,
+				NonceTracker: nonceTracker,
 				BlockHeight:  height,
 				ProducerAddr: producerAddr.IotxAddress(),
 			})
 
 		for _, validator := range v.actionEnvelopeValidators {
 			wg.Add(1)
-			expectedVerifications++
-			go func(validator protocol.ActionEnvelopeValidator, selp action.SealedEnvelope, counter *uint64) {
+			go func(validator protocol.ActionEnvelopeValidator, selp action.SealedEnvelope) {
 				defer wg.Done()
 				if err := validator.Validate(ctx, selp); err != nil {
 					errChan <- err
 					return
 				}
-				atomic.AddUint64(counter, uint64(1))
-			}(validator, selp, &correctVerifications)
+			}(validator, selp)
 		}
 
 		for _, validator := range v.actionValidators {
 			wg.Add(1)
-			expectedVerifications++
-			go func(validator protocol.ActionValidator, act action.Action, counter *uint64) {
+			go func(validator protocol.ActionValidator, act action.Action) {
 				defer wg.Done()
 				if err := validator.Validate(ctx, act); err != nil {
 					errChan <- err
 					return
 				}
-				atomic.AddUint64(counter, uint64(1))
-			}(validator, selp.Action(), &correctVerifications)
+			}(validator, selp.Action())
 		}
 	}
-
 	wg.Wait()
-
-	if correctVerifications != expectedVerifications {
-		return errors.Wrap(<-errChan, "failed to validate action")
-	}
 
 	if containCoinbase && coinbaseCounter != 1 || !containCoinbase && coinbaseCounter != 0 {
 		return errors.New("wrong number of coinbase transfers in block")
@@ -191,21 +234,10 @@ func (v *validator) ValidateActionsOnly(
 		if _, err := iotxaddress.GetPubkeyHash(secretWitness.SrcAddr()); err != nil {
 			return errors.Wrapf(err, "failed to validate witness sender's address %s", secretWitness.SrcAddr())
 		}
-		// Store the nonce of the witness sender and verify later
-		if _, ok := confirmedNonceMap[secretWitness.SrcAddr()]; !ok {
-			accountNonce, err := v.sf.Nonce(secretWitness.SrcAddr())
-			if err != nil {
-				return errors.Wrap(err, "failed to get the nonce of secret sender")
-			}
-			confirmedNonceMap[secretWitness.SrcAddr()] = accountNonce
-			accountNonceMap.Store(secretWitness.SrcAddr(), make([]uint64, 0))
+		nonceTracker <- protocol.ActionIndex{
+			SrcAddr: secretWitness.SrcAddr(),
+			Nonce:   secretWitness.Nonce(),
 		}
-		value, _ := accountNonceMap.Load(secretWitness.SrcAddr())
-		nonceList, ok := value.([]uint64)
-		if !ok {
-			return errors.Errorf("failed to load received nonces for account %s", secretWitness.SrcAddr())
-		}
-		accountNonceMap.Store(secretWitness.SrcAddr(), append(nonceList, secretWitness.Nonce()))
 	}
 
 	// Verify Secrets
@@ -218,21 +250,10 @@ func (v *validator) ValidateActionsOnly(
 			return errors.Wrapf(err, "failed to validate secret recipient's address %s", sp.DstAddr())
 		}
 
-		// Store the nonce of the sender and verify later
-		if _, ok := confirmedNonceMap[sp.SrcAddr()]; !ok {
-			accountNonce, err := v.sf.Nonce(sp.SrcAddr())
-			if err != nil {
-				return errors.Wrap(err, "failed to get the nonce of secret sender")
-			}
-			confirmedNonceMap[sp.SrcAddr()] = accountNonce
-			accountNonceMap.Store(sp.SrcAddr(), make([]uint64, 0))
+		nonceTracker <- protocol.ActionIndex{
+			SrcAddr: sp.SrcAddr(),
+			Nonce:   sp.Nonce(),
 		}
-		value, _ := accountNonceMap.Load(sp.SrcAddr())
-		nonceList, ok := value.([]uint64)
-		if !ok {
-			return errors.Errorf("failed to load received nonces for account %s", secretWitness.SrcAddr())
-		}
-		accountNonceMap.Store(sp.SrcAddr(), append(nonceList, sp.Nonce()))
 
 		// verify secret if the validator is recipient
 		if v.validatorAddr == sp.DstAddr() {
@@ -243,32 +264,6 @@ func (v *validator) ValidateActionsOnly(
 			}
 			if !result {
 				return errors.Wrap(err, "failed to verify the DKG secret share")
-			}
-		}
-	}
-
-	if height > 0 {
-		//Verify each account's Nonce
-		for address := range confirmedNonceMap {
-			// The nonce of each action should be increasing, unique and consecutive
-			confirmedNonce := confirmedNonceMap[address]
-			value, _ := accountNonceMap.Load(address)
-			receivedNonces, ok := value.([]uint64)
-			if !ok {
-				return errors.Errorf("failed to load received nonces for account %s", address)
-			}
-			sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
-			for i, nonce := range receivedNonces {
-				if nonce != confirmedNonce+uint64(i+1) {
-					return errors.Wrapf(
-						action.ErrNonce,
-						"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
-						i,
-						nonce,
-						address,
-						confirmedNonce,
-					)
-				}
 			}
 		}
 	}

@@ -8,7 +8,6 @@ package execution
 
 import (
 	"context"
-	"sync"
 
 	"github.com/pkg/errors"
 
@@ -23,7 +22,6 @@ const ExecutionSizeLimit = 32 * 1024
 
 // Protocol defines the protocol of handling executions
 type Protocol struct {
-	mu sync.RWMutex
 	cm protocol.ChainManager
 }
 
@@ -53,9 +51,6 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 // Validate validates an execution
 func (p *Protocol) Validate(_ context.Context, act action.Action) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil
