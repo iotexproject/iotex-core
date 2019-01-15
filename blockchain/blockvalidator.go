@@ -114,7 +114,7 @@ func (v *validator) ValidateActionsOnly(
 ) error {
 	// Verify transfers, votes, executions, witness, and secrets
 	errChan := make(chan error, len(actions))
-	nonceTracker := make(chan protocol.ActionIndex, len(actions)+len(secretProposals)+1)
+	accountNonceMap := make(map[string][]uint64)
 
 	if err := v.validateActions(
 		actions,
@@ -124,29 +124,19 @@ func (v *validator) ValidateActionsOnly(
 		pk,
 		chainID,
 		height,
-		nonceTracker,
+		accountNonceMap,
 		errChan,
 	); err != nil {
 		close(errChan)
-		close(nonceTracker)
 		return err
 	}
 
 	close(errChan)
 	for err := range errChan {
-		close(nonceTracker)
 		return errors.Wrap(err, "failed to validate action")
 	}
 
-	close(nonceTracker)
 	if height > 0 {
-		accountNonceMap := make(map[string][]uint64)
-		for idx := range nonceTracker {
-			if _, ok := accountNonceMap[idx.SrcAddr]; !ok {
-				accountNonceMap[idx.SrcAddr] = make([]uint64, 0)
-			}
-			accountNonceMap[idx.SrcAddr] = append(accountNonceMap[idx.SrcAddr], idx.Nonce)
-		}
 		//Verify each account's Nonce
 		for srcAddr, receivedNonces := range accountNonceMap {
 			confirmedNonce, err := v.sf.Nonce(srcAddr)
@@ -179,7 +169,7 @@ func (v *validator) validateActions(
 	pk keypair.PublicKey,
 	chainID uint32,
 	height uint64,
-	nonceTracker chan protocol.ActionIndex,
+	accountNonceMap map[string][]uint64,
 	errChan chan error,
 ) error {
 	coinbaseCounter := 0
@@ -191,11 +181,12 @@ func (v *validator) validateActions(
 		// TODO: Maybe need more strict measurement to validate a coinbase transfer
 		if act, ok := selp.Action().(*action.Transfer); ok && act.IsCoinbase() {
 			coinbaseCounter++
+		} else {
+			appendActionIndex(accountNonceMap, selp.SrcAddr(), selp.Nonce())
 		}
 
 		ctx := protocol.WithValidateActionsCtx(context.Background(),
 			&protocol.ValidateActionsCtx{
-				NonceTracker: nonceTracker,
 				BlockHeight:  height,
 				ProducerAddr: producerAddr.IotxAddress(),
 			})
@@ -234,10 +225,7 @@ func (v *validator) validateActions(
 		if _, err := iotxaddress.GetPubkeyHash(secretWitness.SrcAddr()); err != nil {
 			return errors.Wrapf(err, "failed to validate witness sender's address %s", secretWitness.SrcAddr())
 		}
-		nonceTracker <- protocol.ActionIndex{
-			SrcAddr: secretWitness.SrcAddr(),
-			Nonce:   secretWitness.Nonce(),
-		}
+		appendActionIndex(accountNonceMap, secretWitness.SrcAddr(), secretWitness.Nonce())
 	}
 
 	// Verify Secrets
@@ -249,11 +237,7 @@ func (v *validator) validateActions(
 		if _, err := iotxaddress.GetPubkeyHash(sp.DstAddr()); err != nil {
 			return errors.Wrapf(err, "failed to validate secret recipient's address %s", sp.DstAddr())
 		}
-
-		nonceTracker <- protocol.ActionIndex{
-			SrcAddr: sp.SrcAddr(),
-			Nonce:   sp.Nonce(),
-		}
+		appendActionIndex(accountNonceMap, sp.SrcAddr(), sp.Nonce())
 
 		// verify secret if the validator is recipient
 		if v.validatorAddr == sp.DstAddr() {
@@ -316,4 +300,11 @@ func verifySigAndRoot(blk *block.Block) error {
 			hashExpect)
 	}
 	return nil
+}
+
+func appendActionIndex(accountNonceMap map[string][]uint64, srcAddr string, nonce uint64) {
+	if _, ok := accountNonceMap[srcAddr]; !ok {
+		accountNonceMap[srcAddr] = make([]uint64, 0)
+	}
+	accountNonceMap[srcAddr] = append(accountNonceMap[srcAddr], nonce)
 }

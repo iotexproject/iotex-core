@@ -35,16 +35,8 @@ type RunActionsCtx struct {
 	EnableGasCharge bool
 }
 
-// ActionIndex uses src address and nonce to identify an action
-type ActionIndex struct {
-	SrcAddr string
-	Nonce   uint64
-}
-
 // ValidateActionsCtx provides action validators with auxiliary information.
 type ValidateActionsCtx struct {
-	// nonce tracker of each action's source account
-	NonceTracker chan ActionIndex
 	// height of block containing those actions
 	BlockHeight uint64
 	// public key of producer who compose those actions

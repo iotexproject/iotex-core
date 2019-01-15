@@ -27,17 +27,11 @@ type GenericValidator struct {
 func NewGenericValidator(cm ChainManager) *GenericValidator { return &GenericValidator{cm: cm} }
 
 // Validate validates a generic action
-func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelope) error {
+func (v *GenericValidator) Validate(_ context.Context, act action.SealedEnvelope) error {
 
 	// TODO skip coinbase transfer for now because nonce is wrong.
 	if a, ok := act.Action().(*action.Transfer); ok && a.IsCoinbase() {
 		return nil
-	}
-	vaCtx, validateInBlock := GetValidateActionsCtx(ctx)
-	if validateInBlock {
-		if vaCtx.BlockHeight == 0 {
-			return nil
-		}
 	}
 	// Reject over-gassed action
 	if act.GasLimit() > genesis.ActionGasLimit {
@@ -64,13 +58,6 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 	pendingNonce := confirmedNonce + 1
 	if pendingNonce > act.Nonce() {
 		return errors.Wrap(action.ErrNonce, "nonce is too low")
-	}
-	// Check if action's nonce is in correct order
-	if validateInBlock {
-		vaCtx.NonceTracker <- ActionIndex{
-			SrcAddr: act.SrcAddr(),
-			Nonce:   act.Nonce(),
-		}
 	}
 	return nil
 }
