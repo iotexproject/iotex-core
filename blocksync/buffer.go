@@ -73,13 +73,8 @@ func (b *blockBuffer) Flush(blk *blockchain.Block) (bool, bCheckinResult) {
 		}
 		delete(b.blocks, next)
 		if err := commitBlock(b.bc, b.ap, blk); err != nil {
-			l.Error().Err(err).Uint64("syncHeight", next).
-				Msg("Failed to commit the block.")
-			// unable to commit, check reason
-			committedBlk, err := b.bc.GetBlockByHeight(next)
-			if err != nil || committedBlk.HashBlock() != blk.HashBlock() {
-				break
-			}
+			l.Error().Err(err).Uint64("syncHeight", next).Msg("Failed to commit the block.")
+			break
 		}
 		moved = true
 		confirmedHeight = next

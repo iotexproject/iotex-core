@@ -13,6 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/boltdb/bolt"
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
@@ -943,6 +944,16 @@ func (bc *blockchain) validateBlock(blk *Block, containCoinbase bool) error {
 
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *Block) error {
+	// Check if it is already exists, and return earlier
+	blkHash, err := bc.dao.getBlockHash(blk.Height())
+	if blkHash != hash.ZeroHash32B {
+		logger.Debug().Uint64("height", blk.Height()).Msg("Block already exists")
+		return nil
+	}
+	// If it's a ready db io error, return earlier with the error
+	if errors.Cause(err) != db.ErrNotExist && errors.Cause(err) != bolt.ErrBucketNotFound {
+		return err
+	}
 	// write block into DB
 	if err := bc.dao.putBlock(blk); err != nil {
 		return err

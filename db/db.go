@@ -32,8 +32,6 @@ type KVStore interface {
 
 	// Put insert or update a record identified by (namespace, key)
 	Put(string, []byte, []byte) error
-	// Put puts a record only if (namespace, key) doesn't exist, otherwise return ErrAlreadyExist
-	PutIfNotExists(string, []byte, []byte) error
 	// Get gets a record by (namespace, key)
 	Get(string, []byte) ([]byte, error)
 	// Delete deletes a record by (namespace, key)
@@ -68,16 +66,6 @@ func (m *memKVStore) Stop(_ context.Context) error { return nil }
 func (m *memKVStore) Put(namespace string, key, value []byte) error {
 	m.bucket[namespace] = struct{}{}
 	m.data.Store(namespace+keyDelimiter+string(key), value)
-	return nil
-}
-
-// PutIfNotExists inserts a <key, value> record only if it does not exist yet, otherwise return ErrAlreadyExist
-func (m *memKVStore) PutIfNotExists(namespace string, key, value []byte) error {
-	m.bucket[namespace] = struct{}{}
-	_, loaded := m.data.LoadOrStore(namespace+keyDelimiter+string(key), value)
-	if loaded {
-		return ErrAlreadyExist
-	}
 	return nil
 }
 
@@ -118,11 +106,6 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 		}
 		if write.writeType == Put {
 			if err := m.Put(write.namespace, write.key, write.value); err != nil {
-				e = err
-				break
-			}
-		} else if write.writeType == PutIfNotExists {
-			if err := m.PutIfNotExists(write.namespace, write.key, write.value); err != nil {
 				e = err
 				break
 			}
@@ -314,18 +297,6 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 					}
 					if err := bucket.Put(write.key, write.value); err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-				} else if write.writeType == PutIfNotExists {
-					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
-					if err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-					if bucket.Get(write.key) == nil {
-						if err := bucket.Put(write.key, write.value); err != nil {
-							return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-						}
-					} else {
-						return ErrAlreadyExist
 					}
 				} else if write.writeType == Delete {
 					bucket := tx.Bucket([]byte(write.namespace))

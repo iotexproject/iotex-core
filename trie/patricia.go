@@ -203,7 +203,11 @@ func putPatriciaNew(ptr patricia, bucket string, cb db.CachedBatch) ([]byte, err
 	}
 	key := ptr.hash()
 	logger.Debug().Hex("key", key[:8]).Msg("putnew")
-	return key[:], cb.PutIfNotExists(bucket, key[:], value, "failed to put non-existing key = %x", key)
+	if _, err = cb.Get(bucket, key[:]); err == nil {
+		return nil, db.ErrAlreadyExist
+	}
+	cb.Put(bucket, key[:], value, "failed to put non-existing key = %x", key)
+	return key[:], nil
 }
 
 // delPatricia deletes the patricia node from DB
