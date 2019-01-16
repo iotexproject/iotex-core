@@ -83,7 +83,7 @@ func main() {
 	flag.IntVar(&voteGasLimit, "vote-gas-limit", 1000000, "vote gas limit")
 	flag.IntVar(&voteGasPrice, "vote-gas-price", 10, "vote gas price")
 	flag.IntVar(&executionNum, "execution-num", 50, "number of execution injections")
-	flag.StringVar(&contract, "contract", "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj", "smart contract address")
+	flag.StringVar(&contract, "contract", "io1qyqqqqqp3kcd2pyfwus69nzgvkwhg8mk8h336dt8dqgtyy", "smart contract address")
 	flag.IntVar(&executionAmount, "execution-amount", 50, "execution amount")
 	flag.IntVar(&executionGasLimit, "execution-gas-limit", 1200000, "execution gas limit")
 	flag.IntVar(&executionGasPrice, "execution-gas-price", 10, "execution gas price")
@@ -98,14 +98,14 @@ func main() {
 
 	proxy := explorer.NewExplorerProxy("http://" + addr)
 
-	addrs, err := util.LoadAddresses(configPath, uint32(chainID))
+	addrKeys, err := util.LoadAddresses(configPath, uint32(chainID))
 	if err != nil {
 		log.L().Fatal("Failed to load addresses from config path", zap.Error(err))
 	}
-	admins := addrs[len(addrs)-adminNumber:]
-	delegates := addrs[:len(addrs)-adminNumber]
+	admins := addrKeys[len(addrKeys)-adminNumber:]
+	delegates := addrKeys[:len(addrKeys)-adminNumber]
 
-	counter, err := util.InitCounter(proxy, addrs)
+	counter, err := util.InitCounter(proxy, addrKeys)
 	if err != nil {
 		log.L().Fatal("Failed to initialize nonce counter", zap.Error(err))
 	}

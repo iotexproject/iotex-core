@@ -35,12 +35,12 @@ func TestGenesis(t *testing.T) {
 		SetHeight(0).
 		SetTimeStamp(Gen.Timestamp).
 		AddActions(acts...).
-		Build(testaddress.IotxAddrinfo["producer"].RawAddress, testaddress.IotxAddrinfo["producer"].PublicKey)
+		Build(testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PubKey)
 
 	genesisBlk, err := block.NewBuilder(racts).
 		SetChainID(cfg.Chain.ID).
 		SetPrevBlockHash(Gen.ParentHash).
-		SignAndBuild(testaddress.IotxAddrinfo["producer"].PublicKey, testaddress.IotxAddrinfo["producer"].PrivateKey)
+		SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 	assert.NoError(err)
 
 	t.Log("The Genesis Block has the following header:")
@@ -55,7 +55,7 @@ func TestGenesis(t *testing.T) {
 	assert.Equal(uint64(0), genesisBlk.Height())
 	assert.Equal(int64(1524676419), genesisBlk.Timestamp())
 	assert.Equal(hash.ZeroHash32B, genesisBlk.PrevHash())
-	genesisHash, _ := hex.DecodeString("3cddf6292ff06aee68aee10ce387dc145d2a475a7b4d4edd6e35de8dc44d2323")
+	genesisHash, _ := hex.DecodeString("88cc592ef59baf6c1e39acd216a817c9639753606b7471369880190dc3e8913d")
 	h := genesisBlk.HashBlock()
 	assert.Equal(genesisHash, h[:])
 }

@@ -40,21 +40,21 @@ func TestHandlePutBlock(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(sf).AnyTimes()
 
-	addr := testaddress.IotxAddrinfo["producer"]
-	addr2 := testaddress.IotxAddrinfo["echo"]
+	addr := testaddress.Addrinfo["producer"]
+	addr2 := testaddress.Addrinfo["echo"]
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 	_, err = account.LoadOrCreateAccount(
 		ws,
-		addr.RawAddress,
+		addr.Bech32(),
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx)),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -76,8 +76,8 @@ func TestHandlePutBlock(t *testing.T) {
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := action.NewPutBlock(
 		1,
-		addr2.RawAddress,
-		addr.RawAddress,
+		addr2.Bech32(),
+		addr.Bech32(),
 		10001,
 		roots,
 		10003,
@@ -105,8 +105,8 @@ func TestHandlePutBlock(t *testing.T) {
 	roots["10002"] = byteutil.BytesTo32B([]byte("10003"))
 	pb2 := action.NewPutBlock(
 		1,
-		addr2.RawAddress,
-		addr.RawAddress,
+		addr2.Bech32(),
+		addr.Bech32(),
 		10002,
 		roots,
 		10003,

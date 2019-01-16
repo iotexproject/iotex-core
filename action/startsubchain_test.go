@@ -18,12 +18,12 @@ import (
 )
 
 func TestStartSubChain(t *testing.T) {
-	addr := testaddress.IotxAddrinfo["producer"]
+	addr := testaddress.Addrinfo["producer"]
 	assertStart := func(start *StartSubChain) {
 		assert.Equal(t, uint32(version.ProtocolVersion), start.version)
 		assert.Equal(t, uint64(1), start.Nonce())
 		assert.Equal(t, uint32(10000), start.ChainID())
-		assert.Equal(t, addr.RawAddress, start.OwnerAddress())
+		assert.Equal(t, addr.Bech32(), start.OwnerAddress())
 		assert.Equal(t, big.NewInt(10001), start.SecurityDeposit())
 		assert.Equal(t, big.NewInt(10002), start.OperationDeposit())
 		assert.Equal(t, uint64(10003), start.StartHeight())
@@ -34,7 +34,7 @@ func TestStartSubChain(t *testing.T) {
 	start := NewStartSubChain(
 		1,
 		10000,
-		addr.RawAddress,
+		addr.Bech32(),
 		big.NewInt(10001),
 		big.NewInt(10002),
 		10003,

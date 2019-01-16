@@ -30,7 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -93,8 +92,6 @@ type Blockchain interface {
 	GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error)
 	// GetBlockHashByExecutionHash returns Block hash by execution hash
 	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
-	// GetReceiptByExecutionHash returns the receipt by execution hash
-	GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error)
 	// GetReceiptByActionHash returns the receipt by action hash
 	GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error)
 	// GetActionsFromAddress returns actions from address
@@ -126,7 +123,7 @@ type Blockchain interface {
 		producerPubKey keypair.PublicKey,
 		producerPriKey keypair.PrivateKey,
 		producerAddr string,
-		dkgAddress *iotxaddress.DKGAddress,
+		dkgAddress *address.DKGAddress,
 		seed []byte,
 		data string,
 	) (*block.Block, error)
@@ -295,7 +292,7 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		log.L().Error("Failed to get producer's address by public key.", zap.Error(err))
 		return nil
 	}
-	chain.validator = &validator{sf: chain.sf, validatorAddr: address.IotxAddress()}
+	chain.validator = &validator{sf: chain.sf, validatorAddr: address.Bech32()}
 
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
@@ -578,15 +575,6 @@ func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B,
 	return bc.dao.getBlockHashByExecutionHash(h)
 }
 
-// TODO: To be deprecated
-// GetReceiptByExecutionHash returns the receipt by execution hash
-func (bc *blockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
-	}
-	return bc.dao.getReceiptByExecutionHash(h)
-}
-
 // GetReceiptByActionHash returns the receipt by action hash
 func (bc *blockchain) GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
 	if !bc.config.Explorer.Enabled {
@@ -688,7 +676,7 @@ func (bc *blockchain) MintNewBlock(
 	producerPubKey keypair.PublicKey,
 	producerPriKey keypair.PrivateKey,
 	producerAddr string,
-	dkgAddress *iotxaddress.DKGAddress,
+	dkgAddress *address.DKGAddress,
 	seed []byte,
 	data string,
 ) (*block.Block, error) {
@@ -715,6 +703,7 @@ func (bc *blockchain) MintNewBlock(
 	// include coinbase transfer
 	actions = append(actions, selp)
 
+	validateActionsOnlyTimer := bc.timerFactory.NewTimer("ValidateActionsOnly")
 	if err := bc.validator.ValidateActionsOnly(
 		actions,
 		true,
@@ -724,8 +713,10 @@ func (bc *blockchain) MintNewBlock(
 		bc.ChainID(),
 		bc.tipHeight+1,
 	); err != nil {
+		validateActionsOnlyTimer.End()
 		return nil, err
 	}
+	validateActionsOnlyTimer.End()
 
 	ra := block.NewRunnableActionsBuilder().
 		SetHeight(bc.tipHeight+1).
@@ -953,11 +944,6 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		err     error
 	)
 	addr := address.New(bc.ChainID(), keypair.ZeroPublicKey[:])
-	iaddr := &iotxaddress.Address{
-		PrivateKey: keypair.ZeroPrivateKey,
-		PublicKey:  keypair.ZeroPublicKey,
-		RawAddress: addr.IotxAddress(),
-	}
 	if bc.sf == nil {
 		return errors.New("statefactory cannot be nil")
 	}
@@ -970,7 +956,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
 			AddActions(acts...).
-			Build(iaddr.RawAddress, iaddr.PublicKey)
+			Build(addr.Bech32(), keypair.ZeroPublicKey)
 		// run execution and update state trie root hash
 		root, receipts, err := bc.runActions(racts, ws, false)
 		if err != nil {
@@ -982,7 +968,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetPrevBlockHash(Gen.ParentHash).
 			SetReceipts(receipts).
 			SetStateRoot(root).
-			SignAndBuild(iaddr.PublicKey, iaddr.PrivateKey)
+			SignAndBuild(keypair.ZeroPublicKey, keypair.ZeroPrivateKey)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -990,11 +976,11 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
-			Build(iaddr.RawAddress, iaddr.PublicKey)
+			Build(addr.Bech32(), keypair.ZeroPublicKey)
 		genesis, err = block.NewBuilder(racts).
 			SetChainID(bc.ChainID()).
 			SetPrevBlockHash(hash.ZeroHash32B).
-			SignAndBuild(iaddr.PublicKey, iaddr.PrivateKey)
+			SignAndBuild(keypair.ZeroPublicKey, keypair.ZeroPrivateKey)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -1025,17 +1011,12 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	// If restarting factory from fresh db, first update state changes in Genesis block
 	if startHeight == 0 {
 		addr := address.New(bc.ChainID(), keypair.ZeroPublicKey[:])
-		iaddr := &iotxaddress.Address{
-			PrivateKey: keypair.ZeroPrivateKey,
-			PublicKey:  keypair.ZeroPublicKey,
-			RawAddress: addr.IotxAddress(),
-		}
 		acts := NewGenesisActions(bc.config.Chain, ws)
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
 			AddActions(acts...).
-			Build(iaddr.RawAddress, iaddr.PublicKey)
+			Build(addr.Bech32(), keypair.ZeroPublicKey)
 		// run execution and update state trie root hash
 		if _, _, err := bc.runActions(racts, ws, false); err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
@@ -1145,7 +1126,11 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 		// write smart contract receipt into DB
 		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
-		err = bc.dao.putReceipts(blk)
+		blkReceipts := make([]*action.Receipt, 0)
+		for _, receipt := range blk.Receipts {
+			blkReceipts = append(blkReceipts, receipt)
+		}
+		err = bc.dao.putReceipts(blk.Height(), blkReceipts)
 		receiptTimer.End()
 		if err != nil {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())

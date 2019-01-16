@@ -87,7 +87,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		uint64(0),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.IotxAddrinfo["producer"].PublicKey,
+		ta.Keyinfo["producer"].PubKey,
 		nil,
 	)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
@@ -164,7 +164,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 		uint64(0),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.IotxAddrinfo["producer"].PublicKey,
+		ta.Keyinfo["producer"].PubKey,
 		nil,
 	)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
@@ -257,8 +257,8 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	}()
 
 	h := chain.TipHeight()
-	blk, err := chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk, err := chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.NotNil(blk)
 	require.NoError(err)
@@ -319,20 +319,20 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk1, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.NotNil(blk1)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk1))
-	blk2, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk2, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.NotNil(blk2)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(blk2))
-	blk3, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk3, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.NotNil(blk3)
 	require.Nil(err)
@@ -388,20 +388,20 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk1, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk1))
-	blk2, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk2, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(blk2))
-	blk3, err := chain1.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk3, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.NotNil(blk3)
 	require.NoError(err)
@@ -447,15 +447,15 @@ func TestBlockSyncerSync(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	blk, err := chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk, err := chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.NotNil(blk)
 	require.NoError(err)
 	require.Nil(bs.ProcessBlock(blk))
 
-	blk, err = chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk, err = chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.NotNil(blk)
 	require.NoError(err)

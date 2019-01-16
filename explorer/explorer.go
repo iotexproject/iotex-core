@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"net"
+	"sort"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -57,6 +58,27 @@ var (
 		[]string{"method", "succeed"},
 	)
 )
+
+// ExecutionList implements sort.Interface based on the Timestamp field.
+type ExecutionList []explorer.Execution
+
+func (e ExecutionList) Len() int           { return len(e) }
+func (e ExecutionList) Less(i, j int) bool { return e[i].Timestamp > e[j].Timestamp }
+func (e ExecutionList) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
+
+// TransferList implements sort.Interface based on the Timestamp field.
+type TransferList []explorer.Transfer
+
+func (t TransferList) Len() int           { return len(t) }
+func (t TransferList) Less(i, j int) bool { return t[i].Timestamp > t[j].Timestamp }
+func (t TransferList) Swap(i, j int)      { t[i], t[j] = t[j], t[i] }
+
+// VoteList implements sort.Interface based on the Timestamp field.
+type VoteList []explorer.Vote
+
+func (v VoteList) Len() int           { return len(v) }
+func (v VoteList) Less(i, j int) bool { return v[i].Timestamp > v[j].Timestamp }
+func (v VoteList) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 
 func init() {
 	prometheus.MustRegister(requestMtc)
@@ -182,6 +204,8 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 		}
 	}
 
+	// sort Transfer by timestamp
+	sort.Sort(TransferList(res))
 	return res, nil
 }
 
@@ -363,6 +387,8 @@ func (exp *Service) GetLastVotesByRange(startBlockHeight int64, offset int64, li
 		}
 	}
 
+	// sort Vote by timestamp
+	sort.Sort(VoteList(res))
 	return res, nil
 }
 
@@ -546,6 +572,8 @@ func (exp *Service) GetLastExecutionsByRange(startBlockHeight int64, offset int6
 		}
 	}
 
+	// sort Execution by timestamp
+	sort.Sort(ExecutionList(res))
 	return res, nil
 }
 
@@ -681,19 +709,9 @@ func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int
 }
 
 // GetReceiptByExecutionID gets receipt with corresponding execution id
+// Deprecated
 func (exp *Service) GetReceiptByExecutionID(id string) (explorer.Receipt, error) {
-	bytes, err := hex.DecodeString(id)
-	if err != nil {
-		return explorer.Receipt{}, err
-	}
-	var executionHash hash.Hash32B
-	copy(executionHash[:], bytes)
-	receipt, err := exp.bc.GetReceiptByExecutionHash(executionHash)
-	if err != nil {
-		return explorer.Receipt{}, err
-	}
-
-	return convertReceiptToExplorerReceipt(receipt)
+	return exp.GetReceiptByActionID(id)
 }
 
 // GetReceiptByActionID gets receipt with corresponding action id
@@ -1445,7 +1463,7 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 		}
 		deposits = append(deposits, explorer.Deposit{
 			Amount:    deposit.Amount.String(),
-			Address:   recipient.IotxAddress(),
+			Address:   recipient.Bech32(),
 			Confirmed: deposit.Confirmed,
 		})
 		if idx > 0 {

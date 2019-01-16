@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -68,18 +67,18 @@ func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp 
 			beneficiary = *author
 		}
 	*/
-	executorHash, err := iotxaddress.GetPubkeyHash(execution.Executor())
+	executor, err := address.Bech32ToAddress(execution.Executor())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to convert encoded executor address to address")
 	}
-	executorAddr := common.BytesToAddress(executorHash)
+	executorAddr := common.BytesToAddress(executor.Payload())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
-		contractHash, err := iotxaddress.GetPubkeyHash(execution.Contract())
+		contract, err := address.Bech32ToAddress(execution.Contract())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to convert encoded contract address to address")
 		}
-		contractAddr := common.BytesToAddress(contractHash)
+		contractAddr := common.BytesToAddress(contract.Payload())
 		contractAddrPointer = &contractAddr
 	}
 	producerHash := keypair.HashPubKey(producerPubKey)
@@ -227,7 +226,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
 		contractAddress := address.New(stateDB.cm.ChainID(), evmContractAddress.Bytes())
-		contractRawAddress = contractAddress.IotxAddress()
+		contractRawAddress = contractAddress.Bech32()
 	} else {
 		stateDB.SetNonce(evmParams.context.Origin, stateDB.GetNonce(evmParams.context.Origin)+1)
 		// process contract

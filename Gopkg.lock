@@ -770,13 +770,15 @@
   version = "v1.1.2"
 
 [[projects]]
-  name = "github.com/zjshen14/go-fsm"
+  name = "github.com/iotexproject/go-fsm"
   packages = ["."]
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
-  name = "github.com/zjshen14/go-p2p"
+  digest = "1:74647cdf77ca9db9e3aefe7bec47687dc29bf54aaf13b68ea1983e11b11e0a30"
+  name = "github.com/iotexproject/go-p2p"
   packages = ["."]
+  pruneopts = "UT"
   revision = "985c300fb1d4aff383c030ee8be763168b34846c"
 
 [[projects]]
@@ -911,6 +913,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "89b76ff001614667a42ccdea2a6438e19940f633f8453acb51008ce9cf505059"
+  inputs-digest = "dcb6075380e9a68268290f2144a5fe8148e67ba901cfe9784a571f6edc6695b8"
   solver-name = "gps-cdcl"
   solver-version = 1

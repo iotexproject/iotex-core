@@ -18,10 +18,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -330,7 +330,7 @@ func (sf *factory) state(addr hash.PKHash, s interface{}) error {
 }
 
 func (sf *factory) accountState(addr string) (*state.Account, error) {
-	pkHash, err := iotxaddress.AddressToPKHash(addr)
+	pkHash, err := address.Bech32ToPKHash(addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}

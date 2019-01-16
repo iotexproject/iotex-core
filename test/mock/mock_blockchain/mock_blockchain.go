@@ -8,9 +8,9 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
+	address "github.com/iotexproject/iotex-core/address"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	keypair "github.com/iotexproject/iotex-core/pkg/keypair"
 	state "github.com/iotexproject/iotex-core/state"
@@ -378,19 +378,6 @@ func (mr *MockBlockchainMockRecorder) GetBlockHashByExecutionHash(h interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByExecutionHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByExecutionHash), h)
 }
 
-// GetReceiptByExecutionHash mocks base method
-func (m *MockBlockchain) GetReceiptByExecutionHash(h hash.Hash32B) (*action.Receipt, error) {
-	ret := m.ctrl.Call(m, "GetReceiptByExecutionHash", h)
-	ret0, _ := ret[0].(*action.Receipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetReceiptByExecutionHash indicates an expected call of GetReceiptByExecutionHash
-func (mr *MockBlockchainMockRecorder) GetReceiptByExecutionHash(h interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByExecutionHash", reflect.TypeOf((*MockBlockchain)(nil).GetReceiptByExecutionHash), h)
-}
-
 // GetReceiptByActionHash mocks base method
 func (m *MockBlockchain) GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "GetReceiptByActionHash", h)
@@ -530,7 +517,7 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, producerPubKey keypair.PublicKey, producerPriKey keypair.PrivateKey, producerAddr string, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*block.Block, error) {
+func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, producerPubKey keypair.PublicKey, producerPriKey keypair.PrivateKey, producerAddr string, dkgAddress *address.DKGAddress, seed []byte, data string) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, producerPubKey, producerPriKey, producerAddr, dkgAddress, seed, data)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)

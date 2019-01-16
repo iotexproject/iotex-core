@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -145,7 +144,7 @@ func (v *validator) ValidateActionsOnly(
 			&protocol.ValidateActionsCtx{
 				NonceTracker: accountNonceMap,
 				BlockHeight:  height,
-				ProducerAddr: producerAddr.IotxAddress(),
+				ProducerAddr: producerAddr.Bech32(),
 			})
 
 		for _, validator := range v.actionEnvelopeValidators {
@@ -188,7 +187,7 @@ func (v *validator) ValidateActionsOnly(
 	// Verify Witness
 	if secretWitness != nil {
 		// Verify witness sender address
-		if _, err := iotxaddress.GetPubkeyHash(secretWitness.SrcAddr()); err != nil {
+		if _, err := address.Bech32ToAddress(secretWitness.SrcAddr()); err != nil {
 			return errors.Wrapf(err, "failed to validate witness sender's address %s", secretWitness.SrcAddr())
 		}
 		// Store the nonce of the witness sender and verify later
@@ -211,10 +210,10 @@ func (v *validator) ValidateActionsOnly(
 	// Verify Secrets
 	for _, sp := range secretProposals {
 		// Verify address
-		if _, err := iotxaddress.GetPubkeyHash(sp.SrcAddr()); err != nil {
+		if _, err := address.Bech32ToAddress(sp.SrcAddr()); err != nil {
 			return errors.Wrapf(err, "failed to validate secret sender's address %s", sp.SrcAddr())
 		}
-		if _, err := iotxaddress.GetPubkeyHash(sp.DstAddr()); err != nil {
+		if _, err := address.Bech32ToAddress(sp.DstAddr()); err != nil {
 			return errors.Wrapf(err, "failed to validate secret recipient's address %s", sp.DstAddr())
 		}
 
@@ -236,7 +235,7 @@ func (v *validator) ValidateActionsOnly(
 
 		// verify secret if the validator is recipient
 		if v.validatorAddr == sp.DstAddr() {
-			validatorID := iotxaddress.CreateID(v.validatorAddr)
+			validatorID := address.Bech32ToID(v.validatorAddr)
 			result, err := crypto.DKG.ShareVerify(validatorID, sp.Secret(), secretWitness.Witness())
 			if err == nil {
 				err = ErrDKGSecretProposal

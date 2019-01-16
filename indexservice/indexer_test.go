@@ -33,8 +33,9 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	}()
 
 	nodeAddr := "aaa"
-	addr1 := testaddress.IotxAddrinfo["alfa"]
-	addr2 := testaddress.IotxAddrinfo["bravo"]
+	addr1 := testaddress.Addrinfo["alfa"].Bech32()
+	pubKey1 := testaddress.Keyinfo["alfa"].PubKey
+	addr2 := testaddress.Addrinfo["bravo"].Bech32()
 	cfg := config.Default
 	idx := Indexer{
 		cfg:                cfg.Indexer,
@@ -54,28 +55,28 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 		Actions: []*iproto.ActionPb{
 			{
 				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{Recipient: addr2.RawAddress},
+					Transfer: &iproto.TransferPb{Recipient: addr2},
 				},
-				Sender:       addr1.RawAddress,
-				SenderPubKey: addr1.PublicKey[:],
+				Sender:       addr1,
+				SenderPubKey: pubKey1[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        101,
 			},
 			{
 				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{VoteeAddress: addr2.RawAddress},
+					Vote: &iproto.VotePb{VoteeAddress: addr2},
 				},
-				Sender:       addr1.RawAddress,
-				SenderPubKey: addr1.PublicKey[:],
+				Sender:       addr1,
+				SenderPubKey: pubKey1[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        103,
 			},
 			{
 				Action: &iproto.ActionPb_Execution{
-					Execution: &iproto.ExecutionPb{Contract: addr2.RawAddress},
+					Execution: &iproto.ExecutionPb{Contract: addr2},
 				},
-				Sender:       addr1.RawAddress,
-				SenderPubKey: addr1.PublicKey[:],
+				Sender:       addr1,
+				SenderPubKey: pubKey1[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        104,
 			},
@@ -91,28 +92,28 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 
 	// get transfer
-	transferHashes, err := idx.GetTransferHistory(addr1.RawAddress)
+	transferHashes, err := idx.GetTransferHistory(addr1)
 	require.Nil(err)
 	require.Equal(1, len(transferHashes))
 	transfer := transfers[0].Hash()
 	require.Equal(transfer, transferHashes[0])
 
 	// get vote
-	voteHashes, err := idx.GetVoteHistory(addr1.RawAddress)
+	voteHashes, err := idx.GetVoteHistory(addr1)
 	require.Nil(err)
 	require.Equal(1, len(voteHashes))
 	vote := votes[0].Hash()
 	require.Equal(vote, voteHashes[0])
 
 	// get execution
-	executionHashes, err := idx.GetExecutionHistory(addr1.RawAddress)
+	executionHashes, err := idx.GetExecutionHistory(addr1)
 	require.Nil(err)
 	require.Equal(1, len(executionHashes))
 	execution := executions[0].Hash()
 	require.Equal(execution, executionHashes[0])
 
 	// get action
-	actionHashes, err := idx.GetActionHistory(addr1.RawAddress)
+	actionHashes, err := idx.GetActionHistory(addr1)
 	require.Nil(err)
 	require.Equal(3, len(actionHashes))
 	action := blk.Actions[0].Hash()

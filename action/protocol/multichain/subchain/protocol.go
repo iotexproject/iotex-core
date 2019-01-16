@@ -133,9 +133,5 @@ func depositAddress(index uint64) hash.PKHash {
 }
 
 func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
-	addr, err := address.IotxAddressToAddress(srcAddr)
-	if err != nil {
-		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", srcAddr)
-	}
-	return byteutil.BytesTo20B(addr.Payload()), nil
+	return address.Bech32ToPKHash(srcAddr)
 }
