@@ -9,6 +9,9 @@ package factory
 import (
 	"context"
 	"math/big"
+	"math/rand"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -23,7 +26,9 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -1090,4 +1095,113 @@ func compareStrings(actual []string, expected []string) bool {
 		}
 	}
 	return len(act) == 0
+}
+
+func BenchmarkInMemRunAction(b *testing.B) {
+	benchRunAction(db.NewMemKVStore(), b)
+}
+
+func BenchmarkDBRunAction(b *testing.B) {
+	tp := filepath.Join(os.TempDir(), testTriePath)
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+
+	cfg := config.Default
+	cfg.DB.DbPath = tp
+
+	benchRunAction(db.NewOnDiskDB(cfg.DB), b)
+
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+}
+
+func benchRunAction(db db.KVStore, b *testing.B) {
+	// set up
+	accounts := []string{
+		testaddress.Addrinfo["alfa"].Bech32(),
+		testaddress.Addrinfo["bravo"].Bech32(),
+		testaddress.Addrinfo["charlie"].Bech32(),
+		testaddress.Addrinfo["delta"].Bech32(),
+		testaddress.Addrinfo["echo"].Bech32(),
+		testaddress.Addrinfo["foxtrot"].Bech32(),
+	}
+	pubKeys := []keypair.PublicKey{
+		testaddress.Keyinfo["alfa"].PubKey,
+		testaddress.Keyinfo["bravo"].PubKey,
+		testaddress.Keyinfo["charlie"].PubKey,
+		testaddress.Keyinfo["delta"].PubKey,
+		testaddress.Keyinfo["echo"].PubKey,
+		testaddress.Keyinfo["foxtrot"].PubKey,
+	}
+	nonces := make([]uint64, len(accounts))
+
+	cfg := config.Default
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db))
+	if err != nil {
+		b.Fatal(err)
+	}
+	sf.AddActionHandlers(account.NewProtocol())
+	if err := sf.Start(context.Background()); err != nil {
+		b.Fatal(err)
+	}
+	ws, err := sf.NewWorkingSet()
+	if err != nil {
+		b.Fatal(err)
+	}
+	for _, acc := range accounts {
+		_, err = account.LoadOrCreateAccount(ws, acc, big.NewInt(int64(b.N*100)))
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+	if err := sf.Commit(ws); err != nil {
+		b.Fatal(err)
+	}
+	gasLimit := testutil.TestGasLimit
+
+	for n := 0; n < b.N; n++ {
+		ws, err := sf.NewWorkingSet()
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		// put 500 actions together to run
+		b.StopTimer()
+		total := 500
+		acts := make([]action.SealedEnvelope, 0, total)
+		for numActs := 0; numActs < total; numActs++ {
+			senderIdx := rand.Int() % len(accounts)
+			receiverIdx := rand.Int() % len(accounts)
+			for receiverIdx == senderIdx {
+				receiverIdx = rand.Int() % len(accounts)
+			}
+			nonces[senderIdx] = nonces[senderIdx] + 1
+			tx, err := action.NewTransfer(nonces[senderIdx], big.NewInt(1), accounts[senderIdx], accounts[receiverIdx], nil, uint64(0), big.NewInt(0))
+			if err != nil {
+				b.Fatal(err)
+			}
+			bd := &action.EnvelopeBuilder{}
+			elp := bd.SetNonce(nonces[senderIdx]).SetDestinationAddress(accounts[receiverIdx]).SetAction(tx).Build()
+			selp := action.FakeSeal(elp, accounts[senderIdx], pubKeys[senderIdx])
+			acts = append(acts, selp)
+		}
+		b.StartTimer()
+		zctx := protocol.WithRunActionsCtx(context.Background(),
+			protocol.RunActionsCtx{
+				ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+				GasLimit:        &gasLimit,
+				EnableGasCharge: false,
+			})
+		_, _, err = ws.RunActions(zctx, uint64(n), acts)
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.StopTimer()
+		if err := sf.Commit(ws); err != nil {
+			b.Fatal(err)
+		}
+		b.StartTimer()
+	}
 }
