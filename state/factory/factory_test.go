@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -25,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -1173,17 +1175,22 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 		acts := make([]action.SealedEnvelope, 0, total)
 		for numActs := 0; numActs < total; numActs++ {
 			senderIdx := rand.Int() % len(accounts)
-			receiverIdx := rand.Int() % len(accounts)
-			for receiverIdx == senderIdx {
-				receiverIdx = rand.Int() % len(accounts)
+
+			var chainIDBytes [4]byte
+			enc.MachineEndian.PutUint32(chainIDBytes[:], 1)
+			payload := append(chainIDBytes[:], append([]byte{address.V1.Version}, []byte(randStringRunes(20))...)...)
+			receiverAddr, err := address.BytesToAddress(payload)
+			if err != nil {
+				b.Fatal(err)
 			}
+			receiver := receiverAddr.Bech32()
 			nonces[senderIdx] = nonces[senderIdx] + 1
-			tx, err := action.NewTransfer(nonces[senderIdx], big.NewInt(1), accounts[senderIdx], accounts[receiverIdx], nil, uint64(0), big.NewInt(0))
+			tx, err := action.NewTransfer(nonces[senderIdx], big.NewInt(1), accounts[senderIdx], receiver, nil, uint64(0), big.NewInt(0))
 			if err != nil {
 				b.Fatal(err)
 			}
 			bd := &action.EnvelopeBuilder{}
-			elp := bd.SetNonce(nonces[senderIdx]).SetDestinationAddress(accounts[receiverIdx]).SetAction(tx).Build()
+			elp := bd.SetNonce(nonces[senderIdx]).SetDestinationAddress(receiver).SetAction(tx).Build()
 			selp := action.FakeSeal(elp, accounts[senderIdx], pubKeys[senderIdx])
 			acts = append(acts, selp)
 		}
@@ -1204,4 +1211,18 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 		}
 		b.StartTimer()
 	}
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
