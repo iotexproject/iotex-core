@@ -11,6 +11,7 @@ package iproto;
 
 import "action.proto";
 import "google/protobuf/timestamp.proto";
+import "endorsement.proto";
 
 // header of a block
 message BlockHeaderPb {
@@ -31,11 +32,19 @@ message BlockHeaderPb {
     bytes dkgSignature = 15;
 }
 
+// footer of a block
+message BlockFooterPb {
+    int64 CommitTimestamp = 1;
+    uint32 Round = 2;
+    EndorsementSet endorsements = 3;
+}
+
 // block consists of header followed by transactions
 // hash of current block can be computed from header hence not stored
 message BlockPb {
     BlockHeaderPb header = 1;
     repeated ActionPb actions = 2;
+    BlockFooterPb footer = 3;
 }
 
 // Receipts consists of a collection of recepit

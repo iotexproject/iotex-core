@@ -7,7 +7,7 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
-package endorsementPb;
+package iproto;
 
 // corresponding to prepare and pre-prepare phase in view change protocol
 message Endorsement {

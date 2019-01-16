@@ -10,6 +10,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -40,6 +42,10 @@ func TestBlockBufferFlush(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.Nil(err)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	cs := mock_consensus.NewMockConsensus(ctrl)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
 	defer func() {
 		require.Nil(chain.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -49,6 +55,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	b := blockBuffer{
 		bc:     chain,
 		ap:     ap,
+		cs:     cs,
 		blocks: make(map[uint64]*block.Block),
 		size:   16,
 	}
@@ -57,8 +64,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert.Equal(bCheckinSkipNil, re)
 
 	blk, err := chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.Nil(err)
 	moved, re = b.Flush(blk)
 	assert.Equal(true, moved)
@@ -128,6 +134,10 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.Nil(err)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	cs := mock_consensus.NewMockConsensus(ctrl)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
 	defer func() {
 		require.Nil(chain.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -137,6 +147,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	b := blockBuffer{
 		bc:     chain,
 		ap:     ap,
+		cs:     cs,
 		blocks: make(map[uint64]*block.Block),
 		size:   16,
 	}
@@ -234,8 +245,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert.Len(b.GetBlocksIntervalsToSync(1), 1)
 
 	blk, err = chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.Nil(err)
 	b.Flush(blk)
 	assert.Len(b.GetBlocksIntervalsToSync(0), 0)

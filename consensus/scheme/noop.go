@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -33,6 +34,12 @@ func (n *Noop) Stop(_ context.Context) error { return nil }
 // HandleConsensusMsg handles incoming consensus message
 func (n *Noop) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	log.L().Warn("Noop scheme does not handle incoming consensus message.")
+	return nil
+}
+
+// ValidateBlockFooter validates the block footer
+func (n *Noop) ValidateBlockFooter(*block.Block) error {
+	log.L().Warn("Noop scheme could not calculate delegates by height")
 	return nil
 }
 

@@ -8,6 +8,7 @@ package block
 
 import (
 	"bytes"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -24,22 +25,15 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-// Footer defines a set of proof of this block
-type Footer struct {
-	// endorsements contain COMMIT endorsements from more than 2/3 delegates
-	endorsements    *endorsement.Set
-	commitTimestamp uint64
-}
-
 // Block defines the struct of block
 type Block struct {
 	Header
+	Footer
 
 	Actions         []action.SealedEnvelope
 	SecretProposals []*action.SecretProposal
 	SecretWitness   *action.SecretWitness
 	Receipts        map[hash.Hash32B]*action.Receipt
-	Footer          *Footer
 
 	WorkingSet factory.WorkingSet
 }
@@ -89,7 +83,11 @@ func (b *Block) ConvertToBlockPb() *iproto.BlockPb {
 	for _, act := range b.Actions {
 		actions = append(actions, act.Proto())
 	}
-	return &iproto.BlockPb{Header: b.ConvertToBlockHeaderPb(), Actions: actions}
+	return &iproto.BlockPb{
+		Header:  b.ConvertToBlockHeaderPb(),
+		Actions: actions,
+		Footer:  b.ConvertToBlockFooterPb(),
+	}
 }
 
 // Serialize returns the serialized byte stream of the block
@@ -131,7 +129,8 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) error {
 		b.Actions = append(b.Actions, act)
 		// TODO handle SecretProposal and SecretWitness
 	}
-	return nil
+
+	return b.ConvertFromBlockFooterPb(pbBlock.GetFooter())
 }
 
 // Deserialize parses the byte stream into a Block
@@ -214,4 +213,23 @@ func (b *Block) RunnableActions() RunnableActions {
 		blockProducerAddr:   addr.Bech32(),
 		actions:             b.Actions,
 	}
+}
+
+// Finalize creates a footer for the block
+func (b *Block) Finalize(set *endorsement.Set, round uint32, ts time.Time) error {
+	if b.endorsements != nil {
+		return errors.New("the block has been finalized")
+	}
+	if set == nil {
+		return errors.New("endorsement set is nil")
+	}
+	commitEndorsements, err := set.SubSet(endorsement.COMMIT)
+	if err != nil {
+		return err
+	}
+	b.round = round
+	b.endorsements = commitEndorsements
+	b.commitTimestamp = ts.Unix()
+
+	return nil
 }

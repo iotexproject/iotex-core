@@ -106,19 +106,6 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
 	}
-	bs, err := blocksync.NewBlockSyncer(
-		cfg,
-		chain,
-		actPool,
-		blocksync.WithUnicastOutBound(func(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) error {
-			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()})
-			return p2pAgent.UnicastOutbound(ctx, peer, msg)
-		}),
-		blocksync.WithNeighbors(p2pAgent.Neighbors),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create blockSyncer")
-	}
 
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
@@ -132,7 +119,23 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
-
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create blockSyncer")
+	}
+	bs, err := blocksync.NewBlockSyncer(
+		cfg,
+		chain,
+		actPool,
+		consensus,
+		blocksync.WithUnicastOutBound(func(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) error {
+			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()})
+			return p2pAgent.UnicastOutbound(ctx, peer, msg)
+		}),
+		blocksync.WithNeighbors(p2pAgent.Neighbors),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create blockSyncer")
+	}
 	var idx *indexservice.Server
 	if cfg.Indexer.Enabled {
 		idx = indexservice.NewServer(cfg, chain)

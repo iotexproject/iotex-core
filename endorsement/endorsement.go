@@ -13,13 +13,11 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/endorsement/proto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 // ConsensusVoteTopic defines the topic of an consensus vote
@@ -108,22 +106,22 @@ func (en *Endorsement) VerifySignature() bool {
 }
 
 // ToProtoMsg converts an endorsement to endorse proto
-func (en *Endorsement) ToProtoMsg() *endorsementPb.Endorsement {
+func (en *Endorsement) ToProtoMsg() *iproto.Endorsement {
 	vote := en.ConsensusVote()
-	var topic endorsementPb.Endorsement_ConsensusVoteTopic
+	var topic iproto.Endorsement_ConsensusVoteTopic
 	switch vote.Topic {
 	case PROPOSAL:
-		topic = endorsementPb.Endorsement_PROPOSAL
+		topic = iproto.Endorsement_PROPOSAL
 	case LOCK:
-		topic = endorsementPb.Endorsement_LOCK
+		topic = iproto.Endorsement_LOCK
 	case COMMIT:
-		topic = endorsementPb.Endorsement_COMMIT
+		topic = iproto.Endorsement_COMMIT
 	default:
 		log.L().Error("Endorsement object is of the wrong topic.")
 		return nil
 	}
 	pubkey := en.EndorserPublicKey()
-	return &endorsementPb.Endorsement{
+	return &iproto.Endorsement{
 		Height:         vote.Height,
 		Round:          vote.Round,
 		BlockHash:      vote.BlkHash[:],
@@ -146,14 +144,14 @@ func (en *Endorsement) Serialize() ([]byte, error) {
 }
 
 // FromProtoMsg creates an endorsement from endorsePb
-func (en *Endorsement) FromProtoMsg(endorsePb *endorsementPb.Endorsement) error {
+func (en *Endorsement) FromProtoMsg(endorsePb *iproto.Endorsement) error {
 	var topic ConsensusVoteTopic
 	switch endorsePb.Topic {
-	case endorsementPb.Endorsement_PROPOSAL:
+	case iproto.Endorsement_PROPOSAL:
 		topic = PROPOSAL
-	case endorsementPb.Endorsement_LOCK:
+	case iproto.Endorsement_LOCK:
 		topic = LOCK
-	case endorsementPb.Endorsement_COMMIT:
+	case iproto.Endorsement_COMMIT:
 		topic = COMMIT
 	default:
 		return errors.New("Invalid topic")
@@ -166,18 +164,10 @@ func (en *Endorsement) FromProtoMsg(endorsePb *endorsementPb.Endorsement) error 
 	)
 	pubKey, err := keypair.BytesToPublicKey(endorsePb.EndorserPubKey)
 	if err != nil {
-<<<<<<< HEAD
 		log.L().Error("Error when constructing endorse from proto message.",
 			zap.Error(err),
 			log.Hex("endorserPubKey", endorsePb.EndorserPubKey))
-		return nil, err
-=======
-		logger.Error().
-			Err(err).
-			Bytes("endorserPubKey", endorsePb.EndorserPubKey).
-			Msg("error when constructing endorse from proto message")
 		return err
->>>>>>> Consensus Refactor 4
 	}
 	en.object = vote
 	en.endorser = endorsePb.Endorser
@@ -189,7 +179,7 @@ func (en *Endorsement) FromProtoMsg(endorsePb *endorsementPb.Endorsement) error 
 
 // Deserialize converts a byte array to endorsement
 func (en *Endorsement) Deserialize(bs []byte) error {
-	pb := endorsementPb.Endorsement{}
+	pb := iproto.Endorsement{}
 	if err := proto.Unmarshal(bs, &pb); err != nil {
 		return err
 	}

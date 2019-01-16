@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/endorsement/proto"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -32,14 +32,16 @@ type Set struct {
 
 // NewSet creates an endorsement set
 func NewSet(blkHash []byte) *Set {
+	hash := make([]byte, len(blkHash))
+	copy(hash, blkHash)
 	return &Set{
-		blkHash:      blkHash,
+		blkHash:      hash,
 		endorsements: []*Endorsement{},
 	}
 }
 
 // FromProto converts protobuf to endorsement set
-func (s *Set) FromProto(sPb *endorsementPb.EndorsementSet) error {
+func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
 	s.blkHash = sPb.BlockHash
 	s.round = sPb.Round
 	s.endorsements = []*Endorsement{}
@@ -77,9 +79,44 @@ func (s *Set) AddEndorsement(en *Endorsement) error {
 	return nil
 }
 
+// DeleteEndorsements deletes endorsements of the given topics and before round
+func (s *Set) DeleteEndorsements(topics map[ConsensusVoteTopic]bool, round uint32) {
+	newEndorsements := []*Endorsement{}
+	for _, endorsement := range s.endorsements {
+		vote := endorsement.ConsensusVote()
+		if _, ok := topics[vote.Topic]; !ok {
+			newEndorsements = append(newEndorsements, endorsement)
+			continue
+		}
+		if vote.Round >= round {
+			newEndorsements = append(newEndorsements, endorsement)
+			continue
+		}
+	}
+	s.endorsements = newEndorsements
+}
+
+// SubSet returns a subset of the set with specified topic
+func (s *Set) SubSet(topic ConsensusVoteTopic) (*Set, error) {
+	sub := NewSet(s.blkHash)
+	for _, endorsement := range s.endorsements {
+		vote := endorsement.ConsensusVote()
+		if topic == vote.Topic {
+			if err := sub.AddEndorsement(endorsement); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return sub, nil
+}
+
 // BlockHash returns the hash of the endorsed block
 func (s *Set) BlockHash() []byte {
-	return s.blkHash
+	hash := make([]byte, len(s.blkHash))
+	copy(hash, s.blkHash)
+
+	return hash
 }
 
 // Round returns the locked round number
@@ -114,13 +151,13 @@ func (s *Set) NumOfValidEndorsements(topics map[ConsensusVoteTopic]bool, endorse
 }
 
 // ToProto convert the endorsement set to protobuf
-func (s *Set) ToProto() *endorsementPb.EndorsementSet {
-	endorsements := make([]*endorsementPb.Endorsement, 0, len(s.endorsements))
+func (s *Set) ToProto() *iproto.EndorsementSet {
+	endorsements := []*iproto.Endorsement{}
 	for _, en := range s.endorsements {
 		endorsements = append(endorsements, en.ToProtoMsg())
 	}
 
-	return &endorsementPb.EndorsementSet{
+	return &iproto.EndorsementSet{
 		BlockHash:    s.blkHash[:],
 		Round:        s.round,
 		Endorsements: endorsements,

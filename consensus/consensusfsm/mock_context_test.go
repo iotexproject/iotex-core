@@ -6,8 +6,8 @@ package consensusfsm
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	zerolog "github.com/rs/zerolog"
-	go_fsm "github.com/zjshen14/go-fsm"
+	go_fsm "github.com/iotexproject/go-fsm"
+	zap "go.uber.org/zap"
 	reflect "reflect"
 	time "time"
 )
@@ -72,9 +72,9 @@ func (mr *MockContextMockRecorder) IsStaleUnmatchedEvent(arg0 interface{}) *gomo
 }
 
 // Logger mocks base method
-func (m *MockContext) Logger() *zerolog.Logger {
+func (m *MockContext) Logger() *zap.Logger {
 	ret := m.ctrl.Call(m, "Logger")
-	ret0, _ := ret[0].(*zerolog.Logger)
+	ret0, _ := ret[0].(*zap.Logger)
 	return ret0
 }
 
@@ -84,9 +84,9 @@ func (mr *MockContextMockRecorder) Logger() *gomock.Call {
 }
 
 // LoggerWithStats mocks base method
-func (m *MockContext) LoggerWithStats() *zerolog.Logger {
+func (m *MockContext) LoggerWithStats() *zap.Logger {
 	ret := m.ctrl.Call(m, "LoggerWithStats")
-	ret0, _ := ret[0].(*zerolog.Logger)
+	ret0, _ := ret[0].(*zap.Logger)
 	return ret0
 }
 
@@ -238,18 +238,6 @@ func (mr *MockContextMockRecorder) OnConsensusReached() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnConsensusReached", reflect.TypeOf((*MockContext)(nil).OnConsensusReached))
 }
 
-// AddLockEndorsement mocks base method
-func (m *MockContext) AddLockEndorsement(arg0 Endorsement) error {
-	ret := m.ctrl.Call(m, "AddLockEndorsement", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddLockEndorsement indicates an expected call of AddLockEndorsement
-func (mr *MockContextMockRecorder) AddLockEndorsement(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLockEndorsement", reflect.TypeOf((*MockContext)(nil).AddLockEndorsement), arg0)
-}
-
 // AddProposalEndorsement mocks base method
 func (m *MockContext) AddProposalEndorsement(arg0 Endorsement) error {
 	ret := m.ctrl.Call(m, "AddProposalEndorsement", arg0)
@@ -260,6 +248,18 @@ func (m *MockContext) AddProposalEndorsement(arg0 Endorsement) error {
 // AddProposalEndorsement indicates an expected call of AddProposalEndorsement
 func (mr *MockContextMockRecorder) AddProposalEndorsement(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProposalEndorsement", reflect.TypeOf((*MockContext)(nil).AddProposalEndorsement), arg0)
+}
+
+// AddLockEndorsement mocks base method
+func (m *MockContext) AddLockEndorsement(arg0 Endorsement) error {
+	ret := m.ctrl.Call(m, "AddLockEndorsement", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddLockEndorsement indicates an expected call of AddLockEndorsement
+func (mr *MockContextMockRecorder) AddLockEndorsement(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLockEndorsement", reflect.TypeOf((*MockContext)(nil).AddLockEndorsement), arg0)
 }
 
 // AddPreCommitEndorsement mocks base method

@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -12,9 +12,12 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/zjshen14/go-fsm"
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 /**
@@ -202,11 +205,11 @@ func (m *ConsensusFSM) Start(c context.Context) error {
 				running = false
 			case evt := <-m.evtq:
 				if m.ctx.IsStaleEvent(evt) {
-					m.ctx.LoggerWithStats().Debug().Msgf("stale event %+v", evt)
+					m.ctx.Logger().Debug("stale event", zap.Any("event", evt))
 					continue
 				}
 				if m.ctx.IsFutureEvent(evt) {
-					m.ctx.LoggerWithStats().Debug().Msgf("future event %+v", evt)
+					m.ctx.Logger().Debug("future event", zap.Any("event", evt))
 					// TODO: find a more appropriate delay
 					m.produce(evt, m.cfg.UnmatchedEventInterval)
 					continue
@@ -216,26 +219,29 @@ func (m *ConsensusFSM) Start(c context.Context) error {
 					if errors.Cause(err) == fsm.ErrTransitionNotFound {
 						if !m.ctx.IsStaleUnmatchedEvent(evt) {
 							m.produce(evt, m.cfg.UnmatchedEventInterval)
-							m.ctx.Logger().Debug().
-								Str("src", string(src)).
-								Str("evt", string(evt.Type())).
-								Err(err).
-								Msg("consensus state transition could find the match")
+							m.ctx.Logger().Debug(
+								"consensus state transition could find the match",
+								zap.String("src", string(src)),
+								zap.String("evt", string(evt.Type())),
+								zap.Error(err),
+							)
 						}
 					} else {
-						m.ctx.Logger().Error().
-							Str("src", string(src)).
-							Str("evt", string(evt.Type())).
-							Err(err).
-							Msg("consensus state transition fails")
+						m.ctx.Logger().Error(
+							"consensus state transition fails",
+							zap.String("src", string(src)),
+							zap.String("evt", string(evt.Type())),
+							zap.Error(err),
+						)
 					}
 				} else {
 					dst := m.fsm.CurrentState()
-					m.ctx.Logger().Debug().
-						Str("src", string(src)).
-						Str("dst", string(dst)).
-						Str("evt", string(evt.Type())).
-						Msg("consensus state transition happens")
+					m.ctx.Logger().Debug(
+						"consensus state transition happens",
+						zap.String("src", string(src)),
+						zap.String("dst", string(dst)),
+						zap.String("evt", string(evt.Type())),
+					)
 				}
 			}
 		}
@@ -258,11 +264,7 @@ func (m *ConsensusFSM) CurrentState() fsm.State {
 
 // NumPendingEvents returns the number of pending events
 func (m *ConsensusFSM) NumPendingEvents() int {
-	num := len(m.evtq)
-	if num > 100 {
-		m.ctx.Logger().Error().Msgf("Pending events: %+v", m.evtq)
-	}
-	return num
+	return len(m.evtq)
 }
 
 // ProducePrepareEvent produces an ePrepare event after delay
@@ -321,10 +323,7 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 	if delay > 0 {
 		time.Sleep(delay)
 	}
-	m.ctx.LoggerWithStats().
-		Info().
-		Int64("ts", m.clock.Now().Unix()).
-		Msg("Start a new round")
+	m.ctx.Logger().Info("Start a new round", zap.Int64("ts", m.clock.Now().Unix()))
 	// Setup timeout for waiting for proposed block
 	ttl := m.cfg.AcceptBlockTTL
 	m.produceConsensusEvent(eFailedToReceiveBlock, ttl)
@@ -335,12 +334,14 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 	m.produceConsensusEvent(eFailedToReachConsensusInTime, m.cfg.ProposerInterval)
 	// TODO add timeout for commit collection
 	if m.ctx.IsProposer() {
+		m.ctx.Logger().Info("current node is the proposer")
 		blk, err := m.ctx.MintBlock()
 		if err != nil {
 			// TODO: review the return state
+			m.ProducePrepareEvent(0)
 			return sPrepare, errors.Wrap(err, "error when minting a block")
 		}
-		m.ctx.Logger().Info().Hex("blockHash", blk.Hash()).Msg("Broadcast init proposal.")
+		m.ctx.Logger().Info("Broadcast init proposal.", log.Hex("blockHash", blk.Hash()))
 		m.ProduceReceiveBlockEvent(blk)
 		m.ctx.BroadcastBlockProposal(blk)
 	}
@@ -349,7 +350,7 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 }
 
 func (m *ConsensusFSM) onReceiveBlock(evt fsm.Event) (fsm.State, error) {
-	m.ctx.LoggerWithStats().Debug().Int64("ts", m.clock.Now().Unix()).Msg("Receive block")
+	m.ctx.Logger().Debug("Receive block", zap.Int64("ts", m.clock.Now().Unix()))
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
 		return sAcceptBlockProposal, errors.Wrapf(ErrEvtCast, "invalid fsm event %+v", evt)
@@ -360,7 +361,8 @@ func (m *ConsensusFSM) onReceiveBlock(evt fsm.Event) (fsm.State, error) {
 	}
 	en, err := m.ctx.NewProposalEndorsement(block)
 	if err != nil {
-		return sAcceptBlockProposal, errors.Wrap(err, "failed to generate proposal endorsement")
+		m.ctx.Logger().Debug("Failed to generate proposal endorsement", zap.Error(err))
+		return sAcceptBlockProposal, nil
 	}
 	m.ProduceReceiveProposalEndorsementEvent(en)
 	m.ctx.BroadcastEndorsement(en)
@@ -369,8 +371,14 @@ func (m *ConsensusFSM) onReceiveBlock(evt fsm.Event) (fsm.State, error) {
 }
 
 func (m *ConsensusFSM) onFailedToReceiveBlock(evt fsm.Event) (fsm.State, error) {
-	m.ctx.Logger().Warn().
-		Msg("didn't receive the proposed block before timeout")
+	m.ctx.Logger().Warn("didn't receive the proposed block before timeout")
+	en, err := m.ctx.NewProposalEndorsement(nil)
+	if err != nil {
+		m.ctx.Logger().Debug("Failed to generate proposal endorsement", zap.Error(err))
+		return sAcceptProposalEndorsement, nil
+	}
+	m.ProduceReceiveProposalEndorsementEvent(en)
+	m.ctx.BroadcastEndorsement(en)
 
 	return sAcceptProposalEndorsement, nil
 }
@@ -386,9 +394,10 @@ func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event) (fsm.State, e
 	}
 	err := m.ctx.AddProposalEndorsement(en)
 	if err != nil || !m.ctx.IsLocked() {
-		return sAcceptProposalEndorsement, err
+		m.ctx.Logger().Debug("Failed to add proposal endorsement", zap.Error(err))
+		return sAcceptProposalEndorsement, nil
 	}
-	m.ctx.LoggerWithStats().Debug().Int64("ts", m.clock.Now().Unix()).Msg("LOCKED")
+	m.ctx.LoggerWithStats().Debug("Locked", zap.Int64("ts", m.clock.Now().Unix()))
 	lockEndorsement, err := m.ctx.NewLockEndorsement()
 	if err != nil {
 		// TODO: review return state
@@ -402,10 +411,10 @@ func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event) (fsm.State, e
 }
 
 func (m *ConsensusFSM) onStopReceivingProposalEndorsement(evt fsm.Event) (fsm.State, error) {
-	m.ctx.LoggerWithStats().
-		Warn().
-		Int64("ts", m.clock.Now().Unix()).
-		Msg("Not enough proposal endorsements")
+	m.ctx.LoggerWithStats().Warn(
+		"Not enough proposal endorsements",
+		zap.Int64("ts", m.clock.Now().Unix()),
+	)
 
 	return sAcceptLockEndorsement, nil
 }
@@ -423,7 +432,7 @@ func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error
 	if err != nil || !m.ctx.ReadyToPreCommit() {
 		return sAcceptLockEndorsement, err
 	}
-	m.ctx.LoggerWithStats().Debug().Int64("ts", m.clock.Now().Unix()).Msg("Ready to pre-commit")
+	m.ctx.LoggerWithStats().Debug("Ready to pre-commit", zap.Int64("ts", m.clock.Now().Unix()))
 	preCommitEndorsement, err := m.ctx.NewPreCommitEndorsement()
 	if err != nil {
 		// TODO: Review return state
@@ -438,10 +447,7 @@ func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error
 }
 
 func (m *ConsensusFSM) onStopReceivingLockEndorsement(evt fsm.Event) (fsm.State, error) {
-	m.ctx.LoggerWithStats().
-		Warn().
-		Int64("ts", m.clock.Now().Unix()).
-		Msg("Not enough lock endorsements")
+	m.ctx.LoggerWithStats().Warn("Not enough lock endorsements", zap.Int64("ts", m.clock.Now().Unix()))
 
 	m.ProducePrepareEvent(0)
 
@@ -463,7 +469,7 @@ func (m *ConsensusFSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, 
 	if !m.ctx.ReadyToCommit() {
 		return sAcceptPreCommitEndorsement, nil
 	}
-	m.ctx.LoggerWithStats().Debug().Int64("ts", m.clock.Now().Unix()).Msg("Ready to commit")
+	m.ctx.LoggerWithStats().Debug("Ready to commit", zap.Int64("ts", m.clock.Now().Unix()))
 
 	consensusMtc.WithLabelValues("ReachConsenus").Inc()
 	m.ctx.OnConsensusReached()
@@ -473,10 +479,10 @@ func (m *ConsensusFSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, 
 }
 
 func (m *ConsensusFSM) onFailedToReachConsensusInTime(evt fsm.Event) (fsm.State, error) {
-	m.ctx.LoggerWithStats().
-		Error().
-		Int64("ts", m.clock.Now().Unix()).
-		Msgf("doesn't reach consensus in time")
+	m.ctx.LoggerWithStats().Error(
+		"doesn't reach consensus in time",
+		zap.Int64("ts", m.clock.Now().Unix()),
+	)
 	m.ProducePrepareEvent(0)
 
 	return sPrepare, nil

@@ -7,7 +7,6 @@
 package rolldpos
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
@@ -21,22 +20,19 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/p2p/node"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -47,7 +43,13 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-var testAddrs = []*iotxaddress.Address{
+type addrKeyPair struct {
+	pubKey      keypair.PublicKey
+	priKey      keypair.PrivateKey
+	encodedAddr string
+}
+
+var testAddrs = []*addrKeyPair{
 	newTestAddr(),
 	newTestAddr(),
 	newTestAddr(),
@@ -55,322 +57,27 @@ var testAddrs = []*iotxaddress.Address{
 	newTestAddr(),
 }
 
-func newTestAddr() *iotxaddress.Address {
+func newTestAddr() *addrKeyPair {
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		logger.Panic().Err(err).Msg("error when creating test IoTeX address")
+		log.L().Panic("error when creating test IoTeX address", zap.Error(err))
 	}
 	pkHash := keypair.HashPubKey(pk)
-	addr := address.New(config.Default.Chain.ID, pkHash[:])
-	iotxAddr := iotxaddress.Address{
-		PublicKey:  pk,
-		PrivateKey: sk,
-		RawAddress: addr.IotxAddress(),
+	addr := address.New(pkHash[:])
+
+	return &addrKeyPair{
+		pubKey:      pk,
+		priKey:      sk,
+		encodedAddr: addr.Bech32(),
 	}
-	return &iotxAddr
 }
 
-func test21Addrs() []*iotxaddress.Address {
-	addrs := make([]*iotxaddress.Address, 0)
+func test21Addrs() []*addrKeyPair {
+	addrs := make([]*addrKeyPair, 0)
 	for i := 0; i < 21; i++ {
 		addrs = append(addrs, newTestAddr())
 	}
 	return addrs
-}
-
-func TestRollDPoSCtx(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	candidates := make([]string, 4)
-	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].encodedAddr
-	}
-
-	clock := clock.NewMock()
-	var prevHash hash.Hash32B
-	blk := block.NewBlockDeprecated(
-		1,
-		8,
-		prevHash,
-		testutil.TimestampNowFromClock(clock),
-		testAddrs[0].pubKey,
-		make([]action.SealedEnvelope, 0),
-	)
-	ctx := makeTestRollDPoSCtx(
-		testAddrs[0],
-		ctrl,
-		config.RollDPoS{
-			NumSubEpochs: 1,
-			NumDelegates: 4,
-			EnableDKG:    true,
-		},
-		func(blockchain *mock_blockchain.MockBlockchain) {
-			blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(4)
-			blockchain.EXPECT().GetBlockByHeight(uint64(8)).Return(blk, nil).Times(1)
-			blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
-				{Address: candidates[0]},
-				{Address: candidates[1]},
-				{Address: candidates[2]},
-				{Address: candidates[3]},
-			}, nil).Times(1)
-		},
-		func(_ *mock_actpool.MockActPool) {},
-		nil,
-		clock,
-	)
-
-	epoch, height := ctx.calcEpochNumAndHeight()
-	assert.Equal(t, uint64(2), epoch)
-	assert.Equal(t, uint64(9), height)
-
-	ctx.epoch.height = height
-
-	subEpoch, err := ctx.calcSubEpochNum()
-	require.NoError(t, err)
-	assert.Equal(t, uint64(0), subEpoch)
-
-	ctx.epoch.seed = crypto.CryptoSeed
-	delegates, err := ctx.rollingDelegates(epoch)
-	require.NoError(t, err)
-	crypto.SortCandidates(candidates, epoch, crypto.CryptoSeed)
-	assert.Equal(t, candidates, delegates)
-
-	ctx.epoch.num = epoch
-	ctx.epoch.height = height
-	ctx.epoch.numSubEpochs = 2
-	ctx.epoch.delegates = delegates
-
-	proposer, height, round, err := ctx.rotatedProposer(time.Duration(0))
-	require.NoError(t, err)
-	assert.Equal(t, candidates[1], proposer)
-	assert.Equal(t, uint64(9), height)
-	assert.Equal(t, uint32(0), round)
-
-	clock.Add(time.Second)
-	duration, err := ctx.calcDurationSinceLastBlock()
-	require.NoError(t, err)
-	assert.Equal(t, time.Second, duration)
-
-	yes, no := ctx.calcQuorum(map[string]bool{
-		candidates[0]: true,
-		candidates[1]: true,
-		candidates[2]: true,
-	})
-	assert.True(t, yes)
-	assert.False(t, no)
-
-	yes, no = ctx.calcQuorum(map[string]bool{
-		candidates[0]: false,
-		candidates[1]: false,
-		candidates[2]: false,
-	})
-	assert.False(t, yes)
-	assert.True(t, no)
-
-	yes, no = ctx.calcQuorum(map[string]bool{
-		candidates[0]: true,
-		candidates[1]: true,
-		candidates[2]: false,
-		candidates[3]: false,
-	})
-	assert.False(t, yes)
-	assert.True(t, no)
-}
-
-func TestIsEpochFinished(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	candidates := make([]string, 4)
-	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].encodedAddr
-	}
-
-	t.Run("not-finished", func(t *testing.T) {
-		ctx := makeTestRollDPoSCtx(
-			testAddrs[0],
-			ctrl,
-			config.RollDPoS{
-				NumSubEpochs: 1,
-				EnableDKG:    true,
-			},
-			func(blockchain *mock_blockchain.MockBlockchain) {
-				blockchain.EXPECT().TipHeight().Return(uint64(7)).Times(1)
-			},
-			func(_ *mock_actpool.MockActPool) {},
-			nil,
-			clock.NewMock(),
-		)
-		ctx.epoch.delegates = candidates
-		ctx.epoch.height = 1
-		ctx.epoch.numSubEpochs = 2
-
-		assert.False(t, ctx.isEpochFinished())
-	})
-	t.Run("finished", func(t *testing.T) {
-		ctx := makeTestRollDPoSCtx(
-			testAddrs[0],
-			ctrl,
-			config.RollDPoS{
-				NumSubEpochs: 1,
-				EnableDKG:    true,
-			},
-			func(blockchain *mock_blockchain.MockBlockchain) {
-				blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(1)
-			},
-			func(_ *mock_actpool.MockActPool) {},
-			nil,
-			clock.NewMock(),
-		)
-		ctx.epoch.delegates = candidates
-		ctx.epoch.height = 1
-		ctx.epoch.numSubEpochs = 2
-
-		assert.True(t, ctx.isEpochFinished())
-	})
-}
-
-func TestIsDKGFinished(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	candidates := make([]string, 4)
-	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].encodedAddr
-	}
-
-	t.Run("not-finished", func(t *testing.T) {
-		ctx := makeTestRollDPoSCtx(
-			testAddrs[0],
-			ctrl,
-			config.RollDPoS{
-				NumSubEpochs: 1,
-				EnableDKG:    true,
-			},
-			func(blockchain *mock_blockchain.MockBlockchain) {
-				blockchain.EXPECT().TipHeight().Return(uint64(3)).Times(1)
-			},
-			func(_ *mock_actpool.MockActPool) {},
-			nil,
-			clock.NewMock(),
-		)
-		ctx.epoch.delegates = candidates
-		ctx.epoch.height = 1
-		ctx.epoch.numSubEpochs = 2
-
-		assert.False(t, ctx.isDKGFinished())
-	})
-	t.Run("finished", func(t *testing.T) {
-		ctx := makeTestRollDPoSCtx(
-			testAddrs[0],
-			ctrl,
-			config.RollDPoS{
-				NumSubEpochs: 1,
-				EnableDKG:    true,
-			},
-			func(blockchain *mock_blockchain.MockBlockchain) {
-				blockchain.EXPECT().TipHeight().Return(uint64(4)).Times(1)
-			},
-			func(_ *mock_actpool.MockActPool) {},
-			nil,
-			clock.NewMock(),
-		)
-		ctx.epoch.delegates = candidates
-		ctx.epoch.height = 1
-		ctx.epoch.numSubEpochs = 2
-
-		assert.True(t, ctx.isDKGFinished())
-	})
-}
-
-func TestGenerateDKGSecrets(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	candidates := make([]string, 21)
-	testAddrs := test21Addrs()
-	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].encodedAddr
-	}
-
-	ctx := makeTestRollDPoSCtx(
-		testAddrs[0],
-		ctrl,
-		config.RollDPoS{
-			NumSubEpochs: 1,
-			EnableDKG:    true,
-		},
-		func(blockchain *mock_blockchain.MockBlockchain) {},
-		func(_ *mock_actpool.MockActPool) {},
-		nil,
-		clock.NewMock(),
-	)
-
-	ctx.epoch.delegates = candidates
-
-	secrets, witness, err := ctx.generateDKGSecrets()
-	assert.NoError(t, err)
-	assert.Equal(t, address.Bech32ToID(ctx.encodedAddr), ctx.epoch.dkgAddress.ID)
-	assert.NotNil(t, secrets)
-	assert.NotNil(t, witness)
-}
-
-func TestGenerateDKGKeyPair(t *testing.T) {
-	t.Parallel()
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	candidates := make([]string, 21)
-	testAddrs := test21Addrs()
-	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].encodedAddr
-	}
-
-	ctx := makeTestRollDPoSCtx(
-		testAddrs[0],
-		ctrl,
-		config.RollDPoS{
-			NumDelegates: 21,
-			NumSubEpochs: 1,
-			EnableDKG:    true,
-		},
-		func(blockchain *mock_blockchain.MockBlockchain) {},
-		func(_ *mock_actpool.MockActPool) {},
-		nil,
-		clock.NewMock(),
-	)
-
-	ctx.epoch.delegates = candidates
-	ctx.epoch.committedSecrets = make(map[string][]uint32)
-
-	idList := make([][]uint8, 0)
-	for _, addr := range ctx.epoch.delegates {
-		dkgID := address.Bech32ToID(addr)
-		idList = append(idList, dkgID)
-	}
-	for _, delegate := range ctx.epoch.delegates {
-		_, secrets, _, err := crypto.DKG.Init(crypto.DKG.SkGeneration(), idList)
-		assert.NoError(t, err)
-		assert.NotNil(t, secrets)
-		//if i % 2 == 0 {
-		//	ctx.epoch.committedSecrets[delegate] = secrets[0]
-		//}
-		ctx.epoch.committedSecrets[delegate] = secrets[0]
-	}
-	dkgPubKey, dkgPriKey, err := ctx.generateDKGKeyPair()
-	assert.NoError(t, err)
-	assert.NotNil(t, dkgPubKey)
-	assert.NotNil(t, dkgPriKey)
 }
 
 func TestNewRollDPoS(t *testing.T) {
@@ -451,6 +158,10 @@ func TestNewRollDPoS(t *testing.T) {
 	})
 }
 
+func TestValidateBlockFooter(t *testing.T) {
+	// TODO: add unit test
+}
+
 func TestRollDPoS_Metrics(t *testing.T) {
 	t.Parallel()
 
@@ -463,7 +174,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	}
 
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(2)
+	blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(1)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
 		{Address: candidates[1]},
@@ -474,7 +185,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 
 	addr := newTestAddr()
 	r, err := NewRollDPoSBuilder().
-		SetConfig(config.RollDPoS{NumDelegates: 4}).
+		SetConfig(config.RollDPoS{NumDelegates: 4, NumSubEpochs: 1}).
 		SetAddr(addr.encodedAddr).
 		SetPubKey(addr.pubKey).
 		SetPriKey(addr.priKey).
@@ -490,100 +201,10 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	m, err := r.Metrics()
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
-	crypto.SortCandidates(candidates, m.LatestEpoch, r.ctx.epoch.seed)
+
+	crypto.SortCandidates(candidates, m.LatestEpoch, crypto.CryptoSeed)
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
-	assert.Equal(t, candidates, m.Candidates)
-}
-
-func TestUpdateSeed(t *testing.T) {
-	require := require.New(t)
-	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
-	chain := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
-	chain.Validator().AddActionValidators(account.NewProtocol())
-	require.NoError(chain.Start(context.Background()))
-	ctx := rollDPoSCtx{cfg: config.Default.Consensus.RollDPoS, chain: chain, epoch: epochCtx{seed: lastSeed}}
-	var err error
-	const numNodes = 21
-	addresses := make([]string, numNodes)
-	skList := make([][]uint32, numNodes)
-	idList := make([][]uint8, numNodes)
-	coeffsList := make([][][]uint32, numNodes)
-	sharesList := make([][][]uint32, numNodes)
-	shares := make([][]uint32, numNodes)
-	witnessesList := make([][][]byte, numNodes)
-	sharestatusmatrix := make([][numNodes]bool, numNodes)
-	qsList := make([][]byte, numNodes)
-	pkList := make([][]byte, numNodes)
-	askList := make([][]uint32, numNodes)
-	ec283PKList := make([]keypair.PublicKey, numNodes)
-	ec283SKList := make([]keypair.PrivateKey, numNodes)
-
-	// Generate 21 identifiers for the delegates
-	for i := 0; i < numNodes; i++ {
-		var err error
-		ec283PKList[i], ec283SKList[i], err = crypto.EC283.NewKeyPair()
-		if err != nil {
-			require.NoError(err)
-		}
-		pkHash := keypair.HashPubKey(ec283PKList[i])
-		addresses[i] = address.New(pkHash[:]).Bech32()
-		idList[i] = address.Bech32ToID(addresses[i])
-		skList[i] = crypto.DKG.SkGeneration()
-	}
-
-	// Initialize DKG and generate secret shares
-	for i := 0; i < numNodes; i++ {
-		coeffsList[i], sharesList[i], witnessesList[i], err = crypto.DKG.Init(skList[i], idList)
-		require.NoError(err)
-	}
-
-	// Verify all the received secret shares
-	for i := 0; i < numNodes; i++ {
-		for j := 0; j < numNodes; j++ {
-			result, err := crypto.DKG.ShareVerify(idList[i], sharesList[j][i], witnessesList[j])
-			require.NoError(err)
-			require.True(result)
-			shares[j] = sharesList[j][i]
-		}
-		sharestatusmatrix[i], err = crypto.DKG.SharesCollect(idList[i], shares, witnessesList)
-		require.NoError(err)
-		for _, b := range sharestatusmatrix[i] {
-			require.True(b)
-		}
-	}
-
-	// Generate private and public key shares of a group key
-	for i := 0; i < numNodes; i++ {
-		for j := 0; j < numNodes; j++ {
-			shares[j] = sharesList[j][i]
-		}
-		qsList[i], pkList[i], askList[i], err = crypto.DKG.KeyPairGeneration(shares, sharestatusmatrix)
-		require.NoError(err)
-	}
-
-	// Generate dkg signature for each block
-	for i := 1; i < numNodes; i++ {
-		blk, err := chain.MintNewBlock(nil, ec283PKList[i], ec283SKList[i], addresses[i],
-			&address.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]}, lastSeed, "")
-		require.NoError(err)
-		require.NoError(verifyDKGSignature(blk, lastSeed))
-		require.NoError(chain.ValidateBlock(blk, true))
-		require.NoError(chain.CommitBlock(blk))
-		require.Equal(pkList[i], blk.DKGPubkey())
-		require.Equal(idList[i], blk.DKGID())
-		require.True(len(blk.DKGSignature()) > 0)
-	}
-	height := chain.TipHeight()
-	require.Equal(int(height), 20)
-
-	newSeed, err := ctx.updateSeed()
-	require.NoError(err)
-	require.True(len(newSeed) > 0)
-	require.NotEqual(ctx.epoch.seed, newSeed)
-	fmt.Println(ctx.epoch.seed)
-	fmt.Println(newSeed)
 }
 
 func makeTestRollDPoSCtx(

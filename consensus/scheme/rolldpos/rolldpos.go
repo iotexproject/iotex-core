@@ -11,22 +11,23 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/logger"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -134,10 +135,11 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	chainHeight := r.ctx.chain.TipHeight()
 	if msg.Height <= chainHeight {
-		logger.Debug().
-			Uint64("chainHeight", chainHeight).
-			Uint64("msgHeight", msg.Height).
-			Msg("old consensus message")
+		log.L().Debug(
+			"old consensus message",
+			zap.Uint64("chainHeight", chainHeight),
+			zap.Uint64("msgHeight", msg.Height),
+		)
 		return nil
 	}
 	data := msg.Data
@@ -189,20 +191,40 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	return nil
 }
 
+// ValidateBlockFooter validates the signatures in the block footer
+func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
+	epoch, err := r.ctx.epochCtxByHeight(blk.Height())
+	if err != nil {
+		return err
+	}
+	proposer, err := r.ctx.getProposer(blk.Height(), blk.Round(), epoch.delegates)
+	if err != nil {
+		return err
+	}
+	if proposer != blk.ProducerAddress() {
+		return errors.Errorf(
+			"block proposer %s is invalid, %s expected",
+			blk.ProducerAddress(),
+			proposer,
+		)
+	}
+	if 3*blk.NumOfDelegateEndorsements(epoch.delegates) <= 2*len(epoch.delegates) {
+		return errors.New("insufficient endorsements from delegates")
+	}
+
+	return nil
+}
+
 // Metrics returns RollDPoS consensus metrics
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
-	// Compute the epoch ordinal number
-	epochNum, _ := r.ctx.calcEpochNumAndHeight()
-	// Compute delegates
-	delegates, err := r.ctx.rollingDelegates(epochNum)
-	if err != nil {
-		return metrics, errors.Wrap(err, "error when getting the rolling delegates")
-	}
-	// Compute the height
 	height := r.ctx.chain.TipHeight()
+	epoch, err := r.ctx.epochCtxByHeight(height + 1)
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when calculating epoch")
+	}
 	// Compute block producer
-	_, producer, err := r.ctx.calcProposer(height+1, delegates, time.Duration(0))
+	_, producer, err := r.ctx.calcProposer(height+1, epoch.delegates, time.Duration(0))
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating the block producer")
 	}
@@ -216,12 +238,10 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		candidateAddresses[i] = c.Address
 	}
 
-	crypto.SortCandidates(candidateAddresses, epochNum, r.ctx.epoch.seed)
-
 	return scheme.ConsensusMetrics{
-		LatestEpoch:         epochNum,
+		LatestEpoch:         epoch.num,
 		LatestHeight:        height,
-		LatestDelegates:     delegates,
+		LatestDelegates:     epoch.delegates,
 		LatestBlockProducer: producer,
 		Candidates:          candidateAddresses,
 	}, nil
@@ -249,7 +269,7 @@ type Builder struct {
 	broadcastHandler       scheme.Broadcast
 	clock                  clock.Clock
 	rootChainAPI           explorer.Explorer
-	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
+	candidatesByHeightFunc CandidatesByHeightFunc
 }
 
 // NewRollDPoSBuilder instantiates a Builder instance
@@ -313,7 +333,7 @@ func (b *Builder) SetRootChainAPI(api explorer.Explorer) *Builder {
 
 // SetCandidatesByHeightFunc sets candidatesByHeightFunc, which is only used by tests
 func (b *Builder) SetCandidatesByHeightFunc(
-	candidatesByHeightFunc func(uint64) ([]*state.Candidate, error),
+	candidatesByHeightFunc CandidatesByHeightFunc,
 ) *Builder {
 	b.candidatesByHeightFunc = candidatesByHeightFunc
 	return b

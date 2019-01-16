@@ -15,7 +15,7 @@ import (
 	uconfig "go.uber.org/config"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/consensus/fsm"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -209,7 +209,7 @@ type (
 
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
-		FSM               consensusfsm.Config `yaml:"FSM"`
+		FSM               consensusfsm.Config `yaml:"fsm"`
 		DelegateInterval  time.Duration       `yaml:"delegateInterval"`
 		Delay             time.Duration       `yaml:"delay"`
 		NumSubEpochs      uint                `yaml:"numSubEpochs"`

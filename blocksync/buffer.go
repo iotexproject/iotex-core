@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -33,6 +34,7 @@ type blockBuffer struct {
 	blocks       map[uint64]*block.Block
 	bc           blockchain.Blockchain
 	ap           actpool.ActPool
+	cs           consensus.Consensus
 	size         uint64
 	commitHeight uint64 // last commit block height
 }
@@ -73,7 +75,8 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 			break
 		}
 		delete(b.blocks, heightToSync)
-		if err := commitBlock(b.bc, b.ap, blk); err != nil {
+		if err := commitBlock(b.bc, b.ap, b.cs, blk); err != nil {
+			// TODO: if the error is because the block has been committed, continue
 			l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
 			break
 		}
