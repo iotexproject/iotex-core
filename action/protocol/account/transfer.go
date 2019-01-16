@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -166,7 +166,7 @@ func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) erro
 		return errors.Wrap(action.ErrBalance, "negative value")
 	}
 	// check if recipient's address is valid
-	if _, err := iotxaddress.GetPubkeyHash(tsf.Recipient()); err != nil {
+	if _, err := address.Bech32ToAddress(tsf.Recipient()); err != nil {
 		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
 	}
 	return nil

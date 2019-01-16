@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -42,29 +41,25 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	account1 := state.Account{
 		Balance: big.NewInt(5),
-		Votee:   testaddress.IotxAddrinfo["charlie"].RawAddress,
+		Votee:   testaddress.Addrinfo["charlie"].Bech32(),
 	}
 	account2 := state.Account{
-		Votee: testaddress.IotxAddrinfo["delta"].RawAddress,
+		Votee: testaddress.Addrinfo["delta"].Bech32(),
 	}
 	account3 := state.Account{
 		VotingWeight: big.NewInt(5),
 	}
-	pubKeyHash1, err := iotxaddress.AddressToPKHash(testaddress.IotxAddrinfo["alfa"].RawAddress)
-	require.NoError(err)
-	pubKeyHash2, err := iotxaddress.AddressToPKHash(testaddress.IotxAddrinfo["bravo"].RawAddress)
-	require.NoError(err)
-	pubKeyHash3, err := iotxaddress.AddressToPKHash(testaddress.IotxAddrinfo["charlie"].RawAddress)
-	require.NoError(err)
-	pubKeyHash4, err := iotxaddress.AddressToPKHash(testaddress.IotxAddrinfo["delta"].RawAddress)
-	require.NoError(err)
+	pubKeyHash1 := testaddress.Addrinfo["alfa"].PublicKeyHash()
+	pubKeyHash2 := testaddress.Addrinfo["bravo"].PublicKeyHash()
+	pubKeyHash3 := testaddress.Addrinfo["charlie"].PublicKeyHash()
+	pubKeyHash4 := testaddress.Addrinfo["delta"].PublicKeyHash()
 
 	require.NoError(ws.PutState(pubKeyHash1, &account1))
 	require.NoError(ws.PutState(pubKeyHash2, &account2))
 	require.NoError(ws.PutState(pubKeyHash3, &account3))
 
-	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2), testaddress.IotxAddrinfo["alfa"].RawAddress,
-		testaddress.IotxAddrinfo["bravo"].RawAddress, []byte{}, uint64(10000), big.NewInt(0))
+	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2), testaddress.Addrinfo["alfa"].Bech32(),
+		testaddress.Addrinfo["bravo"].Bech32(), []byte{}, uint64(10000), big.NewInt(0))
 	require.NoError(err)
 
 	ctx = protocol.WithRunActionsCtx(context.Background(),
@@ -120,8 +115,8 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	tsf, err = action.NewTransfer(
 		1,
 		big.NewInt(1),
-		testaddress.IotxAddrinfo["producer"].RawAddress,
-		"io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep",
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32()+"aaa",
 		nil,
 		uint64(100000),
 		big.NewInt(0),

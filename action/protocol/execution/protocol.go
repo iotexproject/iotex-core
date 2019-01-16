@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/address"
 )
 
 // ExecutionSizeLimit is the maximum size of execution allowed
@@ -70,7 +70,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	}
 	// check if contract's address is valid
 	if exec.Contract() != action.EmptyAddress {
-		if _, err := iotxaddress.GetPubkeyHash(exec.Contract()); err != nil {
+		if _, err := address.Bech32ToAddress(exec.Contract()); err != nil {
 			return errors.Wrapf(err, "error when validating contract's address %s", exec.Contract())
 		}
 	}

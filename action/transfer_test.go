@@ -12,32 +12,31 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 var chainid = []byte{0x00, 0x00, 0x00, 0x01}
 
 func TestTransferSignVerify(t *testing.T) {
 	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
+	senderAddr := testaddress.Addrinfo["producer"]
+	recipientAddr := testaddress.Addrinfo["alfa"]
+	senderKey := testaddress.Keyinfo["producer"]
 
-	tsf, err := NewTransfer(0, big.NewInt(10), sender.RawAddress, recipient.RawAddress, []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := NewTransfer(0, big.NewInt(10), senderAddr.Bech32(), recipientAddr.Bech32(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetDestinationAddress(recipient.RawAddress).
+	elp := bd.SetDestinationAddress(recipientAddr.Bech32()).
 		SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
 
-	w := AssembleSealedEnvelope(elp, sender.RawAddress, sender.PublicKey, []byte("lol"))
+	w := AssembleSealedEnvelope(elp, senderAddr.Bech32(), senderKey.PubKey, []byte("lol"))
 	require.Error(Verify(w))
 
 	// sign the transfer
-	selp, err := Sign(elp, sender.RawAddress, sender.PrivateKey)
+	selp, err := Sign(elp, senderAddr.Bech32(), senderKey.PriKey)
 	require.NoError(err)
 	require.NotNil(selp)
 
@@ -47,9 +46,8 @@ func TestTransferSignVerify(t *testing.T) {
 
 func TestCoinbaseTsf(t *testing.T) {
 	require := require.New(t)
-	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-	coinbaseTsf := NewCoinBaseTransfer(1, big.NewInt(int64(5)), recipient.RawAddress)
+	recipientAddr := testaddress.Addrinfo["bravo"]
+	coinbaseTsf := NewCoinBaseTransfer(1, big.NewInt(int64(5)), recipientAddr.Bech32())
 	require.NotNil(t, coinbaseTsf)
 	require.True(coinbaseTsf.isCoinbase)
 }

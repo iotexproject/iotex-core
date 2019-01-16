@@ -19,13 +19,12 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -39,8 +38,14 @@ type KeyPair struct {
 	SK string `yaml:"priKey"`
 }
 
+// AddressKey contains the encoded address and private key of an account
+type AddressKey struct {
+	EncodedAddr string
+	PriKey      keypair.PrivateKey
+}
+
 // LoadAddresses loads key pairs from key pair path and construct addresses
-func LoadAddresses(keypairsPath string, chainID uint32) ([]*iotxaddress.Address, error) {
+func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 	// Load Senders' public/private key pairs
 	keyPairBytes, err := ioutil.ReadFile(keypairsPath)
 	if err != nil {
@@ -52,24 +57,32 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*iotxaddress.Address,
 	}
 
 	// Construct iotex addresses from loaded key pairs
-	addrs := make([]*iotxaddress.Address, 0)
+	addrKeys := make([]*AddressKey, 0)
 	for _, pair := range keypairs.Pairs {
-		addr := testaddress.ConstructAddress(chainID, pair.PK, pair.SK)
-		addrs = append(addrs, addr)
+		pk, err := keypair.DecodePublicKey(pair.PK)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decode public key")
+		}
+		sk, err := keypair.DecodePrivateKey(pair.SK)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decode private key")
+		}
+		pkHash := keypair.HashPubKey(pk)
+		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: address.New(chainID, pkHash[:]).Bech32(), PriKey: sk})
 	}
-	return addrs, nil
+	return addrKeys, nil
 }
 
 // InitCounter initializes the map of nonce counter of each address
-func InitCounter(client explorer.Explorer, addrs []*iotxaddress.Address) (map[string]uint64, error) {
+func InitCounter(client explorer.Explorer, addrKeys []*AddressKey) (map[string]uint64, error) {
 	counter := make(map[string]uint64)
-	for _, addr := range addrs {
-		addrDetails, err := client.GetAddressDetails(addr.RawAddress)
+	for _, addrKey := range addrKeys {
+		addrDetails, err := client.GetAddressDetails(addrKey.EncodedAddr)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get address details of %s", addr.RawAddress)
+			return nil, errors.Wrapf(err, "failed to get address details of %s", addrKey.EncodedAddr)
 		}
 		nonce := uint64(addrDetails.PendingNonce)
-		counter[addr.RawAddress] = nonce
+		counter[addrKey.EncodedAddr] = nonce
 	}
 	return counter, nil
 }
@@ -90,8 +103,8 @@ func InjectByAps(
 	executionGasPrice int,
 	executionData string,
 	client explorer.Explorer,
-	admins []*iotxaddress.Address,
-	delegates []*iotxaddress.Address,
+	admins []*AddressKey,
+	delegates []*AddressKey,
 	duration time.Duration,
 	retryNum int,
 	retryInterval int,
@@ -108,24 +121,24 @@ loop:
 			break loop
 		case <-reset:
 			for _, admin := range admins {
-				addrDetails, err := client.GetAddressDetails(admin.RawAddress)
+				addrDetails, err := client.GetAddressDetails(admin.EncodedAddr)
 				if err != nil {
 					log.L().Fatal("Failed to inject actions by APS",
 						zap.Error(err),
-						zap.String("addr", admin.RawAddress))
+						zap.String("addr", admin.EncodedAddr))
 				}
 				nonce := uint64(addrDetails.PendingNonce)
-				counter[admin.RawAddress] = nonce
+				counter[admin.EncodedAddr] = nonce
 			}
 			for _, delegate := range delegates {
-				addrDetails, err := client.GetAddressDetails(delegate.RawAddress)
+				addrDetails, err := client.GetAddressDetails(delegate.EncodedAddr)
 				if err != nil {
 					log.L().Fatal("Failed to inject actions by APS",
 						zap.Error(err),
-						zap.String("addr", delegate.RawAddress))
+						zap.String("addr", delegate.EncodedAddr))
 				}
 				nonce := uint64(addrDetails.PendingNonce)
-				counter[delegate.RawAddress] = nonce
+				counter[delegate.EncodedAddr] = nonce
 			}
 		case <-tick:
 			wg.Add(1)
@@ -166,8 +179,8 @@ func InjectByInterval(
 	interval int,
 	counter map[string]uint64,
 	client explorer.Explorer,
-	admins []*iotxaddress.Address,
-	delegates []*iotxaddress.Address,
+	admins []*AddressKey,
+	delegates []*AddressKey,
 	retryNum int,
 	retryInterval int,
 ) {
@@ -271,7 +284,7 @@ func InjectByInterval(
 func DeployContract(
 	client explorer.Explorer,
 	counter map[string]uint64,
-	delegates []*iotxaddress.Address,
+	delegates []*AddressKey,
 	executionGasLimit int,
 	executionGasPrice int,
 	executionData string,
@@ -293,8 +306,8 @@ func DeployContract(
 func injectTransfer(
 	wg *sync.WaitGroup,
 	c explorer.Explorer,
-	sender *iotxaddress.Address,
-	recipient *iotxaddress.Address,
+	sender *AddressKey,
+	recipient *AddressKey,
 	nonce uint64,
 	gasLimit uint64,
 	gasPrice *big.Int,
@@ -350,8 +363,8 @@ func injectTransfer(
 func injectVote(
 	wg *sync.WaitGroup,
 	c explorer.Explorer,
-	sender *iotxaddress.Address,
-	recipient *iotxaddress.Address,
+	sender *AddressKey,
+	recipient *AddressKey,
 	nonce uint64,
 	gasLimit uint64,
 	gasPrice *big.Int,
@@ -396,7 +409,7 @@ func injectVote(
 func injectExecInteraction(
 	wg *sync.WaitGroup,
 	c explorer.Explorer,
-	executor *iotxaddress.Address,
+	executor *AddressKey,
 	contract string,
 	nonce uint64,
 	amount *big.Int,
@@ -422,43 +435,43 @@ func injectExecInteraction(
 // Helper function to get the sender, recipient, and nonce of next injected transfer
 func createTransferInjection(
 	counter map[string]uint64,
-	addrs []*iotxaddress.Address,
-) (*iotxaddress.Address, *iotxaddress.Address, uint64) {
+	addrs []*AddressKey,
+) (*AddressKey, *AddressKey, uint64) {
 	sender := addrs[rand.Intn(len(addrs))]
 	recipient := addrs[rand.Intn(len(addrs))]
-	nonce := counter[sender.RawAddress]
-	counter[sender.RawAddress]++
+	nonce := counter[sender.EncodedAddr]
+	counter[sender.EncodedAddr]++
 	return sender, recipient, nonce
 }
 
 // Helper function to get the sender, recipient, and nonce of next injected vote
 func createVoteInjection(
 	counter map[string]uint64,
-	admins []*iotxaddress.Address,
-	delegates []*iotxaddress.Address,
-) (*iotxaddress.Address, *iotxaddress.Address, uint64) {
+	admins []*AddressKey,
+	delegates []*AddressKey,
+) (*AddressKey, *AddressKey, uint64) {
 	sender := admins[rand.Intn(len(admins))]
 	recipient := delegates[rand.Intn(len(delegates))]
-	nonce := counter[sender.RawAddress]
-	counter[sender.RawAddress]++
+	nonce := counter[sender.EncodedAddr]
+	counter[sender.EncodedAddr]++
 	return sender, recipient, nonce
 }
 
 // Helper function to get the executor and nonce of next injected execution
 func createExecutionInjection(
 	counter map[string]uint64,
-	addrs []*iotxaddress.Address,
-) (*iotxaddress.Address, uint64) {
+	addrs []*AddressKey,
+) (*AddressKey, uint64) {
 	executor := addrs[rand.Intn(len(addrs))]
-	nonce := counter[executor.RawAddress]
-	counter[executor.RawAddress]++
+	nonce := counter[executor.EncodedAddr]
+	counter[executor.EncodedAddr]++
 	return executor, nonce
 }
 
 // Helper function to create and sign a transfer
 func createSignedTransfer(
-	sender *iotxaddress.Address,
-	recipient *iotxaddress.Address,
+	sender *AddressKey,
+	recipient *AddressKey,
 	amount *big.Int,
 	nonce uint64,
 	gasLimit uint64,
@@ -470,17 +483,17 @@ func createSignedTransfer(
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
 	transfer, err := action.NewTransfer(
-		nonce, amount, sender.RawAddress, recipient.RawAddress, transferPayload, gasLimit, gasPrice)
+		nonce, amount, sender.EncodedAddr, recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw transfer")
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
-		SetDestinationAddress(recipient.RawAddress).
+		SetDestinationAddress(recipient.EncodedAddr).
 		SetGasLimit(gasLimit).
 		SetAction(transfer).Build()
-	selp, err := action.Sign(elp, sender.RawAddress, sender.PrivateKey)
+	selp, err := action.Sign(elp, sender.EncodedAddr, sender.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
@@ -489,23 +502,23 @@ func createSignedTransfer(
 
 // Helper function to create and sign a vote
 func createSignedVote(
-	voter *iotxaddress.Address,
-	votee *iotxaddress.Address,
+	voter *AddressKey,
+	votee *AddressKey,
 	nonce uint64,
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (action.SealedEnvelope, *action.Vote, error) {
-	vote, err := action.NewVote(nonce, voter.RawAddress, votee.RawAddress, gasLimit, gasPrice)
+	vote, err := action.NewVote(nonce, voter.EncodedAddr, votee.EncodedAddr, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw vote")
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
-		SetDestinationAddress(votee.RawAddress).
+		SetDestinationAddress(votee.EncodedAddr).
 		SetGasLimit(gasLimit).
 		SetAction(vote).Build()
-	selp, err := action.Sign(elp, voter.RawAddress, voter.PrivateKey)
+	selp, err := action.Sign(elp, voter.EncodedAddr, voter.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign vote %v", elp)
 	}
@@ -514,7 +527,7 @@ func createSignedVote(
 
 // Helper function to create and sign an execution
 func createSignedExecution(
-	executor *iotxaddress.Address,
+	executor *AddressKey,
 	contract string,
 	nonce uint64,
 	amount *big.Int,
@@ -526,7 +539,7 @@ func createSignedExecution(
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
-	execution, err := action.NewExecution(executor.RawAddress, contract, nonce, amount,
+	execution, err := action.NewExecution(executor.EncodedAddr, contract, nonce, amount,
 		gasLimit, gasPrice, executionData)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw execution")
@@ -537,7 +550,7 @@ func createSignedExecution(
 		SetDestinationAddress(contract).
 		SetGasLimit(gasLimit).
 		SetAction(execution).Build()
-	selp, err := action.Sign(elp, executor.RawAddress, executor.PrivateKey)
+	selp, err := action.Sign(elp, executor.EncodedAddr, executor.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}

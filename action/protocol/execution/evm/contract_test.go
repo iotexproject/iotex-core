@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -45,10 +44,10 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	code := []byte("test contract creation")
-	addr := testaddress.IotxAddrinfo["alfa"]
+	addr := testaddress.Addrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
-	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
+	_, err = account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(0))
 	require.Nil(err)
 	stateDB := StateDBAdapter{
 		sm:             ws,
@@ -56,8 +55,7 @@ func TestCreateContract(t *testing.T) {
 		dao:            ws.GetDB(),
 		cb:             ws.GetCachedBatch(),
 	}
-	contractHash, _ := iotxaddress.GetPubkeyHash(addr.RawAddress)
-	contract := byteutil.BytesTo20B(contractHash)
+	contract := addr.PublicKeyHash()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
 	stateDB.SetCode(evmContract, code)
@@ -79,7 +77,7 @@ func TestCreateContract(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -87,7 +85,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(err)
 
 	// reload same contract
-	contract1, err := account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
+	contract1, err := account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 	require.Nil(sf.Commit(ws))
@@ -100,7 +98,7 @@ func TestCreateContract(t *testing.T) {
 	// reload same contract
 	ws, err = sf.NewWorkingSet()
 	require.Nil(err)
-	contract1, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
+	contract1, err = account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 	stateDB = StateDBAdapter{
@@ -129,10 +127,10 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	code := []byte("test contract creation")
-	addr := testaddress.IotxAddrinfo["alfa"]
+	addr := testaddress.Addrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
-	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(0))
+	_, err = account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(0))
 	require.Nil(err)
 	stateDB := StateDBAdapter{
 		sm:             ws,
@@ -140,8 +138,7 @@ func TestLoadStoreContract(t *testing.T) {
 		dao:            ws.GetDB(),
 		cb:             ws.GetCachedBatch(),
 	}
-	contractHash, _ := iotxaddress.GetPubkeyHash(addr.RawAddress)
-	contract := byteutil.BytesTo20B(contractHash)
+	contract := addr.PublicKeyHash()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
 	stateDB.SetCode(evmContract, code)
@@ -160,12 +157,10 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(stateDB.setContractState(contract, k2, v2))
 
 	code1 := []byte("2nd contract creation")
-	addr1 := testaddress.IotxAddrinfo["bravo"]
-	_, err = account.LoadOrCreateAccount(ws, addr1.RawAddress, big.NewInt(0))
+	addr1 := testaddress.Addrinfo["bravo"]
+	_, err = account.LoadOrCreateAccount(ws, addr1.Bech32(), big.NewInt(0))
 	require.Nil(err)
-	contractHash, err = iotxaddress.GetPubkeyHash(addr1.RawAddress)
-	require.Nil(err)
-	contract1 := byteutil.BytesTo20B(contractHash)
+	contract1 := addr1.PublicKeyHash()
 	var evmContract1 common.Address
 	copy(evmContract1[:], contract1[:])
 	stateDB.SetCode(evmContract1, code1)
@@ -186,7 +181,7 @@ func TestLoadStoreContract(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})

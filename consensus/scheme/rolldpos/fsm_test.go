@@ -27,7 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -39,12 +38,18 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-var testAddrs = []*iotxaddress.Address{
+var testAddrs = []*addrKeyPair{
 	newTestAddr(),
 	newTestAddr(),
 	newTestAddr(),
 	newTestAddr(),
 	newTestAddr(),
+}
+
+type addrKeyPair struct {
+	pubKey      keypair.PublicKey
+	priKey      keypair.PrivateKey
+	encodedAddr string
 }
 
 func TestBackdoorEvt(t *testing.T) {
@@ -92,7 +97,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 
 		delegates := make([]string, 4)
 		for i := 0; i < 4; i++ {
-			delegates[i] = testAddrs[i].RawAddress
+			delegates[i] = testAddrs[i].encodedAddr
 		}
 		cfsm := newTestCFSM(t, testAddrs[0], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
@@ -111,7 +116,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 
 		delegates := make([]string, 4)
 		for i := 0; i < 4; i++ {
-			delegates[i] = testAddrs[i+1].RawAddress
+			delegates[i] = testAddrs[i+1].encodedAddr
 		}
 		cfsm := newTestCFSM(t, testAddrs[0], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		s, err := cfsm.handleRollDelegatesEvt(cfsm.newCEvt(eRollDelegates))
@@ -127,7 +132,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 
 		delegates := make([]string, 4)
 		for i := 0; i < 4; i++ {
-			delegates[i] = testAddrs[i].RawAddress
+			delegates[i] = testAddrs[i].encodedAddr
 		}
 		cfsm := newTestCFSM(
 			t,
@@ -155,7 +160,7 @@ func TestRollDelegatesEvt(t *testing.T) {
 
 		delegates := make([]string, 4)
 		for i := 0; i < 4; i++ {
-			delegates[i] = testAddrs[i].RawAddress
+			delegates[i] = testAddrs[i].encodedAddr
 		}
 		cfsm := newTestCFSM(
 			t,
@@ -188,7 +193,7 @@ func TestGenerateDKGEvt(t *testing.T) {
 	delegates := make([]string, 21)
 	test21Addrs := test21Addrs()
 	for i, addr := range test21Addrs {
-		delegates[i] = addr.RawAddress
+		delegates[i] = addr.encodedAddr
 	}
 	t.Run("no-delay", func(t *testing.T) {
 		cfsm := newTestCFSM(t, test21Addrs[2], test21Addrs[2], ctrl, delegates, nil, nil, clock.New())
@@ -219,7 +224,7 @@ func TestStartRoundEvt(t *testing.T) {
 
 		delegates := make([]string, 4)
 		for i := 0; i < 4; i++ {
-			delegates[i] = testAddrs[i].RawAddress
+			delegates[i] = testAddrs[i].encodedAddr
 		}
 		cfsm := newTestCFSM(t, testAddrs[2], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.epoch = epochCtx{
@@ -250,7 +255,7 @@ func TestStartRoundEvt(t *testing.T) {
 
 		delegates := make([]string, 4)
 		for i := 0; i < 4; i++ {
-			delegates[i] = testAddrs[i+1].RawAddress
+			delegates[i] = testAddrs[i+1].encodedAddr
 		}
 		cfsm := newTestCFSM(t, testAddrs[1], testAddrs[2], ctrl, delegates, nil, nil, clock.New())
 		cfsm.ctx.epoch = epochCtx{
@@ -298,7 +303,7 @@ func TestHandleInitBlockEvt(t *testing.T) {
 	delegates := make([]string, 21)
 	test21Addrs := test21Addrs()
 	for i, addr := range test21Addrs {
-		delegates[i] = addr.RawAddress
+		delegates[i] = addr.encodedAddr
 	}
 
 	/*
@@ -389,7 +394,7 @@ func TestHandleProposeBlockEvt(t *testing.T) {
 
 	delegates := make([]string, 4)
 	for i := 0; i < 4; i++ {
-		delegates[i] = testAddrs[i].RawAddress
+		delegates[i] = testAddrs[i].encodedAddr
 	}
 
 	epoch := epochCtx{
@@ -688,7 +693,7 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 
 	delegates := make([]string, 4)
 	for i := 0; i < 4; i++ {
-		delegates[i] = testAddrs[i].RawAddress
+		delegates[i] = testAddrs[i].encodedAddr
 	}
 
 	epoch := epochCtx{
@@ -735,19 +740,19 @@ func TestHandleProposalEndorseEvt(t *testing.T) {
 		blkHash := blk.Hash()
 
 		// First endorse prepare
-		eEvt := newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[0].PublicKey, testAddrs[0].PrivateKey, testAddrs[0].RawAddress, cfsm.ctx.clock)
+		eEvt := newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[0].pubKey, testAddrs[0].priKey, testAddrs[0].encodedAddr, cfsm.ctx.clock)
 		state, err := cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Second endorse prepare
-		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
+		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[1].pubKey, testAddrs[1].priKey, testAddrs[1].encodedAddr, cfsm.ctx.clock)
 		state, err = cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptProposalEndorse, state)
 
 		// Third endorse prepare, could move on
-		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[2].PublicKey, testAddrs[2].PrivateKey, testAddrs[2].RawAddress, cfsm.ctx.clock)
+		eEvt = newEndorseEvt(endorsement.PROPOSAL, blkHash, round.height, round.number, testAddrs[2].pubKey, testAddrs[2].priKey, testAddrs[2].encodedAddr, cfsm.ctx.clock)
 		state, err = cfsm.handleEndorseProposalEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptLockEndorse, state)
@@ -795,7 +800,7 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 	delegates := make([]string, 21)
 	test21Addrs := test21Addrs()
 	for i, addr := range test21Addrs {
-		delegates[i] = addr.RawAddress
+		delegates[i] = addr.encodedAddr
 	}
 
 	round := roundCtx{
@@ -892,14 +897,14 @@ func TestHandleCommitEndorseEvt(t *testing.T) {
 		blkHash := blk.Hash()
 
 		for i := 0; i < 14; i++ {
-			eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[i].PublicKey, test21Addrs[i].PrivateKey, test21Addrs[i].RawAddress, cfsm.ctx.clock)
+			eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[i].pubKey, test21Addrs[i].priKey, test21Addrs[i].encodedAddr, cfsm.ctx.clock)
 			state, err := cfsm.handleEndorseLockEvt(eEvt)
 			assert.NoError(t, err)
 			assert.Equal(t, sAcceptLockEndorse, state)
 		}
 
 		// 15th endorse prepare, could move on
-		eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[14].PublicKey, test21Addrs[14].PrivateKey, test21Addrs[14].RawAddress, cfsm.ctx.clock)
+		eEvt := newEndorseEvt(endorsement.LOCK, blkHash, round.height, round.number, test21Addrs[14].pubKey, test21Addrs[14].priKey, test21Addrs[14].encodedAddr, cfsm.ctx.clock)
 		state, err := cfsm.handleEndorseLockEvt(eEvt)
 		assert.NoError(t, err)
 		assert.Equal(t, sAcceptCommitEndorse, state)
@@ -951,7 +956,7 @@ func TestOneDelegate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	delegates := []string{testAddrs[0].RawAddress}
+	delegates := []string{testAddrs[0].encodedAddr}
 	epoch := epochCtx{
 		delegates:    delegates,
 		num:          uint64(1),
@@ -1035,7 +1040,7 @@ func TestTwoDelegates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	delegates := []string{testAddrs[0].RawAddress, testAddrs[1].RawAddress}
+	delegates := []string{testAddrs[0].encodedAddr, testAddrs[1].encodedAddr}
 	epoch := epochCtx{
 		delegates:    delegates,
 		num:          uint64(1),
@@ -1087,7 +1092,7 @@ func TestTwoDelegates(t *testing.T) {
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
-	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1].pubKey, testAddrs[1].priKey, testAddrs[1].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
@@ -1099,7 +1104,7 @@ func TestTwoDelegates(t *testing.T) {
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
-	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1].pubKey, testAddrs[1].priKey, testAddrs[1].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptCommitEndorse, state)
 	require.NoError(err)
@@ -1127,7 +1132,7 @@ func TestThreeDelegates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	delegates := []string{testAddrs[0].RawAddress, testAddrs[1].RawAddress, testAddrs[2].RawAddress}
+	delegates := []string{testAddrs[0].encodedAddr, testAddrs[1].encodedAddr, testAddrs[2].encodedAddr}
 	epoch := epochCtx{
 		delegates:    delegates,
 		num:          uint64(1),
@@ -1169,17 +1174,17 @@ func TestThreeDelegates(t *testing.T) {
 	cfsm.ctx.round.block = blk
 	// endorse proposal
 	// handle self endorsement
-	eEvt := newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[0].PublicKey, testAddrs[0].PrivateKey, testAddrs[0].RawAddress, cfsm.ctx.clock)
+	eEvt := newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[0].pubKey, testAddrs[0].priKey, testAddrs[0].encodedAddr, cfsm.ctx.clock)
 	state, err := cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
 	// handle delegate 1's endorsement
-	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[1].pubKey, testAddrs[1].priKey, testAddrs[1].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptProposalEndorse, state)
 	require.NoError(err)
 	// handle delegate 2's endorsement
-	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[2].PublicKey, testAddrs[2].PrivateKey, testAddrs[2].RawAddress, cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.PROPOSAL, blk.Hash(), round.height, round.number, testAddrs[2].pubKey, testAddrs[2].priKey, testAddrs[2].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseProposalEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
@@ -1193,12 +1198,12 @@ func TestThreeDelegates(t *testing.T) {
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
 	// handle delegate 1's endorsement
-	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1].PublicKey, testAddrs[1].PrivateKey, testAddrs[1].RawAddress, cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[1].pubKey, testAddrs[1].priKey, testAddrs[1].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.Equal(sAcceptLockEndorse, state)
 	require.NoError(err)
 	// handle delegate 2's endorsement
-	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[2].PublicKey, testAddrs[2].PrivateKey, testAddrs[2].RawAddress, cfsm.ctx.clock)
+	eEvt = newEndorseEvt(endorsement.LOCK, blk.Hash(), round.height, round.number, testAddrs[2].pubKey, testAddrs[2].priKey, testAddrs[2].encodedAddr, cfsm.ctx.clock)
 	state, err = cfsm.handleEndorseLockEvt(eEvt)
 	require.NoError(err)
 	require.Equal(sAcceptCommitEndorse, state)
@@ -1229,7 +1234,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 	delegates := make([]string, 21)
 	test21Addrs := test21Addrs()
 	for i, addr := range test21Addrs {
-		delegates[i] = addr.RawAddress
+		delegates[i] = addr.encodedAddr
 	}
 
 	epoch := epochCtx{
@@ -1286,7 +1291,7 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 
 		idList := make([][]uint8, 0)
 		for _, addr := range delegates {
-			dkgID := iotxaddress.CreateID(addr)
+			dkgID := address.Bech32ToID(addr)
 			idList = append(idList, dkgID)
 		}
 		for i, delegate := range delegates {
@@ -1355,19 +1360,20 @@ func TestHandleFinishEpochEvt(t *testing.T) {
 
 func newTestCFSM(
 	t *testing.T,
-	addr *iotxaddress.Address,
-	proposer *iotxaddress.Address,
+	addr *addrKeyPair,
+	proposer *addrKeyPair,
 	ctrl *gomock.Controller,
 	delegates []string,
 	mockChain func(*mock_blockchain.MockBlockchain),
 	broadcastCB func(proto.Message) error,
 	clock clock.Clock,
 ) *cFSM {
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
-	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, 100000, big.NewInt(10))
+	a := testaddress.Addrinfo["alfa"].Bech32()
+	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	b := testaddress.Addrinfo["bravo"].Bech32()
+	transfer, err := testutil.SignedTransfer(a, b, priKeyA, 1, big.NewInt(100), []byte{}, 100000, big.NewInt(10))
 	require.NoError(t, err)
-	vote, err := testutil.SignedVote(a, a, 2, 100000, big.NewInt(10))
+	vote, err := testutil.SignedVote(a, a, priKeyA, 2, 100000, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	lastBlk := block.NewBlockDeprecated(
@@ -1375,7 +1381,7 @@ func newTestCFSM(
 		1,
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
-		proposer.PublicKey,
+		proposer.pubKey,
 		make([]action.SealedEnvelope, 0),
 	)
 	blkToMint, err := block.NewTestingBuilder().
@@ -1384,7 +1390,7 @@ func newTestCFSM(
 		SetPrevBlockHash(lastBlk.HashBlock()).
 		SetTimeStamp(testutil.TimestampNowFromClock(clock)).
 		AddActions(transfer, vote).
-		SignAndBuild(proposer)
+		SignAndBuild(proposer.pubKey, proposer.priKey)
 	require.NoError(t, err)
 
 	var secretBlkToMint block.Block
@@ -1393,7 +1399,7 @@ func newTestCFSM(
 	if len(delegates) == 21 {
 		idList := make([][]uint8, 0)
 		for _, addr := range delegates {
-			dkgID := iotxaddress.CreateID(addr)
+			dkgID := address.Bech32ToID(addr)
 			idList = append(idList, dkgID)
 		}
 		_, secrets, witness, err := crypto.DKG.Init(crypto.DKG.SkGeneration(), idList)
@@ -1403,12 +1409,12 @@ func newTestCFSM(
 		nonce := uint64(1)
 		secretProposals := make([]*action.SecretProposal, 0)
 		for i, delegate := range delegates {
-			secretProposal, err := action.NewSecretProposal(nonce, proposer.RawAddress, delegate, secrets[i])
+			secretProposal, err := action.NewSecretProposal(nonce, proposer.encodedAddr, delegate, secrets[i])
 			require.NoError(t, err)
 			secretProposals = append(secretProposals, secretProposal)
 			nonce++
 		}
-		secretWitness, err := action.NewSecretWitness(nonce, proposer.RawAddress, witness)
+		secretWitness, err := action.NewSecretWitness(nonce, proposer.encodedAddr, witness)
 		require.NoError(t, err)
 
 		secretBlkToMint, err = block.NewTestingBuilder().
@@ -1418,7 +1424,7 @@ func newTestCFSM(
 			SetTimeStamp(testutil.TimestampNowFromClock(clock)).
 			SetSecretProposals(secretProposals).
 			SetSecretWitness(secretWitness).
-			SignAndBuild(proposer)
+			SignAndBuild(proposer.pubKey, proposer.priKey)
 		require.NoError(t, err)
 	}
 
@@ -1479,23 +1485,18 @@ func newTestCFSM(
 	return cfsm
 }
 
-func newTestAddr() *iotxaddress.Address {
+func newTestAddr() *addrKeyPair {
 	pk, sk, err := crypto.EC283.NewKeyPair()
 	if err != nil {
-		log.L().Panic("Error when creating test IoTeX address.", zap.Error(err))
+		log.L().Panic("Error when creating test address.", zap.Error(err))
 	}
 	pkHash := keypair.HashPubKey(pk)
 	addr := address.New(config.Default.Chain.ID, pkHash[:])
-	iotxAddr := iotxaddress.Address{
-		PublicKey:  pk,
-		PrivateKey: sk,
-		RawAddress: addr.IotxAddress(),
-	}
-	return &iotxAddr
+	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.Bech32()}
 }
 
-func test21Addrs() []*iotxaddress.Address {
-	addrs := make([]*iotxaddress.Address, 0)
+func test21Addrs() []*addrKeyPair {
+	addrs := make([]*addrKeyPair, 0)
 	for i := 0; i < 21; i++ {
 		addrs = append(addrs, newTestAddr())
 	}

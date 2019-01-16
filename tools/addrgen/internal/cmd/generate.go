@@ -20,8 +20,8 @@ import (
 // generateCmd represents the generate command
 var generateCmd = &cobra.Command{
 	Use:   "generate [# number]",
-	Short: "Generates n number of iotex address key pairs.",
-	Long:  `Generates n number of iotex address key pairs.`,
+	Short: "Generates n number of address key pairs.",
+	Long:  `Generates n number of address key pairs.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(generate(args))
 	},

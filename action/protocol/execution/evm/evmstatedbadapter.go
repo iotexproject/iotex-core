@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -94,7 +93,7 @@ func (stateDB *StateDBAdapter) Error() error {
 // CreateAccount creates an account in iotx blockchain
 func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	_, err := account.LoadOrCreateAccount(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
+	_, err := account.LoadOrCreateAccount(stateDB.sm, addr.Bech32(), big.NewInt(0))
 	if err != nil {
 		log.L().Error("Failed to create account.", zap.Error(err))
 		// stateDB.logError(err)
@@ -111,14 +110,14 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 	// stateDB.GetBalance(evmAddr)
 	log.L().Debug(fmt.Sprintf("SubBalance %v from %s", amount, evmAddr.Hex()))
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	state, err := stateDB.AccountState(addr.IotxAddress())
+	state, err := stateDB.AccountState(addr.Bech32())
 	if err != nil {
 		log.L().Error("Failed to sub balance.", zap.Error(err))
 		stateDB.logError(err)
 		return
 	}
 	state.SubBalance(amount)
-	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), state); err != nil {
+	if err := account.StoreAccount(stateDB.sm, addr.Bech32(), state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 	}
 	// stateDB.GetBalance(evmAddr)
@@ -133,14 +132,14 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 	log.L().Debug(fmt.Sprintf("AddBalance %v from %s", amount, evmAddr.Hex()))
 
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	state, err := account.LoadOrCreateAccount(stateDB.sm, addr.IotxAddress(), big.NewInt(0))
+	state, err := account.LoadOrCreateAccount(stateDB.sm, addr.Bech32(), big.NewInt(0))
 	if err != nil {
 		log.L().Error("Failed to add balance.", log.Hex("addrHash", evmAddr[:]))
 		stateDB.logError(err)
 		return
 	}
 	state.AddBalance(amount)
-	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), state); err != nil {
+	if err := account.StoreAccount(stateDB.sm, addr.Bech32(), state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 	}
 }
@@ -148,7 +147,7 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 // GetBalance gets the balance of account
 func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	state, err := stateDB.AccountState(addr.IotxAddress())
+	state, err := stateDB.AccountState(addr.Bech32())
 	if err != nil {
 		log.L().Error("Failed to get balance.", zap.Error(err))
 		return big.NewInt(0)
@@ -161,14 +160,14 @@ func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 // GetNonce gets the nonce of account
 func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	state, err := stateDB.AccountState(addr.IotxAddress())
+	state, err := stateDB.AccountState(addr.Bech32())
 	if err != nil {
 		log.L().Error("Failed to get nonce.", zap.Error(err))
 		// stateDB.logError(err)
 		return 0
 	}
 	log.L().Debug("Called GetNonce.",
-		zap.String("address", addr.IotxAddress()),
+		zap.String("address", addr.Bech32()),
 		zap.Uint64("nonce", state.Nonce))
 	return state.Nonce
 }
@@ -176,17 +175,17 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 // SetNonce sets the nonce of account
 func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	s, err := stateDB.AccountState(addr.IotxAddress())
+	s, err := stateDB.AccountState(addr.Bech32())
 	if err != nil {
 		log.L().Error("Failed to set nonce.", zap.Error(err))
 		// stateDB.logError(err)
 		return
 	}
 	log.L().Debug("Called SetNonce.",
-		zap.String("address", addr.IotxAddress()),
+		zap.String("address", addr.Bech32()),
 		zap.Uint64("nonce", nonce))
 	s.Nonce = nonce
-	if err := account.StoreAccount(stateDB.sm, addr.IotxAddress(), s); err != nil {
+	if err := account.StoreAccount(stateDB.sm, addr.Bech32(), s); err != nil {
 		log.L().Error("Failed to set nonce.", zap.Error(err))
 		// stateDB.logError(err)
 	}
@@ -208,9 +207,9 @@ func (stateDB *StateDBAdapter) GetRefund() uint64 {
 // Suicide kills the contract
 func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	s, err := stateDB.AccountState(addr.IotxAddress())
+	s, err := stateDB.AccountState(addr.Bech32())
 	if err != nil || s == state.EmptyAccount {
-		log.L().Debug("Account does not exist.", zap.String("address", addr.IotxAddress()))
+		log.L().Debug("Account does not exist.", zap.String("address", addr.Bech32()))
 		return false
 	}
 	// clears the account balance
@@ -233,9 +232,9 @@ func (stateDB *StateDBAdapter) HasSuicided(evmAddr common.Address) bool {
 // Exist checks the existence of an address
 func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
-	log.L().Debug("Check existence.", zap.String("address", addr.IotxAddress()), log.Hex("addrHash", evmAddr[:]))
-	if s, err := stateDB.AccountState(addr.IotxAddress()); err != nil || s == state.EmptyAccount {
-		log.L().Debug("Account does not exist.", zap.String("address", addr.IotxAddress()))
+	log.L().Debug("Check existence.", zap.String("address", addr.Bech32()), log.Hex("addrHash", evmAddr[:]))
+	if s, err := stateDB.AccountState(addr.Bech32()); err != nil || s == state.EmptyAccount {
+		log.L().Debug("Account does not exist.", zap.String("address", addr.Bech32()))
 		return false
 	}
 	return true
@@ -245,7 +244,7 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
 	log.L().Debug("Check whether the contract is empty.")
-	s, err := stateDB.AccountState(addr.IotxAddress())
+	s, err := stateDB.AccountState(addr.Bech32())
 	if err != nil || s == state.EmptyAccount {
 		return true
 	}
@@ -327,7 +326,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		topics = append(topics, topic)
 	}
 	log := &action.Log{
-		Address:     addr.IotxAddress(),
+		Address:     addr.Bech32(),
 		Topics:      topics,
 		Data:        evmLog.Data,
 		BlockNumber: stateDB.blockHeight,
@@ -379,9 +378,9 @@ func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(commo
 
 // AccountState returns an account state
 func (stateDB *StateDBAdapter) AccountState(addr string) (*state.Account, error) {
-	addrHash, err := iotxaddress.AddressToPKHash(addr)
+	addrHash, err := address.Bech32ToPKHash(addr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get public key hash from encoded address")
 	}
 	if contract, ok := stateDB.cachedContract[addrHash]; ok {
 		return contract.SelfState(), nil

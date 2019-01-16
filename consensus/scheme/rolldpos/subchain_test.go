@@ -28,8 +28,10 @@ func TestPutBlockToParentChain(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	addr := testaddress.IotxAddrinfo["producer"]
-	subAddr := testaddress.IotxAddrinfo["echo"]
+	addr := testaddress.Addrinfo["producer"].Bech32()
+	pubKey := testaddress.Keyinfo["producer"].PubKey
+	priKey := testaddress.Keyinfo["producer"].PriKey
+	subAddr := testaddress.Addrinfo["echo"].Bech32()
 	blk := block.Block{}
 	blkpb := &iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{
@@ -41,8 +43,8 @@ func TestPutBlockToParentChain(t *testing.T) {
 				Action: &iproto.ActionPb_Transfer{
 					Transfer: &iproto.TransferPb{},
 				},
-				Sender:       addr.RawAddress,
-				SenderPubKey: addr.PublicKey[:],
+				Sender:       addr,
+				SenderPubKey: pubKey[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        101,
 			},
@@ -50,8 +52,8 @@ func TestPutBlockToParentChain(t *testing.T) {
 				Action: &iproto.ActionPb_Transfer{
 					Transfer: &iproto.TransferPb{},
 				},
-				Sender:       addr.RawAddress,
-				SenderPubKey: addr.PublicKey[:],
+				Sender:       addr,
+				SenderPubKey: pubKey[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        102,
 			},
@@ -59,8 +61,8 @@ func TestPutBlockToParentChain(t *testing.T) {
 				Action: &iproto.ActionPb_Vote{
 					Vote: &iproto.VotePb{},
 				},
-				Sender:       addr.RawAddress,
-				SenderPubKey: addr.PublicKey[:],
+				Sender:       addr,
+				SenderPubKey: pubKey[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        103,
 			},
@@ -68,8 +70,8 @@ func TestPutBlockToParentChain(t *testing.T) {
 				Action: &iproto.ActionPb_Vote{
 					Vote: &iproto.VotePb{},
 				},
-				Sender:       addr.RawAddress,
-				SenderPubKey: addr.PublicKey[:],
+				Sender:       addr,
+				SenderPubKey: pubKey[:],
 				Version:      version.ProtocolVersion,
 				Nonce:        104,
 			},
@@ -86,11 +88,11 @@ func TestPutBlockToParentChain(t *testing.T) {
 	req := explorerapi.PutSubChainBlockRequest{
 		Version:         1,
 		Nonce:           100,
-		SenderAddress:   addr.RawAddress,
-		SenderPubKey:    hex.EncodeToString(addr.PublicKey[:]),
+		SenderAddress:   addr,
+		SenderPubKey:    hex.EncodeToString(pubKey[:]),
 		GasLimit:        1000000,
 		GasPrice:        "10",
-		SubChainAddress: subAddr.RawAddress,
+		SubChainAddress: subAddr,
 		Height:          123456789,
 		Roots: []explorerapi.PutSubChainBlockMerkelRoot{
 			{
@@ -106,10 +108,10 @@ func TestPutBlockToParentChain(t *testing.T) {
 	}
 
 	exp := mock_explorer.NewMockExplorer(ctrl)
-	exp.EXPECT().GetAddressDetails(addr.RawAddress).Return(explorerapi.AddressDetails{PendingNonce: 100}, nil).Times(1)
+	exp.EXPECT().GetAddressDetails(addr).Return(explorerapi.AddressDetails{PendingNonce: 100}, nil).Times(1)
 	exp.EXPECT().PutSubChainBlock(gomock.Any()).Times(1).Do(func(in explorerapi.PutSubChainBlockRequest) {
 		assert.Equal(t, in.Height, req.Height)
 	})
 
-	putBlockToParentChain(exp, req.SubChainAddress, addr.PublicKey, addr.PrivateKey, addr.RawAddress, &blk)
+	putBlockToParentChain(exp, req.SubChainAddress, pubKey, priKey, addr, &blk)
 }

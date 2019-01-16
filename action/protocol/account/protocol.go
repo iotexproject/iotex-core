@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -56,10 +56,10 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 }
 
 // LoadOrCreateAccount either loads an account state or creates an account state
-func LoadOrCreateAccount(sm protocol.StateManager, addr string, init *big.Int) (*state.Account, error) {
-	addrHash, err := iotxaddress.AddressToPKHash(addr)
+func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) (*state.Account, error) {
+	addrHash, err := address.Bech32ToPKHash(encodedAddr)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert address to public key hash")
+		return nil, errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
 	account, err := LoadAccount(sm, addrHash)
 	if err != nil {
@@ -90,10 +90,10 @@ func LoadAccount(sm protocol.StateManager, addrHash hash.PKHash) (*state.Account
 }
 
 // StoreAccount puts updated account state to trie
-func StoreAccount(sm protocol.StateManager, addr string, acct *state.Account) error {
-	addrHash, err := iotxaddress.AddressToPKHash(addr)
+func StoreAccount(sm protocol.StateManager, encodedAddr string, acct *state.Account) error {
+	addrHash, err := address.Bech32ToPKHash(encodedAddr)
 	if err != nil {
-		return errors.Wrap(err, "failed to convert address to public key hash")
+		return errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
 	return sm.PutState(addrHash, acct)
 }

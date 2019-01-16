@@ -13,8 +13,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 )
 
 // GenericValidator is the validator for generic action verification
@@ -51,7 +51,7 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 		return errors.Wrap(action.ErrInsufficientBalanceForGas, "insufficient gas")
 	}
 	// Check if action source address is valid
-	if _, err := iotxaddress.GetPubkeyHash(act.SrcAddr()); err != nil {
+	if _, err := address.Bech32ToAddress(act.SrcAddr()); err != nil {
 		return errors.Wrapf(err, "error when validating source address %s", act.SrcAddr())
 	}
 	// Verify action using action sender's public key

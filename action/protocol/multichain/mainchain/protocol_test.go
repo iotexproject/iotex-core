@@ -32,7 +32,7 @@ func TestAddSubChainActions(t *testing.T) {
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(t, bc.Start(ctx))
 	_, err := bc.CreateState(
-		testaddress.IotxAddrinfo["producer"].RawAddress,
+		testaddress.Addrinfo["producer"].Bech32(),
 		big.NewInt(0).Mul(big.NewInt(10000000000), big.NewInt(blockchain.Iotx)),
 	)
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestAddSubChainActions(t *testing.T) {
 	startSubChain := action.NewStartSubChain(
 		1,
 		2,
-		testaddress.IotxAddrinfo["producer"].RawAddress,
+		testaddress.Addrinfo["producer"].Bech32(),
 		MinSecurityDeposit,
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -56,7 +56,7 @@ func TestAddSubChainActions(t *testing.T) {
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetGasLimit(10000).SetAction(startSubChain).Build()
-	selp, err := action.Sign(elp, testaddress.IotxAddrinfo["producer"].RawAddress, testaddress.IotxAddrinfo["producer"].PrivateKey)
+	selp, err := action.Sign(elp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(selp))
 
@@ -64,8 +64,8 @@ func TestAddSubChainActions(t *testing.T) {
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	putBlock := action.NewPutBlock(
 		2,
-		testaddress.IotxAddrinfo["alfa"].RawAddress,
-		testaddress.IotxAddrinfo["producer"].RawAddress,
+		testaddress.Addrinfo["alfa"].Bech32(),
+		testaddress.Addrinfo["producer"].Bech32(),
 		10001,
 		roots,
 		10003,
@@ -74,17 +74,17 @@ func TestAddSubChainActions(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	pbelp := bd.SetNonce(2).
 		SetGasPrice(big.NewInt(10004)).
-		SetDestinationAddress(testaddress.IotxAddrinfo["alfa"].RawAddress).
+		SetDestinationAddress(testaddress.Addrinfo["alfa"].Bech32()).
 		SetAction(putBlock).
 		SetGasLimit(10003).Build()
-	pbselp, err := action.Sign(pbelp, testaddress.IotxAddrinfo["producer"].RawAddress, testaddress.IotxAddrinfo["producer"].PrivateKey)
+	pbselp, err := action.Sign(pbelp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(pbselp))
 
 	stopSubChain := action.NewStopSubChain(
-		testaddress.IotxAddrinfo["producer"].RawAddress,
+		testaddress.Addrinfo["producer"].Bech32(),
 		3,
-		testaddress.IotxAddrinfo["alfa"].RawAddress,
+		testaddress.Addrinfo["alfa"].Bech32(),
 		10003,
 		10005,
 		big.NewInt(10006),
@@ -92,10 +92,10 @@ func TestAddSubChainActions(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	sscelp := bd.SetNonce(3).
 		SetGasPrice(big.NewInt(10006)).
-		SetDestinationAddress(testaddress.IotxAddrinfo["alfa"].RawAddress).
+		SetDestinationAddress(testaddress.Addrinfo["alfa"].Bech32()).
 		SetAction(stopSubChain).
 		SetGasLimit(10005).Build()
-	sscselp, err := action.Sign(sscelp, testaddress.IotxAddrinfo["producer"].RawAddress, testaddress.IotxAddrinfo["producer"].PrivateKey)
+	sscselp, err := action.Sign(sscelp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(sscselp))
 

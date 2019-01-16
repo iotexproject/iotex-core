@@ -29,30 +29,23 @@ import (
 )
 
 const (
-	pubkeyA = "2c9ccbeb9ee91271f7e5c2103753be9c9edff847e1a51227df6a6b0765f31a4b424e84027b44a663950f013a88b8fd8cdc53b1eda1d4b73f9d9dc12546c8c87d68ff1435a0f8a006"
-	prikeyA = "b5affb30846a00ef5aa39b57f913d70cd8cf6badd587239863cb67feacf6b9f30c34e800"
-	pubkeyB = "881504d84a0659e14dcba59f24a98e71cda55b139615342668840c64678f1514941bbd053c7492fb9b719e6050cfa972efa491b79e11a1713824dda5f638fc0d9fa1b68be3c0f905"
-	prikeyB = "b89c1ec0fb5b192c8bb8f6fcf9a871e4a67ef462f40d2b8ff426da1d1eaedd9696dc9d00"
-	pubkeyC = "252fc7bc9a993b68dd7b13a00213c9cf4befe80da49940c52220f93c7147771ba2d783045cf0fbf2a86b32a62848befb96c0f38c0487a5ccc806ff28bb06d9faf803b93dda107003"
-	prikeyC = "3e05de562a27fb6e25ac23ff8bcaa1ada0c253fa8ff7c6d15308f65d06b6990f64ee9601"
-	pubkeyD = "29aa28cc21c3ee3cc658d3a322997ceb8d5d352f45d052192d3ab57cd196d3375af558067f5a2cfe5fc65d5249cc07f991bab683468382a3acaa4c8b7af35156b46aeda00620f307"
-	prikeyD = "d4b7b441382751d9a1955152b46a69f3c9f9559c6205757af928f5181ff207060d0dab00"
-	pubkeyE = "64dc2d5f445a78b884527252a3dba1f72f52251c97ec213dda99868882024d4d1442f100c8f1f833d0c687871a959ee97665dea24de1a627cce6c970d9db5859da9e4295bb602e04"
-	prikeyE = "53a827f7c5b4b4040b22ae9b12fcaa234e8362fa022480f50b8643981806ed67c7f77a00"
-)
-
-const (
 	maxNumActsPerPool = 8192
 	maxNumActsPerAcct = 256
 )
 
 var (
 	chainID = config.Default.Chain.ID
-	addr1   = testaddress.ConstructAddress(chainID, pubkeyA, prikeyA)
-	addr2   = testaddress.ConstructAddress(chainID, pubkeyB, prikeyB)
-	addr3   = testaddress.ConstructAddress(chainID, pubkeyC, prikeyC)
-	addr4   = testaddress.ConstructAddress(chainID, pubkeyD, prikeyD)
-	addr5   = testaddress.ConstructAddress(chainID, pubkeyE, prikeyE)
+	addr1   = testaddress.Addrinfo["alfa"].Bech32()
+	pubKey1 = testaddress.Keyinfo["alfa"].PubKey
+	priKey1 = testaddress.Keyinfo["alfa"].PriKey
+	addr2   = testaddress.Addrinfo["bravo"].Bech32()
+	priKey2 = testaddress.Keyinfo["bravo"].PriKey
+	addr3   = testaddress.Addrinfo["charlie"].Bech32()
+	priKey3 = testaddress.Keyinfo["charlie"].PriKey
+	addr4   = testaddress.Addrinfo["delta"].Bech32()
+	priKey4 = testaddress.Keyinfo["delta"].PriKey
+	addr5   = testaddress.Addrinfo["echo"].Bech32()
+	priKey5 = testaddress.Keyinfo["echo"].PriKey
 )
 
 func TestActPool_validateGenericAction(t *testing.T) {
@@ -61,7 +54,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	bc.GetFactory().AddActionHandlers(account.NewProtocol())
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig)
@@ -71,30 +64,30 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	validator := ap.actionEnvelopeValidators[0]
 	// Case I: Over-gassed transfer
-	tsf, err := testutil.SignedTransfer(addr1, addr1, 1, big.NewInt(1), nil, genesis.ActionGasLimit+1, big.NewInt(0))
+	tsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, 1, big.NewInt(1), nil, genesis.ActionGasLimit+1, big.NewInt(0))
 	require.NoError(err)
 
 	err = validator.Validate(context.Background(), tsf)
 	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
 	// Case II: Insufficient gas
-	tsf, err = testutil.SignedTransfer(addr1, addr1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
+	tsf, err = testutil.SignedTransfer(addr1, addr1, priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
 	require.NoError(err)
 	err = validator.Validate(context.Background(), tsf)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
 	// Case III: Signature verification fails
-	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1.RawAddress, addr1.RawAddress, []byte{}, uint64(100000), big.NewInt(0))
+	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1, addr1, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetAction(unsignedTsf).
 		SetGasLimit(100000).
-		SetDestinationAddress(addr1.RawAddress).Build()
-	selp := action.FakeSeal(elp, addr1.RawAddress, addr1.PublicKey)
+		SetDestinationAddress(addr1).Build()
+	selp := action.FakeSeal(elp, addr1, pubKey1)
 	err = validator.Validate(context.Background(), selp)
 	require.Equal(action.ErrAction, errors.Cause(err))
 	// Case IV: Nonce is too low
-	prevTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(50),
+	prevTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(prevTsf)
@@ -106,7 +99,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -114,7 +107,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
-	nTsf, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(60),
+	nTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(60),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = validator.Validate(context.Background(), nTsf)
@@ -127,9 +120,9 @@ func TestActPool_AddActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2.RawAddress, big.NewInt(10))
+	_, err = bc.CreateState(addr2, big.NewInt(10))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -141,27 +134,27 @@ func TestActPool_AddActs(t *testing.T) {
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
+	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr1, uint64(2), big.NewInt(20),
+	tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, uint64(3), big.NewInt(30),
+	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := testutil.SignedTransfer(addr1, addr1, uint64(5), big.NewInt(50),
+	tsf5, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(5), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf6, err := testutil.SignedTransfer(addr2, addr2, uint64(1), big.NewInt(5),
+	tsf6, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(1), big.NewInt(5),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf7, err := testutil.SignedTransfer(addr2, addr2, uint64(3), big.NewInt(1),
+	tsf7, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(3), big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf8, err := testutil.SignedTransfer(addr2, addr2, uint64(4), big.NewInt(5),
+	tsf8, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(4), big.NewInt(5),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
@@ -182,24 +175,24 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.Add(tsf8)
 	require.NoError(err)
 
-	pBalance1, _ := ap.getPendingBalance(addr1.RawAddress)
+	pBalance1, _ := ap.getPendingBalance(addr1)
 	require.Equal(uint64(40), pBalance1.Uint64())
-	pNonce1, _ := ap.getPendingNonce(addr1.RawAddress)
+	pNonce1, _ := ap.getPendingNonce(addr1)
 	require.Equal(uint64(5), pNonce1)
 
-	pBalance2, _ := ap.getPendingBalance(addr2.RawAddress)
+	pBalance2, _ := ap.getPendingBalance(addr2)
 	require.Equal(uint64(5), pBalance2.Uint64())
-	pNonce2, _ := ap.getPendingNonce(addr2.RawAddress)
+	pNonce2, _ := ap.getPendingNonce(addr2)
 	require.Equal(uint64(2), pNonce2)
 
-	tsf9, err := testutil.SignedTransfer(addr2, addr2, uint64(2), big.NewInt(3),
+	tsf9, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(2), big.NewInt(3),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(tsf9)
 	require.NoError(err)
-	pBalance2, _ = ap.getPendingBalance(addr2.RawAddress)
+	pBalance2, _ = ap.getPendingBalance(addr2)
 	require.Equal(uint64(1), pBalance2.Uint64())
-	pNonce2, _ = ap.getPendingNonce(addr2.RawAddress)
+	pNonce2, _ = ap.getPendingNonce(addr2)
 	require.Equal(uint64(4), pNonce2)
 	// Error Case Handling
 	// Case I: Action already exists in pool
@@ -214,7 +207,7 @@ func TestActPool_AddActs(t *testing.T) {
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
-		nTsf, err := testutil.SignedTransfer(addr1, addr2, uint64(i), big.NewInt(50), nil, uint64(0), big.NewInt(0))
+		nTsf, err := testutil.SignedTransfer(addr1, addr2, priKey2, uint64(i), big.NewInt(50), nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
 
 		ap2.allActions[nTsf.Hash()] = nTsf
@@ -224,12 +217,12 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap2.Add(vote4)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	// Case III: Nonce already exists
-	replaceTsf, err := testutil.SignedTransfer(addr1, addr2, uint64(1), big.NewInt(1),
+	replaceTsf, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(1), big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(replaceTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
-	replaceVote, err := action.NewVote(4, addr1.RawAddress, "", uint64(100000), big.NewInt(0))
+	replaceVote, err := action.NewVote(4, addr1, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	bd := &action.EnvelopeBuilder{}
@@ -237,27 +230,27 @@ func TestActPool_AddActs(t *testing.T) {
 		SetAction(replaceVote).
 		SetGasLimit(100000).
 		SetDestinationAddress("").Build()
-	selp, err := action.Sign(elp, addr1.RawAddress, addr1.PrivateKey)
+	selp, err := action.Sign(elp, addr1, priKey1)
 
 	require.NoError(err)
 
 	err = ap.Add(selp)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
-	outOfBoundsTsf, err := testutil.SignedTransfer(addr1, addr1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1),
+	outOfBoundsTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(outOfBoundsTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 	// Case V: Insufficient balance
-	overBalTsf, err := testutil.SignedTransfer(addr2, addr2, uint64(4), big.NewInt(20),
+	overBalTsf, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(4), big.NewInt(20),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(overBalTsf)
 	require.Equal(action.ErrBalance, errors.Cause(err))
 	// Case VI: over gas limit
 	creationExecution, err := action.NewExecution(
-		addr1.RawAddress,
+		addr1,
 		action.EmptyAddress,
 		uint64(5),
 		big.NewInt(int64(0)),
@@ -273,7 +266,7 @@ func TestActPool_AddActs(t *testing.T) {
 		SetGasLimit(genesis.ActionGasLimit + 1).
 		SetAction(creationExecution).
 		SetDestinationAddress(action.EmptyAddress).Build()
-	selp, err = action.Sign(elp, addr1.RawAddress, addr1.PrivateKey)
+	selp, err = action.Sign(elp, addr1, priKey1)
 	require.NoError(err)
 
 	err = ap.Add(selp)
@@ -281,7 +274,7 @@ func TestActPool_AddActs(t *testing.T) {
 	// Case VII: insufficient gas
 	tmpData := [1234]byte{}
 	creationExecution, err = action.NewExecution(
-		addr1.RawAddress,
+		addr1,
 		action.EmptyAddress,
 		uint64(5),
 		big.NewInt(int64(0)),
@@ -297,7 +290,7 @@ func TestActPool_AddActs(t *testing.T) {
 		SetGasLimit(10).
 		SetAction(creationExecution).
 		SetDestinationAddress(action.EmptyAddress).Build()
-	selp, err = action.Sign(elp, addr1.RawAddress, addr1.PrivateKey)
+	selp, err = action.Sign(elp, addr1, priKey1)
 	require.NoError(err)
 
 	err = ap.Add(selp)
@@ -309,9 +302,9 @@ func TestActPool_PickActs(t *testing.T) {
 		require := require.New(t)
 		bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 		require.NoError(bc.Start(context.Background()))
-		_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+		_, err := bc.CreateState(addr1, big.NewInt(100))
 		require.NoError(err)
-		_, err = bc.CreateState(addr2.RawAddress, big.NewInt(10))
+		_, err = bc.CreateState(addr2, big.NewInt(10))
 		require.NoError(err)
 		// Create actpool
 		Ap, err := NewActPool(bc, cfg)
@@ -321,32 +314,32 @@ func TestActPool_PickActs(t *testing.T) {
 		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-		tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
+		tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf2, err := testutil.SignedTransfer(addr1, addr1, uint64(2), big.NewInt(20),
+		tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf3, err := testutil.SignedTransfer(addr1, addr1, uint64(3), big.NewInt(30),
+		tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf4, err := testutil.SignedTransfer(addr1, addr1, uint64(4), big.NewInt(40),
+		tsf4, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(4), big.NewInt(40),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf5, err := testutil.SignedTransfer(addr1, addr1, uint64(5), big.NewInt(50),
+		tsf5, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(5), big.NewInt(50),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		vote6, err := testutil.SignedVote(addr1, addr1, uint64(6), uint64(100000), big.NewInt(0))
+		vote6, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(6), uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		vote7, err := testutil.SignedVote(addr2, addr2, uint64(1), uint64(100000), big.NewInt(0))
+		vote7, err := testutil.SignedVote(addr2, addr2, priKey2, uint64(1), uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf8, err := testutil.SignedTransfer(addr2, addr2, uint64(3), big.NewInt(5),
+		tsf8, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(3), big.NewInt(5),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf9, err := testutil.SignedTransfer(addr2, addr2, uint64(4), big.NewInt(1),
+		tsf9, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(4), big.NewInt(1),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf10, err := testutil.SignedTransfer(addr2, addr2, uint64(5), big.NewInt(5),
+		tsf10, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(5), big.NewInt(5),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 
@@ -400,7 +393,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -411,16 +404,16 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
+	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr1, uint64(2), big.NewInt(20),
+	tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, uint64(3), big.NewInt(30),
+	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap.Add(tsf1)
@@ -433,7 +426,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 
 	require.Equal(4, len(ap.allActions))
-	require.NotNil(ap.accountActs[addr1.RawAddress])
+	require.NotNil(ap.accountActs[addr1])
 	sf := bc.GetFactory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
@@ -441,7 +434,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -450,7 +443,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
 	require.Equal(0, len(ap.allActions))
-	require.Nil(ap.accountActs[addr1.RawAddress])
+	require.Nil(ap.accountActs[addr1])
 }
 
 func TestActPool_Reset(t *testing.T) {
@@ -459,11 +452,11 @@ func TestActPool_Reset(t *testing.T) {
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2.RawAddress, big.NewInt(200))
+	_, err = bc.CreateState(addr2, big.NewInt(200))
 	require.NoError(err)
-	_, err = bc.CreateState(addr3.RawAddress, big.NewInt(300))
+	_, err = bc.CreateState(addr3, big.NewInt(300))
 	require.NoError(err)
 
 	apConfig := getActPoolCfg()
@@ -483,31 +476,31 @@ func TestActPool_Reset(t *testing.T) {
 		execution.NewProtocol(bc))
 
 	// Tsfs to be added to ap1
-	tsf1, err := testutil.SignedTransfer(addr1, addr2, uint64(1), big.NewInt(50),
+	tsf1, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(1), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr3, uint64(2), big.NewInt(30),
+	tsf2, err := testutil.SignedTransfer(addr1, addr3, priKey1, uint64(2), big.NewInt(30),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr2, uint64(3), big.NewInt(60),
+	tsf3, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(3), big.NewInt(60),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := testutil.SignedTransfer(addr2, addr1, uint64(1), big.NewInt(100),
+	tsf4, err := testutil.SignedTransfer(addr2, addr1, priKey2, uint64(1), big.NewInt(100),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := testutil.SignedTransfer(addr2, addr3, uint64(2), big.NewInt(50),
+	tsf5, err := testutil.SignedTransfer(addr2, addr3, priKey2, uint64(2), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf6, err := testutil.SignedTransfer(addr2, addr1, uint64(3), big.NewInt(60),
+	tsf6, err := testutil.SignedTransfer(addr2, addr1, priKey2, uint64(3), big.NewInt(60),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf7, err := testutil.SignedTransfer(addr3, addr1, uint64(1), big.NewInt(100),
+	tsf7, err := testutil.SignedTransfer(addr3, addr1, priKey3, uint64(1), big.NewInt(100),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf8, err := testutil.SignedTransfer(addr3, addr2, uint64(2), big.NewInt(100),
+	tsf8, err := testutil.SignedTransfer(addr3, addr2, priKey3, uint64(2), big.NewInt(100),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf9, err := testutil.SignedTransfer(addr3, addr1, uint64(4), big.NewInt(100),
+	tsf9, err := testutil.SignedTransfer(addr3, addr1, priKey3, uint64(4), big.NewInt(100),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
@@ -530,19 +523,19 @@ func TestActPool_Reset(t *testing.T) {
 	err = ap1.Add(tsf9)
 	require.NoError(err)
 	// Tsfs to be added to ap2 only
-	tsf10, err := testutil.SignedTransfer(addr1, addr2, uint64(3), big.NewInt(20),
+	tsf10, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(3), big.NewInt(20),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf11, err := testutil.SignedTransfer(addr1, addr3, uint64(4), big.NewInt(10),
+	tsf11, err := testutil.SignedTransfer(addr1, addr3, priKey1, uint64(4), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf12, err := testutil.SignedTransfer(addr2, addr3, uint64(2), big.NewInt(70),
+	tsf12, err := testutil.SignedTransfer(addr2, addr3, priKey2, uint64(2), big.NewInt(70),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf13, err := testutil.SignedTransfer(addr3, addr1, uint64(1), big.NewInt(200),
+	tsf13, err := testutil.SignedTransfer(addr3, addr1, priKey3, uint64(1), big.NewInt(200),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf14, err := testutil.SignedTransfer(addr3, addr2, uint64(2), big.NewInt(50),
+	tsf14, err := testutil.SignedTransfer(addr3, addr2, priKey3, uint64(2), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
@@ -567,35 +560,35 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ := ap1.getPendingNonce(addr1.RawAddress)
+	ap1PNonce1, _ := ap1.getPendingNonce(addr1)
 	require.Equal(uint64(3), ap1PNonce1)
-	ap1PBalance1, _ := ap1.getPendingBalance(addr1.RawAddress)
+	ap1PBalance1, _ := ap1.getPendingBalance(addr1)
 	require.Equal(big.NewInt(20).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1PNonce2, _ := ap1.getPendingNonce(addr2.RawAddress)
+	ap1PNonce2, _ := ap1.getPendingNonce(addr2)
 	require.Equal(uint64(3), ap1PNonce2)
-	ap1PBalance2, _ := ap1.getPendingBalance(addr2.RawAddress)
+	ap1PBalance2, _ := ap1.getPendingBalance(addr2)
 	require.Equal(big.NewInt(50).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1PNonce3, _ := ap1.getPendingNonce(addr3.RawAddress)
+	ap1PNonce3, _ := ap1.getPendingNonce(addr3)
 	require.Equal(uint64(3), ap1PNonce3)
-	ap1PBalance3, _ := ap1.getPendingBalance(addr3.RawAddress)
+	ap1PBalance3, _ := ap1.getPendingBalance(addr3)
 	require.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2PNonce1, _ := ap2.getPendingNonce(addr1.RawAddress)
+	ap2PNonce1, _ := ap2.getPendingNonce(addr1)
 	require.Equal(uint64(4), ap2PNonce1)
-	ap2PBalance1, _ := ap2.getPendingBalance(addr1.RawAddress)
+	ap2PBalance1, _ := ap2.getPendingBalance(addr1)
 	require.Equal(big.NewInt(0).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2PNonce2, _ := ap2.getPendingNonce(addr2.RawAddress)
+	ap2PNonce2, _ := ap2.getPendingNonce(addr2)
 	require.Equal(uint64(3), ap2PNonce2)
-	ap2PBalance2, _ := ap2.getPendingBalance(addr2.RawAddress)
+	ap2PBalance2, _ := ap2.getPendingBalance(addr2)
 	require.Equal(big.NewInt(30).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2PNonce3, _ := ap2.getPendingNonce(addr3.RawAddress)
+	ap2PNonce3, _ := ap2.getPendingNonce(addr3)
 	require.Equal(uint64(3), ap2PNonce3)
-	ap2PBalance3, _ := ap2.getPendingBalance(addr3.RawAddress)
+	ap2PBalance3, _ := ap2.getPendingBalance(addr3)
 	require.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
 	pickedActs := ap1.PickActs()
@@ -607,7 +600,7 @@ func TestActPool_Reset(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -620,55 +613,55 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
+	ap1PNonce1, _ = ap1.getPendingNonce(addr1)
 	require.Equal(uint64(3), ap1PNonce1)
-	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
+	ap1PBalance1, _ = ap1.getPendingBalance(addr1)
 	require.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
+	ap1PNonce2, _ = ap1.getPendingNonce(addr2)
 	require.Equal(uint64(3), ap1PNonce2)
-	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
+	ap1PBalance2, _ = ap1.getPendingBalance(addr2)
 	require.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
+	ap1PNonce3, _ = ap1.getPendingNonce(addr3)
 	require.Equal(uint64(3), ap1PNonce3)
-	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
+	ap1PBalance3, _ = ap1.getPendingBalance(addr3)
 	require.Equal(big.NewInt(180).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
+	ap2PNonce1, _ = ap2.getPendingNonce(addr1)
 	require.Equal(uint64(4), ap2PNonce1)
-	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
+	ap2PBalance1, _ = ap2.getPendingBalance(addr1)
 	require.Equal(big.NewInt(200).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
+	ap2PNonce2, _ = ap2.getPendingNonce(addr2)
 	require.Equal(uint64(3), ap2PNonce2)
-	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
+	ap2PBalance2, _ = ap2.getPendingBalance(addr2)
 	require.Equal(big.NewInt(200).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
+	ap2PNonce3, _ = ap2.getPendingNonce(addr3)
 	require.Equal(uint64(3), ap2PNonce3)
-	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
+	ap2PBalance3, _ = ap2.getPendingBalance(addr3)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Add more Tsfs after resetting
 	// Tsfs To be added to ap1 only
-	tsf15, err := testutil.SignedTransfer(addr3, addr2, uint64(3), big.NewInt(80),
+	tsf15, err := testutil.SignedTransfer(addr3, addr2, priKey3, uint64(3), big.NewInt(80),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Tsfs To be added to ap2 only
-	tsf16, err := testutil.SignedTransfer(addr1, addr2, uint64(4), big.NewInt(150),
+	tsf16, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(4), big.NewInt(150),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf17, err := testutil.SignedTransfer(addr2, addr1, uint64(3), big.NewInt(90),
+	tsf17, err := testutil.SignedTransfer(addr2, addr1, priKey2, uint64(3), big.NewInt(90),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf18, err := testutil.SignedTransfer(addr2, addr3, uint64(4), big.NewInt(100),
+	tsf18, err := testutil.SignedTransfer(addr2, addr3, priKey2, uint64(4), big.NewInt(100),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf19, err := testutil.SignedTransfer(addr2, addr1, uint64(5), big.NewInt(50),
+	tsf19, err := testutil.SignedTransfer(addr2, addr1, priKey2, uint64(5), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf20, err := testutil.SignedTransfer(addr3, addr2, uint64(3), big.NewInt(200),
+	tsf20, err := testutil.SignedTransfer(addr3, addr2, priKey3, uint64(3), big.NewInt(200),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
@@ -687,35 +680,35 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
+	ap1PNonce1, _ = ap1.getPendingNonce(addr1)
 	require.Equal(uint64(3), ap1PNonce1)
-	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
+	ap1PBalance1, _ = ap1.getPendingBalance(addr1)
 	require.Equal(big.NewInt(220).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
+	ap1PNonce2, _ = ap1.getPendingNonce(addr2)
 	require.Equal(uint64(3), ap1PNonce2)
-	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
+	ap1PBalance2, _ = ap1.getPendingBalance(addr2)
 	require.Equal(big.NewInt(200).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
+	ap1PNonce3, _ = ap1.getPendingNonce(addr3)
 	require.Equal(uint64(5), ap1PNonce3)
-	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
+	ap1PBalance3, _ = ap1.getPendingBalance(addr3)
 	require.Equal(big.NewInt(0).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
+	ap2PNonce1, _ = ap2.getPendingNonce(addr1)
 	require.Equal(uint64(5), ap2PNonce1)
-	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
+	ap2PBalance1, _ = ap2.getPendingBalance(addr1)
 	require.Equal(big.NewInt(50).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
+	ap2PNonce2, _ = ap2.getPendingNonce(addr2)
 	require.Equal(uint64(5), ap2PNonce2)
-	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
+	ap2PBalance2, _ = ap2.getPendingBalance(addr2)
 	require.Equal(big.NewInt(10).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
+	ap2PNonce3, _ = ap2.getPendingNonce(addr3)
 	require.Equal(uint64(3), ap2PNonce3)
-	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
+	ap2PBalance3, _ = ap2.getPendingBalance(addr3)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
 	pickedActs = ap2.PickActs()
@@ -724,7 +717,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -737,48 +730,48 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr1
-	ap1PNonce1, _ = ap1.getPendingNonce(addr1.RawAddress)
+	ap1PNonce1, _ = ap1.getPendingNonce(addr1)
 	require.Equal(uint64(5), ap1PNonce1)
-	ap1PBalance1, _ = ap1.getPendingBalance(addr1.RawAddress)
+	ap1PBalance1, _ = ap1.getPendingBalance(addr1)
 	require.Equal(big.NewInt(140).Uint64(), ap1PBalance1.Uint64())
 	// Addr2
-	ap1PNonce2, _ = ap1.getPendingNonce(addr2.RawAddress)
+	ap1PNonce2, _ = ap1.getPendingNonce(addr2)
 	require.Equal(uint64(5), ap1PNonce2)
-	ap1PBalance2, _ = ap1.getPendingBalance(addr2.RawAddress)
+	ap1PBalance2, _ = ap1.getPendingBalance(addr2)
 	require.Equal(big.NewInt(180).Uint64(), ap1PBalance2.Uint64())
 	// Addr3
-	ap1PNonce3, _ = ap1.getPendingNonce(addr3.RawAddress)
+	ap1PNonce3, _ = ap1.getPendingNonce(addr3)
 	require.Equal(uint64(5), ap1PNonce3)
-	ap1PBalance3, _ = ap1.getPendingBalance(addr3.RawAddress)
+	ap1PBalance3, _ = ap1.getPendingBalance(addr3)
 	require.Equal(big.NewInt(100).Uint64(), ap1PBalance3.Uint64())
 	// ap2
 	// Addr1
-	ap2PNonce1, _ = ap2.getPendingNonce(addr1.RawAddress)
+	ap2PNonce1, _ = ap2.getPendingNonce(addr1)
 	require.Equal(uint64(5), ap2PNonce1)
-	ap2PBalance1, _ = ap2.getPendingBalance(addr1.RawAddress)
+	ap2PBalance1, _ = ap2.getPendingBalance(addr1)
 	require.Equal(big.NewInt(140).Uint64(), ap2PBalance1.Uint64())
 	// Addr2
-	ap2PNonce2, _ = ap2.getPendingNonce(addr2.RawAddress)
+	ap2PNonce2, _ = ap2.getPendingNonce(addr2)
 	require.Equal(uint64(5), ap2PNonce2)
-	ap2PBalance2, _ = ap2.getPendingBalance(addr2.RawAddress)
+	ap2PBalance2, _ = ap2.getPendingBalance(addr2)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance2.Uint64())
 	// Addr3
-	ap2PNonce3, _ = ap2.getPendingNonce(addr3.RawAddress)
+	ap2PNonce3, _ = ap2.getPendingNonce(addr3)
 	require.Equal(uint64(3), ap2PNonce3)
-	ap2PBalance3, _ = ap2.getPendingBalance(addr3.RawAddress)
+	ap2PBalance3, _ = ap2.getPendingBalance(addr3)
 	require.Equal(big.NewInt(280).Uint64(), ap2PBalance3.Uint64())
 
 	// Add two more players
-	_, err = bc.CreateState(addr4.RawAddress, big.NewInt(10))
+	_, err = bc.CreateState(addr4, big.NewInt(10))
 	require.NoError(err)
-	_, err = bc.CreateState(addr5.RawAddress, big.NewInt(20))
+	_, err = bc.CreateState(addr5, big.NewInt(20))
 	require.NoError(err)
-	tsf21, err := testutil.SignedTransfer(addr4, addr5, uint64(1), big.NewInt(10),
+	tsf21, err := testutil.SignedTransfer(addr4, addr5, priKey4, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote22, err := testutil.SignedVote(addr4, addr4, uint64(2), uint64(100000), big.NewInt(0))
+	vote22, err := testutil.SignedVote(addr4, addr4, priKey4, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote23, err := action.NewVote(3, addr4.RawAddress, "",
+	vote23, err := action.NewVote(3, addr4, "",
 		uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
@@ -787,15 +780,15 @@ func TestActPool_Reset(t *testing.T) {
 		SetGasLimit(100000).
 		SetAction(vote23).
 		SetDestinationAddress("").Build()
-	selp23, err := action.Sign(elp, addr4.RawAddress, addr4.PrivateKey)
+	selp23, err := action.Sign(elp, addr4, priKey4)
 	require.NoError(err)
 
-	vote24, err := testutil.SignedVote(addr5, addr5, uint64(1), uint64(100000), big.NewInt(0))
+	vote24, err := testutil.SignedVote(addr5, addr5, priKey5, uint64(1), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf25, err := testutil.SignedTransfer(addr5, addr4, uint64(2), big.NewInt(10),
+	tsf25, err := testutil.SignedTransfer(addr5, addr4, priKey5, uint64(2), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote26, err := action.NewVote(3, addr5.RawAddress, "", uint64(100000), big.NewInt(0))
+	vote26, err := action.NewVote(3, addr5, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	bd = &action.EnvelopeBuilder{}
@@ -803,7 +796,7 @@ func TestActPool_Reset(t *testing.T) {
 		SetGasLimit(100000).
 		SetAction(vote26).
 		SetDestinationAddress("").Build()
-	selp26, err := action.Sign(elp, addr5.RawAddress, addr5.PrivateKey)
+	selp26, err := action.Sign(elp, addr5, priKey5)
 	require.NoError(err)
 
 	err = ap1.Add(tsf21)
@@ -821,14 +814,14 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after adding actions above for account4 and account5
 	// ap1
 	// Addr4
-	ap1PNonce4, _ := ap1.getPendingNonce(addr4.RawAddress)
+	ap1PNonce4, _ := ap1.getPendingNonce(addr4)
 	require.Equal(uint64(4), ap1PNonce4)
-	ap1PBalance4, _ := ap1.getPendingBalance(addr4.RawAddress)
+	ap1PBalance4, _ := ap1.getPendingBalance(addr4)
 	require.Equal(big.NewInt(0).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
-	ap1PNonce5, _ := ap1.getPendingNonce(addr5.RawAddress)
+	ap1PNonce5, _ := ap1.getPendingNonce(addr5)
 	require.Equal(uint64(4), ap1PNonce5)
-	ap1PBalance5, _ := ap1.getPendingBalance(addr5.RawAddress)
+	ap1PBalance5, _ := ap1.getPendingBalance(addr5)
 	require.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
 	// Let ap1 be BP's actpool
 	pickedActs = ap1.PickActs()
@@ -838,7 +831,7 @@ func TestActPool_Reset(t *testing.T) {
 
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -850,14 +843,14 @@ func TestActPool_Reset(t *testing.T) {
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
 	// ap1
 	// Addr4
-	ap1PNonce4, _ = ap1.getPendingNonce(addr4.RawAddress)
+	ap1PNonce4, _ = ap1.getPendingNonce(addr4)
 	require.Equal(uint64(4), ap1PNonce4)
-	ap1PBalance4, _ = ap1.getPendingBalance(addr4.RawAddress)
+	ap1PBalance4, _ = ap1.getPendingBalance(addr4)
 	require.Equal(big.NewInt(10).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
-	ap1PNonce5, _ = ap1.getPendingNonce(addr5.RawAddress)
+	ap1PNonce5, _ = ap1.getPendingNonce(addr5)
 	require.Equal(uint64(4), ap1PNonce5)
-	ap1PBalance5, _ = ap1.getPendingBalance(addr5.RawAddress)
+	ap1PBalance5, _ = ap1.getPendingBalance(addr5)
 	require.Equal(big.NewInt(20).Uint64(), ap1PBalance5.Uint64())
 }
 
@@ -865,7 +858,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -876,16 +869,16 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
+	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr1, uint64(2), big.NewInt(20),
+	tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, uint64(3), big.NewInt(30),
+	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap.Add(tsf1)
@@ -911,9 +904,9 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2.RawAddress, big.NewInt(100))
+	_, err = bc.CreateState(addr2, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -924,13 +917,13 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
+	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, uint64(3), big.NewInt(30),
+	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap.Add(tsf1)
@@ -940,11 +933,11 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	err = ap.Add(vote4)
 	require.NoError(err)
 
-	nonce, err := ap.GetPendingNonce(addr2.RawAddress)
+	nonce, err := ap.GetPendingNonce(addr2)
 	require.NoError(err)
 	require.Equal(uint64(1), nonce)
 
-	nonce, err = ap.GetPendingNonce(addr1.RawAddress)
+	nonce, err = ap.GetPendingNonce(addr1)
 	require.NoError(err)
 	require.Equal(uint64(2), nonce)
 }
@@ -953,9 +946,9 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2.RawAddress, big.NewInt(100))
+	_, err = bc.CreateState(addr2, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -966,13 +959,13 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
+	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, uint64(3), big.NewInt(30),
+	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap.Add(tsf1)
@@ -982,10 +975,10 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	err = ap.Add(vote4)
 	require.NoError(err)
 
-	acts := ap.GetUnconfirmedActs(addr2.RawAddress)
+	acts := ap.GetUnconfirmedActs(addr2)
 	require.Equal([]action.SealedEnvelope{}, acts)
 
-	acts = ap.GetUnconfirmedActs(addr1.RawAddress)
+	acts = ap.GetUnconfirmedActs(addr1)
 	require.Equal([]action.SealedEnvelope{tsf1, tsf3, vote4}, acts)
 }
 
@@ -993,9 +986,9 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2.RawAddress, big.NewInt(100))
+	_, err = bc.CreateState(addr2, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -1004,11 +997,11 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
+	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	hash1 := tsf1.Hash()
-	vote2, err := testutil.SignedVote(addr1, addr1, uint64(2), uint64(100000), big.NewInt(0))
+	vote2, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	hash2 := vote2.Hash()
 
@@ -1043,7 +1036,7 @@ func TestActPool_GetSize(t *testing.T) {
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1.RawAddress, big.NewInt(100))
+	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -1055,16 +1048,16 @@ func TestActPool_GetSize(t *testing.T) {
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.Zero(ap.GetSize())
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, uint64(1), big.NewInt(10),
+	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr1, uint64(2), big.NewInt(20),
+	tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, uint64(3), big.NewInt(30),
+	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	require.NoError(ap.Add(tsf1))
 	require.NoError(ap.Add(tsf2))
@@ -1079,7 +1072,7 @@ func TestActPool_GetSize(t *testing.T) {
 
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
