@@ -10,5 +10,5 @@ const (
 	// BlockGasLimit is the total gas limit could be consumed in a block
 	BlockGasLimit = uint64(20000000)
 	// ActionGasLimit is the per action gas limit cap
-	ActionGasLimit = BlockGasLimit / 10
+	ActionGasLimit = BlockGasLimit / 4
 )

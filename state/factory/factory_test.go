@@ -258,7 +258,7 @@ func TestCandidates(t *testing.T) {
 	selp2, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
-	gasLimit := testutil.TestGasLimit
+	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
@@ -281,12 +281,11 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{}))
 	// a:70 b:210 c:320
 
-	//vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
-	vote, err := action.NewVote(0, a, a, uint64(100000), big.NewInt(0))
+	vote, err := action.NewVote(0, a, a, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote).
-		SetDestinationAddress(a).SetGasLimit(100000).Build()
+		SetDestinationAddress(a).SetGasLimit(20000).Build()
 	selp, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 	zeroGasLimit := uint64(0)
@@ -308,12 +307,12 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":70"}))
 	// a(a):70(+0=70) b:210 c:320
 
-	vote2, err := action.NewVote(0, b, b, uint64(100000), big.NewInt(0))
+	vote2, err := action.NewVote(0, b, b, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote2).
-		SetDestinationAddress(b).SetGasLimit(100000).Build()
+		SetDestinationAddress(b).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
@@ -329,12 +328,12 @@ func TestCandidates(t *testing.T) {
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote3, err := action.NewVote(1, a, b, uint64(100000), big.NewInt(0))
+	vote3, err := action.NewVote(1, a, b, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote3).SetNonce(1).
-		SetDestinationAddress(b).SetGasLimit(100000).Build()
+		SetDestinationAddress(b).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
@@ -392,12 +391,12 @@ func TestCandidates(t *testing.T) {
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote4, err := action.NewVote(1, b, a, uint64(100000), big.NewInt(0))
+	vote4, err := action.NewVote(1, b, a, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote4).SetNonce(1).
-		SetDestinationAddress(a).SetGasLimit(100000).Build()
+		SetDestinationAddress(a).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
@@ -413,12 +412,12 @@ func TestCandidates(t *testing.T) {
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote5, err := action.NewVote(2, b, b, uint64(100000), big.NewInt(0))
+	vote5, err := action.NewVote(2, b, b, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote5).SetNonce(2).
-		SetDestinationAddress(b).SetGasLimit(100000).Build()
+		SetDestinationAddress(b).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
@@ -434,12 +433,12 @@ func TestCandidates(t *testing.T) {
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote6, err := action.NewVote(3, b, b, uint64(100000), big.NewInt(0))
+	vote6, err := action.NewVote(3, b, b, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote6).SetNonce(3).
-		SetDestinationAddress(b).SetGasLimit(100000).Build()
+		SetDestinationAddress(b).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
@@ -927,7 +926,7 @@ func TestUnvote(t *testing.T) {
 	selp, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
-	gasLimit := testutil.TestGasLimit
+	gasLimit := uint64(10000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
@@ -957,12 +956,12 @@ func TestUnvote(t *testing.T) {
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":100"}))
 
-	vote3, err := action.NewVote(0, a, "", uint64(100000), big.NewInt(0))
+	vote3, err := action.NewVote(0, a, "", uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote3).SetNonce(0).
-		SetDestinationAddress("").SetGasLimit(100000).Build()
+		SetDestinationAddress("").SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
@@ -973,30 +972,30 @@ func TestUnvote(t *testing.T) {
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{}))
 
-	vote4, err := action.NewVote(0, b, b, uint64(100000), big.NewInt(0))
+	vote4, err := action.NewVote(0, b, b, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote4).SetNonce(0).
-		SetDestinationAddress(b).SetGasLimit(100000).Build()
+		SetDestinationAddress(b).SetGasLimit(20000).Build()
 	selp1, err := action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
-	vote5, err := action.NewVote(0, a, b, uint64(100000), big.NewInt(0))
+	vote5, err := action.NewVote(0, a, b, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote5).SetNonce(0).
-		SetDestinationAddress(b).SetGasLimit(100000).Build()
+		SetDestinationAddress(b).SetGasLimit(20000).Build()
 	selp2, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
-	vote6, err := action.NewVote(0, a, "", uint64(100000), big.NewInt(0))
+	vote6, err := action.NewVote(0, a, "", uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote6).SetNonce(0).
-		SetDestinationAddress("").SetGasLimit(100000).Build()
+		SetDestinationAddress("").SetGasLimit(20000).Build()
 	selp3, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
