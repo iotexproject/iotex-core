@@ -18,29 +18,41 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-func putBlockToParentChain(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *block.Block) {
-	if err := putBlockToParentChainTask(rootChainAPI, subChainAddr, sender, b); err != nil {
+func putBlockToParentChain(
+	rootChainAPI explorerapi.Explorer,
+	subChainAddr string,
+	senderPubKey keypair.PublicKey,
+	senderPriKey keypair.PrivateKey,
+	senderAddr string,
+	b *block.Block,
+) {
+	if err := putBlockToParentChainTask(rootChainAPI, subChainAddr, senderPubKey, senderPriKey, b); err != nil {
 		log.L().Error("Failed to put block merkle roots to parent chain.",
 			zap.String("subChainAddress", subChainAddr),
-			zap.String("senderAddress", sender.RawAddress),
+			zap.String("senderAddress", senderAddr),
 			zap.Uint64("height", b.Height()),
 			zap.Error(err))
 		return
 	}
 	log.L().Info("Succeeded to put block merkle roots to parent chain.",
 		zap.String("subChainAddress", subChainAddr),
-		zap.String("senderAddress", sender.RawAddress),
+		zap.String("senderAddress", senderAddr),
 		zap.Uint64("height", b.Height()))
 }
 
-func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *block.Block) error {
-	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, sender, b)
+func putBlockToParentChainTask(
+	rootChainAPI explorerapi.Explorer,
+	subChainAddr string,
+	senderPubKey keypair.PublicKey,
+	senderPriKey keypair.PrivateKey,
+	b *block.Block,
+) error {
+	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, senderPubKey, senderPriKey, b)
 	if err != nil {
 		return errors.Wrap(err, "fail to construct PutSubChainBlockRequest")
 	}
@@ -51,14 +63,20 @@ func putBlockToParentChainTask(rootChainAPI explorerapi.Explorer, subChainAddr s
 	return nil
 }
 
-func constructPutSubChainBlockRequest(rootChainAPI explorerapi.Explorer, subChainAddr string, sender *iotxaddress.Address, b *block.Block) (explorerapi.PutSubChainBlockRequest, error) {
+func constructPutSubChainBlockRequest(
+	rootChainAPI explorerapi.Explorer,
+	subChainAddr string,
+	senderPubKey keypair.PublicKey,
+	senderPriKey keypair.PrivateKey,
+	b *block.Block,
+) (explorerapi.PutSubChainBlockRequest, error) {
 	// get sender address on mainchain
 	subChainAddrSt, err := address.IotxAddressToAddress(subChainAddr)
 	if err != nil {
 		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to convert subChainAddr")
 	}
 	parentChainID := subChainAddrSt.ChainID()
-	senderPKHash := keypair.HashPubKey(sender.PublicKey)
+	senderPKHash := keypair.HashPubKey(senderPubKey)
 	senderPCAddr := address.New(parentChainID, senderPKHash[:]).IotxAddress()
 
 	// get sender current pending nonce on parent chain
@@ -88,7 +106,7 @@ func constructPutSubChainBlockRequest(rootChainAPI explorerapi.Explorer, subChai
 		SetAction(pb).Build()
 
 	// sign action
-	selp, err := action.Sign(elp, senderPCAddr, sender.PrivateKey)
+	selp, err := action.Sign(elp, senderPCAddr, senderPriKey)
 	if err != nil {
 		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to sign put block action")
 	}
@@ -97,7 +115,7 @@ func constructPutSubChainBlockRequest(rootChainAPI explorerapi.Explorer, subChai
 		Version:         int64(selp.Version()),
 		Nonce:           int64(selp.Nonce()),
 		SenderAddress:   selp.SrcAddr(),
-		SenderPubKey:    hex.EncodeToString(sender.PublicKey[:]),
+		SenderPubKey:    hex.EncodeToString(senderPubKey[:]),
 		GasLimit:        int64(selp.GasLimit()),
 		GasPrice:        selp.GasPrice().String(),
 		SubChainAddress: pb.SubChainAddress(),

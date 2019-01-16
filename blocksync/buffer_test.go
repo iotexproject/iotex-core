@@ -56,8 +56,9 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinSkipNil, re)
 
-	blk, err := chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
-		nil, nil, "")
+	blk, err := chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	require.Nil(err)
 	moved, re = b.Flush(blk)
 	assert.Equal(true, moved)
@@ -232,8 +233,9 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert.Len(b.GetBlocksIntervalsToSync(5), 2)
 	assert.Len(b.GetBlocksIntervalsToSync(1), 1)
 
-	blk, err = chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"],
-		nil, nil, "")
+	blk, err = chain.MintNewBlock(nil, ta.IotxAddrinfo["producer"].PublicKey,
+		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+		nil, "")
 	require.Nil(err)
 	b.Flush(blk)
 	assert.Len(b.GetBlocksIntervalsToSync(0), 0)

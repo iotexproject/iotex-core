@@ -10,8 +10,8 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/iotexproject/go-fsm"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/zjshen14/go-fsm"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/consensus"
