@@ -37,8 +37,8 @@ func TestValidateDeposit(t *testing.T) {
 		1,
 		big.NewInt(1000),
 		10000,
-		testaddress.IotxAddrinfo["producer"].RawAddress,
-		testaddress.IotxAddrinfo["alfa"].RawAddress,
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(),
 		testutil.TestGasLimit,
 		big.NewInt(0),
 	)
@@ -56,7 +56,7 @@ func TestValidateDeposit(t *testing.T) {
 	exp.EXPECT().GetDeposits(gomock.Any(), gomock.Any(), gomock.Any()).Return([]explorer.Deposit{
 		{
 			Amount:    "100",
-			Address:   testaddress.IotxAddrinfo["alfa"].RawAddress,
+			Address:   testaddress.Addrinfo["alfa"].Bech32(),
 			Confirmed: false,
 		},
 	}, nil).Times(2)
@@ -76,7 +76,7 @@ func TestValidateDeposit(t *testing.T) {
 	exp.EXPECT().GetDeposits(gomock.Any(), gomock.Any(), gomock.Any()).Return([]explorer.Deposit{
 		{
 			Amount:    "100",
-			Address:   testaddress.IotxAddrinfo["alfa"].RawAddress,
+			Address:   testaddress.Addrinfo["alfa"].Bech32(),
 			Confirmed: true,
 		},
 	}, nil).Times(1)
@@ -98,8 +98,8 @@ func TestMutateDeposit(t *testing.T) {
 		1,
 		big.NewInt(1000),
 		10000,
-		testaddress.IotxAddrinfo["producer"].RawAddress,
-		testaddress.IotxAddrinfo["alfa"].RawAddress,
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(),
 		testutil.TestGasLimit,
 		big.NewInt(0),
 	)
@@ -114,11 +114,11 @@ func TestMutateDeposit(t *testing.T) {
 	require.NoError(t, protocol.mutateDeposit(deposit, ws))
 	require.NoError(t, bc.GetFactory().Commit(ws))
 
-	account1, err := bc.GetFactory().AccountState(testaddress.IotxAddrinfo["producer"].RawAddress)
+	account1, err := bc.GetFactory().AccountState(testaddress.Addrinfo["producer"].Bech32())
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), account1.Nonce)
 
-	account2, err := bc.GetFactory().AccountState(testaddress.IotxAddrinfo["alfa"].RawAddress)
+	account2, err := bc.GetFactory().AccountState(testaddress.Addrinfo["alfa"].Bech32())
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(1000), account2.Balance)
 

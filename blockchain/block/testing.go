@@ -11,7 +11,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -109,11 +108,11 @@ func (b *TestingBuilder) SetDKG(id, pk, sig []byte) *TestingBuilder {
 }
 
 // SignAndBuild signs and then builds a block.
-func (b *TestingBuilder) SignAndBuild(signer *iotxaddress.Address) (Block, error) {
+func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
-	b.blk.Header.pubkey = signer.PublicKey
+	b.blk.Header.pubkey = signerPubKey
 	blkHash := b.blk.HashBlock()
-	sig := crypto.EC283.Sign(signer.PrivateKey, blkHash[:])
+	sig := crypto.EC283.Sign(signerPriKey, blkHash[:])
 	if len(sig) == 0 {
 		return Block{}, errors.New("Failed to sign block")
 	}

@@ -19,9 +19,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -49,13 +49,12 @@ func TestSnapshot(t *testing.T) {
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	addr, err := iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	require.Nil(err)
+	addr := testaddress.Addrinfo["alfa"].Bech32()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(5))
+	_, err = account.LoadOrCreateAccount(ws, addr, big.NewInt(5))
 	require.NoError(err)
-	sHash, err := iotxaddress.AddressToPKHash(addr.RawAddress)
+	sHash, err := address.Bech32ToPKHash(addr)
 	require.NoError(err)
 
 	s, err := account.LoadAccount(ws, sHash)
@@ -72,11 +71,10 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(big.NewInt(15), s.Balance)
 	require.NoError(ws.PutState(sHash, s))
 	// add another account
-	addr, err = iotxaddress.NewAddress(true, []byte{0xa4, 0x00, 0x00, 0x00})
-	require.Nil(err)
-	_, err = account.LoadOrCreateAccount(ws, addr.RawAddress, big.NewInt(7))
+	addr = testaddress.Addrinfo["bravo"].Bech32()
+	_, err = account.LoadOrCreateAccount(ws, addr, big.NewInt(7))
 	require.NoError(err)
-	tHash, err := iotxaddress.AddressToPKHash(addr.RawAddress)
+	tHash, err := address.Bech32ToPKHash(addr)
 	require.NoError(err)
 	s, err = account.LoadAccount(ws, tHash)
 	require.NoError(err)
@@ -207,12 +205,18 @@ func TestSnapshot(t *testing.T) {
 
 func TestCandidates(t *testing.T) {
 	// Create three dummy iotex addresses
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
-	c := testaddress.IotxAddrinfo["charlie"]
-	d := testaddress.IotxAddrinfo["delta"]
-	e := testaddress.IotxAddrinfo["echo"]
-	f := testaddress.IotxAddrinfo["foxtrot"]
+	a := testaddress.Addrinfo["alfa"].Bech32()
+	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	b := testaddress.Addrinfo["bravo"].Bech32()
+	priKeyB := testaddress.Keyinfo["bravo"].PriKey
+	c := testaddress.Addrinfo["charlie"].Bech32()
+	priKeyC := testaddress.Keyinfo["charlie"].PriKey
+	d := testaddress.Addrinfo["delta"].Bech32()
+	priKeyD := testaddress.Keyinfo["delta"].PriKey
+	e := testaddress.Addrinfo["echo"].Bech32()
+	priKeyE := testaddress.Keyinfo["echo"].PriKey
+	f := testaddress.Addrinfo["foxtrot"].Bech32()
+	priKeyF := testaddress.Keyinfo["foxtrot"].PriKey
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
@@ -225,39 +229,39 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, sf.Start(context.Background()))
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, b.RawAddress, big.NewInt(200))
+	_, err = account.LoadOrCreateAccount(ws, b, big.NewInt(200))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, c.RawAddress, big.NewInt(300))
+	_, err = account.LoadOrCreateAccount(ws, c, big.NewInt(300))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, d.RawAddress, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, d, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, e.RawAddress, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, e, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, f.RawAddress, big.NewInt(300))
+	_, err = account.LoadOrCreateAccount(ws, f, big.NewInt(300))
 	require.NoError(t, err)
 
 	// a:100(0) b:200(0) c:300(0)
-	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), a, b, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).SetDestinationAddress(b.RawAddress).SetAction(tx1).Build()
-	selp1, err := action.Sign(elp, a.RawAddress, a.PrivateKey)
+	elp := bd.SetNonce(1).SetDestinationAddress(b).SetAction(tx1).Build()
+	selp1, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
-	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, c.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), a, c, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(2).SetDestinationAddress(c.RawAddress).SetAction(tx2).Build()
-	selp2, err := action.Sign(elp, a.RawAddress, a.PrivateKey)
+	elp = bd.SetNonce(2).SetDestinationAddress(c).SetAction(tx2).Build()
+	selp2, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -266,10 +270,10 @@ func TestCandidates(t *testing.T) {
 	root := newRoot
 	require.NotEqual(t, hash.ZeroHash32B, root)
 	require.Nil(t, sf.Commit(ws))
-	balanceB, err := sf.Balance(b.RawAddress)
+	balanceB, err := sf.Balance(b)
 	require.Nil(t, err)
 	require.Equal(t, balanceB, big.NewInt(210))
-	balanceC, err := sf.Balance(c.RawAddress)
+	balanceC, err := sf.Balance(c)
 	require.Nil(t, err)
 	require.Equal(t, balanceC, big.NewInt(320))
 	h, _ := sf.Height()
@@ -278,17 +282,17 @@ func TestCandidates(t *testing.T) {
 	// a:70 b:210 c:320
 
 	//vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(10))
-	vote, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
+	vote, err := action.NewVote(0, a, a, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote).
-		SetDestinationAddress(a.RawAddress).SetGasLimit(100000).Build()
-	selp, err := action.Sign(elp, a.RawAddress, a.PrivateKey)
+		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	selp, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 	zeroGasLimit := uint64(0)
 	zctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &zeroGasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -301,16 +305,16 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":70"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":70"}))
 	// a(a):70(+0=70) b:210 c:320
 
-	vote2, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
+	vote2, err := action.NewVote(0, b, b, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote2).
-		SetDestinationAddress(b.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, b.RawAddress, b.PrivateKey)
+		SetDestinationAddress(b).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp})
@@ -320,18 +324,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":70", b.RawAddress + ":210"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":70", b + ":210"}))
 	// a(a):70(+0=70) b(b):210(+0=210) !c:320
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote3, err := action.NewVote(1, a.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
+	vote3, err := action.NewVote(1, a, b, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote3).SetNonce(1).
-		SetDestinationAddress(b.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, a.RawAddress, a.PrivateKey)
+		SetDestinationAddress(b).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 2, []action.SealedEnvelope{selp})
@@ -341,18 +345,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	tx3, err := action.NewTransfer(uint64(2), big.NewInt(20), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx3, err := action.NewTransfer(uint64(2), big.NewInt(20), b, a, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx3).SetNonce(2).
-		SetDestinationAddress(a.RawAddress).Build()
-	selp, err = action.Sign(elp, b.RawAddress, b.PrivateKey)
+		SetDestinationAddress(a).Build()
+	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 3, []action.SealedEnvelope{selp})
@@ -362,18 +366,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):90(0) b(b):190(+90=280) !c:320
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	tx4, err := action.NewTransfer(uint64(2), big.NewInt(20), a.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx4, err := action.NewTransfer(uint64(2), big.NewInt(20), a, b, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx4).SetNonce(2).
-		SetDestinationAddress(b.RawAddress).Build()
-	selp, err = action.Sign(elp, a.RawAddress, a.PrivateKey)
+		SetDestinationAddress(b).Build()
+	selp, err = action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 4, []action.SealedEnvelope{selp})
@@ -383,18 +387,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote4, err := action.NewVote(1, b.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
+	vote4, err := action.NewVote(1, b, a, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote4).SetNonce(1).
-		SetDestinationAddress(a.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, b.RawAddress, b.PrivateKey)
+		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 5, []action.SealedEnvelope{selp})
@@ -404,18 +408,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":210", b.RawAddress + ":70"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":210", b + ":70"}))
 	// a(b):70(210) b(a):210(70) !c:320
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote5, err := action.NewVote(2, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
+	vote5, err := action.NewVote(2, b, b, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote5).SetNonce(2).
-		SetDestinationAddress(b.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, b.RawAddress, b.PrivateKey)
+		SetDestinationAddress(b).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 6, []action.SealedEnvelope{selp})
@@ -425,18 +429,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote6, err := action.NewVote(3, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
+	vote6, err := action.NewVote(3, b, b, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote6).SetNonce(3).
-		SetDestinationAddress(b.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, b.RawAddress, b.PrivateKey)
+		SetDestinationAddress(b).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 7, []action.SealedEnvelope{selp})
@@ -446,18 +450,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":0", b.RawAddress + ":280"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	tx5, err := action.NewTransfer(uint64(2), big.NewInt(20), c.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx5, err := action.NewTransfer(uint64(2), big.NewInt(20), c, a, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx5).SetNonce(2).
-		SetDestinationAddress(a.RawAddress).Build()
-	selp, err = action.Sign(elp, c.RawAddress, c.PrivateKey)
+		SetDestinationAddress(a).Build()
+	selp, err = action.Sign(elp, c, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 8, []action.SealedEnvelope{selp})
@@ -467,18 +471,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":0", b.RawAddress + ":300"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":300"}))
 	// a(b):90(0) b(b):210(+90=300) !c:300
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote7, err := action.NewVote(0, c.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
+	vote7, err := action.NewVote(0, c, a, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote7).SetNonce(0).
-		SetDestinationAddress(a.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c.RawAddress, c.PrivateKey)
+		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, c, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 9, []action.SealedEnvelope{selp})
@@ -488,18 +492,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":300", b.RawAddress + ":300"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":300"}))
 	// a(b):90(300) b(b):210(+90=300) !c(a):300
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote8, err := action.NewVote(4, b.RawAddress, c.RawAddress, uint64(100000), big.NewInt(0))
+	vote8, err := action.NewVote(4, b, c, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote8).SetNonce(4).
-		SetDestinationAddress(c.RawAddress).Build()
-	selp, err = action.Sign(elp, b.RawAddress, b.PrivateKey)
+		SetDestinationAddress(c).Build()
+	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 10, []action.SealedEnvelope{selp})
@@ -509,18 +513,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":300", b.RawAddress + ":90"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":90"}))
 	// a(b):90(300) b(c):210(90) !c(a):300
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote9, err := action.NewVote(1, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(0))
+	vote9, err := action.NewVote(1, c, c, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote9).SetNonce(1).
-		SetDestinationAddress(c.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c.RawAddress, c.PrivateKey)
+		SetDestinationAddress(c).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, c, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 11, []action.SealedEnvelope{selp})
@@ -530,18 +534,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote10, err := action.NewVote(0, d.RawAddress, e.RawAddress, uint64(100000), big.NewInt(0))
+	vote10, err := action.NewVote(0, d, e, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote10).SetNonce(0).
-		SetDestinationAddress(e.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, d.RawAddress, d.PrivateKey)
+		SetDestinationAddress(e).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, d, priKeyD)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 12, []action.SealedEnvelope{selp})
@@ -551,18 +555,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":510", b.RawAddress + ":90"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote11, err := action.NewVote(1, d.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
+	vote11, err := action.NewVote(1, d, d, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote11).SetNonce(1).
-		SetDestinationAddress(d.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, d.RawAddress, d.PrivateKey)
+		SetDestinationAddress(d).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, d, priKeyD)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 13, []action.SealedEnvelope{selp})
@@ -572,18 +576,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":510", d.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", d + ":100"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510) d(d): 100(100)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote12, err := action.NewVote(2, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
+	vote12, err := action.NewVote(2, d, a, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote12).SetNonce(2).
-		SetDestinationAddress(a.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, d.RawAddress, d.PrivateKey)
+		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, d, priKeyD)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 14, []action.SealedEnvelope{selp})
@@ -593,18 +597,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote13, err := action.NewVote(2, c.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
+	vote13, err := action.NewVote(2, c, d, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote13).SetNonce(2).
-		SetDestinationAddress(d.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c.RawAddress, c.PrivateKey)
+		SetDestinationAddress(d).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, c, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 15, []action.SealedEnvelope{selp})
@@ -614,18 +618,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":210", d.RawAddress + ":300"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":210", d + ":300"}))
 	// a(b):90(100) b(c):210(90) c(d):300(210) d(a): 100(300)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote14, err := action.NewVote(3, c.RawAddress, c.RawAddress, uint64(100000), big.NewInt(0))
+	vote14, err := action.NewVote(3, c, c, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote14).SetNonce(3).
-		SetDestinationAddress(c.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c.RawAddress, c.PrivateKey)
+		SetDestinationAddress(c).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, c, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 16, []action.SealedEnvelope{selp})
@@ -635,27 +639,27 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":510", a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	tx6, err := action.NewTransfer(uint64(1), big.NewInt(200), c.RawAddress, e.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx6, err := action.NewTransfer(uint64(1), big.NewInt(200), c, e, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx6).SetNonce(1).
-		SetDestinationAddress(e.RawAddress).Build()
-	selp1, err = action.Sign(elp, c.RawAddress, c.PrivateKey)
+		SetDestinationAddress(e).Build()
+	selp1, err = action.Sign(elp, c, priKeyC)
 	require.NoError(t, err)
 
-	tx7, err := action.NewTransfer(uint64(2), big.NewInt(200), b.RawAddress, e.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx7, err := action.NewTransfer(uint64(2), big.NewInt(200), b, e, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx7).SetNonce(2).
-		SetDestinationAddress(e.RawAddress).Build()
-	selp2, err = action.Sign(elp, b.RawAddress, b.PrivateKey)
+		SetDestinationAddress(e).Build()
+	selp2, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 17, []action.SealedEnvelope{selp1, selp2})
@@ -665,18 +669,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":110", a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", a + ":100"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) !e:500
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote15, err := action.NewVote(0, e.RawAddress, e.RawAddress, uint64(100000), big.NewInt(0))
+	vote15, err := action.NewVote(0, e, e, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote15).SetNonce(0).
-		SetDestinationAddress(e.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, e.RawAddress, e.PrivateKey)
+		SetDestinationAddress(e).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, e, priKeyE)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 18, []action.SealedEnvelope{selp})
@@ -686,18 +690,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":110", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", e + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote16, err := action.NewVote(0, f.RawAddress, f.RawAddress, uint64(100000), big.NewInt(0))
+	vote16, err := action.NewVote(0, f, f, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote16).SetNonce(0).
-		SetDestinationAddress(f.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, f.RawAddress, f.PrivateKey)
+		SetDestinationAddress(f).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, f, priKeyF)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 19, []action.SealedEnvelope{selp})
@@ -707,27 +711,27 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{f.RawAddress + ":300", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{f + ":300", e + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500) f(f):300(+0=300)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote17, err := action.NewVote(0, f.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
+	vote17, err := action.NewVote(0, f, d, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote17).SetNonce(0).
-		SetDestinationAddress(d.RawAddress).SetGasLimit(100000).Build()
-	selp1, err = action.Sign(elp, f.RawAddress, f.PrivateKey)
+		SetDestinationAddress(d).SetGasLimit(100000).Build()
+	selp1, err = action.Sign(elp, f, priKeyF)
 	require.NoError(t, err)
 
-	vote18, err := action.NewVote(1, f.RawAddress, d.RawAddress, uint64(100000), big.NewInt(0))
+	vote18, err := action.NewVote(1, f, d, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote18).SetNonce(1).
-		SetDestinationAddress(d.RawAddress).SetGasLimit(100000).Build()
-	selp2, err = action.Sign(elp, f.RawAddress, f.PrivateKey)
+		SetDestinationAddress(d).SetGasLimit(100000).Build()
+	selp2, err = action.Sign(elp, f, priKeyF)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 20, []action.SealedEnvelope{selp1, selp2})
@@ -737,18 +741,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{d.RawAddress + ":300", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{d + ":300", e + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(300) e(e):500(+0=500) f(d):300(0)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	tx8, err := action.NewTransfer(uint64(1), big.NewInt(200), f.RawAddress, b.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx8, err := action.NewTransfer(uint64(1), big.NewInt(200), f, b, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx8).SetNonce(1).
-		SetDestinationAddress(b.RawAddress).Build()
-	selp, err = action.Sign(elp, f.RawAddress, f.PrivateKey)
+		SetDestinationAddress(b).Build()
+	selp, err = action.Sign(elp, f, priKeyF)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 21, []action.SealedEnvelope{selp})
@@ -758,19 +762,19 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":310", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":310", e + ":500"}))
 	// a(b):90(100) b(c):210(90) c(c):100(+210=310) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 	//fmt.Printf("%v \n", voteForm(sf.candidatesBuffer()))
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	tx9, err := action.NewTransfer(uint64(1), big.NewInt(10), b.RawAddress, a.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx9, err := action.NewTransfer(uint64(1), big.NewInt(10), b, a, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx9).SetNonce(1).
-		SetDestinationAddress(a.RawAddress).Build()
-	selp, err = action.Sign(elp, b.RawAddress, b.PrivateKey)
+		SetDestinationAddress(a).Build()
+	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 22, []action.SealedEnvelope{selp})
@@ -780,18 +784,18 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":300", e.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", e + ":500"}))
 	// a(b):100(100) b(c):200(100) c(c):100(+200=300) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	tx10, err := action.NewTransfer(uint64(1), big.NewInt(300), e.RawAddress, d.RawAddress, nil, uint64(0), big.NewInt(0))
+	tx10, err := action.NewTransfer(uint64(1), big.NewInt(300), e, d, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx10).SetNonce(1).
-		SetDestinationAddress(d.RawAddress).Build()
-	selp, err = action.Sign(elp, e.RawAddress, e.PrivateKey)
+		SetDestinationAddress(d).Build()
+	selp, err = action.Sign(elp, e, priKeyE)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 23, []action.SealedEnvelope{selp})
@@ -803,27 +807,27 @@ func TestCandidates(t *testing.T) {
 	require.Equal(t, uint64(23), h)
 	require.NoError(t, err)
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":300", a.RawAddress + ":400"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", a + ":400"}))
 	// a(b):100(400) b(c):200(100) c(c):100(+200=300) d(a): 400(100) e(e):200(+0=200) f(d):100(0)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote19, err := action.NewVote(0, d.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
+	vote19, err := action.NewVote(0, d, a, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote19).SetNonce(0).
-		SetDestinationAddress(a.RawAddress).SetGasLimit(100000).Build()
-	selp1, err = action.Sign(elp, d.RawAddress, d.PrivateKey)
+		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	selp1, err = action.Sign(elp, d, priKeyD)
 	require.NoError(t, err)
 
-	vote20, err := action.NewVote(3, d.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
+	vote20, err := action.NewVote(3, d, b, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote20).SetNonce(3).
-		SetDestinationAddress(b.RawAddress).SetGasLimit(100000).Build()
-	selp2, err = action.Sign(elp, d.RawAddress, d.PrivateKey)
+		SetDestinationAddress(b).SetGasLimit(100000).Build()
+	selp2, err = action.Sign(elp, d, priKeyD)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 24, []action.SealedEnvelope{selp1, selp2})
@@ -835,18 +839,18 @@ func TestCandidates(t *testing.T) {
 	require.Equal(t, uint64(24), h)
 	require.NoError(t, err)
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c.RawAddress + ":300", b.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", b + ":500"}))
 	// a(b):100(0) b(c):200(500) c(c):100(+200=300) d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote21, err := action.NewVote(4, c.RawAddress, "", uint64(100000), big.NewInt(0))
+	vote21, err := action.NewVote(4, c, "", uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote21).SetNonce(4).
 		SetDestinationAddress("").SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c.RawAddress, c.PrivateKey)
+	selp, err = action.Sign(elp, c, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 25, []action.SealedEnvelope{selp})
@@ -858,18 +862,18 @@ func TestCandidates(t *testing.T) {
 	require.Equal(t, uint64(25), h)
 	require.NoError(t, err)
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
 	ws, err = sf.NewWorkingSet()
 	require.NoError(t, err)
-	vote22, err := action.NewVote(4, f.RawAddress, "", uint64(100000), big.NewInt(0))
+	vote22, err := action.NewVote(4, f, "", uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote22).SetNonce(4).
 		SetDestinationAddress("").SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, f.RawAddress, f.PrivateKey)
+	selp, err = action.Sign(elp, f, priKeyF)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 26, []action.SealedEnvelope{selp})
@@ -880,17 +884,19 @@ func TestCandidates(t *testing.T) {
 	require.Equal(t, uint64(26), h)
 	require.NoError(t, err)
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{e.RawAddress + ":200", b.RawAddress + ":500"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
-	stateA, err := account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(0))
+	stateA, err := account.LoadOrCreateAccount(ws, a, big.NewInt(0))
 	require.Nil(t, err)
 	require.Equal(t, stateA.Balance, big.NewInt(100))
 }
 
 func TestUnvote(t *testing.T) {
 	// Create three dummy iotex addresses
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
+	a := testaddress.Addrinfo["alfa"].Bech32()
+	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	b := testaddress.Addrinfo["bravo"].Bech32()
+	priKeyB := testaddress.Keyinfo["bravo"].PriKey
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -907,24 +913,24 @@ func TestUnvote(t *testing.T) {
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, a.RawAddress, big.NewInt(100))
+	_, err = account.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, b.RawAddress, big.NewInt(200))
+	_, err = account.LoadOrCreateAccount(ws, b, big.NewInt(200))
 	require.NoError(t, err)
 
-	vote1, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(0))
+	vote1, err := action.NewVote(0, a, "", uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(vote1).SetNonce(0).
 		SetDestinationAddress("").SetGasLimit(100000).Build()
-	selp, err := action.Sign(elp, a.RawAddress, a.PrivateKey)
+	selp, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -935,13 +941,13 @@ func TestUnvote(t *testing.T) {
 	cand, _ := sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{}))
 
-	vote2, err := action.NewVote(0, a.RawAddress, a.RawAddress, uint64(100000), big.NewInt(0))
+	vote2, err := action.NewVote(0, a, a, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote2).SetNonce(0).
-		SetDestinationAddress(a.RawAddress).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, a.RawAddress, a.PrivateKey)
+		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	selp, err = action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
@@ -949,15 +955,15 @@ func TestUnvote(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a.RawAddress + ":100"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":100"}))
 
-	vote3, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(0))
+	vote3, err := action.NewVote(0, a, "", uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote3).SetNonce(0).
 		SetDestinationAddress("").SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, a.RawAddress, a.PrivateKey)
+	selp, err = action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
@@ -967,31 +973,31 @@ func TestUnvote(t *testing.T) {
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{}))
 
-	vote4, err := action.NewVote(0, b.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
+	vote4, err := action.NewVote(0, b, b, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote4).SetNonce(0).
-		SetDestinationAddress(b.RawAddress).SetGasLimit(100000).Build()
-	selp1, err := action.Sign(elp, b.RawAddress, b.PrivateKey)
+		SetDestinationAddress(b).SetGasLimit(100000).Build()
+	selp1, err := action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
-	vote5, err := action.NewVote(0, a.RawAddress, b.RawAddress, uint64(100000), big.NewInt(0))
+	vote5, err := action.NewVote(0, a, b, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote5).SetNonce(0).
-		SetDestinationAddress(b.RawAddress).SetGasLimit(100000).Build()
-	selp2, err := action.Sign(elp, a.RawAddress, a.PrivateKey)
+		SetDestinationAddress(b).SetGasLimit(100000).Build()
+	selp2, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
-	vote6, err := action.NewVote(0, a.RawAddress, "", uint64(100000), big.NewInt(0))
+	vote6, err := action.NewVote(0, a, "", uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote6).SetNonce(0).
 		SetDestinationAddress("").SetGasLimit(100000).Build()
-	selp3, err := action.Sign(elp, a.RawAddress, a.PrivateKey)
+	selp3, err := action.Sign(elp, a, priKeyA)
 	require.NoError(t, err)
 
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2, selp3})
@@ -999,7 +1005,7 @@ func TestUnvote(t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{b.RawAddress + ":200"}))
+	require.True(t, compareStrings(voteForm(h, cand), []string{b + ":200"}))
 }
 
 func TestLoadStoreHeight(t *testing.T) {

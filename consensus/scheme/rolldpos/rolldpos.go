@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blocksync"
@@ -28,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -311,10 +311,10 @@ func (ctx *rollDPoSCtx) shouldHandleDKG() bool {
 func (ctx *rollDPoSCtx) generateDKGSecrets() ([][]uint32, [][]byte, error) {
 	idList := make([][]uint8, 0)
 	for _, addr := range ctx.epoch.delegates {
-		dkgID := iotxaddress.CreateID(addr)
+		dkgID := address.Bech32ToID(addr)
 		idList = append(idList, dkgID)
 		if addr == ctx.encodedAddr {
-			ctx.epoch.dkgAddress = iotxaddress.DKGAddress{ID: dkgID}
+			ctx.epoch.dkgAddress = address.DKGAddress{ID: dkgID}
 		}
 	}
 	_, secrets, witness, err := crypto.DKG.Init(crypto.DKG.SkGeneration(), idList)
@@ -557,7 +557,7 @@ type epochCtx struct {
 	// committedSecrets are the secret shares within the secret blocks committed by current node
 	committedSecrets map[string][]uint32
 	delegates        []string
-	dkgAddress       iotxaddress.DKGAddress
+	dkgAddress       address.DKGAddress
 	seed             []byte
 }
 

@@ -185,7 +185,7 @@ func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.Priva
 // generateAddr returns the string address according to public key
 func generateAddr(chainID uint32, pk keypair.PublicKey) string {
 	pkHash := keypair.HashPubKey(pk)
-	return address.New(chainID, pkHash[:]).IotxAddress()
+	return address.New(chainID, pkHash[:]).Bech32()
 }
 
 // loadGenesisData loads data of creator and actions contained in genesis block

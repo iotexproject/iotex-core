@@ -13,32 +13,31 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestExecutionSignVerify(t *testing.T) {
 	require := require.New(t)
-	executor, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-	contract, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
+	executorAddr := testaddress.Addrinfo["producer"]
+	contractAddr := testaddress.Addrinfo["alfa"]
+	executorKey := testaddress.Keyinfo["producer"]
 	data, err := hex.DecodeString("")
 	require.NoError(err)
-	ex, err := NewExecution(executor.RawAddress, contract.RawAddress, 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+	ex, err := NewExecution(executorAddr.Bech32(), contractAddr.Bech32(), 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(0).
 		SetGasLimit(uint64(10)).
-		SetDestinationAddress(contract.RawAddress).
+		SetDestinationAddress(contractAddr.Bech32()).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(ex).Build()
 
-	w := AssembleSealedEnvelope(elp, executor.RawAddress, executor.PublicKey, []byte("lol"))
+	w := AssembleSealedEnvelope(elp, executorAddr.Bech32(), executorKey.PubKey, []byte("lol"))
 	require.Error(Verify(w))
 
 	// sign the Execution
-	selp, err := Sign(elp, executor.RawAddress, executor.PrivateKey)
+	selp, err := Sign(elp, executorAddr.Bech32(), executorKey.PriKey)
 	require.NoError(err)
 	require.NotNil(selp)
 

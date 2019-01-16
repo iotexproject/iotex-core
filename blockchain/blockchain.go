@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -123,7 +122,7 @@ type Blockchain interface {
 		producerPubKey keypair.PublicKey,
 		producerPriKey keypair.PrivateKey,
 		producerAddr string,
-		dkgAddress *iotxaddress.DKGAddress,
+		dkgAddress *address.DKGAddress,
 		seed []byte,
 		data string,
 	) (*block.Block, error)
@@ -292,7 +291,7 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		log.L().Error("Failed to get producer's address by public key.", zap.Error(err))
 		return nil
 	}
-	chain.validator = &validator{sf: chain.sf, validatorAddr: address.IotxAddress()}
+	chain.validator = &validator{sf: chain.sf, validatorAddr: address.Bech32()}
 
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
@@ -676,7 +675,7 @@ func (bc *blockchain) MintNewBlock(
 	producerPubKey keypair.PublicKey,
 	producerPriKey keypair.PrivateKey,
 	producerAddr string,
-	dkgAddress *iotxaddress.DKGAddress,
+	dkgAddress *address.DKGAddress,
 	seed []byte,
 	data string,
 ) (*block.Block, error) {
@@ -939,11 +938,6 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		err     error
 	)
 	addr := address.New(bc.ChainID(), keypair.ZeroPublicKey[:])
-	iaddr := &iotxaddress.Address{
-		PrivateKey: keypair.ZeroPrivateKey,
-		PublicKey:  keypair.ZeroPublicKey,
-		RawAddress: addr.IotxAddress(),
-	}
 	if bc.sf == nil {
 		return errors.New("statefactory cannot be nil")
 	}
@@ -956,7 +950,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
 			AddActions(acts...).
-			Build(iaddr.RawAddress, iaddr.PublicKey)
+			Build(addr.Bech32(), keypair.ZeroPublicKey)
 		// run execution and update state trie root hash
 		root, receipts, err := bc.runActions(racts, ws, false)
 		if err != nil {
@@ -968,7 +962,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetPrevBlockHash(Gen.ParentHash).
 			SetReceipts(receipts).
 			SetStateRoot(root).
-			SignAndBuild(iaddr.PublicKey, iaddr.PrivateKey)
+			SignAndBuild(keypair.ZeroPublicKey, keypair.ZeroPrivateKey)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -976,11 +970,11 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
-			Build(iaddr.RawAddress, iaddr.PublicKey)
+			Build(addr.Bech32(), keypair.ZeroPublicKey)
 		genesis, err = block.NewBuilder(racts).
 			SetChainID(bc.ChainID()).
 			SetPrevBlockHash(hash.ZeroHash32B).
-			SignAndBuild(iaddr.PublicKey, iaddr.PrivateKey)
+			SignAndBuild(keypair.ZeroPublicKey, keypair.ZeroPrivateKey)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -1011,17 +1005,12 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	// If restarting factory from fresh db, first update state changes in Genesis block
 	if startHeight == 0 {
 		addr := address.New(bc.ChainID(), keypair.ZeroPublicKey[:])
-		iaddr := &iotxaddress.Address{
-			PrivateKey: keypair.ZeroPrivateKey,
-			PublicKey:  keypair.ZeroPublicKey,
-			RawAddress: addr.IotxAddress(),
-		}
 		acts := NewGenesisActions(bc.config.Chain, ws)
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
 			AddActions(acts...).
-			Build(iaddr.RawAddress, iaddr.PublicKey)
+			Build(addr.Bech32(), keypair.ZeroPublicKey)
 		// run execution and update state trie root hash
 		if _, _, err := bc.runActions(racts, ws, false); err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")

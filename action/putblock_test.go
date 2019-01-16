@@ -20,13 +20,13 @@ import (
 )
 
 func TestPutBlock(t *testing.T) {
-	addr := testaddress.IotxAddrinfo["producer"]
-	addr2 := testaddress.IotxAddrinfo["echo"]
+	addr := testaddress.Addrinfo["producer"]
+	addr2 := testaddress.Addrinfo["echo"]
 	assertPB := func(pb *PutBlock) {
 		assert.Equal(t, uint32(version.ProtocolVersion), pb.version)
 		assert.Equal(t, uint64(1), pb.Nonce())
-		assert.Equal(t, addr.RawAddress, pb.ProducerAddress())
-		assert.Equal(t, addr2.RawAddress, pb.SubChainAddress())
+		assert.Equal(t, addr.Bech32(), pb.ProducerAddress())
+		assert.Equal(t, addr2.Bech32(), pb.SubChainAddress())
 		assert.Equal(t, uint64(10001), pb.Height())
 		assert.Equal(t, byteutil.BytesTo32B([]byte("10002")), pb.Roots()["10002"])
 		assert.Equal(t, uint64(10003), pb.GasLimit())
@@ -36,8 +36,8 @@ func TestPutBlock(t *testing.T) {
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := NewPutBlock(
 		1,
-		addr2.RawAddress,
-		addr.RawAddress,
+		addr2.Bech32(),
+		addr.Bech32(),
 		10001,
 		roots,
 		10003,
@@ -48,16 +48,16 @@ func TestPutBlock(t *testing.T) {
 }
 
 func TestPutBlockProto(t *testing.T) {
-	addr2 := testaddress.IotxAddrinfo["echo"]
+	addr2 := testaddress.Addrinfo["echo"]
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := &PutBlock{
-		subChainAddress: addr2.RawAddress,
+		subChainAddress: addr2.Bech32(),
 		height:          10001,
 		roots:           roots,
 	}
 	assertPB := func(pb *PutBlock) {
-		assert.Equal(t, addr2.RawAddress, pb.SubChainAddress())
+		assert.Equal(t, addr2.Bech32(), pb.SubChainAddress())
 		assert.Equal(t, uint64(10001), pb.Height())
 		assert.Equal(t, byteutil.BytesTo32B([]byte("10002")), pb.Roots()["10002"])
 	}
@@ -70,8 +70,8 @@ func TestPutBlockProto(t *testing.T) {
 }
 
 func TestPutBlockByteStream(t *testing.T) {
-	addr := testaddress.IotxAddrinfo["producer"]
-	addr2 := testaddress.IotxAddrinfo["echo"]
+	addr := testaddress.Addrinfo["producer"]
+	addr2 := testaddress.Addrinfo["echo"]
 	roots := make(map[string]hash.Hash32B)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	roots["10003"] = byteutil.BytesTo32B([]byte("10003"))
@@ -79,8 +79,8 @@ func TestPutBlockByteStream(t *testing.T) {
 	roots["10005"] = byteutil.BytesTo32B([]byte("10005"))
 	pb := NewPutBlock(
 		1,
-		addr2.RawAddress,
-		addr.RawAddress,
+		addr2.Bech32(),
+		addr.Bech32(),
 		10001,
 		roots,
 		10003,

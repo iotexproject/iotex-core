@@ -1463,7 +1463,7 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 		}
 		deposits = append(deposits, explorer.Deposit{
 			Amount:    deposit.Amount.String(),
-			Address:   recipient.IotxAddress(),
+			Address:   recipient.Bech32(),
 			Confirmed: deposit.Confirmed,
 		})
 		if idx > 0 {

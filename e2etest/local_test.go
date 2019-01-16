@@ -83,48 +83,48 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// check balance
-	s, err := bc.StateByAddr(ta.IotxAddrinfo["alfa"].RawAddress)
+	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].Bech32())
 	require.Nil(err)
 	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["bravo"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].Bech32())
 	require.Nil(err)
 	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["charlie"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].Bech32())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["delta"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["delta"].Bech32())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["echo"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["echo"].Bech32())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["foxtrot"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].Bech32())
 	require.Nil(err)
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242883")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["producer"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["producer"].Bech32())
 	require.Nil(err)
 	test := s.Balance
 	t.Logf("test balance = %d", test)
@@ -170,8 +170,8 @@ func TestLocalCommit(t *testing.T) {
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
 	// transfer 1
 	// C --> A
-	s, _ = bc.StateByAddr(ta.IotxAddrinfo["charlie"].RawAddress)
-	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["alfa"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].Bech32())
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["charlie"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["charlie"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	act1 := tsf1.Proto()
@@ -185,8 +185,8 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(err)
 
 	acts := svr.ChainService(chainID).ActionPool().PickActs()
-	blk1, err := chain.MintNewBlock(acts, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk1, err := chain.MintNewBlock(acts, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -194,12 +194,12 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, _ = bc.StateByAddr(ta.IotxAddrinfo["foxtrot"].RawAddress)
-	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["foxtrot"], ta.IotxAddrinfo["delta"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(ta.Addrinfo["foxtrot"].Bech32())
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["foxtrot"].Bech32(), ta.Addrinfo["delta"].Bech32(), ta.Keyinfo["foxtrot"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{tsf2}, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{tsf2}, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
@@ -217,12 +217,12 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 3
 	// B --> B
-	s, _ = bc.StateByAddr(ta.IotxAddrinfo["bravo"].RawAddress)
-	tsf3, err := testutil.SignedTransfer(ta.IotxAddrinfo["bravo"], ta.IotxAddrinfo["bravo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(ta.Addrinfo["bravo"].Bech32())
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{tsf3}, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{tsf3}, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
@@ -240,12 +240,12 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 4
 	// test --> E
-	s, _ = bc.StateByAddr(ta.IotxAddrinfo["producer"].RawAddress)
-	tsf4, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["echo"], s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(ta.Addrinfo["producer"].Bech32())
+	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["echo"].Bech32(), ta.Keyinfo["producer"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{tsf4}, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{tsf4}, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
@@ -277,48 +277,48 @@ func TestLocalCommit(t *testing.T) {
 	require.True(9 == bc.TipHeight())
 
 	// check balance
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["alfa"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["alfa"].Bech32())
 	require.Nil(err)
 	change = s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "24")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["bravo"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].Bech32())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["charlie"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].Bech32())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "46")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["delta"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["delta"].Bech32())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "70")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["echo"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["echo"].Bech32())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "101")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["foxtrot"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].Bech32())
 	require.Nil(err)
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242882")
 
-	s, err = bc.StateByAddr(ta.IotxAddrinfo["producer"].RawAddress)
+	s, err = bc.StateByAddr(ta.Addrinfo["producer"].Bech32())
 	require.Nil(err)
 	test = s.Balance
 	t.Logf("test balance = %d", test)
@@ -531,25 +531,25 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 1
 	// Alfa, Bravo and Charlie selfnomination
-	tsf1, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["alfa"], 7, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 7, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["bravo"], 8, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 8, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	tsf3, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["charlie"], 9, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["charlie"].Bech32(), ta.Keyinfo["producer"].PriKey, 9, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	tsf4, err := testutil.SignedTransfer(ta.IotxAddrinfo["producer"], ta.IotxAddrinfo["delta"], 10, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["delta"].Bech32(), ta.Keyinfo["producer"].PriKey, 10, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	vote1, err := testutil.SignedVote(ta.IotxAddrinfo["alfa"], ta.IotxAddrinfo["alfa"], 1, 100000, big.NewInt(0))
+	vote1, err := testutil.SignedVote(ta.Addrinfo["alfa"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["alfa"].PriKey, 1, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	vote2, err := testutil.SignedVote(ta.IotxAddrinfo["bravo"], ta.IotxAddrinfo["bravo"], 1, 100000, big.NewInt(0))
+	vote2, err := testutil.SignedVote(ta.Addrinfo["bravo"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PriKey, 1, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	vote3, err := testutil.SignedVote(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["charlie"], 6, 100000, big.NewInt(0))
+	vote3, err := testutil.SignedVote(ta.Addrinfo["charlie"].Bech32(), ta.Addrinfo["charlie"].Bech32(), ta.Keyinfo["charlie"].PriKey, 6, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	act1 := vote1.Proto()
@@ -589,8 +589,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 
 	acts := svr.ChainService(chainID).ActionPool().PickActs()
-	blk1, err := chain.MintNewBlock(acts, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk1, err := chain.MintNewBlock(acts, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -607,12 +607,12 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 2
 	// Vote A -> B, C -> A
-	vote4, err := testutil.SignedVote(ta.IotxAddrinfo["alfa"], ta.IotxAddrinfo["bravo"], uint64(2), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(ta.Addrinfo["alfa"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["alfa"].PriKey, uint64(2), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	vote5, err := testutil.SignedVote(ta.IotxAddrinfo["charlie"], ta.IotxAddrinfo["alfa"], uint64(7), uint64(100000), big.NewInt(0))
+	vote5, err := testutil.SignedVote(ta.Addrinfo["charlie"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["charlie"].PriKey, uint64(7), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{vote4, vote5}, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{vote4, vote5}, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
@@ -650,16 +650,16 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.IotxAddrinfo["alfa"].RawAddress, candidatesAddr[0])
-	require.Equal(ta.IotxAddrinfo["bravo"].RawAddress, candidatesAddr[1])
+	require.Equal(ta.Addrinfo["alfa"].Bech32(), candidatesAddr[0])
+	require.Equal(ta.Addrinfo["bravo"].Bech32(), candidatesAddr[1])
 
 	// Add block 3
 	// D self nomination
-	vote6, err := testutil.SignedVote(ta.IotxAddrinfo["delta"], ta.IotxAddrinfo["delta"], 5, 100000, big.NewInt(0))
+	vote6, err := testutil.SignedVote(ta.Addrinfo["delta"].Bech32(), ta.Addrinfo["delta"].Bech32(), ta.Keyinfo["delta"].PriKey, 5, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{vote6}, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{vote6}, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
@@ -695,20 +695,20 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.IotxAddrinfo["bravo"].RawAddress, candidatesAddr[0])
-	require.Equal(ta.IotxAddrinfo["delta"].RawAddress, candidatesAddr[1])
+	require.Equal(ta.Addrinfo["bravo"].Bech32(), candidatesAddr[0])
+	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[1])
 
 	// Add block 4
 	// Unvote B
-	vote7, err := action.NewVote(uint64(2), ta.IotxAddrinfo["bravo"].RawAddress, "", uint64(100000), big.NewInt(0))
+	vote7, err := action.NewVote(uint64(2), ta.Addrinfo["bravo"].Bech32(), "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(vote7).SetNonce(2).SetDestinationAddress("").SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
-	selp, err := action.Sign(elp, ta.IotxAddrinfo["bravo"].RawAddress, ta.IotxAddrinfo["bravo"].PrivateKey)
+	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
-	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{selp}, ta.IotxAddrinfo["producer"].PublicKey,
-		ta.IotxAddrinfo["producer"].PrivateKey, ta.IotxAddrinfo["producer"].RawAddress, nil,
+	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{selp}, ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
@@ -744,8 +744,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.IotxAddrinfo["alfa"].RawAddress, candidatesAddr[0])
-	require.Equal(ta.IotxAddrinfo["delta"].RawAddress, candidatesAddr[1])
+	require.Equal(ta.Addrinfo["alfa"].Bech32(), candidatesAddr[0])
+	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[1])
 }
 
 func TestBlockchainRecovery(t *testing.T) {

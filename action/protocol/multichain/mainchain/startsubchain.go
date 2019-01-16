@@ -98,7 +98,7 @@ func (p *Protocol) mutateSubChainState(
 }
 
 func createSubChainAddress(ownerAddr string, nonce uint64) (hash.PKHash, error) {
-	addr, err := address.IotxAddressToAddress(ownerAddr)
+	addr, err := address.Bech32ToAddress(ownerAddr)
 	if err != nil {
 		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", ownerAddr)
 	}

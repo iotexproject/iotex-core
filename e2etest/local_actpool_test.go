@@ -17,12 +17,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -31,9 +31,8 @@ const (
 	// Sender's public/private key pair
 	fromPubKey  = "2726440bc26449be22eb5c0564af4b23dc8c373aa79e8cb0f8df2a9e55b4842dbefcde07d95c1dc1f3d1a367086b4f7742115b53c434e8f5abf116333c2c378c51b0ef6176153602"
 	fromPrivKey = "c5364b1a2d99d127439be22edfd657889981e9ba4d6d18fe8eca489d48485371efcb2400"
-	// Recipient's public/private key pair
-	toPubKey  = "2ba2e72613783656b92af930719d2a13874bcb4999b7a0ae11a5beb469357da441f41303dc1ad5a4e6c0cdde85ceb11516bbcaca68bb82168255de60e3a216f00c18c1285a3d4402"
-	toPrivKey = "ededa5274f44b4075dcabfe4d1aaa4f7f50ca21bc1f4c5a676dd11727d21b344c575a401"
+	// Recipient's public key
+	toPubKey = "2ba2e72613783656b92af930719d2a13874bcb4999b7a0ae11a5beb469357da441f41303dc1ad5a4e6c0cdde85ceb11516bbcaca68bb82168255de60e3a216f00c18c1285a3d4402"
 )
 
 func TestLocalActPool(t *testing.T) {
@@ -78,11 +77,18 @@ func TestLocalActPool(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	from := testaddress.ConstructAddress(chainID, fromPubKey, fromPrivKey)
-	to := testaddress.ConstructAddress(chainID, toPubKey, toPrivKey)
+	fromPK, _ := keypair.DecodePublicKey(fromPubKey)
+	toPK, _ := keypair.DecodePublicKey(toPubKey)
+
+	fromPKHash := keypair.HashPubKey(fromPK)
+	toPKHash := keypair.HashPubKey(toPK)
+
+	from := address.New(cfg.Chain.ID, fromPKHash[:]).Bech32()
+	to := address.New(cfg.Chain.ID, toPKHash[:]).Bech32()
+	priKey, _ := keypair.DecodePrivateKey(fromPrivKey)
 
 	// Create three valid actions from "from" to "to"
-	tsf1, err := testutil.SignedTransfer(from, to, uint64(1), big.NewInt(1),
+	tsf1, err := testutil.SignedTransfer(from, to, priKey, uint64(1), big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
@@ -93,18 +99,18 @@ func TestLocalActPool(t *testing.T) {
 		return len(acts) == 1, nil
 	}))
 
-	vote2, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
+	vote2, err := testutil.SignedVote(from, from, priKey, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(from, to, uint64(3), big.NewInt(3),
+	tsf3, err := testutil.SignedTransfer(from, to, priKey, uint64(3), big.NewInt(3),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Create contract
-	exec4, err := testutil.SignedExecution(from, action.EmptyAddress, uint64(4), big.NewInt(0),
+	exec4, err := testutil.SignedExecution(from, action.EmptyAddress, priKey, uint64(4), big.NewInt(0),
 		uint64(120000), big.NewInt(10), []byte{})
 	require.NoError(err)
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote5, err := testutil.SignedVote(from, from, uint64(2), uint64(100000), big.NewInt(0))
+	vote5, err := testutil.SignedVote(from, from, priKey, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(cli.Broadcast(p2pCtx, vote2.Proto()))
@@ -160,11 +166,18 @@ func TestPressureActPool(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	from := testaddress.ConstructAddress(chainID, fromPubKey, fromPrivKey)
-	to := testaddress.ConstructAddress(chainID, toPubKey, toPrivKey)
+	fromPK, _ := keypair.DecodePublicKey(fromPubKey)
+	toPK, _ := keypair.DecodePublicKey(toPubKey)
+
+	fromPKHash := keypair.HashPubKey(fromPK)
+	toPKHash := keypair.HashPubKey(toPK)
+
+	from := address.New(cfg.Chain.ID, fromPKHash[:]).Bech32()
+	to := address.New(cfg.Chain.ID, toPKHash[:]).Bech32()
+	priKey, _ := keypair.DecodePrivateKey(fromPrivKey)
 
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
-	tsf, err := testutil.SignedTransfer(from, to, 1, big.NewInt(int64(0)),
+	tsf, err := testutil.SignedTransfer(from, to, priKey, 1, big.NewInt(int64(0)),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Wait until server receives the 1st action
@@ -175,7 +188,7 @@ func TestPressureActPool(t *testing.T) {
 	}))
 
 	for i := 2; i <= 1000; i++ {
-		tsf, err := testutil.SignedTransfer(from, to, uint64(i), big.NewInt(int64(i)),
+		tsf, err := testutil.SignedTransfer(from, to, priKey, uint64(i), big.NewInt(int64(i)),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 		require.NoError(cli.Broadcast(p2pCtx, tsf.Proto()))

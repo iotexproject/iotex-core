@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -71,8 +72,8 @@ func main() {
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
 		networkPort := 4689 + i
 		explorerPort := 14004 + i
-		config := newConfig(genesisConfigPath, chainDBPath, trieDBPath, chainAddrs[i].PublicKey,
-			chainAddrs[i].PrivateKey, networkPort, explorerPort)
+		config := newConfig(genesisConfigPath, chainDBPath, trieDBPath, chainAddrs[i].PriKey,
+			networkPort, explorerPort)
 		configs[i] = config
 	}
 
@@ -205,7 +206,6 @@ func newConfig(
 	genesisConfigPath,
 	chainDBPath,
 	trieDBPath string,
-	producerPubKey keypair.PublicKey,
 	producerPriKey keypair.PrivateKey,
 	networkPort,
 	explorerPort int,
@@ -222,6 +222,8 @@ func newConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.NumCandidates = numNodes
+
+	producerPubKey, _ := crypto.EC283.NewPubKey(producerPriKey)
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(producerPubKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(producerPriKey)
 
