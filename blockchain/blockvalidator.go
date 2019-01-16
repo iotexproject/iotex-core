@@ -136,25 +136,27 @@ func (v *validator) ValidateActionsOnly(
 		return errors.Wrap(err, "failed to validate action")
 	}
 
-	if height > 0 {
-		//Verify each account's Nonce
-		for srcAddr, receivedNonces := range accountNonceMap {
-			confirmedNonce, err := v.sf.Nonce(srcAddr)
-			if err != nil {
-				return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
-			}
-			sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
-			for i, nonce := range receivedNonces {
-				if nonce != confirmedNonce+uint64(i+1) {
-					return errors.Wrapf(
-						action.ErrNonce,
-						"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
-						i,
-						nonce,
-						srcAddr,
-						confirmedNonce,
-					)
-				}
+	// Special handling for genesis block
+	if height == 0 {
+		return nil
+	}
+	//Verify each account's Nonce
+	for srcAddr, receivedNonces := range accountNonceMap {
+		confirmedNonce, err := v.sf.Nonce(srcAddr)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
+		}
+		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
+		for i, nonce := range receivedNonces {
+			if nonce != confirmedNonce+uint64(i+1) {
+				return errors.Wrapf(
+					action.ErrNonce,
+					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
+					i,
+					nonce,
+					srcAddr,
+					confirmedNonce,
+				)
 			}
 		}
 	}
