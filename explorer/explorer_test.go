@@ -262,13 +262,22 @@ func TestExplorerApi(t *testing.T) {
 	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, true)
 	require.Equal(3, len(transfers))
 	require.Nil(err)
+	for i := 0; i < len(transfers)-1; i++ {
+		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
+	}
 	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, true)
 	require.Equal(5, len(transfers))
 	require.Nil(err)
+	for i := 0; i < len(transfers)-1; i++ {
+		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
+	}
 
 	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, false)
 	require.Equal(3, len(transfers))
 	require.Nil(err)
+	for i := 0; i < len(transfers)-1; i++ {
+		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
+	}
 	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, false)
 	require.Equal(1, len(transfers))
 	require.Nil(err)
@@ -276,13 +285,22 @@ func TestExplorerApi(t *testing.T) {
 	votes, err = svc.GetLastVotesByRange(4, 0, 10)
 	require.Equal(10, len(votes))
 	require.Nil(err)
+	for i := 0; i < len(votes)-1; i++ {
+		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
+	}
 	votes, err = svc.GetLastVotesByRange(3, 0, 50)
 	require.Equal(22, len(votes))
 	require.Nil(err)
+	for i := 0; i < len(votes)-1; i++ {
+		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
+	}
 
 	executions, err = svc.GetLastExecutionsByRange(4, 0, 3)
 	require.Equal(3, len(executions))
 	require.Nil(err)
+	for i := 0; i < len(executions)-1; i++ {
+		require.True(executions[i].Timestamp >= executions[i+1].Timestamp)
+	}
 	executions, err = svc.GetLastExecutionsByRange(3, 0, 50)
 	require.Equal(1, len(executions))
 	require.Nil(err)
@@ -476,6 +494,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Transfer)
 	require.Nil(res.Vote)
 	require.Equal(&executions[0], res.Execution)
+	require.Equal(len(executions), 2)
 
 	svc.gs.cfg.GasStation.DefaultGas = 1
 	gasPrice, err := svc.SuggestGasPrice()
