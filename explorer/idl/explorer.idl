@@ -235,6 +235,7 @@ struct GetBlkOrActResponse {
 struct CreateDepositRequest {
     version int
     nonce int
+    chainID int
     sender string
     senderPubKey string
     recipient string
