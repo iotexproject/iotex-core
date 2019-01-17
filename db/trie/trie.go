@@ -9,9 +9,25 @@ package trie
 import (
 	"context"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 )
+
+var (
+	trieMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_trie",
+			Help: "IoTeX Trie",
+		},
+		[]string{"node", "type"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(trieMtc)
+}
 
 var (
 	// ErrInvalidTrie indicates something wrong causing invalid operation

@@ -129,7 +129,7 @@ loop:
 			}
 		case <-tick:
 			wg.Add(1)
-			switch rand := rand.Intn(1); rand {
+			switch rand := rand.Intn(3); rand {
 			case 0:
 				sender, recipient, nonce := createTransferInjection(counter, delegates)
 				go injectTransfer(wg, client, sender, recipient, nonce, uint64(transferGasLimit),

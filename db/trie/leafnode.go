@@ -49,6 +49,7 @@ func (l *leafNode) Value() []byte {
 }
 
 func (l *leafNode) children(Trie) ([]Node, error) {
+	trieMtc.WithLabelValues("leafNode", "children").Inc()
 	return nil, nil
 }
 
@@ -63,6 +64,7 @@ func (l *leafNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
 }
 
 func (l *leafNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (Node, error) {
+	trieMtc.WithLabelValues("leafNode", "upsert").Inc()
 	matched := commonPrefixLength(l.key[offset:], key[offset:])
 	if offset+matched == uint8(len(key)) {
 		return l.updateValue(tr, value)
@@ -89,6 +91,7 @@ func (l *leafNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (Nod
 }
 
 func (l *leafNode) search(_ Trie, key keyType, offset uint8) Node {
+	trieMtc.WithLabelValues("leafNode", "search").Inc()
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil
 	}
@@ -97,6 +100,7 @@ func (l *leafNode) search(_ Trie, key keyType, offset uint8) Node {
 }
 
 func (l *leafNode) serialize() []byte {
+	trieMtc.WithLabelValues("leafNode", "serialize").Inc()
 	if l.ser != nil {
 		return l.ser
 	}
