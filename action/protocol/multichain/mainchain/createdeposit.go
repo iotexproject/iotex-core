@@ -63,7 +63,7 @@ func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.St
 	if err != nil {
 		return nil, InOperation{}, err
 	}
-	addr, err := address.IotxAddressToAddress(deposit.Recipient())
+	addr, err := address.Bech32ToAddress(deposit.Recipient())
 	if err != nil {
 		return nil, InOperation{}, errors.Wrapf(err, "error when processing address %s", deposit.Recipient())
 	}
@@ -104,7 +104,7 @@ func (p *Protocol) mutateDeposit(
 	}
 
 	// Insert deposit state
-	recipient, err := address.IotxAddressToAddress(deposit.Recipient())
+	recipient, err := address.Bech32ToAddress(deposit.Recipient())
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (p *Protocol) mutateDeposit(
 		Status:          0,
 		Hash:            deposit.Hash(),
 		GasConsumed:     gas,
-		ContractAddress: addr.IotxAddress(),
+		ContractAddress: addr.Bech32(),
 	}
 	return &receipt, nil
 }

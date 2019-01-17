@@ -71,13 +71,13 @@ func constructPutSubChainBlockRequest(
 	b *block.Block,
 ) (explorerapi.PutSubChainBlockRequest, error) {
 	// get sender address on mainchain
-	subChainAddrSt, err := address.IotxAddressToAddress(subChainAddr)
+	subChainAddrSt, err := address.Bech32ToAddress(subChainAddr)
 	if err != nil {
 		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to convert subChainAddr")
 	}
 	parentChainID := subChainAddrSt.ChainID()
 	senderPKHash := keypair.HashPubKey(senderPubKey)
-	senderPCAddr := address.New(parentChainID, senderPKHash[:]).IotxAddress()
+	senderPCAddr := address.New(parentChainID, senderPKHash[:]).Bech32()
 
 	// get sender current pending nonce on parent chain
 	senderPCAddrDetails, err := rootChainAPI.GetAddressDetails(senderPCAddr)

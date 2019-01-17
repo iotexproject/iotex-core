@@ -33,7 +33,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -55,7 +54,7 @@ func TestRollDPoSCtx(t *testing.T) {
 
 	candidates := make([]string, 4)
 	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].RawAddress
+		candidates[i] = testAddrs[i].encodedAddr
 	}
 
 	clock := clock.NewMock()
@@ -65,7 +64,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		8,
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
-		testAddrs[0].PublicKey,
+		testAddrs[0].pubKey,
 		make([]action.SealedEnvelope, 0),
 	)
 	ctx := makeTestRollDPoSCtx(
@@ -158,7 +157,7 @@ func TestIsEpochFinished(t *testing.T) {
 
 	candidates := make([]string, 4)
 	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].RawAddress
+		candidates[i] = testAddrs[i].encodedAddr
 	}
 
 	t.Run("not-finished", func(t *testing.T) {
@@ -217,7 +216,7 @@ func TestIsDKGFinished(t *testing.T) {
 
 	candidates := make([]string, 4)
 	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].RawAddress
+		candidates[i] = testAddrs[i].encodedAddr
 	}
 
 	t.Run("not-finished", func(t *testing.T) {
@@ -273,7 +272,7 @@ func TestGenerateDKGSecrets(t *testing.T) {
 	candidates := make([]string, 21)
 	testAddrs := test21Addrs()
 	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].RawAddress
+		candidates[i] = testAddrs[i].encodedAddr
 	}
 
 	ctx := makeTestRollDPoSCtx(
@@ -293,7 +292,7 @@ func TestGenerateDKGSecrets(t *testing.T) {
 
 	secrets, witness, err := ctx.generateDKGSecrets()
 	assert.NoError(t, err)
-	assert.Equal(t, iotxaddress.CreateID(ctx.encodedAddr), ctx.epoch.dkgAddress.ID)
+	assert.Equal(t, address.Bech32ToID(ctx.encodedAddr), ctx.epoch.dkgAddress.ID)
 	assert.NotNil(t, secrets)
 	assert.NotNil(t, witness)
 }
@@ -307,7 +306,7 @@ func TestGenerateDKGKeyPair(t *testing.T) {
 	candidates := make([]string, 21)
 	testAddrs := test21Addrs()
 	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].RawAddress
+		candidates[i] = testAddrs[i].encodedAddr
 	}
 
 	ctx := makeTestRollDPoSCtx(
@@ -329,7 +328,7 @@ func TestGenerateDKGKeyPair(t *testing.T) {
 
 	idList := make([][]uint8, 0)
 	for _, addr := range ctx.epoch.delegates {
-		dkgID := iotxaddress.CreateID(addr)
+		dkgID := address.Bech32ToID(addr)
 		idList = append(idList, dkgID)
 	}
 	for _, delegate := range ctx.epoch.delegates {
@@ -357,9 +356,9 @@ func TestNewRollDPoS(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
-			SetAddr(addr.RawAddress).
-			SetPubKey(addr.PublicKey).
-			SetPriKey(addr.PrivateKey).
+			SetAddr(addr.encodedAddr).
+			SetPubKey(addr.pubKey).
+			SetPriKey(addr.priKey).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
@@ -373,9 +372,9 @@ func TestNewRollDPoS(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
-			SetAddr(addr.RawAddress).
-			SetPubKey(addr.PublicKey).
-			SetPriKey(addr.PrivateKey).
+			SetAddr(addr.encodedAddr).
+			SetPubKey(addr.pubKey).
+			SetPriKey(addr.priKey).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
@@ -393,9 +392,9 @@ func TestNewRollDPoS(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
-			SetAddr(addr.RawAddress).
-			SetPubKey(addr.PublicKey).
-			SetPriKey(addr.PrivateKey).
+			SetAddr(addr.encodedAddr).
+			SetPubKey(addr.pubKey).
+			SetPriKey(addr.priKey).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
@@ -412,9 +411,9 @@ func TestNewRollDPoS(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
-			SetAddr(addr.RawAddress).
-			SetPubKey(addr.PublicKey).
-			SetPriKey(addr.PrivateKey).
+			SetAddr(addr.encodedAddr).
+			SetPubKey(addr.pubKey).
+			SetPriKey(addr.priKey).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
@@ -433,7 +432,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].RawAddress
+		candidates[i] = testAddrs[i].encodedAddr
 	}
 
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
@@ -449,9 +448,9 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	addr := newTestAddr()
 	r, err := NewRollDPoSBuilder().
 		SetConfig(config.RollDPoS{NumDelegates: 4}).
-		SetAddr(addr.RawAddress).
-		SetPubKey(addr.PublicKey).
-		SetPriKey(addr.PrivateKey).
+		SetAddr(addr.encodedAddr).
+		SetPubKey(addr.pubKey).
+		SetPriKey(addr.priKey).
 		SetBlockchain(blockchain).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
 		SetBroadcast(func(_ proto.Message) error {
@@ -479,9 +478,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 	addr := newTestAddr()
 	r, err := NewRollDPoSBuilder().
 		SetConfig(config.RollDPoS{}).
-		SetAddr(addr.RawAddress).
-		SetPubKey(addr.PublicKey).
-		SetPriKey(addr.PrivateKey).
+		SetAddr(addr.encodedAddr).
+		SetPubKey(addr.pubKey).
+		SetPriKey(addr.priKey).
 		SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
 		SetBroadcast(func(_ proto.Message) error {
@@ -493,12 +492,13 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 
 	// Test propose msg
 	addr = newTestAddr()
-	a := testaddress.IotxAddrinfo["alfa"]
-	b := testaddress.IotxAddrinfo["bravo"]
-	transfer, err := testutil.SignedTransfer(a, b, 1, big.NewInt(100), []byte{}, testutil.TestGasLimit, big.NewInt(10))
+	a := testaddress.Addrinfo["alfa"].Bech32()
+	prikKeyA := testaddress.Keyinfo["alfa"].PriKey
+	b := testaddress.Addrinfo["bravo"].Bech32()
+	transfer, err := testutil.SignedTransfer(a, b, prikKeyA, 1, big.NewInt(100), []byte{}, testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
-	selfPubKey := testaddress.IotxAddrinfo["producer"].PublicKey
-	vote, err := testutil.SignedVote(addr, addr, 2, testutil.TestGasLimit, big.NewInt(10))
+	selfPubKey := testaddress.Keyinfo["producer"].PubKey
+	vote, err := testutil.SignedVote(addr.encodedAddr, addr.encodedAddr, addr.priKey, 2, testutil.TestGasLimit, big.NewInt(10))
 	require.NoError(t, err)
 	var prevHash hash.Hash32B
 	blk := block.NewBlockDeprecated(
@@ -517,7 +517,7 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 		Hash:     blkHash[:],
 		Block:    data,
 		Height:   blk.Height(),
-		Proposer: addr.RawAddress,
+		Proposer: addr.encodedAddr,
 		Round:    roundNum,
 	}
 	pEvt, err := r.cfsm.newProposeBlkEvtFromProposePb(&pMsg)
@@ -533,9 +533,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 			roundNum,
 			endorsement.PROPOSAL,
 		),
-		addr.PublicKey,
-		addr.PrivateKey,
-		addr.RawAddress,
+		addr.pubKey,
+		addr.priKey,
+		addr.encodedAddr,
 	)
 	msg := en.ToProtoMsg()
 
@@ -551,9 +551,9 @@ func TestRollDPoS_convertToConsensusEvt(t *testing.T) {
 			roundNum,
 			endorsement.LOCK,
 		),
-		addr.PublicKey,
-		addr.PrivateKey,
-		addr.RawAddress,
+		addr.pubKey,
+		addr.priKey,
+		addr.encodedAddr,
 	)
 	msg = en.ToProtoMsg()
 	eEvt, err = r.cfsm.newEndorseEvtWithEndorsePb(msg)
@@ -595,8 +595,8 @@ func TestUpdateSeed(t *testing.T) {
 			require.NoError(err)
 		}
 		pkHash := keypair.HashPubKey(ec283PKList[i])
-		addresses[i] = address.New(chain.ChainID(), pkHash[:]).IotxAddress()
-		idList[i] = iotxaddress.CreateID(addresses[i])
+		addresses[i] = address.New(chain.ChainID(), pkHash[:]).Bech32()
+		idList[i] = address.Bech32ToID(addresses[i])
 		skList[i] = crypto.DKG.SkGeneration()
 	}
 
@@ -632,13 +632,8 @@ func TestUpdateSeed(t *testing.T) {
 
 	// Generate dkg signature for each block
 	for i := 1; i < numNodes; i++ {
-		iotxAddr := iotxaddress.Address{
-			PublicKey:  ec283PKList[i],
-			PrivateKey: ec283SKList[i],
-			RawAddress: addresses[i],
-		}
-		blk, err := chain.MintNewBlock(nil, iotxAddr.PublicKey, iotxAddr.PrivateKey, iotxAddr.RawAddress,
-			&iotxaddress.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]}, lastSeed, "")
+		blk, err := chain.MintNewBlock(nil, ec283PKList[i], ec283SKList[i], addresses[i],
+			&address.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]}, lastSeed, "")
 		require.NoError(err)
 		require.NoError(verifyDKGSignature(blk, lastSeed))
 		require.NoError(chain.ValidateBlock(blk, true))
@@ -659,7 +654,7 @@ func TestUpdateSeed(t *testing.T) {
 }
 
 func makeTestRollDPoSCtx(
-	addr *iotxaddress.Address,
+	addr *addrKeyPair,
 	ctrl *gomock.Controller,
 	cfg config.RollDPoS,
 	mockChain func(*mock_blockchain.MockBlockchain),
@@ -678,9 +673,9 @@ func makeTestRollDPoSCtx(
 	}
 	return &rollDPoSCtx{
 		cfg:              cfg,
-		encodedAddr:      addr.RawAddress,
-		pubKey:           addr.PublicKey,
-		priKey:           addr.PrivateKey,
+		encodedAddr:      addr.encodedAddr,
+		pubKey:           addr.pubKey,
+		priKey:           addr.priKey,
 		chain:            chain,
 		actPool:          actPool,
 		broadcastHandler: broadcastCB,
@@ -738,7 +733,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		// TODO: re-enable DKG
 		cfg.Consensus.RollDPoS.EnableDKG = false
 
-		chainAddrs := make([]*iotxaddress.Address, 0, numNodes)
+		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
 			chainAddrs = append(chainAddrs, newTestAddr())
@@ -746,10 +741,10 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		chainRawAddrs := make([]string, 0, numNodes)
-		addressMap := make(map[string]*iotxaddress.Address, 0)
+		addressMap := make(map[string]*addrKeyPair, 0)
 		for _, addr := range chainAddrs {
-			chainRawAddrs = append(chainRawAddrs, addr.RawAddress)
-			addressMap[addr.RawAddress] = addr
+			chainRawAddrs = append(chainRawAddrs, addr.encodedAddr)
+			addressMap[addr.encodedAddr] = addr
 		}
 		crypto.SortCandidates(chainRawAddrs, 1, crypto.CryptoSeed)
 		for i, rawAddress := range chainRawAddrs {
@@ -759,7 +754,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		candidatesByHeightFunc := func(_ uint64) ([]*state.Candidate, error) {
 			candidates := make([]*state.Candidate, 0, numNodes)
 			for _, addr := range chainAddrs {
-				candidates = append(candidates, &state.Candidate{Address: addr.RawAddress})
+				candidates = append(candidates, &state.Candidate{Address: addr.encodedAddr})
 			}
 			return candidates, nil
 		}
@@ -780,7 +775,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				gasLimit := testutil.TestGasLimit
 				wsctx := protocol.WithRunActionsCtx(ctx,
 					protocol.RunActionsCtx{
-						ProducerAddr:    testaddress.IotxAddrinfo["producer"].RawAddress,
+						ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
 						GasLimit:        &gasLimit,
 						EnableGasCharge: testutil.EnableGasCharge,
 					})
@@ -803,9 +798,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 			p2ps = append(p2ps, p2p)
 
 			consensus, err := NewRollDPoSBuilder().
-				SetAddr(chainAddrs[i].RawAddress).
-				SetPubKey(chainAddrs[i].PublicKey).
-				SetPriKey(chainAddrs[i].PrivateKey).
+				SetAddr(chainAddrs[i].encodedAddr).
+				SetPubKey(chainAddrs[i].pubKey).
+				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(cfg.Consensus.RollDPoS).
 				SetBlockchain(chain).
 				SetActPool(actPool).

@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/iotxaddress"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
@@ -79,17 +77,4 @@ func TestAddressError(t *testing.T) {
 	addr2, err := V1.Bech32ToAddress(string(encodedAddrBytes))
 	assert.Nil(t, addr2)
 	assert.Error(t, err)
-}
-
-func TestConvertFromAndToIotxAddress(t *testing.T) {
-	t.Parallel()
-
-	var chainID [4]byte
-	enc.MachineEndian.PutUint32(chainID[:], 1)
-	iotxAddr1, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainID[:])
-	require.NoError(t, err)
-	addr, err := V1.IotxAddressToAddress(iotxAddr1.RawAddress)
-	require.NoError(t, err)
-	iotxAddr2 := addr.IotxAddress()
-	assert.Equal(t, iotxAddr1.RawAddress, iotxAddr2)
 }

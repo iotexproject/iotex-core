@@ -13,26 +13,23 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/iotxaddress"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestActionProto(t *testing.T) {
 	require := require.New(t)
-	sender, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-	recipient, err := iotxaddress.NewAddress(iotxaddress.IsTestnet, chainid)
-	require.NoError(err)
-	v, err := NewVote(0, sender.RawAddress, recipient.RawAddress, uint64(100000), big.NewInt(10))
+	v, err := NewVote(0, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Addrinfo["bravo"].Bech32(),
+		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	fmt.Println(v)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetDestinationAddress(recipient.RawAddress).
+	elp := bd.SetDestinationAddress(testaddress.Addrinfo["bravo"].Bech32()).
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 
-	selp, err := Sign(elp, sender.RawAddress, sender.PrivateKey)
+	selp, err := Sign(elp, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"].PriKey)
 	require.NoError(err)
 
 	require.NoError(Verify(selp))

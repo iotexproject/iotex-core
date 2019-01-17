@@ -8,9 +8,9 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
+	address "github.com/iotexproject/iotex-core/address"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	iotxaddress "github.com/iotexproject/iotex-core/iotxaddress"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	keypair "github.com/iotexproject/iotex-core/pkg/keypair"
 	state "github.com/iotexproject/iotex-core/state"
@@ -517,16 +517,16 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actions []action.SealedEnvelope, producerPubKey keypair.PublicKey, producerPriKey keypair.PrivateKey, producerAddr string, dkgAddress *iotxaddress.DKGAddress, seed []byte, data string) (*block.Block, error) {
-	ret := m.ctrl.Call(m, "MintNewBlock", actions, producerPubKey, producerPriKey, producerAddr, dkgAddress, seed, data)
+func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, producerPubKey keypair.PublicKey, producerPriKey keypair.PrivateKey, producerAddr string, dkgAddress *address.DKGAddress, seed []byte, data string) (*block.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, producerPubKey, producerPriKey, producerAddr, dkgAddress, seed, data)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(actions, producerPubKey, producerPriKey, producerAddr, dkgAddress, seed, data interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), actions, producerPubKey, producerPriKey, producerAddr, dkgAddress, seed, data)
+func (mr *MockBlockchainMockRecorder) MintNewBlock(actionMap, producerPubKey, producerPriKey, producerAddr, dkgAddress, seed, data interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), actionMap, producerPubKey, producerPriKey, producerAddr, dkgAddress, seed, data)
 }
 
 // MintNewSecretBlock mocks base method

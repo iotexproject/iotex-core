@@ -75,7 +75,7 @@ func initLogger(cfg config.Config) {
 		return
 	}
 	if err := log.InitGlobal(cfg.Log, zap.Fields(
-		zap.String("iotxAddr", addr.IotxAddress()),
+		zap.String("addr", addr.Bech32()),
 		zap.String("networkAddress", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
 		zap.String("nodeType", cfg.NodeType),
 	)); err != nil {

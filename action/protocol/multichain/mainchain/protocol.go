@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/iotxaddress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -96,7 +95,7 @@ func (p *Protocol) account(sender string, sm protocol.StateManager) (*state.Acco
 	if sm == nil {
 		return p.sf.AccountState(sender)
 	}
-	addrHash, err := iotxaddress.AddressToPKHash(sender)
+	addrHash, err := address.Bech32ToPKHash(sender)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
@@ -136,7 +135,7 @@ func (p *Protocol) subChainsInOperation(sm protocol.StateManager) (SubChainsInOp
 }
 
 func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
-	addr, err := address.IotxAddressToAddress(srcAddr)
+	addr, err := address.Bech32ToAddress(srcAddr)
 	if err != nil {
 		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", srcAddr)
 	}

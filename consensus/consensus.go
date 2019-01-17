@@ -83,11 +83,11 @@ func NewConsensus(
 
 	cs := &IotxConsensus{cfg: cfg.Consensus}
 	mintBlockCB := func() (*block.Block, error) {
-		acts := ap.PickActs()
-		log.L().Debug("Pick actions.", zap.Int("actions", len(acts)))
+		actionMap := ap.PendingActionMap()
+		log.L().Debug("Pick actions.", zap.Int("actions", len(actionMap)))
 
 		pk, sk, addr := GetAddr(cfg)
-		blk, err := bc.MintNewBlock(acts, pk, sk, addr, nil, nil, "")
+		blk, err := bc.MintNewBlock(actionMap, pk, sk, addr, nil, nil, "")
 		if err != nil {
 			log.L().Error("Failed to mint a block.", zap.Error(err))
 			return nil, err
@@ -139,7 +139,7 @@ func NewConsensus(
 				for _, rawc := range rawcs.Candidates {
 					// TODO: this is a short term walk around. We don't need to convert root chain address to sub chain
 					// address. Instead we should use public key to identify the block producer
-					rootChainAddr, err := address.IotxAddressToAddress(rawc.Address)
+					rootChainAddr, err := address.Bech32ToAddress(rawc.Address)
 					if err != nil {
 						return nil, errors.Wrapf(err, "error when get converting iotex address to address")
 					}
@@ -153,7 +153,7 @@ func NewConsensus(
 						log.L().Error("Error when setting candidate total votes.", zap.Error(err))
 					}
 					cs = append(cs, &state.Candidate{
-						Address:          subChainAddr.IotxAddress(),
+						Address:          subChainAddr.Bech32(),
 						PublicKey:        pubKey,
 						Votes:            votes,
 						CreationHeight:   uint64(rawc.CreationHeight),
@@ -236,5 +236,5 @@ func GetAddr(cfg config.Config) (keypair.PublicKey, keypair.PrivateKey, string) 
 	if err != nil {
 		log.L().Panic("Fail to create new consensus.", zap.Error(err))
 	}
-	return pk, sk, addr.IotxAddress()
+	return pk, sk, addr.Bech32()
 }

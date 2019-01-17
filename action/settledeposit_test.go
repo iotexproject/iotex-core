@@ -13,15 +13,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestSettleDeposit(t *testing.T) {
 	t.Parallel()
 
-	addr1 := address.New(1, testaddress.IotxAddrinfo["producer"].PublicKey[:]).Bech32()
-	addr2 := address.New(2, testaddress.IotxAddrinfo["alfa"].PublicKey[:]).Bech32()
+	addr1 := testaddress.Addrinfo["producer"].Bech32()
+	addr2 := testaddress.Addrinfo["alfa"].Bech32()
 
 	assertDeposit := func(deposit *SettleDeposit) {
 		require.NotNil(t, deposit)
@@ -49,8 +48,8 @@ func TestSettleDeposit(t *testing.T) {
 func TestSettleDepositProto(t *testing.T) {
 	t.Parallel()
 
-	addr1 := address.New(1, testaddress.IotxAddrinfo["producer"].PublicKey[:]).Bech32()
-	addr2 := address.New(2, testaddress.IotxAddrinfo["alfa"].PublicKey[:]).Bech32()
+	addr1 := testaddress.Addrinfo["producer"].Bech32()
+	addr2 := testaddress.Addrinfo["alfa"].Bech32()
 
 	assertDeposit := func(deposit *SettleDeposit) {
 		require.NotNil(t, deposit)

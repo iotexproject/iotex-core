@@ -27,7 +27,7 @@ func TestHandleStopSubChain(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sender := testaddress.IotxAddrinfo["producer"]
+	sender := testaddress.Addrinfo["producer"]
 	factory := mock_factory.NewMockFactory(ctrl)
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
@@ -63,7 +63,7 @@ func TestHandleStopSubChain(t *testing.T) {
 			return state.Deserialize(s, data)
 		}).Times(1)
 	ws.EXPECT().Height().Return(uint64(2)).Times(5)
-	subChainPKHash, err := createSubChainAddress(sender.RawAddress, 2)
+	subChainPKHash, err := createSubChainAddress(sender.Bech32(), 2)
 	require.NoError(err)
 	subChain := &SubChain{
 		ChainID:            2,
@@ -71,7 +71,7 @@ func TestHandleStopSubChain(t *testing.T) {
 		OperationDeposit:   big.NewInt(200000),
 		StartHeight:        3,
 		ParentHeightOffset: 1,
-		OwnerPublicKey:     sender.PublicKey,
+		OwnerPublicKey:     testaddress.Keyinfo["producer"].PubKey,
 		CurrentHeight:      0,
 		DepositCount:       0,
 	}
@@ -88,9 +88,9 @@ func TestHandleStopSubChain(t *testing.T) {
 
 	p := NewProtocol(chain)
 	stop := action.NewStopSubChain(
-		testaddress.IotxAddrinfo["alfa"].RawAddress,
+		testaddress.Addrinfo["alfa"].Bech32(),
 		uint64(5),
-		subChainAddr.IotxAddress(),
+		subChainAddr.Bech32(),
 		uint64(10),
 		uint64(100000),
 		big.NewInt(0),
@@ -98,9 +98,9 @@ func TestHandleStopSubChain(t *testing.T) {
 	// wrong owner
 	require.Error(p.handleStopSubChain(stop, ws))
 	stop = action.NewStopSubChain(
-		sender.RawAddress,
+		sender.Bech32(),
 		uint64(5),
-		subChainAddr.IotxAddress(),
+		subChainAddr.Bech32(),
 		uint64(1),
 		uint64(100000),
 		big.NewInt(0),
@@ -108,9 +108,9 @@ func TestHandleStopSubChain(t *testing.T) {
 	// wrong stop height
 	require.Error(p.handleStopSubChain(stop, ws))
 	stop = action.NewStopSubChain(
-		sender.RawAddress,
+		sender.Bech32(),
 		uint64(5),
-		subChainAddr.IotxAddress(),
+		subChainAddr.Bech32(),
 		uint64(10),
 		uint64(100000),
 		big.NewInt(0),

@@ -17,23 +17,24 @@ import (
 )
 
 func TestActionBuilder(t *testing.T) {
-	srcAddr := testaddress.IotxAddrinfo["producer"]
-	dstAddr := testaddress.IotxAddrinfo["echo"]
+	srcAddr := testaddress.Addrinfo["producer"]
+	dstAddr := testaddress.Addrinfo["echo"]
+	srcPubKey := testaddress.Keyinfo["producer"].PubKey
 	bd := &Builder{}
 	act := bd.SetVersion(version.ProtocolVersion).
 		SetNonce(2).
-		SetSourceAddress(srcAddr.RawAddress).
-		SetSourcePublicKey(srcAddr.PublicKey).
-		SetDestinationAddress(dstAddr.RawAddress).
+		SetSourceAddress(srcAddr.Bech32()).
+		SetSourcePublicKey(srcPubKey).
+		SetDestinationAddress(dstAddr.Bech32()).
 		SetGasLimit(10003).
 		SetGasPrice(big.NewInt(10004)).
 		Build()
 
 	assert.Equal(t, uint32(version.ProtocolVersion), act.Version())
 	assert.Equal(t, uint64(2), act.Nonce())
-	assert.Equal(t, srcAddr.RawAddress, act.SrcAddr())
-	assert.Equal(t, srcAddr.PublicKey, act.SrcPubkey())
-	assert.Equal(t, dstAddr.RawAddress, act.DstAddr())
+	assert.Equal(t, srcAddr.Bech32(), act.SrcAddr())
+	assert.Equal(t, srcPubKey, act.SrcPubkey())
+	assert.Equal(t, dstAddr.Bech32(), act.DstAddr())
 	assert.Equal(t, uint64(10003), act.GasLimit())
 	assert.Equal(t, big.NewInt(10004), act.GasPrice())
 }
