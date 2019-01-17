@@ -42,7 +42,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 
 	selp := action.AssembleSealedEnvelope(elp, blockchain.Gen.CreatorAddr(config.Default.Chain.ID), pubk, sig)
 
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Keyinfo["producer"].PubKey,
+	actionMap := make(map[string][]action.SealedEnvelope)
+	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+	blk, err := bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	if err != nil {
@@ -93,7 +95,9 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		return err
 	}
 
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}, ta.Keyinfo["producer"].PubKey,
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+	blk, err = bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	if err != nil {
@@ -128,7 +132,10 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5},
+
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
+	blk, err = bc.MintNewBlock(actionMap,
 		ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
 	if err != nil {
@@ -159,7 +166,10 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, ta.Keyinfo["producer"].PubKey,
+
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
+	blk, err = bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	if err != nil {
@@ -198,7 +208,10 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6},
+
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+	blk, err = bc.MintNewBlock(actionMap,
 		ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
 	if err != nil {

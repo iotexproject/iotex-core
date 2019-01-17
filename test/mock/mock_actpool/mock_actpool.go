@@ -57,6 +57,18 @@ func (mr *MockActPoolMockRecorder) PickActs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PickActs", reflect.TypeOf((*MockActPool)(nil).PickActs))
 }
 
+// PendingActionMap mocks base method
+func (m *MockActPool) PendingActionMap() map[string][]action.SealedEnvelope {
+	ret := m.ctrl.Call(m, "PendingActionMap")
+	ret0, _ := ret[0].(map[string][]action.SealedEnvelope)
+	return ret0
+}
+
+// PendingActionMap indicates an expected call of PendingActionMap
+func (mr *MockActPoolMockRecorder) PendingActionMap() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingActionMap", reflect.TypeOf((*MockActPool)(nil).PendingActionMap))
+}
+
 // Add mocks base method
 func (m *MockActPool) Add(act action.SealedEnvelope) error {
 	ret := m.ctrl.Call(m, "Add", act)

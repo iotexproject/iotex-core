@@ -58,8 +58,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		SetGasPrice(big.NewInt(10)).Build()
 
 	selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pubk, sig)
-
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Keyinfo["producer"].PubKey,
+	actionMap := make(map[string][]action.SealedEnvelope)
+	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+	blk, err := bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil, nil, "")
 	if err != nil {
 		return err
@@ -109,8 +110,10 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6},
+	blk, err = bc.MintNewBlock(accMap,
 		ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
 	if err != nil {
@@ -145,12 +148,15 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5},
+	accMap = make(map[string][]action.SealedEnvelope)
+	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
+	blk, err = bc.MintNewBlock(accMap,
 		ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
 	if err != nil {
 		return err
 	}
+
 	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}
@@ -176,8 +182,12 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, ta.Keyinfo["producer"].PubKey,
+
+	accMap = make(map[string][]action.SealedEnvelope)
+	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
+	blk, err = bc.MintNewBlock(accMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil, nil, "")
+
 	if err != nil {
 		return err
 	}
@@ -222,14 +232,21 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
+	accMap = make(map[string][]action.SealedEnvelope)
+	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+	accMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1}
+	accMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2}
 
-	blk, err = bc.MintNewBlock([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6, vote1, vote2},
+	blk, err = bc.MintNewBlock(accMap,
 		ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
 	if err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
+		return err
+	}
+	if blk.TxRoot() != blk.CalculateTxRoot() {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -328,7 +345,9 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			SetGasPrice(big.NewInt(10)).Build()
 
 		selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pk, sig)
-		_, err = bc.MintNewBlock([]action.SealedEnvelope{selp}, ta.Keyinfo["producer"].PubKey,
+		actionMap := make(map[string][]action.SealedEnvelope)
+		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+		_, err = bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 			ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 			nil, "")
 		if v {
@@ -879,7 +898,8 @@ func TestCoinbaseTransfer(t *testing.T) {
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
 
-	blk, err := bc.MintNewBlock([]action.SealedEnvelope{}, ta.Keyinfo["alfa"].PubKey,
+	actionMap := make(map[string][]action.SealedEnvelope)
+	blk, err := bc.MintNewBlock(actionMap, ta.Keyinfo["alfa"].PubKey,
 		ta.Keyinfo["alfa"].PriKey, ta.Addrinfo["alfa"].Bech32(), nil, nil, "")
 	require.Nil(err)
 	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].Bech32())
@@ -960,12 +980,15 @@ func TestBlocks(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		acts := []action.SealedEnvelope{}
+		actionMap := make(map[string][]action.SealedEnvelope)
+		actionMap[a] = []action.SealedEnvelope{}
 		for i := 0; i < 1000; i++ {
 			tsf, err := testutil.SignedTransfer(a, c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 			require.NoError(err)
 			acts = append(acts, tsf)
+			actionMap[a] = append(actionMap[a], tsf)
 		}
-		blk, _ := bc.MintNewBlock(acts, ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
+		blk, _ := bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
 			ta.Addrinfo["producer"].Bech32(), nil, nil, "")
 		require.Nil(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -1016,17 +1039,17 @@ func TestActions(t *testing.T) {
 	val := &validator{sf: sf, validatorAddr: ""}
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	acts := []action.SealedEnvelope{}
+	actionMap := make(map[string][]action.SealedEnvelope)
 	for i := 0; i < 5000; i++ {
 		tsf, err := testutil.SignedTransfer(a, c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 		require.NoError(err)
-		acts = append(acts, tsf)
+		actionMap[a] = append(actionMap[a], tsf)
 
 		vote, err := testutil.SignedVote(a, a, priKeyA, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 		require.NoError(err)
-		acts = append(acts, vote)
+		actionMap[a] = append(actionMap[a], vote)
 	}
-	blk, _ := bc.MintNewBlock(acts, ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
+	blk, _ := bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
 	require.Nil(val.Validate(blk, 0, blk.PrevHash(), true))
 }

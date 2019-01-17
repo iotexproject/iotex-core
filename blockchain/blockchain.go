@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -118,7 +119,7 @@ type Blockchain interface {
 	// MintNewBlock creates a new block with given actions and dkg keys
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
-		actions []action.SealedEnvelope,
+		actionMap map[string][]action.SealedEnvelope,
 		producerPubKey keypair.PublicKey,
 		producerPriKey keypair.PrivateKey,
 		producerAddr string,
@@ -671,7 +672,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, containCoinbase bool) erro
 }
 
 func (bc *blockchain) MintNewBlock(
-	actions []action.SealedEnvelope,
+	actionMap map[string][]action.SealedEnvelope,
 	producerPubKey keypair.PublicKey,
 	producerPriKey keypair.PrivateKey,
 	producerAddr string,
@@ -695,6 +696,11 @@ func (bc *blockchain) MintNewBlock(
 	if err != nil {
 		return nil, err
 	}
+
+	// initial action iterator
+	actionIterator := actioniterator.NewActionIterator(actionMap)
+	actions, err := PickAction(genesis.BlockGasLimit, actionIterator)
+	// include coinbase transfer
 	actions = append(actions, selp)
 
 	validateActionsOnlyTimer := bc.timerFactory.NewTimer("ValidateActionsOnly")
