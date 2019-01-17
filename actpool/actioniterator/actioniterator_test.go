@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package actpool
+package actioniterator
 
 import (
 	"math/big"
@@ -26,7 +26,6 @@ func TestActionIterator(t *testing.T) {
 	c := testaddress.Addrinfo["charlie"]
 	priKeyC := testaddress.Keyinfo["charlie"].PriKey
 	accMap := make(map[string][]action.SealedEnvelope)
-
 	vote1, err := action.NewVote(1, a.Bech32(), b.Bech32(), 0, big.NewInt(13))
 	require.Nil(err)
 	bd := &action.EnvelopeBuilder{}
@@ -94,12 +93,13 @@ func TestActionIterator(t *testing.T) {
 	accMap[tsf3.SrcAddr()] = []action.SealedEnvelope{selp6}
 
 	ai := NewActionIterator(accMap)
-	act := ai.TopAction()
-	require.Equal(act, selp3) // tsf1
-	ai.LoadNextAction()
-	act = ai.TopAction()
-	require.Equal(act, selp1) // vote1
-	ai.PopAction()
-	act = ai.TopAction()
-	require.Equal(act, selp4) //tsf2
+	appliedActionList := make([]action.SealedEnvelope, 0)
+	for {
+		bestAction, ok := ai.Next()
+		if !ok {
+			break
+		}
+		appliedActionList = append(appliedActionList, bestAction)
+	}
+	require.Equal(appliedActionList, []action.SealedEnvelope{selp3, selp1, selp2, selp4, selp5, selp6})
 }
