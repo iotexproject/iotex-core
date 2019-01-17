@@ -8,7 +8,6 @@ package protocol
 
 import (
 	"context"
-	"sync"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -38,8 +37,6 @@ type RunActionsCtx struct {
 
 // ValidateActionsCtx provides action validators with auxiliary information.
 type ValidateActionsCtx struct {
-	// nonce tracker of each action's source account
-	NonceTracker *sync.Map
 	// height of block containing those actions
 	BlockHeight uint64
 	// public key of producer who compose those actions

@@ -48,6 +48,7 @@ func (e *extensionNode) Value() []byte {
 }
 
 func (e *extensionNode) children(tr Trie) ([]Node, error) {
+	trieMtc.WithLabelValues("extensionNode", "children").Inc()
 	child, err := e.child(tr)
 	if err != nil {
 		return nil, err
@@ -57,6 +58,7 @@ func (e *extensionNode) children(tr Trie) ([]Node, error) {
 }
 
 func (e *extensionNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
+	trieMtc.WithLabelValues("extensionNode", "delete").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched != uint8(len(e.path)) {
 		return nil, ErrNotExist
@@ -89,6 +91,7 @@ func (e *extensionNode) delete(tr Trie, key keyType, offset uint8) (Node, error)
 }
 
 func (e *extensionNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (Node, error) {
+	trieMtc.WithLabelValues("extensionNode", "upsert").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched == uint8(len(e.path)) {
 		child, err := e.child(tr)
@@ -127,6 +130,7 @@ func (e *extensionNode) upsert(tr Trie, key keyType, offset uint8, value []byte)
 }
 
 func (e *extensionNode) search(tr Trie, key keyType, offset uint8) Node {
+	trieMtc.WithLabelValues("extensionNode", "search").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched != uint8(len(e.path)) {
 		return nil
@@ -140,6 +144,7 @@ func (e *extensionNode) search(tr Trie, key keyType, offset uint8) Node {
 }
 
 func (e *extensionNode) serialize() []byte {
+	trieMtc.WithLabelValues("extensionNode", "serialize").Inc()
 	if e.ser != nil {
 		return e.ser
 	}

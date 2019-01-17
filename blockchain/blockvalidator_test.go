@@ -358,7 +358,7 @@ func TestWrongAddress(t *testing.T) {
 	require.NoError(t, err)
 	err = val.ValidateActionsOnly(
 		blk1.Actions,
-		true,
+		false,
 		blk1.SecretWitness,
 		blk1.SecretProposals,
 		blk1.PublicKey(),
@@ -388,7 +388,7 @@ func TestWrongAddress(t *testing.T) {
 
 	err = val.ValidateActionsOnly(
 		blk2.Actions,
-		true,
+		false,
 		blk2.SecretWitness,
 		blk2.SecretProposals,
 		blk2.PublicKey(),
@@ -417,7 +417,7 @@ func TestWrongAddress(t *testing.T) {
 	require.NoError(t, err)
 	err = val.ValidateActionsOnly(
 		blk3.Actions,
-		true,
+		false,
 		blk3.SecretWitness,
 		blk3.SecretProposals,
 		blk3.PublicKey(),

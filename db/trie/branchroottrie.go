@@ -84,6 +84,7 @@ func (tr *branchRootTrie) SetRootHash(rootHash []byte) error {
 }
 
 func (tr *branchRootTrie) Get(key []byte) ([]byte, error) {
+	trieMtc.WithLabelValues("root", "Get").Inc()
 	kt, err := tr.checkKeyType(key)
 	if err != nil {
 		return nil, err
@@ -99,6 +100,7 @@ func (tr *branchRootTrie) Get(key []byte) ([]byte, error) {
 }
 
 func (tr *branchRootTrie) Delete(key []byte) error {
+	trieMtc.WithLabelValues("root", "Delete").Inc()
 	kt, err := tr.checkKeyType(key)
 	if err != nil {
 		return err
@@ -121,6 +123,7 @@ func (tr *branchRootTrie) Delete(key []byte) error {
 }
 
 func (tr *branchRootTrie) Upsert(key []byte, value []byte) error {
+	trieMtc.WithLabelValues("root", "Upsert").Inc()
 	kt, err := tr.checkKeyType(key)
 	if err != nil {
 		return err

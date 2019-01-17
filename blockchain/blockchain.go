@@ -667,7 +667,8 @@ func (bc *blockchain) TipHeight() uint64 {
 func (bc *blockchain) ValidateBlock(blk *block.Block, containCoinbase bool) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	defer bc.timerFactory.NewTimer("ValidateBlock").End()
+	timer := bc.timerFactory.NewTimer("ValidateBlock")
+	defer timer.End()
 	return bc.validateBlock(blk, containCoinbase)
 }
 
@@ -682,7 +683,8 @@ func (bc *blockchain) MintNewBlock(
 ) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	defer bc.timerFactory.NewTimer("MintNewBlock").End()
+	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
+	defer mintNewBlockTimer.End()
 
 	// Use block height as the nonce for coinbase transfer
 	cb := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producerAddr)
@@ -803,7 +805,8 @@ func (bc *blockchain) MintNewSecretBlock(
 func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	defer bc.timerFactory.NewTimer("CommitBlock").End()
+	timer := bc.timerFactory.NewTimer("CommitBlock")
+	defer timer.End()
 
 	return bc.commitBlock(blk)
 }
