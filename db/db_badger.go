@@ -135,8 +135,6 @@ func (b *badgerDB) Commit(batch KVStoreBatch) error {
 
 	}()
 
-	dbBatchSizelMtc.WithLabelValues().Set(float64(batch.Size()))
-
 	var err error
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		err = b.db.Update(func(txn *badger.Txn) error {

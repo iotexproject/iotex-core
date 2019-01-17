@@ -9,10 +9,25 @@ package db
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
+
+var (
+	trieKeystoreMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_trie_keystore",
+			Help: "IoTeX Trie Keystore",
+		},
+		[]string{"type"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(trieKeystoreMtc)
+}
 
 // KVStoreForTrie defines a kvstore with fixed bucket and cache layer for trie.
 // It may be used in other cases as well
@@ -62,6 +77,7 @@ func (s *KVStoreForTrie) Stop(ctx context.Context) error {
 
 // Delete deletes key
 func (s *KVStoreForTrie) Delete(key []byte) error {
+	trieKeystoreMtc.WithLabelValues("delete").Inc()
 	s.cb.Delete(s.bucket, key, "failed to delete key %x", key)
 	// TODO: bug, need to mark key as deleted
 	return nil
@@ -69,12 +85,14 @@ func (s *KVStoreForTrie) Delete(key []byte) error {
 
 // Put puts value for key
 func (s *KVStoreForTrie) Put(key []byte, value []byte) error {
+	trieKeystoreMtc.WithLabelValues("put").Inc()
 	s.cb.Put(s.bucket, key, value, "failed to put key %x value %x", key, value)
 	return nil
 }
 
 // Get gets value of key
 func (s *KVStoreForTrie) Get(key []byte) ([]byte, error) {
+	trieKeystoreMtc.WithLabelValues("get").Inc()
 	v, err := s.cb.Get(s.bucket, key)
 	if err != nil {
 		if v, err = s.dao.Get(s.bucket, key); err != nil {

@@ -249,7 +249,8 @@ func (sf *factory) Commit(ws WorkingSet) error {
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	defer sf.timerFactory.NewTimer("Commit").End()
+	timer := sf.timerFactory.NewTimer("Commit")
+	defer timer.End()
 	if sf.currentChainHeight != ws.Version() {
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
