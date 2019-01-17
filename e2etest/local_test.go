@@ -184,8 +184,8 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	acts := svr.ChainService(chainID).ActionPool().PickActs()
-	blk1, err := chain.MintNewBlock(acts, ta.Keyinfo["producer"].PubKey,
+	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
+	blk1, err := chain.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
@@ -198,7 +198,9 @@ func TestLocalCommit(t *testing.T) {
 	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["foxtrot"].Bech32(), ta.Addrinfo["delta"].Bech32(), ta.Keyinfo["foxtrot"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{tsf2}, ta.Keyinfo["producer"].PubKey,
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf2.SrcAddr()] = []action.SealedEnvelope{tsf2}
+	blk2, err := chain.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
@@ -221,8 +223,11 @@ func TestLocalCommit(t *testing.T) {
 	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{tsf3}, ta.Keyinfo["producer"].PubKey,
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf3.SrcAddr()] = []action.SealedEnvelope{tsf3}
+	blk3, err := chain.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
+
 		nil, "")
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
@@ -244,7 +249,9 @@ func TestLocalCommit(t *testing.T) {
 	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["echo"].Bech32(), ta.Keyinfo["producer"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{tsf4}, ta.Keyinfo["producer"].PubKey,
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[tsf4.SrcAddr()] = []action.SealedEnvelope{tsf4}
+	blk4, err := chain.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
@@ -588,8 +595,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	acts := svr.ChainService(chainID).ActionPool().PickActs()
-	blk1, err := chain.MintNewBlock(acts, ta.Keyinfo["producer"].PubKey,
+	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
+	blk1, err := chain.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
@@ -611,7 +618,11 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 	vote5, err := testutil.SignedVote(ta.Addrinfo["charlie"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["charlie"].PriKey, uint64(7), uint64(100000), big.NewInt(0))
 	require.Nil(err)
-	blk2, err := chain.MintNewBlock([]action.SealedEnvelope{vote4, vote5}, ta.Keyinfo["producer"].PubKey,
+
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[vote4.SrcAddr()] = []action.SealedEnvelope{vote4}
+	actionMap[vote5.SrcAddr()] = []action.SealedEnvelope{vote5}
+	blk2, err := chain.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
@@ -658,7 +669,9 @@ func TestVoteLocalCommit(t *testing.T) {
 	vote6, err := testutil.SignedVote(ta.Addrinfo["delta"].Bech32(), ta.Addrinfo["delta"].Bech32(), ta.Keyinfo["delta"].PriKey, 5, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	blk3, err := chain.MintNewBlock([]action.SealedEnvelope{vote6}, ta.Keyinfo["producer"].PubKey,
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[vote6.SrcAddr()] = []action.SealedEnvelope{vote6}
+	blk3, err := chain.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)
@@ -707,7 +720,9 @@ func TestVoteLocalCommit(t *testing.T) {
 	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
-	blk4, err := chain.MintNewBlock([]action.SealedEnvelope{selp}, ta.Keyinfo["producer"].PubKey,
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+	blk4, err := chain.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
 		nil, "")
 	require.Nil(err)

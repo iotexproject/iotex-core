@@ -1454,6 +1454,9 @@ func newTestCFSM(
 					gomock.Any()).Return(&secretBlkToMint, nil).AnyTimes()
 			blockchain.EXPECT().
 				Nonce(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+			//blockchain.EXPECT().
+			//	MintNewBlockWithActionIterator(gomock.Any(), gomock.Any(), gomock.Any(),
+			//		gomock.Any(), gomock.Any()).Return(&blkToMint, nil).AnyTimes()
 			if mockChain == nil {
 				candidates := make([]*state.Candidate, 0)
 				for _, delegate := range delegates {
@@ -1472,6 +1475,7 @@ func newTestCFSM(
 				Return([]action.SealedEnvelope{transfer, vote}).
 				AnyTimes()
 			actPool.EXPECT().Reset().AnyTimes()
+			actPool.EXPECT().PendingActionMap().AnyTimes()
 		},
 		broadcastCB,
 		clock,
