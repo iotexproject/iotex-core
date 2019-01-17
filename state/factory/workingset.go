@@ -10,9 +10,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"

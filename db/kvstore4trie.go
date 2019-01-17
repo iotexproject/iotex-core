@@ -9,10 +9,10 @@ package db
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/pkg/errors"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 var (

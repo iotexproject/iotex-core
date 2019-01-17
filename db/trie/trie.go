@@ -9,9 +9,8 @@ package trie
 import (
 	"context"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/blake2b"
 )
 
