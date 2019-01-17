@@ -62,6 +62,7 @@ func (b *branchNode) Value() []byte {
 }
 
 func (b *branchNode) children(tr Trie) ([]Node, error) {
+	trieMtc.WithLabelValues("branchNode", "children").Inc()
 	children := []Node{}
 	for i := range b.hashes {
 		if c, err := b.child(tr, i); err != nil {
@@ -75,6 +76,7 @@ func (b *branchNode) children(tr Trie) ([]Node, error) {
 }
 
 func (b *branchNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
+	trieMtc.WithLabelValues("branchNode", "delete").Inc()
 	offsetKey := key[offset]
 	child, err := b.child(tr, offsetKey)
 	if err != nil {
@@ -125,6 +127,7 @@ func (b *branchNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
 }
 
 func (b *branchNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (Node, error) {
+	trieMtc.WithLabelValues("branchNode", "upsert").Inc()
 	var newChild Node
 	offsetKey := key[offset]
 	child, err := b.child(tr, offsetKey)
@@ -142,6 +145,7 @@ func (b *branchNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (N
 }
 
 func (b *branchNode) search(tr Trie, key keyType, offset uint8) Node {
+	trieMtc.WithLabelValues("branchNode", "search").Inc()
 	child, err := b.child(tr, key[offset])
 	if errors.Cause(err) == ErrNotExist {
 		return nil
@@ -150,6 +154,7 @@ func (b *branchNode) search(tr Trie, key keyType, offset uint8) Node {
 }
 
 func (b *branchNode) serialize() []byte {
+	trieMtc.WithLabelValues("branchNode", "serialize").Inc()
 	if b.ser != nil {
 		return b.ser
 	}

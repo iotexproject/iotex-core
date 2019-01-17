@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -20,6 +21,28 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
+
+var (
+	stateDBMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_state_db",
+			Help: "IoTeX State DB",
+		},
+		[]string{"type"},
+	)
+	dbBatchSizelMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_db_batch_size",
+			Help: "DB batch size",
+		},
+		[]string{},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(stateDBMtc)
+	prometheus.MustRegister(dbBatchSizelMtc)
+}
 
 type (
 	// WorkingSet defines an interface for working set of states changes
@@ -161,6 +184,7 @@ func (ws *workingSet) Revert(snapshot int) error {
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit() error {
 	// Commit all changes in a batch
+	dbBatchSizelMtc.WithLabelValues().Set(float64(ws.cb.Size()))
 	if err := ws.dao.Commit(ws.cb); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
@@ -180,6 +204,7 @@ func (ws *workingSet) GetCachedBatch() db.CachedBatch {
 
 // State pulls a state from DB
 func (ws *workingSet) State(hash hash.PKHash, s interface{}) error {
+	stateDBMtc.WithLabelValues("get").Inc()
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
 		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", hash[:])
@@ -192,6 +217,7 @@ func (ws *workingSet) State(hash hash.PKHash, s interface{}) error {
 
 // PutState puts a state into DB
 func (ws *workingSet) PutState(pkHash hash.PKHash, s interface{}) error {
+	stateDBMtc.WithLabelValues("put").Inc()
 	ss, err := state.Serialize(s)
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
