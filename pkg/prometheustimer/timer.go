@@ -44,6 +44,10 @@ func New(name, tip string, labelNames []string, defaultLabels []string) (*TimerF
 		labelNames,
 	)
 	err := prometheus.Register(vect)
+	switch err.(type) {
+	case prometheus.AlreadyRegisteredError:
+		err = nil
+	}
 
 	return &TimerFactory{
 		labelNames:    labelNames,
