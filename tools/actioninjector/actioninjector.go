@@ -114,7 +114,7 @@ func main() {
 	if aps > 0 {
 		d := time.Duration(duration) * time.Second
 		wg := &sync.WaitGroup{}
-		util.InjectByaAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
+		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
 			contract, executionAmount, executionGasLimit, executionGasPrice, executionData, proxy, admins, delegates, d,
 			retryNum, retryInterval, resetInterval)
 		wg.Wait()
