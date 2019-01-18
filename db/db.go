@@ -11,21 +11,20 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 var (
-	// ErrInvalidDB indicates invalid operation attempted to Blockchain database
-	ErrInvalidDB = errors.New("invalid DB operation")
 	// ErrNotExist indicates certain item does not exist in Blockchain database
 	ErrNotExist = errors.New("not exist in DB")
 	// ErrAlreadyDeleted indicates the key has been deleted
 	ErrAlreadyDeleted = errors.New("already deleted from DB")
 	// ErrAlreadyExist indicates certain item already exists in Blockchain database
 	ErrAlreadyExist = errors.New("already exist in DB")
+	// ErrIO indicates the generic error of DB I/O operation
+	ErrIO = errors.New("DB I/O operation error")
 )
 
 // KVStore is the interface of KV store.
@@ -49,14 +48,13 @@ const (
 // memKVStore is the in-memory implementation of KVStore for testing purpose
 type memKVStore struct {
 	data   *sync.Map
-	bucket map[string]struct{}
-	mu     sync.RWMutex
+	bucket *sync.Map
 }
 
 // NewMemKVStore instantiates an in-memory KV store
 func NewMemKVStore() KVStore {
 	return &memKVStore{
-		bucket: make(map[string]struct{}),
+		bucket: &sync.Map{},
 		data:   &sync.Map{},
 	}
 }
@@ -67,25 +65,21 @@ func (m *memKVStore) Stop(_ context.Context) error { return nil }
 
 // Put inserts a <key, value> record
 func (m *memKVStore) Put(namespace string, key, value []byte) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.bucket[namespace] = struct{}{}
+	_, _ = m.bucket.LoadOrStore(namespace, struct{}{})
 	m.data.Store(namespace+keyDelimiter+string(key), value)
 	return nil
 }
 
 // Get retrieves a record
 func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if _, ok := m.bucket[namespace]; !ok {
-		return nil, errors.Wrapf(bolt.ErrBucketNotFound, "bucket = %s", namespace)
+	if _, ok := m.bucket.Load(namespace); !ok {
+		return nil, errors.Wrapf(ErrNotExist, "namespace = %s doesn't exist", namespace)
 	}
 	value, _ := m.data.Load(namespace + keyDelimiter + string(key))
 	if value != nil {
 		return value.([]byte), nil
 	}
-	return nil, errors.Wrapf(ErrNotExist, "key = %x", key)
+	return nil, errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
 }
 
 // Delete deletes a record

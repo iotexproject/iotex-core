@@ -8,7 +8,6 @@ package db
 
 import (
 	"context"
-	"sync"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
@@ -18,7 +17,6 @@ import (
 
 // badgerDB is KVStore implementation based bolt DB
 type badgerDB struct {
-	mutex  sync.RWMutex
 	db     *badger.DB
 	path   string
 	config config.DB
@@ -26,9 +24,6 @@ type badgerDB struct {
 
 // Start opens the badgerDB (creates new file if not existing yet)
 func (b *badgerDB) Start(_ context.Context) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
 	if b.db != nil {
 		return nil
 	}
@@ -38,7 +33,7 @@ func (b *badgerDB) Start(_ context.Context) error {
 	opts.ValueDir = b.path
 	db, err := badger.Open(opts)
 	if err != nil {
-		return err
+		return errors.Wrap(ErrIO, err.Error())
 	}
 	b.db = db
 	return nil
@@ -46,23 +41,16 @@ func (b *badgerDB) Start(_ context.Context) error {
 
 // Stop closes the badgerDB
 func (b *badgerDB) Stop(_ context.Context) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
 	if b.db != nil {
-		err := b.db.Close()
-		b.db = nil
-		return err
+		if err := b.db.Close(); err != nil {
+			return errors.Wrap(ErrIO, err.Error())
+		}
 	}
 	return nil
 }
 
 // Put inserts a <key, value> record
-func (b *badgerDB) Put(namespace string, key, value []byte) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	var err error
+func (b *badgerDB) Put(namespace string, key, value []byte) (err error) {
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		err = b.db.Update(func(txn *badger.Txn) error {
 			k := append([]byte(namespace), key...)
@@ -73,14 +61,14 @@ func (b *badgerDB) Put(namespace string, key, value []byte) error {
 			break
 		}
 	}
+	if err != nil {
+		err = errors.Wrap(ErrIO, err.Error())
+	}
 	return err
 }
 
 // Get retrieves a record
 func (b *badgerDB) Get(namespace string, key []byte) ([]byte, error) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
 	var value []byte
 	err := b.db.View(func(txn *badger.Txn) error {
 		k := append([]byte(namespace), key...)
@@ -88,24 +76,22 @@ func (b *badgerDB) Get(namespace string, key []byte) ([]byte, error) {
 		if err != nil {
 			return errors.Wrapf(err, "failed to get key = %x", k)
 		}
-		value, err = item.ValueCopy(nil)
-		if err != nil {
+		if value, err = item.ValueCopy(nil); err != nil {
 			return errors.Wrapf(err, "failed to get value from key = %x", k)
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return value, nil
 	}
-	return value, nil
+	if err == badger.ErrKeyNotFound {
+		return nil, errors.Wrap(ErrNotExist, err.Error())
+	}
+	return nil, errors.Wrap(ErrIO, err.Error())
 }
 
 // Delete deletes a record
-func (b *badgerDB) Delete(namespace string, key []byte) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	var err error
+func (b *badgerDB) Delete(namespace string, key []byte) (err error) {
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		err = b.db.Update(func(txn *badger.Txn) error {
 			k := append([]byte(namespace), key...)
@@ -115,15 +101,15 @@ func (b *badgerDB) Delete(namespace string, key []byte) error {
 			break
 		}
 	}
+	if err != nil {
+		err = errors.Wrap(ErrIO, err.Error())
+	}
 	return err
 }
 
 // Commit commits a batch
-func (b *badgerDB) Commit(batch KVStoreBatch) error {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	succeed := false
+func (b *badgerDB) Commit(batch KVStoreBatch) (err error) {
+	succeed := true
 	batch.Lock()
 	defer func() {
 		if succeed {
@@ -135,7 +121,6 @@ func (b *badgerDB) Commit(batch KVStoreBatch) error {
 
 	}()
 
-	var err error
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		err = b.db.Update(func(txn *badger.Txn) error {
 			for i := 0; i < batch.Size(); i++ {
@@ -161,7 +146,10 @@ func (b *badgerDB) Commit(batch KVStoreBatch) error {
 			break
 		}
 	}
-	succeed = (err == nil)
+	if err != nil {
+		succeed = false
+		err = errors.Wrap(ErrIO, err.Error())
+	}
 	return err
 }
 
@@ -173,7 +161,7 @@ func (b *badgerDB) Commit(batch KVStoreBatch) error {
 func (b *badgerDB) batchPutForceFail(namespace string, key [][]byte, value [][]byte) error {
 	return b.db.Update(func(txn *badger.Txn) error {
 		if len(key) != len(value) {
-			return errors.Wrap(ErrInvalidDB, "batch put <k, v> size not match")
+			return errors.Wrap(ErrIO, "batch put <k, v> size not match")
 		}
 		for i := 0; i < len(key); i++ {
 			k := []byte(namespace)
@@ -183,7 +171,7 @@ func (b *badgerDB) batchPutForceFail(namespace string, key [][]byte, value [][]b
 			}
 			// intentionally fail to test DB can successfully rollback
 			if i == len(key)-1 {
-				return errors.Wrapf(ErrInvalidDB, "force fail to test DB rollback")
+				return errors.Wrapf(ErrIO, "force fail to test DB rollback")
 			}
 		}
 		return nil

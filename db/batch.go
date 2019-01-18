@@ -142,7 +142,7 @@ func (b *baseKVStoreBatch) Size() int {
 // Entry returns the entry at the index
 func (b *baseKVStoreBatch) Entry(index int) (*writeInfo, error) {
 	if index < 0 || index >= len(b.writeQueue) {
-		return nil, errors.Wrap(ErrInvalidDB, "index out of range")
+		return nil, errors.Wrap(ErrIO, "index out of range")
 	}
 	return &b.writeQueue[index], nil
 }
@@ -280,7 +280,7 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	defer cb.lock.Unlock()
 	// throw error if the snapshot number does not exist
 	if snapshot < 0 || snapshot >= cb.tag {
-		return errors.Wrapf(ErrInvalidDB, "invalid snapshot number = %d", snapshot)
+		return errors.Wrapf(ErrIO, "invalid snapshot number = %d", snapshot)
 	}
 	cb.tag = snapshot + 1
 	cb.batchShots = cb.batchShots[:cb.tag]

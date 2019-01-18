@@ -35,7 +35,8 @@ type StartStopper interface {
 }
 
 // Lifecycle manages lifecycle for models. Currently a Lifecycle has two phases: Start and Stop.
-// Currently Lifecycle doesn't support soft dependecy models and multi-err, so all models in Lifecycle require to be succeed on both phases.
+// Currently Lifecycle doesn't support soft dependency models and multi-err, so all models in Lifecycle require to be
+// succeed on both phases.
 type Lifecycle struct {
 	models []Model
 }

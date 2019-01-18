@@ -13,10 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/dgraph-io/badger"
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
-	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -324,8 +322,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	}
 	if bc.tipHeight == 0 {
 		_, err = bc.getBlockByHeight(0)
-		// TODO: Need to unify the NotFound error no matter which db is used
-		if errors.Cause(err) == bolt.ErrBucketNotFound || errors.Cause(err) == badger.ErrKeyNotFound {
+		if errors.Cause(err) == db.ErrNotExist {
 			return bc.startEmptyBlockchain()
 		}
 		if err != nil {
@@ -1100,7 +1097,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		return nil
 	}
 	// If it's a ready db io error, return earlier with the error
-	if errors.Cause(err) != db.ErrNotExist && errors.Cause(err) != bolt.ErrBucketNotFound {
+	if errors.Cause(err) != db.ErrNotExist {
 		return err
 	}
 	// write block into DB
