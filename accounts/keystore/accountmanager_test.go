@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -171,5 +170,5 @@ func keyToAddress(priKey keypair.PrivateKey) (address.Address, error) {
 		return nil, errors.Wrap(err, "failed to derive public key from private key")
 	}
 	pkHash := keypair.HashPubKey(pubKey)
-	return address.New(config.Default.Chain.ID, pkHash[:]), nil
+	return address.New(pkHash[:]), nil
 }

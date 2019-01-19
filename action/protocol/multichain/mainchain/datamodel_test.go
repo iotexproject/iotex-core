@@ -75,19 +75,19 @@ func TestSubChainsInOperation(t *testing.T) {
 	sc1 = sc1.Append(
 		InOperation{
 			ID:   3,
-			Addr: address.New(1, hash.Hash160b([]byte{3})).Bytes(),
+			Addr: address.New(hash.Hash160b([]byte{3})).Bytes(),
 		},
 	)
 	sc1 = sc1.Append(
 		InOperation{
 			ID:   1,
-			Addr: address.New(1, hash.Hash160b([]byte{1})).Bytes(),
+			Addr: address.New(hash.Hash160b([]byte{1})).Bytes(),
 		},
 	)
 	sc1 = sc1.Append(
 		InOperation{
 			ID:   2,
-			Addr: address.New(1, hash.Hash160b([]byte{2})).Bytes(),
+			Addr: address.New(hash.Hash160b([]byte{2})).Bytes(),
 		},
 	)
 

@@ -34,8 +34,6 @@ var isTestNet bool
 
 // Address defines the interface of the blockchain address
 type Address interface {
-	// ChainID returns the version
-	ChainID() uint32
 	// Version returns the version
 	Version() uint8
 	// Payload returns the payload
@@ -50,10 +48,10 @@ type Address interface {
 }
 
 // New constructs an address instance
-func New(chainID uint32, payload []byte) Address {
+func New(payload []byte) Address {
 	var pkHash hash.PKHash
 	copy(pkHash[:], payload)
-	return V1.New(chainID, pkHash)
+	return V1.New(pkHash)
 }
 
 // Bech32ToAddress decodes an encoded address string into an address struct

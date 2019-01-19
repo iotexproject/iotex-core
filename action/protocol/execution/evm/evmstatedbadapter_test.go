@@ -46,7 +46,6 @@ func TestAddBalance(t *testing.T) {
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
 
-	mcm.EXPECT().ChainID().Times(4).Return(uint32(1))
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
 	amount := stateDB.GetBalance(addr)
@@ -97,7 +96,6 @@ func TestEmptyAndCode(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
-	mcm.EXPECT().ChainID().Times(4).Return(uint32(1))
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
 	require.True(stateDB.Empty(addr))
@@ -124,7 +122,6 @@ func TestForEachStorage(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
-	mcm.EXPECT().ChainID().Times(1).Return(uint32(1))
 
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
@@ -163,7 +160,6 @@ func TestNonce(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
-	mcm.EXPECT().ChainID().Times(3).Return(uint32(1))
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(mcm, ws, 1, hash.ZeroHash32B, hash.ZeroHash32B)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"fmt"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -348,9 +349,9 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
 
-	scAddr, err := createSubChainAddress(blockchain.Gen.CreatorAddr(1), 0)
+	scAddr, err := createSubChainAddress(blockchain.Gen.CreatorAddr(), 0)
 	require.NoError(t, err)
-	addr := address.New(1, scAddr[:])
+	addr := address.New(scAddr[:])
 	sc, err := p.SubChain(addr)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(2), sc.ChainID)
@@ -360,6 +361,7 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
 	subChainsInOp, err := p.SubChainsInOperation()
 	require.NoError(t, err)
+	fmt.Println(len(subChainsInOp))
 	_, ok := subChainsInOp.Get(uint32(2))
 	assert.True(t, ok)
 }

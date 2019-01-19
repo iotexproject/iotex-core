@@ -595,7 +595,7 @@ func TestUpdateSeed(t *testing.T) {
 			require.NoError(err)
 		}
 		pkHash := keypair.HashPubKey(ec283PKList[i])
-		addresses[i] = address.New(chain.ChainID(), pkHash[:]).Bech32()
+		addresses[i] = address.New(pkHash[:]).Bech32()
 		idList[i] = address.Bech32ToID(addresses[i])
 		skList[i] = crypto.DKG.SkGeneration()
 	}

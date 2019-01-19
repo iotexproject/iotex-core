@@ -92,7 +92,7 @@ func (stateDB *StateDBAdapter) Error() error {
 
 // CreateAccount creates an account in iotx blockchain
 func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
-	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	addr := address.New(evmAddr.Bytes())
 	_, err := account.LoadOrCreateAccount(stateDB.sm, addr.Bech32(), big.NewInt(0))
 	if err != nil {
 		log.L().Error("Failed to create account.", zap.Error(err))
@@ -109,7 +109,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 	}
 	// stateDB.GetBalance(evmAddr)
 	log.L().Debug(fmt.Sprintf("SubBalance %v from %s", amount, evmAddr.Hex()))
-	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	addr := address.New(evmAddr.Bytes())
 	state, err := stateDB.AccountState(addr.Bech32())
 	if err != nil {
 		log.L().Error("Failed to sub balance.", zap.Error(err))
@@ -131,7 +131,7 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 	// stateDB.GetBalance(evmAddr)
 	log.L().Debug(fmt.Sprintf("AddBalance %v from %s", amount, evmAddr.Hex()))
 
-	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	addr := address.New(evmAddr.Bytes())
 	state, err := account.LoadOrCreateAccount(stateDB.sm, addr.Bech32(), big.NewInt(0))
 	if err != nil {
 		log.L().Error("Failed to add balance.", log.Hex("addrHash", evmAddr[:]))
@@ -146,7 +146,7 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 
 // GetBalance gets the balance of account
 func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
-	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	addr := address.New(evmAddr.Bytes())
 	state, err := stateDB.AccountState(addr.Bech32())
 	if err != nil {
 		log.L().Error("Failed to get balance.", zap.Error(err))
@@ -159,7 +159,7 @@ func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 
 // GetNonce gets the nonce of account
 func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
-	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	addr := address.New(evmAddr.Bytes())
 	state, err := stateDB.AccountState(addr.Bech32())
 	if err != nil {
 		log.L().Error("Failed to get nonce.", zap.Error(err))
@@ -174,7 +174,7 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 
 // SetNonce sets the nonce of account
 func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
-	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	addr := address.New(evmAddr.Bytes())
 	s, err := stateDB.AccountState(addr.Bech32())
 	if err != nil {
 		log.L().Error("Failed to set nonce.", zap.Error(err))
@@ -206,7 +206,7 @@ func (stateDB *StateDBAdapter) GetRefund() uint64 {
 
 // Suicide kills the contract
 func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
-	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	addr := address.New(evmAddr.Bytes())
 	s, err := stateDB.AccountState(addr.Bech32())
 	if err != nil || s == state.EmptyAccount {
 		log.L().Debug("Account does not exist.", zap.String("address", addr.Bech32()))
@@ -231,7 +231,7 @@ func (stateDB *StateDBAdapter) HasSuicided(evmAddr common.Address) bool {
 
 // Exist checks the existence of an address
 func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
-	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	addr := address.New(evmAddr.Bytes())
 	log.L().Debug("Check existence.", zap.String("address", addr.Bech32()), log.Hex("addrHash", evmAddr[:]))
 	if s, err := stateDB.AccountState(addr.Bech32()); err != nil || s == state.EmptyAccount {
 		log.L().Debug("Account does not exist.", zap.String("address", addr.Bech32()))
@@ -242,7 +242,7 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 
 // Empty returns true if the the contract is empty
 func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
-	addr := address.New(stateDB.cm.ChainID(), evmAddr.Bytes())
+	addr := address.New(evmAddr.Bytes())
 	log.L().Debug("Check whether the contract is empty.")
 	s, err := stateDB.AccountState(addr.Bech32())
 	if err != nil || s == state.EmptyAccount {
@@ -318,7 +318,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 // AddLog adds log
 func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 	log.L().Debug("Called AddLog.", zap.Any("log", evmLog))
-	addr := address.New(stateDB.cm.ChainID(), evmLog.Address.Bytes())
+	addr := address.New(evmLog.Address.Bytes())
 	var topics []hash.Hash32B
 	for _, evmTopic := range evmLog.Topics {
 		var topic hash.Hash32B
