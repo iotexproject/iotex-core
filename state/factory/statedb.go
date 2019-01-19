@@ -187,6 +187,10 @@ func (sdb *stateDB) Commit(ws WorkingSet) error {
 			ws.Version(),
 		)
 	}
+	// Compute the digest of delta state
+	stateChangeDigest := ws.GetCachedBatch().Digest()
+	// TODO: Add it to the block header
+	log.S().Infof("State change digest is %x at height %d", stateChangeDigest, ws.Height())
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
