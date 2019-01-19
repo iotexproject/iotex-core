@@ -26,6 +26,7 @@ jobs:
       - run: dep ensure --vendor-only
       - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
+      - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
   nightly:
     docker:
