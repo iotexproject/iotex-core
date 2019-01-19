@@ -185,13 +185,15 @@ const RecoveryHeightKey key = "recoveryHeight"
 
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	return func(bc *blockchain, cfg config.Config) (err error) {
+		if cfg.Chain.EnableTrielessStateDB {
+			bc.sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		} else {
+			bc.sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+		}
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create state factory")
 		}
-		bc.sf = sf
-
 		return nil
 	}
 }

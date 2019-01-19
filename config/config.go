@@ -78,6 +78,7 @@ var (
 			EnableFallBackToFreshDB:      false,
 			EnableSubChainStartInGenesis: false,
 			EnableGasCharge:              false,
+			EnableTrielessStateDB:        true,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -182,6 +183,7 @@ type (
 		NumCandidates                uint   `yaml:"numCandidates"`
 		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
+		EnableTrielessStateDB        bool   `yaml:"enableTrielessStateDB"`
 
 		// enable gas charge for block producer
 		EnableGasCharge bool `yaml:"enableGasCharge"`
