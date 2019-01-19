@@ -747,7 +747,9 @@ func (bc *blockchain) MintNewBlock(
 		blkbd.SetDKG(dkgAddress.ID, dkgAddress.PublicKey, sig)
 	}
 
-	blk, err := blkbd.SetStateRoot(root).
+	blk, err := blkbd.
+		SetStateRoot(root).
+		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
 		SignAndBuild(producerPubKey, producerPriKey)
 	if err != nil {
@@ -791,6 +793,7 @@ func (bc *blockchain) MintNewSecretBlock(
 		SetSecretProposals(secretProposals).
 		SetReceipts(receipts).
 		SetStateRoot(root).
+		SetDeltaStateDigest(ws.Digest()).
 		SignAndBuild(producerPubKey, producerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create block")
@@ -970,6 +973,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetPrevBlockHash(Gen.ParentHash).
 			SetReceipts(receipts).
 			SetStateRoot(root).
+			SetDeltaStateDigest(ws.Digest()).
 			SignAndBuild(keypair.ZeroPublicKey, keypair.ZeroPrivateKey)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
@@ -1082,7 +1086,11 @@ func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) erro
 	}
 
 	if err = blk.VerifyStateRoot(root); err != nil {
-		return errors.Wrap(err, "Failed to verify state root")
+		return err
+	}
+
+	if err = blk.VerifyDeltaStateDigest(ws.Digest()); err != nil {
+		return err
 	}
 
 	// attach working set to be committed to state factory

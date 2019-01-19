@@ -47,6 +47,9 @@ func newStateTX(
 // RootHash returns the hash of the root node of the accountTrie
 func (stx *stateTX) RootHash() hash.Hash32B { return hash.ZeroHash32B }
 
+// Digest returns the delta state digest
+func (stx *stateTX) Digest() hash.Hash32B { return stx.GetCachedBatch().Digest() }
+
 // Version returns the Version of this working set
 func (stx *stateTX) Version() uint64 { return stx.ver }
 
