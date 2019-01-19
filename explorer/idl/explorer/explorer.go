@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "930ad8ed4154e09b1263a8f435f6934d"
-const BarristerDateGenerated int64 = 1546625898440000000
+const BarristerChecksum string = "ccffcf3da6ae6514411d056c1169f278"
+const BarristerDateGenerated int64 = 1547767421706000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -231,6 +231,7 @@ type GetBlkOrActResponse struct {
 type CreateDepositRequest struct {
 	Version      int64  `json:"version"`
 	Nonce        int64  `json:"nonce"`
+	ChainID      int64  `json:"chainID"`
 	Sender       string `json:"sender"`
 	SenderPubKey string `json:"senderPubKey"`
 	Recipient    string `json:"recipient"`
@@ -2610,6 +2611,13 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
+                "name": "chainID",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
                 "name": "sender",
                 "type": "string",
                 "optional": false,
@@ -4169,7 +4177,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1546625898440,
-        "checksum": "930ad8ed4154e09b1263a8f435f6934d"
+        "date_generated": 1547767421706,
+        "checksum": "ccffcf3da6ae6514411d056c1169f278"
     }
 ]`

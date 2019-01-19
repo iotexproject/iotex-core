@@ -28,12 +28,14 @@ const (
 type CreateDeposit struct {
 	AbstractAction
 
-	amount *big.Int
+	chainID uint32
+	amount  *big.Int
 }
 
 // NewCreateDeposit instantiates a deposit creation to sub-chain action struct
 func NewCreateDeposit(
 	nonce uint64,
+	chainID uint32,
 	amount *big.Int,
 	sender string,
 	recipient string,
@@ -49,9 +51,13 @@ func NewCreateDeposit(
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		amount: amount,
+		chainID: chainID,
+		amount:  amount,
 	}
 }
+
+// ChainID returns chain ID
+func (d *CreateDeposit) ChainID() uint32 { return d.chainID }
 
 // Amount returns the amount
 func (d *CreateDeposit) Amount() *big.Int { return d.amount }
@@ -74,6 +80,7 @@ func (d *CreateDeposit) ByteStream() []byte {
 // Proto converts CreateDeposit to protobuf's ActionPb
 func (d *CreateDeposit) Proto() *iproto.CreateDepositPb {
 	act := &iproto.CreateDepositPb{
+		ChainID:   d.chainID,
 		Recipient: d.dstAddr,
 	}
 	if d.amount != nil && len(d.amount.Bytes()) > 0 {
@@ -93,6 +100,7 @@ func (d *CreateDeposit) LoadProto(pbDpst *iproto.CreateDepositPb) error {
 		return errors.New("empty action proto to load")
 	}
 
+	d.chainID = pbDpst.ChainID
 	d.amount = big.NewInt(0)
 	d.amount.SetBytes(pbDpst.GetAmount())
 	return nil

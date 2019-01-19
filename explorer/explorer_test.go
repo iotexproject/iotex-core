@@ -982,6 +982,7 @@ func TestService_CreateDeposit(t *testing.T) {
 
 	deposit := action.NewCreateDeposit(
 		10,
+		2,
 		big.NewInt(10000),
 		ta.Addrinfo["producer"].Bech32(),
 		// Test explorer only, so that it doesn't matter the address is not on sub-chain
@@ -1000,6 +1001,7 @@ func TestService_CreateDeposit(t *testing.T) {
 	res, error := svc.CreateDeposit(explorer.CreateDepositRequest{
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
+		ChainID:      int64(deposit.ChainID()),
 		Sender:       deposit.Sender(),
 		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
 		Recipient:    deposit.Recipient(),

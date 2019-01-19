@@ -83,6 +83,7 @@ func TestBlockDAO(t *testing.T) {
 		// create testing create deposit actions
 		deposit1 := action.NewCreateDeposit(
 			4,
+			2,
 			big.NewInt(1),
 			testaddress.Addrinfo["alfa"].Bech32(),
 			testaddress.Addrinfo["delta"].Bech32(),
@@ -99,6 +100,7 @@ func TestBlockDAO(t *testing.T) {
 
 		deposit2 := action.NewCreateDeposit(
 			5,
+			2,
 			big.NewInt(2),
 			testaddress.Addrinfo["bravo"].Bech32(),
 			testaddress.Addrinfo["delta"].Bech32(),
@@ -115,6 +117,7 @@ func TestBlockDAO(t *testing.T) {
 
 		deposit3 := action.NewCreateDeposit(
 			6,
+			2,
 			big.NewInt(3),
 			testaddress.Addrinfo["charlie"].Bech32(),
 			testaddress.Addrinfo["delta"].Bech32(),

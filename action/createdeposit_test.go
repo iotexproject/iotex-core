@@ -34,6 +34,7 @@ func TestCreateDeposit(t *testing.T) {
 
 	deposit1 := NewCreateDeposit(
 		1,
+		1,
 		big.NewInt(1000),
 		addr1,
 		addr2,
@@ -55,6 +56,7 @@ func TestCreateDepositProto(t *testing.T) {
 	}
 
 	deposit1 := NewCreateDeposit(
+		1,
 		1,
 		big.NewInt(1000),
 		addr1,

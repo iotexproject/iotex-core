@@ -115,6 +115,7 @@ func TestTwoChains(t *testing.T) {
 	require.NoError(t, err)
 	createDeposit := action.NewCreateDeposit(
 		uint64(details.Nonce)+1,
+		2,
 		big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx)),
 		addr1.Bech32(),
 		addr2.Bech32(),
@@ -132,6 +133,7 @@ func TestTwoChains(t *testing.T) {
 	createRes, err := mainChainClient.CreateDeposit(explorer.CreateDepositRequest{
 		Version:      int64(createDeposit.Version()),
 		Nonce:        int64(createDeposit.Nonce()),
+		ChainID:      int64(createDeposit.ChainID()),
 		Sender:       createDeposit.Sender(),
 		SenderPubKey: keypair.EncodePublicKey(createDeposit.SenderPublicKey()),
 		Recipient:    createDeposit.Recipient(),
