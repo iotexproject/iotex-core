@@ -63,11 +63,7 @@ func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.St
 	if err != nil {
 		return nil, InOperation{}, err
 	}
-	addr, err := address.Bech32ToAddress(deposit.Recipient())
-	if err != nil {
-		return nil, InOperation{}, errors.Wrapf(err, "error when processing address %s", deposit.Recipient())
-	}
-	inOp, ok := subChainsInOp.Get(addr.ChainID())
+	inOp, ok := subChainsInOp.Get(deposit.ChainID())
 	if !ok {
 		return nil, InOperation{}, errors.Errorf("address %s is not on a sub-chain in operation", deposit.Recipient())
 	}

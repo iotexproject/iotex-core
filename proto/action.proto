@@ -66,8 +66,9 @@ message PutBlockPb {
 }
 
 message CreateDepositPb {
-    bytes amount  = 1;
-    string recipient = 2;
+    uint32 chainID = 1;
+    bytes amount  = 2;
+    string recipient = 3;
 }
 
 message SettleDepositPb {

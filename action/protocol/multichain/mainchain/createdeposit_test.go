@@ -54,7 +54,7 @@ func TestValidateDeposit(t *testing.T) {
 	addr1 := addr.Bech32()
 	addr2 := address.New(2, addr.Payload()).Bech32()
 
-	deposit := action.NewCreateDeposit(1, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	deposit := action.NewCreateDeposit(1, 2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
@@ -77,7 +77,7 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
-	deposit1 := action.NewCreateDeposit(1, big.NewInt(2000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	deposit1 := action.NewCreateDeposit(1, 2, big.NewInt(2000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit1, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
@@ -144,7 +144,7 @@ func TestMutateDeposit(t *testing.T) {
 	require.NoError(t, sf.Commit(ws))
 
 	p := NewProtocol(chain)
-	act := action.NewCreateDeposit(2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	act := action.NewCreateDeposit(2, 2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	receipt, err := p.mutateDeposit(
 		act,
 		&state.Account{

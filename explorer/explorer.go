@@ -1367,6 +1367,7 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	actPb := &iproto.ActionPb{
 		Action: &iproto.ActionPb_CreateDeposit{
 			CreateDeposit: &iproto.CreateDepositPb{
+				ChainID:   uint32(req.ChainID),
 				Amount:    amount.Bytes(),
 				Recipient: req.Recipient,
 			},
