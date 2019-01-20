@@ -43,13 +43,13 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf0, _ := action.NewTransfer(
 		1,
 		big.NewInt(3000000000),
-		Gen.CreatorAddr(config.Default.Chain.ID),
+		Gen.CreatorAddr(),
 		ta.Addrinfo["producer"].Bech32(),
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
 	)
 	pubk, _ := keypair.DecodePublicKey(Gen.CreatorPubKey)
-	sig, _ := hex.DecodeString("b14516e888e78e8dcba9af59607c8deea404f52c3df706a0bb6e1fadfda58113983b9201400ff75202fe486363a2e99052b3866595be932542bc0b860278b0753ab3fd2c66764a01")
+	sig, _ := hex.DecodeString("3584fe777dd090e1a7a825896f532485ea2cc35d7c300c6c56f0e2e78b51c6ded33f7d0069f4f6f6b6762306466fcff6f261bb30d9e1550f2f8be4f988e740903fd734209cb60101")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
 		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
@@ -57,7 +57,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
 
-	selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pubk, sig)
+	selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(), pubk, sig)
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
@@ -321,7 +321,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 
 	pk, _ := keypair.DecodePublicKey(Gen.CreatorPubKey)
 	// The signature should only matches the transfer amount 3000000000
-	sig, err := hex.DecodeString("0ea4152e8bef2049319d945ac55d21093f9a6e9e4793abf8906e1b9a9f59de1123db31006b3574cb080b7efd623101cb6b175bb881d7361e2341a740cfb8c3db1be1dd3aa4b67901")
+	sig, err := hex.DecodeString("a270828edf414f652564495ffdb3ed4799ae949cd8f0b8c108f36aff5e2ef0ee03c81f0161ef59c64a4590517d7cecabcec1b43b170fd70b1187f95a57975135951d867fd8c14901")
 	require.NoError(t, err)
 
 	cases := make(map[int64]bool)
@@ -331,7 +331,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		tsf, err := action.NewTransfer(
 			1,
 			big.NewInt(3000000000+k),
-			Gen.CreatorAddr(config.Default.Chain.ID),
+			Gen.CreatorAddr(),
 			ta.Addrinfo["producer"].Bech32(),
 			[]byte{}, uint64(100000),
 			big.NewInt(10),
@@ -344,7 +344,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			SetGasLimit(100000).
 			SetGasPrice(big.NewInt(10)).Build()
 
-		selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(config.Default.Chain.ID), pk, sig)
+		selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(), pk, sig)
 		actionMap := make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
 		_, err = bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
@@ -925,7 +925,7 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 
-	s, err := bc.StateByAddr(Gen.CreatorAddr(cfg.Chain.ID))
+	s, err := bc.StateByAddr(Gen.CreatorAddr())
 	require.NoError(err)
 	require.Equal(uint64(0), s.Nonce)
 	bal := big.NewInt(7700000000)
@@ -1087,7 +1087,7 @@ func TestMintDKGBlock(t *testing.T) {
 		ec283PKList[i], ec283SKList[i], err = crypto.EC283.NewKeyPair()
 		require.NoError(err)
 		pkHash := keypair.HashPubKey(ec283PKList[i])
-		addresses[i] = address.New(cfg.Chain.ID, pkHash[:]).Bech32()
+		addresses[i] = address.New(pkHash[:]).Bech32()
 		idList[i] = hash.Hash256b([]byte(addresses[i]))
 		skList[i] = crypto.DKG.SkGeneration()
 	}

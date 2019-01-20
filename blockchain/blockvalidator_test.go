@@ -445,7 +445,7 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 		"29cf385adfc5b1a84bd7e778ea2c056b85c977771005d545e54100266e224fc276ed7101")
 	require.NoError(t, err)
 	pkHash := keypair.HashPubKey(pk)
-	addr := address.New(cfg.Chain.ID, pkHash[:])
+	addr := address.New(pkHash[:])
 	blk, err := chain.MintNewBlock(nil, pk, sk, addr.Bech32(),
 		nil, nil, "")
 	require.NoError(t, err)
@@ -479,7 +479,7 @@ func TestValidateSecretBlock(t *testing.T) {
 		pk, _, err := crypto.EC283.NewKeyPair()
 		require.NoError(err)
 		pkHash := keypair.HashPubKey(pk)
-		addr := address.New(cfg.Chain.ID, pkHash[:])
+		addr := address.New(pkHash[:])
 		delegates = append(delegates, addr.Bech32())
 	}
 

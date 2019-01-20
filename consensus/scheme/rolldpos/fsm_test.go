@@ -1495,7 +1495,7 @@ func newTestAddr() *addrKeyPair {
 		log.L().Panic("Error when creating test address.", zap.Error(err))
 	}
 	pkHash := keypair.HashPubKey(pk)
-	addr := address.New(config.Default.Chain.ID, pkHash[:])
+	addr := address.New(pkHash[:])
 	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.Bech32()}
 }
 
