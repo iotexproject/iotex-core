@@ -1047,6 +1047,9 @@ func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 	enc.MachineEndian.PutUint64(heightBytes[:], blkHeight)
 	for _, r := range blkReceipts {
 		receipts.Receipts = append(receipts.Receipts, r.ConvertToReceiptPb())
+		if !dao.writeIndex {
+			continue
+		}
 		batch.Put(
 			blockActionReceiptMappingNS,
 			r.Hash[:],
