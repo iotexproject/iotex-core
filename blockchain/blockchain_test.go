@@ -390,6 +390,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.WriteIndexInChainDB = true
 	cfg.Explorer.Enabled = true
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
