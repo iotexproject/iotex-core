@@ -111,10 +111,10 @@ var (
 			EventChanSize: 10000,
 		},
 		Explorer: Explorer{
-			Enabled:   false,
-			UseRDS:    false,
-			Port:      14004,
-			TpsWindow: 10,
+			Enabled:    false,
+			UseIndexer: false,
+			Port:       14004,
+			TpsWindow:  10,
 			GasStation: GasStation{
 				SuggestBlockWindow: 20,
 				DefaultGas:         1,
@@ -226,7 +226,7 @@ type (
 	Explorer struct {
 		Enabled    bool       `yaml:"enabled"`
 		IsTest     bool       `yaml:"isTest"`
-		UseRDS     bool       `yaml:"useRDS"`
+		UseIndexer bool       `yaml:"useIndexer"`
 		Port       int        `yaml:"port"`
 		TpsWindow  int        `yaml:"tpsWindow"`
 		GasStation GasStation `yaml:"gasStation"`

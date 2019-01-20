@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -17,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	s "github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/proto"
 )
 
 type (
@@ -56,19 +58,23 @@ type (
 		ExecutionHash string
 		BlockHash     string
 	}
-
 	// ActionHistory defines the schema of "action history" table
 	ActionHistory struct {
 		NodeAddress string
 		UserAddress string
 		ActionHash  string
 	}
-
 	// ActionToBlock defines the schema of "action hash to block hash" table
 	ActionToBlock struct {
 		NodeAddress string
 		ActionHash  string
 		BlockHash   string
+	}
+	// HashToReceipt defines the schema of "hash to receipt" table
+	HashToReceipt struct {
+		NodeAddress  string
+		ReceiptHash  []byte
+		ReceiptBytes []byte
 	}
 )
 
@@ -128,6 +134,11 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		// map action to block
 		if err := idx.UpdateActionToBlock(blk, tx); err != nil {
 			return errors.Wrap(err, "failed to update action to block")
+		}
+
+		// map hash to receipt
+		if err := idx.UpdateHashToReceipt(blk, tx); err != nil {
+			return errors.Wrap(err, "failed to update hash to receipt")
 		}
 
 		return nil
@@ -517,6 +528,54 @@ func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, err
 	return hash, nil
 }
 
+// UpdateHashToReceipt maps action hash to receipt
+func (idx *Indexer) UpdateHashToReceipt(blk *block.Block, tx *sql.Tx) error {
+	insertQuery := "INSERT INTO hash_to_receipt (node_address,receipt_hash,receipt_bytes) VALUES (?, ?, ?)"
+	for hash, receipt := range blk.Receipts {
+		receiptBytes, err := proto.Marshal(receipt.ConvertToReceiptPb())
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(hash[:]), receiptBytes); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GetReceiptByHash returns receipt by receipt hash
+func (idx *Indexer) GetReceiptByHash(receiptHash hash.Hash32B) (*action.Receipt, error) {
+	getQuery := "SELECT * FROM hash_to_receipt WHERE node_address=? AND receipt_hash=?"
+	db := idx.store.GetDB()
+
+	stmt, err := db.Prepare(getQuery)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to prepare get query")
+	}
+
+	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(receiptHash[:]))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to execute get query")
+	}
+
+	var hashToReceipt HashToReceipt
+	parsedRows, err := s.ParseSQLRows(rows, &hashToReceipt)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse results")
+	}
+
+	if len(parsedRows) == 0 {
+		return nil, ErrNotExist
+	}
+	receiptPb := iproto.ReceiptPb{}
+	if err := proto.Unmarshal(parsedRows[0].(*HashToReceipt).ReceiptBytes, &receiptPb); err != nil {
+		return nil, err
+	}
+	receipt := action.Receipt{}
+	receipt.ConvertFromReceiptPb(&receiptPb)
+	return &receipt, nil
+}
+
 // CreateTablesIfNotExist creates tables in local database
 func (idx *Indexer) CreateTablesIfNotExist() error {
 	// create action tables
@@ -556,6 +615,12 @@ func (idx *Indexer) CreateTablesIfNotExist() error {
 	}
 	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS execution_to_block ([node_address] TEXT NOT NULL, [execution_hash] " +
 		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
+		return err
+	}
+
+	// create receipt index
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS hash_to_receipt ([node_address] TEXT NOT NULL, [receipt_hash] " +
+		"BLOB(32) NOT NULL, [receipt_bytes] BLOB NOT NULL)"); err != nil {
 		return err
 	}
 

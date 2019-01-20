@@ -16,6 +16,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/sql"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -83,6 +85,28 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 		},
 	})
 	require.NoError(err)
+	receipts := []*action.Receipt{
+		{
+			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ReturnValue:     []byte("1"),
+			Status:          1,
+			GasConsumed:     1,
+			ContractAddress: "1",
+			Logs:            []*action.Log{},
+		},
+		{
+			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("2"))),
+			ReturnValue:     []byte("2"),
+			Status:          2,
+			GasConsumed:     2,
+			ContractAddress: "2",
+			Logs:            []*action.Log{},
+		},
+	}
+	blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
+	for _, receipt := range receipts {
+		blk.Receipts[receipt.Hash] = receipt
+	}
 
 	err = idx.BuildIndex(&blk)
 	require.Nil(err)
@@ -90,6 +114,25 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	db := store.GetDB()
 
 	transfers, votes, executions := action.ClassifyActions(blk.Actions)
+
+	// get receipt
+	receipt1, err := idx.GetReceiptByHash(receipts[0].Hash)
+	require.Nil(err)
+	require.Equal(receipts[0].GasConsumed, receipt1.GasConsumed)
+	require.Equal(receipts[0].Hash, receipt1.Hash)
+	require.Equal(receipts[0].ReturnValue, receipt1.ReturnValue)
+	require.Equal(receipts[0].ContractAddress, receipt1.ContractAddress)
+	require.Equal(receipts[0].Status, receipt1.Status)
+	require.Equal(receipts[0].Logs, receipt1.Logs)
+
+	receipt2, err := idx.GetReceiptByHash(receipts[1].Hash)
+	require.Nil(err)
+	require.Equal(receipts[1].GasConsumed, receipt2.GasConsumed)
+	require.Equal(receipts[1].Hash, receipt2.Hash)
+	require.Equal(receipts[1].ReturnValue, receipt2.ReturnValue)
+	require.Equal(receipts[1].ContractAddress, receipt2.ContractAddress)
+	require.Equal(receipts[1].Status, receipt2.Status)
+	require.Equal(receipts[1].Logs, receipt2.Logs)
 
 	// get transfer
 	transferHashes, err := idx.GetTransferHistory(addr1)
@@ -175,6 +218,12 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	_, err = stmt.Exec(nodeAddr)
 	require.Nil(err)
 	stmt, err = db.Prepare("DELETE FROM action_to_block WHERE node_address=?")
+	require.Nil(err)
+	_, err = stmt.Exec(nodeAddr)
+	require.Nil(err)
+
+	// delete receipts
+	stmt, err = db.Prepare("DELETE FROM hash_to_receipt WHERE node_address=?")
 	require.Nil(err)
 	_, err = stmt.Exec(nodeAddr)
 	require.Nil(err)
