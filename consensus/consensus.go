@@ -143,7 +143,7 @@ func NewConsensus(
 					if err != nil {
 						return nil, errors.Wrapf(err, "error when get converting iotex address to address")
 					}
-					subChainAddr := address.New(cfg.Chain.ID, rootChainAddr.Payload())
+					subChainAddr := address.New(rootChainAddr.Payload())
 					pubKey, err := keypair.DecodePublicKey(rawc.PubKey)
 					if err != nil {
 						log.L().Error("Error when convert candidate PublicKey.", zap.Error(err))

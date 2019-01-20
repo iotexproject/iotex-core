@@ -175,7 +175,7 @@ func (v *validator) validateActions(
 ) error {
 	coinbaseCounter := 0
 	producerPK := keypair.HashPubKey(pk)
-	producerAddr := address.New(chainID, producerPK[:])
+	producerAddr := address.New(producerPK[:])
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {

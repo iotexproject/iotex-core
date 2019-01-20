@@ -74,13 +74,13 @@ func TestTwoChains(t *testing.T) {
 	pk1, err := crypto.EC283.NewPubKey(sk1)
 	require.NoError(t, err)
 	pkHash1 := keypair.HashPubKey(pk1)
-	addr1 := address.New(1, pkHash1[:])
+	addr1 := address.New(pkHash1[:])
 	sk2, err := keypair.DecodePrivateKey("574f3b95c1afac4c5541ce705654bd92028e6b06bc07655647dd2637528dd98976f0c401")
 	require.NoError(t, err)
 	pk2, err := crypto.EC283.NewPubKey(sk2)
 	require.NoError(t, err)
 	pkHash2 := keypair.HashPubKey(pk2)
-	addr2 := address.New(2, pkHash2[:])
+	addr2 := address.New(pkHash2[:])
 
 	mainChainClient := exp.NewExplorerProxy(
 		fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(cfg.Chain.ID).Explorer().Port()),

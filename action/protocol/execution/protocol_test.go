@@ -298,7 +298,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(blk.HashBlock(), blkHash)
 
 		// store to key 0
-		contractAddr := "io1qyqqqqqp3kcd2pyfwus69nzgvkwhg8mk8h336dt8dqgtyy"
+		contractAddr := "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6"
 		data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
 		execution, err = action.NewExecution(
 			testaddress.Addrinfo["producer"].Bech32(), contractAddr, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
@@ -334,7 +334,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, r.Hash)
 
 		// read from key 0
-		contractAddr = "io1qyqqqqqp3kcd2pyfwus69nzgvkwhg8mk8h336dt8dqgtyy"
+		contractAddr = "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6"
 		data, _ = hex.DecodeString("6d4ce63c")
 		execution, err = action.NewExecution(
 			testaddress.Addrinfo["producer"].Bech32(), contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)

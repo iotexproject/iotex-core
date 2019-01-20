@@ -180,7 +180,7 @@ func (b *Block) VerifySignature() bool {
 // ProducerAddress returns the address of producer
 func (b *Block) ProducerAddress() string {
 	pkHash := keypair.HashPubKey(b.Header.pubkey)
-	addr := address.New(b.Header.chainID, pkHash[:])
+	addr := address.New(pkHash[:])
 
 	return addr.Bech32()
 }
@@ -188,7 +188,7 @@ func (b *Block) ProducerAddress() string {
 // RunnableActions abstructs RunnableActions from a Block.
 func (b *Block) RunnableActions() RunnableActions {
 	pkHash := keypair.HashPubKey(b.Header.pubkey)
-	addr := address.New(b.Header.chainID, pkHash[:])
+	addr := address.New(pkHash[:])
 	return RunnableActions{
 		blockHeight:         b.Header.height,
 		blockTimeStamp:      b.Header.timestamp,
