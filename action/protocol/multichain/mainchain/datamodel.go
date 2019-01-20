@@ -161,7 +161,7 @@ func (s SubChainsInOperation) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 // Sort sorts SubChainsInOperation.
 func (s SubChainsInOperation) Sort() { sort.Sort(s) }
 
-// Get gets an element with given id.
+// Get gets an element with given ID.
 func (s SubChainsInOperation) Get(id uint32) (InOperation, bool) {
 	for _, io := range s {
 		if io.ID == id {

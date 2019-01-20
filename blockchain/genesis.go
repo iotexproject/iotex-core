@@ -82,9 +82,9 @@ var Gen = &Genesis{
 }
 
 // CreatorAddr returns the creator address on a particular chain
-func (g *Genesis) CreatorAddr(chainID uint32) string {
+func (g *Genesis) CreatorAddr() string {
 	pk, _ := decodeKey(g.CreatorPubKey, "")
-	return generateAddr(chainID, pk)
+	return generateAddr(pk)
 }
 
 // CreatorPKHash returns the creator public key hash
@@ -100,7 +100,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 	alloc := big.NewInt(0)
 	for _, transfer := range actions.Transfers {
 		rpk, _ := decodeKey(transfer.RecipientPK, "")
-		recipientAddr := generateAddr(chainCfg.ID, rpk)
+		recipientAddr := generateAddr(rpk)
 		amount := ConvertIotxToRau(transfer.Amount)
 		_, err := account.LoadOrCreateAccount(ws, recipientAddr, amount)
 		if err != nil {
@@ -110,7 +110,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 	}
 	// add creator
 	Gen.CreatorPubKey = actions.Creation.PubKey
-	creatorAddr := Gen.CreatorAddr(chainCfg.ID)
+	creatorAddr := Gen.CreatorAddr()
 	_, err := account.LoadOrCreateAccount(ws, creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
 	if err != nil {
 		log.L().Panic("Failed to add creator.", zap.Error(err))
@@ -120,7 +120,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 	acts := make([]action.SealedEnvelope, 0)
 	for _, nominator := range actions.SelfNominators {
 		pk, _ := decodeKey(nominator.PubKey, "")
-		address := generateAddr(chainCfg.ID, pk)
+		address := generateAddr(pk)
 		vote, err := action.NewVote(
 			0,
 			address,
@@ -183,9 +183,9 @@ func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.Priva
 }
 
 // generateAddr returns the string address according to public key
-func generateAddr(chainID uint32, pk keypair.PublicKey) string {
+func generateAddr(pk keypair.PublicKey) string {
 	pkHash := keypair.HashPubKey(pk)
-	return address.New(chainID, pkHash[:]).Bech32()
+	return address.New(pkHash[:]).Bech32()
 }
 
 // loadGenesisData loads data of creator and actions contained in genesis block

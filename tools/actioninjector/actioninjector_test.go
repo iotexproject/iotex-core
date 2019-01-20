@@ -76,7 +76,7 @@ func TestActionInjector(t *testing.T) {
 	transferPayload := ""
 	voteGasLimit := 1000000
 	voteGasPrice := 10
-	contract := "io1qyqqqqqp3kcd2pyfwus69nzgvkwhg8mk8h336dt8dqgtyy"
+	contract := "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6"
 	executionAmount := 0
 	executionGasLimit := 1200000
 	executionGasPrice := 10

@@ -26,13 +26,12 @@ func TestAddress(t *testing.T) {
 		pkHash := keypair.HashPubKey(pk)
 
 		assertAddr := func(t *testing.T, addr *AddrV1) {
-			assert.Equal(t, uint32(1024), addr.ChainID())
 			assert.Equal(t, uint8(1), addr.Version())
 			assert.Equal(t, pkHash[:], addr.Payload())
 			assert.Equal(t, pkHash, addr.PublicKeyHash())
 		}
 
-		addr1 := V1.New(1024, pkHash)
+		addr1 := V1.New(pkHash)
 		assertAddr(t, addr1)
 
 		encodedAddr := addr1.Bech32()
@@ -68,7 +67,7 @@ func TestAddressError(t *testing.T) {
 	require.NoError(t, err)
 
 	pkHash := keypair.HashPubKey(pk)
-	addr1 := V1.New(1024, pkHash)
+	addr1 := V1.New(pkHash)
 	require.NoError(t, err)
 
 	encodedAddr := addr1.Bech32()

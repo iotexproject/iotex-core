@@ -83,8 +83,8 @@ func TestLocalActPool(t *testing.T) {
 	fromPKHash := keypair.HashPubKey(fromPK)
 	toPKHash := keypair.HashPubKey(toPK)
 
-	from := address.New(cfg.Chain.ID, fromPKHash[:]).Bech32()
-	to := address.New(cfg.Chain.ID, toPKHash[:]).Bech32()
+	from := address.New(fromPKHash[:]).Bech32()
+	to := address.New(toPKHash[:]).Bech32()
 	priKey, _ := keypair.DecodePrivateKey(fromPrivKey)
 
 	// Create three valid actions from "from" to "to"
@@ -172,8 +172,8 @@ func TestPressureActPool(t *testing.T) {
 	fromPKHash := keypair.HashPubKey(fromPK)
 	toPKHash := keypair.HashPubKey(toPK)
 
-	from := address.New(cfg.Chain.ID, fromPKHash[:]).Bech32()
-	to := address.New(cfg.Chain.ID, toPKHash[:]).Bech32()
+	from := address.New(fromPKHash[:]).Bech32()
+	to := address.New(toPKHash[:]).Bech32()
 	priKey, _ := keypair.DecodePrivateKey(fromPrivKey)
 
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})

@@ -84,7 +84,7 @@ func TestHandleStopSubChain(t *testing.T) {
 			}
 			return state.Deserialize(s, data)
 		}).Times(3)
-	subChainAddr := address.New(chain.ChainID(), subChainPKHash[:])
+	subChainAddr := address.New(subChainPKHash[:])
 
 	p := NewProtocol(chain)
 	stop := action.NewStopSubChain(

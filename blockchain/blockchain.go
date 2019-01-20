@@ -287,7 +287,7 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		return nil
 	}
 	pkHash := keypair.HashPubKey(pubKey)
-	address := address.New(cfg.Chain.ID, pkHash[:])
+	address := address.New(pkHash[:])
 	if err != nil {
 		log.L().Error("Failed to get producer's address by public key.", zap.Error(err))
 		return nil
@@ -946,7 +946,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		ws      factory.WorkingSet
 		err     error
 	)
-	addr := address.New(bc.ChainID(), keypair.ZeroPublicKey[:])
+	addr := address.New(keypair.ZeroPublicKey[:])
 	if bc.sf == nil {
 		return errors.New("statefactory cannot be nil")
 	}
@@ -1013,7 +1013,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	}
 	// If restarting factory from fresh db, first update state changes in Genesis block
 	if startHeight == 0 {
-		addr := address.New(bc.ChainID(), keypair.ZeroPublicKey[:])
+		addr := address.New(keypair.ZeroPublicKey[:])
 		acts := NewGenesisActions(bc.config.Chain, ws)
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).

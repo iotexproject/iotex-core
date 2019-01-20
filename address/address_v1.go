@@ -11,14 +11,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address/bech32"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // V1 is a singleton and defines V1 address metadata
 var V1 = v1{
-	AddressLength: 25,
+	AddressLength: 21,
 	Version:       1,
 }
 
@@ -30,10 +29,9 @@ type v1 struct {
 }
 
 // New constructs an address struct
-func (v *v1) New(chainID uint32, pkHash hash.PKHash) *AddrV1 {
+func (v *v1) New(pkHash hash.PKHash) *AddrV1 {
 	return &AddrV1{
-		chainID: chainID,
-		pkHash:  pkHash,
+		pkHash: pkHash,
 	}
 }
 
@@ -51,7 +49,7 @@ func (v *v1) BytesToAddress(bytes []byte) (*AddrV1, error) {
 	if len(bytes) != v.AddressLength {
 		return nil, errors.Wrapf(ErrInvalidAddr, "invalid address length in bytes: %d", len(bytes))
 	}
-	if version := bytes[4]; version != v.Version {
+	if version := bytes[0]; version != v.Version {
 		return nil, errors.Wrapf(
 			ErrInvalidAddr,
 			"the address represented by the bytes is of version %d",
@@ -59,10 +57,9 @@ func (v *v1) BytesToAddress(bytes []byte) (*AddrV1, error) {
 		)
 	}
 	var pkHash hash.PKHash
-	copy(pkHash[:], bytes[5:])
+	copy(pkHash[:], bytes[1:])
 	return &AddrV1{
-		chainID: enc.MachineEndian.Uint32(bytes[:4]),
-		pkHash:  pkHash,
+		pkHash: pkHash,
 	}, nil
 }
 
@@ -95,11 +92,9 @@ func (v *v1) decodeBech32(encodedAddr string) ([]byte, error) {
 
 // AddrV1 is V1 address format to be used on IoTeX blockchain and subchains. It is composed of parts in the
 // following order:
-// 1. uint32: chain ID
-// 2. 20 bytes: hash derived from the the public key
+// 1. 20 bytes: hash derived from the the public key
 type AddrV1 struct {
-	chainID uint32
-	pkHash  hash.PKHash
+	pkHash hash.PKHash
 }
 
 // DKGAddress contains a pair of DKGkey and a DKGID
@@ -112,9 +107,7 @@ type DKGAddress struct {
 // Bech32 encodes an address struct into a a Bech32 encoded address string
 // The encoded address string will start with "io" for mainnet, and with "it" for testnet
 func (addr *AddrV1) Bech32() string {
-	var chainIDBytes [4]byte
-	enc.MachineEndian.PutUint32(chainIDBytes[:], addr.chainID)
-	payload := append(chainIDBytes[:], append([]byte{V1.Version}, addr.pkHash[:]...)...)
+	payload := append([]byte{V1.Version}, addr.pkHash[:]...)
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {
@@ -131,14 +124,7 @@ func (addr *AddrV1) Bech32() string {
 
 // Bytes converts an address struct into a byte array
 func (addr *AddrV1) Bytes() []byte {
-	var chainIDBytes [4]byte
-	enc.MachineEndian.PutUint32(chainIDBytes[:], addr.chainID)
-	return append(chainIDBytes[:], append([]byte{1}, addr.pkHash[:]...)...)
-}
-
-// ChainID returns the chain ID
-func (addr *AddrV1) ChainID() uint32 {
-	return addr.chainID
+	return append([]byte{1}, addr.pkHash[:]...)
 }
 
 // Version returns the address version

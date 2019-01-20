@@ -415,7 +415,7 @@ func (cfg Config) BlockchainAddress() (address.Address, error) {
 		return nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
 	}
 	pkHash := keypair.HashPubKey(pk)
-	return address.New(cfg.Chain.ID, pkHash[:]), nil
+	return address.New(pkHash[:]), nil
 }
 
 // KeyPair returns the decoded public and private key pair

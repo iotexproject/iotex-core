@@ -52,7 +52,7 @@ func TestValidateDeposit(t *testing.T) {
 
 	addr := testaddress.Addrinfo["producer"]
 	addr1 := addr.Bech32()
-	addr2 := address.New(2, addr.Payload()).Bech32()
+	addr2 := address.New(addr.Payload()).Bech32()
 
 	deposit := action.NewCreateDeposit(1, 2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(deposit, nil)
@@ -91,7 +91,7 @@ func TestValidateDeposit(t *testing.T) {
 		SubChainsInOperation{
 			InOperation{
 				ID:   2,
-				Addr: address.New(1, subChainAddr[:]).Bytes(),
+				Addr: address.New(subChainAddr[:]).Bytes(),
 			},
 		},
 	))
@@ -122,7 +122,7 @@ func TestMutateDeposit(t *testing.T) {
 
 	addr := testaddress.Addrinfo["producer"]
 	addr1 := addr.Bech32()
-	addr2 := address.New(2, addr.Payload()).Bech32()
+	addr2 := address.New(addr.Payload()).Bech32()
 	subChainAddr, err := createSubChainAddress(addr1, 0)
 	require.NoError(t, err)
 
@@ -153,7 +153,7 @@ func TestMutateDeposit(t *testing.T) {
 		},
 		InOperation{
 			ID:   2,
-			Addr: address.New(1, subChainAddr[:]).Bytes(),
+			Addr: address.New(subChainAddr[:]).Bytes(),
 		},
 		ws,
 	)
@@ -165,13 +165,13 @@ func TestMutateDeposit(t *testing.T) {
 	assert.Equal(t, uint64(2), account.Nonce)
 	assert.Equal(t, big.NewInt(1000), account.Balance)
 
-	subChain, err := p.SubChain(address.New(1, subChainAddr[:]))
+	subChain, err := p.SubChain(address.New(subChainAddr[:]))
 	require.NoError(t, err)
 	assert.Equal(t, uint64(301), subChain.DepositCount)
 
-	deposit, err := p.Deposit(address.New(1, subChainAddr[:]), 300)
+	deposit, err := p.Deposit(address.New(subChainAddr[:]), 300)
 	require.NoError(t, err)
-	assert.Equal(t, address.New(2, addr.Payload()).Bytes(), deposit.Addr)
+	assert.Equal(t, address.New(addr.Payload()).Bytes(), deposit.Addr)
 	assert.Equal(t, big.NewInt(1000), deposit.Amount)
 	assert.False(t, deposit.Confirmed)
 
@@ -182,5 +182,5 @@ func TestMutateDeposit(t *testing.T) {
 	gas, err := act.IntrinsicGas()
 	assert.NoError(t, err)
 	assert.Equal(t, gas, receipt.GasConsumed)
-	assert.Equal(t, address.New(1, subChainAddr[:]).Bech32(), receipt.ContractAddress)
+	assert.Equal(t, address.New(subChainAddr[:]).Bech32(), receipt.ContractAddress)
 }
