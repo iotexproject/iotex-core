@@ -222,6 +222,7 @@ func newConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.NumCandidates = numNodes
+	cfg.Chain.WriteIndexInChainDB = true
 
 	producerPubKey, _ := crypto.EC283.NewPubKey(producerPriKey)
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(producerPubKey)

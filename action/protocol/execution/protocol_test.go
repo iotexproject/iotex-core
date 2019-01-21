@@ -124,6 +124,7 @@ func (sct *smartContractTest) prepareBlockchain(
 ) blockchain.Blockchain {
 	cfg := config.Default
 	cfg.Chain.EnableGasCharge = true
+	cfg.Chain.WriteIndexInChainDB = true
 	cfg.Explorer.Enabled = true
 	bc := blockchain.NewBlockchain(
 		cfg,
@@ -219,6 +220,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableGasCharge = true
+		cfg.Chain.WriteIndexInChainDB = true
 		cfg.Explorer.Enabled = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
@@ -399,6 +401,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableGasCharge = true
+		cfg.Chain.WriteIndexInChainDB = true
 		cfg.Explorer.Enabled = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
@@ -552,6 +555,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg := config.Default
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
+		cfg.Chain.WriteIndexInChainDB = true
 		cfg.Explorer.Enabled = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
