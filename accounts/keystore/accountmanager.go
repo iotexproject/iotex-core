@@ -13,7 +13,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
@@ -67,7 +66,7 @@ func (m *AccountManager) NewAccount() (keypair.PrivateKey, error) {
 	}
 	pkHash := keypair.HashPubKey(pk)
 	// TODO: need to fix the chain ID
-	addr := address.New(config.Default.Chain.ID, pkHash[:])
+	addr := address.New(pkHash[:])
 	if err := m.keystore.Store(addr.Bech32(), sk); err != nil {
 		return keypair.ZeroPrivateKey, errors.Wrapf(err, "failed to store account %s", addr.Bech32())
 	}
@@ -85,7 +84,7 @@ func (m *AccountManager) Import(keyBytes []byte) error {
 		return errors.Wrap(err, "failed to derive public key from private key")
 	}
 	pkHash := keypair.HashPubKey(pubKey)
-	addr := address.New(config.Default.Chain.ID, pkHash[:])
+	addr := address.New(pkHash[:])
 	if err := m.keystore.Store(addr.Bech32(), priKey); err != nil {
 		return errors.Wrapf(err, "failed to store account %s", addr.Bech32())
 	}

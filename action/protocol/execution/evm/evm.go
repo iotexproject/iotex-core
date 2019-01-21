@@ -225,7 +225,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-		contractAddress := address.New(stateDB.cm.ChainID(), evmContractAddress.Bytes())
+		contractAddress := address.New(evmContractAddress.Bytes())
 		contractRawAddress = contractAddress.Bech32()
 	} else {
 		stateDB.SetNonce(evmParams.context.Origin, stateDB.GetNonce(evmParams.context.Origin)+1)

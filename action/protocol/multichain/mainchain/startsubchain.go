@@ -92,7 +92,7 @@ func (p *Protocol) mutateSubChainState(
 	}
 	subChainsInOp = subChainsInOp.Append(InOperation{
 		ID:   start.ChainID(),
-		Addr: address.New(p.rootChain.ChainID(), addr[:]).Bytes(),
+		Addr: address.New(addr[:]).Bytes(),
 	})
 	return sm.PutState(SubChainsInOperationKey, &subChainsInOp)
 }

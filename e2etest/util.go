@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -26,13 +25,13 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	tsf0, _ := action.NewTransfer(
 		1,
 		blockchain.ConvertIotxToRau(3000000000),
-		blockchain.Gen.CreatorAddr(config.Default.Chain.ID),
+		blockchain.Gen.CreatorAddr(),
 		ta.Addrinfo["producer"].Bech32(),
 		[]byte{}, uint64(100000),
 		big.NewInt(0),
 	)
 	pubk, _ := keypair.DecodePublicKey(blockchain.Gen.CreatorPubKey)
-	sig, _ := hex.DecodeString("e19cea05762603b898e32ecac1c6330946c21e668bd5af1f0f47d89887fc6736acf7cd012f21834f4379dfb6ab2badf4c54fb0e61fe8a64ac517c96f41589c9fcec848ecfae1be01")
+	sig, _ := hex.DecodeString("a8c2a0d708cd998725585fa0a8441c57b7f1ca2af1bba625eaca721df4716d5d47ae83017c11d3712bce2883f79dce83aa6f069ed7625771530a3fd51f32aa61ef7a9158a505aa01")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
 		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
@@ -40,7 +39,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
 
-	selp := action.AssembleSealedEnvelope(elp, blockchain.Gen.CreatorAddr(config.Default.Chain.ID), pubk, sig)
+	selp := action.AssembleSealedEnvelope(elp, blockchain.Gen.CreatorAddr(), pubk, sig)
 
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}

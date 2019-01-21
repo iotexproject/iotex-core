@@ -49,7 +49,7 @@ func main() {
 	var voteGasPrice int
 	// number of execution injections. Default is 50
 	var executionNum int
-	// smart contract address. Default is "io1qyqsyqcy3kcd2pyfwus69nzgvkwhg8mk8h336dt86pg6cj"
+	// smart contract address. Default is "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6"
 	var contract string
 	// execution amount. Default is 0
 	var executionAmount int
@@ -83,7 +83,7 @@ func main() {
 	flag.IntVar(&voteGasLimit, "vote-gas-limit", 20000, "vote gas limit")
 	flag.IntVar(&voteGasPrice, "vote-gas-price", 10, "vote gas price")
 	flag.IntVar(&executionNum, "execution-num", 50, "number of execution injections")
-	flag.StringVar(&contract, "contract", "io1qyqqqqqp3kcd2pyfwus69nzgvkwhg8mk8h336dt8dqgtyy", "smart contract address")
+	flag.StringVar(&contract, "contract", "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6", "smart contract address")
 	flag.IntVar(&executionAmount, "execution-amount", 50, "execution amount")
 	flag.IntVar(&executionGasLimit, "execution-gas-limit", 20000, "execution gas limit")
 	flag.IntVar(&executionGasPrice, "execution-gas-price", 10, "execution gas price")
