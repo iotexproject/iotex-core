@@ -8,20 +8,21 @@ package p2p
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"math/rand"
-	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	p2p "github.com/iotexproject/go-p2p"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/p2p/pb"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
@@ -50,27 +51,27 @@ const (
 )
 
 type (
-	// HandleBroadcast handles broadcast message when agent listens it from the network
-	HandleBroadcast func(uint32, proto.Message)
+	// HandleBroadcastInbound handles broadcast message when agent listens it from the network
+	HandleBroadcastInbound func(context.Context, uint32, proto.Message)
 
-	// HandleUnicast handles unicast message when agent listens it from the network
-	HandleUnicast func(uint32, net.Addr, proto.Message)
+	// HandleUnicastInboundAsync handles unicast message when agent listens it from the network
+	HandleUnicastInboundAsync func(context.Context, uint32, peerstore.PeerInfo, proto.Message)
 )
 
 // Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 type Agent struct {
-	cfg              config.Network
-	broadcastHandler HandleBroadcast
-	unicastHandler   HandleUnicast
-	host             *p2p.Host
+	cfg                        config.Network
+	broadcastInboundHandler    HandleBroadcastInbound
+	unicastInboundAsyncHandler HandleUnicastInboundAsync
+	host                       *p2p.Host
 }
 
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg config.Network, broadcastHandler HandleBroadcast, unicastHandler HandleUnicast) *Agent {
+func NewAgent(cfg config.Network, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
 	return &Agent{
-		cfg:              cfg,
-		broadcastHandler: broadcastHandler,
-		unicastHandler:   unicastHandler,
+		cfg: cfg,
+		broadcastInboundHandler:    broadcastHandler,
+		unicastInboundAsyncHandler: unicastHandler,
 	}
 }
 
@@ -83,6 +84,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		p2p.Port(p.cfg.Port),
 		p2p.Gossip(),
 		p2p.SecureIO(),
+		p2p.MasterKey(p.cfg.MasterKey),
 	}
 	if p.cfg.ExternalHost != "" {
 		opts = append(opts, p2p.ExternalHostName(p.cfg.ExternalHost))
@@ -93,7 +95,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
-	if err := host.AddBroadcastPubSub(broadcastTopic, func(data []byte) (err error) {
+	if err := host.AddBroadcastPubSub(broadcastTopic, func(ctx context.Context, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
 		var broadcast p2ppb.BroadcastMsg
@@ -114,7 +116,12 @@ func (p *Agent) Start(ctx context.Context) error {
 			return
 		}
 		// Skip the broadcast message if it's from the node itself
-		if p.Self().String() == broadcast.Addr {
+		rawmsg, ok := p2p.GetBroadcastMsg(ctx)
+		if !ok {
+			err = errors.New("error when asserting broadcast msg context")
+			return
+		}
+		if p.host.HostIdentity() == rawmsg.GetFrom().Pretty() {
 			skip = true
 			return
 		}
@@ -123,13 +130,13 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
 		}
-		p.broadcastHandler(broadcast.ChainId, msg)
+		p.broadcastInboundHandler(ctx, broadcast.ChainId, msg)
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
 
-	if err := host.AddUnicastPubSub(unicastTopic, func(data []byte) (err error) {
+	if err := host.AddUnicastPubSub(unicastTopic, func(ctx context.Context, _ io.Writer, data []byte) (err error) {
 		// Blocking handling the unicast message until the agent is started
 		<-ready
 		var unicast p2ppb.UnicastMsg
@@ -149,7 +156,16 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
 		}
-		p.unicastHandler(unicast.ChainId, node.NewTCPNode(unicast.Addr), msg)
+		stream, ok := p2p.GetUnicastStream(ctx)
+		if !ok {
+			err = errors.Wrap(err, "error when typifying unicast message")
+			return
+		}
+		peerInfo := peerstore.PeerInfo{
+			ID:    stream.Conn().RemotePeer(),
+			Addrs: []multiaddr.Multiaddr{stream.Conn().RemoteMultiaddr()},
+		}
+		p.unicastInboundAsyncHandler(ctx, unicast.ChainId, peerInfo, msg)
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding unicast pubsub")
@@ -158,11 +174,11 @@ func (p *Agent) Start(ctx context.Context) error {
 	if len(p.cfg.BootstrapNodes) > 0 {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		randBootstrapNodeAddr := p.cfg.BootstrapNodes[r.Intn(len(p.cfg.BootstrapNodes))]
-		if randBootstrapNodeAddr != host.Address() &&
-			randBootstrapNodeAddr != fmt.Sprintf("%s:%d", p.cfg.ExternalHost, p.cfg.ExternalPort) {
+		bootAddr := multiaddr.StringCast(randBootstrapNodeAddr)
+		if !strings.Contains(bootAddr.String(), host.HostIdentity()) {
 			if err := exponentialRetry(
 				func() error {
-					return host.Connect(randBootstrapNodeAddr)
+					return host.ConnectWithMultiaddr(ctx, bootAddr)
 				},
 				dialRetryInterval,
 				numDialRetries,
@@ -172,7 +188,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			log.L().Info("Connected bootstrap node.", zap.String("address", randBootstrapNodeAddr))
 		}
 	}
-	if err := host.JoinOverlay(); err != nil {
+	if err := host.JoinOverlay(ctx); err != nil {
 		return errors.Wrap(err, "error when joining overlay")
 	}
 	p.host = host
@@ -191,8 +207,8 @@ func (p *Agent) Stop(ctx context.Context) error {
 	return nil
 }
 
-// Broadcast sends a broadcast message to the whole network
-func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) (err error) {
+// BroadcastOutbound sends a broadcast message to the whole network
+func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
 	var msgType uint32
 	var msgBody []byte
 	defer func() {
@@ -211,7 +227,7 @@ func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) (err error) {
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	broadcast := p2ppb.BroadcastMsg{ChainId: p2pCtx.ChainID, Addr: p.Self().String(), MsgType: msgType, MsgBody: msgBody}
+	broadcast := p2ppb.BroadcastMsg{ChainId: p2pCtx.ChainID, PeerId: p.host.HostIdentity(), MsgType: msgType, MsgBody: msgBody}
 	data, err := proto.Marshal(&broadcast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling broadcast message")
@@ -224,8 +240,8 @@ func (p *Agent) Broadcast(ctx context.Context, msg proto.Message) (err error) {
 	return
 }
 
-// Unicast sends a unicast message to the given address
-func (p *Agent) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) (err error) {
+// UnicastOutbound sends a unicast message to the given address
+func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) (err error) {
 	var msgType uint32
 	var msgBody []byte
 	defer func() {
@@ -244,37 +260,28 @@ func (p *Agent) Unicast(ctx context.Context, addr net.Addr, msg proto.Message) (
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	unicast := p2ppb.UnicastMsg{ChainId: p2pCtx.ChainID, Addr: p.Self().String(), MsgType: msgType, MsgBody: msgBody}
+	unicast := p2ppb.UnicastMsg{ChainId: p2pCtx.ChainID, PeerId: p.host.HostIdentity(), MsgType: msgType, MsgBody: msgBody}
 	data, err := proto.Marshal(&unicast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling unicast message")
 		return
 	}
-	if err = p.host.Unicast(addr.String(), unicastTopic, data); err != nil {
+	if err = p.host.Unicast(ctx, peer, unicastTopic, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
 		return
 	}
 	return
 }
 
-// Self returns the self network address
-func (p *Agent) Self() net.Addr {
-	return node.NewTCPNode(p.host.Address())
-}
+// Info returns agents' peer info.
+func (p *Agent) Info() peerstore.PeerInfo { return p.host.Info() }
 
-// Neighbors returns the neighbors' addresses
-func (p *Agent) Neighbors() []net.Addr {
-	neighbors := make([]net.Addr, 0)
-	addrs, err := p.host.Neighbors()
-	if err != nil {
-		log.L().Debug("Error when getting the neighbors.", zap.Error(err))
-		// Usually it's because no closest peers
-		return neighbors
-	}
-	for _, addr := range addrs {
-		neighbors = append(neighbors, node.NewTCPNode(addr))
-	}
-	return neighbors
+// Self returns the self network address
+func (p *Agent) Self() []multiaddr.Multiaddr { return p.host.Addresses() }
+
+// Neighbors returns the neighbors' peer info
+func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
+	return p.host.Neighbors(ctx)
 }
 
 func convertAppMsg(msg proto.Message) (uint32, []byte, error) {

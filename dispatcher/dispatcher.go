@@ -8,11 +8,12 @@ package dispatcher
 
 import (
 	"context"
-	"net"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"github.com/golang/protobuf/proto"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -25,10 +26,10 @@ import (
 
 // Subscriber is the dispatcher subscriber interface
 type Subscriber interface {
-	HandleAction(*pb.ActionPb) error
-	HandleBlock(*pb.BlockPb) error
-	HandleBlockSync(*pb.BlockPb) error
-	HandleSyncRequest(string, *pb.BlockSync) error
+	HandleAction(context.Context, *pb.ActionPb) error
+	HandleBlock(context.Context, *pb.BlockPb) error
+	HandleBlockSync(context.Context, *pb.BlockPb) error
+	HandleSyncRequest(context.Context, peerstore.PeerInfo, *pb.BlockSync) error
 	HandleConsensusMsg(*pb.ConsensusPb) error
 }
 
@@ -40,10 +41,10 @@ type Dispatcher interface {
 	AddSubscriber(uint32, Subscriber)
 	// HandleBroadcast handles the incoming broadcast message. The transportation layer semantics is at least once.
 	// That said, the handler is likely to receive duplicate messages.
-	HandleBroadcast(uint32, proto.Message)
+	HandleBroadcast(context.Context, uint32, proto.Message)
 	// HandleTell handles the incoming tell message. The transportation layer semantics is exact once. The sender is
 	// given for the sake of replying the message
-	HandleTell(uint32, net.Addr, proto.Message)
+	HandleTell(context.Context, uint32, peerstore.PeerInfo, proto.Message)
 }
 
 var requestMtc = prometheus.NewCounterVec(
@@ -60,6 +61,7 @@ func init() {
 
 // blockMsg packages a proto block message.
 type blockMsg struct {
+	ctx     context.Context
 	chainID uint32
 	block   *pb.BlockPb
 	blkType uint32
@@ -71,9 +73,10 @@ func (m blockMsg) ChainID() uint32 {
 
 // blockSyncMsg packages a proto block sync message.
 type blockSyncMsg struct {
+	ctx     context.Context
 	chainID uint32
-	sender  string
 	sync    *pb.BlockSync
+	peer    peerstore.PeerInfo
 }
 
 func (m blockSyncMsg) ChainID() uint32 {
@@ -82,6 +85,7 @@ func (m blockSyncMsg) ChainID() uint32 {
 
 // actionMsg packages a proto action message.
 type actionMsg struct {
+	ctx     context.Context
 	chainID uint32
 	action  *pb.ActionPb
 }
@@ -105,9 +109,7 @@ type IotxDispatcher struct {
 }
 
 // NewDispatcher creates a new Dispatcher
-func NewDispatcher(
-	cfg config.Config,
-) (Dispatcher, error) {
+func NewDispatcher(cfg config.Config) (Dispatcher, error) {
 	d := &IotxDispatcher{
 		eventChan:   make(chan interface{}, cfg.Dispatcher.EventChanSize),
 		eventAudit:  make(map[uint32]int),
@@ -197,7 +199,7 @@ loop:
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 	d.updateEventAudit(pb.MsgActionType)
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
-		if err := subscriber.HandleAction(m.action); err != nil {
+		if err := subscriber.HandleAction(m.ctx, m.action); err != nil {
 			requestMtc.WithLabelValues("AddAction", "false").Inc()
 			log.L().Debug("Handle action request error.", zap.Error(err))
 		}
@@ -213,12 +215,12 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
 		if m.blkType == pb.MsgBlockProtoMsgType {
 			d.updateEventAudit(pb.MsgBlockProtoMsgType)
-			if err := subscriber.HandleBlock(m.block); err != nil {
+			if err := subscriber.HandleBlock(m.ctx, m.block); err != nil {
 				log.L().Error("Fail to handle the block.", zap.Error(err))
 			}
 		} else if m.blkType == pb.MsgBlockSyncDataType {
 			d.updateEventAudit(pb.MsgBlockSyncDataType)
-			if err := subscriber.HandleBlockSync(m.block); err != nil {
+			if err := subscriber.HandleBlockSync(m.ctx, m.block); err != nil {
 				log.L().Error("Fail to sync the block.", zap.Error(err))
 			}
 		}
@@ -230,14 +232,14 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 // handleBlockSyncMsg handles block messages from peers.
 func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 	log.L().Info("Receive blockSyncMsg.",
-		zap.String("src", m.sender),
+		zap.String("src", fmt.Sprintf("%v", m.peer)),
 		zap.Uint64("start", m.sync.Start),
 		zap.Uint64("end", m.sync.End))
 
 	d.updateEventAudit(pb.MsgBlockSyncReqType)
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
 		// dispatch to block sync
-		if err := subscriber.HandleSyncRequest(m.sender, m.sync); err != nil {
+		if err := subscriber.HandleSyncRequest(m.ctx, m.peer, m.sync); err != nil {
 			log.L().Error("Failed to handle sync request.", zap.Error(err))
 		}
 	} else {
@@ -246,40 +248,59 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 }
 
 // dispatchAction adds the passed action message to the news handling queue.
-func (d *IotxDispatcher) dispatchAction(chainID uint32, msg proto.Message) {
+func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg proto.Message) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-	d.enqueueEvent(&actionMsg{chainID, (msg).(*pb.ActionPb)})
+	d.enqueueEvent(&actionMsg{
+		ctx:     ctx,
+		chainID: chainID,
+		action:  (msg).(*pb.ActionPb),
+	})
 }
 
 // dispatchBlockCommit adds the passed block message to the news handling queue.
-func (d *IotxDispatcher) dispatchBlockCommit(chainID uint32, msg proto.Message) {
+func (d *IotxDispatcher) dispatchBlockCommit(ctx context.Context, chainID uint32, msg proto.Message) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-	d.enqueueEvent(&blockMsg{chainID, (msg).(*pb.BlockPb), pb.MsgBlockProtoMsgType})
+	d.enqueueEvent(&blockMsg{
+		ctx:     ctx,
+		chainID: chainID,
+		block:   (msg).(*pb.BlockPb),
+		blkType: pb.MsgBlockProtoMsgType,
+	})
 }
 
 // dispatchBlockSyncReq adds the passed block sync request to the news handling queue.
-func (d *IotxDispatcher) dispatchBlockSyncReq(chainID uint32, sender string, msg proto.Message) {
+func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint32, peer peerstore.PeerInfo, msg proto.Message) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-	d.enqueueEvent(&blockSyncMsg{chainID, sender, (msg).(*pb.BlockSync)})
+	d.enqueueEvent(&blockSyncMsg{
+		ctx:     ctx,
+		chainID: chainID,
+		peer:    peer,
+		sync:    (msg).(*pb.BlockSync),
+	})
 }
 
 // dispatchBlockSyncData handles block sync data
-func (d *IotxDispatcher) dispatchBlockSyncData(chainID uint32, msg proto.Message) {
+func (d *IotxDispatcher) dispatchBlockSyncData(ctx context.Context, chainID uint32, msg proto.Message) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
 	data := (msg).(*pb.BlockContainer)
-	d.enqueueEvent(&blockMsg{chainID, data.Block, pb.MsgBlockSyncDataType})
+	d.enqueueEvent(&blockMsg{
+		ctx:     ctx,
+		chainID: chainID,
+		block:   data.Block,
+		blkType: pb.MsgBlockSyncDataType,
+	})
 }
 
 // HandleBroadcast handles incoming broadcast message
-func (d *IotxDispatcher) HandleBroadcast(chainID uint32, message proto.Message) {
+func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, message proto.Message) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleBroadcast.", zap.Error(err))
@@ -300,25 +321,25 @@ func (d *IotxDispatcher) HandleBroadcast(chainID uint32, message proto.Message) 
 			log.L().Error("Failed to handle block propose.", zap.Error(err))
 		}
 	case pb.MsgActionType:
-		d.dispatchAction(chainID, message)
+		d.dispatchAction(ctx, chainID, message)
 	case pb.MsgBlockProtoMsgType:
-		d.dispatchBlockCommit(chainID, message)
+		d.dispatchBlockCommit(ctx, chainID, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Uint32("msgType", msgType))
 	}
 }
 
 // HandleTell handles incoming unicast message
-func (d *IotxDispatcher) HandleTell(chainID uint32, sender net.Addr, message proto.Message) {
+func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer peerstore.PeerInfo, message proto.Message) {
 	msgType, err := pb.GetTypeFromProtoMsg(message)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleTell.", zap.Error(err))
 	}
 	switch msgType {
 	case pb.MsgBlockSyncReqType:
-		d.dispatchBlockSyncReq(chainID, sender.String(), message)
+		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case pb.MsgBlockSyncDataType:
-		d.dispatchBlockSyncData(chainID, message)
+		d.dispatchBlockSyncData(ctx, chainID, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Uint32("msgType", msgType))
 	}
