@@ -207,6 +207,7 @@ func newActPoolConfig() (config.Config, error) {
 	cfg.NodeType = config.DelegateType
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.WriteIndexInChainDB = true
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Explorer.Enabled = true

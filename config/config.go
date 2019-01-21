@@ -66,6 +66,7 @@ var (
 		},
 		Chain: Chain{
 			ChainDBPath:                  "/tmp/chain.db",
+			WriteIndexInChainDB:          false,
 			TrieDBPath:                   "/tmp/trie.db",
 			ID:                           1,
 			Address:                      "",
@@ -170,6 +171,7 @@ type (
 	// Chain is the config struct for blockchain package
 	Chain struct {
 		ChainDBPath                  string `yaml:"chainDBPath"`
+		WriteIndexInChainDB          bool   `yaml:"writeIndexInChainDB"`
 		TrieDBPath                   string `yaml:"trieDBPath"`
 		ID                           uint32 `yaml:"id"`
 		Address                      string `yaml:"address"`
