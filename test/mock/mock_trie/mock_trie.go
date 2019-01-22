@@ -119,6 +119,55 @@ func (mr *MockTrieMockRecorder) SetRootHash(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRootHash", reflect.TypeOf((*MockTrie)(nil).SetRootHash), arg0)
 }
 
+// RootNode mocks base method
+func (m *MockTrie) RootNode() trie.Node {
+	ret := m.ctrl.Call(m, "RootNode")
+	ret0, _ := ret[0].(trie.Node)
+	return ret0
+}
+
+// RootNode indicates an expected call of RootNode
+func (mr *MockTrieMockRecorder) RootNode() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootNode", reflect.TypeOf((*MockTrie)(nil).RootNode))
+}
+
+// SetRootNode mocks base method
+func (m *MockTrie) SetRootNode(arg0 trie.Node) error {
+	ret := m.ctrl.Call(m, "SetRootNode", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRootNode indicates an expected call of SetRootNode
+func (mr *MockTrieMockRecorder) SetRootNode(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRootNode", reflect.TypeOf((*MockTrie)(nil).SetRootNode), arg0)
+}
+
+// Commit mocks base method
+func (m *MockTrie) Commit() ([]byte, error) {
+	ret := m.ctrl.Call(m, "Commit")
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Commit indicates an expected call of Commit
+func (mr *MockTrieMockRecorder) Commit() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockTrie)(nil).Commit))
+}
+
+// Clone mocks base method
+func (m *MockTrie) Clone() trie.Trie {
+	ret := m.ctrl.Call(m, "Clone")
+	ret0, _ := ret[0].(trie.Trie)
+	return ret0
+}
+
+// Clone indicates an expected call of Clone
+func (mr *MockTrieMockRecorder) Clone() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockTrie)(nil).Clone))
+}
+
 // DB mocks base method
 func (m *MockTrie) DB() trie.KVStore {
 	ret := m.ctrl.Call(m, "DB")
@@ -129,6 +178,19 @@ func (m *MockTrie) DB() trie.KVStore {
 // DB indicates an expected call of DB
 func (mr *MockTrieMockRecorder) DB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DB", reflect.TypeOf((*MockTrie)(nil).DB))
+}
+
+// LoadNodeFromDB mocks base method
+func (m *MockTrie) LoadNodeFromDB(arg0 []byte) (trie.Node, error) {
+	ret := m.ctrl.Call(m, "LoadNodeFromDB", arg0)
+	ret0, _ := ret[0].(trie.Node)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadNodeFromDB indicates an expected call of LoadNodeFromDB
+func (mr *MockTrieMockRecorder) LoadNodeFromDB(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadNodeFromDB", reflect.TypeOf((*MockTrie)(nil).LoadNodeFromDB), arg0)
 }
 
 // deleteNodeFromDB mocks base method
@@ -155,19 +217,6 @@ func (mr *MockTrieMockRecorder) putNodeIntoDB(tn interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "putNodeIntoDB", reflect.TypeOf((*MockTrie)(nil).putNodeIntoDB), tn)
 }
 
-// loadNodeFromDB mocks base method
-func (m *MockTrie) loadNodeFromDB(arg0 []byte) (trie.Node, error) {
-	ret := m.ctrl.Call(m, "loadNodeFromDB", arg0)
-	ret0, _ := ret[0].(trie.Node)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// loadNodeFromDB indicates an expected call of loadNodeFromDB
-func (mr *MockTrieMockRecorder) loadNodeFromDB(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "loadNodeFromDB", reflect.TypeOf((*MockTrie)(nil).loadNodeFromDB), arg0)
-}
-
 // isEmptyRootHash mocks base method
 func (m *MockTrie) isEmptyRootHash(arg0 []byte) bool {
 	ret := m.ctrl.Call(m, "isEmptyRootHash", arg0)
@@ -178,6 +227,18 @@ func (m *MockTrie) isEmptyRootHash(arg0 []byte) bool {
 // isEmptyRootHash indicates an expected call of isEmptyRootHash
 func (mr *MockTrieMockRecorder) isEmptyRootHash(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "isEmptyRootHash", reflect.TypeOf((*MockTrie)(nil).isEmptyRootHash), arg0)
+}
+
+// isEmptyRoot mocks base method
+func (m *MockTrie) isEmptyRoot(arg0 trie.Node) bool {
+	ret := m.ctrl.Call(m, "isEmptyRoot", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// isEmptyRoot indicates an expected call of isEmptyRoot
+func (mr *MockTrieMockRecorder) isEmptyRoot(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "isEmptyRoot", reflect.TypeOf((*MockTrie)(nil).isEmptyRoot), arg0)
 }
 
 // emptyRootHash mocks base method
@@ -192,14 +253,14 @@ func (mr *MockTrieMockRecorder) emptyRootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "emptyRootHash", reflect.TypeOf((*MockTrie)(nil).emptyRootHash))
 }
 
-// nodeHash mocks base method
-func (m *MockTrie) nodeHash(tn trie.Node) []byte {
-	ret := m.ctrl.Call(m, "nodeHash", tn)
+// hash mocks base method
+func (m *MockTrie) hash(arg0 []byte) []byte {
+	ret := m.ctrl.Call(m, "hash", arg0)
 	ret0, _ := ret[0].([]byte)
 	return ret0
 }
 
-// nodeHash indicates an expected call of nodeHash
-func (mr *MockTrieMockRecorder) nodeHash(tn interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "nodeHash", reflect.TypeOf((*MockTrie)(nil).nodeHash), tn)
+// hash indicates an expected call of hash
+func (mr *MockTrieMockRecorder) hash(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "hash", reflect.TypeOf((*MockTrie)(nil).hash), arg0)
 }

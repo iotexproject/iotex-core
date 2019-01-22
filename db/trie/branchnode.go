@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,8 +7,9 @@
 package trie
 
 import (
+	"sync"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
 )
@@ -16,113 +17,88 @@ import (
 const radix = 256
 
 type branchNode struct {
-	hashes map[byte][]byte
-	ser    []byte
+	children map[byte]Node
+	cache    nodeCache
 }
 
 func newEmptyBranchNode() *branchNode {
-	return &branchNode{hashes: map[byte][]byte{}}
+	return &branchNode{children: map[byte]Node{}}
 }
 
-func newBranchNodeAndPutIntoDB(
-	tr Trie,
-	children map[byte]Node,
-) (*branchNode, error) {
+func newBranchNode(children map[byte]Node) *branchNode {
 	bnode := newEmptyBranchNode()
 	for i, n := range children {
-		if n == nil {
-			continue
-		}
-		bnode.hashes[i] = tr.nodeHash(n)
+		bnode.children[i] = n
+		bnode.cache.dirty = true
 	}
-	if err := tr.putNodeIntoDB(bnode); err != nil {
-		return nil, err
-	}
-	return bnode, nil
-}
-
-func newBranchNodeFromProtoPb(pb *triepb.BranchPb) *branchNode {
-	b := newEmptyBranchNode()
-	for _, n := range pb.Branches {
-		b.hashes[byte(n.Index)] = n.Path
-	}
-	return b
+	return bnode
 }
 
 func (b *branchNode) Type() NodeType {
 	return BRANCH
 }
 
-func (b *branchNode) Key() []byte {
-	return nil
-}
-
-func (b *branchNode) Value() []byte {
-	return nil
-}
-
-func (b *branchNode) children(tr Trie) ([]Node, error) {
+func (b *branchNode) Children() []Node {
 	trieMtc.WithLabelValues("branchNode", "children").Inc()
 	children := []Node{}
-	for i := range b.hashes {
-		if c, err := b.child(tr, i); err != nil {
-			return nil, err
-		} else if c != nil {
+	for i := 0; i < radix; i++ {
+		if c, ok := b.children[byte(i)]; ok {
 			children = append(children, c)
 		}
 	}
 
-	return children, nil
+	return children
 }
 
 func (b *branchNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
 	trieMtc.WithLabelValues("branchNode", "delete").Inc()
 	offsetKey := key[offset]
-	child, err := b.child(tr, offsetKey)
-	if err != nil {
-		return nil, err
+	child, ok := b.children[offsetKey]
+	if !ok {
+		return nil, ErrNotExist
 	}
 	newChild, err := child.delete(tr, key, offset+1)
 	if err != nil {
 		return nil, err
 	}
 	if newChild != nil {
-		return b.updateChild(tr, offsetKey, newChild)
+		return b.updateChild(offsetKey, newChild), nil
 	}
-	switch len(b.hashes) {
+	switch len(b.children) {
 	case 1:
 		panic("branch shouldn't have 0 child after deleting")
 	case 2:
-		if err := tr.deleteNodeFromDB(b); err != nil {
-			return nil, err
-		}
 		var orphan Node
 		var orphanKey byte
-		for i, h := range b.hashes {
+		for i, child := range b.children {
 			if i != offsetKey {
 				orphanKey = i
-				if orphan, err = tr.loadNodeFromDB(h); err != nil {
-					return nil, err
-				}
+				orphan = child
 				break
 			}
 		}
 		if orphan == nil {
 			panic("unexpected branch status")
 		}
+		if hn, ok := orphan.(*hashNode); ok {
+			h, err := hn.hash(tr, false)
+			if err != nil {
+				return nil, err
+			}
+			if orphan, err = tr.LoadNodeFromDB(h); err != nil {
+				return nil, err
+			}
+		}
 		switch node := orphan.(type) {
-		case *extensionNode:
-			return node.updatePath(
-				tr,
-				append([]byte{orphanKey}, node.path...),
-			)
 		case *leafNode:
 			return node, nil
+		case *extensionNode:
+			return node.updatePath(append([]byte{orphanKey}, node.path...)), nil
 		default:
-			return newExtensionNodeAndPutIntoDB(tr, []byte{orphanKey}, node)
+			return newExtensionNode([]byte{orphanKey}, node), nil
 		}
 	default:
-		return b.updateChild(tr, offsetKey, newChild)
+		return b.updateChild(offsetKey, newChild), nil
 	}
 }
 
@@ -130,78 +106,118 @@ func (b *branchNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (N
 	trieMtc.WithLabelValues("branchNode", "upsert").Inc()
 	var newChild Node
 	offsetKey := key[offset]
-	child, err := b.child(tr, offsetKey)
-	switch errors.Cause(err) {
-	case nil:
-		newChild, err = child.upsert(tr, key, offset+1, value)
-	case ErrNotExist:
-		newChild, err = newLeafNodeAndPutIntoDB(tr, key, value)
-	}
-	if err != nil {
-		return nil, err
+	child, ok := b.children[offsetKey]
+	if ok {
+		var err error
+		if newChild, err = child.upsert(tr, key, offset+1, value); err != nil {
+			return nil, err
+		}
+	} else {
+		newChild = newLeafNode(key, value)
 	}
 
-	return b.updateChild(tr, offsetKey, newChild)
+	return b.updateChild(offsetKey, newChild), nil
 }
 
-func (b *branchNode) search(tr Trie, key keyType, offset uint8) Node {
+func (b *branchNode) search(tr Trie, key keyType, offset uint8) (Node, error) {
 	trieMtc.WithLabelValues("branchNode", "search").Inc()
-	child, err := b.child(tr, key[offset])
-	if errors.Cause(err) == ErrNotExist {
-		return nil
+	child, ok := b.children[key[offset]]
+	if !ok {
+		return nil, ErrNotExist
 	}
 	return child.search(tr, key, offset+1)
 }
 
-func (b *branchNode) serialize() []byte {
-	trieMtc.WithLabelValues("branchNode", "serialize").Inc()
-	if b.ser != nil {
-		return b.ser
+func (b *branchNode) isDirty() bool {
+	return b.cache.dirty
+}
+
+func (b *branchNode) hash(tr Trie, flush bool) ([]byte, error) {
+	if b.cache.hn != nil {
+		if b.isDirty() && flush {
+			for index := 0; index < radix; index++ {
+				if child, ok := b.children[byte(index)]; ok {
+					if _, err := child.hash(tr, flush); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	} else {
+		s, err := b.serialize(tr, flush)
+		if err != nil {
+			return nil, err
+		}
+		b.cache.hn = newHashNodeFromSer(tr, s)
 	}
-	nodes := []*triepb.BranchNodePb{}
-	for index := 0; index < radix; index++ {
-		if h, ok := b.hashes[byte(index)]; ok {
-			nodes = append(nodes, &triepb.BranchNodePb{Index: uint32(index), Path: h})
+	if b.isDirty() && flush {
+		if err := tr.putNodeIntoDB(b.cache.hn); err != nil {
+			return nil, err
 		}
 	}
-	pb := &triepb.NodePb{
+
+	return b.cache.hn.getHash(), nil
+}
+
+type hashData struct {
+	index byte
+	hash  []byte
+	err   error
+}
+
+func (b *branchNode) serialize(tr Trie, flush bool) ([]byte, error) {
+	trieMtc.WithLabelValues("branchNode", "serialize").Inc()
+	hashChan := make(chan *hashData)
+	wg := sync.WaitGroup{}
+	wg.Add(len(b.children))
+	go func() {
+		wg.Wait()
+		close(hashChan)
+	}()
+	for i, child := range b.children {
+		go func(index byte, node Node) {
+			defer wg.Done()
+			childHash, err := node.hash(tr, flush)
+			hashChan <- &hashData{err: err, index: index, hash: childHash}
+		}(i, child)
+	}
+	hashes := map[byte][]byte{}
+	for data := range hashChan {
+		if data.err != nil {
+			return nil, data.err
+		}
+		hashes[data.index] = data.hash
+	}
+	branches := []*triepb.BranchPb{}
+	for index := 0; index < radix; index++ {
+		if h, ok := hashes[byte(index)]; ok {
+			branches = append(
+				branches,
+				&triepb.BranchPb{
+					Index:     uint32(index),
+					ChildHash: h,
+				},
+			)
+		}
+	}
+	return proto.Marshal(&triepb.NodePb{
 		Node: &triepb.NodePb_Branch{
-			Branch: &triepb.BranchPb{Branches: nodes},
+			Branch: &triepb.BranchNodePb{
+				Branches: branches,
+			},
 		},
-	}
-	ser, err := proto.Marshal(pb)
-	if err != nil {
-		panic("failed to marshal a branch node")
-	}
-	b.ser = ser
-
-	return b.ser
+	})
 }
 
-func (b *branchNode) child(tr Trie, key byte) (Node, error) {
-	h, ok := b.hashes[key]
-	if !ok {
-		return nil, ErrNotExist
+func (b *branchNode) updateChild(key byte, child Node) *branchNode {
+	children := map[byte]Node{}
+	for i, c := range b.children {
+		children[i] = c
 	}
-	child, err := tr.loadNodeFromDB(h)
-	if err != nil {
-		return nil, errors.Errorf("failed to fetch node for key %x", h)
-	}
-	return child, nil
-}
-
-func (b *branchNode) updateChild(tr Trie, key byte, child Node) (*branchNode, error) {
-	if err := tr.deleteNodeFromDB(b); err != nil {
-		return nil, err
-	}
-	b.ser = nil
 	if child == nil {
-		delete(b.hashes, key)
+		delete(children, key)
 	} else {
-		b.hashes[key] = tr.nodeHash(child)
+		children[key] = child
 	}
-	if err := tr.putNodeIntoDB(b); err != nil {
-		return nil, err
-	}
-	return b, nil
+	return newBranchNode(children)
 }

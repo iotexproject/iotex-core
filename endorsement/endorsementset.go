@@ -47,11 +47,11 @@ func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
 	s.round = sPb.Round
 	s.endorsements = []*Endorsement{}
 	for _, ePb := range sPb.Endorsements {
-		en := Endorsement{}
+		en := &Endorsement{}
 		if err := en.FromProtoMsg(ePb); err != nil {
 			return err
 		}
-		s.endorsements = append(s.endorsements, &en)
+		s.endorsements = append(s.endorsements, en)
 	}
 
 	return nil

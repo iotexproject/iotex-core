@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -14,47 +14,22 @@ import (
 
 // extensionNode defines a node with a path and point to a child node
 type extensionNode struct {
-	path      []byte
-	childHash []byte
-	ser       []byte
+	path  []byte
+	child Node
+	cache nodeCache
 }
 
-func newExtensionNodeAndPutIntoDB(
-	tr Trie,
-	path []byte,
-	child Node,
-) (*extensionNode, error) {
-	e := &extensionNode{path: path, childHash: tr.nodeHash(child)}
-	if err := tr.putNodeIntoDB(e); err != nil {
-		return nil, err
-	}
-	return e, nil
-}
-
-func newExtensionNodeFromProtoPb(pb *triepb.ExtendPb) *extensionNode {
-	return &extensionNode{path: pb.Path, childHash: pb.Value}
+func newExtensionNode(path []byte, child Node) *extensionNode {
+	return &extensionNode{path: path, child: child, cache: nodeCache{dirty: true}}
 }
 
 func (e *extensionNode) Type() NodeType {
 	return EXTENSION
 }
 
-func (e *extensionNode) Key() []byte {
-	return nil
-}
-
-func (e *extensionNode) Value() []byte {
-	return nil
-}
-
-func (e *extensionNode) children(tr Trie) ([]Node, error) {
+func (e *extensionNode) Children() []Node {
 	trieMtc.WithLabelValues("extensionNode", "children").Inc()
-	child, err := e.child(tr)
-	if err != nil {
-		return nil, err
-	}
-
-	return []Node{child}, nil
+	return []Node{e.child}
 }
 
 func (e *extensionNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
@@ -63,30 +38,22 @@ func (e *extensionNode) delete(tr Trie, key keyType, offset uint8) (Node, error)
 	if matched != uint8(len(e.path)) {
 		return nil, ErrNotExist
 	}
-	child, err := e.child(tr)
+	if e.child == nil {
+		panic("invalid extension node")
+	}
+	newChild, err := e.child.delete(tr, key, offset+matched)
 	if err != nil {
 		return nil, err
-	}
-	newChild, err := child.delete(tr, key, offset+matched)
-	if err != nil {
-		return nil, err
-	}
-	if newChild == nil {
-		return nil, tr.deleteNodeFromDB(e)
 	}
 	switch node := newChild.(type) {
+	case nil:
+		return nil, nil
 	case *extensionNode:
-		if err := tr.deleteNodeFromDB(e); err != nil {
-			return nil, err
-		}
-		return node.updatePath(tr, append(e.path, node.path...))
+		return node.updatePath(append(e.path, node.path...)), nil
 	case *leafNode:
-		if err := tr.deleteNodeFromDB(e); err != nil {
-			return nil, err
-		}
 		return node, nil
 	default:
-		return e.updateChild(tr, node)
+		return e.updateChild(node), nil
 	}
 }
 
@@ -94,105 +61,91 @@ func (e *extensionNode) upsert(tr Trie, key keyType, offset uint8, value []byte)
 	trieMtc.WithLabelValues("extensionNode", "upsert").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched == uint8(len(e.path)) {
-		child, err := e.child(tr)
+		newChild, err := e.child.upsert(tr, key, offset+matched, value)
 		if err != nil {
 			return nil, err
 		}
-		newChild, err := child.upsert(tr, key, offset+matched, value)
-		if err != nil {
-			return nil, err
-		}
-		return e.updateChild(tr, newChild)
+
+		return e.updateChild(newChild), nil
 	}
 	eb := e.path[matched]
-	enode, err := e.updatePath(tr, e.path[matched+1:])
-	if err != nil {
-		return nil, err
-	}
-	lnode, err := newLeafNodeAndPutIntoDB(tr, key, value)
-	if err != nil {
-		return nil, err
-	}
-	bnode, err := newBranchNodeAndPutIntoDB(
-		tr,
+	enode := e.updatePath(e.path[matched+1:])
+	lnode := newLeafNode(key, value)
+	bnode := newBranchNode(
 		map[byte]Node{
 			eb:                  enode,
 			key[offset+matched]: lnode,
 		},
 	)
-	if err != nil {
-		return nil, err
-	}
 	if matched == 0 {
 		return bnode, nil
 	}
-	return newExtensionNodeAndPutIntoDB(tr, key[offset:offset+matched], bnode)
+	return newExtensionNode(key[offset:offset+matched], bnode), nil
 }
 
-func (e *extensionNode) search(tr Trie, key keyType, offset uint8) Node {
+func (e *extensionNode) search(tr Trie, key keyType, offset uint8) (Node, error) {
 	trieMtc.WithLabelValues("extensionNode", "search").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched != uint8(len(e.path)) {
-		return nil
+		return nil, ErrNotExist
 	}
-	child, err := e.child(tr)
-	if err != nil {
-		return nil
+	if e.child == nil {
+		panic("invalid extension node")
 	}
 
-	return child.search(tr, key, offset+matched)
+	return e.child.search(tr, key, offset+matched)
 }
 
-func (e *extensionNode) serialize() []byte {
-	trieMtc.WithLabelValues("extensionNode", "serialize").Inc()
-	if e.ser != nil {
-		return e.ser
+func (e *extensionNode) isDirty() bool {
+	return e.cache.dirty
+}
+
+func (e *extensionNode) hash(tr Trie, flush bool) ([]byte, error) {
+	if e.cache.hn != nil {
+		if e.isDirty() && flush {
+			if _, err := e.child.hash(tr, flush); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		s, err := e.serialize(tr, flush)
+		if err != nil {
+			return nil, err
+		}
+		e.cache.hn = newHashNodeFromSer(tr, s)
 	}
-	pb := &triepb.NodePb{
+	if e.isDirty() && flush {
+		if err := tr.putNodeIntoDB(e.cache.hn); err != nil {
+			return nil, err
+		}
+	}
+	return e.cache.hn.getHash(), nil
+}
+
+func (e *extensionNode) serialize(tr Trie, flush bool) ([]byte, error) {
+	trieMtc.WithLabelValues("extensionNode", "serialize").Inc()
+	childHash, err := e.child.hash(tr, flush)
+	if err != nil {
+		return nil, err
+	}
+	return proto.Marshal(&triepb.NodePb{
 		Node: &triepb.NodePb_Extend{
-			Extend: &triepb.ExtendPb{
-				Path:  e.path,
-				Value: e.childHash[:],
+			Extend: &triepb.ExtendNodePb{
+				Path:      e.path,
+				ChildHash: childHash,
 			},
 		},
-	}
-	ser, err := proto.Marshal(pb)
-	if err != nil {
-		panic("failed to marshal an extension node")
-	}
-	e.ser = ser
-
-	return e.ser
-}
-
-func (e *extensionNode) child(tr Trie) (Node, error) {
-	return tr.loadNodeFromDB(e.childHash)
+	})
 }
 
 func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
 	return commonPrefixLength(e.path, key)
 }
 
-func (e *extensionNode) updatePath(tr Trie, path []byte) (*extensionNode, error) {
-	if err := tr.deleteNodeFromDB(e); err != nil {
-		return nil, err
-	}
-	e.path = path
-	e.ser = nil
-	if err := tr.putNodeIntoDB(e); err != nil {
-		return nil, err
-	}
-	return e, nil
+func (e *extensionNode) updatePath(path []byte) *extensionNode {
+	return newExtensionNode(path, e.child)
 }
 
-func (e *extensionNode) updateChild(tr Trie, newChild Node) (*extensionNode, error) {
-	if err := tr.deleteNodeFromDB(e); err != nil {
-		return nil, err
-	}
-	e.childHash = tr.nodeHash(newChild)
-	e.ser = nil
-	if err := tr.putNodeIntoDB(e); err != nil {
-		return nil, err
-	}
-	return e, nil
+func (e *extensionNode) updateChild(newChild Node) *extensionNode {
+	return newExtensionNode(e.path, newChild)
 }

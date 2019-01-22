@@ -39,7 +39,6 @@ type (
 		SelfState() *state.Account
 		Commit() error
 		RootHash() hash.Hash32B
-		LoadRoot() error
 		Iterator() (trie.Iterator, error)
 		Snapshot() Contract
 	}
@@ -99,8 +98,12 @@ func (c *contract) SelfState() *state.Account {
 // Commit writes the changes into underlying trie
 func (c *contract) Commit() error {
 	if c.dirtyState {
+		newRoot, err := c.trie.Commit()
+		if err != nil {
+			return err
+		}
 		// record the new root hash, global account trie will Commit all pending writes to DB
-		c.Account.Root = byteutil.BytesTo32B(c.trie.RootHash())
+		c.Account.Root = byteutil.BytesTo32B(newRoot)
 		c.dirtyState = false
 	}
 	if c.dirtyCode {
@@ -118,11 +121,6 @@ func (c *contract) RootHash() hash.Hash32B {
 	return c.Account.Root
 }
 
-// LoadRoot loads storage trie's root
-func (c *contract) LoadRoot() error {
-	return c.trie.SetRootHash(c.Account.Root[:])
-}
-
 // Snapshot takes a snapshot of the contract object
 func (c *contract) Snapshot() Contract {
 	return &contract{
@@ -132,9 +130,7 @@ func (c *contract) Snapshot() Contract {
 		code:       c.code,
 		root:       c.Account.Root,
 		dao:        c.dao,
-		// note we simply save the trie (which is an interface/pointer)
-		// later Revert() call needs to reset the saved trie root
-		trie: c.trie,
+		trie:       c.trie.Clone(),
 	}
 }
 

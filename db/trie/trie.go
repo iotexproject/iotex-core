@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -50,22 +50,32 @@ type Trie interface {
 	Delete([]byte) error
 	// RootHash returns trie's root hash
 	RootHash() []byte
-	// SetRootHash sets a new root to trie
+	// SetRootHash sets a new root to trie with hash
 	SetRootHash([]byte) error
+	// RootNode returns trie's root node
+	RootNode() Node
+	// SetRootNode sets a new root to trie with node
+	SetRootNode(Node) error
+	// Commit commits dirty leaf node into db, and return new root hash
+	Commit() ([]byte, error)
+	// Clone clones the trie with the same root node
+	Clone() Trie
 	// DB returns the KVStore storing the node data
 	DB() KVStore
+	// LoadNodeFromDB loads a node from db
+	LoadNodeFromDB([]byte) (Node, error)
 	// deleteNodeFromDB deletes the data of node from db
 	deleteNodeFromDB(tn Node) error
 	// putNodeIntoDB puts the data of a node into db
 	putNodeIntoDB(tn Node) error
-	// loadNodeFromDB loads a node from db
-	loadNodeFromDB([]byte) (Node, error)
 	// isEmptyRootHash returns whether this is an empty root hash
 	isEmptyRootHash([]byte) bool
+	// isEmptyRoot returns whether this is an empty root
+	isEmptyRoot(Node) bool
 	// emptyRootHash returns hash of an empty root
 	emptyRootHash() []byte
-	// nodeHash returns the hash of a node
-	nodeHash(tn Node) []byte
+	// hash returns the hash of a node
+	hash([]byte) []byte
 }
 
 // Option sets parameters for SameKeyLenTrieContext construction parameter

@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -14,8 +14,10 @@ type (
 )
 
 const (
+	// HASH is a node storing the hash
+	HASH NodeType = iota + 1
 	// BRANCH is an internal node type of length 1 and multiple child
-	BRANCH NodeType = iota + 1
+	BRANCH
 	// LEAF is a leaf node with value
 	LEAF
 	// EXTENSION is a spefic type of branch with only one child
@@ -25,19 +27,31 @@ const (
 // Node defines the interface of a trie node
 // Note: all the key-value pairs should be of the same length of keys
 type Node interface {
-	// Type returns the type of a node
-	Type() NodeType
-	// Key returns the key of a node, only leaf has key
-	Key() []byte
-	// Value returns the value of a node, only leaf has value
-	Value() []byte
+	// Children returns the list of children
+	Children() []Node
 
-	children(Trie) ([]Node, error)
-	search(Trie, keyType, uint8) Node
+	hash(Trie, bool) ([]byte, error)
+	search(Trie, keyType, uint8) (Node, error)
 	delete(Trie, keyType, uint8) (Node, error)
 	upsert(Trie, keyType, uint8, []byte) (Node, error)
 
-	serialize() []byte
+	isDirty() bool
+}
+
+// LeafNode defines the interface of a trie leaf node
+type LeafNode interface {
+	Key() []byte
+	Value() []byte
+}
+
+// HashNode defines the interface of a hashed node
+type HashNode interface {
+	Hash() []byte
+}
+
+type nodeCache struct {
+	hn    *hashNode
+	dirty bool
 }
 
 // key1 should not be longer than key2

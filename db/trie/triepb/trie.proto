@@ -9,30 +9,29 @@
 syntax = "proto3";
 package triepb;
 
-message branchNodePb {
-    uint32 index = 1;
-    bytes path = 2;
-}
-
 message branchPb {
-    repeated branchNodePb branches = 1;
+    uint32 index = 1;
+    bytes childHash = 2;
 }
 
-message leafPb {
-    uint32 ext = 1;
-    bytes path = 2;
-    bytes value = 3;
+message branchNodePb {
+    repeated branchPb branches = 1;
 }
 
-message extendPb {
-    bytes path = 1;
+message leafNodePb {
+    bytes key = 1;
     bytes value = 2;
+}
+
+message extendNodePb {
+    bytes path = 1;
+    bytes childHash = 2;
 }
 
 message nodePb {
     oneof node {
-        branchPb branch = 2;
-        leafPb leaf = 3;
-        extendPb extend = 4;
+        branchNodePb branch = 1;
+        leafNodePb leaf = 2;
+        extendNodePb extend = 3;
     }
 }

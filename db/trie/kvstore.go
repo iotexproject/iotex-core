@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -8,6 +8,7 @@ package trie
 
 import (
 	"context"
+	"sync"
 )
 
 // KVStore defines an interface for storing trie data as key-value pair
@@ -27,6 +28,7 @@ type KVStore interface {
 type mKeyType [32]byte
 
 type inMemKVStore struct {
+	mutex   sync.RWMutex
 	kvpairs map[mKeyType][]byte
 }
 
@@ -51,6 +53,8 @@ func (s *inMemKVStore) Stop(ctx context.Context) error {
 }
 
 func (s *inMemKVStore) Put(k []byte, v []byte) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	dbKey := castKeyType(k)
 	s.kvpairs[dbKey] = v
 
@@ -58,6 +62,8 @@ func (s *inMemKVStore) Put(k []byte, v []byte) error {
 }
 
 func (s *inMemKVStore) Get(k []byte) ([]byte, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	dbKey := castKeyType(k)
 	v, ok := s.kvpairs[dbKey]
 	if !ok {
@@ -67,6 +73,8 @@ func (s *inMemKVStore) Get(k []byte) ([]byte, error) {
 }
 
 func (s *inMemKVStore) Delete(k []byte) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	dbKey := castKeyType(k)
 	delete(s.kvpairs, dbKey)
 

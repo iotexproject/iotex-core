@@ -68,10 +68,10 @@ type (
 	workingSet struct {
 		ver            uint64
 		blkHeight      uint64
-		accountTrie    trie.Trie            // global account state trie
-		trieRoots      map[int]hash.Hash32B // root of trie at time of snapshot
-		cb             db.CachedBatch       // cached batch for pending writes
-		dao            db.KVStore           // the underlying DB for account/contract storage
+		accountTrie    trie.Trie         // global account state trie
+		trieRoots      map[int]trie.Node // root of trie at time of snapshot
+		cb             db.CachedBatch    // cached batch for pending writes
+		dao            db.KVStore        // the underlying DB for account/contract storage
 		actionHandlers []protocol.ActionHandler
 	}
 )
@@ -85,7 +85,7 @@ func NewWorkingSet(
 ) (WorkingSet, error) {
 	ws := &workingSet{
 		ver:            version,
-		trieRoots:      make(map[int]hash.Hash32B),
+		trieRoots:      make(map[int]trie.Node),
 		cb:             db.NewCachedBatch(),
 		dao:            kv,
 		actionHandlers: actionHandlers,
@@ -169,7 +169,7 @@ func (ws *workingSet) RunActions(
 
 func (ws *workingSet) Snapshot() int {
 	s := ws.cb.Snapshot()
-	ws.trieRoots[s] = byteutil.BytesTo32B(ws.accountTrie.RootHash())
+	ws.trieRoots[s] = ws.accountTrie.RootNode()
 	return s
 }
 
@@ -182,11 +182,14 @@ func (ws *workingSet) Revert(snapshot int) error {
 		// this should not happen, b/c we save the trie root on a successful return of Snapshot(), but check anyway
 		return errors.Wrapf(trie.ErrInvalidTrie, "failed to get trie root for snapshot = %d", snapshot)
 	}
-	return ws.accountTrie.SetRootHash(root[:])
+	return ws.accountTrie.SetRootNode(root)
 }
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit() error {
+	if _, err := ws.accountTrie.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit account trie")
+	}
 	// Commit all changes in a batch
 	dbBatchSizelMtc.WithLabelValues().Set(float64(ws.cb.Size()))
 	if err := ws.dao.Commit(ws.cb); err != nil {
@@ -237,5 +240,5 @@ func (ws *workingSet) DelState(pkHash hash.PKHash) error {
 // clearCache removes all local changes after committing to trie
 func (ws *workingSet) clear() {
 	ws.trieRoots = nil
-	ws.trieRoots = make(map[int]hash.Hash32B)
+	ws.trieRoots = make(map[int]trie.Node)
 }

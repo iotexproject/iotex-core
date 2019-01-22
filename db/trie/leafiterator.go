@@ -6,7 +6,9 @@
 
 package trie
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 // ErrEndOfIterator defines an error which will be returned
 var ErrEndOfIterator = errors.New("hit the end of the iterator, no more item")
@@ -24,12 +26,7 @@ type LeafIterator struct {
 
 // NewLeafIterator returns a new leaf iterator
 func NewLeafIterator(tr Trie) (Iterator, error) {
-	rootHash := tr.RootHash()
-	root, err := tr.loadNodeFromDB(rootHash)
-	if err != nil {
-		return nil, err
-	}
-	stack := []Node{root}
+	stack := []Node{tr.RootNode()}
 
 	return &LeafIterator{tr: tr, stack: stack}, nil
 }
@@ -40,16 +37,20 @@ func (li *LeafIterator) Next() ([]byte, []byte, error) {
 		size := len(li.stack)
 		node := li.stack[size-1]
 		li.stack = li.stack[:size-1]
-		if node.Type() == LEAF {
-			key := node.Key()
-			value := node.Value()
+		if l, ok := node.(LeafNode); ok {
+			key := l.Key()
+			value := l.Value()
 
 			return append(key[:0:0], key...), append(value, value...), nil
 		}
-		children, err := node.children(li.tr)
-		if err != nil {
-			return nil, nil, err
+		if h, ok := node.(HashNode); ok {
+			node, err := li.tr.LoadNodeFromDB(h.Hash())
+			if err != nil {
+				return nil, nil, err
+			}
+			li.stack = append(li.stack, node)
 		}
+		children := node.Children()
 		li.stack = append(li.stack, children...)
 	}
 

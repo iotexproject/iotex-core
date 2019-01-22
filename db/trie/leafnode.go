@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -17,23 +17,11 @@ import (
 type leafNode struct {
 	key   keyType
 	value []byte
-	ser   []byte
+	cache nodeCache
 }
 
-func newLeafNodeAndPutIntoDB(
-	tr Trie,
-	key keyType,
-	value []byte,
-) (*leafNode, error) {
-	l := &leafNode{key: key, value: value}
-	if err := tr.putNodeIntoDB(l); err != nil {
-		return nil, err
-	}
-	return l, nil
-}
-
-func newLeafNodeFromProtoPb(pb *triepb.LeafPb) *leafNode {
-	return &leafNode{key: pb.Path, value: pb.Value}
+func newLeafNode(key keyType, value []byte) *leafNode {
+	return &leafNode{key: key, value: value, cache: nodeCache{dirty: true}}
 }
 
 func (l *leafNode) Type() NodeType {
@@ -48,18 +36,16 @@ func (l *leafNode) Value() []byte {
 	return l.value
 }
 
-func (l *leafNode) children(Trie) ([]Node, error) {
+func (l *leafNode) Children() []Node {
 	trieMtc.WithLabelValues("leafNode", "children").Inc()
-	return nil, nil
+	return nil
 }
 
-func (l *leafNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
+func (l *leafNode) delete(_ Trie, key keyType, offset uint8) (Node, error) {
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, ErrNotExist
 	}
-	if err := tr.deleteNodeFromDB(l); err != nil {
-		return nil, err
-	}
+
 	return nil, nil
 }
 
@@ -67,69 +53,66 @@ func (l *leafNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (Nod
 	trieMtc.WithLabelValues("leafNode", "upsert").Inc()
 	matched := commonPrefixLength(l.key[offset:], key[offset:])
 	if offset+matched == uint8(len(key)) {
-		return l.updateValue(tr, value)
+		return l.updateValue(value), nil
 	}
-	newl, err := newLeafNodeAndPutIntoDB(tr, key, value)
-	if err != nil {
-		return nil, err
-	}
-	bnode, err := newBranchNodeAndPutIntoDB(
-		tr,
+	newl := newLeafNode(key, value)
+	bnode := newBranchNode(
 		map[byte]Node{
 			key[offset+matched]:   newl,
 			l.key[offset+matched]: l,
 		},
 	)
-	if err != nil {
-		return nil, err
-	}
 	if matched == 0 {
 		return bnode, nil
 	}
 
-	return newExtensionNodeAndPutIntoDB(tr, l.key[offset:offset+matched], bnode)
+	return newExtensionNode(l.key[offset:offset+matched], bnode), nil
 }
 
-func (l *leafNode) search(_ Trie, key keyType, offset uint8) Node {
+func (l *leafNode) search(_ Trie, key keyType, offset uint8) (Node, error) {
 	trieMtc.WithLabelValues("leafNode", "search").Inc()
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
-		return nil
-	}
-
-	return l
-}
-
-func (l *leafNode) serialize() []byte {
-	trieMtc.WithLabelValues("leafNode", "serialize").Inc()
-	if l.ser != nil {
-		return l.ser
-	}
-	pb := &triepb.NodePb{
-		Node: &triepb.NodePb_Leaf{
-			Leaf: &triepb.LeafPb{
-				Path:  l.key[:],
-				Value: l.value,
-			},
-		},
-	}
-	ser, err := proto.Marshal(pb)
-	if err != nil {
-		panic("failed to marshal a leaf node")
-	}
-	l.ser = ser
-
-	return l.ser
-}
-
-func (l *leafNode) updateValue(tr Trie, value []byte) (*leafNode, error) {
-	if err := tr.deleteNodeFromDB(l); err != nil {
-		return nil, err
-	}
-	l.value = value
-	l.ser = nil
-	if err := tr.putNodeIntoDB(l); err != nil {
-		return nil, err
+		return nil, ErrNotExist
 	}
 
 	return l, nil
+}
+
+func (l *leafNode) isDirty() bool {
+	return l.cache.dirty
+}
+
+func (l *leafNode) hash(tr Trie, flush bool) ([]byte, error) {
+	if l.cache.hn == nil {
+		s, err := l.serialize()
+		if err != nil {
+			return nil, err
+		}
+		l.cache.hn = newHashNodeFromSer(tr, s)
+	}
+	if l.isDirty() && flush {
+		if err := tr.putNodeIntoDB(l.cache.hn); err != nil {
+			return nil, err
+		}
+	}
+	return l.cache.hn.getHash(), nil
+}
+
+func (l *leafNode) serialize() ([]byte, error) {
+	trieMtc.WithLabelValues("leafNode", "serialize").Inc()
+	return proto.Marshal(&triepb.NodePb{
+		Node: &triepb.NodePb_Leaf{
+			Leaf: &triepb.LeafNodePb{
+				Key:   l.key[:],
+				Value: l.value,
+			},
+		},
+	})
+}
+
+func (l *leafNode) updateValue(value []byte) *leafNode {
+	if bytes.Equal(value, l.value) {
+		return l
+	}
+	return newLeafNode(l.key, value)
 }
