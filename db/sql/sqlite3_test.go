@@ -21,6 +21,8 @@ func TestSQLite3StorePutGet(t *testing.T) {
 		SQLite3File: path,
 	}
 	t.Run("SQLite3 Store", func(t *testing.T) {
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testRDSStorePutGet(NewSQLite3(cfg), t)
 	})
 }

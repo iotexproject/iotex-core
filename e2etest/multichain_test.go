@@ -54,7 +54,8 @@ func TestTwoChains(t *testing.T) {
 	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
 	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
 	cfg.Chain.EnableSubChainStartInGenesis = true
-	cfg.Chain.WriteIndexInChainDB = true
+	cfg.Chain.EnableIndex = true
+	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = testutil.RandomPort()
 	cfg.Network.Port = testutil.RandomPort()
