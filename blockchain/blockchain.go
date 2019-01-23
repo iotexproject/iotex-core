@@ -233,7 +233,7 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		bc.dao = newBlockDAO(db.NewOnDiskDB(cfg.DB), cfg.Explorer.Enabled)
+		bc.dao = newBlockDAO(db.NewOnDiskDB(cfg.DB), cfg.Chain.WriteIndexInChainDB)
 		return nil
 	}
 }
@@ -241,7 +241,7 @@ func BoltDBDaoOption() Option {
 // InMemDaoOption sets blockchain's dao with MemKVStore
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		bc.dao = newBlockDAO(db.NewMemKVStore(), cfg.Explorer.Enabled)
+		bc.dao = newBlockDAO(db.NewMemKVStore(), cfg.Chain.WriteIndexInChainDB)
 
 		return nil
 	}

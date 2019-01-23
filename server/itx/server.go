@@ -282,6 +282,7 @@ func StartServer(svr *Server, cfg config.Config) {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
 		log.RegisterLevelConfigMux(mux)
+		registerHealthCheckMux(mux)
 		port := fmt.Sprintf(":%d", cfg.System.HTTPMetricsPort)
 		go func() {
 			if err := http.ListenAndServe(port, mux); err != nil {
