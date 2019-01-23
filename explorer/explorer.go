@@ -65,7 +65,7 @@ func init() {
 }
 
 type (
-	// Broadcast sends a broadcast message to the whole network
+	// BroadcastOutbound sends a broadcast message to the whole network
 	BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
 	// Neighbors returns the neighbors' addresses
 	Neighbors func(context.Context) ([]peerstore.PeerInfo, error)
