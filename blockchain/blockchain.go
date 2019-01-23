@@ -1110,6 +1110,8 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
+	// emit block to all block subscribers
+	bc.emitToSubscribers(blk)
 
 	// update tip hash and height
 	atomic.StoreUint64(&bc.tipHeight, blk.Height())
@@ -1137,10 +1139,6 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 		}
 	}
-
-	// emit block to all block subscribers
-	bc.emitToSubscribers(blk)
-
 	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", bc.tipHash[:]))
 	return nil
 }

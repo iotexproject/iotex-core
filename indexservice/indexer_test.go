@@ -116,23 +116,13 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 
 	// get receipt
-	receipt1, err := idx.GetReceiptByHash(receipts[0].Hash)
+	blkHash, err := idx.GetBlockByReceipt(receipts[0].Hash)
 	require.Nil(err)
-	require.Equal(receipts[0].GasConsumed, receipt1.GasConsumed)
-	require.Equal(receipts[0].Hash, receipt1.Hash)
-	require.Equal(receipts[0].ReturnValue, receipt1.ReturnValue)
-	require.Equal(receipts[0].ContractAddress, receipt1.ContractAddress)
-	require.Equal(receipts[0].Status, receipt1.Status)
-	require.Equal(receipts[0].Logs, receipt1.Logs)
+	require.Equal(blkHash, blk.HashBlock())
 
-	receipt2, err := idx.GetReceiptByHash(receipts[1].Hash)
+	blkHash, err = idx.GetBlockByReceipt(receipts[1].Hash)
 	require.Nil(err)
-	require.Equal(receipts[1].GasConsumed, receipt2.GasConsumed)
-	require.Equal(receipts[1].Hash, receipt2.Hash)
-	require.Equal(receipts[1].ReturnValue, receipt2.ReturnValue)
-	require.Equal(receipts[1].ContractAddress, receipt2.ContractAddress)
-	require.Equal(receipts[1].Status, receipt2.Status)
-	require.Equal(receipts[1].Logs, receipt2.Logs)
+	require.Equal(blkHash, blk.HashBlock())
 
 	// get transfer
 	transferHashes, err := idx.GetTransferHistory(addr1)
@@ -223,7 +213,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	require.Nil(err)
 
 	// delete receipts
-	stmt, err = db.Prepare("DELETE FROM hash_to_receipt WHERE node_address=?")
+	stmt, err = db.Prepare("DELETE FROM receipt_to_block WHERE node_address=?")
 	require.Nil(err)
 	_, err = stmt.Exec(nodeAddr)
 	require.Nil(err)

@@ -10,7 +10,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -18,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	s "github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/proto"
 )
 
 type (
@@ -70,11 +68,11 @@ type (
 		ActionHash  string
 		BlockHash   string
 	}
-	// HashToReceipt defines the schema of "hash to receipt" table
-	HashToReceipt struct {
-		NodeAddress  string
-		ReceiptHash  []byte
-		ReceiptBytes []byte
+	// ReceiptToBlock defines the schema of "receipt to block" table
+	ReceiptToBlock struct {
+		NodeAddress string
+		ReceiptHash []byte
+		BlockHash   []byte
 	}
 )
 
@@ -137,7 +135,7 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		}
 
 		// map hash to receipt
-		if err := idx.UpdateHashToReceipt(blk, tx); err != nil {
+		if err := idx.UpdateReceiptToBlock(blk, tx); err != nil {
 			return errors.Wrap(err, "failed to update hash to receipt")
 		}
 
@@ -528,52 +526,46 @@ func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, err
 	return hash, nil
 }
 
-// UpdateHashToReceipt maps action hash to receipt
-func (idx *Indexer) UpdateHashToReceipt(blk *block.Block, tx *sql.Tx) error {
-	insertQuery := "INSERT INTO hash_to_receipt (node_address,receipt_hash,receipt_bytes) VALUES (?, ?, ?)"
-	for hash, receipt := range blk.Receipts {
-		receiptBytes, err := proto.Marshal(receipt.ConvertToReceiptPb())
-		if err != nil {
-			return err
-		}
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(hash[:]), receiptBytes); err != nil {
+// UpdateReceiptToBlock maps receipt hash to block
+func (idx *Indexer) UpdateReceiptToBlock(blk *block.Block, tx *sql.Tx) error {
+	blockHash := blk.HashBlock()
+	insertQuery := "INSERT INTO receipt_to_block (node_address,receipt_hash,block_hash) VALUES (?, ?, ?)"
+	for hash, _ := range blk.Receipts {
+		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(hash[:]), blockHash[:]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// GetReceiptByHash returns receipt by receipt hash
-func (idx *Indexer) GetReceiptByHash(receiptHash hash.Hash32B) (*action.Receipt, error) {
-	getQuery := "SELECT * FROM hash_to_receipt WHERE node_address=? AND receipt_hash=?"
+// GetBlockByReceipt returns block by receipt hash
+func (idx *Indexer) GetBlockByReceipt(receiptHash hash.Hash32B) (hash.Hash32B, error) {
+	getQuery := "SELECT * FROM receipt_to_block WHERE node_address=? AND receipt_hash=?"
 	db := idx.store.GetDB()
 
 	stmt, err := db.Prepare(getQuery)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare get query")
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
 	}
 
 	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(receiptHash[:]))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute get query")
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
 	}
 
-	var hashToReceipt HashToReceipt
-	parsedRows, err := s.ParseSQLRows(rows, &hashToReceipt)
+	var receiptToBlock ReceiptToBlock
+	parsedRows, err := s.ParseSQLRows(rows, &receiptToBlock)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse results")
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
 	}
 
 	if len(parsedRows) == 0 {
-		return nil, ErrNotExist
+		return hash.ZeroHash32B, ErrNotExist
 	}
-	receiptPb := iproto.ReceiptPb{}
-	if err := proto.Unmarshal(parsedRows[0].(*HashToReceipt).ReceiptBytes, &receiptPb); err != nil {
-		return nil, err
-	}
-	receipt := action.Receipt{}
-	receipt.ConvertFromReceiptPb(&receiptPb)
-	return &receipt, nil
+
+	var hash hash.Hash32B
+	copy(hash[:], parsedRows[0].(*ReceiptToBlock).BlockHash)
+	return hash, nil
 }
 
 // CreateTablesIfNotExist creates tables in local database
@@ -619,8 +611,8 @@ func (idx *Indexer) CreateTablesIfNotExist() error {
 	}
 
 	// create receipt index
-	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS hash_to_receipt ([node_address] TEXT NOT NULL, [receipt_hash] " +
-		"BLOB(32) NOT NULL, [receipt_bytes] BLOB NOT NULL)"); err != nil {
+	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS receipt_to_block ([node_address] TEXT NOT NULL, [receipt_hash] " +
+		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
 		return err
 	}
 

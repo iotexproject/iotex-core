@@ -694,16 +694,29 @@ func (exp *Service) GetReceiptByActionID(id string) (explorer.Receipt, error) {
 	}
 	var actionHash hash.Hash32B
 	copy(actionHash[:], bytes)
-	var receipt *action.Receipt
-	if exp.cfg.UseIndexer {
-		receipt, err = exp.idx.Indexer().GetReceiptByHash(actionHash)
-	} else {
-		receipt, err = exp.bc.GetReceiptByActionHash(actionHash)
+
+	// get receipt from boltdb
+	if !exp.cfg.UseIndexer {
+		receipt, err := exp.bc.GetReceiptByActionHash(actionHash)
+		if err != nil {
+			return explorer.Receipt{}, err
+		}
+		return convertReceiptToExplorerReceipt(receipt)
 	}
+
+	// get receipt from indexer
+	blkHash, err := exp.idx.Indexer().GetBlockByReceipt(actionHash)
 	if err != nil {
 		return explorer.Receipt{}, err
 	}
-
+	blk, err := exp.bc.GetBlockByHash(blkHash)
+	if err != nil {
+		return explorer.Receipt{}, err
+	}
+	receipt, ok := blk.Receipts[actionHash]
+	if !ok {
+		return explorer.Receipt{}, err
+	}
 	return convertReceiptToExplorerReceipt(receipt)
 }
 
