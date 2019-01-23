@@ -20,59 +20,17 @@ import (
 )
 
 type (
-	// TransferHistory defines the schema of "transfer history" table
-	TransferHistory struct {
+	// BlockByIndex defines the base schema of "index to block" table
+	BlockByIndex struct {
 		NodeAddress string
-		UserAddress string
-		TrasferHash string
-	}
-	// TransferToBlock defines the schema of "transfer hash to block hash" table
-	TransferToBlock struct {
-		NodeAddress string
-		TrasferHash string
-		BlockHash   string
-	}
-	// VoteHistory defines the schema of "vote history" table
-	VoteHistory struct {
-		NodeAddress string
-		UserAddress string
-		VoteHash    string
-	}
-	// VoteToBlock defines the schema of "vote hash to block hash" table
-	VoteToBlock struct {
-		NodeAddress string
-		VoteHash    string
-		BlockHash   string
-	}
-	// ExecutionHistory defines the schema of "execution history" table
-	ExecutionHistory struct {
-		NodeAddress   string
-		UserAddress   string
-		ExecutionHash string
-	}
-	// ExecutionToBlock defines the schema of "execution hash to block hash" table
-	ExecutionToBlock struct {
-		NodeAddress   string
-		ExecutionHash string
-		BlockHash     string
-	}
-	// ActionHistory defines the schema of "action history" table
-	ActionHistory struct {
-		NodeAddress string
-		UserAddress string
-		ActionHash  string
-	}
-	// ActionToBlock defines the schema of "action hash to block hash" table
-	ActionToBlock struct {
-		NodeAddress string
-		ActionHash  string
-		BlockHash   string
-	}
-	// ReceiptToBlock defines the schema of "receipt to block" table
-	ReceiptToBlock struct {
-		NodeAddress string
-		ReceiptHash []byte
+		Index       []byte
 		BlockHash   []byte
+	}
+	// IndexHistory defines the schema of "index history" table
+	IndexHistory struct {
+		NodeAddress string
+		UserAddress string
+		Index       string
 	}
 )
 
@@ -169,29 +127,9 @@ func (idx *Indexer) UpdateTransferHistory(blk *block.Block, tx *sql.Tx) error {
 // GetTransferHistory gets transfer history
 func (idx *Indexer) GetTransferHistory(userAddr string) ([]hash.Hash32B, error) {
 	getQuery := "SELECT * FROM transfer_history WHERE node_address=? AND user_address=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
+	transferHashes, err := idx.getIndexHistory(getQuery, userAddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var transferHistory TransferHistory
-	parsedRows, err := s.ParseSQLRows(rows, &transferHistory)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse results")
-	}
-
-	var transferHashes []hash.Hash32B
-	for _, parsedRow := range parsedRows {
-		var hash hash.Hash32B
-		copy(hash[:], parsedRow.(*TransferHistory).TrasferHash)
-		transferHashes = append(transferHashes, hash)
+		return nil, errors.Wrapf(err, "failed to get transfer history")
 	}
 	return transferHashes, nil
 }
@@ -213,31 +151,11 @@ func (idx *Indexer) UpdateTransferToBlock(blk *block.Block, tx *sql.Tx) error {
 // GetBlockByTransfer returns block hash by transfer hash
 func (idx *Indexer) GetBlockByTransfer(transferHash hash.Hash32B) (hash.Hash32B, error) {
 	getQuery := "SELECT * FROM transfer_to_block WHERE node_address=? AND transfer_hash=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
+	blkHash, err := idx.blockByIndex(getQuery, transferHash)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to get block hash by transfer hash")
 	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(transferHash[:]))
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var transferToBlock TransferToBlock
-	parsedRows, err := s.ParseSQLRows(rows, &transferToBlock)
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
-	}
-
-	if len(parsedRows) == 0 {
-		return hash.ZeroHash32B, ErrNotExist
-	}
-
-	var hash hash.Hash32B
-	copy(hash[:], parsedRows[0].(*TransferToBlock).BlockHash)
-	return hash, nil
+	return blkHash, nil
 }
 
 // UpdateVoteHistory stores vote information into vote history table
@@ -265,29 +183,9 @@ func (idx *Indexer) UpdateVoteHistory(blk *block.Block, tx *sql.Tx) error {
 // GetVoteHistory gets vote history
 func (idx *Indexer) GetVoteHistory(userAddr string) ([]hash.Hash32B, error) {
 	getQuery := "SELECT * FROM vote_history WHERE node_address=? AND user_address=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
+	voteHashes, err := idx.getIndexHistory(getQuery, userAddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var voteHistory VoteHistory
-	parsedRows, err := s.ParseSQLRows(rows, &voteHistory)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse results")
-	}
-
-	var voteHashes []hash.Hash32B
-	for _, parsedRow := range parsedRows {
-		var hash hash.Hash32B
-		copy(hash[:], parsedRow.(*VoteHistory).VoteHash)
-		voteHashes = append(voteHashes, hash)
+		return nil, errors.Wrapf(err, "failed to get vote history")
 	}
 	return voteHashes, nil
 }
@@ -309,31 +207,11 @@ func (idx *Indexer) UpdateVoteToBlock(blk *block.Block, tx *sql.Tx) error {
 // GetBlockByVote returns block hash by vote hash
 func (idx *Indexer) GetBlockByVote(voteHash hash.Hash32B) (hash.Hash32B, error) {
 	getQuery := "SELECT * FROM vote_to_block WHERE node_address=? AND vote_hash=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
+	blkHash, err := idx.blockByIndex(getQuery, voteHash)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to get block hash by vote hash")
 	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(voteHash[:]))
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var voteToBlock VoteToBlock
-	parsedRows, err := s.ParseSQLRows(rows, &voteToBlock)
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
-	}
-
-	if len(parsedRows) == 0 {
-		return hash.ZeroHash32B, ErrNotExist
-	}
-
-	var hash hash.Hash32B
-	copy(hash[:], parsedRows[0].(*VoteToBlock).BlockHash)
-	return hash, nil
+	return blkHash, nil
 }
 
 // UpdateExecutionHistory stores execution information into execution history table
@@ -361,29 +239,9 @@ func (idx *Indexer) UpdateExecutionHistory(blk *block.Block, tx *sql.Tx) error {
 // GetExecutionHistory gets execution history
 func (idx *Indexer) GetExecutionHistory(userAddr string) ([]hash.Hash32B, error) {
 	getQuery := "SELECT * FROM execution_history WHERE node_address=? AND user_address=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
+	executionHashes, err := idx.getIndexHistory(getQuery, userAddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var executionHistory ExecutionHistory
-	parsedRows, err := s.ParseSQLRows(rows, &executionHistory)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse results")
-	}
-
-	var executionHashes []hash.Hash32B
-	for _, parsedRow := range parsedRows {
-		var hash hash.Hash32B
-		copy(hash[:], parsedRow.(*ExecutionHistory).ExecutionHash)
-		executionHashes = append(executionHashes, hash)
+		return nil, errors.Wrapf(err, "failed to get execution history")
 	}
 	return executionHashes, nil
 }
@@ -405,31 +263,11 @@ func (idx *Indexer) UpdateExecutionToBlock(blk *block.Block, tx *sql.Tx) error {
 // GetBlockByExecution returns block hash by execution hash
 func (idx *Indexer) GetBlockByExecution(executionHash hash.Hash32B) (hash.Hash32B, error) {
 	getQuery := "SELECT * FROM execution_to_block WHERE node_address=? AND execution_hash=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
+	blkHash, err := idx.blockByIndex(getQuery, executionHash)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to get block hash by execution hash")
 	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(executionHash[:]))
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var executionToBlock ExecutionToBlock
-	parsedRows, err := s.ParseSQLRows(rows, &executionToBlock)
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
-	}
-
-	if len(parsedRows) == 0 {
-		return hash.ZeroHash32B, ErrNotExist
-	}
-
-	var hash hash.Hash32B
-	copy(hash[:], parsedRows[0].(*ExecutionToBlock).BlockHash)
-	return hash, nil
+	return blkHash, nil
 }
 
 // UpdateActionHistory stores action information into action history table
@@ -456,29 +294,9 @@ func (idx *Indexer) UpdateActionHistory(blk *block.Block, tx *sql.Tx) error {
 // GetActionHistory gets action history
 func (idx *Indexer) GetActionHistory(userAddr string) ([]hash.Hash32B, error) {
 	getQuery := "SELECT * FROM action_history WHERE node_address=? AND user_address=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
+	actionHashes, err := idx.getIndexHistory(getQuery, userAddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var actionHistory ActionHistory
-	parsedRows, err := s.ParseSQLRows(rows, &actionHistory)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse results")
-	}
-
-	var actionHashes []hash.Hash32B
-	for _, parsedRow := range parsedRows {
-		var hash hash.Hash32B
-		copy(hash[:], parsedRow.(*ActionHistory).ActionHash)
-		actionHashes = append(actionHashes, hash)
+		return nil, errors.Wrapf(err, "failed to get action history")
 	}
 	return actionHashes, nil
 }
@@ -499,6 +317,38 @@ func (idx *Indexer) UpdateActionToBlock(blk *block.Block, tx *sql.Tx) error {
 // GetBlockByAction returns block hash by action hash
 func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, error) {
 	getQuery := "SELECT * FROM action_to_block WHERE node_address=? AND action_hash=?"
+	blkHash, err := idx.blockByIndex(getQuery, actionHash)
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to get block hash by action hash")
+	}
+	return blkHash, nil
+}
+
+// UpdateReceiptToBlock maps receipt hash to block
+func (idx *Indexer) UpdateReceiptToBlock(blk *block.Block, tx *sql.Tx) error {
+	blockHash := blk.HashBlock()
+	insertQuery := "INSERT INTO receipt_to_block (node_address,receipt_hash,block_hash) VALUES (?, ?, ?)"
+	for hash := range blk.Receipts {
+		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(hash[:]),
+			blockHash[:]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GetBlockByReceipt returns block by receipt hash
+func (idx *Indexer) GetBlockByReceipt(receiptHash hash.Hash32B) (hash.Hash32B, error) {
+	getQuery := "SELECT * FROM receipt_to_block WHERE node_address=? AND receipt_hash=?"
+	blkHash, err := idx.blockByIndex(getQuery, receiptHash)
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to get block hash by receipt hash")
+	}
+	return blkHash, nil
+}
+
+// blockByIndex returns block by receipt hash
+func (idx *Indexer) blockByIndex(getQuery string, actionHash hash.Hash32B) (hash.Hash32B, error) {
 	db := idx.store.GetDB()
 
 	stmt, err := db.Prepare(getQuery)
@@ -511,8 +361,8 @@ func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, err
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
 	}
 
-	var actionToBlock ActionToBlock
-	parsedRows, err := s.ParseSQLRows(rows, &actionToBlock)
+	var blockByIndex BlockByIndex
+	parsedRows, err := s.ParseSQLRows(rows, &blockByIndex)
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
 	}
@@ -522,50 +372,37 @@ func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, err
 	}
 
 	var hash hash.Hash32B
-	copy(hash[:], parsedRows[0].(*ActionToBlock).BlockHash)
+	copy(hash[:], parsedRows[0].(*BlockByIndex).BlockHash)
 	return hash, nil
 }
 
-// UpdateReceiptToBlock maps receipt hash to block
-func (idx *Indexer) UpdateReceiptToBlock(blk *block.Block, tx *sql.Tx) error {
-	blockHash := blk.HashBlock()
-	insertQuery := "INSERT INTO receipt_to_block (node_address,receipt_hash,block_hash) VALUES (?, ?, ?)"
-	for hash, _ := range blk.Receipts {
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(hash[:]), blockHash[:]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// GetBlockByReceipt returns block by receipt hash
-func (idx *Indexer) GetBlockByReceipt(receiptHash hash.Hash32B) (hash.Hash32B, error) {
-	getQuery := "SELECT * FROM receipt_to_block WHERE node_address=? AND receipt_hash=?"
+// getIndexHistory gets index history
+func (idx *Indexer) getIndexHistory(getQuery string, userAddr string) ([]hash.Hash32B, error) {
 	db := idx.store.GetDB()
 
 	stmt, err := db.Prepare(getQuery)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
+		return nil, errors.Wrapf(err, "failed to prepare get query")
 	}
 
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(receiptHash[:]))
+	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
+		return nil, errors.Wrapf(err, "failed to execute get query")
 	}
 
-	var receiptToBlock ReceiptToBlock
-	parsedRows, err := s.ParseSQLRows(rows, &receiptToBlock)
+	var indexHistory IndexHistory
+	parsedRows, err := s.ParseSQLRows(rows, &indexHistory)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
+		return nil, errors.Wrapf(err, "failed to parse results")
 	}
 
-	if len(parsedRows) == 0 {
-		return hash.ZeroHash32B, ErrNotExist
+	var indexHashes []hash.Hash32B
+	for _, parsedRow := range parsedRows {
+		var hash hash.Hash32B
+		copy(hash[:], parsedRow.(*IndexHistory).Index)
+		indexHashes = append(indexHashes, hash)
 	}
-
-	var hash hash.Hash32B
-	copy(hash[:], parsedRows[0].(*ReceiptToBlock).BlockHash)
-	return hash, nil
+	return indexHashes, nil
 }
 
 // CreateTablesIfNotExist creates tables in local database
