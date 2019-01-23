@@ -279,11 +279,11 @@
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
-  digest = "1:74647cdf77ca9db9e3aefe7bec47687dc29bf54aaf13b68ea1983e11b11e0a30"
+  digest = "1:eaa8dcbae193f564ce217ba2b294ff923c6215a77542c310b71926a52a343616"
   name = "github.com/iotexproject/go-p2p"
   packages = ["."]
   pruneopts = "UT"
-  revision = "985c300fb1d4aff383c030ee8be763168b34846c"
+  revision = "b70295aa41a56729b5eff2bb0e333fcbadad1fe1"
 
 [[projects]]
   digest = "1:9999472bf9c934426d967c507d61f2de84affb8318b8d8c8bc38b3486edbd826"
@@ -1264,7 +1264,9 @@
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/iotexproject/go-fsm",
     "github.com/iotexproject/go-p2p",
+    "github.com/libp2p/go-libp2p-peerstore",
     "github.com/mattn/go-sqlite3",
+    "github.com/multiformats/go-multiaddr",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",

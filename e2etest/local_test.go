@@ -9,12 +9,12 @@ package e2etest
 import (
 	"context"
 	"math/big"
-	"net"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -62,13 +62,13 @@ func TestLocalCommit(t *testing.T) {
 	// create client
 	cfg, err = newTestConfig()
 	require.Nil(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	p := p2p.NewAgent(
 		cfg.Network,
-		func(_ uint32, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ proto.Message) {
 
 		},
-		func(_ uint32, _ net.Addr, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
 
 		},
 	)
@@ -176,7 +176,7 @@ func TestLocalCommit(t *testing.T) {
 
 	act1 := tsf1.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		if err := p.Broadcast(p2pCtx, act1); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act1); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -209,7 +209,7 @@ func TestLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act2 := tsf2.Proto()
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		if err := p.Broadcast(p2pCtx, act2); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act2); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -235,7 +235,7 @@ func TestLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act3 := tsf3.Proto()
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		if err := p.Broadcast(p2pCtx, act3); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act3); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -260,7 +260,7 @@ func TestLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act4 := tsf4.Proto()
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		if err := p.Broadcast(p2pCtx, act4); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act4); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -268,13 +268,13 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 	// wait 4 blocks being picked and committed
-	err = p.Broadcast(p2pCtx, blk2.ConvertToBlockPb())
+	err = p.BroadcastOutbound(p2pCtx, blk2.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(p2pCtx, blk4.ConvertToBlockPb())
+	err = p.BroadcastOutbound(p2pCtx, blk4.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(p2pCtx, blk1.ConvertToBlockPb())
+	err = p.BroadcastOutbound(p2pCtx, blk1.ConvertToBlockPb())
 	require.NoError(err)
-	err = p.Broadcast(p2pCtx, blk3.ConvertToBlockPb())
+	err = p.BroadcastOutbound(p2pCtx, blk3.ConvertToBlockPb())
 	require.NoError(err)
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
@@ -394,7 +394,7 @@ func TestLocalSync(t *testing.T) {
 
 	// Create client
 	cfg.NodeType = config.FullNodeType
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
 	require.Nil(err)
@@ -412,11 +412,12 @@ func TestLocalSync(t *testing.T) {
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
-		return len(svr.P2PAgent().Neighbors()) >= 1, nil
+		peers, err := svr.P2PAgent().Neighbors(context.Background())
+		return len(peers) >= 1, err
 	})
 	require.Nil(err)
 
-	err = svr.P2PAgent().Broadcast(
+	err = svr.P2PAgent().BroadcastOutbound(
 		p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID}),
 		blk.ConvertToBlockPb(),
 	)
@@ -494,15 +495,11 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	cfg, err = newTestConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	p := p2p.NewAgent(
 		cfg.Network,
-		func(_ uint32, _ proto.Message) {
-
-		},
-		func(_ uint32, addr net.Addr, _ proto.Message) {
-
-		},
+		func(_ context.Context, _ uint32, _ proto.Message) {},
+		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {},
 	)
 	require.NotNil(p)
 	require.NoError(p.Start(ctx))
@@ -569,25 +566,25 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		if err := p.Broadcast(p2pCtx, act1); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act1); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(p2pCtx, act2); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act2); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(p2pCtx, act3); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act3); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(p2pCtx, acttsf1); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, acttsf1); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(p2pCtx, acttsf2); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, acttsf2); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(p2pCtx, acttsf3); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, acttsf3); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(p2pCtx, acttsf4); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, acttsf4); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -603,7 +600,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(chain.ValidateBlock(blk1, true))
 	require.Nil(chain.CommitBlock(blk1))
 
-	require.NoError(p.Broadcast(p2pCtx, blk1.ConvertToBlockPb()))
+	require.NoError(p.BroadcastOutbound(p2pCtx, blk1.ConvertToBlockPb()))
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 6, nil
@@ -632,10 +629,10 @@ func TestVoteLocalCommit(t *testing.T) {
 	act4 := vote4.Proto()
 	act5 := vote5.Proto()
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		if err := p.Broadcast(p2pCtx, act4); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act4); err != nil {
 			return false, err
 		}
-		if err := p.Broadcast(p2pCtx, act5); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act5); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -643,7 +640,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	require.NoError(p.Broadcast(p2pCtx, blk2.ConvertToBlockPb()))
+	require.NoError(p.BroadcastOutbound(p2pCtx, blk2.ConvertToBlockPb()))
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 7, nil
@@ -680,7 +677,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act6 := vote6.Proto()
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		if err := p.Broadcast(p2pCtx, act6); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act6); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -688,7 +685,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	err = p.Broadcast(p2pCtx, blk3.ConvertToBlockPb())
+	err = p.BroadcastOutbound(p2pCtx, blk3.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
@@ -731,7 +728,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	// broadcast to P2P
 	act7 := selp.Proto()
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		if err := p.Broadcast(p2pCtx, act7); err != nil {
+		if err := p.BroadcastOutbound(p2pCtx, act7); err != nil {
 			return false, err
 		}
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
@@ -739,7 +736,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	})
 	require.Nil(err)
 
-	err = p.Broadcast(p2pCtx, blk4.ConvertToBlockPb())
+	err = p.BroadcastOutbound(p2pCtx, blk4.ConvertToBlockPb())
 	require.NoError(err)
 
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {

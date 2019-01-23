@@ -9,11 +9,11 @@ package e2etest
 import (
 	"context"
 	"math/big"
-	"net"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -57,13 +57,13 @@ func TestLocalActPool(t *testing.T) {
 	// create client
 	cfg, err = newActPoolConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	cli := p2p.NewAgent(
 		cfg.Network,
-		func(_ uint32, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ proto.Message) {
 
 		},
-		func(_ uint32, _ net.Addr, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
 
 		},
 	)
@@ -94,7 +94,7 @@ func TestLocalActPool(t *testing.T) {
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 	// Wait until server receives the 1st action
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		require.NoError(cli.Broadcast(p2pCtx, tsf1.Proto()))
+		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf1.Proto()))
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(acts) == 1, nil
 	}))
@@ -113,10 +113,10 @@ func TestLocalActPool(t *testing.T) {
 	vote5, err := testutil.SignedVote(from, from, priKey, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(cli.Broadcast(p2pCtx, vote2.Proto()))
-	require.NoError(cli.Broadcast(p2pCtx, tsf3.Proto()))
-	require.NoError(cli.Broadcast(p2pCtx, exec4.Proto()))
-	require.NoError(cli.Broadcast(p2pCtx, vote5.Proto()))
+	require.NoError(cli.BroadcastOutbound(p2pCtx, vote2.Proto()))
+	require.NoError(cli.BroadcastOutbound(p2pCtx, tsf3.Proto()))
+	require.NoError(cli.BroadcastOutbound(p2pCtx, exec4.Proto()))
+	require.NoError(cli.BroadcastOutbound(p2pCtx, vote5.Proto()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
@@ -146,13 +146,13 @@ func TestPressureActPool(t *testing.T) {
 	// create client
 	cfg, err = newActPoolConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self().String()}
+	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	cli := p2p.NewAgent(
 		cfg.Network,
-		func(_ uint32, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ proto.Message) {
 
 		},
-		func(_ uint32, _ net.Addr, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
 
 		},
 	)
@@ -182,7 +182,7 @@ func TestPressureActPool(t *testing.T) {
 	require.NoError(err)
 	// Wait until server receives the 1st action
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		require.NoError(cli.Broadcast(p2pCtx, tsf.Proto()))
+		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf.Proto()))
 		acts := svr.ChainService(chainID).ActionPool().PickActs()
 		return len(acts) == 1, nil
 	}))
@@ -191,7 +191,7 @@ func TestPressureActPool(t *testing.T) {
 		tsf, err := testutil.SignedTransfer(from, to, priKey, uint64(i), big.NewInt(int64(i)),
 			[]byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		require.NoError(cli.Broadcast(p2pCtx, tsf.Proto()))
+		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf.Proto()))
 	}
 
 	// Wait until committed blocks contain all broadcasted actions
