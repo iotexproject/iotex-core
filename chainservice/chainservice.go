@@ -8,10 +8,10 @@ package chainservice
 
 import (
 	"context"
-	"net"
 	"os"
 
 	"github.com/golang/protobuf/proto"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -110,9 +110,9 @@ func New(
 		cfg,
 		chain,
 		actPool,
-		blocksync.WithUnicast(func(addr net.Addr, msg proto.Message) error {
-			ctx := p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()})
-			return p2pAgent.Unicast(ctx, addr, msg)
+		blocksync.WithUnicastOutBound(func(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) error {
+			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()})
+			return p2pAgent.UnicastOutbound(ctx, peer, msg)
 		}),
 		blocksync.WithNeighbors(p2pAgent.Neighbors),
 	)
@@ -122,7 +122,7 @@ func New(
 
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
-			return p2pAgent.Broadcast(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
+			return p2pAgent.BroadcastOutbound(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
 		}),
 	}
 	if ops.rootChainAPI != nil {
@@ -150,12 +150,12 @@ func New(
 			dispatcher,
 			actPool,
 			idx,
-			explorer.WithBroadcast(func(chainID uint32, msg proto.Message) error {
-				ctx := p2p.WitContext(context.Background(), p2p.Context{ChainID: chainID})
-				return p2pAgent.Broadcast(ctx, msg)
+			explorer.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+				ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
+				return p2pAgent.BroadcastOutbound(ctx, msg)
 			}),
 			explorer.WithNeighbors(p2pAgent.Neighbors),
-			explorer.WithSelf(p2pAgent.Self),
+			explorer.WithNetworkInfo(p2pAgent.Info),
 		)
 		if err != nil {
 			return nil, err
@@ -221,7 +221,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 }
 
 // HandleAction handles incoming action request.
-func (cs *ChainService) HandleAction(actPb *iproto.ActionPb) error {
+func (cs *ChainService) HandleAction(_ context.Context, actPb *iproto.ActionPb) error {
 	var act action.SealedEnvelope
 	if err := act.LoadProto(actPb); err != nil {
 		return err
@@ -237,26 +237,26 @@ func (cs *ChainService) HandleAction(actPb *iproto.ActionPb) error {
 }
 
 // HandleBlock handles incoming block request.
-func (cs *ChainService) HandleBlock(pbBlock *iproto.BlockPb) error {
+func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iproto.BlockPb) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
 	}
-	return cs.blocksync.ProcessBlock(blk)
+	return cs.blocksync.ProcessBlock(ctx, blk)
 }
 
 // HandleBlockSync handles incoming block sync request.
-func (cs *ChainService) HandleBlockSync(pbBlock *iproto.BlockPb) error {
+func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iproto.BlockPb) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
 	}
-	return cs.blocksync.ProcessBlockSync(blk)
+	return cs.blocksync.ProcessBlockSync(ctx, blk)
 }
 
 // HandleSyncRequest handles incoming sync request.
-func (cs *ChainService) HandleSyncRequest(sender string, sync *iproto.BlockSync) error {
-	return cs.blocksync.ProcessSyncRequest(sender, sync)
+func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iproto.BlockSync) error {
+	return cs.blocksync.ProcessSyncRequest(ctx, peer, sync)
 }
 
 // HandleConsensusMsg handles incoming consensus message.

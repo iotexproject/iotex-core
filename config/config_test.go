@@ -35,7 +35,9 @@ func TestNewConfigWithoutValidation(t *testing.T) {
 	cfg, err := New(DoNotValidate)
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
-	require.Equal(t, Default, cfg)
+	exp := Default
+	exp.Network.MasterKey = "000000000000000000000000000000000000000000000000000000000000000000000000"
+	require.Equal(t, exp, cfg)
 }
 
 func TestNewConfigWithWrongConfigPath(t *testing.T) {

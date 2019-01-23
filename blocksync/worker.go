@@ -27,7 +27,7 @@ type syncWorker struct {
 	chainID          uint32
 	mu               sync.RWMutex
 	targetHeight     uint64
-	unicastHandler   Unicast
+	unicastHandler   UnicastOutbound
 	neighborsHandler Neighbors
 	rrIdx            int
 	buf              *blockBuffer
@@ -37,7 +37,7 @@ type syncWorker struct {
 func newSyncWorker(
 	chainID uint32,
 	cfg config.Config,
-	unicastHandler Unicast,
+	unicastHandler UnicastOutbound,
 	neighborsHandler Neighbors,
 	buf *blockBuffer,
 ) *syncWorker {
@@ -82,9 +82,14 @@ func (w *syncWorker) Sync() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	peers := w.neighborsHandler()
+	ctx := context.Background()
+	peers, err := w.neighborsHandler(ctx)
 	if len(peers) == 0 {
 		log.L().Debug("No peer exist to sync with.")
+		return
+	}
+	if err != nil {
+		log.L().Warn("Error when get neighbor peers.", zap.Error(err))
 		return
 	}
 	intervals := w.buf.GetBlocksIntervalsToSync(w.targetHeight)
@@ -96,7 +101,7 @@ func (w *syncWorker) Sync() {
 	for _, interval := range intervals {
 		w.rrIdx %= len(peers)
 		p := peers[w.rrIdx]
-		if err := w.unicastHandler(p, &pb.BlockSync{
+		if err := w.unicastHandler(ctx, p, &pb.BlockSync{
 			Start: interval.Start, End: interval.End,
 		}); err != nil {
 			log.L().Warn("Failed to sync block.", zap.Error(err))

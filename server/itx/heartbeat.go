@@ -7,6 +7,7 @@
 package itx
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 
@@ -59,11 +60,17 @@ func (h *HeartbeatHandler) Log() {
 	numDPEvts := len(*dp.EventChan())
 	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
 	if err != nil {
-		log.L().Error("error when serializing the dispatcher event audit map")
+		log.L().Error("error when serializing the dispatcher event audit map.", zap.Error(err))
 		return
 	}
 
-	numPeers := len(p2pAgent.Neighbors())
+	ctx := context.Background()
+	peers, err := p2pAgent.Neighbors(ctx)
+	if err != nil {
+		log.L().Error("error when get neighbors.", zap.Error(err))
+		return
+	}
+	numPeers := len(peers)
 	log.L().Info("Node status.",
 		zap.Int("numPeers", numPeers),
 		zap.Int("pendingDispatcherEvents", numDPEvts),

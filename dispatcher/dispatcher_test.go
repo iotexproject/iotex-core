@@ -12,10 +12,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/p2p/node"
 	pb "github.com/iotexproject/iotex-core/proto"
 )
 
@@ -66,7 +66,7 @@ func TestHandleBroadcast(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleBroadcast(config.Default.Chain.ID, msg)
+			d.HandleBroadcast(ctx, config.Default.Chain.ID, msg)
 		}
 	}
 }
@@ -81,30 +81,21 @@ func TestHandleTell(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		for _, msg := range msgs {
-			d.HandleTell(config.Default.Chain.ID, node.NewTCPNode("192.168.0.0:10000"), msg)
+			d.HandleTell(ctx, config.Default.Chain.ID, peerstore.PeerInfo{}, msg)
 		}
 	}
 }
 
-type DummySubscriber struct {
-}
+type DummySubscriber struct{}
 
-func (s *DummySubscriber) HandleBlock(*pb.BlockPb) error {
+func (s *DummySubscriber) HandleBlock(context.Context, *pb.BlockPb) error { return nil }
+
+func (s *DummySubscriber) HandleBlockSync(context.Context, *pb.BlockPb) error { return nil }
+
+func (s *DummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo, *pb.BlockSync) error {
 	return nil
 }
 
-func (s *DummySubscriber) HandleBlockSync(*pb.BlockPb) error {
-	return nil
-}
+func (s *DummySubscriber) HandleAction(context.Context, *pb.ActionPb) error { return nil }
 
-func (s *DummySubscriber) HandleSyncRequest(string, *pb.BlockSync) error {
-	return nil
-}
-
-func (s *DummySubscriber) HandleAction(*pb.ActionPb) error {
-	return nil
-}
-
-func (s *DummySubscriber) HandleConsensusMsg(*pb.ConsensusPb) error {
-	return nil
-}
+func (s *DummySubscriber) HandleConsensusMsg(*pb.ConsensusPb) error { return nil }
