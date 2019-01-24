@@ -416,7 +416,7 @@ func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, e
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getTransfersBySenderAddress(address)
+	return getTransfersBySenderAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
@@ -425,7 +425,7 @@ func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, err
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getTransfersByRecipientAddress(address)
+	return getTransfersByRecipientAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
@@ -434,7 +434,7 @@ func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfe
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	blkHash, err := bc.dao.getBlockHashByTransferHash(h)
+	blkHash, err := getBlockHashByTransferHash(bc.dao.kvstore, h)
 	if err != nil {
 		return nil, err
 	}
@@ -457,7 +457,7 @@ func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, 
 	if !bc.config.Chain.EnableIndex {
 		return hash.ZeroHash32B, errors.New("index not enabled")
 	}
-	return bc.dao.getBlockHashByTransferHash(h)
+	return getBlockHashByTransferHash(bc.dao.kvstore, h)
 }
 
 // TODO: To be deprecated
@@ -466,7 +466,7 @@ func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getVotesBySenderAddress(address)
+	return getVotesBySenderAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
@@ -475,7 +475,7 @@ func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) 
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getVotesByRecipientAddress(address)
+	return getVotesByRecipientAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
@@ -484,7 +484,7 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	blkHash, err := bc.dao.getBlockHashByVoteHash(h)
+	blkHash, err := getBlockHashByVoteHash(bc.dao.kvstore, h)
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +509,7 @@ func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, erro
 	if !bc.config.Chain.EnableIndex {
 		return hash.ZeroHash32B, errors.New("index not enabled")
 	}
-	return bc.dao.getBlockHashByVoteHash(h)
+	return getBlockHashByVoteHash(bc.dao.kvstore, h)
 }
 
 // TODO: To be deprecated
@@ -518,7 +518,7 @@ func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, 
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getExecutionsByExecutorAddress(address)
+	return getExecutionsByExecutorAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
@@ -527,7 +527,7 @@ func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, er
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getExecutionsByContractAddress(address)
+	return getExecutionsByContractAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
@@ -536,7 +536,7 @@ func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execu
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	blkHash, err := bc.dao.getBlockHashByExecutionHash(h)
+	blkHash, err := getBlockHashByExecutionHash(bc.dao.kvstore, h)
 	if err != nil {
 		return nil, err
 	}
@@ -559,7 +559,7 @@ func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B,
 	if !bc.config.Chain.EnableIndex {
 		return hash.ZeroHash32B, errors.New("index not enabled")
 	}
-	return bc.dao.getBlockHashByExecutionHash(h)
+	return getBlockHashByExecutionHash(bc.dao.kvstore, h)
 }
 
 // GetReceiptByActionHash returns the receipt by action hash
@@ -575,7 +575,7 @@ func (bc *blockchain) GetActionsFromAddress(address string) ([]hash.Hash32B, err
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getActionsBySenderAddress(address)
+	return getActionsBySenderAddress(bc.dao.kvstore, address)
 }
 
 // GetActionToAddress returns action to address
@@ -583,23 +583,23 @@ func (bc *blockchain) GetActionsToAddress(address string) ([]hash.Hash32B, error
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getActionsByRecipientAddress(address)
+	return getActionsByRecipientAddress(bc.dao.kvstore, address)
 }
 
 func (bc *blockchain) getActionByActionHashHelper(h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash, err := bc.dao.getBlockHashByTransferHash(h)
+	blkHash, err := getBlockHashByTransferHash(bc.dao.kvstore, h)
 	if err == nil {
 		return blkHash, nil
 	}
-	blkHash, err = bc.dao.getBlockHashByVoteHash(h)
+	blkHash, err = getBlockHashByVoteHash(bc.dao.kvstore, h)
 	if err == nil {
 		return blkHash, nil
 	}
-	blkHash, err = bc.dao.getBlockHashByExecutionHash(h)
+	blkHash, err = getBlockHashByExecutionHash(bc.dao.kvstore, h)
 	if err == nil {
 		return blkHash, nil
 	}
-	return bc.dao.getBlockHashByActionHash(h)
+	return getBlockHashByActionHash(bc.dao.kvstore, h)
 }
 
 // GetActionByActionHash returns action by action hash
@@ -630,7 +630,7 @@ func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, er
 	if !bc.config.Chain.EnableIndex {
 		return hash.ZeroHash32B, errors.New("index not enabled")
 	}
-	return bc.dao.getBlockHashByActionHash(h)
+	return getBlockHashByActionHash(bc.dao.kvstore, h)
 }
 
 // GetFactory returns the state factory

@@ -69,13 +69,36 @@ func NewIndexBuilder(chain Blockchain) (*IndexBuilder, error) {
 func (ib *IndexBuilder) Start(_ context.Context) error {
 	go func() {
 		for blk := range ib.pendingBlks {
-			if err := ib.indexBlock(blk); err != nil {
+			timer := ib.timerFactory.NewTimer("indexBlock")
+			batch := db.NewBatch()
+			if err := indexBlock(ib.store, blk, batch); err != nil {
 				log.L().Info(
 					"Error when indexing the block",
 					zap.Uint64("height", blk.Height()),
 					zap.Error(err),
 				)
 			}
+			// index receipts
+			blkReceipts := make([]*action.Receipt, 0)
+			for _, receipt := range blk.Receipts {
+				blkReceipts = append(blkReceipts, receipt)
+			}
+			if err := putReceipts(blk.Height(), blkReceipts, batch); err != nil {
+				log.L().Info(
+					"Error when indexing the block",
+					zap.Uint64("height", blk.Height()),
+					zap.Error(err),
+				)
+			}
+			batchSizeMtc.WithLabelValues().Set(float64(batch.Size()))
+			if err := ib.store.Commit(batch); err != nil {
+				log.L().Info(
+					"Error when indexing the block",
+					zap.Uint64("height", blk.Height()),
+					zap.Error(err),
+				)
+			}
+			timer.End()
 		}
 	}()
 	return nil
@@ -93,17 +116,13 @@ func (ib *IndexBuilder) HandleBlock(blk *block.Block) error {
 	return nil
 }
 
-func (ib *IndexBuilder) indexBlock(blk *block.Block) error {
-	timer := ib.timerFactory.NewTimer("indexBlock")
-	defer timer.End()
-
-	batch := db.NewBatch()
+func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 	hash := blk.HashBlock()
 
 	// TODO: To be deprecated
 	// only build Tsf/Vote/Execution index if enable explorer
 	transfers, votes, executions := action.ClassifyActions(blk.Actions)
-	value, err := ib.store.Get(blockNS, totalTransfersKey)
+	value, err := store.Get(blockNS, totalTransfersKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get total transfers")
 	}
@@ -112,7 +131,7 @@ func (ib *IndexBuilder) indexBlock(blk *block.Block) error {
 	totalTransfersBytes := byteutil.Uint64ToBytes(totalTransfers)
 	batch.Put(blockNS, totalTransfersKey, totalTransfersBytes, "failed to put total transfers")
 
-	value, err = ib.store.Get(blockNS, totalVotesKey)
+	value, err = store.Get(blockNS, totalVotesKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get total votes")
 	}
@@ -121,7 +140,7 @@ func (ib *IndexBuilder) indexBlock(blk *block.Block) error {
 	totalVotesBytes := byteutil.Uint64ToBytes(totalVotes)
 	batch.Put(blockNS, totalVotesKey, totalVotesBytes, "failed to put total votes")
 
-	value, err = ib.store.Get(blockNS, totalExecutionsKey)
+	value, err = store.Get(blockNS, totalExecutionsKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get total executions")
 	}
@@ -130,7 +149,7 @@ func (ib *IndexBuilder) indexBlock(blk *block.Block) error {
 	totalExecutionsBytes := byteutil.Uint64ToBytes(totalExecutions)
 	batch.Put(blockNS, totalExecutionsKey, totalExecutionsBytes, "failed to put total executions")
 
-	value, err = ib.store.Get(blockNS, totalActionsKey)
+	value, err = store.Get(blockNS, totalActionsKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get total actions")
 	}
@@ -167,38 +186,29 @@ func (ib *IndexBuilder) indexBlock(blk *block.Block) error {
 	}
 
 	// TODO: To be deprecated
-	if err = ib.putTransfers(blk, batch); err != nil {
+	if err = putTransfers(store, blk, batch); err != nil {
 		return err
 	}
 
 	// TODO: To be deprecated
-	if err = ib.putVotes(blk, batch); err != nil {
+	if err = putVotes(store, blk, batch); err != nil {
 		return err
 	}
 
 	// TODO: To be deprecated
-	if err = ib.putExecutions(blk, batch); err != nil {
+	if err = putExecutions(store, blk, batch); err != nil {
 		return err
 	}
 
-	if err = ib.putActions(blk, batch); err != nil {
+	if err = putActions(store, blk, batch); err != nil {
 		return err
 	}
-
-	blkReceipts := make([]*action.Receipt, 0)
-	for _, receipt := range blk.Receipts {
-		blkReceipts = append(blkReceipts, receipt)
-	}
-	if err = ib.putReceipts(blk.Height(), blkReceipts, batch); err != nil {
-		return err
-	}
-	batchSizeMtc.WithLabelValues().Set(float64(batch.Size()))
-	return ib.store.Commit(batch)
+	return nil
 }
 
 // TODO: To be deprecated
 // putTransfers stores transfer information into db
-func (ib *IndexBuilder) putTransfers(blk *block.Block, batch db.KVStoreBatch) error {
+func putTransfers(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
 
@@ -207,7 +217,7 @@ func (ib *IndexBuilder) putTransfers(blk *block.Block, batch db.KVStoreBatch) er
 		transferHash := transfer.Hash()
 
 		// get transfers count for sender
-		senderTransferCount, err := ib.getTransferCountBySenderAddress(transfer.Sender())
+		senderTransferCount, err := getTransferCountBySenderAddress(store, transfer.Sender())
 		if err != nil {
 			return errors.Wrapf(err, "for sender %x", transfer.Sender())
 		}
@@ -231,7 +241,7 @@ func (ib *IndexBuilder) putTransfers(blk *block.Block, batch db.KVStoreBatch) er
 			transfer.Hash(), transfer.Sender())
 
 		// get transfers count for recipient
-		recipientTransferCount, err := ib.getTransferCountByRecipientAddress(transfer.Recipient())
+		recipientTransferCount, err := getTransferCountByRecipientAddress(store, transfer.Recipient())
 		if err != nil {
 			return errors.Wrapf(err, "for recipient %x", transfer.Recipient())
 		}
@@ -261,7 +271,7 @@ func (ib *IndexBuilder) putTransfers(blk *block.Block, batch db.KVStoreBatch) er
 
 // TODO: To be deprecated
 // putVotes stores vote information into db
-func (ib *IndexBuilder) putVotes(blk *block.Block, batch db.KVStoreBatch) error {
+func putVotes(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 	senderDelta := map[string]uint64{}
 	recipientDelta := map[string]uint64{}
 
@@ -275,7 +285,7 @@ func (ib *IndexBuilder) putVotes(blk *block.Block, batch db.KVStoreBatch) error 
 		Recipient := vote.Votee()
 
 		// get votes count for sender
-		senderVoteCount, err := ib.getVoteCountBySenderAddress(Sender)
+		senderVoteCount, err := getVoteCountBySenderAddress(store, Sender)
 		if err != nil {
 			return errors.Wrapf(err, "for sender %x", Sender)
 		}
@@ -299,7 +309,7 @@ func (ib *IndexBuilder) putVotes(blk *block.Block, batch db.KVStoreBatch) error 
 			voteHash, Sender)
 
 		// get votes count for recipient
-		recipientVoteCount, err := ib.getVoteCountByRecipientAddress(Recipient)
+		recipientVoteCount, err := getVoteCountByRecipientAddress(store, Recipient)
 		if err != nil {
 			return errors.Wrapf(err, "for recipient %x", Recipient)
 		}
@@ -328,7 +338,7 @@ func (ib *IndexBuilder) putVotes(blk *block.Block, batch db.KVStoreBatch) error 
 
 // TODO: To be deprecated
 // putExecutions stores execution information into db
-func (ib *IndexBuilder) putExecutions(blk *block.Block, batch db.KVStoreBatch) error {
+func putExecutions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 	executorDelta := map[string]uint64{}
 	contractDelta := map[string]uint64{}
 
@@ -337,7 +347,7 @@ func (ib *IndexBuilder) putExecutions(blk *block.Block, batch db.KVStoreBatch) e
 		executionHash := execution.Hash()
 
 		// get execution count for executor
-		executorExecutionCount, err := ib.getExecutionCountByExecutorAddress(execution.Executor())
+		executorExecutionCount, err := getExecutionCountByExecutorAddress(store, execution.Executor())
 		if err != nil {
 			return errors.Wrapf(err, "for executor %x", execution.Executor())
 		}
@@ -361,7 +371,7 @@ func (ib *IndexBuilder) putExecutions(blk *block.Block, batch db.KVStoreBatch) e
 			"failed to bump execution count %x for executor %x", execution.Hash(), execution.Executor())
 
 		// get execution count for contract
-		contractExecutionCount, err := ib.getExecutionCountByContractAddress(execution.Contract())
+		contractExecutionCount, err := getExecutionCountByContractAddress(store, execution.Contract())
 		if err != nil {
 			return errors.Wrapf(err, "for contract %x", execution.Contract())
 		}
@@ -387,15 +397,25 @@ func (ib *IndexBuilder) putExecutions(blk *block.Block, batch db.KVStoreBatch) e
 	return nil
 }
 
-func (ib *IndexBuilder) putActions(blk *block.Block, batch db.KVStoreBatch) error {
+func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 	senderDelta := make(map[string]uint64)
 	recipientDelta := make(map[string]uint64)
 
 	for _, selp := range blk.Actions {
+		// TODO: before we deprecate separate index handling for transfer/vote/execution, we should avoid index it again
+		// in the general way
+		switch selp.Action().(type) {
+		case *action.Transfer:
+			continue
+		case *action.Vote:
+			continue
+		case *action.Execution:
+			continue
+		}
 		actHash := selp.Hash()
 
 		// get action count for sender
-		senderActionCount, err := ib.getActionCountBySenderAddress(selp.SrcAddr())
+		senderActionCount, err := getActionCountBySenderAddress(store, selp.SrcAddr())
 		if err != nil {
 			return errors.Wrapf(err, "for sender %s", selp.SrcAddr())
 		}
@@ -419,7 +439,7 @@ func (ib *IndexBuilder) putActions(blk *block.Block, batch db.KVStoreBatch) erro
 			"failed to bump action count %x for sender %s", actHash, selp.SrcAddr())
 
 		// get action count for recipient
-		recipientActionCount, err := ib.getActionCountByRecipientAddress(selp.DstAddr())
+		recipientActionCount, err := getActionCountByRecipientAddress(store, selp.DstAddr())
 		if err != nil {
 			return errors.Wrapf(err, "for recipient %s", selp.DstAddr())
 		}
@@ -446,7 +466,7 @@ func (ib *IndexBuilder) putActions(blk *block.Block, batch db.KVStoreBatch) erro
 }
 
 // putReceipts store receipt into db
-func (ib *IndexBuilder) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVStoreBatch) error {
+func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVStoreBatch) error {
 	if blkReceipts == nil {
 		return nil
 	}
@@ -465,25 +485,10 @@ func (ib *IndexBuilder) putReceipts(blkHeight uint64, blkReceipts []*action.Rece
 }
 
 // TODO: To be deprecated
-func (ib *IndexBuilder) getBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash := hash.ZeroHash32B
-	key := append(transferPrefix, h[:]...)
-	value, err := ib.store.Get(blockTransferBlockMappingNS, key)
-	if err != nil {
-		return blkHash, errors.Wrapf(err, "failed to get transfer %x", h)
-	}
-	if len(value) == 0 {
-		return blkHash, errors.Wrapf(db.ErrNotExist, "transfer %x missing", h)
-	}
-	copy(blkHash[:], value)
-	return blkHash, nil
-}
-
-// TODO: To be deprecated
-func (ib *IndexBuilder) getBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
+func getBlockHashByVoteHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, error) {
 	blkHash := hash.ZeroHash32B
 	key := append(votePrefix, h[:]...)
-	value, err := ib.store.Get(blockVoteBlockMappingNS, key)
+	value, err := store.Get(blockVoteBlockMappingNS, key)
 	if err != nil {
 		return blkHash, errors.Wrapf(err, "failed to get vote %x", h)
 	}
@@ -495,10 +500,25 @@ func (ib *IndexBuilder) getBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, er
 }
 
 // TODO: To be deprecated
-func (ib *IndexBuilder) getBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
+func getBlockHashByTransferHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, error) {
+	blkHash := hash.ZeroHash32B
+	key := append(transferPrefix, h[:]...)
+	value, err := store.Get(blockTransferBlockMappingNS, key)
+	if err != nil {
+		return blkHash, errors.Wrapf(err, "failed to get transfer %x", h)
+	}
+	if len(value) == 0 {
+		return blkHash, errors.Wrapf(db.ErrNotExist, "transfer %x missing", h)
+	}
+	copy(blkHash[:], value)
+	return blkHash, nil
+}
+
+// TODO: To be deprecated
+func getBlockHashByExecutionHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, error) {
 	blkHash := hash.ZeroHash32B
 	key := append(executionPrefix, h[:]...)
-	value, err := ib.store.Get(blockExecutionBlockMappingNS, key)
+	value, err := store.Get(blockExecutionBlockMappingNS, key)
 	if err != nil {
 		return blkHash, errors.Wrapf(err, "failed to get execution %x", h)
 	}
@@ -509,10 +529,10 @@ func (ib *IndexBuilder) getBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32
 	return blkHash, nil
 }
 
-func (ib *IndexBuilder) getBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error) {
+func getBlockHashByActionHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, error) {
 	blkHash := hash.ZeroHash32B
 	key := append(actionPrefix, h[:]...)
-	value, err := ib.store.Get(blockActionBlockMappingNS, key)
+	value, err := store.Get(blockActionBlockMappingNS, key)
 	if err != nil {
 		return blkHash, errors.Wrapf(err, "failed to get action %x", h)
 	}
@@ -525,14 +545,14 @@ func (ib *IndexBuilder) getBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, 
 
 // TODO: To be deprecated
 // getTransfersBySenderAddress returns transfers for sender
-func (ib *IndexBuilder) getTransfersBySenderAddress(address string) ([]hash.Hash32B, error) {
+func getTransfersBySenderAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
 	// get transfers count for sender
-	senderTransferCount, err := ib.getTransferCountBySenderAddress(address)
+	senderTransferCount, err := getTransferCountBySenderAddress(store, address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "for sender %x", address)
 	}
 
-	res, getTransfersErr := ib.getTransfersByAddress(address, senderTransferCount, transferFromPrefix)
+	res, getTransfersErr := getTransfersByAddress(store, address, senderTransferCount, transferFromPrefix)
 	if getTransfersErr != nil {
 		return nil, getTransfersErr
 	}
@@ -542,9 +562,9 @@ func (ib *IndexBuilder) getTransfersBySenderAddress(address string) ([]hash.Hash
 
 // TODO: To be deprecated
 // getTransferCountBySenderAddress returns transfer count by sender address
-func (ib *IndexBuilder) getTransferCountBySenderAddress(address string) (uint64, error) {
+func getTransferCountBySenderAddress(store db.KVStore, address string) (uint64, error) {
 	senderTransferCountKey := append(transferFromPrefix, address...)
-	value, err := ib.store.Get(blockAddressTransferCountMappingNS, senderTransferCountKey)
+	value, err := store.Get(blockAddressTransferCountMappingNS, senderTransferCountKey)
 	if err != nil {
 		return 0, nil
 	}
@@ -556,14 +576,14 @@ func (ib *IndexBuilder) getTransferCountBySenderAddress(address string) (uint64,
 
 // TODO: To be deprecated
 // getTransfersByRecipientAddress returns transfers for recipient
-func (ib *IndexBuilder) getTransfersByRecipientAddress(address string) ([]hash.Hash32B, error) {
+func getTransfersByRecipientAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
 	// get transfers count for recipient
-	recipientTransferCount, getCountErr := ib.getTransferCountByRecipientAddress(address)
+	recipientTransferCount, getCountErr := getTransferCountByRecipientAddress(store, address)
 	if getCountErr != nil {
 		return nil, errors.Wrapf(getCountErr, "for recipient %x", address)
 	}
 
-	res, getTransfersErr := ib.getTransfersByAddress(address, recipientTransferCount, transferToPrefix)
+	res, getTransfersErr := getTransfersByAddress(store, address, recipientTransferCount, transferToPrefix)
 	if getTransfersErr != nil {
 		return nil, getTransfersErr
 	}
@@ -573,14 +593,14 @@ func (ib *IndexBuilder) getTransfersByRecipientAddress(address string) ([]hash.H
 
 // TODO: To be deprecated
 // getTransfersByAddress returns transfers by address
-func (ib *IndexBuilder) getTransfersByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
+func getTransfersByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
 	var res []hash.Hash32B
 
 	for i := uint64(0); i < count; i++ {
 		// put new transfer to recipient
 		key := append(keyPrefix, address...)
 		key = append(key, byteutil.Uint64ToBytes(i)...)
-		value, err := ib.store.Get(blockAddressTransferMappingNS, key)
+		value, err := store.Get(blockAddressTransferMappingNS, key)
 		if err != nil {
 			return res, errors.Wrapf(err, "failed to get transfer for index %x", i)
 		}
@@ -597,9 +617,9 @@ func (ib *IndexBuilder) getTransfersByAddress(address string, count uint64, keyP
 
 // TODO: To be deprecated
 // getTransferCountByRecipientAddress returns transfer count by recipient address
-func (ib *IndexBuilder) getTransferCountByRecipientAddress(address string) (uint64, error) {
+func getTransferCountByRecipientAddress(store db.KVStore, address string) (uint64, error) {
 	recipientTransferCountKey := append(transferToPrefix, address...)
-	value, err := ib.store.Get(blockAddressTransferCountMappingNS, recipientTransferCountKey)
+	value, err := store.Get(blockAddressTransferCountMappingNS, recipientTransferCountKey)
 	if err != nil {
 		return 0, nil
 	}
@@ -611,13 +631,13 @@ func (ib *IndexBuilder) getTransferCountByRecipientAddress(address string) (uint
 
 // TODO: To be deprecated
 // getVotesBySenderAddress returns votes for sender
-func (ib *IndexBuilder) getVotesBySenderAddress(address string) ([]hash.Hash32B, error) {
-	senderVoteCount, err := ib.getVoteCountBySenderAddress(address)
+func getVotesBySenderAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+	senderVoteCount, err := getVoteCountBySenderAddress(store, address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "to get votecount for sender %x", address)
 	}
 
-	res, err := ib.getVotesByAddress(address, senderVoteCount, voteFromPrefix)
+	res, err := getVotesByAddress(store, address, senderVoteCount, voteFromPrefix)
 	if err != nil {
 		return nil, errors.Wrapf(err, "to get votes for sender %x", address)
 	}
@@ -627,9 +647,9 @@ func (ib *IndexBuilder) getVotesBySenderAddress(address string) ([]hash.Hash32B,
 
 // TODO: To be deprecated
 // getVoteCountBySenderAddress returns vote count by sender address
-func (ib *IndexBuilder) getVoteCountBySenderAddress(address string) (uint64, error) {
+func getVoteCountBySenderAddress(store db.KVStore, address string) (uint64, error) {
 	senderVoteCountKey := append(voteFromPrefix, address...)
-	value, err := ib.store.Get(blockAddressVoteCountMappingNS, senderVoteCountKey)
+	value, err := store.Get(blockAddressVoteCountMappingNS, senderVoteCountKey)
 	if err != nil {
 		return 0, nil
 	}
@@ -641,13 +661,13 @@ func (ib *IndexBuilder) getVoteCountBySenderAddress(address string) (uint64, err
 
 // TODO: To be deprecated
 // getVotesByRecipientAddress returns votes by recipient address
-func (ib *IndexBuilder) getVotesByRecipientAddress(address string) ([]hash.Hash32B, error) {
-	recipientVoteCount, err := ib.getVoteCountByRecipientAddress(address)
+func getVotesByRecipientAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+	recipientVoteCount, err := getVoteCountByRecipientAddress(store, address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "to get votecount for recipient %x", address)
 	}
 
-	res, err := ib.getVotesByAddress(address, recipientVoteCount, voteToPrefix)
+	res, err := getVotesByAddress(store, address, recipientVoteCount, voteToPrefix)
 	if err != nil {
 		return nil, errors.Wrapf(err, "to get votes for recipient %x", address)
 	}
@@ -657,14 +677,14 @@ func (ib *IndexBuilder) getVotesByRecipientAddress(address string) ([]hash.Hash3
 
 // TODO: To be deprecated
 // getVotesByAddress returns votes by address
-func (ib *IndexBuilder) getVotesByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
+func getVotesByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
 	var res []hash.Hash32B
 
 	for i := uint64(0); i < count; i++ {
 		// put new vote to recipient
 		key := append(keyPrefix, address...)
 		key = append(key, byteutil.Uint64ToBytes(i)...)
-		value, err := ib.store.Get(blockAddressVoteMappingNS, key)
+		value, err := store.Get(blockAddressVoteMappingNS, key)
 		if err != nil {
 			return res, errors.Wrapf(err, "failed to get vote for index %x", i)
 		}
@@ -681,9 +701,9 @@ func (ib *IndexBuilder) getVotesByAddress(address string, count uint64, keyPrefi
 
 // TODO: To be deprecated
 // getVoteCountByRecipientAddress returns vote count by recipient address
-func (ib *IndexBuilder) getVoteCountByRecipientAddress(address string) (uint64, error) {
+func getVoteCountByRecipientAddress(store db.KVStore, address string) (uint64, error) {
 	recipientVoteCountKey := append(voteToPrefix, address...)
-	value, err := ib.store.Get(blockAddressVoteCountMappingNS, recipientVoteCountKey)
+	value, err := store.Get(blockAddressVoteCountMappingNS, recipientVoteCountKey)
 	if err != nil {
 		return 0, nil
 	}
@@ -695,14 +715,14 @@ func (ib *IndexBuilder) getVoteCountByRecipientAddress(address string) (uint64, 
 
 // TODO: To be deprecated
 // getExecutionsByExecutorAddress returns executions for executor
-func (ib *IndexBuilder) getExecutionsByExecutorAddress(address string) ([]hash.Hash32B, error) {
+func getExecutionsByExecutorAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
 	// get executions count for sender
-	executorExecutionCount, err := ib.getExecutionCountByExecutorAddress(address)
+	executorExecutionCount, err := getExecutionCountByExecutorAddress(store, address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "for executor %x", address)
 	}
 
-	res, getExecutionsErr := ib.getExecutionsByAddress(address, executorExecutionCount, executionFromPrefix)
+	res, getExecutionsErr := getExecutionsByAddress(store, address, executorExecutionCount, executionFromPrefix)
 	if getExecutionsErr != nil {
 		return nil, getExecutionsErr
 	}
@@ -712,9 +732,9 @@ func (ib *IndexBuilder) getExecutionsByExecutorAddress(address string) ([]hash.H
 
 // TODO: To be deprecated
 // getExecutionCountByExecutorAddress returns execution count by executor address
-func (ib *IndexBuilder) getExecutionCountByExecutorAddress(address string) (uint64, error) {
+func getExecutionCountByExecutorAddress(store db.KVStore, address string) (uint64, error) {
 	executorExecutionCountKey := append(executionFromPrefix, address...)
-	value, err := ib.store.Get(blockAddressExecutionCountMappingNS, executorExecutionCountKey)
+	value, err := store.Get(blockAddressExecutionCountMappingNS, executorExecutionCountKey)
 	if err != nil {
 		return 0, nil
 	}
@@ -726,14 +746,14 @@ func (ib *IndexBuilder) getExecutionCountByExecutorAddress(address string) (uint
 
 // TODO: To be deprecated
 // getExecutionsByContractAddress returns executions for contract
-func (ib *IndexBuilder) getExecutionsByContractAddress(address string) ([]hash.Hash32B, error) {
+func getExecutionsByContractAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
 	// get execution count for contract
-	contractExecutionCount, getCountErr := ib.getExecutionCountByContractAddress(address)
+	contractExecutionCount, getCountErr := getExecutionCountByContractAddress(store, address)
 	if getCountErr != nil {
 		return nil, errors.Wrapf(getCountErr, "for contract %x", address)
 	}
 
-	res, getExecutionsErr := ib.getExecutionsByAddress(address, contractExecutionCount, executionToPrefix)
+	res, getExecutionsErr := getExecutionsByAddress(store, address, contractExecutionCount, executionToPrefix)
 	if getExecutionsErr != nil {
 		return nil, getExecutionsErr
 	}
@@ -743,14 +763,14 @@ func (ib *IndexBuilder) getExecutionsByContractAddress(address string) ([]hash.H
 
 // TODO: To be deprecated
 // getExecutionsByAddress returns executions by address
-func (ib *IndexBuilder) getExecutionsByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
+func getExecutionsByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
 	var res []hash.Hash32B
 
 	for i := uint64(0); i < count; i++ {
 		// put new execution to recipient
 		key := append(keyPrefix, address...)
 		key = append(key, byteutil.Uint64ToBytes(i)...)
-		value, err := ib.store.Get(blockAddressExecutionMappingNS, key)
+		value, err := store.Get(blockAddressExecutionMappingNS, key)
 		if err != nil {
 			return res, errors.Wrapf(err, "failed to get execution for index %x", i)
 		}
@@ -767,9 +787,9 @@ func (ib *IndexBuilder) getExecutionsByAddress(address string, count uint64, key
 
 // TODO: To be deprecated
 // getExecutionCountByContractAddress returns execution count by contract address
-func (ib *IndexBuilder) getExecutionCountByContractAddress(address string) (uint64, error) {
+func getExecutionCountByContractAddress(store db.KVStore, address string) (uint64, error) {
 	contractExecutionCountKey := append(executionToPrefix, address...)
-	value, err := ib.store.Get(blockAddressExecutionCountMappingNS, contractExecutionCountKey)
+	value, err := store.Get(blockAddressExecutionCountMappingNS, contractExecutionCountKey)
 	if err != nil {
 		return 0, nil
 	}
@@ -780,9 +800,9 @@ func (ib *IndexBuilder) getExecutionCountByContractAddress(address string) (uint
 }
 
 // getActionCountBySenderAddress returns action count by sender address
-func (ib *IndexBuilder) getActionCountBySenderAddress(address string) (uint64, error) {
+func getActionCountBySenderAddress(store db.KVStore, address string) (uint64, error) {
 	senderActionCountKey := append(actionFromPrefix, address...)
-	value, err := ib.store.Get(blockAddressActionCountMappingNS, senderActionCountKey)
+	value, err := store.Get(blockAddressActionCountMappingNS, senderActionCountKey)
 	if err != nil {
 		return 0, nil
 	}
@@ -793,14 +813,14 @@ func (ib *IndexBuilder) getActionCountBySenderAddress(address string) (uint64, e
 }
 
 // getActionsBySenderAddress returns actions for sender
-func (ib *IndexBuilder) getActionsBySenderAddress(address string) ([]hash.Hash32B, error) {
+func getActionsBySenderAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
 	// get action count for sender
-	senderActionCount, err := ib.getActionCountBySenderAddress(address)
+	senderActionCount, err := getActionCountBySenderAddress(store, address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "for sender %x", address)
 	}
 
-	res, err := ib.getActionsByAddress(address, senderActionCount, actionFromPrefix)
+	res, err := getActionsByAddress(store, address, senderActionCount, actionFromPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -809,14 +829,14 @@ func (ib *IndexBuilder) getActionsBySenderAddress(address string) ([]hash.Hash32
 }
 
 // getActionsByRecipientAddress returns actions for recipient
-func (ib *IndexBuilder) getActionsByRecipientAddress(address string) ([]hash.Hash32B, error) {
+func getActionsByRecipientAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
 	// get action count for recipient
-	recipientActionCount, getCountErr := ib.getActionCountByRecipientAddress(address)
+	recipientActionCount, getCountErr := getActionCountByRecipientAddress(store, address)
 	if getCountErr != nil {
 		return nil, errors.Wrapf(getCountErr, "for recipient %x", address)
 	}
 
-	res, err := ib.getActionsByAddress(address, recipientActionCount, actionToPrefix)
+	res, err := getActionsByAddress(store, address, recipientActionCount, actionToPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -825,9 +845,9 @@ func (ib *IndexBuilder) getActionsByRecipientAddress(address string) ([]hash.Has
 }
 
 // getActionCountByRecipientAddress returns action count by recipient address
-func (ib *IndexBuilder) getActionCountByRecipientAddress(address string) (uint64, error) {
+func getActionCountByRecipientAddress(store db.KVStore, address string) (uint64, error) {
 	recipientActionCountKey := append(actionToPrefix, address...)
-	value, err := ib.store.Get(blockAddressActionCountMappingNS, recipientActionCountKey)
+	value, err := store.Get(blockAddressActionCountMappingNS, recipientActionCountKey)
 	if err != nil {
 		return 0, nil
 	}
@@ -838,13 +858,13 @@ func (ib *IndexBuilder) getActionCountByRecipientAddress(address string) (uint64
 }
 
 // getActionsByAddress returns actions by address
-func (ib *IndexBuilder) getActionsByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
+func getActionsByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
 	var res []hash.Hash32B
 
 	for i := uint64(0); i < count; i++ {
 		key := append(keyPrefix, address...)
 		key = append(key, byteutil.Uint64ToBytes(i)...)
-		value, err := ib.store.Get(blockAddressActionMappingNS, key)
+		value, err := store.Get(blockAddressActionMappingNS, key)
 		if err != nil {
 			return res, errors.Wrapf(err, "failed to get action for index %d", i)
 		}

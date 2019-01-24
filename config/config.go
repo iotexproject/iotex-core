@@ -190,8 +190,10 @@ type (
 		EnableTrielessStateDB        bool   `yaml:"enableTrielessStateDB"`
 
 		// enable gas charge for block producer
-		EnableGasCharge       bool `yaml:"enableGasCharge"`
-		EnableIndex           bool `yaml:"enableIndex"`
+		EnableGasCharge bool `yaml:"enableGasCharge"`
+		// enable index the block actions and receipts
+		EnableIndex bool `yaml:"enableIndex"`
+		// enable writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
 	}
 
