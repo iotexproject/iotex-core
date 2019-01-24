@@ -9,8 +9,9 @@ package endorsement
 import (
 	"testing"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestAddEndorsement(t *testing.T) {
