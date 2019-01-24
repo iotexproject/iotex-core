@@ -183,401 +183,6 @@ func (dao *blockDAO) getBlock(hash hash.Hash32B) (*block.Block, error) {
 	return &blk, nil
 }
 
-// TODO: To be deprecated
-func (dao *blockDAO) getBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash := hash.ZeroHash32B
-	key := append(transferPrefix, h[:]...)
-	value, err := dao.kvstore.Get(blockTransferBlockMappingNS, key)
-	if err != nil {
-		return blkHash, errors.Wrapf(err, "failed to get transfer %x", h)
-	}
-	if len(value) == 0 {
-		return blkHash, errors.Wrapf(db.ErrNotExist, "transfer %x missing", h)
-	}
-	copy(blkHash[:], value)
-	return blkHash, nil
-}
-
-// TODO: To be deprecated
-func (dao *blockDAO) getBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash := hash.ZeroHash32B
-	key := append(votePrefix, h[:]...)
-	value, err := dao.kvstore.Get(blockVoteBlockMappingNS, key)
-	if err != nil {
-		return blkHash, errors.Wrapf(err, "failed to get vote %x", h)
-	}
-	if len(value) == 0 {
-		return blkHash, errors.Wrapf(db.ErrNotExist, "vote %x missing", h)
-	}
-	copy(blkHash[:], value)
-	return blkHash, nil
-}
-
-// TODO: To be deprecated
-func (dao *blockDAO) getBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash := hash.ZeroHash32B
-	key := append(executionPrefix, h[:]...)
-	value, err := dao.kvstore.Get(blockExecutionBlockMappingNS, key)
-	if err != nil {
-		return blkHash, errors.Wrapf(err, "failed to get execution %x", h)
-	}
-	if len(value) == 0 {
-		return blkHash, errors.Wrapf(db.ErrNotExist, "execution %x missing", h)
-	}
-	copy(blkHash[:], value)
-	return blkHash, nil
-}
-
-func (dao *blockDAO) getBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash := hash.ZeroHash32B
-	key := append(actionPrefix, h[:]...)
-	value, err := dao.kvstore.Get(blockActionBlockMappingNS, key)
-	if err != nil {
-		return blkHash, errors.Wrapf(err, "failed to get action %x", h)
-	}
-	if len(value) == 0 {
-		return blkHash, errors.Wrapf(db.ErrNotExist, "action %x missing", h)
-	}
-	copy(blkHash[:], value)
-	return blkHash, nil
-}
-
-// TODO: To be deprecated
-// getTransfersBySenderAddress returns transfers for sender
-func (dao *blockDAO) getTransfersBySenderAddress(address string) ([]hash.Hash32B, error) {
-	// get transfers count for sender
-	senderTransferCount, err := dao.getTransferCountBySenderAddress(address)
-	if err != nil {
-		return nil, errors.Wrapf(err, "for sender %x", address)
-	}
-
-	res, getTransfersErr := dao.getTransfersByAddress(address, senderTransferCount, transferFromPrefix)
-	if getTransfersErr != nil {
-		return nil, getTransfersErr
-	}
-
-	return res, nil
-}
-
-// TODO: To be deprecated
-// getTransferCountBySenderAddress returns transfer count by sender address
-func (dao *blockDAO) getTransferCountBySenderAddress(address string) (uint64, error) {
-	senderTransferCountKey := append(transferFromPrefix, address...)
-	value, err := dao.kvstore.Get(blockAddressTransferCountMappingNS, senderTransferCountKey)
-	if err != nil {
-		return 0, nil
-	}
-	if len(value) == 0 {
-		return 0, errors.New("count of transfers as recipient is broken")
-	}
-	return enc.MachineEndian.Uint64(value), nil
-}
-
-// TODO: To be deprecated
-// getTransfersByRecipientAddress returns transfers for recipient
-func (dao *blockDAO) getTransfersByRecipientAddress(address string) ([]hash.Hash32B, error) {
-	// get transfers count for recipient
-	recipientTransferCount, getCountErr := dao.getTransferCountByRecipientAddress(address)
-	if getCountErr != nil {
-		return nil, errors.Wrapf(getCountErr, "for recipient %x", address)
-	}
-
-	res, getTransfersErr := dao.getTransfersByAddress(address, recipientTransferCount, transferToPrefix)
-	if getTransfersErr != nil {
-		return nil, getTransfersErr
-	}
-
-	return res, nil
-}
-
-// TODO: To be deprecated
-// getTransfersByAddress returns transfers by address
-func (dao *blockDAO) getTransfersByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
-	var res []hash.Hash32B
-
-	for i := uint64(0); i < count; i++ {
-		// put new transfer to recipient
-		key := append(keyPrefix, address...)
-		key = append(key, byteutil.Uint64ToBytes(i)...)
-		value, err := dao.kvstore.Get(blockAddressTransferMappingNS, key)
-		if err != nil {
-			return res, errors.Wrapf(err, "failed to get transfer for index %x", i)
-		}
-		if len(value) == 0 {
-			return res, errors.Wrapf(db.ErrNotExist, "transfer for index %x missing", i)
-		}
-		transferHash := hash.ZeroHash32B
-		copy(transferHash[:], value)
-		res = append(res, transferHash)
-	}
-
-	return res, nil
-}
-
-// TODO: To be deprecated
-// getTransferCountByRecipientAddress returns transfer count by recipient address
-func (dao *blockDAO) getTransferCountByRecipientAddress(address string) (uint64, error) {
-	recipientTransferCountKey := append(transferToPrefix, address...)
-	value, err := dao.kvstore.Get(blockAddressTransferCountMappingNS, recipientTransferCountKey)
-	if err != nil {
-		return 0, nil
-	}
-	if len(value) == 0 {
-		return 0, errors.New("count of transfers as recipient is broken")
-	}
-	return enc.MachineEndian.Uint64(value), nil
-}
-
-// TODO: To be deprecated
-// getVotesBySenderAddress returns votes for sender
-func (dao *blockDAO) getVotesBySenderAddress(address string) ([]hash.Hash32B, error) {
-	senderVoteCount, err := dao.getVoteCountBySenderAddress(address)
-	if err != nil {
-		return nil, errors.Wrapf(err, "to get votecount for sender %x", address)
-	}
-
-	res, err := dao.getVotesByAddress(address, senderVoteCount, voteFromPrefix)
-	if err != nil {
-		return nil, errors.Wrapf(err, "to get votes for sender %x", address)
-	}
-
-	return res, nil
-}
-
-// TODO: To be deprecated
-// getVoteCountBySenderAddress returns vote count by sender address
-func (dao *blockDAO) getVoteCountBySenderAddress(address string) (uint64, error) {
-	senderVoteCountKey := append(voteFromPrefix, address...)
-	value, err := dao.kvstore.Get(blockAddressVoteCountMappingNS, senderVoteCountKey)
-	if err != nil {
-		return 0, nil
-	}
-	if len(value) == 0 {
-		return 0, errors.New("count of votes as sender is broken")
-	}
-	return enc.MachineEndian.Uint64(value), nil
-}
-
-// TODO: To be deprecated
-// getVotesByRecipientAddress returns votes by recipient address
-func (dao *blockDAO) getVotesByRecipientAddress(address string) ([]hash.Hash32B, error) {
-	recipientVoteCount, err := dao.getVoteCountByRecipientAddress(address)
-	if err != nil {
-		return nil, errors.Wrapf(err, "to get votecount for recipient %x", address)
-	}
-
-	res, err := dao.getVotesByAddress(address, recipientVoteCount, voteToPrefix)
-	if err != nil {
-		return nil, errors.Wrapf(err, "to get votes for recipient %x", address)
-	}
-
-	return res, nil
-}
-
-// TODO: To be deprecated
-// getVotesByAddress returns votes by address
-func (dao *blockDAO) getVotesByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
-	var res []hash.Hash32B
-
-	for i := uint64(0); i < count; i++ {
-		// put new vote to recipient
-		key := append(keyPrefix, address...)
-		key = append(key, byteutil.Uint64ToBytes(i)...)
-		value, err := dao.kvstore.Get(blockAddressVoteMappingNS, key)
-		if err != nil {
-			return res, errors.Wrapf(err, "failed to get vote for index %x", i)
-		}
-		if len(value) == 0 {
-			return res, errors.Wrapf(db.ErrNotExist, "vote for index %x missing", i)
-		}
-		voteHash := hash.ZeroHash32B
-		copy(voteHash[:], value)
-		res = append(res, voteHash)
-	}
-
-	return res, nil
-}
-
-// TODO: To be deprecated
-// getVoteCountByRecipientAddress returns vote count by recipient address
-func (dao *blockDAO) getVoteCountByRecipientAddress(address string) (uint64, error) {
-	recipientVoteCountKey := append(voteToPrefix, address...)
-	value, err := dao.kvstore.Get(blockAddressVoteCountMappingNS, recipientVoteCountKey)
-	if err != nil {
-		return 0, nil
-	}
-	if len(value) == 0 {
-		return 0, errors.New("count of votes as recipient is broken")
-	}
-	return enc.MachineEndian.Uint64(value), nil
-}
-
-// TODO: To be deprecated
-// getExecutionsByExecutorAddress returns executions for executor
-func (dao *blockDAO) getExecutionsByExecutorAddress(address string) ([]hash.Hash32B, error) {
-	// get executions count for sender
-	executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(address)
-	if err != nil {
-		return nil, errors.Wrapf(err, "for executor %x", address)
-	}
-
-	res, getExecutionsErr := dao.getExecutionsByAddress(address, executorExecutionCount, executionFromPrefix)
-	if getExecutionsErr != nil {
-		return nil, getExecutionsErr
-	}
-
-	return res, nil
-}
-
-// TODO: To be deprecated
-// getExecutionCountByExecutorAddress returns execution count by executor address
-func (dao *blockDAO) getExecutionCountByExecutorAddress(address string) (uint64, error) {
-	executorExecutionCountKey := append(executionFromPrefix, address...)
-	value, err := dao.kvstore.Get(blockAddressExecutionCountMappingNS, executorExecutionCountKey)
-	if err != nil {
-		return 0, nil
-	}
-	if len(value) == 0 {
-		return 0, errors.New("count of executions as contract is broken")
-	}
-	return enc.MachineEndian.Uint64(value), nil
-}
-
-// TODO: To be deprecated
-// getExecutionsByContractAddress returns executions for contract
-func (dao *blockDAO) getExecutionsByContractAddress(address string) ([]hash.Hash32B, error) {
-	// get execution count for contract
-	contractExecutionCount, getCountErr := dao.getExecutionCountByContractAddress(address)
-	if getCountErr != nil {
-		return nil, errors.Wrapf(getCountErr, "for contract %x", address)
-	}
-
-	res, getExecutionsErr := dao.getExecutionsByAddress(address, contractExecutionCount, executionToPrefix)
-	if getExecutionsErr != nil {
-		return nil, getExecutionsErr
-	}
-
-	return res, nil
-}
-
-// TODO: To be deprecated
-// getExecutionsByAddress returns executions by address
-func (dao *blockDAO) getExecutionsByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
-	var res []hash.Hash32B
-
-	for i := uint64(0); i < count; i++ {
-		// put new execution to recipient
-		key := append(keyPrefix, address...)
-		key = append(key, byteutil.Uint64ToBytes(i)...)
-		value, err := dao.kvstore.Get(blockAddressExecutionMappingNS, key)
-		if err != nil {
-			return res, errors.Wrapf(err, "failed to get execution for index %x", i)
-		}
-		if len(value) == 0 {
-			return res, errors.Wrapf(db.ErrNotExist, "execution for index %x missing", i)
-		}
-		executionHash := hash.ZeroHash32B
-		copy(executionHash[:], value)
-		res = append(res, executionHash)
-	}
-
-	return res, nil
-}
-
-// TODO: To be deprecated
-// getExecutionCountByContractAddress returns execution count by contract address
-func (dao *blockDAO) getExecutionCountByContractAddress(address string) (uint64, error) {
-	contractExecutionCountKey := append(executionToPrefix, address...)
-	value, err := dao.kvstore.Get(blockAddressExecutionCountMappingNS, contractExecutionCountKey)
-	if err != nil {
-		return 0, nil
-	}
-	if len(value) == 0 {
-		return 0, errors.New("count of executions as contract is broken")
-	}
-	return enc.MachineEndian.Uint64(value), nil
-}
-
-// getActionCountBySenderAddress returns action count by sender address
-func (dao *blockDAO) getActionCountBySenderAddress(address string) (uint64, error) {
-	senderActionCountKey := append(actionFromPrefix, address...)
-	value, err := dao.kvstore.Get(blockAddressActionCountMappingNS, senderActionCountKey)
-	if err != nil {
-		return 0, nil
-	}
-	if len(value) == 0 {
-		return 0, errors.New("count of actions by sender is broken")
-	}
-	return enc.MachineEndian.Uint64(value), nil
-}
-
-// getActionsBySenderAddress returns actions for sender
-func (dao *blockDAO) getActionsBySenderAddress(address string) ([]hash.Hash32B, error) {
-	// get action count for sender
-	senderActionCount, err := dao.getActionCountBySenderAddress(address)
-	if err != nil {
-		return nil, errors.Wrapf(err, "for sender %x", address)
-	}
-
-	res, err := dao.getActionsByAddress(address, senderActionCount, actionFromPrefix)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-// getActionsByRecipientAddress returns actions for recipient
-func (dao *blockDAO) getActionsByRecipientAddress(address string) ([]hash.Hash32B, error) {
-	// get action count for recipient
-	recipientActionCount, getCountErr := dao.getActionCountByRecipientAddress(address)
-	if getCountErr != nil {
-		return nil, errors.Wrapf(getCountErr, "for recipient %x", address)
-	}
-
-	res, err := dao.getActionsByAddress(address, recipientActionCount, actionToPrefix)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-// getActionsByAddress returns actions by address
-func (dao *blockDAO) getActionsByAddress(address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
-	var res []hash.Hash32B
-
-	for i := uint64(0); i < count; i++ {
-		key := append(keyPrefix, address...)
-		key = append(key, byteutil.Uint64ToBytes(i)...)
-		value, err := dao.kvstore.Get(blockAddressActionMappingNS, key)
-		if err != nil {
-			return res, errors.Wrapf(err, "failed to get action for index %d", i)
-		}
-		if len(value) == 0 {
-			return res, errors.Wrapf(db.ErrNotExist, "action for index %d missing", i)
-		}
-		actHash := hash.ZeroHash32B
-		copy(actHash[:], value)
-		res = append(res, actHash)
-	}
-
-	return res, nil
-}
-
-// getActionCountByRecipientAddress returns action count by recipient address
-func (dao *blockDAO) getActionCountByRecipientAddress(address string) (uint64, error) {
-	recipientActionCountKey := append(actionToPrefix, address...)
-	value, err := dao.kvstore.Get(blockAddressActionCountMappingNS, recipientActionCountKey)
-	if err != nil {
-		return 0, nil
-	}
-	if len(value) == 0 {
-		return 0, errors.New("count of actions by recipient is broken")
-	}
-	return enc.MachineEndian.Uint64(value), nil
-}
-
 // getBlockchainHeight returns the blockchain height
 func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
@@ -697,341 +302,10 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
 	}
-
-	// TODO: To be deprecated
-	// only build Tsf/Vote/Execution index if enable explorer
-	transfers, votes, executions := action.ClassifyActions(blk.Actions)
-	value, err = dao.kvstore.Get(blockNS, totalTransfersKey)
-	if err != nil {
-		return errors.Wrap(err, "failed to get total transfers")
-	}
-	totalTransfers := enc.MachineEndian.Uint64(value)
-	totalTransfers += uint64(len(transfers))
-	totalTransfersBytes := byteutil.Uint64ToBytes(totalTransfers)
-	batch.Put(blockNS, totalTransfersKey, totalTransfersBytes, "failed to put total transfers")
-
-	value, err = dao.kvstore.Get(blockNS, totalVotesKey)
-	if err != nil {
-		return errors.Wrap(err, "failed to get total votes")
-	}
-	totalVotes := enc.MachineEndian.Uint64(value)
-	totalVotes += uint64(len(votes))
-	totalVotesBytes := byteutil.Uint64ToBytes(totalVotes)
-	batch.Put(blockNS, totalVotesKey, totalVotesBytes, "failed to put total votes")
-
-	value, err = dao.kvstore.Get(blockNS, totalExecutionsKey)
-	if err != nil {
-		return errors.Wrap(err, "failed to get total executions")
-	}
-	totalExecutions := enc.MachineEndian.Uint64(value)
-	totalExecutions += uint64(len(executions))
-	totalExecutionsBytes := byteutil.Uint64ToBytes(totalExecutions)
-	batch.Put(blockNS, totalExecutionsKey, totalExecutionsBytes, "failed to put total executions")
-
-	value, err = dao.kvstore.Get(blockNS, totalActionsKey)
-	if err != nil {
-		return errors.Wrap(err, "failed to get total actions")
-	}
-	totalActions := enc.MachineEndian.Uint64(value)
-	totalActions += uint64(len(blk.Actions) - len(transfers) - len(votes) - len(executions))
-	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
-	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
-
-	for _, elp := range blk.Actions {
-		var (
-			prefix []byte
-			ns     string
-		)
-		act := elp.Action()
-		// TODO: To be deprecated
-		switch act.(type) {
-		case *action.Transfer:
-			prefix = transferPrefix
-			ns = blockTransferBlockMappingNS
-		case *action.Vote:
-			prefix = votePrefix
-			ns = blockVoteBlockMappingNS
-		case *action.Execution:
-			prefix = executionPrefix
-			ns = blockExecutionBlockMappingNS
-		}
-		actHash := elp.Hash()
-		if prefix != nil {
-			hashKey := append(prefix, actHash[:]...)
-			batch.Put(ns, hashKey, hash[:], "failed to put action hash %x", actHash)
-		}
-		actionHashKey := append(actionPrefix, actHash[:]...)
-		batch.Put(blockActionBlockMappingNS, actionHashKey, hash[:], "failed to put action hash %x", actHash)
-	}
-
-	// TODO: To be deprecated
-	if err = putTransfers(dao, blk, batch); err != nil {
-		return err
-	}
-
-	// TODO: To be deprecated
-	if err = putVotes(dao, blk, batch); err != nil {
-		return err
-	}
-
-	// TODO: To be deprecated
-	if err = putExecutions(dao, blk, batch); err != nil {
-		return err
-	}
-
-	if err = putActions(dao, blk, batch); err != nil {
+	if err := indexBlock(dao.kvstore, blk, batch); err != nil {
 		return err
 	}
 	return dao.kvstore.Commit(batch)
-}
-
-// TODO: To be deprecated
-// putTransfers stores transfer information into db
-func putTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
-	senderDelta := map[string]uint64{}
-	recipientDelta := map[string]uint64{}
-
-	transfers, _, _ := action.ClassifyActions(blk.Actions)
-	for _, transfer := range transfers {
-		transferHash := transfer.Hash()
-
-		// get transfers count for sender
-		senderTransferCount, err := dao.getTransferCountBySenderAddress(transfer.Sender())
-		if err != nil {
-			return errors.Wrapf(err, "for sender %x", transfer.Sender())
-		}
-		if delta, ok := senderDelta[transfer.Sender()]; ok {
-			senderTransferCount += delta
-			senderDelta[transfer.Sender()] = senderDelta[transfer.Sender()] + 1
-		} else {
-			senderDelta[transfer.Sender()] = 1
-		}
-
-		// put new transfer to sender
-		senderKey := append(transferFromPrefix, transfer.Sender()...)
-		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderTransferCount)...)
-		batch.Put(blockAddressTransferMappingNS, senderKey, transferHash[:],
-			"failed to put transfer hash %x for sender %x", transfer.Hash(), transfer.Sender())
-
-		// update sender transfers count
-		senderTransferCountKey := append(transferFromPrefix, transfer.Sender()...)
-		batch.Put(blockAddressTransferCountMappingNS, senderTransferCountKey,
-			byteutil.Uint64ToBytes(senderTransferCount+1), "failed to bump transfer count %x for sender %x",
-			transfer.Hash(), transfer.Sender())
-
-		// get transfers count for recipient
-		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(transfer.Recipient())
-		if err != nil {
-			return errors.Wrapf(err, "for recipient %x", transfer.Recipient())
-		}
-		if delta, ok := recipientDelta[transfer.Recipient()]; ok {
-			recipientTransferCount += delta
-			recipientDelta[transfer.Recipient()] = recipientDelta[transfer.Recipient()] + 1
-		} else {
-			recipientDelta[transfer.Recipient()] = 1
-		}
-
-		// put new transfer to recipient
-		recipientKey := append(transferToPrefix, transfer.Recipient()...)
-		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientTransferCount)...)
-
-		batch.Put(blockAddressTransferMappingNS, recipientKey, transferHash[:],
-			"failed to put transfer hash %x for recipient %x", transfer.Hash(), transfer.Recipient())
-
-		// update recipient transfers count
-		recipientTransferCountKey := append(transferToPrefix, transfer.Recipient()...)
-		batch.Put(blockAddressTransferCountMappingNS, recipientTransferCountKey,
-			byteutil.Uint64ToBytes(recipientTransferCount+1), "failed to bump transfer count %x for recipient %x",
-			transfer.Hash(), transfer.Recipient())
-	}
-
-	return nil
-}
-
-// TODO: To be deprecated
-// putVotes stores vote information into db
-func putVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
-	senderDelta := map[string]uint64{}
-	recipientDelta := map[string]uint64{}
-
-	for _, selp := range blk.Actions {
-		vote, ok := selp.Action().(*action.Vote)
-		if !ok {
-			continue
-		}
-		voteHash := selp.Hash()
-		Sender := vote.Voter()
-		Recipient := vote.Votee()
-
-		// get votes count for sender
-		senderVoteCount, err := dao.getVoteCountBySenderAddress(Sender)
-		if err != nil {
-			return errors.Wrapf(err, "for sender %x", Sender)
-		}
-		if delta, ok := senderDelta[Sender]; ok {
-			senderVoteCount += delta
-			senderDelta[Sender] = senderDelta[Sender] + 1
-		} else {
-			senderDelta[Sender] = 1
-		}
-
-		// put new vote to sender
-		senderKey := append(voteFromPrefix, Sender...)
-		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderVoteCount)...)
-		batch.Put(blockAddressVoteMappingNS, senderKey, voteHash[:],
-			"failed to put vote hash %x for sender %x", voteHash, Sender)
-
-		// update sender votes count
-		senderVoteCountKey := append(voteFromPrefix, Sender...)
-		batch.Put(blockAddressVoteCountMappingNS, senderVoteCountKey,
-			byteutil.Uint64ToBytes(senderVoteCount+1), "failed to bump vote count %x for sender %x",
-			voteHash, Sender)
-
-		// get votes count for recipient
-		recipientVoteCount, err := dao.getVoteCountByRecipientAddress(Recipient)
-		if err != nil {
-			return errors.Wrapf(err, "for recipient %x", Recipient)
-		}
-		if delta, ok := recipientDelta[Recipient]; ok {
-			recipientVoteCount += delta
-			recipientDelta[Recipient] = recipientDelta[Recipient] + 1
-		} else {
-			recipientDelta[Recipient] = 1
-		}
-
-		// put new vote to recipient
-		recipientKey := append(voteToPrefix, Recipient...)
-		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientVoteCount)...)
-		batch.Put(blockAddressVoteMappingNS, recipientKey, voteHash[:],
-			"failed to put vote hash %x for recipient %x", voteHash, Recipient)
-
-		// update recipient votes count
-		recipientVoteCountKey := append(voteToPrefix, Recipient...)
-		batch.Put(blockAddressVoteCountMappingNS, recipientVoteCountKey,
-			byteutil.Uint64ToBytes(recipientVoteCount+1),
-			"failed to bump vote count %x for recipient %x", voteHash, Recipient)
-	}
-
-	return nil
-}
-
-// TODO: To be deprecated
-// putExecutions stores execution information into db
-func putExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
-	executorDelta := map[string]uint64{}
-	contractDelta := map[string]uint64{}
-
-	_, _, executions := action.ClassifyActions(blk.Actions)
-	for _, execution := range executions {
-		executionHash := execution.Hash()
-
-		// get execution count for executor
-		executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(execution.Executor())
-		if err != nil {
-			return errors.Wrapf(err, "for executor %x", execution.Executor())
-		}
-		if delta, ok := executorDelta[execution.Executor()]; ok {
-			executorExecutionCount += delta
-			executorDelta[execution.Executor()] = executorDelta[execution.Executor()] + 1
-		} else {
-			executorDelta[execution.Executor()] = 1
-		}
-
-		// put new execution to executor
-		executorKey := append(executionFromPrefix, execution.Executor()...)
-		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorExecutionCount)...)
-		batch.Put(blockAddressExecutionMappingNS, executorKey, executionHash[:],
-			"failed to put execution hash %x for executor %x", execution.Hash(), execution.Executor())
-
-		// update executor executions count
-		executorExecutionCountKey := append(executionFromPrefix, execution.Executor()...)
-		batch.Put(blockAddressExecutionCountMappingNS, executorExecutionCountKey,
-			byteutil.Uint64ToBytes(executorExecutionCount+1),
-			"failed to bump execution count %x for executor %x", execution.Hash(), execution.Executor())
-
-		// get execution count for contract
-		contractExecutionCount, err := dao.getExecutionCountByContractAddress(execution.Contract())
-		if err != nil {
-			return errors.Wrapf(err, "for contract %x", execution.Contract())
-		}
-		if delta, ok := contractDelta[execution.Contract()]; ok {
-			contractExecutionCount += delta
-			contractDelta[execution.Contract()] = contractDelta[execution.Contract()] + 1
-		} else {
-			contractDelta[execution.Contract()] = 1
-		}
-
-		// put new execution to contract
-		contractKey := append(executionToPrefix, execution.Contract()...)
-		contractKey = append(contractKey, byteutil.Uint64ToBytes(contractExecutionCount)...)
-		batch.Put(blockAddressExecutionMappingNS, contractKey, executionHash[:],
-			"failed to put execution hash %x for contract %x", execution.Hash(), execution.Contract())
-
-		// update contract executions count
-		contractExecutionCountKey := append(executionToPrefix, execution.Contract()...)
-		batch.Put(blockAddressExecutionCountMappingNS, contractExecutionCountKey,
-			byteutil.Uint64ToBytes(contractExecutionCount+1), "failed to bump execution count %x for contract %x",
-			execution.Hash(), execution.Contract())
-	}
-	return nil
-}
-
-func putActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
-	senderDelta := make(map[string]uint64)
-	recipientDelta := make(map[string]uint64)
-
-	for _, selp := range blk.Actions {
-		actHash := selp.Hash()
-
-		// get action count for sender
-		senderActionCount, err := dao.getActionCountBySenderAddress(selp.SrcAddr())
-		if err != nil {
-			return errors.Wrapf(err, "for sender %s", selp.SrcAddr())
-		}
-		if delta, ok := senderDelta[selp.SrcAddr()]; ok {
-			senderActionCount += delta
-			senderDelta[selp.SrcAddr()]++
-		} else {
-			senderDelta[selp.SrcAddr()] = 1
-		}
-
-		// put new action to sender
-		senderKey := append(actionFromPrefix, selp.SrcAddr()...)
-		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderActionCount)...)
-		batch.Put(blockAddressActionMappingNS, senderKey, actHash[:],
-			"failed to put action hash %x for sender %s", actHash, selp.SrcAddr())
-
-		// update sender action count
-		senderActionCountKey := append(actionFromPrefix, selp.SrcAddr()...)
-		batch.Put(blockAddressActionCountMappingNS, senderActionCountKey,
-			byteutil.Uint64ToBytes(senderActionCount+1),
-			"failed to bump action count %x for sender %s", actHash, selp.SrcAddr())
-
-		// get action count for recipient
-		recipientActionCount, err := dao.getActionCountByRecipientAddress(selp.DstAddr())
-		if err != nil {
-			return errors.Wrapf(err, "for recipient %s", selp.DstAddr())
-		}
-		if delta, ok := recipientDelta[selp.DstAddr()]; ok {
-			recipientActionCount += delta
-			recipientDelta[selp.DstAddr()]++
-		} else {
-			recipientDelta[selp.DstAddr()] = 1
-		}
-
-		// put new action to recipient
-		recipientKey := append(actionToPrefix, selp.DstAddr()...)
-		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientActionCount)...)
-		batch.Put(blockAddressActionMappingNS, recipientKey, actHash[:],
-			"failed to put action hash %x for recipient %s", actHash, selp.DstAddr())
-
-		// update recipient action count
-		recipientActionCountKey := append(actionToPrefix, selp.DstAddr()...)
-		batch.Put(blockAddressActionCountMappingNS, recipientActionCountKey,
-			byteutil.Uint64ToBytes(recipientActionCount+1), "failed to bump action count %x for recipient %s",
-			actHash, selp.DstAddr())
-	}
-	return nil
 }
 
 // putReceipts store receipt into db
@@ -1219,7 +493,7 @@ func deleteTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) err
 	}
 	// Roll back the status of address -> transferCount mapping to the previous block
 	for sender, count := range senderCount {
-		senderTransferCount, err := dao.getTransferCountBySenderAddress(sender)
+		senderTransferCount, err := getTransferCountBySenderAddress(dao.kvstore, sender)
 		if err != nil {
 			return errors.Wrapf(err, "for sender %x", sender)
 		}
@@ -1229,7 +503,7 @@ func deleteTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) err
 			byteutil.Uint64ToBytes(senderCount[sender]), "failed to update transfer count for sender %x", sender)
 	}
 	for recipient, count := range recipientCount {
-		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(recipient)
+		recipientTransferCount, err := getTransferCountByRecipientAddress(dao.kvstore, recipient)
 		if err != nil {
 			return errors.Wrapf(err, "for recipient %x", recipient)
 		}
@@ -1291,7 +565,7 @@ func deleteVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	}
 	// Roll back the status of address -> voteCount mapping to the previous block
 	for sender, count := range senderCount {
-		senderVoteCount, err := dao.getVoteCountBySenderAddress(sender)
+		senderVoteCount, err := getVoteCountBySenderAddress(dao.kvstore, sender)
 		if err != nil {
 			return errors.Wrapf(err, "for sender %x", sender)
 		}
@@ -1301,7 +575,7 @@ func deleteVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 			"failed to update vote count for sender %x", sender)
 	}
 	for recipient, count := range recipientCount {
-		recipientVoteCount, err := dao.getVoteCountByRecipientAddress(recipient)
+		recipientVoteCount, err := getVoteCountByRecipientAddress(dao.kvstore, recipient)
 		if err != nil {
 			return errors.Wrapf(err, "for recipient %x", recipient)
 		}
@@ -1362,7 +636,7 @@ func deleteExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) er
 	}
 	// Roll back the status of address -> executionCount mapping to the previous block
 	for executor, count := range executorCount {
-		executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(executor)
+		executorExecutionCount, err := getExecutionCountByExecutorAddress(dao.kvstore, executor)
 		if err != nil {
 			return errors.Wrapf(err, "for executor %x", executor)
 		}
@@ -1373,7 +647,7 @@ func deleteExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) er
 			"failed to update execution count for executor %x", executor)
 	}
 	for contract, count := range contractCount {
-		contractExecutionCount, err := dao.getExecutionCountByContractAddress(contract)
+		contractExecutionCount, err := getExecutionCountByContractAddress(dao.kvstore, contract)
 		if err != nil {
 			return errors.Wrapf(err, "for contract %x", contract)
 		}
@@ -1438,7 +712,7 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 	}
 	// Roll back the status of address -> actionCount mapping to the preivous block
 	for sender, count := range senderCount {
-		senderActionCount, err := dao.getActionCountBySenderAddress(sender)
+		senderActionCount, err := getActionCountBySenderAddress(dao.kvstore, sender)
 		if err != nil {
 			return errors.Wrapf(err, "for sender %x", sender)
 		}
@@ -1448,7 +722,7 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 			"failed to update action count for sender %x", sender)
 	}
 	for recipient, count := range recipientCount {
-		recipientActionCount, err := dao.getActionCountByRecipientAddress(recipient)
+		recipientActionCount, err := getActionCountByRecipientAddress(dao.kvstore, recipient)
 		if err != nil {
 			return errors.Wrapf(err, "for recipient %x", recipient)
 		}

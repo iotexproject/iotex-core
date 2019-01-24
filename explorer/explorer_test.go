@@ -218,8 +218,7 @@ func TestExplorerApi(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.WriteIndexInChainDB = true
-	cfg.Explorer.Enabled = true
+	cfg.Chain.EnableIndex = true
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -913,8 +912,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.WriteIndexInChainDB = true
-	cfg.Explorer.Enabled = true
+	cfg.Chain.EnableIndex = true
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
