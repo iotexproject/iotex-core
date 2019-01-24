@@ -26,7 +26,6 @@ type stateTX struct {
 	cb             db.CachedBatch // cached batch for pending writes
 	dao            db.KVStore     // the underlying DB for account/contract storage
 	actionHandlers []protocol.ActionHandler
-	snapshots      map[int]interface{}
 }
 
 // newStateTX creates a new state tx
@@ -40,7 +39,6 @@ func newStateTX(
 		cb:             db.NewCachedBatch(),
 		dao:            kv,
 		actionHandlers: actionHandlers,
-		snapshots:      make(map[int]interface{}),
 	}
 }
 
@@ -89,18 +87,9 @@ func (stx *stateTX) RunActions(
 	return hash.ZeroHash32B, receipts, nil
 }
 
-func (stx *stateTX) Snapshot() int {
-	s := stx.cb.Snapshot()
-	stx.snapshots[s] = nil
-	return s
-}
+func (stx *stateTX) Snapshot() int { return stx.cb.Snapshot() }
 
-func (stx *stateTX) Revert(snapshot int) error {
-	if err := stx.cb.Revert(snapshot); err != nil {
-		return err
-	}
-	return nil
-}
+func (stx *stateTX) Revert(snapshot int) error { return stx.cb.Revert(snapshot) }
 
 // Commit persists all changes in RunActions() into the DB
 func (stx *stateTX) Commit() error {
