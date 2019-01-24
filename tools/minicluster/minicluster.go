@@ -76,6 +76,7 @@ func main() {
 			networkPort, explorerPort)
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
+			config.Network.MasterKey = "bootnode"
 		}
 		configs[i] = config
 	}
@@ -219,7 +220,7 @@ func newConfig(
 	cfg.NodeType = config.DelegateType
 
 	cfg.Network.Port = networkPort
-	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWHvPz67ohcSczMF43QqXVtDoTtLmy8qCbbpccM3gYVKNi"}
+	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
 	cfg.Chain.GenesisActionsPath = genesisConfigPath

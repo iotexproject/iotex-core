@@ -59,7 +59,7 @@ var (
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			Host:           "127.0.0.1",
+			Host:           "0.0.0.0",
 			Port:           4689,
 			ExternalHost:   "",
 			ExternalPort:   4689,
