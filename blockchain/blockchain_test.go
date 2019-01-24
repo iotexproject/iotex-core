@@ -410,8 +410,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol())
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -419,7 +417,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	sf.AddActionHandlers(vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
-	require.NotNil(bc)
+	require.NoError(addCreatorToFactory(sf))
 
 	ms := &MockSubscriber{counter: 0}
 	err = bc.AddSubscriber(ms)
@@ -434,15 +432,17 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Equal(27, ms.Counter())
 
 	// Load a blockchain from DB
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.Nil(err)
+	sf.AddActionHandlers(account.NewProtocol())
+
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
 	defer func() {
-		err := bc.Stop(ctx)
-		require.NoError(err)
+		require.NoError(bc.Stop(ctx))
 	}()
-	require.NotNil(bc)
 
 	// check hash<-->height mapping
 	blkhash, err := bc.GetHashByHeight(0)
@@ -652,15 +652,14 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol())
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	sf.AddActionHandlers(vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
-	require.NotNil(bc)
+
+	require.NoError(addCreatorToFactory(sf))
 
 	ms := &MockSubscriber{counter: 0}
 	err = bc.AddSubscriber(ms)
@@ -677,6 +676,10 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Equal(0, ms.counter)
 
 	// Load a blockchain from DB
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.Nil(err)
+	sf.AddActionHandlers(account.NewProtocol())
+
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
@@ -874,10 +877,11 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
-	require.NoError(sf.Start(context.Background()))
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	require.NotNil(bc)
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
 	// TODO: change the value when Candidates size is changed
 	height, err := sf.Height()
 	require.NoError(err)
@@ -902,14 +906,17 @@ func TestCoinbaseTransfer(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	sf.AddActionHandlers(account.NewProtocol())
 	require.Nil(err)
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
-	require.NotNil(bc)
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
+
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
 
@@ -971,12 +978,16 @@ func TestBlocks(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
+
 	a := ta.Addrinfo["alfa"].Bech32()
 	priKeyA := ta.Keyinfo["alfa"].PriKey
 	c := ta.Addrinfo["bravo"].Bech32()
@@ -1033,12 +1044,15 @@ func TestActions(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
 	a := ta.Addrinfo["alfa"].Bech32()
 	priKeyA := ta.Keyinfo["alfa"].PriKey
 	c := ta.Addrinfo["bravo"].Bech32()
@@ -1096,8 +1110,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	require.NoError(sf.Start(context.Background()))
-	sf.AddActionHandlers(account.NewProtocol())
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -1106,6 +1118,11 @@ func TestStartExistingBlockchain(t *testing.T) {
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	sf.AddActionHandlers(vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	sf.AddActionHandlers(account.NewProtocol())
 
 	defer func() {
 		require.NoError(sf.Stop(ctx))

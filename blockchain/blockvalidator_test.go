@@ -90,12 +90,15 @@ func TestWrongNonce(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
 
 	val := &validator{sf: sf, validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
@@ -253,12 +256,15 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
 
 	val := &validator{sf: sf, validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
