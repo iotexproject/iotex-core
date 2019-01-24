@@ -376,7 +376,7 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*Block, error) {
 	if blk == nil || err != nil {
 		return blk, err
 	}
-	logger.Info().
+	logger.Debug().
 		Uint32("version", blk.Header.version).
 		Uint32("chainID", blk.Header.chainID).
 		Uint64("height", blk.Header.height).

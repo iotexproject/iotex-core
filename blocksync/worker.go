@@ -67,7 +67,7 @@ func (w *syncWorker) SetTargetHeight(h uint64) {
 	if h > w.targetHeight {
 		w.targetHeight = h
 	}
-	logger.Warn().Uint64("targetHeight", w.targetHeight).Msg("testnet")
+	logger.Debug().Uint64("targetHeight", w.targetHeight).Msg("Update block sync target height")
 }
 
 // Sync checks the sliding window and send more sync request if needed
@@ -88,16 +88,19 @@ func (w *syncWorker) Sync() {
 			if err := w.sync(p, interval); err != nil {
 				logger.Warn().Err(err).Msg("Failed to sync block.")
 			}
-			logger.Warn().Str("peer", p.String()).Msg("testnet")
+			logger.Debug().Msgf("Sync block with peer %s", p.String())
 			w.rrIdx++
 		}
 	} else {
-		logger.Warn().Msg("nil interval")
+		logger.Debug().Msg("The interval to sync doesn't exist")
 	}
 }
 
 func (w *syncWorker) sync(p net.Addr, interval syncBlocksInterval) error {
-	logger.Warn().Uint64("start", interval.Start).Uint64("end", interval.End).Msg("testnet")
+	logger.Debug().
+		Uint64("start", interval.Start).
+		Uint64("end", interval.End).
+		Msg("Send syncing block request")
 	return w.p2p.Tell(w.chainID, p, &pb.BlockSync{
 		Start: interval.Start, End: interval.End,
 	})
