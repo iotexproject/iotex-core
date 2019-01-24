@@ -8,16 +8,15 @@ package blocksync
 
 import (
 	"context"
-	"net"
 
 	"github.com/golang/protobuf/proto"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -25,23 +24,23 @@ import (
 )
 
 type (
-	// Unicast sends a unicast message to the given address
-	Unicast func(addr net.Addr, msg proto.Message) error
+	// UnicastOutbound sends a unicast message to the given address
+	UnicastOutbound func(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) error
 	// Neighbors returns the neighbors' addresses
-	Neighbors func() []net.Addr
+	Neighbors func(ctx context.Context) ([]peerstore.PeerInfo, error)
 )
 
 // Config represents the config to setup blocksync
 type Config struct {
-	unicastHandler   Unicast
+	unicastHandler   UnicastOutbound
 	neighborsHandler Neighbors
 }
 
 // Option is the option to override the blocksync config
 type Option func(cfg *Config) error
 
-// WithUnicast is the option to set the unicast callback
-func WithUnicast(unicastHandler Unicast) Option {
+// WithUnicastOutBound is the option to set the unicast callback
+func WithUnicastOutBound(unicastHandler UnicastOutbound) Option {
 	return func(cfg *Config) error {
 		cfg.unicastHandler = unicastHandler
 		return nil
@@ -61,9 +60,9 @@ type BlockSync interface {
 	lifecycle.StartStopper
 
 	TargetHeight() uint64
-	ProcessSyncRequest(sender string, sync *iproto.BlockSync) error
-	ProcessBlock(blk *block.Block) error
-	ProcessBlockSync(blk *block.Block) error
+	ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iproto.BlockSync) error
+	ProcessBlock(ctx context.Context, blk *block.Block) error
+	ProcessBlockSync(ctx context.Context, blk *block.Block) error
 }
 
 // blockSyncer implements BlockSync interface
@@ -75,7 +74,7 @@ type blockSyncer struct {
 	buf              *blockBuffer
 	worker           *syncWorker
 	bc               blockchain.Blockchain
-	unicastHandler   Unicast
+	unicastHandler   UnicastOutbound
 	neighborsHandler Neighbors
 	chaser           *routine.RecurringTask
 }
@@ -144,7 +143,7 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 }
 
 // ProcessBlock processes an incoming latest committed block
-func (bs *blockSyncer) ProcessBlock(blk *block.Block) error {
+func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
 	if !bs.ackBlockCommit {
 		// node is not meant to handle latest committed block, simply exit
 		return nil
@@ -171,7 +170,7 @@ func (bs *blockSyncer) ProcessBlock(blk *block.Block) error {
 	return nil
 }
 
-func (bs *blockSyncer) ProcessBlockSync(blk *block.Block) error {
+func (bs *blockSyncer) ProcessBlockSync(_ context.Context, blk *block.Block) error {
 	if !bs.ackBlockSync {
 		// node is not meant to handle sync block, simply exit
 		return nil
@@ -184,7 +183,7 @@ func (bs *blockSyncer) ProcessBlockSync(blk *block.Block) error {
 }
 
 // ProcessSyncRequest processes a block sync request
-func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *iproto.BlockSync) error {
+func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iproto.BlockSync) error {
 	if !bs.ackSyncReq {
 		// node is not meant to handle sync request, simply exit
 		return nil
@@ -196,8 +195,7 @@ func (bs *blockSyncer) ProcessSyncRequest(sender string, sync *iproto.BlockSync)
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		if err := bs.unicastHandler(
-			node.NewTCPNode(sender),
+		if err := bs.unicastHandler(context.Background(), peer,
 			&iproto.BlockContainer{Block: blk.ConvertToBlockPb()},
 		); err != nil {
 			log.L().Warn("Failed to response to ProcessSyncRequest.", zap.Error(err))

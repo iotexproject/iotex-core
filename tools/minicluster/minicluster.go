@@ -74,6 +74,9 @@ func main() {
 		explorerPort := 14004 + i
 		config := newConfig(genesisConfigPath, chainDBPath, trieDBPath, chainAddrs[i].PriKey,
 			networkPort, explorerPort)
+		if i == 0 {
+			config.Network.BootstrapNodes = []string{}
+		}
 		configs[i] = config
 	}
 
@@ -215,7 +218,7 @@ func newConfig(
 	cfg.NodeType = config.DelegateType
 
 	cfg.Network.Port = networkPort
-	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689"}
+	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWHvPz67ohcSczMF43QqXVtDoTtLmy8qCbbpccM3gYVKNi"}
 
 	cfg.Chain.ID = 1
 	cfg.Chain.GenesisActionsPath = genesisConfigPath

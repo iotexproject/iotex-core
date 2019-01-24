@@ -4,22 +4,13 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-// To compile the proto, run:
-//      protoc --go_out=plugins=grpc:. *.proto
-syntax = "proto3";
+package itx
 
-package p2ppb;
+import "net/http"
 
-message BroadcastMsg {
-    uint32 chain_id = 1;
-    uint32 msg_type = 2;
-    bytes msg_body = 3;
-}
-
-message UnicastMsg {
-    uint32 chain_id = 1;
-    string addr = 2;
-    uint32 msg_type = 3;
-    bytes msg_body = 4;
-	string peer_id = 5;
+func registerHealthCheckMux(root *http.ServeMux) {
+	root.Handle("/health/", http.StripPrefix("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})))
 }
