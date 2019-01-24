@@ -63,6 +63,7 @@ var (
 			ExternalHost:   "",
 			ExternalPort:   4689,
 			BootstrapNodes: make([]string, 0),
+			MasterKey:      "",
 		},
 		Chain: Chain{
 			ChainDBPath:                  "/tmp/chain.db",
@@ -78,6 +79,7 @@ var (
 			EnableFallBackToFreshDB:      false,
 			EnableSubChainStartInGenesis: false,
 			EnableGasCharge:              false,
+			EnableTrielessStateDB:        true,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -166,6 +168,7 @@ type (
 		ExternalHost   string   `yaml:"externalHost"`
 		ExternalPort   int      `yaml:"externalPort"`
 		BootstrapNodes []string `yaml:"bootstrapNodes"`
+		MasterKey      string   `yaml:"masterKey"` // master key will be PrivateKey if not set.
 	}
 
 	// Chain is the config struct for blockchain package
@@ -182,6 +185,7 @@ type (
 		NumCandidates                uint   `yaml:"numCandidates"`
 		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
+		EnableTrielessStateDB        bool   `yaml:"enableTrielessStateDB"`
 
 		// enable gas charge for block producer
 		EnableGasCharge bool `yaml:"enableGasCharge"`
@@ -347,6 +351,11 @@ func New(validates ...Validate) (Config, error) {
 	var cfg Config
 	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
+	}
+
+	// set network master key to pub key
+	if cfg.Network.MasterKey == "" {
+		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
 	}
 
 	// By default, the config needs to pass all the validation

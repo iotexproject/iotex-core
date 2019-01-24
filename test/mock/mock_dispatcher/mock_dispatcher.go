@@ -10,7 +10,7 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	dispatcher "github.com/iotexproject/iotex-core/dispatcher"
 	proto0 "github.com/iotexproject/iotex-core/proto"
-	net "net"
+	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
 	reflect "reflect"
 )
 
@@ -38,51 +38,51 @@ func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
 }
 
 // HandleAction mocks base method
-func (m *MockSubscriber) HandleAction(arg0 *proto0.ActionPb) error {
-	ret := m.ctrl.Call(m, "HandleAction", arg0)
+func (m *MockSubscriber) HandleAction(arg0 context.Context, arg1 *proto0.ActionPb) error {
+	ret := m.ctrl.Call(m, "HandleAction", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // HandleAction indicates an expected call of HandleAction
-func (mr *MockSubscriberMockRecorder) HandleAction(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleAction", reflect.TypeOf((*MockSubscriber)(nil).HandleAction), arg0)
+func (mr *MockSubscriberMockRecorder) HandleAction(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleAction", reflect.TypeOf((*MockSubscriber)(nil).HandleAction), arg0, arg1)
 }
 
 // HandleBlock mocks base method
-func (m *MockSubscriber) HandleBlock(arg0 *proto0.BlockPb) error {
-	ret := m.ctrl.Call(m, "HandleBlock", arg0)
+func (m *MockSubscriber) HandleBlock(arg0 context.Context, arg1 *proto0.BlockPb) error {
+	ret := m.ctrl.Call(m, "HandleBlock", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // HandleBlock indicates an expected call of HandleBlock
-func (mr *MockSubscriberMockRecorder) HandleBlock(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlock", reflect.TypeOf((*MockSubscriber)(nil).HandleBlock), arg0)
+func (mr *MockSubscriberMockRecorder) HandleBlock(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlock", reflect.TypeOf((*MockSubscriber)(nil).HandleBlock), arg0, arg1)
 }
 
 // HandleBlockSync mocks base method
-func (m *MockSubscriber) HandleBlockSync(arg0 *proto0.BlockPb) error {
-	ret := m.ctrl.Call(m, "HandleBlockSync", arg0)
+func (m *MockSubscriber) HandleBlockSync(arg0 context.Context, arg1 *proto0.BlockPb) error {
+	ret := m.ctrl.Call(m, "HandleBlockSync", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // HandleBlockSync indicates an expected call of HandleBlockSync
-func (mr *MockSubscriberMockRecorder) HandleBlockSync(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockSync", reflect.TypeOf((*MockSubscriber)(nil).HandleBlockSync), arg0)
+func (mr *MockSubscriberMockRecorder) HandleBlockSync(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockSync", reflect.TypeOf((*MockSubscriber)(nil).HandleBlockSync), arg0, arg1)
 }
 
 // HandleSyncRequest mocks base method
-func (m *MockSubscriber) HandleSyncRequest(arg0 string, arg1 *proto0.BlockSync) error {
-	ret := m.ctrl.Call(m, "HandleSyncRequest", arg0, arg1)
+func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 go_libp2p_peerstore.PeerInfo, arg2 *proto0.BlockSync) error {
+	ret := m.ctrl.Call(m, "HandleSyncRequest", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // HandleSyncRequest indicates an expected call of HandleSyncRequest
-func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSyncRequest", reflect.TypeOf((*MockSubscriber)(nil).HandleSyncRequest), arg0, arg1)
+func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSyncRequest", reflect.TypeOf((*MockSubscriber)(nil).HandleSyncRequest), arg0, arg1, arg2)
 }
 
 // HandleConsensusMsg mocks base method
@@ -155,21 +155,21 @@ func (mr *MockDispatcherMockRecorder) AddSubscriber(arg0, arg1 interface{}) *gom
 }
 
 // HandleBroadcast mocks base method
-func (m *MockDispatcher) HandleBroadcast(arg0 uint32, arg1 proto.Message) {
-	m.ctrl.Call(m, "HandleBroadcast", arg0, arg1)
+func (m *MockDispatcher) HandleBroadcast(arg0 context.Context, arg1 uint32, arg2 proto.Message) {
+	m.ctrl.Call(m, "HandleBroadcast", arg0, arg1, arg2)
 }
 
 // HandleBroadcast indicates an expected call of HandleBroadcast
-func (mr *MockDispatcherMockRecorder) HandleBroadcast(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBroadcast", reflect.TypeOf((*MockDispatcher)(nil).HandleBroadcast), arg0, arg1)
+func (mr *MockDispatcherMockRecorder) HandleBroadcast(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBroadcast", reflect.TypeOf((*MockDispatcher)(nil).HandleBroadcast), arg0, arg1, arg2)
 }
 
 // HandleTell mocks base method
-func (m *MockDispatcher) HandleTell(arg0 uint32, arg1 net.Addr, arg2 proto.Message) {
-	m.ctrl.Call(m, "HandleTell", arg0, arg1, arg2)
+func (m *MockDispatcher) HandleTell(arg0 context.Context, arg1 uint32, arg2 go_libp2p_peerstore.PeerInfo, arg3 proto.Message) {
+	m.ctrl.Call(m, "HandleTell", arg0, arg1, arg2, arg3)
 }
 
 // HandleTell indicates an expected call of HandleTell
-func (mr *MockDispatcherMockRecorder) HandleTell(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleTell", reflect.TypeOf((*MockDispatcher)(nil).HandleTell), arg0, arg1, arg2)
+func (mr *MockDispatcherMockRecorder) HandleTell(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleTell", reflect.TypeOf((*MockDispatcher)(nil).HandleTell), arg0, arg1, arg2, arg3)
 }

@@ -9,6 +9,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	proto "github.com/iotexproject/iotex-core/proto"
+	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
 	reflect "reflect"
 )
 
@@ -72,37 +73,37 @@ func (mr *MockBlockSyncMockRecorder) TargetHeight() *gomock.Call {
 }
 
 // ProcessSyncRequest mocks base method
-func (m *MockBlockSync) ProcessSyncRequest(sender string, sync *proto.BlockSync) error {
-	ret := m.ctrl.Call(m, "ProcessSyncRequest", sender, sync)
+func (m *MockBlockSync) ProcessSyncRequest(ctx context.Context, peer go_libp2p_peerstore.PeerInfo, sync *proto.BlockSync) error {
+	ret := m.ctrl.Call(m, "ProcessSyncRequest", ctx, peer, sync)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ProcessSyncRequest indicates an expected call of ProcessSyncRequest
-func (mr *MockBlockSyncMockRecorder) ProcessSyncRequest(sender, sync interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessSyncRequest", reflect.TypeOf((*MockBlockSync)(nil).ProcessSyncRequest), sender, sync)
+func (mr *MockBlockSyncMockRecorder) ProcessSyncRequest(ctx, peer, sync interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessSyncRequest", reflect.TypeOf((*MockBlockSync)(nil).ProcessSyncRequest), ctx, peer, sync)
 }
 
 // ProcessBlock mocks base method
-func (m *MockBlockSync) ProcessBlock(blk *block.Block) error {
-	ret := m.ctrl.Call(m, "ProcessBlock", blk)
+func (m *MockBlockSync) ProcessBlock(ctx context.Context, blk *block.Block) error {
+	ret := m.ctrl.Call(m, "ProcessBlock", ctx, blk)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ProcessBlock indicates an expected call of ProcessBlock
-func (mr *MockBlockSyncMockRecorder) ProcessBlock(blk interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessBlock", reflect.TypeOf((*MockBlockSync)(nil).ProcessBlock), blk)
+func (mr *MockBlockSyncMockRecorder) ProcessBlock(ctx, blk interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessBlock", reflect.TypeOf((*MockBlockSync)(nil).ProcessBlock), ctx, blk)
 }
 
 // ProcessBlockSync mocks base method
-func (m *MockBlockSync) ProcessBlockSync(blk *block.Block) error {
-	ret := m.ctrl.Call(m, "ProcessBlockSync", blk)
+func (m *MockBlockSync) ProcessBlockSync(ctx context.Context, blk *block.Block) error {
+	ret := m.ctrl.Call(m, "ProcessBlockSync", ctx, blk)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ProcessBlockSync indicates an expected call of ProcessBlockSync
-func (mr *MockBlockSyncMockRecorder) ProcessBlockSync(blk interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessBlockSync", reflect.TypeOf((*MockBlockSync)(nil).ProcessBlockSync), blk)
+func (mr *MockBlockSyncMockRecorder) ProcessBlockSync(ctx, blk interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessBlockSync", reflect.TypeOf((*MockBlockSync)(nil).ProcessBlockSync), ctx, blk)
 }

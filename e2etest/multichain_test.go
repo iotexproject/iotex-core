@@ -58,7 +58,6 @@ func TestTwoChains(t *testing.T) {
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = testutil.RandomPort()
 	cfg.Network.Port = testutil.RandomPort()
-	cfg.Network.BootstrapNodes = []string{fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)}
 
 	svr, err := itx.NewServer(cfg)
 	require.NoError(t, err)

@@ -11,12 +11,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/dgraph-io/badger"
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	bolt "go.etcd.io/bbolt"
+	"github.com/iotexproject/iotex-core/db"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
+	"github.com/pkg/errors"
 )
 
 type (
@@ -36,16 +35,11 @@ type (
 func (tr *branchRootTrie) Start(ctx context.Context) error {
 	tr.mutex.Lock()
 	defer tr.mutex.Unlock()
-	if err := tr.kvStore.Start(ctx); err != nil {
-		return err
-	}
 	if tr.rootKey != "" {
 		switch root, err := tr.kvStore.Get([]byte(tr.rootKey)); errors.Cause(err) {
 		case nil:
 			tr.rootHash = root
-		case bolt.ErrBucketNotFound:
-			fallthrough
-		case badger.ErrKeyNotFound:
+		case db.ErrNotExist:
 			tr.rootHash = tr.emptyRootHash()
 		default:
 			return err
@@ -55,11 +49,8 @@ func (tr *branchRootTrie) Start(ctx context.Context) error {
 	return tr.SetRootHash(tr.rootHash)
 }
 
-func (tr *branchRootTrie) Stop(ctx context.Context) error {
-	tr.mutex.Lock()
-	defer tr.mutex.Unlock()
-
-	return tr.kvStore.Stop(ctx)
+func (tr *branchRootTrie) Stop(_ context.Context) error {
+	return nil
 }
 
 func (tr *branchRootTrie) RootHash() []byte {

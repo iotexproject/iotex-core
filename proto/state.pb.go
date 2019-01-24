@@ -20,13 +20,13 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type AccountPb struct {
 	// used by state-based model
-	Nonce                uint64   `protobuf:"varint,1,opt,name=nonce" json:"nonce,omitempty"`
+	Nonce                uint64   `protobuf:"varint,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	Balance              []byte   `protobuf:"bytes,2,opt,name=balance,proto3" json:"balance,omitempty"`
 	Root                 []byte   `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
 	CodeHash             []byte   `protobuf:"bytes,4,opt,name=codeHash,proto3" json:"codeHash,omitempty"`
-	IsCandidate          bool     `protobuf:"varint,5,opt,name=isCandidate" json:"isCandidate,omitempty"`
+	IsCandidate          bool     `protobuf:"varint,5,opt,name=isCandidate,proto3" json:"isCandidate,omitempty"`
 	VotingWeight         []byte   `protobuf:"bytes,6,opt,name=votingWeight,proto3" json:"votingWeight,omitempty"`
-	Votee                string   `protobuf:"bytes,7,opt,name=votee" json:"votee,omitempty"`
+	Votee                string   `protobuf:"bytes,7,opt,name=votee,proto3" json:"votee,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

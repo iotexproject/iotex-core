@@ -29,16 +29,16 @@ import (
 
 // Config represents the config to setup explorer
 type Config struct {
-	broadcastHandler Broadcast
-	neighborsHandler Neighbors
-	selfHandler      Self
+	broadcastHandler   BroadcastOutbound
+	neighborsHandler   Neighbors
+	networkInfoHandler NetworkInfo
 }
 
 // Option is the option to override the explorer config
 type Option func(cfg *Config) error
 
-// WithBroadcast is the option to set the broadcast callback
-func WithBroadcast(broadcastHandler Broadcast) Option {
+// WithBroadcastOutbound is the option to broadcast msg outbound
+func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
 	return func(cfg *Config) error {
 		cfg.broadcastHandler = broadcastHandler
 		return nil
@@ -53,10 +53,10 @@ func WithNeighbors(neighborsHandler Neighbors) Option {
 	}
 }
 
-// WithSelf is the option to set the self callback
-func WithSelf(selfHandler Self) Option {
+// WithNetworkInfo is the option to set the network information handler.
+func WithNetworkInfo(selfHandler NetworkInfo) Option {
 	return func(cfg *Config) error {
-		cfg.selfHandler = selfHandler
+		cfg.networkInfoHandler = selfHandler
 		return nil
 	}
 }
@@ -89,16 +89,16 @@ func NewServer(
 	return &Server{
 		cfg: cfg,
 		exp: &Service{
-			bc:               chain,
-			c:                consensus,
-			dp:               dispatcher,
-			ap:               actPool,
-			broadcastHandler: expCfg.broadcastHandler,
-			neighborsHandler: expCfg.neighborsHandler,
-			selfHandler:      expCfg.selfHandler,
-			cfg:              cfg,
-			idx:              idx,
-			gs:               GasStation{bc: chain, cfg: cfg},
+			bc:                 chain,
+			c:                  consensus,
+			dp:                 dispatcher,
+			ap:                 actPool,
+			broadcastHandler:   expCfg.broadcastHandler,
+			neighborsHandler:   expCfg.neighborsHandler,
+			networkInfoHandler: expCfg.networkInfoHandler,
+			cfg:                cfg,
+			idx:                idx,
+			gs:                 GasStation{bc: chain, cfg: cfg},
 		},
 	}, nil
 }

@@ -7,12 +7,14 @@
 package explorer
 
 import (
+	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
-	"net"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -63,26 +65,26 @@ func init() {
 }
 
 type (
-	// Broadcast sends a broadcast message to the whole network
-	Broadcast func(chainID uint32, msg proto.Message) error
+	// BroadcastOutbound sends a broadcast message to the whole network
+	BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
 	// Neighbors returns the neighbors' addresses
-	Neighbors func() []net.Addr
-	// Self returns the self network address
-	Self func() net.Addr
+	Neighbors func(context.Context) ([]peerstore.PeerInfo, error)
+	// NetworkInfo returns the self network information
+	NetworkInfo func() peerstore.PeerInfo
 )
 
 // Service provide api for user to query blockchain data
 type Service struct {
-	bc               blockchain.Blockchain
-	c                consensus.Consensus
-	dp               dispatcher.Dispatcher
-	ap               actpool.ActPool
-	gs               GasStation
-	broadcastHandler Broadcast
-	neighborsHandler Neighbors
-	selfHandler      Self
-	cfg              config.Explorer
-	idx              *indexservice.Server
+	bc                 blockchain.Blockchain
+	c                  consensus.Consensus
+	dp                 dispatcher.Dispatcher
+	ap                 actpool.ActPool
+	gs                 GasStation
+	broadcastHandler   BroadcastOutbound
+	neighborsHandler   Neighbors
+	networkInfoHandler NetworkInfo
+	cfg                config.Explorer
+	idx                *indexservice.Server
 	// TODO: the way to make explorer to access the data model managed by main-chain protocol is hack. We need to
 	// refactor the code later
 	mainChain *mainchain.Protocol
@@ -830,6 +832,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 
 		txRoot := blk.TxRoot()
 		stateRoot := blk.StateRoot()
+		deltaStateDigest := blk.DeltaStateDigest()
 		explorerBlock := explorer.Block{
 			ID:         hex.EncodeToString(hash[:]),
 			Height:     int64(blockHeaderPb.Height),
@@ -843,8 +846,9 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 				Name:    "",
 				Address: keypair.EncodePublicKey(blk.PublicKey()),
 			},
-			TxRoot:    hex.EncodeToString(txRoot[:]),
-			StateRoot: hex.EncodeToString(stateRoot[:]),
+			TxRoot:           hex.EncodeToString(txRoot[:]),
+			StateRoot:        hex.EncodeToString(stateRoot[:]),
+			DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 		}
 
 		res = append(res, explorerBlock)
@@ -879,6 +883,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 
 	txRoot := blk.TxRoot()
 	stateRoot := blk.StateRoot()
+	deltaStateDigest := blk.DeltaStateDigest()
 	explorerBlock := explorer.Block{
 		ID:         blkID,
 		Height:     int64(blkHeaderPb.Height),
@@ -892,8 +897,9 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 			Name:    "",
 			Address: keypair.EncodePublicKey(blk.PublicKey()),
 		},
-		TxRoot:    hex.EncodeToString(txRoot[:]),
-		StateRoot: hex.EncodeToString(stateRoot[:]),
+		TxRoot:           hex.EncodeToString(txRoot[:]),
+		StateRoot:        hex.EncodeToString(stateRoot[:]),
+		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 	}
 
 	return explorerBlock, nil
@@ -1072,11 +1078,11 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 		return explorer.SendTransferResponse{}, err
 	}
 	// broadcast to the network
-	if err = exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
+	if err = exp.broadcastHandler(context.Background(), exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendTransferResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
+	exp.dp.HandleBroadcast(context.Background(), exp.bc.ChainID(), actPb)
 
 	tsf := &action.SealedEnvelope{}
 	if err := tsf.LoadProto(actPb); err != nil {
@@ -1125,11 +1131,11 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(context.Background(), exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendVoteResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
+	exp.dp.HandleBroadcast(context.Background(), exp.bc.ChainID(), actPb)
 
 	v := &action.SealedEnvelope{}
 	if err := v.LoadProto(actPb); err != nil {
@@ -1192,11 +1198,11 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(context.Background(), exp.bc.ChainID(), actPb); err != nil {
 		return explorer.PutSubChainBlockResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
+	exp.dp.HandleBroadcast(context.Background(), exp.bc.ChainID(), actPb)
 
 	v := &action.SealedEnvelope{}
 	if err := v.LoadProto(actPb); err != nil {
@@ -1224,11 +1230,11 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 	}
 
 	// broadcast to the network
-	if err = exp.broadcastHandler(exp.bc.ChainID(), &action); err != nil {
+	if err = exp.broadcastHandler(context.Background(), exp.bc.ChainID(), &action); err != nil {
 		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), &action)
+	exp.dp.HandleBroadcast(context.Background(), exp.bc.ChainID(), &action)
 
 	// TODO: include action hash
 	return explorer.SendActionResponse{}, nil
@@ -1236,15 +1242,20 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 
 // GetPeers return a list of node peers and itself's network addsress info.
 func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
-	var peers []explorer.Node
-	for _, p := range exp.neighborsHandler() {
-		peers = append(peers, explorer.Node{
-			Address: p.String(),
+	var exppeers []explorer.Node
+	ctx := context.Background()
+	peers, err := exp.neighborsHandler(ctx)
+	if err != nil {
+		return explorer.GetPeersResponse{}, err
+	}
+	for _, p := range peers {
+		exppeers = append(exppeers, explorer.Node{
+			Address: fmt.Sprintf("%v", p),
 		})
 	}
 	return explorer.GetPeersResponse{
-		Self:  explorer.Node{Address: exp.selfHandler().String()},
-		Peers: peers,
+		Self:  explorer.Node{Address: fmt.Sprintf("%v", exp.networkInfoHandler())},
+		Peers: exppeers,
 	}, nil
 }
 
@@ -1297,11 +1308,11 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(context.Background(), exp.bc.ChainID(), actPb); err != nil {
 		return explorer.SendSmartContractResponse{}, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
+	exp.dp.HandleBroadcast(context.Background(), exp.bc.ChainID(), actPb)
 
 	sc := &action.SealedEnvelope{}
 	if err := sc.LoadProto(actPb); err != nil {
@@ -1400,11 +1411,11 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	}
 
 	// broadcast to the network
-	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(context.Background(), exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
+	exp.dp.HandleBroadcast(context.Background(), exp.bc.ChainID(), actPb)
 
 	selp := &action.SealedEnvelope{}
 	if err := selp.LoadProto(actPb); err != nil {
@@ -1509,11 +1520,11 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 		Signature:    signature,
 	}
 	// broadcast to the network
-	if err := exp.broadcastHandler(exp.bc.ChainID(), actPb); err != nil {
+	if err := exp.broadcastHandler(context.Background(), exp.bc.ChainID(), actPb); err != nil {
 		return res, err
 	}
 	// send to actpool via dispatcher
-	exp.dp.HandleBroadcast(exp.bc.ChainID(), actPb)
+	exp.dp.HandleBroadcast(context.Background(), exp.bc.ChainID(), actPb)
 
 	deposit := &action.SealedEnvelope{}
 	if err := deposit.LoadProto(actPb); err != nil {
