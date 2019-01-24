@@ -18,41 +18,45 @@ import (
 // Header defines the struct of block header
 // make sure the variable type and order of this struct is same as "BlockHeaderPb" in blockchain.pb.go
 type Header struct {
-	version       uint32            // version
-	chainID       uint32            // this chain's ID
-	height        uint64            // block height
-	timestamp     int64             // unix timestamp
-	prevBlockHash hash.Hash32B      // hash of previous block
-	txRoot        hash.Hash32B      // merkle root of all transactions
-	stateRoot     hash.Hash32B      // root of state trie
-	receiptRoot   hash.Hash32B      // root of receipt trie
-	blockSig      []byte            // block signature
-	pubkey        keypair.PublicKey // block producer's public key
-	dkgID         []byte            // dkg ID of producer
-	dkgPubkey     []byte            // dkg public key of producer
-	dkgBlockSig   []byte            // dkg signature of producer
+	version          uint32            // version
+	chainID          uint32            // this chain's ID
+	height           uint64            // block height
+	timestamp        int64             // unix timestamp
+	prevBlockHash    hash.Hash32B      // hash of previous block
+	txRoot           hash.Hash32B      // merkle root of all transactions
+	stateRoot        hash.Hash32B      // root of state trie
+	deltaStateDigest hash.Hash32B      // digest of state change by this block
+	receiptRoot      hash.Hash32B      // root of receipt trie
+	blockSig         []byte            // block signature
+	pubkey           keypair.PublicKey // block producer's public key
+	dkgID            []byte            // dkg ID of producer
+	dkgPubkey        []byte            // dkg public key of producer
+	dkgBlockSig      []byte            // dkg signature of producer
 }
 
-// Version returns the version of this header.
+// Version returns the version of this block.
 func (h Header) Version() uint32 { return h.version }
 
-// ChainID returns the chain id of this header.
+// ChainID returns the chain id of this block.
 func (h Header) ChainID() uint32 { return h.chainID }
 
-// Height returns the height of this header.
+// Height returns the height of this block.
 func (h Header) Height() uint64 { return h.height }
 
-// Timestamp returns the Timestamp of this header.
+// Timestamp returns the Timestamp of this block.
 func (h Header) Timestamp() int64 { return h.timestamp }
 
 // PrevHash returns the hash of prev block.
 func (h Header) PrevHash() hash.Hash32B { return h.prevBlockHash }
 
-// TxRoot returns the hash of all actions in this header.
+// TxRoot returns the hash of all actions in this block.
 func (h Header) TxRoot() hash.Hash32B { return h.txRoot }
 
-// StateRoot returns the state root after apply this header.
+// StateRoot returns the state root after applying this block.
 func (h Header) StateRoot() hash.Hash32B { return h.stateRoot }
+
+// DeltaStateDigest returns the delta sate digest after applying this block.
+func (h Header) DeltaStateDigest() hash.Hash32B { return h.deltaStateDigest }
 
 // PublicKey returns the public key of this header.
 func (h Header) PublicKey() keypair.PublicKey { return h.pubkey }
@@ -93,6 +97,7 @@ func (h Header) ByteStream() []byte {
 	stream = append(stream, h.prevBlockHash[:]...)
 	stream = append(stream, h.txRoot[:]...)
 	stream = append(stream, h.stateRoot[:]...)
+	stream = append(stream, h.deltaStateDigest[:]...)
 	stream = append(stream, h.receiptRoot[:]...)
 	return stream
 }
@@ -105,5 +110,7 @@ func (h Header) HeaderLogger(l *zap.Logger) *zap.Logger {
 		zap.Int64("timeStamp", h.timestamp),
 		log.Hex("prevBlockHash", h.prevBlockHash[:]),
 		log.Hex("txRoot", h.txRoot[:]),
-		log.Hex("stateRoot", h.stateRoot[:]))
+		log.Hex("stateRoot", h.stateRoot[:]),
+		log.Hex("deltaStateDigest", h.deltaStateDigest[:]),
+	)
 }

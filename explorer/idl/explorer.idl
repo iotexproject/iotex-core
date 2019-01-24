@@ -42,6 +42,7 @@ struct Block {
     size int
     txRoot string
     stateRoot string
+    deltaStateDigest string
 }
 
 struct Transfer {

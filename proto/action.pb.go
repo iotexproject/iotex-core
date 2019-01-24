@@ -22,9 +22,9 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type TransferPb struct {
 	// used by state-based model
 	Amount               []byte   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
-	Recipient            string   `protobuf:"bytes,2,opt,name=recipient" json:"recipient,omitempty"`
+	Recipient            string   `protobuf:"bytes,2,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	Payload              []byte   `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
-	IsCoinbase           bool     `protobuf:"varint,4,opt,name=isCoinbase" json:"isCoinbase,omitempty"`
+	IsCoinbase           bool     `protobuf:"varint,4,opt,name=isCoinbase,proto3" json:"isCoinbase,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -83,8 +83,8 @@ func (m *TransferPb) GetIsCoinbase() bool {
 }
 
 type VotePb struct {
-	Timestamp            *timestamp.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
-	VoteeAddress         string               `protobuf:"bytes,2,opt,name=voteeAddress" json:"voteeAddress,omitempty"`
+	Timestamp            *timestamp.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	VoteeAddress         string               `protobuf:"bytes,2,opt,name=voteeAddress,proto3" json:"voteeAddress,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -130,7 +130,7 @@ func (m *VotePb) GetVoteeAddress() string {
 
 type ExecutionPb struct {
 	Amount               []byte   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
-	Contract             string   `protobuf:"bytes,2,opt,name=contract" json:"contract,omitempty"`
+	Contract             string   `protobuf:"bytes,2,opt,name=contract,proto3" json:"contract,omitempty"`
 	Data                 []byte   `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -183,8 +183,8 @@ func (m *ExecutionPb) GetData() []byte {
 }
 
 type SecretProposalPb struct {
-	Recipient            string   `protobuf:"bytes,1,opt,name=recipient" json:"recipient,omitempty"`
-	Secret               []uint32 `protobuf:"varint,2,rep,packed,name=secret" json:"secret,omitempty"`
+	Recipient            string   `protobuf:"bytes,1,opt,name=recipient,proto3" json:"recipient,omitempty"`
+	Secret               []uint32 `protobuf:"varint,2,rep,packed,name=secret,proto3" json:"secret,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -268,11 +268,11 @@ func (m *SecretWitnessPb) GetWitness() [][]byte {
 
 type StartSubChainPb struct {
 	// TODO: chainID chould be assigned by system and returned via a receipt
-	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID" json:"chainID,omitempty"`
+	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID,proto3" json:"chainID,omitempty"`
 	SecurityDeposit      []byte   `protobuf:"bytes,2,opt,name=securityDeposit,proto3" json:"securityDeposit,omitempty"`
 	OperationDeposit     []byte   `protobuf:"bytes,3,opt,name=operationDeposit,proto3" json:"operationDeposit,omitempty"`
-	StartHeight          uint64   `protobuf:"varint,4,opt,name=startHeight" json:"startHeight,omitempty"`
-	ParentHeightOffset   uint64   `protobuf:"varint,5,opt,name=parentHeightOffset" json:"parentHeightOffset,omitempty"`
+	StartHeight          uint64   `protobuf:"varint,4,opt,name=startHeight,proto3" json:"startHeight,omitempty"`
+	ParentHeightOffset   uint64   `protobuf:"varint,5,opt,name=parentHeightOffset,proto3" json:"parentHeightOffset,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -338,9 +338,9 @@ func (m *StartSubChainPb) GetParentHeightOffset() uint64 {
 }
 
 type StopSubChainPb struct {
-	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID" json:"chainID,omitempty"`
-	StopHeight           uint64   `protobuf:"varint,2,opt,name=stopHeight" json:"stopHeight,omitempty"`
-	SubChainAddress      string   `protobuf:"bytes,3,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
+	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID,proto3" json:"chainID,omitempty"`
+	StopHeight           uint64   `protobuf:"varint,2,opt,name=stopHeight,proto3" json:"stopHeight,omitempty"`
+	SubChainAddress      string   `protobuf:"bytes,3,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -392,7 +392,7 @@ func (m *StopSubChainPb) GetSubChainAddress() string {
 }
 
 type MerkleRoot struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -438,9 +438,9 @@ func (m *MerkleRoot) GetValue() []byte {
 }
 
 type PutBlockPb struct {
-	SubChainAddress      string        `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	Height               uint64        `protobuf:"varint,2,opt,name=height" json:"height,omitempty"`
-	Roots                []*MerkleRoot `protobuf:"bytes,3,rep,name=roots" json:"roots,omitempty"`
+	SubChainAddress      string        `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	Height               uint64        `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	Roots                []*MerkleRoot `protobuf:"bytes,3,rep,name=roots,proto3" json:"roots,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -492,9 +492,9 @@ func (m *PutBlockPb) GetRoots() []*MerkleRoot {
 }
 
 type CreateDepositPb struct {
-	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID" json:"chainID,omitempty"`
+	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID,proto3" json:"chainID,omitempty"`
 	Amount               []byte   `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`
-	Recipient            string   `protobuf:"bytes,3,opt,name=recipient" json:"recipient,omitempty"`
+	Recipient            string   `protobuf:"bytes,3,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -547,8 +547,8 @@ func (m *CreateDepositPb) GetRecipient() string {
 
 type SettleDepositPb struct {
 	Amount               []byte   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
-	Recipient            string   `protobuf:"bytes,2,opt,name=recipient" json:"recipient,omitempty"`
-	Index                uint64   `protobuf:"varint,3,opt,name=index" json:"index,omitempty"`
+	Recipient            string   `protobuf:"bytes,2,opt,name=recipient,proto3" json:"recipient,omitempty"`
+	Index                uint64   `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -631,7 +631,7 @@ func (m *CreatePlumChainPb) XXX_DiscardUnknown() {
 var xxx_messageInfo_CreatePlumChainPb proto.InternalMessageInfo
 
 type TerminatePlumChainPb struct {
-	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
+	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -669,9 +669,9 @@ func (m *TerminatePlumChainPb) GetSubChainAddress() string {
 }
 
 type PlumPutBlockPb struct {
-	SubChainAddress      string            `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	Height               uint64            `protobuf:"varint,2,opt,name=height" json:"height,omitempty"`
-	Roots                map[string][]byte `protobuf:"bytes,3,rep,name=roots" json:"roots,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	SubChainAddress      string            `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	Height               uint64            `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	Roots                map[string][]byte `protobuf:"bytes,3,rep,name=roots,proto3" json:"roots,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -723,9 +723,9 @@ func (m *PlumPutBlockPb) GetRoots() map[string][]byte {
 }
 
 type PlumCreateDepositPb struct {
-	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
+	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
 	Amount               []byte   `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`
-	Recipient            string   `protobuf:"bytes,3,opt,name=recipient" json:"recipient,omitempty"`
+	Recipient            string   `protobuf:"bytes,3,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -777,13 +777,13 @@ func (m *PlumCreateDepositPb) GetRecipient() string {
 }
 
 type PlumStartExitPb struct {
-	SubChainAddress             string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
+	SubChainAddress             string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
 	PreviousTransfer            []byte   `protobuf:"bytes,2,opt,name=previousTransfer,proto3" json:"previousTransfer,omitempty"`
 	PreviousTransferBlockProof  []byte   `protobuf:"bytes,3,opt,name=previousTransferBlockProof,proto3" json:"previousTransferBlockProof,omitempty"`
-	PreviousTransferBlockHeight uint64   `protobuf:"varint,4,opt,name=previousTransferBlockHeight" json:"previousTransferBlockHeight,omitempty"`
+	PreviousTransferBlockHeight uint64   `protobuf:"varint,4,opt,name=previousTransferBlockHeight,proto3" json:"previousTransferBlockHeight,omitempty"`
 	ExitTransfer                []byte   `protobuf:"bytes,5,opt,name=exitTransfer,proto3" json:"exitTransfer,omitempty"`
 	ExitTransferBlockProof      []byte   `protobuf:"bytes,6,opt,name=exitTransferBlockProof,proto3" json:"exitTransferBlockProof,omitempty"`
-	ExitTransferBlockHeight     uint64   `protobuf:"varint,7,opt,name=exitTransferBlockHeight" json:"exitTransferBlockHeight,omitempty"`
+	ExitTransferBlockHeight     uint64   `protobuf:"varint,7,opt,name=exitTransferBlockHeight,proto3" json:"exitTransferBlockHeight,omitempty"`
 	XXX_NoUnkeyedLiteral        struct{} `json:"-"`
 	XXX_unrecognized            []byte   `json:"-"`
 	XXX_sizecache               int32    `json:"-"`
@@ -863,11 +863,11 @@ func (m *PlumStartExitPb) GetExitTransferBlockHeight() uint64 {
 }
 
 type PlumChallengeExit struct {
-	SubChainAddress              string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	CoinID                       uint64   `protobuf:"varint,2,opt,name=coinID" json:"coinID,omitempty"`
+	SubChainAddress              string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	CoinID                       uint64   `protobuf:"varint,2,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	ChallengeTransfer            []byte   `protobuf:"bytes,3,opt,name=challengeTransfer,proto3" json:"challengeTransfer,omitempty"`
 	ChallengeTransferBlockProof  []byte   `protobuf:"bytes,4,opt,name=challengeTransferBlockProof,proto3" json:"challengeTransferBlockProof,omitempty"`
-	ChallengeTransferBlockHeight uint64   `protobuf:"varint,5,opt,name=challengeTransferBlockHeight" json:"challengeTransferBlockHeight,omitempty"`
+	ChallengeTransferBlockHeight uint64   `protobuf:"varint,5,opt,name=challengeTransferBlockHeight,proto3" json:"challengeTransferBlockHeight,omitempty"`
 	XXX_NoUnkeyedLiteral         struct{} `json:"-"`
 	XXX_unrecognized             []byte   `json:"-"`
 	XXX_sizecache                int32    `json:"-"`
@@ -933,12 +933,12 @@ func (m *PlumChallengeExit) GetChallengeTransferBlockHeight() uint64 {
 }
 
 type PlumResponseChallengeExit struct {
-	SubChainAddress             string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	CoinID                      uint64   `protobuf:"varint,2,opt,name=coinID" json:"coinID,omitempty"`
+	SubChainAddress             string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	CoinID                      uint64   `protobuf:"varint,2,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	ChallengeTransfer           []byte   `protobuf:"bytes,3,opt,name=challengeTransfer,proto3" json:"challengeTransfer,omitempty"`
 	ResponseTransfer            []byte   `protobuf:"bytes,4,opt,name=responseTransfer,proto3" json:"responseTransfer,omitempty"`
 	ResponseTransferBlockProof  []byte   `protobuf:"bytes,5,opt,name=responseTransferBlockProof,proto3" json:"responseTransferBlockProof,omitempty"`
-	PreviousTransferBlockHeight uint64   `protobuf:"varint,6,opt,name=previousTransferBlockHeight" json:"previousTransferBlockHeight,omitempty"`
+	PreviousTransferBlockHeight uint64   `protobuf:"varint,6,opt,name=previousTransferBlockHeight,proto3" json:"previousTransferBlockHeight,omitempty"`
 	XXX_NoUnkeyedLiteral        struct{} `json:"-"`
 	XXX_unrecognized            []byte   `json:"-"`
 	XXX_sizecache               int32    `json:"-"`
@@ -1011,8 +1011,8 @@ func (m *PlumResponseChallengeExit) GetPreviousTransferBlockHeight() uint64 {
 }
 
 type PlumFinalizeExit struct {
-	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	CoinID               uint64   `protobuf:"varint,2,opt,name=coinID" json:"coinID,omitempty"`
+	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	CoinID               uint64   `protobuf:"varint,2,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1058,7 +1058,7 @@ func (m *PlumFinalizeExit) GetCoinID() uint64 {
 
 // plum sub chain APIs
 type PlumSettleDepositPb struct {
-	CoinID               uint64   `protobuf:"varint,1,opt,name=coinID" json:"coinID,omitempty"`
+	CoinID               uint64   `protobuf:"varint,1,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1096,10 +1096,10 @@ func (m *PlumSettleDepositPb) GetCoinID() uint64 {
 }
 
 type PlumTransferPb struct {
-	CoinID               uint64   `protobuf:"varint,1,opt,name=coinID" json:"coinID,omitempty"`
+	CoinID               uint64   `protobuf:"varint,1,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	Denomination         []byte   `protobuf:"bytes,2,opt,name=denomination,proto3" json:"denomination,omitempty"`
-	Owner                string   `protobuf:"bytes,3,opt,name=owner" json:"owner,omitempty"`
-	Recipient            string   `protobuf:"bytes,4,opt,name=recipient" json:"recipient,omitempty"`
+	Owner                string   `protobuf:"bytes,3,opt,name=owner,proto3" json:"owner,omitempty"`
+	Recipient            string   `protobuf:"bytes,4,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1158,12 +1158,12 @@ func (m *PlumTransferPb) GetRecipient() string {
 }
 
 type ActionPb struct {
-	Version uint32 `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
+	Version uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	// TODO: we should remove sender address later
-	Sender       string `protobuf:"bytes,2,opt,name=sender" json:"sender,omitempty"`
+	Sender       string `protobuf:"bytes,2,opt,name=sender,proto3" json:"sender,omitempty"`
 	SenderPubKey []byte `protobuf:"bytes,3,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
-	Nonce        uint64 `protobuf:"varint,4,opt,name=nonce" json:"nonce,omitempty"`
-	GasLimit     uint64 `protobuf:"varint,5,opt,name=gasLimit" json:"gasLimit,omitempty"`
+	Nonce        uint64 `protobuf:"varint,4,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	GasLimit     uint64 `protobuf:"varint,5,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
 	GasPrice     []byte `protobuf:"bytes,6,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
 	Signature    []byte `protobuf:"bytes,7,opt,name=signature,proto3" json:"signature,omitempty"`
 	// Types that are valid to be assigned to Action:
@@ -1217,99 +1217,6 @@ func (m *ActionPb) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ActionPb proto.InternalMessageInfo
 
-type isActionPb_Action interface {
-	isActionPb_Action()
-}
-
-type ActionPb_Transfer struct {
-	Transfer *TransferPb `protobuf:"bytes,10,opt,name=transfer,oneof"`
-}
-type ActionPb_Vote struct {
-	Vote *VotePb `protobuf:"bytes,11,opt,name=vote,oneof"`
-}
-type ActionPb_Execution struct {
-	Execution *ExecutionPb `protobuf:"bytes,12,opt,name=execution,oneof"`
-}
-type ActionPb_SecretProposal struct {
-	SecretProposal *SecretProposalPb `protobuf:"bytes,13,opt,name=secretProposal,oneof"`
-}
-type ActionPb_SecretWitness struct {
-	SecretWitness *SecretWitnessPb `protobuf:"bytes,14,opt,name=secretWitness,oneof"`
-}
-type ActionPb_StartSubChain struct {
-	StartSubChain *StartSubChainPb `protobuf:"bytes,15,opt,name=startSubChain,oneof"`
-}
-type ActionPb_StopSubChain struct {
-	StopSubChain *StopSubChainPb `protobuf:"bytes,16,opt,name=stopSubChain,oneof"`
-}
-type ActionPb_PutBlock struct {
-	PutBlock *PutBlockPb `protobuf:"bytes,17,opt,name=putBlock,oneof"`
-}
-type ActionPb_CreateDeposit struct {
-	CreateDeposit *CreateDepositPb `protobuf:"bytes,18,opt,name=createDeposit,oneof"`
-}
-type ActionPb_SettleDeposit struct {
-	SettleDeposit *SettleDepositPb `protobuf:"bytes,19,opt,name=settleDeposit,oneof"`
-}
-type ActionPb_CreatePlumChain struct {
-	CreatePlumChain *CreatePlumChainPb `protobuf:"bytes,20,opt,name=createPlumChain,oneof"`
-}
-type ActionPb_TerminatePlumChain struct {
-	TerminatePlumChain *TerminatePlumChainPb `protobuf:"bytes,21,opt,name=terminatePlumChain,oneof"`
-}
-type ActionPb_PlumPutBlock struct {
-	PlumPutBlock *PlumPutBlockPb `protobuf:"bytes,22,opt,name=plumPutBlock,oneof"`
-}
-type ActionPb_PlumCreateDeposit struct {
-	PlumCreateDeposit *PlumCreateDepositPb `protobuf:"bytes,23,opt,name=plumCreateDeposit,oneof"`
-}
-type ActionPb_PlumStartExit struct {
-	PlumStartExit *PlumStartExitPb `protobuf:"bytes,24,opt,name=plumStartExit,oneof"`
-}
-type ActionPb_PlumChallengeExit struct {
-	PlumChallengeExit *PlumChallengeExit `protobuf:"bytes,25,opt,name=plumChallengeExit,oneof"`
-}
-type ActionPb_PlumResponseChallengeExit struct {
-	PlumResponseChallengeExit *PlumResponseChallengeExit `protobuf:"bytes,26,opt,name=plumResponseChallengeExit,oneof"`
-}
-type ActionPb_PlumFinalizeExit struct {
-	PlumFinalizeExit *PlumFinalizeExit `protobuf:"bytes,27,opt,name=plumFinalizeExit,oneof"`
-}
-type ActionPb_PlumSettleDeposit struct {
-	PlumSettleDeposit *PlumSettleDepositPb `protobuf:"bytes,28,opt,name=plumSettleDeposit,oneof"`
-}
-type ActionPb_PlumTransfer struct {
-	PlumTransfer *PlumTransferPb `protobuf:"bytes,29,opt,name=plumTransfer,oneof"`
-}
-
-func (*ActionPb_Transfer) isActionPb_Action()                  {}
-func (*ActionPb_Vote) isActionPb_Action()                      {}
-func (*ActionPb_Execution) isActionPb_Action()                 {}
-func (*ActionPb_SecretProposal) isActionPb_Action()            {}
-func (*ActionPb_SecretWitness) isActionPb_Action()             {}
-func (*ActionPb_StartSubChain) isActionPb_Action()             {}
-func (*ActionPb_StopSubChain) isActionPb_Action()              {}
-func (*ActionPb_PutBlock) isActionPb_Action()                  {}
-func (*ActionPb_CreateDeposit) isActionPb_Action()             {}
-func (*ActionPb_SettleDeposit) isActionPb_Action()             {}
-func (*ActionPb_CreatePlumChain) isActionPb_Action()           {}
-func (*ActionPb_TerminatePlumChain) isActionPb_Action()        {}
-func (*ActionPb_PlumPutBlock) isActionPb_Action()              {}
-func (*ActionPb_PlumCreateDeposit) isActionPb_Action()         {}
-func (*ActionPb_PlumStartExit) isActionPb_Action()             {}
-func (*ActionPb_PlumChallengeExit) isActionPb_Action()         {}
-func (*ActionPb_PlumResponseChallengeExit) isActionPb_Action() {}
-func (*ActionPb_PlumFinalizeExit) isActionPb_Action()          {}
-func (*ActionPb_PlumSettleDeposit) isActionPb_Action()         {}
-func (*ActionPb_PlumTransfer) isActionPb_Action()              {}
-
-func (m *ActionPb) GetAction() isActionPb_Action {
-	if m != nil {
-		return m.Action
-	}
-	return nil
-}
-
 func (m *ActionPb) GetVersion() uint32 {
 	if m != nil {
 		return m.Version
@@ -1355,6 +1262,137 @@ func (m *ActionPb) GetGasPrice() []byte {
 func (m *ActionPb) GetSignature() []byte {
 	if m != nil {
 		return m.Signature
+	}
+	return nil
+}
+
+type isActionPb_Action interface {
+	isActionPb_Action()
+}
+
+type ActionPb_Transfer struct {
+	Transfer *TransferPb `protobuf:"bytes,10,opt,name=transfer,proto3,oneof"`
+}
+
+type ActionPb_Vote struct {
+	Vote *VotePb `protobuf:"bytes,11,opt,name=vote,proto3,oneof"`
+}
+
+type ActionPb_Execution struct {
+	Execution *ExecutionPb `protobuf:"bytes,12,opt,name=execution,proto3,oneof"`
+}
+
+type ActionPb_SecretProposal struct {
+	SecretProposal *SecretProposalPb `protobuf:"bytes,13,opt,name=secretProposal,proto3,oneof"`
+}
+
+type ActionPb_SecretWitness struct {
+	SecretWitness *SecretWitnessPb `protobuf:"bytes,14,opt,name=secretWitness,proto3,oneof"`
+}
+
+type ActionPb_StartSubChain struct {
+	StartSubChain *StartSubChainPb `protobuf:"bytes,15,opt,name=startSubChain,proto3,oneof"`
+}
+
+type ActionPb_StopSubChain struct {
+	StopSubChain *StopSubChainPb `protobuf:"bytes,16,opt,name=stopSubChain,proto3,oneof"`
+}
+
+type ActionPb_PutBlock struct {
+	PutBlock *PutBlockPb `protobuf:"bytes,17,opt,name=putBlock,proto3,oneof"`
+}
+
+type ActionPb_CreateDeposit struct {
+	CreateDeposit *CreateDepositPb `protobuf:"bytes,18,opt,name=createDeposit,proto3,oneof"`
+}
+
+type ActionPb_SettleDeposit struct {
+	SettleDeposit *SettleDepositPb `protobuf:"bytes,19,opt,name=settleDeposit,proto3,oneof"`
+}
+
+type ActionPb_CreatePlumChain struct {
+	CreatePlumChain *CreatePlumChainPb `protobuf:"bytes,20,opt,name=createPlumChain,proto3,oneof"`
+}
+
+type ActionPb_TerminatePlumChain struct {
+	TerminatePlumChain *TerminatePlumChainPb `protobuf:"bytes,21,opt,name=terminatePlumChain,proto3,oneof"`
+}
+
+type ActionPb_PlumPutBlock struct {
+	PlumPutBlock *PlumPutBlockPb `protobuf:"bytes,22,opt,name=plumPutBlock,proto3,oneof"`
+}
+
+type ActionPb_PlumCreateDeposit struct {
+	PlumCreateDeposit *PlumCreateDepositPb `protobuf:"bytes,23,opt,name=plumCreateDeposit,proto3,oneof"`
+}
+
+type ActionPb_PlumStartExit struct {
+	PlumStartExit *PlumStartExitPb `protobuf:"bytes,24,opt,name=plumStartExit,proto3,oneof"`
+}
+
+type ActionPb_PlumChallengeExit struct {
+	PlumChallengeExit *PlumChallengeExit `protobuf:"bytes,25,opt,name=plumChallengeExit,proto3,oneof"`
+}
+
+type ActionPb_PlumResponseChallengeExit struct {
+	PlumResponseChallengeExit *PlumResponseChallengeExit `protobuf:"bytes,26,opt,name=plumResponseChallengeExit,proto3,oneof"`
+}
+
+type ActionPb_PlumFinalizeExit struct {
+	PlumFinalizeExit *PlumFinalizeExit `protobuf:"bytes,27,opt,name=plumFinalizeExit,proto3,oneof"`
+}
+
+type ActionPb_PlumSettleDeposit struct {
+	PlumSettleDeposit *PlumSettleDepositPb `protobuf:"bytes,28,opt,name=plumSettleDeposit,proto3,oneof"`
+}
+
+type ActionPb_PlumTransfer struct {
+	PlumTransfer *PlumTransferPb `protobuf:"bytes,29,opt,name=plumTransfer,proto3,oneof"`
+}
+
+func (*ActionPb_Transfer) isActionPb_Action() {}
+
+func (*ActionPb_Vote) isActionPb_Action() {}
+
+func (*ActionPb_Execution) isActionPb_Action() {}
+
+func (*ActionPb_SecretProposal) isActionPb_Action() {}
+
+func (*ActionPb_SecretWitness) isActionPb_Action() {}
+
+func (*ActionPb_StartSubChain) isActionPb_Action() {}
+
+func (*ActionPb_StopSubChain) isActionPb_Action() {}
+
+func (*ActionPb_PutBlock) isActionPb_Action() {}
+
+func (*ActionPb_CreateDeposit) isActionPb_Action() {}
+
+func (*ActionPb_SettleDeposit) isActionPb_Action() {}
+
+func (*ActionPb_CreatePlumChain) isActionPb_Action() {}
+
+func (*ActionPb_TerminatePlumChain) isActionPb_Action() {}
+
+func (*ActionPb_PlumPutBlock) isActionPb_Action() {}
+
+func (*ActionPb_PlumCreateDeposit) isActionPb_Action() {}
+
+func (*ActionPb_PlumStartExit) isActionPb_Action() {}
+
+func (*ActionPb_PlumChallengeExit) isActionPb_Action() {}
+
+func (*ActionPb_PlumResponseChallengeExit) isActionPb_Action() {}
+
+func (*ActionPb_PlumFinalizeExit) isActionPb_Action() {}
+
+func (*ActionPb_PlumSettleDeposit) isActionPb_Action() {}
+
+func (*ActionPb_PlumTransfer) isActionPb_Action() {}
+
+func (m *ActionPb) GetAction() isActionPb_Action {
+	if m != nil {
+		return m.Action
 	}
 	return nil
 }
@@ -1917,11 +1955,11 @@ func _ActionPb_OneofSizer(msg proto.Message) (n int) {
 
 type ReceiptPb struct {
 	ReturnValue          []byte   `protobuf:"bytes,1,opt,name=returnValue,proto3" json:"returnValue,omitempty"`
-	Status               uint64   `protobuf:"varint,2,opt,name=status" json:"status,omitempty"`
+	Status               uint64   `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
 	Hash                 []byte   `protobuf:"bytes,3,opt,name=hash,proto3" json:"hash,omitempty"`
-	GasConsumed          uint64   `protobuf:"varint,4,opt,name=gasConsumed" json:"gasConsumed,omitempty"`
-	ContractAddress      string   `protobuf:"bytes,5,opt,name=contractAddress" json:"contractAddress,omitempty"`
-	Logs                 []*LogPb `protobuf:"bytes,6,rep,name=logs" json:"logs,omitempty"`
+	GasConsumed          uint64   `protobuf:"varint,4,opt,name=gasConsumed,proto3" json:"gasConsumed,omitempty"`
+	ContractAddress      string   `protobuf:"bytes,5,opt,name=contractAddress,proto3" json:"contractAddress,omitempty"`
+	Logs                 []*LogPb `protobuf:"bytes,6,rep,name=logs,proto3" json:"logs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1994,13 +2032,13 @@ func (m *ReceiptPb) GetLogs() []*LogPb {
 }
 
 type LogPb struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	Topics               [][]byte `protobuf:"bytes,2,rep,name=topics,proto3" json:"topics,omitempty"`
 	Data                 []byte   `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-	BlockNumber          uint64   `protobuf:"varint,4,opt,name=blockNumber" json:"blockNumber,omitempty"`
+	BlockNumber          uint64   `protobuf:"varint,4,opt,name=blockNumber,proto3" json:"blockNumber,omitempty"`
 	TxnHash              []byte   `protobuf:"bytes,5,opt,name=txnHash,proto3" json:"txnHash,omitempty"`
 	BlockHash            []byte   `protobuf:"bytes,6,opt,name=blockHash,proto3" json:"blockHash,omitempty"`
-	Index                uint32   `protobuf:"varint,7,opt,name=index" json:"index,omitempty"`
+	Index                uint32   `protobuf:"varint,7,opt,name=index,proto3" json:"index,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

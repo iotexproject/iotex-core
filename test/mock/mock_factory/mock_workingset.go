@@ -98,6 +98,18 @@ func (mr *MockWorkingSetMockRecorder) RootHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockWorkingSet)(nil).RootHash))
 }
 
+// Digest mocks base method
+func (m *MockWorkingSet) Digest() hash.Hash32B {
+	ret := m.ctrl.Call(m, "Digest")
+	ret0, _ := ret[0].(hash.Hash32B)
+	return ret0
+}
+
+// Digest indicates an expected call of Digest
+func (mr *MockWorkingSetMockRecorder) Digest() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Digest", reflect.TypeOf((*MockWorkingSet)(nil).Digest))
+}
+
 // Version mocks base method
 func (m *MockWorkingSet) Version() uint64 {
 	ret := m.ctrl.Call(m, "Version")

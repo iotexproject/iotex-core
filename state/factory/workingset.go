@@ -53,6 +53,7 @@ type (
 		Revert(int) error
 		Commit() error
 		RootHash() hash.Hash32B
+		Digest() hash.Hash32B
 		Version() uint64
 		Height() uint64
 		// General state
@@ -108,6 +109,9 @@ func NewWorkingSet(
 func (ws *workingSet) RootHash() hash.Hash32B {
 	return byteutil.BytesTo32B(ws.accountTrie.RootHash())
 }
+
+// Digest returns the delta state digest
+func (ws *workingSet) Digest() hash.Hash32B { return hash.ZeroHash32B }
 
 // Version returns the Version of this working set
 func (ws *workingSet) Version() uint64 {

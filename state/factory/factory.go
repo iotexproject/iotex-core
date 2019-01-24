@@ -152,14 +152,18 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 func (sf *factory) Start(ctx context.Context) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-
+	if err := sf.dao.Start(ctx); err != nil {
+		return err
+	}
 	return sf.lifecycle.OnStart(ctx)
 }
 
 func (sf *factory) Stop(ctx context.Context) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-
+	if err := sf.dao.Stop(ctx); err != nil {
+		return err
+	}
 	return sf.lifecycle.OnStop(ctx)
 }
 

@@ -7,7 +7,11 @@
 package db
 
 import (
+	"math/rand"
+	"strconv"
 	"testing"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -142,4 +146,26 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(ErrNotExist, err)
 	_, err = cb.Get(bucket1, testK1[2])
 	require.Equal(ErrNotExist, err)
+}
+
+func BenchmarkCachedBatch_Digest(b *testing.B) {
+	cb := NewCachedBatch()
+
+	for i := 0; i < 10000; i++ {
+		k := hash.Hash256b([]byte(strconv.Itoa(i)))
+		var v [1024]byte
+		for i := range v {
+			v[i] = byte(rand.Intn(8))
+		}
+		cb.Put(bucket1, k, v[:], "")
+	}
+	require.Equal(b, 10000, cb.Size())
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		b.StartTimer()
+		h := cb.Digest()
+		b.StopTimer()
+		require.NotEqual(b, hash.ZeroHash32B, h)
+	}
 }
