@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -84,6 +85,7 @@ func NewBlockSyncer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
 	ap actpool.ActPool,
+	cs consensus.Consensus,
 	opts ...Option,
 ) (BlockSync, error) {
 	bufSize := cfg.BlockSync.BufferSize
@@ -94,6 +96,7 @@ func NewBlockSyncer(
 		blocks: make(map[uint64]*block.Block),
 		bc:     chain,
 		ap:     ap,
+		cs:     cs,
 		size:   bufSize,
 	}
 	bsCfg := Config{}

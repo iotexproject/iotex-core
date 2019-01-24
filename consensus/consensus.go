@@ -34,6 +34,7 @@ type Consensus interface {
 	lifecycle.StartStopper
 
 	HandleConsensusMsg(*iproto.ConsensusPb) error
+	ValidateBlockFooter(*block.Block) error
 	Metrics() (scheme.ConsensusMetrics, error)
 }
 
@@ -87,7 +88,7 @@ func NewConsensus(
 		log.L().Debug("Pick actions.", zap.Int("actions", len(actionMap)))
 
 		pk, sk, addr := GetAddr(cfg)
-		blk, err := bc.MintNewBlock(actionMap, pk, sk, addr, nil, nil, "")
+		blk, err := bc.MintNewBlock(actionMap, pk, sk, addr)
 		if err != nil {
 			log.L().Error("Failed to mint a block.", zap.Error(err))
 			return nil, err
@@ -215,6 +216,11 @@ func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 // HandleConsensusMsg handles consensus messages
 func (c *IotxConsensus) HandleConsensusMsg(propose *iproto.ConsensusPb) error {
 	return c.scheme.HandleConsensusMsg(propose)
+}
+
+// ValidateBlockFooter validates the signatures in block footer
+func (c *IotxConsensus) ValidateBlockFooter(blk *block.Block) error {
+	return c.scheme.ValidateBlockFooter(blk)
 }
 
 // Scheme returns the scheme instance

@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -118,17 +117,6 @@ type Blockchain interface {
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
 		actionMap map[string][]action.SealedEnvelope,
-		producerPubKey keypair.PublicKey,
-		producerPriKey keypair.PrivateKey,
-		producerAddr string,
-		dkgAddress *address.DKGAddress,
-		seed []byte,
-		data string,
-	) (*block.Block, error)
-	// MintNewSecretBlock creates a new DKG secret block with given DKG secrets and witness
-	MintNewSecretBlock(
-		secretProposals []*action.SecretProposal,
-		secretWitness *action.SecretWitness,
 		producerPubKey keypair.PublicKey,
 		producerPriKey keypair.PrivateKey,
 		producerAddr string,
@@ -676,9 +664,6 @@ func (bc *blockchain) MintNewBlock(
 	producerPubKey keypair.PublicKey,
 	producerPriKey keypair.PrivateKey,
 	producerAddr string,
-	dkgAddress *address.DKGAddress,
-	seed []byte,
-	data string,
 ) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
@@ -735,65 +720,12 @@ func (bc *blockchain) MintNewBlock(
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", bc.tipHeight+1)
 	}
 
-	blkbd := block.NewBuilder(ra).
-		SetChainID(bc.config.Chain.ID).
-		SetPrevBlockHash(bc.tipHash)
-
-	if dkgAddress != nil && len(dkgAddress.PublicKey) > 0 && len(dkgAddress.PrivateKey) > 0 && len(dkgAddress.ID) > 0 {
-		_, sig, err := crypto.BLS.SignShare(dkgAddress.PrivateKey, seed)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to do DKG sign")
-		}
-		blkbd.SetDKG(dkgAddress.ID, dkgAddress.PublicKey, sig)
-	}
-
-	blk, err := blkbd.
-		SetStateRoot(root).
-		SetDeltaStateDigest(ws.Digest()).
-		SetReceipts(rc).
-		SignAndBuild(producerPubKey, producerPriKey)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to create block")
-	}
-	blk.WorkingSet = ws
-
-	return &blk, nil
-}
-
-// MintNewSecretBlock creates a new block with given DKG secrets and witness
-func (bc *blockchain) MintNewSecretBlock(
-	secretProposals []*action.SecretProposal,
-	secretWitness *action.SecretWitness,
-	producerPubKey keypair.PublicKey,
-	producerPriKey keypair.PrivateKey,
-	producerAddr string,
-) (*block.Block, error) {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-
-	ra := block.NewRunnableActionsBuilder().
-		SetHeight(bc.tipHeight+1).
-		SetTimeStamp(bc.now()).
-		Build(producerAddr, producerPubKey)
-
-	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
-	}
-	root, receipts, err := bc.runActions(ra, ws, false)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", bc.tipHeight+1)
-	}
-
 	blk, err := block.NewBuilder(ra).
 		SetChainID(bc.config.Chain.ID).
 		SetPrevBlockHash(bc.tipHash).
-		SetSecretWitness(secretWitness).
-		SetSecretProposals(secretProposals).
-		SetReceipts(receipts).
 		SetStateRoot(root).
 		SetDeltaStateDigest(ws.Digest()).
+		SetReceipts(rc).
 		SignAndBuild(producerPubKey, producerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create block")

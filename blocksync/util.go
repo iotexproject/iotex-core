@@ -13,9 +13,13 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 )
 
-func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blk *block.Block) error {
+func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, cs consensus.Consensus, blk *block.Block) error {
+	if err := cs.ValidateBlockFooter(blk); err != nil {
+		return err
+	}
 	if err := bc.ValidateBlock(blk, true); err != nil {
 		return err
 	}

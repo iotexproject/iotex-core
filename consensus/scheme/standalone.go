@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/proto"
@@ -72,6 +73,12 @@ func (n *Standalone) Stop(ctx context.Context) error {
 // HandleConsensusMsg handles incoming consensus message
 func (n *Standalone) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	log.L().Warn("Noop scheme does not handle incoming block propose requests.")
+	return nil
+}
+
+// ValidateBlockFooter validates signatures in block footer
+func (n *Standalone) ValidateBlockFooter(*block.Block) error {
+	log.L().Warn("Standalone scheme always return true for block footer validation")
 	return nil
 }
 

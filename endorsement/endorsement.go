@@ -7,6 +7,7 @@
 package endorsement
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
@@ -105,22 +106,22 @@ func (en *Endorsement) VerifySignature() bool {
 }
 
 // ToProtoMsg converts an endorsement to endorse proto
-func (en *Endorsement) ToProtoMsg() *iproto.EndorsePb {
+func (en *Endorsement) ToProtoMsg() *iproto.Endorsement {
 	vote := en.ConsensusVote()
-	var topic iproto.EndorsePb_ConsensusVoteTopic
+	var topic iproto.Endorsement_ConsensusVoteTopic
 	switch vote.Topic {
 	case PROPOSAL:
-		topic = iproto.EndorsePb_PROPOSAL
+		topic = iproto.Endorsement_PROPOSAL
 	case LOCK:
-		topic = iproto.EndorsePb_LOCK
+		topic = iproto.Endorsement_LOCK
 	case COMMIT:
-		topic = iproto.EndorsePb_COMMIT
+		topic = iproto.Endorsement_COMMIT
 	default:
 		log.L().Error("Endorsement object is of the wrong topic.")
 		return nil
 	}
 	pubkey := en.EndorserPublicKey()
-	return &iproto.EndorsePb{
+	return &iproto.Endorsement{
 		Height:         vote.Height,
 		Round:          vote.Round,
 		BlockHash:      vote.BlkHash[:],
@@ -132,18 +133,28 @@ func (en *Endorsement) ToProtoMsg() *iproto.EndorsePb {
 	}
 }
 
+// Serialize converts an endorsement to bytes
+func (en *Endorsement) Serialize() ([]byte, error) {
+	pb := en.ToProtoMsg()
+	if pb == nil {
+		return nil, errors.New("error when converting to protobuf")
+	}
+
+	return proto.Marshal(pb)
+}
+
 // FromProtoMsg creates an endorsement from endorsePb
-func FromProtoMsg(endorsePb *iproto.EndorsePb) (*Endorsement, error) {
+func (en *Endorsement) FromProtoMsg(endorsePb *iproto.Endorsement) error {
 	var topic ConsensusVoteTopic
 	switch endorsePb.Topic {
-	case iproto.EndorsePb_PROPOSAL:
+	case iproto.Endorsement_PROPOSAL:
 		topic = PROPOSAL
-	case iproto.EndorsePb_LOCK:
+	case iproto.Endorsement_LOCK:
 		topic = LOCK
-	case iproto.EndorsePb_COMMIT:
+	case iproto.Endorsement_COMMIT:
 		topic = COMMIT
 	default:
-		return nil, errors.New("Invalid topic")
+		return errors.New("Invalid topic")
 	}
 	vote := NewConsensusVote(
 		endorsePb.BlockHash,
@@ -156,12 +167,25 @@ func FromProtoMsg(endorsePb *iproto.EndorsePb) (*Endorsement, error) {
 		log.L().Error("Error when constructing endorse from proto message.",
 			zap.Error(err),
 			log.Hex("endorserPubKey", endorsePb.EndorserPubKey))
-		return nil, err
+		return err
 	}
-	return &Endorsement{
-		object:         vote,
-		endorser:       endorsePb.Endorser,
-		endorserPubkey: pubKey,
-		signature:      endorsePb.Signature,
-	}, nil
+	en.object = vote
+	en.endorser = endorsePb.Endorser
+	en.endorserPubkey = pubKey
+	en.signature = endorsePb.Signature
+
+	return nil
+}
+
+// Deserialize converts a byte array to endorsement
+func (en *Endorsement) Deserialize(bs []byte) error {
+	pb := iproto.Endorsement{}
+	if err := proto.Unmarshal(bs, &pb); err != nil {
+		return err
+	}
+	if err := en.FromProtoMsg(&pb); err != nil {
+		return err
+	}
+
+	return nil
 }

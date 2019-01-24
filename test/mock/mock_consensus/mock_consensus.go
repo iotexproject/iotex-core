@@ -7,6 +7,7 @@ package mock_consensus
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
+	block "github.com/iotexproject/iotex-core/blockchain/block"
 	scheme "github.com/iotexproject/iotex-core/consensus/scheme"
 	proto "github.com/iotexproject/iotex-core/proto"
 	reflect "reflect"
@@ -69,6 +70,18 @@ func (m *MockConsensus) HandleConsensusMsg(arg0 *proto.ConsensusPb) error {
 // HandleConsensusMsg indicates an expected call of HandleConsensusMsg
 func (mr *MockConsensusMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockConsensus)(nil).HandleConsensusMsg), arg0)
+}
+
+// ValidateBlockFooter mocks base method
+func (m *MockConsensus) ValidateBlockFooter(arg0 *block.Block) error {
+	ret := m.ctrl.Call(m, "ValidateBlockFooter", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateBlockFooter indicates an expected call of ValidateBlockFooter
+func (mr *MockConsensusMockRecorder) ValidateBlockFooter(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlockFooter", reflect.TypeOf((*MockConsensus)(nil).ValidateBlockFooter), arg0)
 }
 
 // Metrics mocks base method

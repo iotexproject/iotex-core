@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
+	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -95,12 +96,14 @@ func TestNewBlockSyncer(t *testing.T) {
 	ap, err := actpool.NewActPool(mBc, cfg.ActPool)
 	assert.NoError(err)
 
+	cs := mock_consensus.NewMockConsensus(ctrl)
+
 	// Lightweight
 	cfgLightWeight := config.Config{
 		NodeType: config.LightweightType,
 	}
 
-	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, mBc, ap, opts...)
+	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, mBc, ap, cs, opts...)
 	assert.NoError(err)
 	assert.NotNil(bsLightWeight)
 
@@ -110,7 +113,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	}
 	cfgDelegate.Network.BootstrapNodes = []string{"123"}
 
-	_, err = NewBlockSyncer(cfgDelegate, mBc, ap)
+	_, err = NewBlockSyncer(cfgDelegate, mBc, ap, cs)
 	assert.Nil(err)
 
 	// FullNode
@@ -119,7 +122,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, opts...)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, cs, opts...)
 	assert.Nil(err)
 	assert.NotNil(bs)
 }
@@ -171,13 +174,14 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	require.Nil(err)
 	ap, err := actpool.NewActPool(mBc, cfg.ActPool)
 	assert.NoError(err)
+	cs := mock_consensus.NewMockConsensus(ctrl)
 
 	cfgFullNode := config.Config{
 		NodeType: config.FullNodeType,
 	}
 	cfgFullNode.Network.BootstrapNodes = []string{"123"}
 
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, opts...)
+	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, cs, opts...)
 	assert.Nil(err)
 
 	pbBs := &iproto.BlockSync{
@@ -207,7 +211,9 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
+	cs := mock_consensus.NewMockConsensus(ctrl)
+
+	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -244,7 +250,10 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
+	cs := mock_consensus.NewMockConsensus(ctrl)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
+
+	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -256,8 +265,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 
 	h := chain.TipHeight()
 	blk, err := chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.NotNil(blk)
 	require.NoError(err)
 	bs.(*blockSyncer).ackBlockCommit = false
@@ -295,7 +303,10 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
 	require.NoError(err)
-	bs1, err := NewBlockSyncer(cfg, chain1, ap1, opts...)
+	cs1 := mock_consensus.NewMockConsensus(ctrl)
+	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
@@ -305,7 +316,9 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
 	require.NotNil(ap2)
 	require.Nil(err)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, opts...)
+	cs2 := mock_consensus.NewMockConsensus(ctrl)
+	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, cs2, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -318,20 +331,17 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 	// commit top
 	blk1, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.NotNil(blk1)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk1))
 	blk2, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.NotNil(blk2)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk2))
 	blk3, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.NotNil(blk3)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk3))
@@ -364,7 +374,9 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
 	require.Nil(err)
-	bs1, err := NewBlockSyncer(cfg, chain1, ap1, opts...)
+	cs1 := mock_consensus.NewMockConsensus(ctrl)
+	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
@@ -374,7 +386,9 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
 	require.NotNil(ap2)
 	require.Nil(err)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, opts...)
+	cs2 := mock_consensus.NewMockConsensus(ctrl)
+	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	bs2, err := NewBlockSyncer(cfg, chain2, ap2, cs2, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -387,20 +401,17 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 
 	// commit top
 	blk1, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk1))
 	blk2, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk2))
 	blk3, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk3))
@@ -430,8 +441,10 @@ func TestBlockSyncerSync(t *testing.T) {
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
+	cs := mock_consensus.NewMockConsensus(ctrl)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
 
-	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
+	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
 	require.NotNil(bs)
 	require.NoError(err)
 	require.Nil(bs.Start(ctx))
@@ -446,15 +459,13 @@ func TestBlockSyncerSync(t *testing.T) {
 	}()
 
 	blk, err := chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.NotNil(blk)
 	require.NoError(err)
 	require.Nil(bs.ProcessBlock(ctx, blk))
 
 	blk, err = chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-		nil, "")
+		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
 	require.NotNil(blk)
 	require.NoError(err)
 	require.Nil(bs.ProcessBlock(ctx, blk))
@@ -487,7 +498,8 @@ func TestBlockSyncerChaser(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NoError(err)
-	bs, err := NewBlockSyncer(cfg, chain, ap, opts...)
+	cs := mock_consensus.NewMockConsensus(ctrl)
+	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
 	require.NoError(err)
 	require.NoError(bs.Start(ctx))
 

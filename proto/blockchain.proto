@@ -11,6 +11,7 @@ package iproto;
 
 import "action.proto";
 import "google/protobuf/timestamp.proto";
+import "endorsement.proto";
 
 // header of a block
 message BlockHeaderPb {
@@ -31,11 +32,19 @@ message BlockHeaderPb {
     bytes dkgSignature = 15;
 }
 
+// footer of a block
+message BlockFooterPb {
+    int64 CommitTimestamp = 1;
+    uint32 Round = 2;
+    EndorsementSet endorsements = 3;
+}
+
 // block consists of header followed by transactions
 // hash of current block can be computed from header hence not stored
 message BlockPb {
     BlockHeaderPb header = 1;
     repeated ActionPb actions = 2;
+    BlockFooterPb footer = 3;
 }
 
 // Receipts consists of a collection of recepit
@@ -72,39 +81,6 @@ message ConsensusPb {
     ConsensusMessageType type = 3;
     google.protobuf.Timestamp timestamp = 4;
     bytes data = 5;
-}
-
-// corresponding to pre-prepare pharse in view change protocol
-message ProposePb {
-    string proposer = 1;
-    uint64 height = 2;
-    uint32 round = 3;
-    bytes hash = 4;
-    bytes block = 5;
-    EndorsementSet lockProof = 6;
-}
-
-// corresponding to prepare and pre-prepare phase in view change protocol
-message EndorsePb {
-    enum ConsensusVoteTopic {
-        PROPOSAL = 0;
-        LOCK = 1;
-        COMMIT = 2;
-    }
-    uint64 height = 1;
-    uint32 round = 2;
-    bytes blockHash = 3;
-    ConsensusVoteTopic topic = 4;
-    string endorser = 5;
-    bytes endorserPubKey = 6;
-    bool decision = 7;
-    bytes signature = 8;
-}
-
-message EndorsementSet {
-    bytes blockHash = 1;
-    uint32 round = 2;
-    repeated EndorsePb endorsements = 3;
 }
 
 // Candidates and list of candidates

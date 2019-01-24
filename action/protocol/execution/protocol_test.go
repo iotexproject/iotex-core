@@ -101,9 +101,6 @@ func runExecution(
 		testaddress.Keyinfo["producer"].PubKey,
 		testaddress.Keyinfo["producer"].PriKey,
 		testaddress.Addrinfo["producer"].Bech32(),
-		nil,
-		nil,
-		"",
 	)
 	if err != nil {
 		return nil, err
@@ -265,7 +262,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap := make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err := bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err := bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -318,7 +320,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err = bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -353,7 +360,12 @@ func TestProtocol_Handle(t *testing.T) {
 		log.S().Infof("execution %+v", execution)
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err = bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -378,7 +390,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(actionMap, testaddress.Keyinfo["alfa"].PubKey, testaddress.Keyinfo["alfa"].PriKey, testaddress.Addrinfo["alfa"].Bech32(), nil, nil, "")
+		blk, err = bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["alfa"].PubKey,
+			testaddress.Keyinfo["alfa"].PriKey,
+			testaddress.Addrinfo["alfa"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -449,7 +466,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap := make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err := bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err := bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -475,7 +497,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err = bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -501,7 +528,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err = bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -534,7 +566,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err = bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -603,7 +640,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap := make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err := bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err := bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -677,7 +719,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp, selp2}
-		blk, err = bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err = bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -705,7 +752,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp3}
-		blk, err = bc.MintNewBlock(actionMap, testaddress.Keyinfo["alfa"].PubKey, testaddress.Keyinfo["alfa"].PriKey, testaddress.Addrinfo["alfa"].Bech32(), nil, nil, "")
+		blk, err = bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["alfa"].PubKey,
+			testaddress.Keyinfo["alfa"].PriKey,
+			testaddress.Addrinfo["alfa"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -727,7 +779,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(actionMap, testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey, testaddress.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, err = bc.MintNewBlock(
+			actionMap,
+			testaddress.Keyinfo["producer"].PubKey,
+			testaddress.Keyinfo["producer"].PriKey,
+			testaddress.Addrinfo["producer"].Bech32(),
+		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))

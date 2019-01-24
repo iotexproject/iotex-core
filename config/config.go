@@ -15,6 +15,7 @@ import (
 	uconfig "go.uber.org/config"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -89,17 +90,18 @@ var (
 		Consensus: Consensus{
 			Scheme: NOOPScheme,
 			RollDPoS: RollDPoS{
-				DelegateInterval:         10 * time.Second,
-				ProposerInterval:         10 * time.Second,
-				UnmatchedEventTTL:        3 * time.Second,
-				UnmatchedEventInterval:   100 * time.Millisecond,
-				RoundStartTTL:            10 * time.Second,
-				AcceptProposeTTL:         time.Second,
-				AcceptProposalEndorseTTL: time.Second,
-				AcceptCommitEndorseTTL:   time.Second,
+				FSM: consensusfsm.Config{
+					ProposerInterval:             10 * time.Second,
+					UnmatchedEventTTL:            3 * time.Second,
+					UnmatchedEventInterval:       100 * time.Millisecond,
+					AcceptBlockTTL:               4 * time.Second,
+					AcceptProposalEndorsementTTL: 2 * time.Second,
+					AcceptLockEndorsementTTL:     2 * time.Second,
+					EventChanSize:                10000,
+				},
+				DelegateInterval:  10 * time.Second,
 				Delay:             5 * time.Second,
 				NumSubEpochs:      1,
-				EventChanSize:     10000,
 				NumDelegates:      21,
 				TimeBasedRotation: false,
 				EnableDKG:         false,
@@ -207,20 +209,13 @@ type (
 
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
-		DelegateInterval         time.Duration `yaml:"delegateInterval"`
-		ProposerInterval         time.Duration `yaml:"proposerInterval"`
-		UnmatchedEventTTL        time.Duration `yaml:"unmatchedEventTTL"`
-		UnmatchedEventInterval   time.Duration `yaml:"unmatchedEventInterval"`
-		RoundStartTTL            time.Duration `yaml:"roundStartTTL"`
-		AcceptProposeTTL         time.Duration `yaml:"acceptProposeTTL"`
-		AcceptProposalEndorseTTL time.Duration `yaml:"acceptProposalEndorseTTL"`
-		AcceptCommitEndorseTTL   time.Duration `yaml:"acceptCommitEndorseTTL"`
-		Delay                    time.Duration `yaml:"delay"`
-		NumSubEpochs             uint          `yaml:"numSubEpochs"`
-		EventChanSize            uint          `yaml:"eventChanSize"`
-		NumDelegates             uint          `yaml:"numDelegates"`
-		TimeBasedRotation        bool          `yaml:"timeBasedRotation"`
-		EnableDKG                bool          `yaml:"enableDKG"`
+		FSM               consensusfsm.Config `yaml:"fsm"`
+		DelegateInterval  time.Duration       `yaml:"delegateInterval"`
+		Delay             time.Duration       `yaml:"delay"`
+		NumSubEpochs      uint                `yaml:"numSubEpochs"`
+		NumDelegates      uint                `yaml:"numDelegates"`
+		TimeBasedRotation bool                `yaml:"timeBasedRotation"`
+		EnableDKG         bool                `yaml:"enableDKG"`
 	}
 
 	// Dispatcher is the dispatcher config
@@ -508,14 +503,15 @@ func ValidateRollDPoS(cfg Config) error {
 		return nil
 	}
 	rollDPoS := cfg.Consensus.RollDPoS
-	if rollDPoS.EventChanSize <= 0 {
-		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
-	}
 	if rollDPoS.NumDelegates <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event delegate number should be greater than 0")
 	}
-	ttl := rollDPoS.AcceptCommitEndorseTTL + rollDPoS.AcceptProposeTTL + rollDPoS.AcceptProposalEndorseTTL
-	if ttl >= rollDPoS.ProposerInterval {
+	fsm := rollDPoS.FSM
+	if fsm.EventChanSize <= 0 {
+		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
+	}
+	ttl := fsm.AcceptLockEndorsementTTL + fsm.AcceptBlockTTL + fsm.AcceptProposalEndorsementTTL
+	if ttl >= fsm.ProposerInterval {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS ttl sum is larger than proposer interval")
 	}
 
