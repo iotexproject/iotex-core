@@ -227,8 +227,6 @@ func TestExplorerApi(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
-	require.Nil(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// create chain
 	ctx := context.Background()
@@ -244,6 +242,11 @@ func TestExplorerApi(t *testing.T) {
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
 
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
@@ -921,19 +924,17 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
-	require.Nil(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// create chain
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(ctx))
-
-	sf.AddActionHandlers(execution.NewProtocol(bc))
-
 	defer func() {
 		require.NoError(bc.Stop(ctx))
 	}()
+
+	sf.AddActionHandlers(execution.NewProtocol(bc))
+	require.NoError(addCreatorToFactory(sf))
 
 	svc := Service{
 		bc: bc,
