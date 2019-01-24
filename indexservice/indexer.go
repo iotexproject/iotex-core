@@ -32,7 +32,9 @@ const (
 )
 
 var (
+	// BlockByIndexList store list of BlockByIndex tables
 	BlockByIndexList = []string{IndexTransfer, IndexVote, IndexExecution, IndexAction, IndexReceipt}
+	// IndexHistoryList store list of IndexHistory tables
 	IndexHistoryList = []string{IndexTransfer, IndexVote, IndexExecution, IndexAction}
 )
 
@@ -152,7 +154,8 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 }
 
 // UpdateBlockByIndex maps index hash to block hash
-func (idx *Indexer) UpdateBlockByIndex(blk *block.Block, tx *sql.Tx, indexIdentifier string, indexHash hash.Hash32B, blockHash hash.Hash32B) error {
+func (idx *Indexer) UpdateBlockByIndex(blk *block.Block, tx *sql.Tx, indexIdentifier string, indexHash hash.Hash32B,
+	blockHash hash.Hash32B) error {
 	insertQuery := fmt.Sprintf("INSERT INTO %s (node_address,index_hash,block_hash) VALUES (?, ?, ?)",
 		idx.getBlockByIndexTableName(indexIdentifier))
 	if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(indexHash[:]), blockHash[:]); err != nil {
@@ -162,7 +165,8 @@ func (idx *Indexer) UpdateBlockByIndex(blk *block.Block, tx *sql.Tx, indexIdenti
 }
 
 // UpdateIndexHistory stores index information into index history table
-func (idx *Indexer) UpdateIndexHistory(blk *block.Block, tx *sql.Tx, indexIdentifier string, userAddr string, indexHash hash.Hash32B) error {
+func (idx *Indexer) UpdateIndexHistory(blk *block.Block, tx *sql.Tx, indexIdentifier string, userAddr string,
+	indexHash hash.Hash32B) error {
 	insertQuery := fmt.Sprintf("INSERT INTO %s (node_address,user_address,index_hash) VALUES (?, ?, ?)",
 		idx.getIndexHistoryTableName(indexIdentifier))
 	if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, userAddr, indexHash[:]); err != nil {

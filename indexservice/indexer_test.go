@@ -175,7 +175,8 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 	// create block by index tables
 	for _, indexIdentifier := range BlockByIndexList {
-		stmt, err := db.Prepare(fmt.Sprintf("DELETE FROM %s WHERE node_address=?", idx.getBlockByIndexTableName(indexIdentifier)))
+		stmt, err := db.Prepare(fmt.Sprintf("DELETE FROM %s WHERE node_address=?",
+			idx.getBlockByIndexTableName(indexIdentifier)))
 		require.Nil(err)
 		_, err = stmt.Exec(nodeAddr)
 		require.Nil(err)
@@ -183,7 +184,8 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 	// create index history tables
 	for _, indexIdentifier := range IndexHistoryList {
-		stmt, err := db.Prepare(fmt.Sprintf("DELETE FROM %s WHERE node_address=?", idx.getIndexHistoryTableName(indexIdentifier)))
+		stmt, err := db.Prepare(fmt.Sprintf("DELETE FROM %s WHERE node_address=?",
+			idx.getIndexHistoryTableName(indexIdentifier)))
 		require.Nil(err)
 		_, err = stmt.Exec(nodeAddr)
 		require.Nil(err)
