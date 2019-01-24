@@ -9,6 +9,8 @@ package db
 import (
 	"sync"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -77,6 +79,8 @@ type (
 		Snapshot() int
 		// Revert sets the cached batch to the state at the given snapshot
 		Revert(int) error
+		// Digest of the cached batch
+		Digest() hash.Hash32B
 		// clone clones the cached batch
 		clone() CachedBatch
 	}
@@ -98,6 +102,14 @@ const (
 	// Delete indicate the type of write operation to be Delete
 	Delete int32 = 1
 )
+
+func (wi *writeInfo) serialize() []byte {
+	bytes := make([]byte, 0)
+	bytes = append(bytes, []byte(wi.namespace)...)
+	bytes = append(bytes, wi.key...)
+	bytes = append(bytes, wi.value...)
+	return bytes
+}
 
 // NewBatch returns a batch
 func NewBatch() KVStoreBatch {
@@ -142,7 +154,7 @@ func (b *baseKVStoreBatch) Size() int {
 // Entry returns the entry at the index
 func (b *baseKVStoreBatch) Entry(index int) (*writeInfo, error) {
 	if index < 0 || index >= len(b.writeQueue) {
-		return nil, errors.Wrap(ErrInvalidDB, "index out of range")
+		return nil, errors.Wrap(ErrIO, "index out of range")
 	}
 	return &b.writeQueue[index], nil
 }
@@ -280,7 +292,7 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	defer cb.lock.Unlock()
 	// throw error if the snapshot number does not exist
 	if snapshot < 0 || snapshot >= cb.tag {
-		return errors.Wrapf(ErrInvalidDB, "invalid snapshot number = %d", snapshot)
+		return errors.Wrapf(ErrIO, "invalid snapshot number = %d", snapshot)
 	}
 	cb.tag = snapshot + 1
 	cb.batchShots = cb.batchShots[:cb.tag]
@@ -289,6 +301,23 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	cb.KVStoreCache = nil
 	cb.KVStoreCache = cb.cacheShots[snapshot]
 	return nil
+}
+
+func (cb *cachedBatch) Digest() hash.Hash32B {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+
+	// 1. This could be improved by being processed in parallel
+	// 2. Digest could be replaced by merkle root if we need proof
+	bytes := make([]byte, 0)
+	for i := 0; i < cb.Size(); i++ {
+		wi, err := cb.Entry(i)
+		if err != nil {
+			log.S().Panic("Batch entry %d doesn't exist", i)
+		}
+		bytes = append(bytes, wi.serialize()...)
+	}
+	return byteutil.BytesTo32B(hash.Hash256b(bytes))
 }
 
 //======================================

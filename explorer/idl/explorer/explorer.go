@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "ccffcf3da6ae6514411d056c1169f278"
-const BarristerDateGenerated int64 = 1547767421706000000
+const BarristerChecksum string = "90a6e79cd2874d2f7decd0bb58d80471"
+const BarristerDateGenerated int64 = 1548137151451000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -26,18 +26,19 @@ type BlockGenerator struct {
 }
 
 type Block struct {
-	ID         string         `json:"ID"`
-	Height     int64          `json:"height"`
-	Timestamp  int64          `json:"timestamp"`
-	Transfers  int64          `json:"transfers"`
-	Votes      int64          `json:"votes"`
-	Executions int64          `json:"executions"`
-	GenerateBy BlockGenerator `json:"generateBy"`
-	Amount     string         `json:"amount"`
-	Forged     int64          `json:"forged"`
-	Size       int64          `json:"size"`
-	TxRoot     string         `json:"txRoot"`
-	StateRoot  string         `json:"stateRoot"`
+	ID               string         `json:"ID"`
+	Height           int64          `json:"height"`
+	Timestamp        int64          `json:"timestamp"`
+	Transfers        int64          `json:"transfers"`
+	Votes            int64          `json:"votes"`
+	Executions       int64          `json:"executions"`
+	GenerateBy       BlockGenerator `json:"generateBy"`
+	Amount           string         `json:"amount"`
+	Forged           int64          `json:"forged"`
+	Size             int64          `json:"size"`
+	TxRoot           string         `json:"txRoot"`
+	StateRoot        string         `json:"stateRoot"`
+	DeltaStateDigest string         `json:"deltaStateDigest"`
 }
 
 type Transfer struct {
@@ -1422,6 +1423,13 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "stateRoot",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "deltaStateDigest",
                 "type": "string",
                 "optional": false,
                 "is_array": false,
@@ -4177,7 +4185,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1547767421706,
-        "checksum": "ccffcf3da6ae6514411d056c1169f278"
+        "date_generated": 1548137151451,
+        "checksum": "90a6e79cd2874d2f7decd0bb58d80471"
     }
 ]`

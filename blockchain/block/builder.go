@@ -58,6 +58,12 @@ func (b *Builder) SetStateRoot(h hash.Hash32B) *Builder {
 	return b
 }
 
+// SetDeltaStateDigest sets the new delta state digest after running actions included in this building block
+func (b *Builder) SetDeltaStateDigest(h hash.Hash32B) *Builder {
+	b.blk.Header.deltaStateDigest = h
+	return b
+}
+
 // SetReceipts sets the receipts after running actions included in this building block.
 func (b *Builder) SetReceipts(rm map[hash.Hash32B]*action.Receipt) *Builder {
 	b.blk.Receipts = make(map[hash.Hash32B]*action.Receipt)

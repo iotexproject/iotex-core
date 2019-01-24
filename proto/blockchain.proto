@@ -21,13 +21,14 @@ message BlockHeaderPb {
     bytes prevBlockHash = 5;
     bytes txRoot = 6;
     bytes stateRoot = 7;
-    bytes receiptRoot = 8;
-    bytes reserved = 9;
-    bytes signature = 10;
-    bytes pubkey = 11;
-    bytes dkgID = 12;
-    bytes dkgPubkey = 13;
-    bytes dkgSignature = 14;
+    bytes deltaStateDigest = 8;
+    bytes receiptRoot = 9;
+    bytes reserved = 10;
+    bytes signature = 11;
+    bytes pubkey = 12;
+    bytes dkgID = 13;
+    bytes dkgPubkey = 14;
+    bytes dkgSignature = 15;
 }
 
 // block consists of header followed by transactions

@@ -13,10 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/dgraph-io/badger"
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
-	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -187,13 +185,15 @@ const RecoveryHeightKey key = "recoveryHeight"
 
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	return func(bc *blockchain, cfg config.Config) (err error) {
+		if cfg.Chain.EnableTrielessStateDB {
+			bc.sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		} else {
+			bc.sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+		}
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create state factory")
 		}
-		bc.sf = sf
-
 		return nil
 	}
 }
@@ -324,8 +324,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	}
 	if bc.tipHeight == 0 {
 		_, err = bc.getBlockByHeight(0)
-		// TODO: Need to unify the NotFound error no matter which db is used
-		if errors.Cause(err) == bolt.ErrBucketNotFound || errors.Cause(err) == badger.ErrKeyNotFound {
+		if errors.Cause(err) == db.ErrNotExist {
 			return bc.startEmptyBlockchain()
 		}
 		if err != nil {
@@ -748,7 +747,9 @@ func (bc *blockchain) MintNewBlock(
 		blkbd.SetDKG(dkgAddress.ID, dkgAddress.PublicKey, sig)
 	}
 
-	blk, err := blkbd.SetStateRoot(root).
+	blk, err := blkbd.
+		SetStateRoot(root).
+		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
 		SignAndBuild(producerPubKey, producerPriKey)
 	if err != nil {
@@ -792,6 +793,7 @@ func (bc *blockchain) MintNewSecretBlock(
 		SetSecretProposals(secretProposals).
 		SetReceipts(receipts).
 		SetStateRoot(root).
+		SetDeltaStateDigest(ws.Digest()).
 		SignAndBuild(producerPubKey, producerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create block")
@@ -971,6 +973,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetPrevBlockHash(Gen.ParentHash).
 			SetReceipts(receipts).
 			SetStateRoot(root).
+			SetDeltaStateDigest(ws.Digest()).
 			SignAndBuild(keypair.ZeroPublicKey, keypair.ZeroPrivateKey)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
@@ -1083,7 +1086,11 @@ func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) erro
 	}
 
 	if err = blk.VerifyStateRoot(root); err != nil {
-		return errors.Wrap(err, "Failed to verify state root")
+		return err
+	}
+
+	if err = blk.VerifyDeltaStateDigest(ws.Digest()); err != nil {
+		return err
 	}
 
 	// attach working set to be committed to state factory
@@ -1100,7 +1107,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		return nil
 	}
 	// If it's a ready db io error, return earlier with the error
-	if errors.Cause(err) != db.ErrNotExist && errors.Cause(err) != bolt.ErrBucketNotFound {
+	if errors.Cause(err) != db.ErrNotExist {
 		return err
 	}
 	// write block into DB

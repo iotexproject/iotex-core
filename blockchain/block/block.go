@@ -8,10 +8,10 @@ package block
 
 import (
 	"bytes"
-	"errors"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -73,6 +73,7 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.PrevBlockHash = b.Header.prevBlockHash[:]
 	pbHeader.TxRoot = b.Header.txRoot[:]
 	pbHeader.StateRoot = b.Header.stateRoot[:]
+	pbHeader.DeltaStateDigest = b.Header.deltaStateDigest[:]
 	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
 	pbHeader.Signature = b.Header.blockSig[:]
 	pbHeader.Pubkey = b.Header.pubkey[:]
@@ -107,6 +108,7 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.prevBlockHash[:], pbBlock.GetHeader().GetPrevBlockHash())
 	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetTxRoot())
 	copy(b.Header.stateRoot[:], pbBlock.GetHeader().GetStateRoot())
+	copy(b.Header.deltaStateDigest[:], pbBlock.GetHeader().GetDeltaStateDigest())
 	copy(b.Header.receiptRoot[:], pbBlock.GetHeader().GetReceiptRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
 	copy(b.Header.pubkey[:], pbBlock.GetHeader().GetPubkey())
@@ -165,7 +167,23 @@ func (b *Block) HashBlock() hash.Hash32B {
 // VerifyStateRoot verifies the state root in header
 func (b *Block) VerifyStateRoot(root hash.Hash32B) error {
 	if b.Header.stateRoot != root {
-		return errors.New("state root hash does not match")
+		return errors.Errorf(
+			"state root hash does not match, expected = %x, actual = %x",
+			b.Header.stateRoot,
+			root,
+		)
+	}
+	return nil
+}
+
+// VerifyDeltaStateDigest verifies the delta state digest in header
+func (b *Block) VerifyDeltaStateDigest(digest hash.Hash32B) error {
+	if b.Header.deltaStateDigest != digest {
+		return errors.Errorf(
+			"delta state digest doesn't match, expected = %x, actual = %x",
+			b.Header.deltaStateDigest,
+			digest,
+		)
 	}
 	return nil
 }
