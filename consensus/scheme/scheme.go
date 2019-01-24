@@ -34,6 +34,7 @@ type Scheme interface {
 	lifecycle.StartStopper
 
 	HandleConsensusMsg(msg *iproto.ConsensusPb) error
+	ValidateBlockFooter(*block.Block) error
 	Metrics() (ConsensusMetrics, error)
 }
 

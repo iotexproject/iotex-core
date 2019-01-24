@@ -14,18 +14,15 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -60,8 +57,12 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(), pubk, sig)
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-	blk, err := bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil, nil, "")
+	blk, err := bc.MintNewBlock(
+		actionMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+	)
 	if err != nil {
 		return err
 	}
@@ -112,10 +113,12 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	}
 	accMap := make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
-
-	blk, err = bc.MintNewBlock(accMap,
-		ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
+	blk, err = bc.MintNewBlock(
+		accMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+	)
 	if err != nil {
 		return err
 	}
@@ -150,9 +153,12 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	}
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
-	blk, err = bc.MintNewBlock(accMap,
-		ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
+	blk, err = bc.MintNewBlock(
+		accMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+	)
 	if err != nil {
 		return err
 	}
@@ -185,9 +191,12 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
-	blk, err = bc.MintNewBlock(accMap, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil, nil, "")
-
+	blk, err = bc.MintNewBlock(
+		accMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+	)
 	if err != nil {
 		return err
 	}
@@ -237,9 +246,12 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1}
 	accMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2}
 
-	blk, err = bc.MintNewBlock(accMap,
-		ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
+	blk, err = bc.MintNewBlock(
+		accMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+	)
 	if err != nil {
 		return err
 	}
@@ -347,9 +359,12 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(), pk, sig)
 		actionMap := make(map[string][]action.SealedEnvelope)
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		_, err = bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey,
-			ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32(), nil,
-			nil, "")
+		_, err = bc.MintNewBlock(
+			actionMap,
+			ta.Keyinfo["producer"].PubKey,
+			ta.Keyinfo["producer"].PriKey,
+			ta.Addrinfo["producer"].Bech32(),
+		)
 		if v {
 			require.NoError(t, err)
 		} else {
@@ -900,8 +915,12 @@ func TestCoinbaseTransfer(t *testing.T) {
 	require.Equal(0, int(height))
 
 	actionMap := make(map[string][]action.SealedEnvelope)
-	blk, err := bc.MintNewBlock(actionMap, ta.Keyinfo["alfa"].PubKey,
-		ta.Keyinfo["alfa"].PriKey, ta.Addrinfo["alfa"].Bech32(), nil, nil, "")
+	blk, err := bc.MintNewBlock(
+		actionMap,
+		ta.Keyinfo["alfa"].PubKey,
+		ta.Keyinfo["alfa"].PriKey,
+		ta.Addrinfo["alfa"].Bech32(),
+	)
 	require.Nil(err)
 	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].Bech32())
 	require.Nil(err)
@@ -989,8 +1008,12 @@ func TestBlocks(t *testing.T) {
 			acts = append(acts, tsf)
 			actionMap[a] = append(actionMap[a], tsf)
 		}
-		blk, _ := bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
-			ta.Addrinfo["producer"].Bech32(), nil, nil, "")
+		blk, _ := bc.MintNewBlock(
+			actionMap,
+			ta.Keyinfo["producer"].PubKey,
+			ta.Keyinfo["producer"].PriKey,
+			ta.Addrinfo["producer"].Bech32(),
+		)
 		require.Nil(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
 	}
@@ -1050,96 +1073,13 @@ func TestActions(t *testing.T) {
 		require.NoError(err)
 		actionMap[a] = append(actionMap[a], vote)
 	}
-	blk, _ := bc.MintNewBlock(actionMap, ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(), nil, nil, "")
+	blk, _ := bc.MintNewBlock(
+		actionMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+	)
 	require.Nil(val.Validate(blk, 0, blk.PrevHash(), true))
-}
-
-func TestMintDKGBlock(t *testing.T) {
-	require := require.New(t)
-	lastSeed, _ := hex.DecodeString("9de6306b08158c423330f7a27243a1a5cbe39bfd764f07818437882d21241567")
-	cfg := config.Default
-	clk := clock.NewMock()
-	chain := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption(), ClockOption(clk))
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
-	chain.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(chain))
-	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
-	require.NoError(chain.Start(context.Background()))
-
-	var err error
-	const numNodes = 21
-	addresses := make([]string, numNodes)
-	skList := make([][]uint32, numNodes)
-	idList := make([][]uint8, numNodes)
-	coeffsList := make([][][]uint32, numNodes)
-	sharesList := make([][][]uint32, numNodes)
-	shares := make([][]uint32, numNodes)
-	witnessesList := make([][][]byte, numNodes)
-	sharestatusmatrix := make([][numNodes]bool, numNodes)
-	qsList := make([][]byte, numNodes)
-	pkList := make([][]byte, numNodes)
-	askList := make([][]uint32, numNodes)
-	ec283PKList := make([]keypair.PublicKey, numNodes)
-	ec283SKList := make([]keypair.PrivateKey, numNodes)
-
-	// Generate 21 identifiers for the delegates
-	for i := 0; i < numNodes; i++ {
-		var err error
-		ec283PKList[i], ec283SKList[i], err = crypto.EC283.NewKeyPair()
-		require.NoError(err)
-		pkHash := keypair.HashPubKey(ec283PKList[i])
-		addresses[i] = address.New(pkHash[:]).Bech32()
-		idList[i] = hash.Hash256b([]byte(addresses[i]))
-		skList[i] = crypto.DKG.SkGeneration()
-	}
-
-	// Initialize DKG and generate secret shares
-	for i := 0; i < numNodes; i++ {
-		coeffsList[i], sharesList[i], witnessesList[i], err = crypto.DKG.Init(skList[i], idList)
-		require.NoError(err)
-	}
-
-	// Verify all the received secret shares
-	for i := 0; i < numNodes; i++ {
-		for j := 0; j < numNodes; j++ {
-			result, err := crypto.DKG.ShareVerify(idList[i], sharesList[j][i], witnessesList[j])
-			require.NoError(err)
-			require.True(result)
-			shares[j] = sharesList[j][i]
-		}
-		sharestatusmatrix[i], err = crypto.DKG.SharesCollect(idList[i], shares, witnessesList)
-		require.NoError(err)
-		for _, b := range sharestatusmatrix[i] {
-			require.True(b)
-		}
-	}
-
-	// Generate private and public key shares of a group key
-	for i := 0; i < numNodes; i++ {
-		for j := 0; j < numNodes; j++ {
-			shares[j] = sharesList[j][i]
-		}
-		qsList[i], pkList[i], askList[i], err = crypto.DKG.KeyPairGeneration(shares, sharestatusmatrix)
-		require.NoError(err)
-	}
-
-	// Generate dkg signature for each block
-	for i := 1; i < numNodes; i++ {
-		blk, err := chain.MintNewBlock(nil, ec283PKList[i], ec283SKList[i], addresses[i],
-			&address.DKGAddress{PrivateKey: askList[i], PublicKey: pkList[i], ID: idList[i]}, lastSeed, "")
-		require.NoError(err)
-		require.NoError(chain.ValidateBlock(blk, true))
-		require.NoError(chain.CommitBlock(blk))
-		require.Equal(pkList[i], blk.DKGPubkey())
-		require.Equal(idList[i], blk.DKGID())
-		require.True(len(blk.DKGSignature()) > 0)
-	}
-	height, err := chain.GetFactory().Height()
-	require.NoError(err)
-	require.Equal(uint64(20), height)
-	candidates, err := chain.CandidatesByHeight(height)
-	require.NoError(err)
-	require.Equal(21, len(candidates))
 }
 
 func TestStartExistingBlockchain(t *testing.T) {

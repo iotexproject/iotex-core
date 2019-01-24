@@ -173,12 +173,13 @@ func main() {
 				log.S().Errorf("Node %d: Can not get State height", i)
 			}
 			bcHeights[i] = chains[i].TipHeight()
-			minTimeout = int(configs[i].Consensus.RollDPoS.Delay/time.Second - configs[i].Consensus.RollDPoS.ProposerInterval/time.Second)
+			cfg := configs[i].Consensus.RollDPoS
+			minTimeout = int(cfg.Delay/time.Second - cfg.FSM.ProposerInterval/time.Second)
 			netTimeout = 0
 			if timeout > minTimeout {
 				netTimeout = timeout - minTimeout
 			}
-			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / configs[i].Consensus.RollDPoS.ProposerInterval)
+			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.FSM.ProposerInterval)
 
 			log.S().Infof("Node#%d blockchain height: %d", i, bcHeights[i])
 			log.S().Infof("Node#%d state      height: %d", i, stateHeights[i])
@@ -233,15 +234,14 @@ func newConfig(
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Consensus.RollDPoS.DelegateInterval = 10 * time.Second
-	cfg.Consensus.RollDPoS.ProposerInterval = 10 * time.Second
-	cfg.Consensus.RollDPoS.UnmatchedEventInterval = 4 * time.Second
-	cfg.Consensus.RollDPoS.RoundStartTTL = 30 * time.Second
-	cfg.Consensus.RollDPoS.AcceptProposeTTL = 4 * time.Second
-	cfg.Consensus.RollDPoS.AcceptProposalEndorseTTL = 4 * time.Second
-	cfg.Consensus.RollDPoS.AcceptCommitEndorseTTL = 4 * time.Second
+	cfg.Consensus.RollDPoS.FSM.ProposerInterval = 10 * time.Second
+	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 4 * time.Second
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
 	cfg.Consensus.RollDPoS.NumSubEpochs = 2
-	cfg.Consensus.RollDPoS.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.NumDelegates = numNodes
 	cfg.Consensus.RollDPoS.TimeBasedRotation = true
 

@@ -49,6 +49,18 @@ mockgen -destination=./test/mock/mock_consensus/mock_consensus.go  \
         -package=mock_consensus \
         Consensus
 
+mockgen -destination=./consensus/fsm/mock_context_test.go  \
+        -source=./consensus/fsm/context.go \
+	-self_package=github.com/iotexproject/iotex-core/consensus/fsm \
+	-package=consensusfsm \
+        Context
+
+mockgen -destination=./consensus/fsm/mock_endorsement_test.go  \
+        -source=./consensus/fsm/endorsement.go \
+	-self_package=github.com/iotexproject/iotex-core/consensus/fsm \
+	-package=consensusfsm \
+        Endorsement
+
 mkdir -p ./test/mock/mock_lifecycle
 mockgen -destination=./test/mock/mock_lifecycle/mock_lifecycle.go \
         github.com/iotexproject/iotex-core/pkg/lifecycle StartStopper
