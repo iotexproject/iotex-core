@@ -9,8 +9,8 @@ package itx
 import "net/http"
 
 func registerHealthCheckMux(root *http.ServeMux) {
-	root.Handle("/health/", http.StripPrefix("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	root.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
-	})))
+	})
 }
