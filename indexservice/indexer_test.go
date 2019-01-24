@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
@@ -182,6 +183,8 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 func TestIndexServiceOnSqlite3(t *testing.T) {
 	t.Run("Indexer", func(t *testing.T) {
+		testutil.CleanupPath(t, config.Default.DB.SQLITE3.SQLite3File)
+		defer testutil.CleanupPath(t, config.Default.DB.SQLITE3.SQLite3File)
 		testSQLite3StorePutGet(sql.NewSQLite3(config.Default.DB.SQLITE3), t)
 	})
 }

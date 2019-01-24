@@ -39,6 +39,7 @@ type ChainService struct {
 	consensus    consensus.Consensus
 	chain        blockchain.Blockchain
 	explorer     *explorer.Server
+	indexBuilder *blockchain.IndexBuilder
 	indexservice *indexservice.Server
 	protocols    []protocol.Protocol
 }
@@ -99,6 +100,15 @@ func New(
 			return nil, errors.Wrap(err, "failed to rename old trie db")
 		}
 		chain = blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
+	}
+
+	var indexBuilder *blockchain.IndexBuilder
+	var err error
+	if cfg.Chain.EnableIndex && cfg.Chain.EnableAsyncIndexWrite {
+		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
+			return nil, errors.Wrap(err, "failed to create index builder")
+		}
+		chain.AddSubscriber(indexBuilder)
 	}
 
 	// Create ActPool
@@ -171,6 +181,7 @@ func New(
 		blocksync:    bs,
 		consensus:    consensus,
 		indexservice: idx,
+		indexBuilder: indexBuilder,
 		explorer:     exp,
 	}, nil
 }
@@ -196,11 +207,21 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			return errors.Wrap(err, "error when starting explorer")
 		}
 	}
+	if cs.indexBuilder != nil {
+		if err := cs.indexBuilder.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting index builder")
+		}
+	}
 	return nil
 }
 
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
+	if cs.indexBuilder != nil {
+		if err := cs.indexBuilder.Stop(ctx); err != nil {
+			return errors.Wrap(err, "error when stopping index builder")
+		}
+	}
 	if cs.explorer != nil {
 		if err := cs.explorer.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping explorer")

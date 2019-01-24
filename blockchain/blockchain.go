@@ -221,7 +221,7 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		bc.dao = newBlockDAO(db.NewOnDiskDB(cfg.DB), cfg.Chain.WriteIndexInChainDB)
+		bc.dao = newBlockDAO(db.NewOnDiskDB(cfg.DB), cfg.Chain.EnableIndex && !cfg.Chain.EnableAsyncIndexWrite)
 		return nil
 	}
 }
@@ -229,7 +229,7 @@ func BoltDBDaoOption() Option {
 // InMemDaoOption sets blockchain's dao with MemKVStore
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		bc.dao = newBlockDAO(db.NewMemKVStore(), cfg.Chain.WriteIndexInChainDB)
+		bc.dao = newBlockDAO(db.NewMemKVStore(), cfg.Chain.EnableIndex && !cfg.Chain.EnableAsyncIndexWrite)
 
 		return nil
 	}
@@ -378,8 +378,8 @@ func (bc *blockchain) GetBlockByHash(h hash.Hash32B) (*block.Block, error) {
 // TODO: To be deprecated
 // GetTotalTransfers returns the total number of transfers
 func (bc *blockchain) GetTotalTransfers() (uint64, error) {
-	if !bc.config.Explorer.Enabled {
-		return 0, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return 0, errors.New("index not enabled")
 	}
 	return bc.dao.getTotalTransfers()
 }
@@ -387,8 +387,8 @@ func (bc *blockchain) GetTotalTransfers() (uint64, error) {
 // TODO: To be deprecated
 // GetTotalVotes returns the total number of votes
 func (bc *blockchain) GetTotalVotes() (uint64, error) {
-	if !bc.config.Explorer.Enabled {
-		return 0, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return 0, errors.New("index not enabled")
 	}
 	return bc.dao.getTotalVotes()
 }
@@ -396,16 +396,16 @@ func (bc *blockchain) GetTotalVotes() (uint64, error) {
 // TODO: To be deprecated
 // GetTotalExecutions returns the total number of executions
 func (bc *blockchain) GetTotalExecutions() (uint64, error) {
-	if !bc.config.Explorer.Enabled {
-		return 0, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return 0, errors.New("index not enabled")
 	}
 	return bc.dao.getTotalExecutions()
 }
 
 // GetTotalActions returns the total number of actions
 func (bc *blockchain) GetTotalActions() (uint64, error) {
-	if !bc.config.Explorer.Enabled {
-		return 0, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return 0, errors.New("index not enabled")
 	}
 	return bc.dao.getTotalActions()
 }
@@ -413,28 +413,28 @@ func (bc *blockchain) GetTotalActions() (uint64, error) {
 // TODO: To be deprecated
 // GetTransfersFromAddress returns transfers from address
 func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getTransfersBySenderAddress(address)
+	return getTransfersBySenderAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
 // GetTransfersToAddress returns transfers to address
 func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getTransfersByRecipientAddress(address)
+	return getTransfersByRecipientAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
 // GetTransferByTransferHash returns transfer by transfer hash
 func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	blkHash, err := bc.dao.getBlockHashByTransferHash(h)
+	blkHash, err := getBlockHashByTransferHash(bc.dao.kvstore, h)
 	if err != nil {
 		return nil, err
 	}
@@ -454,37 +454,37 @@ func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfe
 // TODO: To be deprecated
 // GetBlockHashByTxHash returns Block hash by transfer hash
 func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return hash.ZeroHash32B, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return hash.ZeroHash32B, errors.New("index not enabled")
 	}
-	return bc.dao.getBlockHashByTransferHash(h)
+	return getBlockHashByTransferHash(bc.dao.kvstore, h)
 }
 
 // TODO: To be deprecated
 // GetVoteFromAddress returns votes from address
 func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getVotesBySenderAddress(address)
+	return getVotesBySenderAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
 // GetVoteToAddress returns votes to address
 func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getVotesByRecipientAddress(address)
+	return getVotesByRecipientAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
 // GetVotesByVoteHash returns vote by vote hash
 func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	blkHash, err := bc.dao.getBlockHashByVoteHash(h)
+	blkHash, err := getBlockHashByVoteHash(bc.dao.kvstore, h)
 	if err != nil {
 		return nil, err
 	}
@@ -506,37 +506,37 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 // TODO: To be deprecated
 // GetBlockHashByVoteHash returns Block hash by vote hash
 func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return hash.ZeroHash32B, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return hash.ZeroHash32B, errors.New("index not enabled")
 	}
-	return bc.dao.getBlockHashByVoteHash(h)
+	return getBlockHashByVoteHash(bc.dao.kvstore, h)
 }
 
 // TODO: To be deprecated
 // GetExecutionsFromAddress returns executions from address
 func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getExecutionsByExecutorAddress(address)
+	return getExecutionsByExecutorAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
 // GetExecutionsToAddress returns executions to address
 func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getExecutionsByContractAddress(address)
+	return getExecutionsByContractAddress(bc.dao.kvstore, address)
 }
 
 // TODO: To be deprecated
 // GetExecutionByExecutionHash returns execution by execution hash
 func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	blkHash, err := bc.dao.getBlockHashByExecutionHash(h)
+	blkHash, err := getBlockHashByExecutionHash(bc.dao.kvstore, h)
 	if err != nil {
 		return nil, err
 	}
@@ -556,56 +556,56 @@ func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execu
 // TODO: To be deprecated
 // GetBlockHashByExecutionHash returns Block hash by execution hash
 func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return hash.ZeroHash32B, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return hash.ZeroHash32B, errors.New("index not enabled")
 	}
-	return bc.dao.getBlockHashByExecutionHash(h)
+	return getBlockHashByExecutionHash(bc.dao.kvstore, h)
 }
 
 // GetReceiptByActionHash returns the receipt by action hash
 func (bc *blockchain) GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
 	return bc.dao.getReceiptByActionHash(h)
 }
 
 // GetActionsFromAddress returns actions from address
 func (bc *blockchain) GetActionsFromAddress(address string) ([]hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getActionsBySenderAddress(address)
+	return getActionsBySenderAddress(bc.dao.kvstore, address)
 }
 
 // GetActionToAddress returns action to address
 func (bc *blockchain) GetActionsToAddress(address string) ([]hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return nil, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return nil, errors.New("index not enabled")
 	}
-	return bc.dao.getActionsByRecipientAddress(address)
+	return getActionsByRecipientAddress(bc.dao.kvstore, address)
 }
 
 func (bc *blockchain) getActionByActionHashHelper(h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash, err := bc.dao.getBlockHashByTransferHash(h)
+	blkHash, err := getBlockHashByTransferHash(bc.dao.kvstore, h)
 	if err == nil {
 		return blkHash, nil
 	}
-	blkHash, err = bc.dao.getBlockHashByVoteHash(h)
+	blkHash, err = getBlockHashByVoteHash(bc.dao.kvstore, h)
 	if err == nil {
 		return blkHash, nil
 	}
-	blkHash, err = bc.dao.getBlockHashByExecutionHash(h)
+	blkHash, err = getBlockHashByExecutionHash(bc.dao.kvstore, h)
 	if err == nil {
 		return blkHash, nil
 	}
-	return bc.dao.getBlockHashByActionHash(h)
+	return getBlockHashByActionHash(bc.dao.kvstore, h)
 }
 
 // GetActionByActionHash returns action by action hash
 func (bc *blockchain) GetActionByActionHash(h hash.Hash32B) (action.SealedEnvelope, error) {
-	if !bc.config.Explorer.Enabled {
-		return action.SealedEnvelope{}, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return action.SealedEnvelope{}, errors.New("index not enabled")
 	}
 
 	blkHash, err := bc.getActionByActionHashHelper(h)
@@ -627,10 +627,10 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash32B) (action.SealedEnvelo
 
 // GetBlockHashByActionHash returns Block hash by action hash
 func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error) {
-	if !bc.config.Explorer.Enabled {
-		return hash.ZeroHash32B, errors.New("explorer not enabled")
+	if !bc.config.Chain.EnableIndex {
+		return hash.ZeroHash32B, errors.New("index not enabled")
 	}
-	return bc.dao.getBlockHashByActionHash(h)
+	return getBlockHashByActionHash(bc.dao.kvstore, h)
 }
 
 // GetFactory returns the state factory
@@ -1049,8 +1049,6 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	// emit block to all block subscribers
-	bc.emitToSubscribers(blk)
 
 	// update tip hash and height
 	atomic.StoreUint64(&bc.tipHeight, blk.Height())
@@ -1079,6 +1077,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		}
 	}
 	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", bc.tipHash[:]))
+
+	// emit block to all block subscribers
+	bc.emitToSubscribers(blk)
 	return nil
 }
 
@@ -1116,3 +1117,5 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 }
 
 func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
+
+func (bc *blockchain) GetDB() db.KVStore { return bc.dao.kvstore }
