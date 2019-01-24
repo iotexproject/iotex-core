@@ -180,7 +180,7 @@ message ActionPb {
 message ReceiptPb {
     bytes returnValue = 1;
     uint64 status = 2;
-    bytes hash = 3;
+    bytes actHash = 3;
     uint64 gasConsumed = 4;
     string contractAddress = 5;
     repeated LogPb logs = 6;

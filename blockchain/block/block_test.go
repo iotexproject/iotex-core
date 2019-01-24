@@ -12,6 +12,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
@@ -222,6 +224,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 	}))
 
 	blk.Header.txRoot = blk.CalculateTxRoot()
+	blk.Header.receiptRoot = byteutil.BytesTo32B(hash.Hash256b(([]byte)("test")))
 
 	raw, err := blk.Serialize()
 	require.Nil(t, err)
@@ -243,4 +246,5 @@ func TestConvertFromBlockPb(t *testing.T) {
 
 	require.Equal(t, blk.Header.txRoot, blk.TxRoot())
 	require.Equal(t, blk.Header.stateRoot, blk.StateRoot())
+	require.Equal(t, blk.Header.receiptRoot, blk.ReceiptRoot())
 }

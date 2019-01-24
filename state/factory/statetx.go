@@ -59,10 +59,10 @@ func (stx *stateTX) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
-) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
+) (hash.Hash32B, []*action.Receipt, error) {
 	stx.blkHeight = blockHeight
 	// Handle actions
-	receipts := make(map[hash.Hash32B]*action.Receipt)
+	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
 		for _, actionHandler := range stx.actionHandlers {
 			receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
@@ -76,7 +76,7 @@ func (stx *stateTX) RunActions(
 				)
 			}
 			if receipt != nil {
-				receipts[elp.Hash()] = receipt
+				receipts = append(receipts, receipt)
 			}
 		}
 	}

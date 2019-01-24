@@ -35,7 +35,8 @@ type Block struct {
 	Actions         []action.SealedEnvelope
 	SecretProposals []*action.SecretProposal
 	SecretWitness   *action.SecretWitness
-	Receipts        map[hash.Hash32B]*action.Receipt
+	// TODO: move receipts out of block struct
+	Receipts []*action.Receipt
 
 	WorkingSet factory.WorkingSet
 }
@@ -205,6 +206,14 @@ func (b *Block) VerifySignature() bool {
 		b.Header.blockSig[:action.SignatureLength-1])
 }
 
+// VerifyReceiptRoot verifies the receipt root in header
+func (b *Block) VerifyReceiptRoot(root hash.Hash32B) error {
+	if b.Header.receiptRoot != root {
+		return errors.New("receipt root hash does not match")
+	}
+	return nil
+}
+
 // ProducerAddress returns the address of producer
 func (b *Block) ProducerAddress() string {
 	pkHash := keypair.HashPubKey(b.Header.pubkey)
@@ -223,6 +232,7 @@ func (b *Block) RunnableActions() RunnableActions {
 		blockProducerPubKey: b.Header.pubkey,
 		blockProducerAddr:   addr.Bech32(),
 		actions:             b.Actions,
+		txHash:              b.txRoot,
 	}
 }
 
