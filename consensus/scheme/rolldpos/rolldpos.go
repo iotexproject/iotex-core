@@ -122,6 +122,7 @@ func (r *RollDPoS) Start(ctx context.Context) error {
 	if err := r.cfsm.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting the consensus FSM")
 	}
+	r.ctx.round = &roundCtx{height: 0}
 	r.cfsm.ProducePrepareEvent(r.ctx.cfg.Delay)
 	return nil
 }
@@ -197,15 +198,15 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	proposer, err := r.ctx.getProposer(blk.Height(), blk.Round(), epoch.delegates)
+	round, err := r.ctx.roundCtxByTime(epoch, blk.Height(), time.Unix(blk.Timestamp(), 0))
 	if err != nil {
 		return err
 	}
-	if proposer != blk.ProducerAddress() {
+	if round.proposer != blk.ProducerAddress() {
 		return errors.Errorf(
 			"block proposer %s is invalid, %s expected",
 			blk.ProducerAddress(),
-			proposer,
+			round.proposer,
 		)
 	}
 	if 3*blk.NumOfDelegateEndorsements(epoch.delegates) <= 2*len(epoch.delegates) {
@@ -223,11 +224,6 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating epoch")
 	}
-	// Compute block producer
-	_, producer, err := r.ctx.calcProposer(height+1, epoch.delegates, time.Duration(0))
-	if err != nil {
-		return metrics, errors.Wrap(err, "error when calculating the block producer")
-	}
 	// Get all candidates
 	candidates, err := r.ctx.chain.CandidatesByHeight(height)
 	if err != nil {
@@ -242,7 +238,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		LatestEpoch:         epoch.num,
 		LatestHeight:        height,
 		LatestDelegates:     epoch.delegates,
-		LatestBlockProducer: producer,
+		LatestBlockProducer: r.ctx.round.proposer,
 		Candidates:          candidateAddresses,
 	}, nil
 }

@@ -100,6 +100,7 @@ var (
 					AcceptLockEndorsementTTL:     2 * time.Second,
 					EventChanSize:                10000,
 				},
+				ToleratedOvertime: 2 * time.Second,
 				DelegateInterval:  10 * time.Second,
 				Delay:             5 * time.Second,
 				NumSubEpochs:      1,
@@ -214,6 +215,7 @@ type (
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
 		FSM               consensusfsm.Config `yaml:"fsm"`
+		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
 		DelegateInterval  time.Duration       `yaml:"delegateInterval"`
 		Delay             time.Duration       `yaml:"delay"`
 		NumSubEpochs      uint                `yaml:"numSubEpochs"`

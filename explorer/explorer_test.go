@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/jsonpb"
@@ -74,6 +75,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return err
@@ -120,6 +122,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	); err != nil {
 		return err
 	}
@@ -136,6 +139,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	); err != nil {
 		return err
 	}
@@ -174,6 +178,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	); err != nil {
 		return err
 	}
@@ -958,6 +963,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))

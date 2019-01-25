@@ -452,7 +452,7 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	require.NoError(t, err)
 	pkHash := keypair.HashPubKey(pk)
 	addr := address.New(pkHash[:])
-	blk, err := chain.MintNewBlock(nil, pk, sk, addr.Bech32())
+	blk, err := chain.MintNewBlock(nil, pk, sk, addr.Bech32(), 0)
 	require.NoError(t, err)
 	validator := validator{}
 	require.NoError(t, validator.ValidateActionsOnly(

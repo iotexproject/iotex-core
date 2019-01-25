@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -54,7 +54,7 @@ type rollDPoSCtx struct {
 	actPool          actpool.ActPool
 	broadcastHandler scheme.Broadcast
 	epoch            *epochCtx
-	round            roundCtx
+	round            *roundCtx
 	clock            clock.Clock
 	rootChainAPI     explorer.Explorer
 	// candidatesByHeightFunc is only used for testing purpose
@@ -65,58 +65,32 @@ type rollDPoSCtx struct {
 func (ctx *rollDPoSCtx) Prepare() (time.Duration, error) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
-	height := ctx.chain.TipHeight()
-	epochNum := uint64(0)
-	if ctx.epoch != nil {
-		epochNum = ctx.epoch.num
-	}
-	if epochNum < getEpochNum(height+1, ctx.cfg.NumDelegates, ctx.cfg.NumSubEpochs) {
-		epoch, err := ctx.epochCtxByHeight(height + 1)
-		if err != nil {
-			return ctx.cfg.DelegateInterval, err
-		}
-		ctx.epoch = epoch
+	height := ctx.chain.TipHeight() + 1
+	if err := ctx.updateEpoch(height); err != nil {
+		return ctx.cfg.DelegateInterval, err
 	}
 	// If the current node is the delegate, move to the next state
 	if !ctx.isDelegate() {
+		log.L().Info(
+			"current node is not a delegate",
+			zap.Uint64("epoch", ctx.epoch.num),
+			zap.Uint64("height", height),
+		)
 		return ctx.cfg.DelegateInterval, nil
 	}
-	ctx.Logger().Info("current node is the delegate", zap.Uint64("epoch", ctx.epoch.num))
-	waitDuration, err := ctx.calcWaitDuration()
-	if err != nil {
-		return waitDuration, err
+	log.L().Info(
+		"current node is a delegate",
+		zap.Uint64("epoch", ctx.epoch.num),
+		zap.Uint64("height", height),
+	)
+	if err := ctx.updateSubEpochNum(height); err != nil {
+		return ctx.cfg.DelegateInterval, err
 	}
-	subEpochNum, err := ctx.calcSubEpochNum()
-	if err != nil {
-		return waitDuration, err
+	if err := ctx.updateRound(height); err != nil {
+		return ctx.cfg.DelegateInterval, err
 	}
-	ctx.epoch.subEpochNum = subEpochNum
 
-	proposer, height, round, err := ctx.rotatedProposer(waitDuration)
-	if err != nil {
-		return waitDuration, err
-	}
-	if ctx.round.height != height {
-		ctx.round = roundCtx{
-			height:          height,
-			endorsementSets: make(map[string]*endorsement.Set),
-		}
-	} else {
-		for _, s := range ctx.round.endorsementSets {
-			s.DeleteEndorsements(
-				map[endorsement.ConsensusVoteTopic]bool{
-					endorsement.PROPOSAL: true,
-					endorsement.LOCK:     true,
-				},
-				round,
-			)
-		}
-	}
-	ctx.round.number = round
-	ctx.round.proposer = proposer
-	ctx.round.timestamp = ctx.clock.Now()
-
-	return waitDuration, nil
+	return ctx.round.timestamp.Sub(ctx.clock.Now()), nil
 }
 
 func (ctx *rollDPoSCtx) ReadyToCommit() bool {
@@ -134,28 +108,27 @@ func (ctx *rollDPoSCtx) ReadyToCommit() bool {
 }
 
 func (ctx *rollDPoSCtx) OnConsensusReached() {
-	ctx.mutex.RLock()
-	defer ctx.mutex.RUnlock()
-	ctx.Logger().Info("consensus reached", zap.Uint64("blockHeight", ctx.round.height))
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
+	ctx.logger().Info("consensus reached", zap.Uint64("blockHeight", ctx.round.height))
 	pendingBlock := ctx.round.block
 	if err := pendingBlock.Block.Finalize(
 		ctx.round.proofOfLock,
-		ctx.round.number,
 		ctx.clock.Now(),
 	); err != nil {
-		ctx.Logger().Panic("failed to add endorsements to block", zap.Error(err))
+		ctx.logger().Panic("failed to add endorsements to block", zap.Error(err))
 	}
 	// Commit and broadcast the pending block
 	if err := ctx.chain.CommitBlock(pendingBlock.Block); err != nil {
 		// TODO: review the error handling logic (panic?)
-		ctx.Logger().Panic("error when committing a block", zap.Error(err))
+		ctx.logger().Panic("error when committing a block", zap.Error(err))
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
 	ctx.actPool.Reset()
 	// Broadcast the committed block to the network
 	if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
 		if err := ctx.broadcastHandler(blkProto); err != nil {
-			ctx.Logger().Error(
+			ctx.logger().Error(
 				"error when broadcasting blkProto",
 				zap.Error(err),
 				zap.Uint64("block", pendingBlock.Height()),
@@ -166,7 +139,7 @@ func (ctx *rollDPoSCtx) OnConsensusReached() {
 			putBlockToParentChain(ctx.rootChainAPI, ctx.chain.ChainAddress(), ctx.pubKey, ctx.priKey, ctx.encodedAddr, pendingBlock.Block)
 		}
 	} else {
-		ctx.Logger().Panic(
+		ctx.logger().Panic(
 			"error when converting a block into a proto msg",
 			zap.Uint64("block", pendingBlock.Height()),
 		)
@@ -174,16 +147,19 @@ func (ctx *rollDPoSCtx) OnConsensusReached() {
 }
 
 func (ctx *rollDPoSCtx) MintBlock() (consensusfsm.Endorsement, error) {
-	ctx.mutex.RLock()
-	defer ctx.mutex.RUnlock()
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
 	blk := ctx.round.block
 	if blk == nil {
 		actionMap := ctx.actPool.PendingActionMap()
-		ctx.Logger().Debug(
-			"pick actions from the action pool",
-			zap.Int("action", len(actionMap)),
+		log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
+		b, err := ctx.chain.MintNewBlock(
+			actionMap,
+			ctx.pubKey,
+			ctx.priKey,
+			ctx.encodedAddr,
+			ctx.round.timestamp.Unix(),
 		)
-		b, err := ctx.chain.MintNewBlock(actionMap, ctx.pubKey, ctx.priKey, ctx.encodedAddr)
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +168,7 @@ func (ctx *rollDPoSCtx) MintBlock() (consensusfsm.Endorsement, error) {
 		// TODO: when time rotation is enabled, proof of lock should be checked
 		blk.round = ctx.round.number
 	}
-	ctx.Logger().Info(
+	ctx.logger().Info(
 		"minted a new block",
 		zap.Uint64("height", blk.Height()),
 		zap.Int("actions", len(blk.Actions)),
@@ -221,6 +197,12 @@ func (ctx *rollDPoSCtx) NewBackdoorEvt(
 }
 
 func (ctx *rollDPoSCtx) Logger() *zap.Logger {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	return ctx.logger()
+}
+
+func (ctx *rollDPoSCtx) logger() *zap.Logger {
 	return log.L().With(
 		zap.Uint64("height", ctx.round.height),
 		zap.Uint32("round", ctx.round.number),
@@ -239,34 +221,36 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(en consensusfsm.Endorsement) (con
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	blk, ok := en.(*blockWrapper)
-	if !ok {
-		return nil, errors.New("invalid block")
-	}
-	// TODO: delete the following check
-	if blk.Height() != ctx.round.height {
-		return nil, errors.Errorf(
-			"unexpected block height %d, %d expected",
-			blk.Height(),
-			ctx.round.height,
-		)
-	}
-	producer := blk.Endorser()
-	expectedProposer := ctx.round.proposer
-	if producer == "" || producer != expectedProposer {
-		return nil, errors.Errorf(
-			"unexpected block proposer %s, %s expected",
-			producer,
-			ctx.round.proposer,
-		)
-	}
-	if producer != ctx.round.proposer || blk.WorkingSet == nil {
-		containCoinbase := true
-		if err := ctx.chain.ValidateBlock(blk.Block, containCoinbase); err != nil {
-			return nil, errors.Wrapf(err, "error when validating the proposed block")
+	if en != nil {
+		blk, ok := en.(*blockWrapper)
+		if !ok {
+			return nil, errors.New("invalid block")
 		}
+		// TODO: delete the following check
+		if blk.Height() != ctx.round.height {
+			return nil, errors.Errorf(
+				"unexpected block height %d, %d expected",
+				blk.Height(),
+				ctx.round.height,
+			)
+		}
+		producer := blk.Endorser()
+		expectedProposer := ctx.round.proposer
+		if producer == "" || producer != expectedProposer {
+			return nil, errors.Errorf(
+				"unexpected block proposer %s, %s expected",
+				producer,
+				ctx.round.proposer,
+			)
+		}
+		if producer != ctx.round.proposer || blk.WorkingSet == nil {
+			containCoinbase := true
+			if err := ctx.chain.ValidateBlock(blk.Block, containCoinbase); err != nil {
+				return nil, errors.Wrapf(err, "error when validating the proposed block")
+			}
+		}
+		ctx.round.block = blk
 	}
-	ctx.round.block = blk
 
 	return ctx.newEndorsement(endorsement.PROPOSAL)
 }
@@ -471,24 +455,6 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 	)
 }
 
-func (ctx *rollDPoSCtx) calcWaitDuration() (time.Duration, error) {
-	// TODO: Update wait duration calculation algorithm
-	// If the proposal interval is not set (not zero), the next round will only be started after the configured duration
-	// after last block's creation time, so that we could keep the constant
-	waitDuration := time.Duration(0)
-	// If we have the cached last block, we get the timestamp from it
-	duration, err := ctx.calcDurationSinceLastBlock()
-	if err != nil {
-		return waitDuration, err
-	}
-	interval := ctx.cfg.FSM.ProposerInterval
-	if interval > 0 {
-		waitDuration = (interval - (duration % interval)) % interval
-	}
-
-	return waitDuration, nil
-}
-
 func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
 	numProposals := 0
 	numLocks := 0
@@ -519,7 +485,7 @@ func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
 			)
 		}
 	}
-	return ctx.Logger().With(
+	return ctx.logger().With(
 		zap.Int("numProposals", numProposals),
 		zap.Int("numLocks", numLocks),
 		zap.Int("numCommits", numCommits),
@@ -527,9 +493,13 @@ func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
 }
 
 func (ctx *rollDPoSCtx) newEndorsement(topic endorsement.ConsensusVoteTopic) (consensusfsm.Endorsement, error) {
+	var hash []byte
+	if ctx.round.block != nil {
+		hash = ctx.round.block.Hash()
+	}
 	endorsement := endorsement.NewEndorsement(
 		endorsement.NewConsensusVote(
-			ctx.round.block.Hash(),
+			hash,
 			ctx.round.height,
 			ctx.round.number,
 			topic,
@@ -544,7 +514,7 @@ func (ctx *rollDPoSCtx) newEndorsement(topic endorsement.ConsensusVoteTopic) (co
 
 func (ctx *rollDPoSCtx) isProposedBlock(hash []byte) bool {
 	if ctx.round.block == nil {
-		ctx.Logger().Error("block is nil")
+		ctx.logger().Error("block is nil")
 		return false
 	}
 	blkHash := ctx.round.block.Hash()
@@ -597,15 +567,108 @@ func (ctx *rollDPoSCtx) processEndorsement(
 	return endorsementSet.AddEndorsement(endorse.Endorsement)
 }
 
-// calcSubEpochNum calculates the sub-epoch ordinal number
-func (ctx *rollDPoSCtx) calcSubEpochNum() (uint64, error) {
-	height := ctx.chain.TipHeight() + 1
+// updateEpoch updates the current epoch
+func (ctx *rollDPoSCtx) updateEpoch(height uint64) error {
+	epochNum := uint64(0)
+	if ctx.epoch != nil {
+		epochNum = ctx.epoch.num
+	}
+	if epochNum < getEpochNum(height, ctx.cfg.NumDelegates, ctx.cfg.NumSubEpochs) {
+		epoch, err := ctx.epochCtxByHeight(height)
+		if err != nil {
+			return err
+		}
+		ctx.epoch = epoch
+	}
+	return nil
+}
+
+// updateSubEpochNum updates the sub-epoch ordinal number
+func (ctx *rollDPoSCtx) updateSubEpochNum(height uint64) error {
 	if height < ctx.epoch.height {
-		return 0, errors.New("Tip height cannot be less than epoch height")
+		return errors.New("Tip height cannot be less than epoch height")
 	}
 	numDlgs := ctx.cfg.NumDelegates
-	subEpochNum := (height - ctx.epoch.height) / uint64(numDlgs)
-	return subEpochNum, nil
+	ctx.epoch.subEpochNum = (height - ctx.epoch.height) / uint64(numDlgs)
+
+	return nil
+}
+
+// calcRoundNum calcuates the round number based on last block time
+func (ctx *rollDPoSCtx) calcRoundNum(
+	lastBlockTime time.Time,
+	timestamp time.Time,
+	interval time.Duration,
+) (uint32, error) {
+	if !lastBlockTime.Before(timestamp) {
+		return 0, errors.New("time since last block cannot be less or equal to 0")
+	}
+	duration := timestamp.Sub(lastBlockTime)
+	if duration <= interval {
+		return 0, nil
+	}
+	overtime := duration % interval
+	if overtime >= ctx.cfg.ToleratedOvertime {
+		return uint32(duration / interval), nil
+	}
+	return uint32(duration/interval) - 1, nil
+}
+
+func (ctx *rollDPoSCtx) roundCtxByTime(
+	epoch *epochCtx,
+	height uint64,
+	timestamp time.Time,
+) (*roundCtx, error) {
+	lastBlockTime, err := ctx.getBlockTime(height - 1)
+	if err != nil {
+		return nil, err
+	}
+	// proposer interval should be always larger than 0
+	interval := ctx.cfg.FSM.ProposerInterval
+	if interval <= 0 {
+		ctx.logger().Panic("invalid proposer interval")
+	}
+	roundNum, err := ctx.calcRoundNum(lastBlockTime, timestamp, interval)
+	if err != nil {
+		return nil, err
+	}
+	timeSlotMtc.WithLabelValues().Set(float64(roundNum))
+	ctx.logger().Debug("calculate time slot offset", zap.Uint32("slot", roundNum))
+	proposer, err := ctx.rotatedProposer(epoch, height, roundNum)
+	if err != nil {
+		return nil, err
+	}
+
+	return &roundCtx{
+		height:          height,
+		endorsementSets: make(map[string]*endorsement.Set),
+		number:          roundNum,
+		proposer:        proposer,
+		timestamp:       lastBlockTime.Add(time.Duration(roundNum+1) * interval),
+	}, nil
+}
+
+// updateRound updates the round
+func (ctx *rollDPoSCtx) updateRound(height uint64) error {
+	round, err := ctx.roundCtxByTime(ctx.epoch, height, ctx.clock.Now())
+	if err != nil {
+		return err
+	}
+	if ctx.round != nil && ctx.round.height == height {
+		round.endorsementSets = ctx.round.endorsementSets
+		for _, s := range round.endorsementSets {
+			s.DeleteEndorsements(
+				map[endorsement.ConsensusVoteTopic]bool{
+					endorsement.PROPOSAL: true,
+					endorsement.LOCK:     true,
+				},
+				round.number,
+			)
+		}
+	}
+	ctx.round = round
+
+	return nil
 }
 
 func (ctx *rollDPoSCtx) isDelegate() bool {
@@ -620,60 +683,31 @@ func (ctx *rollDPoSCtx) isDelegate() bool {
 
 // rotatedProposer will rotate among the delegates to choose the proposer. It is pseudo order based on the position
 // in the delegate list and the block height
-func (ctx *rollDPoSCtx) rotatedProposer(offsetDuration time.Duration) (
+func (ctx *rollDPoSCtx) rotatedProposer(epoch *epochCtx, height uint64, round uint32) (
 	proposer string,
-	height uint64,
-	round uint32,
 	err error,
 ) {
-	// Next block height
-	height = ctx.chain.TipHeight() + 1
-	round, proposer, err = ctx.calcProposer(height, ctx.epoch.delegates, offsetDuration)
-
-	return proposer, height, round, err
-}
-
-// calcProposer calculates the proposer for the block at a given height
-func (ctx *rollDPoSCtx) calcProposer(
-	height uint64,
-	delegates []string,
-	offsetDuration time.Duration,
-) (uint32, string, error) {
+	delegates := epoch.delegates
 	numDelegates := len(delegates)
 	if numDelegates == 0 {
-		return 0, "", ErrZeroDelegate
-	}
-	timeSlotIndex := uint32(0)
-	if ctx.cfg.FSM.ProposerInterval > 0 {
-		duration, err := ctx.calcDurationSinceLastBlock()
-		if err != nil || duration < 0 {
-			if !ctx.cfg.TimeBasedRotation {
-				return 0, delegates[(height)%uint64(numDelegates)], nil
-			}
-			return 0, "", errors.Wrap(err, "error when computing the duration since last block time")
-		}
-		duration += offsetDuration
-		if duration > ctx.cfg.FSM.ProposerInterval {
-			timeSlotIndex = uint32(duration/ctx.cfg.FSM.ProposerInterval) - 1
-		}
+		return "", ErrZeroDelegate
 	}
 	if !ctx.cfg.TimeBasedRotation {
-		return timeSlotIndex, delegates[(height)%uint64(numDelegates)], nil
+		return delegates[(height)%uint64(numDelegates)], nil
 	}
-	// TODO: should downgrade to debug level in the future
-	ctx.Logger().Info("calculate time slot offset", zap.Uint32("slot", timeSlotIndex))
-	timeSlotMtc.WithLabelValues().Set(float64(timeSlotIndex))
-	return timeSlotIndex, delegates[(height+uint64(timeSlotIndex))%uint64(numDelegates)], nil
+	return delegates[(height+uint64(round))%uint64(numDelegates)], nil
 }
 
-// calcDurationSinceLastBlock returns the duration since last block time
-func (ctx *rollDPoSCtx) calcDurationSinceLastBlock() (time.Duration, error) {
-	height := ctx.chain.TipHeight()
+// getBlockTime returns the duration since block time
+func (ctx *rollDPoSCtx) getBlockTime(height uint64) (time.Time, error) {
 	blk, err := ctx.chain.GetBlockByHeight(height)
 	if err != nil {
-		return 0, errors.Wrapf(err, "error when getting the block at height: %d", height)
+		return time.Now(), errors.Wrapf(
+			err, "error when getting the block at height: %d",
+			height,
+		)
 	}
-	return ctx.clock.Now().Sub(time.Unix(blk.Header.Timestamp(), 0)), nil
+	return time.Unix(blk.Header.Timestamp(), 0), nil
 }
 
 func (ctx *rollDPoSCtx) getProposer(

@@ -82,13 +82,14 @@ func NewConsensus(
 		}
 	}
 
+	clock := clock.New()
 	cs := &IotxConsensus{cfg: cfg.Consensus}
 	mintBlockCB := func() (*block.Block, error) {
 		actionMap := ap.PendingActionMap()
 		log.L().Debug("Pick actions.", zap.Int("actions", len(actionMap)))
 
 		pk, sk, addr := GetAddr(cfg)
-		blk, err := bc.MintNewBlock(actionMap, pk, sk, addr)
+		blk, err := bc.MintNewBlock(actionMap, pk, sk, addr, clock.Now().Unix())
 		if err != nil {
 			log.L().Error("Failed to mint a block.", zap.Error(err))
 			return nil, err
@@ -117,7 +118,6 @@ func NewConsensus(
 	}
 
 	var err error
-	clock := clock.New()
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
 		pk, sk, addr := GetAddr(cfg)
