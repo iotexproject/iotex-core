@@ -7,12 +7,13 @@
 package action
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 
+	"github.com/CoderZhi/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -54,7 +55,7 @@ type SealedEnvelope struct {
 	Envelope
 
 	srcAddr   string
-	srcPubkey keypair.PublicKey
+	srcPubkey *ecdsa.PublicKey
 	signature []byte
 }
 
@@ -110,7 +111,7 @@ func (act *Envelope) ByteStream() []byte {
 func (sealed *SealedEnvelope) Hash() hash.Hash32B {
 	stream := sealed.Envelope.ByteStream()
 	stream = append(stream, sealed.srcAddr...)
-	stream = append(stream, sealed.srcPubkey[:]...)
+	stream = append(stream, keypair.PublicKeyToBytes(sealed.srcPubkey)...)
 	return blake2b.Sum256(stream)
 }
 
@@ -118,7 +119,7 @@ func (sealed *SealedEnvelope) Hash() hash.Hash32B {
 func (sealed *SealedEnvelope) SrcAddr() string { return sealed.srcAddr }
 
 // SrcPubkey returns the source public key
-func (sealed *SealedEnvelope) SrcPubkey() keypair.PublicKey { return sealed.srcPubkey }
+func (sealed *SealedEnvelope) SrcPubkey() *ecdsa.PublicKey { return sealed.srcPubkey }
 
 // Signature returns signature bytes
 func (sealed *SealedEnvelope) Signature() []byte {
@@ -135,7 +136,7 @@ func (sealed SealedEnvelope) Proto() *iproto.ActionPb {
 		Nonce:        elp.nonce,
 		GasLimit:     elp.gasLimit,
 		Sender:       sealed.srcAddr,
-		SenderPubKey: sealed.srcPubkey[:],
+		SenderPubKey: keypair.PublicKeyToBytes(sealed.srcPubkey),
 		Signature:    sealed.signature,
 	}
 	if elp.gasPrice != nil {
@@ -254,23 +255,17 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
 }
 
 // Sign signs the action using sender's private key
-func Sign(act Envelope, addr string, sk keypair.PrivateKey) (SealedEnvelope, error) {
+func Sign(act Envelope, addr string, sk *ecdsa.PrivateKey) (SealedEnvelope, error) {
 	sealed := SealedEnvelope{Envelope: act}
 
-	// TODO: we should avoid generate public key from private key in each signature
-	pk, err := crypto.EC283.NewPubKey(sk)
-	if err != nil {
-		return sealed, errors.Wrapf(err, "error when deriving public key from private key")
-	}
-
 	sealed.srcAddr = addr
-	sealed.srcPubkey = pk
+	sealed.srcPubkey = &sk.PublicKey
 	// the reason to set context here is because some actions use envelope information in their proto define. for example transfer use des addr as Receipt. This will change hash value.
 	sealed.payload.SetEnvelopeContext(sealed)
 
 	hash := sealed.Hash()
-	sig := crypto.EC283.Sign(sk, hash[:])
-	if len(sig) == 0 {
+	sig, err := crypto.Sign(hash[:], sk)
+	if err != nil {
 		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
 	}
 	sealed.signature = sig
@@ -279,7 +274,7 @@ func Sign(act Envelope, addr string, sk keypair.PrivateKey) (SealedEnvelope, err
 
 // FakeSeal creates a SealedActionEnvelope without signature.
 // This method should be only used in tests.
-func FakeSeal(act Envelope, addr string, pubk keypair.PublicKey) SealedEnvelope {
+func FakeSeal(act Envelope, addr string, pubk *ecdsa.PublicKey) SealedEnvelope {
 	sealed := SealedEnvelope{
 		Envelope:  act,
 		srcAddr:   addr,
@@ -291,7 +286,7 @@ func FakeSeal(act Envelope, addr string, pubk keypair.PublicKey) SealedEnvelope 
 
 // AssembleSealedEnvelope assembles a SealedEnvelope use Envelope, Sender Address and Signature.
 // This method should be only used in tests.
-func AssembleSealedEnvelope(act Envelope, addr string, pk keypair.PublicKey, sig []byte) SealedEnvelope {
+func AssembleSealedEnvelope(act Envelope, addr string, pk *ecdsa.PublicKey, sig []byte) SealedEnvelope {
 	sealed := SealedEnvelope{
 		Envelope:  act,
 		srcAddr:   addr,
@@ -305,7 +300,10 @@ func AssembleSealedEnvelope(act Envelope, addr string, pk keypair.PublicKey, sig
 // Verify verifies the action using sender's public key
 func Verify(sealed SealedEnvelope) error {
 	hash := sealed.Hash()
-	if success := crypto.EC283.Verify(sealed.SrcPubkey(), hash[:], sealed.Signature()); success {
+	if len(sealed.Signature()) != 65 {
+		return errors.New("incorrect length of signature")
+	}
+	if success := crypto.VerifySignature(keypair.PublicKeyToBytes(sealed.SrcPubkey()), hash[:], sealed.Signature()[:64]); success {
 		return nil
 	}
 	return errors.Wrapf(

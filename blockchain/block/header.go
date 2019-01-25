@@ -7,31 +7,32 @@
 package block
 
 import (
+	"crypto/ecdsa"
+
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Header defines the struct of block header
 // make sure the variable type and order of this struct is same as "BlockHeaderPb" in blockchain.pb.go
 type Header struct {
-	version          uint32            // version
-	chainID          uint32            // this chain's ID
-	height           uint64            // block height
-	timestamp        int64             // unix timestamp
-	prevBlockHash    hash.Hash32B      // hash of previous block
-	txRoot           hash.Hash32B      // merkle root of all transactions
-	stateRoot        hash.Hash32B      // root of state trie
-	deltaStateDigest hash.Hash32B      // digest of state change by this block
-	receiptRoot      hash.Hash32B      // root of receipt trie
-	blockSig         []byte            // block signature
-	pubkey           keypair.PublicKey // block producer's public key
-	dkgID            []byte            // dkg ID of producer
-	dkgPubkey        []byte            // dkg public key of producer
-	dkgBlockSig      []byte            // dkg signature of producer
+	version          uint32           // version
+	chainID          uint32           // this chain's ID
+	height           uint64           // block height
+	timestamp        int64            // unix timestamp
+	prevBlockHash    hash.Hash32B     // hash of previous block
+	txRoot           hash.Hash32B     // merkle root of all transactions
+	stateRoot        hash.Hash32B     // root of state trie
+	deltaStateDigest hash.Hash32B     // digest of state change by this block
+	receiptRoot      hash.Hash32B     // root of receipt trie
+	blockSig         []byte           // block signature
+	pubkey           *ecdsa.PublicKey // block producer's public key
+	dkgID            []byte           // dkg ID of producer
+	dkgPubkey        []byte           // dkg public key of producer
+	dkgBlockSig      []byte           // dkg signature of producer
 }
 
 // Version returns the version of this block.
@@ -59,7 +60,7 @@ func (h Header) StateRoot() hash.Hash32B { return h.stateRoot }
 func (h Header) DeltaStateDigest() hash.Hash32B { return h.deltaStateDigest }
 
 // PublicKey returns the public key of this header.
-func (h Header) PublicKey() keypair.PublicKey { return h.pubkey }
+func (h Header) PublicKey() *ecdsa.PublicKey { return h.pubkey }
 
 // DKGPubkey returns DKG PublicKey.
 func (h Header) DKGPubkey() []byte {

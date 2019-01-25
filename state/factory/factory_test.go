@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"math/big"
 	"math/rand"
 	"os"
@@ -28,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -213,17 +213,17 @@ func TestSnapshot(t *testing.T) {
 func TestCandidates(t *testing.T) {
 	// Create three dummy iotex addresses
 	a := testaddress.Addrinfo["alfa"].Bech32()
-	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	priKeyA := testaddress.Keyinfo["alfa"]
 	b := testaddress.Addrinfo["bravo"].Bech32()
-	priKeyB := testaddress.Keyinfo["bravo"].PriKey
+	priKeyB := testaddress.Keyinfo["bravo"]
 	c := testaddress.Addrinfo["charlie"].Bech32()
-	priKeyC := testaddress.Keyinfo["charlie"].PriKey
+	priKeyC := testaddress.Keyinfo["charlie"]
 	d := testaddress.Addrinfo["delta"].Bech32()
-	priKeyD := testaddress.Keyinfo["delta"].PriKey
+	priKeyD := testaddress.Keyinfo["delta"]
 	e := testaddress.Addrinfo["echo"].Bech32()
-	priKeyE := testaddress.Keyinfo["echo"].PriKey
+	priKeyE := testaddress.Keyinfo["echo"]
 	f := testaddress.Addrinfo["foxtrot"].Bech32()
-	priKeyF := testaddress.Keyinfo["foxtrot"].PriKey
+	priKeyF := testaddress.Keyinfo["foxtrot"]
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
@@ -900,9 +900,9 @@ func TestCandidates(t *testing.T) {
 func TestUnvote(t *testing.T) {
 	// Create three dummy iotex addresses
 	a := testaddress.Addrinfo["alfa"].Bech32()
-	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	priKeyA := testaddress.Keyinfo["alfa"]
 	b := testaddress.Addrinfo["bravo"].Bech32()
-	priKeyB := testaddress.Keyinfo["bravo"].PriKey
+	priKeyB := testaddress.Keyinfo["bravo"]
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -1128,13 +1128,13 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 		testaddress.Addrinfo["echo"].Bech32(),
 		testaddress.Addrinfo["foxtrot"].Bech32(),
 	}
-	pubKeys := []keypair.PublicKey{
-		testaddress.Keyinfo["alfa"].PubKey,
-		testaddress.Keyinfo["bravo"].PubKey,
-		testaddress.Keyinfo["charlie"].PubKey,
-		testaddress.Keyinfo["delta"].PubKey,
-		testaddress.Keyinfo["echo"].PubKey,
-		testaddress.Keyinfo["foxtrot"].PubKey,
+	pubKeys := []*ecdsa.PublicKey{
+		&testaddress.Keyinfo["alfa"].PublicKey,
+		&testaddress.Keyinfo["bravo"].PublicKey,
+		&testaddress.Keyinfo["charlie"].PublicKey,
+		&testaddress.Keyinfo["delta"].PublicKey,
+		&testaddress.Keyinfo["echo"].PublicKey,
+		&testaddress.Keyinfo["foxtrot"].PublicKey,
 	}
 	nonces := make([]uint64, len(accounts))
 

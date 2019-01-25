@@ -71,7 +71,7 @@ func TestHandleStopSubChain(t *testing.T) {
 		OperationDeposit:   big.NewInt(200000),
 		StartHeight:        3,
 		ParentHeightOffset: 1,
-		OwnerPublicKey:     testaddress.Keyinfo["producer"].PubKey,
+		OwnerPublicKey:     &testaddress.Keyinfo["producer"].PublicKey,
 		CurrentHeight:      0,
 		DepositCount:       0,
 	}

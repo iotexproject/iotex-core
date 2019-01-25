@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -24,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
+	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -36,10 +37,10 @@ func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: ""}
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -49,7 +50,7 @@ func TestWrongRootHash(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 0, blkhash, true))
@@ -61,10 +62,10 @@ func TestSignBlock(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: ""}
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -74,7 +75,7 @@ func TestSignBlock(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash, true))
@@ -111,10 +112,10 @@ func TestWrongNonce(t *testing.T) {
 		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
 		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf).Build()
-	cbselp, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	cbselp, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"])
 	require.NoError(err)
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -124,7 +125,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, tsf1).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash, true))
@@ -142,7 +143,7 @@ func TestWrongNonce(t *testing.T) {
 	require.Nil(sf.Commit(ws))
 
 	// low nonce
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"], 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blk, err = block.NewTestingBuilder().
@@ -151,13 +152,13 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, uint64(100000), big.NewInt(10))
+	vote, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"], 1, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	blkhash = tsf1.Hash()
@@ -167,17 +168,17 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, vote).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// duplicate nonce
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -186,16 +187,16 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, tsf3, tsf4).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote2, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, uint64(100000), big.NewInt(10))
+	vote2, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"], 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
-	vote3, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, uint64(100000), big.NewInt(10))
+	vote3, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"], 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -204,16 +205,16 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, vote2, vote3).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// non consecutive nonce
-	tsf5, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf5, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"], 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	tsf6, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf6, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"], 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -222,15 +223,15 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, tsf5, tsf6).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote4, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, uint64(100000), big.NewInt(10))
+	vote4, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"], 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote5, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 4, uint64(100000), big.NewInt(10))
+	vote5, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"], 4, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	blkhash = tsf1.Hash()
@@ -240,7 +241,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cbselp, vote4, vote5).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
@@ -277,10 +278,10 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
 		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(coinbaseTsf).Build()
-	cb, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	cb, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"])
 	require.NoError(err)
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"], 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -290,7 +291,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 
 	err = val.Validate(&blk, 2, blkhash, true)
@@ -306,7 +307,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(cb, cb, tsf1).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
@@ -320,7 +321,7 @@ func TestWrongCoinbaseTsf(t *testing.T) {
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, true)
 	require.Error(err)
@@ -352,7 +353,7 @@ func TestWrongAddress(t *testing.T) {
 	elp := bd.SetAction(tsf).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).SetDestinationAddress(invalidRecipient).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	selp, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"])
 	require.NoError(t, err)
 	blk1, err := block.NewTestingBuilder().
 		SetChainID(1).
@@ -360,7 +361,7 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash32B).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(t, err)
 	err = val.ValidateActionsOnly(
 		blk1.Actions,
@@ -381,7 +382,7 @@ func TestWrongAddress(t *testing.T) {
 	elp = bd.SetAction(vote).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).SetDestinationAddress(invalidVotee).Build()
-	selp, err = action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	selp, err = action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"])
 	require.NoError(t, err)
 	blk2, err := block.NewTestingBuilder().
 		SetChainID(1).
@@ -389,7 +390,7 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash32B).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(t, err)
 
 	err = val.ValidateActionsOnly(
@@ -411,7 +412,7 @@ func TestWrongAddress(t *testing.T) {
 	elp = bd.SetAction(execution).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).SetDestinationAddress(invalidContract).Build()
-	selp, err = action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	selp, err = action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"])
 	require.NoError(t, err)
 	blk3, err := block.NewTestingBuilder().
 		SetChainID(1).
@@ -419,7 +420,7 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash32B).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(t, err)
 	err = val.ValidateActionsOnly(
 		blk3.Actions,
@@ -444,15 +445,10 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	require.NoError(t, chain.Start(ctx))
 	defer require.NoError(t, chain.Stop(ctx))
 
-	pk, err := keypair.DecodePublicKey(
-		"1d1727028b1e9dac0cafa693edd8496297f5c3281924ec578c0526e7340f7180bfa5af059084c8b90954bf2802a0060e145bece9580f9021352eb112340186e68dc9bea4f7711707")
-	require.NoError(t, err)
-	sk, err := keypair.DecodePrivateKey(
-		"29cf385adfc5b1a84bd7e778ea2c056b85c977771005d545e54100266e224fc276ed7101")
-	require.NoError(t, err)
-	pkHash := keypair.HashPubKey(pk)
-	addr := address.New(pkHash[:])
-	blk, err := chain.MintNewBlock(nil, pk, sk, addr.Bech32(), 0)
+	addr := ta.Addrinfo["producer"].Bech32()
+	sk := ta.Keyinfo["producer"]
+	pk := &sk.PublicKey
+	blk, err := chain.MintNewBlock(nil, pk, sk, addr, 0)
 	require.NoError(t, err)
 	validator := validator{}
 	require.NoError(t, validator.ValidateActionsOnly(
@@ -481,9 +477,9 @@ func TestValidateSecretBlock(t *testing.T) {
 	idList := make([][]uint8, 0)
 	delegates := []string{ta.Addrinfo["producer"].Bech32()}
 	for i := 0; i < 20; i++ {
-		pk, _, err := crypto.EC283.NewKeyPair()
+		sk, err := crypto.GenerateKey()
 		require.NoError(err)
-		pkHash := keypair.HashPubKey(pk)
+		pkHash := keypair.HashPubKey(&sk.PublicKey)
 		addr := address.New(pkHash[:])
 		delegates = append(delegates, addr.Bech32())
 	}
@@ -491,8 +487,8 @@ func TestValidateSecretBlock(t *testing.T) {
 	for _, delegate := range delegates {
 		idList = append(idList, address.Bech32ToID(delegate))
 	}
-	producerSK := crypto.DKG.SkGeneration()
-	_, shares, witness, err := crypto.DKG.Init(producerSK, idList)
+	producerSK := cp.DKG.SkGeneration()
+	_, shares, witness, err := cp.DKG.Init(producerSK, idList)
 	require.NoError(err)
 
 	secretProposals := make([]*action.SecretProposal, 0)
@@ -511,7 +507,7 @@ func TestValidateSecretBlock(t *testing.T) {
 		SetTimeStamp(testutil.TimestampNow()).
 		SetSecretProposals(secretProposals).
 		SetSecretWitness(secretWitness).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 
 	val := &validator{sf: sf, validatorAddr: delegates[1]}
@@ -528,7 +524,7 @@ func TestValidateSecretBlock(t *testing.T) {
 		SetTimeStamp(testutil.TimestampNow()).
 		SetSecretProposals(secretProposals).
 		SetSecretWitness(secretWitness).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(&ta.Keyinfo["producer"].PublicKey, ta.Keyinfo["producer"])
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash, false)
 	require.Error(err)

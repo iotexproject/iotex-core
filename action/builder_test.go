@@ -19,7 +19,7 @@ import (
 func TestActionBuilder(t *testing.T) {
 	srcAddr := testaddress.Addrinfo["producer"]
 	dstAddr := testaddress.Addrinfo["echo"]
-	srcPubKey := testaddress.Keyinfo["producer"].PubKey
+	srcPubKey := &testaddress.Keyinfo["producer"].PublicKey
 	bd := &Builder{}
 	act := bd.SetVersion(version.ProtocolVersion).
 		SetNonce(2).

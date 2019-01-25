@@ -294,7 +294,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetGasLimit(10).SetAction(start).Build()
-	_, err = action.Sign(elp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
+	_, err = action.Sign(elp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"])
 	require.NoError(t, err)
 
 	// Handle the action
@@ -317,7 +317,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	assert.Equal(t, uint32(2), sc.ChainID)
 	assert.Equal(t, MinSecurityDeposit, sc.SecurityDeposit)
 	assert.Equal(t, big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)), sc.OperationDeposit)
-	assert.Equal(t, testaddress.Keyinfo["producer"].PubKey, sc.OwnerPublicKey)
+	assert.Equal(t, &testaddress.Keyinfo["producer"].PublicKey, sc.OwnerPublicKey)
 	assert.Equal(t, uint64(110), sc.StartHeight)
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
 	assert.Equal(t, uint64(0), sc.CurrentHeight)

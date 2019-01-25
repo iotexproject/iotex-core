@@ -7,6 +7,7 @@
 package keystore
 
 import (
+	"crypto/ecdsa"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -29,8 +30,8 @@ var (
 // KeyStore defines an interface that supports operations on keystore object
 type KeyStore interface {
 	Has(string) (bool, error)
-	Get(string) (keypair.PrivateKey, error)
-	Store(string, keypair.PrivateKey) error
+	Get(string) (*ecdsa.PrivateKey, error)
+	Store(string, *ecdsa.PrivateKey) error
 	Remove(string) error
 	All() ([]string, error)
 }
@@ -42,7 +43,7 @@ type plainKeyStore struct {
 
 // MemKeyStore is an in-memory keystore which implements KeyStore interface
 type memKeyStore struct {
-	accounts map[string]keypair.PrivateKey
+	accounts map[string]*ecdsa.PrivateKey
 }
 
 // NewPlainKeyStore returns a new instance of plain keystore
@@ -74,27 +75,27 @@ func (ks *plainKeyStore) Has(encodedAddr string) (bool, error) {
 }
 
 // Get returns private key from keystore filesystem given encoded address
-func (ks *plainKeyStore) Get(encodedAddr string) (keypair.PrivateKey, error) {
+func (ks *plainKeyStore) Get(encodedAddr string) (*ecdsa.PrivateKey, error) {
 	if err := validateAddress(encodedAddr); err != nil {
-		return keypair.ZeroPrivateKey, err
+		return nil, err
 	}
 	filePath := filepath.Join(ks.directory, encodedAddr)
 	_, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return keypair.ZeroPrivateKey, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
+			return nil, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
 		}
-		return keypair.ZeroPrivateKey, errors.Wrapf(err, "failed to open file %s", filePath)
+		return nil, errors.Wrapf(err, "failed to open file %s", filePath)
 	}
 	keyBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return keypair.ZeroPrivateKey, errors.Wrapf(err, "failed to read file %s", filePath)
+		return nil, errors.Wrapf(err, "failed to read file %s", filePath)
 	}
 	return keypair.BytesToPrivateKey(keyBytes)
 }
 
 // Store stores private key in keystore filesystem
-func (ks *plainKeyStore) Store(encodedAddr string, key keypair.PrivateKey) error {
+func (ks *plainKeyStore) Store(encodedAddr string, key *ecdsa.PrivateKey) error {
 	if err := validateAddress(encodedAddr); err != nil {
 		return err
 	}
@@ -107,7 +108,7 @@ func (ks *plainKeyStore) Store(encodedAddr string, key keypair.PrivateKey) error
 	if !os.IsNotExist(err) {
 		return errors.Wrapf(err, "failed to get the status of file %s", filePath)
 	}
-	return ioutil.WriteFile(filePath, key[:], 0644)
+	return ioutil.WriteFile(filePath, keypair.PrivateKeyToBytes(key), 0644)
 }
 
 // Remove removes the private key from keystore filesystem given encoded address
@@ -146,7 +147,7 @@ func (ks *plainKeyStore) All() ([]string, error) {
 // NewMemKeyStore creates a new instance of MemKeyStore
 func NewMemKeyStore() KeyStore {
 	return &memKeyStore{
-		accounts: make(map[string]keypair.PrivateKey),
+		accounts: make(map[string]*ecdsa.PrivateKey),
 	}
 }
 
@@ -160,19 +161,19 @@ func (ks *memKeyStore) Has(encodedAddr string) (bool, error) {
 }
 
 // Get returns address stored in map given encoded address of the account
-func (ks *memKeyStore) Get(encodedAddr string) (keypair.PrivateKey, error) {
+func (ks *memKeyStore) Get(encodedAddr string) (*ecdsa.PrivateKey, error) {
 	if err := validateAddress(encodedAddr); err != nil {
-		return keypair.ZeroPrivateKey, err
+		return nil, err
 	}
 	key, ok := ks.accounts[encodedAddr]
 	if !ok {
-		return keypair.ZeroPrivateKey, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
+		return nil, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
 	}
 	return key, nil
 }
 
 // Store stores address in map
-func (ks *memKeyStore) Store(encodedAddr string, key keypair.PrivateKey) error {
+func (ks *memKeyStore) Store(encodedAddr string, key *ecdsa.PrivateKey) error {
 	if err := validateAddress(encodedAddr); err != nil {
 		return err
 	}

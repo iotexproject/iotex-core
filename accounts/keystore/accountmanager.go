@@ -7,13 +7,14 @@
 package keystore
 
 import (
+	"crypto/ecdsa"
 	"path/filepath"
 
+	"github.com/CoderZhi/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
@@ -59,16 +60,16 @@ func (m *AccountManager) Remove(encodedAddr string) error {
 }
 
 // NewAccount creates and stores a new account
-func (m *AccountManager) NewAccount() (keypair.PrivateKey, error) {
-	pk, sk, err := crypto.EC283.NewKeyPair()
+func (m *AccountManager) NewAccount() (*ecdsa.PrivateKey, error) {
+	sk, err := crypto.GenerateKey()
 	if err != nil {
-		return keypair.ZeroPrivateKey, errors.Wrap(err, "failed to generate key pair")
+		return nil, errors.Wrap(err, "failed to generate key pair")
 	}
-	pkHash := keypair.HashPubKey(pk)
+	pkHash := keypair.HashPubKey(&sk.PublicKey)
 	// TODO: need to fix the chain ID
 	addr := address.New(pkHash[:])
 	if err := m.keystore.Store(addr.Bech32(), sk); err != nil {
-		return keypair.ZeroPrivateKey, errors.Wrapf(err, "failed to store account %s", addr.Bech32())
+		return nil, errors.Wrapf(err, "failed to store account %s", addr.Bech32())
 	}
 	return sk, nil
 }
@@ -79,11 +80,7 @@ func (m *AccountManager) Import(keyBytes []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to convert bytes to private key")
 	}
-	pubKey, err := crypto.EC283.NewPubKey(priKey)
-	if err != nil {
-		return errors.Wrap(err, "failed to derive public key from private key")
-	}
-	pkHash := keypair.HashPubKey(pubKey)
+	pkHash := keypair.HashPubKey(&priKey.PublicKey)
 	addr := address.New(pkHash[:])
 	if err := m.keystore.Store(addr.Bech32(), priKey); err != nil {
 		return errors.Wrapf(err, "failed to store account %s", addr.Bech32())
@@ -110,5 +107,5 @@ func (m *AccountManager) SignHash(encodedAddr string, hash []byte) ([]byte, erro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get the private key of account %s", encodedAddr)
 	}
-	return crypto.EC283.Sign(key, hash), nil
+	return crypto.Sign(hash, key)
 }

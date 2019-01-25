@@ -8,6 +8,7 @@ package consensus
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"math/big"
 
 	"github.com/facebookgo/clock"
@@ -229,7 +230,7 @@ func (c *IotxConsensus) Scheme() scheme.Scheme {
 }
 
 // GetAddr returns the iotex address
-func GetAddr(cfg config.Config) (keypair.PublicKey, keypair.PrivateKey, string) {
+func GetAddr(cfg config.Config) (*ecdsa.PublicKey, *ecdsa.PrivateKey, string) {
 	addr, err := cfg.BlockchainAddress()
 	if err != nil {
 		log.L().Panic("Fail to create new consensus.", zap.Error(err))

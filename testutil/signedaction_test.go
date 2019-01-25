@@ -19,7 +19,7 @@ import (
 
 var (
 	addr1   = testaddress.Addrinfo["producer"].Bech32()
-	priKey1 = testaddress.Keyinfo["producer"].PriKey
+	priKey1 = testaddress.Keyinfo["producer"]
 	addr2   = testaddress.Addrinfo["alfa"].Bech32()
 )
 

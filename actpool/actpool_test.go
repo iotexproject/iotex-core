@@ -9,6 +9,7 @@ package actpool
 import (
 	"context"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -36,16 +37,16 @@ const (
 var (
 	chainID = config.Default.Chain.ID
 	addr1   = testaddress.Addrinfo["alfa"].Bech32()
-	pubKey1 = testaddress.Keyinfo["alfa"].PubKey
-	priKey1 = testaddress.Keyinfo["alfa"].PriKey
+	pubKey1 = &testaddress.Keyinfo["alfa"].PublicKey
+	priKey1 = testaddress.Keyinfo["alfa"]
 	addr2   = testaddress.Addrinfo["bravo"].Bech32()
-	priKey2 = testaddress.Keyinfo["bravo"].PriKey
+	priKey2 = testaddress.Keyinfo["bravo"]
 	addr3   = testaddress.Addrinfo["charlie"].Bech32()
-	priKey3 = testaddress.Keyinfo["charlie"].PriKey
+	priKey3 = testaddress.Keyinfo["charlie"]
 	addr4   = testaddress.Addrinfo["delta"].Bech32()
-	priKey4 = testaddress.Keyinfo["delta"].PriKey
+	priKey4 = testaddress.Keyinfo["delta"]
 	addr5   = testaddress.Addrinfo["echo"].Bech32()
-	priKey5 = testaddress.Keyinfo["echo"].PriKey
+	priKey5 = testaddress.Keyinfo["echo"]
 )
 
 func TestActPool_validateGenericAction(t *testing.T) {
@@ -85,7 +86,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		SetDestinationAddress(addr1).Build()
 	selp := action.FakeSeal(elp, addr1, pubKey1)
 	err = validator.Validate(context.Background(), selp)
-	require.Equal(action.ErrAction, errors.Cause(err))
+	require.True(strings.Contains(err.Error(), "incorrect length of signature"))
 	// Case IV: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))

@@ -7,12 +7,14 @@
 package endorsement
 
 import (
+	"crypto/ecdsa"
+
+	"github.com/CoderZhi/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -64,18 +66,23 @@ func (en *ConsensusVote) Hash() hash.Hash32B {
 type Endorsement struct {
 	object         *ConsensusVote
 	endorser       string
-	endorserPubkey keypair.PublicKey
+	endorserPubkey *ecdsa.PublicKey
 	signature      []byte
 }
 
 // NewEndorsement creates an Endorsement for an consensus vote
-func NewEndorsement(object *ConsensusVote, endorserPubKey keypair.PublicKey, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
+func NewEndorsement(object *ConsensusVote, endorserPubKey *ecdsa.PublicKey, endorserPriKey *ecdsa.PrivateKey, endorserAddr string) *Endorsement {
 	hash := object.Hash()
+	sig, err := crypto.Sign(hash[:], endorserPriKey)
+	if err != nil {
+		log.L().Error("Failed to sign endorsement.")
+		return nil
+	}
 	return &Endorsement{
 		object:         object,
 		endorser:       endorserAddr,
 		endorserPubkey: endorserPubKey,
-		signature:      crypto.EC283.Sign(endorserPriKey, hash[:]),
+		signature:      sig,
 	}
 }
 
@@ -90,7 +97,7 @@ func (en *Endorsement) Endorser() string {
 }
 
 // EndorserPublicKey returns the public key of the endorser of this endorsement
-func (en *Endorsement) EndorserPublicKey() keypair.PublicKey {
+func (en *Endorsement) EndorserPublicKey() *ecdsa.PublicKey {
 	return en.endorserPubkey
 }
 
@@ -102,7 +109,7 @@ func (en *Endorsement) Signature() []byte {
 // VerifySignature verifies that the endorse with pubkey
 func (en *Endorsement) VerifySignature() bool {
 	hash := en.object.Hash()
-	return crypto.EC283.Verify(en.endorserPubkey, hash[:], en.signature)
+	return crypto.VerifySignature(keypair.PublicKeyToBytes(en.endorserPubkey), hash[:], en.signature[:64])
 }
 
 // ToProtoMsg converts an endorsement to endorse proto
@@ -127,7 +134,7 @@ func (en *Endorsement) ToProtoMsg() *iproto.Endorsement {
 		BlockHash:      vote.BlkHash[:],
 		Topic:          topic,
 		Endorser:       en.Endorser(),
-		EndorserPubKey: pubkey[:],
+		EndorserPubKey: keypair.PublicKeyToBytes(pubkey),
 		Decision:       true,
 		Signature:      en.Signature(),
 	}

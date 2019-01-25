@@ -7,6 +7,7 @@
 package mainchain
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 	"sort"
 
@@ -26,7 +27,7 @@ type SubChain struct {
 	StartHeight        uint64
 	StopHeight         uint64
 	ParentHeightOffset uint64
-	OwnerPublicKey     keypair.PublicKey
+	OwnerPublicKey     *ecdsa.PublicKey
 	CurrentHeight      uint64
 	DepositCount       uint64
 }
@@ -38,7 +39,7 @@ func (bs SubChain) Serialize() ([]byte, error) {
 		StartHeight:        bs.StartHeight,
 		StopHeight:         bs.StopHeight,
 		ParentHeightOffset: bs.ParentHeightOffset,
-		OwnerPublicKey:     bs.OwnerPublicKey[:],
+		OwnerPublicKey:     keypair.PublicKeyToBytes(bs.OwnerPublicKey),
 		CurrentHeight:      bs.CurrentHeight,
 		DepositCount:       bs.DepositCount,
 	}
@@ -89,7 +90,7 @@ type BlockProof struct {
 	SubChainAddress   string
 	Height            uint64
 	Roots             []MerkleRoot
-	ProducerPublicKey keypair.PublicKey
+	ProducerPublicKey *ecdsa.PublicKey
 	ProducerAddress   string
 }
 
@@ -107,7 +108,7 @@ func (bp BlockProof) Serialize() ([]byte, error) {
 		SubChainAddress:   bp.SubChainAddress,
 		Height:            bp.Height,
 		Roots:             r,
-		ProducerPublicKey: bp.ProducerPublicKey[:],
+		ProducerPublicKey: keypair.PublicKeyToBytes(bp.ProducerPublicKey),
 		ProducerAddress:   bp.ProducerAddress,
 	}
 	return proto.Marshal(gen)

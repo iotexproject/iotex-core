@@ -30,7 +30,7 @@ func TestVoteSignVerify(t *testing.T) {
 		SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 
-	selp, err := Sign(elp, senderAddr.Bech32(), senderKey.PriKey)
+	selp, err := Sign(elp, senderAddr.Bech32(), senderKey)
 	require.NoError(err)
 	require.NoError(Verify(selp))
 }

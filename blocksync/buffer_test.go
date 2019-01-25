@@ -63,6 +63,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinSkipNil, re)
 
+<<<<<<< HEAD
 	blk, err := chain.MintNewBlock(
 		nil,
 		ta.Keyinfo["producer"].PubKey,
@@ -70,6 +71,10 @@ func TestBlockBufferFlush(t *testing.T) {
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
+=======
+	blk, err := chain.MintNewBlock(nil, &ta.Keyinfo["producer"].PublicKey,
+		ta.Keyinfo["producer"], ta.Addrinfo["producer"].Bech32())
+>>>>>>> Migrate crypto library from EC283 to SECP256K1
 	require.Nil(err)
 	moved, re = b.Flush(blk)
 	assert.Equal(true, moved)
@@ -80,7 +85,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(0),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -92,7 +97,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(5),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -104,7 +109,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(5),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -116,7 +121,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(500),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -172,7 +177,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(2),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result := b.Flush(blk)
@@ -183,7 +188,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(4),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -194,7 +199,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(5),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -205,7 +210,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(6),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -216,7 +221,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(8),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -227,7 +232,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(14),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -238,7 +243,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(16),
 		hash.Hash32B{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		&ta.Keyinfo["producer"].PublicKey,
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -251,8 +256,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 
 	blk, err = chain.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
+		&ta.Keyinfo["producer"].PublicKey,
+		ta.Keyinfo["producer"],
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)

@@ -40,7 +40,7 @@ func TestBlockDAO(t *testing.T) {
 			SetDestinationAddress(testaddress.Addrinfo["alfa"].Bech32()).
 			SetGasLimit(genesis.ActionGasLimit).
 			SetAction(cbTsf1).Build()
-		scbTsf1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"].PriKey)
+		scbTsf1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"])
 		require.NoError(t, err)
 
 		cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["bravo"].Bech32())
@@ -50,7 +50,7 @@ func TestBlockDAO(t *testing.T) {
 			SetDestinationAddress(testaddress.Addrinfo["bravo"].Bech32()).
 			SetGasLimit(genesis.ActionGasLimit).
 			SetAction(cbTsf2).Build()
-		scbTsf2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].Bech32(), testaddress.Keyinfo["bravo"].PriKey)
+		scbTsf2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].Bech32(), testaddress.Keyinfo["bravo"])
 		require.NoError(t, err)
 
 		require.NoError(t, err)
@@ -61,23 +61,23 @@ func TestBlockDAO(t *testing.T) {
 			SetDestinationAddress(testaddress.Addrinfo["charlie"].Bech32()).
 			SetGasLimit(genesis.ActionGasLimit).
 			SetAction(cbTsf3).Build()
-		scbTsf3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].Bech32(), testaddress.Keyinfo["charlie"].PriKey)
+		scbTsf3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].Bech32(), testaddress.Keyinfo["charlie"])
 		require.NoError(t, err)
 
 		// create testing votes
-		vote1, err := testutil.SignedVote(testaddress.Addrinfo["alfa"].Bech32(), testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"].PriKey, 1, 100000, big.NewInt(10))
+		vote1, err := testutil.SignedVote(testaddress.Addrinfo["alfa"].Bech32(), testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"], 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
-		vote2, err := testutil.SignedVote(testaddress.Addrinfo["bravo"].Bech32(), testaddress.Addrinfo["bravo"].Bech32(), testaddress.Keyinfo["bravo"].PriKey, 1, 100000, big.NewInt(10))
+		vote2, err := testutil.SignedVote(testaddress.Addrinfo["bravo"].Bech32(), testaddress.Addrinfo["bravo"].Bech32(), testaddress.Keyinfo["bravo"], 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
-		vote3, err := testutil.SignedVote(testaddress.Addrinfo["charlie"].Bech32(), testaddress.Addrinfo["charlie"].Bech32(), testaddress.Keyinfo["charlie"].PriKey, 1, 100000, big.NewInt(10))
+		vote3, err := testutil.SignedVote(testaddress.Addrinfo["charlie"].Bech32(), testaddress.Addrinfo["charlie"].Bech32(), testaddress.Keyinfo["charlie"], 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
 
 		// create testing executions
-		execution1, err := testutil.SignedExecution(testaddress.Addrinfo["alfa"].Bech32(), testaddress.Addrinfo["delta"].Bech32(), testaddress.Keyinfo["alfa"].PriKey, 1, big.NewInt(1), 0, big.NewInt(0), nil)
+		execution1, err := testutil.SignedExecution(testaddress.Addrinfo["alfa"].Bech32(), testaddress.Addrinfo["delta"].Bech32(), testaddress.Keyinfo["alfa"], 1, big.NewInt(1), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution2, err := testutil.SignedExecution(testaddress.Addrinfo["bravo"].Bech32(), testaddress.Addrinfo["delta"].Bech32(), testaddress.Keyinfo["bravo"].PriKey, 2, big.NewInt(0), 0, big.NewInt(0), nil)
+		execution2, err := testutil.SignedExecution(testaddress.Addrinfo["bravo"].Bech32(), testaddress.Addrinfo["delta"].Bech32(), testaddress.Keyinfo["bravo"], 2, big.NewInt(0), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution3, err := testutil.SignedExecution(testaddress.Addrinfo["charlie"].Bech32(), testaddress.Addrinfo["delta"].Bech32(), testaddress.Keyinfo["charlie"].PriKey, 3, big.NewInt(2), 0, big.NewInt(0), nil)
+		execution3, err := testutil.SignedExecution(testaddress.Addrinfo["charlie"].Bech32(), testaddress.Addrinfo["delta"].Bech32(), testaddress.Keyinfo["charlie"], 3, big.NewInt(2), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
 
 		// create testing create deposit actions
@@ -95,7 +95,7 @@ func TestBlockDAO(t *testing.T) {
 			SetDestinationAddress(testaddress.Addrinfo["delta"].Bech32()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit1).Build()
-		sdeposit1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"].PriKey)
+		sdeposit1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"])
 		require.NoError(t, err)
 
 		deposit2 := action.NewCreateDeposit(
@@ -112,7 +112,7 @@ func TestBlockDAO(t *testing.T) {
 			SetDestinationAddress(testaddress.Addrinfo["delta"].Bech32()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit2).Build()
-		sdeposit2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].Bech32(), testaddress.Keyinfo["bravo"].PriKey)
+		sdeposit2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].Bech32(), testaddress.Keyinfo["bravo"])
 		require.NoError(t, err)
 
 		deposit3 := action.NewCreateDeposit(
@@ -129,7 +129,7 @@ func TestBlockDAO(t *testing.T) {
 			SetDestinationAddress(testaddress.Addrinfo["delta"].Bech32()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit3).Build()
-		sdeposit3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].Bech32(), testaddress.Keyinfo["charlie"].PriKey)
+		sdeposit3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].Bech32(), testaddress.Keyinfo["charlie"])
 		require.NoError(t, err)
 
 		hash1 := hash.Hash32B{}
@@ -139,7 +139,7 @@ func TestBlockDAO(t *testing.T) {
 			SetPrevBlockHash(hash1).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(scbTsf1, vote1, execution1, sdeposit1).
-			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
+			SignAndBuild(&testaddress.Keyinfo["producer"].PublicKey, testaddress.Keyinfo["producer"])
 		require.NoError(t, err)
 
 		hash2 := hash.Hash32B{}
@@ -149,7 +149,7 @@ func TestBlockDAO(t *testing.T) {
 			SetPrevBlockHash(hash2).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(scbTsf2, vote2, execution2, sdeposit2).
-			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
+			SignAndBuild(&testaddress.Keyinfo["producer"].PublicKey, testaddress.Keyinfo["producer"])
 		require.NoError(t, err)
 
 		hash3 := hash.Hash32B{}
@@ -159,7 +159,7 @@ func TestBlockDAO(t *testing.T) {
 			SetPrevBlockHash(hash3).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(scbTsf3, vote3, execution3, sdeposit3).
-			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
+			SignAndBuild(&testaddress.Keyinfo["producer"].PublicKey, testaddress.Keyinfo["producer"])
 		require.NoError(t, err)
 		return []*block.Block{&blk1, &blk2, &blk3}
 	}

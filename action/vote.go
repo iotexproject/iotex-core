@@ -7,12 +7,12 @@
 package action
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -51,7 +51,7 @@ func (v *Vote) Voter() string {
 }
 
 // VoterPublicKey returns the voter's public key
-func (v *Vote) VoterPublicKey() keypair.PublicKey {
+func (v *Vote) VoterPublicKey() *ecdsa.PublicKey {
 	return v.SrcPubkey()
 }
 

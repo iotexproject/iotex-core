@@ -109,7 +109,7 @@ func (*ec283) publicKeySerialization(pubKey C.ec283_point_lambda_aff) (keypair.P
 	if err != nil {
 		return keypair.ZeroPublicKey, err
 	}
-	return keypair.BytesToPublicKey(buf.Bytes())
+	return keypair.BytesToEC283PublicKey(buf.Bytes())
 }
 
 func (*ec283) publicKeyDeserialization(pubKey keypair.PublicKey) (C.ec283_point_lambda_aff, error) {
@@ -137,7 +137,7 @@ func (*ec283) privateKeySerialization(privKey [9]C.uint32_t) (keypair.PrivateKey
 	if err != nil {
 		return keypair.ZeroPrivateKey, err
 	}
-	return keypair.BytesToPrivateKey(buf.Bytes())
+	return keypair.BytesToEC283PrivateKey(buf.Bytes())
 }
 
 func (*ec283) privateKeyDeserialization(privKey keypair.PrivateKey) ([9]C.uint32_t, error) {

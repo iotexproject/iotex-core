@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
 	"sort"
@@ -26,8 +27,8 @@ import (
 func putBlockToParentChain(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPubKey keypair.PublicKey,
-	senderPriKey keypair.PrivateKey,
+	senderPubKey *ecdsa.PublicKey,
+	senderPriKey *ecdsa.PrivateKey,
 	senderAddr string,
 	b *block.Block,
 ) {
@@ -48,8 +49,8 @@ func putBlockToParentChain(
 func putBlockToParentChainTask(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPubKey keypair.PublicKey,
-	senderPriKey keypair.PrivateKey,
+	senderPubKey *ecdsa.PublicKey,
+	senderPriKey *ecdsa.PrivateKey,
 	b *block.Block,
 ) error {
 	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, senderPubKey, senderPriKey, b)
@@ -66,8 +67,8 @@ func putBlockToParentChainTask(
 func constructPutSubChainBlockRequest(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPubKey keypair.PublicKey,
-	senderPriKey keypair.PrivateKey,
+	senderPubKey *ecdsa.PublicKey,
+	senderPriKey *ecdsa.PrivateKey,
 	b *block.Block,
 ) (explorerapi.PutSubChainBlockRequest, error) {
 	senderPKHash := keypair.HashPubKey(senderPubKey)
@@ -109,7 +110,7 @@ func constructPutSubChainBlockRequest(
 		Version:         int64(selp.Version()),
 		Nonce:           int64(selp.Nonce()),
 		SenderAddress:   selp.SrcAddr(),
-		SenderPubKey:    hex.EncodeToString(senderPubKey[:]),
+		SenderPubKey:    keypair.EncodePublicKey(senderPubKey),
 		GasLimit:        int64(selp.GasLimit()),
 		GasPrice:        selp.GasPrice().String(),
 		SubChainAddress: pb.SubChainAddress(),
