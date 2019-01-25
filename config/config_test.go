@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/CoderZhi/go-ethereum/crypto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -23,17 +23,17 @@ func TestCandidate(t *testing.T) {
 
 	cand1 := &Candidate{
 		Address:   testaddress.Addrinfo["alfa"].Bech32(),
-		PublicKey: &testaddress.Keyinfo["alfa"].PublicKey,
+		PublicKey: testaddress.Keyinfo["alfa"].PubKey,
 		Votes:     big.NewInt(1),
 	}
 	cand2 := &Candidate{
 		Address:   testaddress.Addrinfo["bravo"].Bech32(),
-		PublicKey: &testaddress.Keyinfo["bravo"].PublicKey,
+		PublicKey: testaddress.Keyinfo["bravo"].PubKey,
 		Votes:     big.NewInt(2),
 	}
 	cand3 := &Candidate{
 		Address:   testaddress.Addrinfo["charlie"].Bech32(),
-		PublicKey: &testaddress.Keyinfo["charlie"].PublicKey,
+		PublicKey: testaddress.Keyinfo["charlie"].PubKey,
 		Votes:     big.NewInt(3),
 	}
 

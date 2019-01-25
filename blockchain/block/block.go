@@ -10,9 +10,9 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/CoderZhi/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
@@ -198,10 +198,11 @@ func (b *Block) VerifyDeltaStateDigest(digest hash.Hash32B) error {
 func (b *Block) VerifySignature() bool {
 	blkHash := b.HashBlock()
 
-	if len(b.Header.blockSig) != 65 {
+	if len(b.Header.blockSig) != action.SignatureLength {
 		return false
 	}
-	return crypto.VerifySignature(keypair.PublicKeyToBytes(b.Header.pubkey), blkHash[:], b.Header.blockSig[:64])
+	return crypto.VerifySignature(keypair.PublicKeyToBytes(b.Header.pubkey), blkHash[:],
+		b.Header.blockSig[:action.SignatureLength-1])
 }
 
 // ProducerAddress returns the address of producer

@@ -28,7 +28,7 @@ func TestSubChainState(t *testing.T) {
 		OperationDeposit:   big.NewInt(2),
 		StartHeight:        100,
 		ParentHeightOffset: 10,
-		OwnerPublicKey:     &testaddress.Keyinfo["producer"].PublicKey,
+		OwnerPublicKey:     testaddress.Keyinfo["producer"].PubKey,
 		CurrentHeight:      200,
 		DepositCount:       300,
 	}
@@ -57,7 +57,7 @@ func TestBlockProofState(t *testing.T) {
 				Value: byteutil.BytesTo32B([]byte("1000d")),
 			},
 		},
-		ProducerPublicKey: &testaddress.Keyinfo["producer"].PublicKey,
+		ProducerPublicKey: testaddress.Keyinfo["producer"].PubKey,
 	}
 
 	data, err := bp1.Serialize()

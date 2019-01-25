@@ -136,7 +136,7 @@ func TestMutateDeposit(t *testing.T) {
 			OperationDeposit:   big.NewInt(2),
 			StartHeight:        100,
 			ParentHeightOffset: 10,
-			OwnerPublicKey:     &testaddress.Keyinfo["producer"].PublicKey,
+			OwnerPublicKey:     testaddress.Keyinfo["producer"].PubKey,
 			CurrentHeight:      200,
 			DepositCount:       300,
 		},

@@ -7,12 +7,12 @@
 package action
 
 import (
-	"crypto/ecdsa"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -101,7 +101,7 @@ func (start *StartSubChain) ParentHeightOffset() uint64 { return start.parentHei
 func (start *StartSubChain) OwnerAddress() string { return start.SrcAddr() }
 
 // OwnerPublicKey returns the owner public key, which is the wrapper of SrcPubkey
-func (start *StartSubChain) OwnerPublicKey() *ecdsa.PublicKey { return start.SrcPubkey() }
+func (start *StartSubChain) OwnerPublicKey() keypair.PublicKey { return start.SrcPubkey() }
 
 // ByteStream returns the byte representation of sub-chain action
 func (start *StartSubChain) ByteStream() []byte {

@@ -44,7 +44,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		blockHeight,
 		prevHash,
 		testutil.TimestampNowFromClock(clock),
-		&testAddrs[0].priKey.PublicKey,
+		testAddrs[0].pubKey,
 		make([]action.SealedEnvelope, 0),
 	)
 	ctx := makeTestRollDPoSCtx(

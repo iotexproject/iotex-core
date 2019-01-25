@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/CoderZhi/go-ethereum/crypto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

@@ -9,7 +9,6 @@
 package main
 
 import (
-	"crypto/ecdsa"
 	"flag"
 	"fmt"
 	"math"
@@ -211,7 +210,7 @@ func newConfig(
 	genesisConfigPath,
 	chainDBPath,
 	trieDBPath string,
-	producerPriKey *ecdsa.PrivateKey,
+	producerPriKey keypair.PrivateKey,
 	networkPort,
 	explorerPort int,
 ) config.Config {

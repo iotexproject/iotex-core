@@ -7,7 +7,6 @@
 package state
 
 import (
-	"crypto/ecdsa"
 	"math/big"
 	"strings"
 
@@ -35,7 +34,7 @@ var (
 type Candidate struct {
 	Address          string
 	Votes            *big.Int
-	PublicKey        *ecdsa.PublicKey
+	PublicKey        keypair.PublicKey
 	CreationHeight   uint64
 	LastUpdateHeight uint64
 }

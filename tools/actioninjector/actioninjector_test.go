@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/CoderZhi/go-ethereum/crypto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 

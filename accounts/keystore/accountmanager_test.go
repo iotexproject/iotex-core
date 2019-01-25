@@ -7,7 +7,6 @@
 package keystore
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -165,7 +164,7 @@ func TestAccountManager_SignHash(t *testing.T) {
 	require.NotNil(signature)
 }
 
-func keyToAddress(priKey *ecdsa.PrivateKey) (address.Address, error) {
+func keyToAddress(priKey keypair.PrivateKey) (address.Address, error) {
 	pkHash := keypair.HashPubKey(&priKey.PublicKey)
 	return address.New(pkHash[:]), nil
 }

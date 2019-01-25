@@ -9,7 +9,6 @@ package blockchain
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"sort"
 	"sync"
 
@@ -36,7 +35,7 @@ type Validator interface {
 		containCoinbase bool,
 		secretWitness *action.SecretWitness,
 		secretProposals []*action.SecretProposal,
-		pk *ecdsa.PublicKey,
+		pk keypair.PublicKey,
 		chainID uint32,
 		height uint64,
 	) error
@@ -108,7 +107,7 @@ func (v *validator) ValidateActionsOnly(
 	containCoinbase bool,
 	secretWitness *action.SecretWitness,
 	secretProposals []*action.SecretProposal,
-	pk *ecdsa.PublicKey,
+	pk keypair.PublicKey,
 	chainID uint32,
 	height uint64,
 ) error {
@@ -168,7 +167,7 @@ func (v *validator) validateActions(
 	containCoinbase bool,
 	secretWitness *action.SecretWitness,
 	secretProposals []*action.SecretProposal,
-	pk *ecdsa.PublicKey,
+	pk keypair.PublicKey,
 	chainID uint32,
 	height uint64,
 	accountNonceMap map[string][]uint64,

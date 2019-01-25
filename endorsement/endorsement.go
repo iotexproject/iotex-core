@@ -7,10 +7,8 @@
 package endorsement
 
 import (
-	"crypto/ecdsa"
-
-	"github.com/CoderZhi/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
@@ -66,12 +64,12 @@ func (en *ConsensusVote) Hash() hash.Hash32B {
 type Endorsement struct {
 	object         *ConsensusVote
 	endorser       string
-	endorserPubkey *ecdsa.PublicKey
+	endorserPubkey keypair.PublicKey
 	signature      []byte
 }
 
 // NewEndorsement creates an Endorsement for an consensus vote
-func NewEndorsement(object *ConsensusVote, endorserPubKey *ecdsa.PublicKey, endorserPriKey *ecdsa.PrivateKey, endorserAddr string) *Endorsement {
+func NewEndorsement(object *ConsensusVote, endorserPubKey keypair.PublicKey, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
 	hash := object.Hash()
 	sig, err := crypto.Sign(hash[:], endorserPriKey)
 	if err != nil {
@@ -97,7 +95,7 @@ func (en *Endorsement) Endorser() string {
 }
 
 // EndorserPublicKey returns the public key of the endorser of this endorsement
-func (en *Endorsement) EndorserPublicKey() *ecdsa.PublicKey {
+func (en *Endorsement) EndorserPublicKey() keypair.PublicKey {
 	return en.endorserPubkey
 }
 

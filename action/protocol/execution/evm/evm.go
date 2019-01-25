@@ -7,7 +7,6 @@
 package evm
 
 import (
-	"crypto/ecdsa"
 	"math"
 	"math/big"
 
@@ -58,7 +57,7 @@ type Params struct {
 }
 
 // NewParams creates a new context for use in the EVM.
-func NewParams(blkHeight uint64, producerPubKey *ecdsa.PublicKey, blkTimeStamp int64, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
+func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp int64, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	/*
 		var beneficiary common.Address
@@ -143,7 +142,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 func ExecuteContract(
 	blkHeight uint64,
 	blkHash hash.Hash32B,
-	producerPubKey *ecdsa.PublicKey,
+	producerPubKey keypair.PublicKey,
 	blkTimeStamp int64,
 	sm protocol.StateManager,
 	execution *action.Execution,

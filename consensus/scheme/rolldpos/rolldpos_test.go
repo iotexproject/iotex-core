@@ -7,7 +7,6 @@
 package rolldpos
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"net"
@@ -15,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/CoderZhi/go-ethereum/crypto"
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,12 +47,13 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-type addrKey struct {
-	priKey      *ecdsa.PrivateKey
+type addrKeyPair struct {
+	pubKey      keypair.PublicKey
+	priKey      keypair.PrivateKey
 	encodedAddr string
 }
 
-var testAddrs = []*addrKey{
+var testAddrs = []*addrKeyPair{
 	newTestAddr(),
 	newTestAddr(),
 	newTestAddr(),
@@ -61,7 +61,7 @@ var testAddrs = []*addrKey{
 	newTestAddr(),
 }
 
-func newTestAddr() *addrKey {
+func newTestAddr() *addrKeyPair {
 	sk, err := crypto.GenerateKey()
 	if err != nil {
 		log.L().Panic("Error when creating private key.", zap.Error(err))
@@ -69,11 +69,11 @@ func newTestAddr() *addrKey {
 	pk := &sk.PublicKey
 	pkHash := keypair.HashPubKey(pk)
 	addr := address.New(pkHash[:])
-	return &addrKey{priKey: sk, encodedAddr: addr.Bech32()}
+	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.Bech32()}
 }
 
-func test21Addrs() []*addrKey {
-	addrs := make([]*addrKey, 0)
+func test21Addrs() []*addrKeyPair {
+	addrs := make([]*addrKeyPair, 0)
 	for i := 0; i < 21; i++ {
 		addrs = append(addrs, newTestAddr())
 	}
@@ -91,7 +91,7 @@ func TestNewRollDPoS(t *testing.T) {
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
 			SetAddr(addr.encodedAddr).
-			SetPubKey(&addr.priKey.PublicKey).
+			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
@@ -107,7 +107,7 @@ func TestNewRollDPoS(t *testing.T) {
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
 			SetAddr(addr.encodedAddr).
-			SetPubKey(&addr.priKey.PublicKey).
+			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
@@ -127,7 +127,7 @@ func TestNewRollDPoS(t *testing.T) {
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
 			SetAddr(addr.encodedAddr).
-			SetPubKey(&addr.priKey.PublicKey).
+			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
@@ -146,7 +146,7 @@ func TestNewRollDPoS(t *testing.T) {
 		r, err := NewRollDPoSBuilder().
 			SetConfig(config.RollDPoS{}).
 			SetAddr(addr.encodedAddr).
-			SetPubKey(&addr.priKey.PublicKey).
+			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
@@ -202,7 +202,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 			FSM:          config.Default.Consensus.RollDPoS.FSM,
 		}).
 		SetAddr(addr.encodedAddr).
-		SetPubKey(&addr.priKey.PublicKey).
+		SetPubKey(addr.pubKey).
 		SetPriKey(addr.priKey).
 		SetBlockchain(blockchain).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
@@ -228,7 +228,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 }
 
 func makeTestRollDPoSCtx(
-	addr *addrKey,
+	addr *addrKeyPair,
 	ctrl *gomock.Controller,
 	cfg config.RollDPoS,
 	mockChain func(*mock_blockchain.MockBlockchain),
@@ -248,7 +248,7 @@ func makeTestRollDPoSCtx(
 	return &rollDPoSCtx{
 		cfg:              cfg,
 		encodedAddr:      addr.encodedAddr,
-		pubKey:           &addr.priKey.PublicKey,
+		pubKey:           addr.pubKey,
 		priKey:           addr.priKey,
 		chain:            chain,
 		actPool:          actPool,
@@ -308,7 +308,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 		cfg.Consensus.RollDPoS.NumSubEpochs = 1
 
-		chainAddrs := make([]*addrKey, 0, numNodes)
+		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
 			chainAddrs = append(chainAddrs, newTestAddr())
@@ -316,7 +316,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		chainRawAddrs := make([]string, 0, numNodes)
-		addressMap := make(map[string]*addrKey, 0)
+		addressMap := make(map[string]*addrKeyPair, 0)
 		for _, addr := range chainAddrs {
 			chainRawAddrs = append(chainRawAddrs, addr.encodedAddr)
 			addressMap[addr.encodedAddr] = addr

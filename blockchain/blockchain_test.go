@@ -59,8 +59,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
@@ -75,16 +75,16 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	}
 
 	addr0 := ta.Addrinfo["producer"].Bech32()
-	priKey0 := ta.Keyinfo["producer"]
+	priKey0 := ta.Keyinfo["producer"].PriKey
 	addr1 := ta.Addrinfo["alfa"].Bech32()
-	priKey1 := ta.Keyinfo["alfa"]
+	priKey1 := ta.Keyinfo["alfa"].PriKey
 	addr2 := ta.Addrinfo["bravo"].Bech32()
 	addr3 := ta.Addrinfo["charlie"].Bech32()
-	priKey3 := ta.Keyinfo["charlie"]
+	priKey3 := ta.Keyinfo["charlie"].PriKey
 	addr4 := ta.Addrinfo["delta"].Bech32()
-	priKey4 := ta.Keyinfo["delta"]
+	priKey4 := ta.Keyinfo["delta"].PriKey
 	addr5 := ta.Addrinfo["echo"].Bech32()
-	priKey5 := ta.Keyinfo["echo"]
+	priKey5 := ta.Keyinfo["echo"].PriKey
 	addr6 := ta.Addrinfo["foxtrot"].Bech32()
 	// Add block 1
 	// test --> A, B, C, D, E, F
@@ -117,8 +117,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	blk, err = bc.MintNewBlock(
 		accMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
@@ -158,8 +158,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	blk, err = bc.MintNewBlock(
 		accMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
@@ -197,8 +197,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	blk, err = bc.MintNewBlock(
 		accMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
@@ -254,8 +254,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	blk, err = bc.MintNewBlock(
 		accMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
@@ -368,8 +368,8 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
 		_, err = bc.MintNewBlock(
 			actionMap,
-			&ta.Keyinfo["producer"].PublicKey,
-			ta.Keyinfo["producer"],
+			ta.Keyinfo["producer"].PubKey,
+			ta.Keyinfo["producer"].PriKey,
 			ta.Addrinfo["producer"].Bech32(),
 			0,
 		)
@@ -537,7 +537,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		SetDestinationAddress(ta.Addrinfo["bravo"].Bech32()).
 		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"])
+	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
@@ -545,7 +545,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		SetHeight(h+2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(&ta.Keyinfo["bravo"].PublicKey, ta.Keyinfo["bravo"])
+		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk, true)
@@ -560,7 +560,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		SetDestinationAddress(ta.Addrinfo["bravo"].Bech32()).
 		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf2).Build()
-	selp2, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"])
+	selp2, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
@@ -568,7 +568,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		SetHeight(h+1).
 		SetPrevBlockHash(hash.ZeroHash32B).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(&ta.Keyinfo["bravo"].PublicKey, ta.Keyinfo["bravo"])
+		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk, true)
 	require.NotNil(err)
@@ -764,7 +764,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		SetDestinationAddress(ta.Addrinfo["bravo"].Bech32()).
 		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"])
+	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
@@ -772,7 +772,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		SetHeight(h+2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(&ta.Keyinfo["bravo"].PublicKey, ta.Keyinfo["bravo"])
+		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk, true)
@@ -787,7 +787,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		SetDestinationAddress(ta.Addrinfo["bravo"].Bech32()).
 		SetGasLimit(genesis.ActionGasLimit).
 		SetAction(cbTsf2).Build()
-	selp2, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"])
+	selp2, err := action.Sign(elp, ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
@@ -795,7 +795,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		SetHeight(h+1).
 		SetPrevBlockHash(hash.ZeroHash32B).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(&ta.Keyinfo["bravo"].PublicKey, ta.Keyinfo["bravo"])
+		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk, true)
 	require.NotNil(err)
@@ -931,8 +931,8 @@ func TestCoinbaseTransfer(t *testing.T) {
 	actionMap := make(map[string][]action.SealedEnvelope)
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		&ta.Keyinfo["alfa"].PublicKey,
-		ta.Keyinfo["alfa"],
+		ta.Keyinfo["alfa"].PubKey,
+		ta.Keyinfo["alfa"].PriKey,
 		ta.Addrinfo["alfa"].Bech32(),
 		0,
 	)
@@ -998,7 +998,7 @@ func TestBlocks(t *testing.T) {
 	require.NoError(addCreatorToFactory(sf))
 
 	a := ta.Addrinfo["alfa"].Bech32()
-	priKeyA := ta.Keyinfo["alfa"]
+	priKeyA := ta.Keyinfo["alfa"].PriKey
 	c := ta.Addrinfo["bravo"].Bech32()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
@@ -1029,8 +1029,8 @@ func TestBlocks(t *testing.T) {
 		}
 		blk, _ := bc.MintNewBlock(
 			actionMap,
-			&ta.Keyinfo["producer"].PublicKey,
-			ta.Keyinfo["producer"],
+			ta.Keyinfo["producer"].PubKey,
+			ta.Keyinfo["producer"].PriKey,
 			ta.Addrinfo["producer"].Bech32(),
 			0,
 		)
@@ -1064,7 +1064,7 @@ func TestActions(t *testing.T) {
 
 	require.NoError(addCreatorToFactory(sf))
 	a := ta.Addrinfo["alfa"].Bech32()
-	priKeyA := ta.Keyinfo["alfa"]
+	priKeyA := ta.Keyinfo["alfa"].PriKey
 	c := ta.Addrinfo["bravo"].Bech32()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
@@ -1098,8 +1098,8 @@ func TestActions(t *testing.T) {
 	}
 	blk, _ := bc.MintNewBlock(
 		actionMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)

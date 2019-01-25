@@ -7,14 +7,12 @@
 package config
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"flag"
 	"os"
 	"time"
 
-	"github.com/CoderZhi/go-ethereum/crypto"
-	"github.com/minio/blake2b-simd"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 
@@ -22,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -437,16 +436,14 @@ func (cfg Config) BlockchainAddress() (address.Address, error) {
 }
 
 // KeyPair returns the decoded public and private key pair
-func (cfg Config) KeyPair() (*ecdsa.PublicKey, *ecdsa.PrivateKey, error) {
+func (cfg Config) KeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
 	}
 	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
-		return nil,
-			nil,
-			errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
+		return nil, nil, errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
 	}
 	return pk, sk, nil
 }
@@ -463,7 +460,7 @@ func ValidateKeyPair(cfg Config) error {
 	}
 	// Validate producer pubkey and prikey by signing a dummy message and verify it
 	validationMsg := "connecting the physical world block by block"
-	msgHash := blake2b.Sum256([]byte(validationMsg))
+	msgHash := hash.Hash256b([]byte(validationMsg))
 	sig, err := crypto.Sign(msgHash[:], priKey)
 	if err != nil {
 		return err

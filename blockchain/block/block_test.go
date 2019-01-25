@@ -46,8 +46,8 @@ func TestMerkle(t *testing.T) {
 	require := require.New(t)
 
 	producerAddr := ta.Addrinfo["producer"].Bech32()
-	producerPubKey := &ta.Keyinfo["producer"].PublicKey
-	producerPriKey := ta.Keyinfo["producer"]
+	producerPubKey := ta.Keyinfo["producer"].PubKey
+	producerPriKey := ta.Keyinfo["producer"].PriKey
 	amount := uint64(50 << 22)
 	// create testing transactions
 	cbtsf0 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), producerAddr)
@@ -174,7 +174,7 @@ func TestMerkle(t *testing.T) {
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
 	senderAddr := ta.Addrinfo["producer"].Bech32()
-	senderPubKey := &ta.Keyinfo["producer"].PublicKey
+	senderPubKey := ta.Keyinfo["producer"].PubKey
 	require.NoError(t, blk.ConvertFromBlockPb(&iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{
 			Version: version.ProtocolVersion,

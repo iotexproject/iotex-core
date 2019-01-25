@@ -37,16 +37,16 @@ const (
 var (
 	chainID = config.Default.Chain.ID
 	addr1   = testaddress.Addrinfo["alfa"].Bech32()
-	pubKey1 = &testaddress.Keyinfo["alfa"].PublicKey
-	priKey1 = testaddress.Keyinfo["alfa"]
+	pubKey1 = testaddress.Keyinfo["alfa"].PubKey
+	priKey1 = testaddress.Keyinfo["alfa"].PriKey
 	addr2   = testaddress.Addrinfo["bravo"].Bech32()
-	priKey2 = testaddress.Keyinfo["bravo"]
+	priKey2 = testaddress.Keyinfo["bravo"].PriKey
 	addr3   = testaddress.Addrinfo["charlie"].Bech32()
-	priKey3 = testaddress.Keyinfo["charlie"]
+	priKey3 = testaddress.Keyinfo["charlie"].PriKey
 	addr4   = testaddress.Addrinfo["delta"].Bech32()
-	priKey4 = testaddress.Keyinfo["delta"]
+	priKey4 = testaddress.Keyinfo["delta"].PriKey
 	addr5   = testaddress.Addrinfo["echo"].Bech32()
-	priKey5 = testaddress.Keyinfo["echo"]
+	priKey5 = testaddress.Keyinfo["echo"].PriKey
 )
 
 func TestActPool_validateGenericAction(t *testing.T) {

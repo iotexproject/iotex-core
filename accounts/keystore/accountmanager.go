@@ -7,10 +7,9 @@
 package keystore
 
 import (
-	"crypto/ecdsa"
 	"path/filepath"
 
-	"github.com/CoderZhi/go-ethereum/crypto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -60,7 +59,7 @@ func (m *AccountManager) Remove(encodedAddr string) error {
 }
 
 // NewAccount creates and stores a new account
-func (m *AccountManager) NewAccount() (*ecdsa.PrivateKey, error) {
+func (m *AccountManager) NewAccount() (keypair.PrivateKey, error) {
 	sk, err := crypto.GenerateKey()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate key pair")

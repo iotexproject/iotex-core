@@ -32,11 +32,11 @@ func TestTransferSignVerify(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
 
-	w := AssembleSealedEnvelope(elp, senderAddr.Bech32(), &senderKey.PublicKey, []byte("lol"))
+	w := AssembleSealedEnvelope(elp, senderAddr.Bech32(), senderKey.PubKey, []byte("lol"))
 	require.Error(Verify(w))
 
 	// sign the transfer
-	selp, err := Sign(elp, senderAddr.Bech32(), senderKey)
+	selp, err := Sign(elp, senderAddr.Bech32(), senderKey.PriKey)
 	require.NoError(err)
 	require.NotNil(selp)
 

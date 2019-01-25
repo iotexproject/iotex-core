@@ -7,7 +7,6 @@
 package testaddress
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/iotexproject/iotex-core/address"
@@ -25,48 +24,62 @@ const (
 	prikeyProducer = "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1"
 )
 
+// Key indicates the public key and private key of an account
+type Key struct {
+	PubKey keypair.PublicKey
+	PriKey keypair.PrivateKey
+}
+
 // Addrinfo contains the address information
 var Addrinfo map[string]*address.AddrV1
 
 // Keyinfo contains the private key information
-var Keyinfo map[string]*ecdsa.PrivateKey
+var Keyinfo map[string]*Key
 
 func init() {
 	Addrinfo = make(map[string]*address.AddrV1)
-	Keyinfo = make(map[string]*ecdsa.PrivateKey)
+	Keyinfo = make(map[string]*Key)
 
 	priKey, _ := keypair.DecodePrivateKey(prikeyProducer)
-	Addrinfo["producer"] = address.V1.New(keypair.HashPubKey(&priKey.PublicKey))
+	pubKey := &priKey.PublicKey
+	Addrinfo["producer"] = address.V1.New(keypair.HashPubKey(pubKey))
 	fmt.Printf("Producer's address is %s\n", Addrinfo["producer"].Bech32())
-	Keyinfo["producer"] = priKey
+	Keyinfo["producer"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyA)
-	Addrinfo["alfa"] = address.V1.New(keypair.HashPubKey(&priKey.PublicKey))
+	pubKey = &priKey.PublicKey
+	Addrinfo["alfa"] = address.V1.New(keypair.HashPubKey(pubKey))
 	fmt.Printf("Alfa's address is %s\n", Addrinfo["alfa"].Bech32())
-	Keyinfo["alfa"] = priKey
+	Keyinfo["alfa"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyB)
-	Addrinfo["bravo"] = address.V1.New(keypair.HashPubKey(&priKey.PublicKey))
+	pubKey = &priKey.PublicKey
+	Addrinfo["bravo"] = address.V1.New(keypair.HashPubKey(pubKey))
 	fmt.Printf("Bravo's address is %s\n", Addrinfo["bravo"].Bech32())
-	Keyinfo["bravo"] = priKey
+	Keyinfo["bravo"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyC)
-	Addrinfo["charlie"] = address.V1.New(keypair.HashPubKey(&priKey.PublicKey))
-	Keyinfo["charlie"] = priKey
+	pubKey = &priKey.PublicKey
+	Addrinfo["charlie"] = address.V1.New(keypair.HashPubKey(pubKey))
+	Keyinfo["charlie"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyD)
-	Addrinfo["delta"] = address.V1.New(keypair.HashPubKey(&priKey.PublicKey))
-	Keyinfo["delta"] = priKey
+	pubKey = &priKey.PublicKey
+	Addrinfo["delta"] = address.V1.New(keypair.HashPubKey(pubKey))
+	Keyinfo["delta"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyE)
-	Addrinfo["echo"] = address.V1.New(keypair.HashPubKey(&priKey.PublicKey))
-	Keyinfo["echo"] = priKey
+	pubKey = &priKey.PublicKey
+	Addrinfo["echo"] = address.V1.New(keypair.HashPubKey(pubKey))
+	Keyinfo["echo"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyF)
-	Addrinfo["foxtrot"] = address.V1.New(keypair.HashPubKey(&priKey.PublicKey))
-	Keyinfo["foxtrot"] = priKey
+	pubKey = &priKey.PublicKey
+	Addrinfo["foxtrot"] = address.V1.New(keypair.HashPubKey(pubKey))
+	Keyinfo["foxtrot"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyG)
-	Addrinfo["galilei"] = address.V1.New(keypair.HashPubKey(&priKey.PublicKey))
-	Keyinfo["galilei"] = priKey
+	pubKey = &priKey.PublicKey
+	Addrinfo["galilei"] = address.V1.New(keypair.HashPubKey(pubKey))
+	Keyinfo["galilei"] = &Key{PubKey: pubKey, PriKey: priKey}
 }

@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"crypto/ecdsa"
 	"io/ioutil"
 	"math/big"
 
@@ -170,7 +169,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 }
 
 // decodeKey decodes the string keypair
-func decodeKey(pubK string, priK string) (pk *ecdsa.PublicKey, sk *ecdsa.PrivateKey) {
+func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.PrivateKey) {
 	if len(pubK) > 0 {
 		publicKey, err := keypair.DecodePublicKey(pubK)
 		if err != nil {
@@ -189,7 +188,7 @@ func decodeKey(pubK string, priK string) (pk *ecdsa.PublicKey, sk *ecdsa.Private
 }
 
 // generateAddr returns the string address according to public key
-func generateAddr(pk *ecdsa.PublicKey) string {
+func generateAddr(pk keypair.PublicKey) string {
 	pkHash := keypair.HashPubKey(pk)
 	return address.New(pkHash[:]).Bech32()
 }

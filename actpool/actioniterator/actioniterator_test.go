@@ -20,11 +20,11 @@ func TestActionIterator(t *testing.T) {
 	require := require.New(t)
 
 	a := testaddress.Addrinfo["alfa"]
-	priKeyA := testaddress.Keyinfo["alfa"]
+	priKeyA := testaddress.Keyinfo["alfa"].PriKey
 	b := testaddress.Addrinfo["bravo"]
-	priKeyB := testaddress.Keyinfo["bravo"]
+	priKeyB := testaddress.Keyinfo["bravo"].PriKey
 	c := testaddress.Addrinfo["charlie"]
-	priKeyC := testaddress.Keyinfo["charlie"]
+	priKeyC := testaddress.Keyinfo["charlie"].PriKey
 	accMap := make(map[string][]action.SealedEnvelope)
 	vote1, err := action.NewVote(1, a.Bech32(), b.Bech32(), 0, big.NewInt(13))
 	require.Nil(err)

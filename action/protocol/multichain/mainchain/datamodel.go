@@ -7,7 +7,6 @@
 package mainchain
 
 import (
-	"crypto/ecdsa"
 	"math/big"
 	"sort"
 
@@ -27,7 +26,7 @@ type SubChain struct {
 	StartHeight        uint64
 	StopHeight         uint64
 	ParentHeightOffset uint64
-	OwnerPublicKey     *ecdsa.PublicKey
+	OwnerPublicKey     keypair.PublicKey
 	CurrentHeight      uint64
 	DepositCount       uint64
 }
@@ -90,7 +89,7 @@ type BlockProof struct {
 	SubChainAddress   string
 	Height            uint64
 	Roots             []MerkleRoot
-	ProducerPublicKey *ecdsa.PublicKey
+	ProducerPublicKey keypair.PublicKey
 	ProducerAddress   string
 }
 

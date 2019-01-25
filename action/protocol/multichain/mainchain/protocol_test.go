@@ -56,7 +56,7 @@ func TestAddSubChainActions(t *testing.T) {
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetGasLimit(10000).SetAction(startSubChain).Build()
-	selp, err := action.Sign(elp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"])
+	selp, err := action.Sign(elp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(selp))
 
@@ -77,7 +77,7 @@ func TestAddSubChainActions(t *testing.T) {
 		SetDestinationAddress(testaddress.Addrinfo["alfa"].Bech32()).
 		SetAction(putBlock).
 		SetGasLimit(10003).Build()
-	pbselp, err := action.Sign(pbelp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"])
+	pbselp, err := action.Sign(pbelp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(pbselp))
 
@@ -95,7 +95,7 @@ func TestAddSubChainActions(t *testing.T) {
 		SetDestinationAddress(testaddress.Addrinfo["alfa"].Bech32()).
 		SetAction(stopSubChain).
 		SetGasLimit(10005).Build()
-	sscselp, err := action.Sign(sscelp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"])
+	sscselp, err := action.Sign(sscelp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(sscselp))
 

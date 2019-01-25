@@ -7,13 +7,12 @@
 package block
 
 import (
-	"crypto/ecdsa"
-
-	"github.com/CoderZhi/go-ethereum/crypto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -109,7 +108,7 @@ func (b *TestingBuilder) SetDKG(id, pk, sig []byte) *TestingBuilder {
 }
 
 // SignAndBuild signs and then builds a block.
-func (b *TestingBuilder) SignAndBuild(signerPubKey *ecdsa.PublicKey, signerPriKey *ecdsa.PrivateKey) (Block, error) {
+func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
 	b.blk.Header.pubkey = signerPubKey
 	blkHash := b.blk.HashBlock()
@@ -128,7 +127,7 @@ func NewBlockDeprecated(
 	height uint64,
 	prevBlockHash hash.Hash32B,
 	timestamp int64,
-	producer *ecdsa.PublicKey,
+	producer keypair.PublicKey,
 	actions []action.SealedEnvelope,
 ) *Block {
 	block := &Block{
@@ -157,7 +156,7 @@ func NewSecretBlockDeprecated(
 	height uint64,
 	prevBlockHash hash.Hash32B,
 	timestamp int64,
-	producer *ecdsa.PublicKey,
+	producer keypair.PublicKey,
 	secretProposals []*action.SecretProposal,
 	secretWitness *action.SecretWitness,
 ) *Block {

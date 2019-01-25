@@ -7,7 +7,6 @@
 package rolldpos
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"math/big"
 	"sort"
@@ -27,8 +26,8 @@ import (
 func putBlockToParentChain(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPubKey *ecdsa.PublicKey,
-	senderPriKey *ecdsa.PrivateKey,
+	senderPubKey keypair.PublicKey,
+	senderPriKey keypair.PrivateKey,
 	senderAddr string,
 	b *block.Block,
 ) {
@@ -49,8 +48,8 @@ func putBlockToParentChain(
 func putBlockToParentChainTask(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPubKey *ecdsa.PublicKey,
-	senderPriKey *ecdsa.PrivateKey,
+	senderPubKey keypair.PublicKey,
+	senderPriKey keypair.PrivateKey,
 	b *block.Block,
 ) error {
 	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, senderPubKey, senderPriKey, b)
@@ -67,8 +66,8 @@ func putBlockToParentChainTask(
 func constructPutSubChainBlockRequest(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPubKey *ecdsa.PublicKey,
-	senderPriKey *ecdsa.PrivateKey,
+	senderPubKey keypair.PublicKey,
+	senderPriKey keypair.PrivateKey,
 	b *block.Block,
 ) (explorerapi.PutSubChainBlockRequest, error) {
 	senderPKHash := keypair.HashPubKey(senderPubKey)

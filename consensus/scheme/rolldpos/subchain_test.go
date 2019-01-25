@@ -30,8 +30,8 @@ func TestPutBlockToParentChain(t *testing.T) {
 	defer ctrl.Finish()
 
 	addr := testaddress.Addrinfo["producer"].Bech32()
-	pubKey := &testaddress.Keyinfo["producer"].PublicKey
-	priKey := testaddress.Keyinfo["producer"]
+	pubKey := testaddress.Keyinfo["producer"].PubKey
+	priKey := testaddress.Keyinfo["producer"].PriKey
 	subAddr := testaddress.Addrinfo["echo"].Bech32()
 	blk := block.Block{}
 	blkpb := &iproto.BlockPb{

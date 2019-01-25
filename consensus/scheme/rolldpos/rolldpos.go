@@ -8,7 +8,6 @@ package rolldpos
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"time"
 
 	"github.com/facebookgo/clock"
@@ -26,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -258,8 +258,8 @@ type Builder struct {
 	cfg config.RollDPoS
 	// TODO: we should use keystore in the future
 	encodedAddr            string
-	pubKey                 *ecdsa.PublicKey
-	priKey                 *ecdsa.PrivateKey
+	pubKey                 keypair.PublicKey
+	priKey                 keypair.PrivateKey
 	chain                  blockchain.Blockchain
 	actPool                actpool.ActPool
 	broadcastHandler       scheme.Broadcast
@@ -286,13 +286,13 @@ func (b *Builder) SetAddr(encodedAddr string) *Builder {
 }
 
 // SetPubKey sets the public key
-func (b *Builder) SetPubKey(pubKey *ecdsa.PublicKey) *Builder {
+func (b *Builder) SetPubKey(pubKey keypair.PublicKey) *Builder {
 	b.pubKey = pubKey
 	return b
 }
 
 // SetPriKey sets the private key
-func (b *Builder) SetPriKey(priKey *ecdsa.PrivateKey) *Builder {
+func (b *Builder) SetPriKey(priKey keypair.PrivateKey) *Builder {
 	b.priKey = priKey
 	return b
 }

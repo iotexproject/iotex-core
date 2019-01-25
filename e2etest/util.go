@@ -45,8 +45,8 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
@@ -61,15 +61,15 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	}
 
 	addr0 := ta.Addrinfo["producer"].Bech32()
-	priKey0 := ta.Keyinfo["producer"]
+	priKey0 := ta.Keyinfo["producer"].PriKey
 	addr1 := ta.Addrinfo["alfa"].Bech32()
 	addr2 := ta.Addrinfo["bravo"].Bech32()
 	addr3 := ta.Addrinfo["charlie"].Bech32()
-	priKey3 := ta.Keyinfo["charlie"]
+	priKey3 := ta.Keyinfo["charlie"].PriKey
 	addr4 := ta.Addrinfo["delta"].Bech32()
-	priKey4 := ta.Keyinfo["delta"]
+	priKey4 := ta.Keyinfo["delta"].PriKey
 	addr5 := ta.Addrinfo["echo"].Bech32()
-	priKey5 := ta.Keyinfo["echo"]
+	priKey5 := ta.Keyinfo["echo"].PriKey
 	addr6 := ta.Addrinfo["foxtrot"].Bech32()
 	// Add block 2
 	// test --> A, B, C, D, E, F
@@ -102,8 +102,8 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
@@ -144,8 +144,8 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
@@ -182,8 +182,8 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
@@ -228,8 +228,8 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		&ta.Keyinfo["producer"].PublicKey,
-		ta.Keyinfo["producer"],
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)

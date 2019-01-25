@@ -7,7 +7,6 @@
 package util
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"io/ioutil"
 	"math/big"
@@ -43,7 +42,7 @@ type KeyPair struct {
 // AddressKey contains the encoded address and private key of an account
 type AddressKey struct {
 	EncodedAddr string
-	PriKey      *ecdsa.PrivateKey
+	PriKey      keypair.PrivateKey
 }
 
 // LoadAddresses loads key pairs from key pair path and construct addresses

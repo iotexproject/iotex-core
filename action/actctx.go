@@ -7,7 +7,6 @@
 package action
 
 import (
-	"crypto/ecdsa"
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -19,7 +18,7 @@ type AbstractAction struct {
 	version   uint32
 	nonce     uint64
 	srcAddr   string
-	srcPubkey *ecdsa.PublicKey
+	srcPubkey keypair.PublicKey
 	dstAddr   string
 	gasLimit  uint64
 	gasPrice  *big.Int
@@ -36,7 +35,7 @@ func (act *AbstractAction) Nonce() uint64 { return act.nonce }
 func (act *AbstractAction) SrcAddr() string { return act.srcAddr }
 
 // SrcPubkey returns the source public key
-func (act *AbstractAction) SrcPubkey() *ecdsa.PublicKey { return act.srcPubkey }
+func (act *AbstractAction) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
 
 // DstAddr returns the destination address
 func (act *AbstractAction) DstAddr() string { return act.dstAddr }

@@ -8,7 +8,6 @@ package blockchain
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"math/big"
 	"strconv"
 	"sync"
@@ -118,8 +117,8 @@ type Blockchain interface {
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
 		actionMap map[string][]action.SealedEnvelope,
-		producerPubKey *ecdsa.PublicKey,
-		producerPriKey *ecdsa.PrivateKey,
+		producerPubKey keypair.PublicKey,
+		producerPriKey keypair.PrivateKey,
 		producerAddr string,
 		timestamp int64,
 	) (*block.Block, error)
@@ -663,8 +662,8 @@ func (bc *blockchain) ValidateBlock(blk *block.Block, containCoinbase bool) erro
 
 func (bc *blockchain) MintNewBlock(
 	actionMap map[string][]action.SealedEnvelope,
-	producerPubKey *ecdsa.PublicKey,
-	producerPriKey *ecdsa.PrivateKey,
+	producerPubKey keypair.PublicKey,
+	producerPriKey keypair.PrivateKey,
 	producerAddr string,
 	timestamp int64,
 ) (*block.Block, error) {
@@ -1130,7 +1129,7 @@ func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
 
 func (bc *blockchain) GetDB() db.KVStore { return bc.dao.kvstore }
 
-func (bc *blockchain) genesisProducer() (*ecdsa.PublicKey, *ecdsa.PrivateKey, string, error) {
+func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, string, error) {
 	pk, err := keypair.DecodePublicKey(genesisProducerPublicKey)
 	if err != nil {
 		return nil, nil, "", errors.Wrap(err, "failed to decode public key")

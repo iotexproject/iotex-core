@@ -7,7 +7,6 @@
 package keystore
 
 import (
-	"crypto/ecdsa"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -30,8 +29,8 @@ var (
 // KeyStore defines an interface that supports operations on keystore object
 type KeyStore interface {
 	Has(string) (bool, error)
-	Get(string) (*ecdsa.PrivateKey, error)
-	Store(string, *ecdsa.PrivateKey) error
+	Get(string) (keypair.PrivateKey, error)
+	Store(string, keypair.PrivateKey) error
 	Remove(string) error
 	All() ([]string, error)
 }
@@ -43,7 +42,7 @@ type plainKeyStore struct {
 
 // MemKeyStore is an in-memory keystore which implements KeyStore interface
 type memKeyStore struct {
-	accounts map[string]*ecdsa.PrivateKey
+	accounts map[string]keypair.PrivateKey
 }
 
 // NewPlainKeyStore returns a new instance of plain keystore
@@ -75,7 +74,7 @@ func (ks *plainKeyStore) Has(encodedAddr string) (bool, error) {
 }
 
 // Get returns private key from keystore filesystem given encoded address
-func (ks *plainKeyStore) Get(encodedAddr string) (*ecdsa.PrivateKey, error) {
+func (ks *plainKeyStore) Get(encodedAddr string) (keypair.PrivateKey, error) {
 	if err := validateAddress(encodedAddr); err != nil {
 		return nil, err
 	}
@@ -95,7 +94,7 @@ func (ks *plainKeyStore) Get(encodedAddr string) (*ecdsa.PrivateKey, error) {
 }
 
 // Store stores private key in keystore filesystem
-func (ks *plainKeyStore) Store(encodedAddr string, key *ecdsa.PrivateKey) error {
+func (ks *plainKeyStore) Store(encodedAddr string, key keypair.PrivateKey) error {
 	if err := validateAddress(encodedAddr); err != nil {
 		return err
 	}
@@ -147,7 +146,7 @@ func (ks *plainKeyStore) All() ([]string, error) {
 // NewMemKeyStore creates a new instance of MemKeyStore
 func NewMemKeyStore() KeyStore {
 	return &memKeyStore{
-		accounts: make(map[string]*ecdsa.PrivateKey),
+		accounts: make(map[string]keypair.PrivateKey),
 	}
 }
 
@@ -161,7 +160,7 @@ func (ks *memKeyStore) Has(encodedAddr string) (bool, error) {
 }
 
 // Get returns address stored in map given encoded address of the account
-func (ks *memKeyStore) Get(encodedAddr string) (*ecdsa.PrivateKey, error) {
+func (ks *memKeyStore) Get(encodedAddr string) (keypair.PrivateKey, error) {
 	if err := validateAddress(encodedAddr); err != nil {
 		return nil, err
 	}
@@ -173,7 +172,7 @@ func (ks *memKeyStore) Get(encodedAddr string) (*ecdsa.PrivateKey, error) {
 }
 
 // Store stores address in map
-func (ks *memKeyStore) Store(encodedAddr string, key *ecdsa.PrivateKey) error {
+func (ks *memKeyStore) Store(encodedAddr string, key keypair.PrivateKey) error {
 	if err := validateAddress(encodedAddr); err != nil {
 		return err
 	}
