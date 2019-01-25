@@ -26,9 +26,6 @@ type boltDB struct {
 
 // Start opens the BoltDB (creates new file if not existing yet)
 func (b *boltDB) Start(_ context.Context) error {
-	if b.db != nil {
-		return nil
-	}
 	db, err := bolt.Open(b.path, fileMode, nil)
 	if err != nil {
 		return errors.Wrap(ErrIO, err.Error())
@@ -44,7 +41,6 @@ func (b *boltDB) Stop(_ context.Context) error {
 			return errors.Wrap(ErrIO, err.Error())
 		}
 	}
-	b.db = nil
 	return nil
 }
 

@@ -26,9 +26,6 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Golang dependencies
-vendor/*
-
 # wallet date file
 *.dat
 

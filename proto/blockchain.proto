@@ -35,8 +35,7 @@ message BlockHeaderPb {
 // footer of a block
 message BlockFooterPb {
     int64 CommitTimestamp = 1;
-    uint32 Round = 2;
-    EndorsementSet endorsements = 3;
+    EndorsementSet endorsements = 2;
 }
 
 // block consists of header followed by transactions

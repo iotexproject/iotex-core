@@ -129,9 +129,6 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create blockSyncer")
-	}
 	bs, err := blocksync.NewBlockSyncer(
 		cfg,
 		chain,

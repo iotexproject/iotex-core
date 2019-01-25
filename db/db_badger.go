@@ -24,10 +24,6 @@ type badgerDB struct {
 
 // Start opens the badgerDB (creates new file if not existing yet)
 func (b *badgerDB) Start(_ context.Context) error {
-	if b.db != nil {
-		return nil
-	}
-
 	opts := badger.DefaultOptions
 	opts.Dir = b.path
 	opts.ValueDir = b.path

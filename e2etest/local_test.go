@@ -190,6 +190,7 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -208,6 +209,7 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
@@ -236,6 +238,7 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
@@ -264,6 +267,7 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
@@ -609,6 +613,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -638,6 +643,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
@@ -690,6 +696,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
@@ -744,6 +751,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
