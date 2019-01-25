@@ -6,14 +6,6 @@ RUN apt-get install -y --no-install-recommends make
 
 COPY . .
 
-ARG SKIP_DEP=false
-
-RUN if [ "$SKIP_DEP" != true ] ; \
-    then \
-	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh && \
-        dep ensure --vendor-only; \
-    fi
-
 RUN mkdir -p $GOPATH/src/github.com/CoderZhi/go-ethereum/ && \
     mkdir -p $GOPATH/pkg/linux_amd64/github.com/CoderZhi/ && \
     rm -rf ./vendor/github.com/CoderZhi/go-ethereum/ && \
