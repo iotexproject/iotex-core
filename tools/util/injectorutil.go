@@ -78,13 +78,13 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 func InitCounter(client explorer.Explorer, addrKeys []*AddressKey) (map[string]uint64, error) {
 	counter := make(map[string]uint64)
 	for _, addrKey := range addrKeys {
+		addr := addrKey.EncodedAddr
 		err := backoff.Retry(func() error {
-			addrDetails, err := client.GetAddressDetails(addrKey.EncodedAddr)
+			addrDetails, err := client.GetAddressDetails(addr)
 			if err != nil {
 				return err
 			}
-			nonce := uint64(addrDetails.PendingNonce)
-			counter[addrKey.EncodedAddr] = nonce
+			counter[addr] = uint64(addrDetails.PendingNonce)
 			return nil
 		}, backoff.NewExponentialBackOff())
 		if err != nil {
@@ -128,13 +128,13 @@ loop:
 			break loop
 		case <-reset:
 			for _, admin := range admins {
+				addr := admin.EncodedAddr
 				err := backoff.Retry(func() error {
-					addrDetails, err := client.GetAddressDetails(admin.EncodedAddr)
+					addrDetails, err := client.GetAddressDetails(addr)
 					if err != nil {
 						return err
 					}
-					nonce := uint64(addrDetails.PendingNonce)
-					counter[admin.EncodedAddr] = nonce
+					counter[addr] = uint64(addrDetails.PendingNonce)
 					return nil
 				}, backoff.NewExponentialBackOff())
 				if err != nil {
@@ -144,13 +144,13 @@ loop:
 				}
 			}
 			for _, delegate := range delegates {
+				addr := delegate.EncodedAddr
 				err := backoff.Retry(func() error {
-					addrDetails, err := client.GetAddressDetails(delegate.EncodedAddr)
+					addrDetails, err := client.GetAddressDetails(addr)
 					if err != nil {
 						return err
 					}
-					nonce := uint64(addrDetails.PendingNonce)
-					counter[delegate.EncodedAddr] = nonce
+					counter[addr] = uint64(addrDetails.PendingNonce)
 					return nil
 				}, backoff.NewExponentialBackOff())
 				if err != nil {
