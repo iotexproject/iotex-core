@@ -43,7 +43,7 @@ Build the project by
 If you need to update the dependency, install Go dependency management tool from
 [golang dep](https://github.com/golang/dep). Then, run
 
-```dep ensure --vendor-only```
+```dep ensure```
 
 Note: If your Dev Environment is in Ubuntu, you need to export the following Path:
 
@@ -128,8 +128,6 @@ You will see log message output like:
 # Deploy w/ Docker Image
 
 ```make docker```
-
-Add `SKIP_DEP=true` to skip re-installing dependencies via `dep`.
 
 ## Dev Tools
 ### Use actioninjector to inject actions

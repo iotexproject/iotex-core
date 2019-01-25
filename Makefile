@@ -19,7 +19,6 @@ BUILD_TARGET_ACTINJ=actioninjector
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOTC=iotc
 BUILD_TARGET_MINICLUSTER=minicluster
-SKIP_DEP=false
 
 # Pkgs
 ALL_PKGS := $(shell go list ./... )
@@ -151,7 +150,7 @@ fullnode:
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -t $(USER)/iotex-core:latest --build-arg SKIP_DEP=$(SKIP_DEP) .
+	$(DOCKERCMD) build -t $(USER)/iotex-core:latest .
 
 .PHONY: minicluster
 minicluster:
