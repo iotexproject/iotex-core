@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -77,12 +78,18 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 func InitCounter(client explorer.Explorer, addrKeys []*AddressKey) (map[string]uint64, error) {
 	counter := make(map[string]uint64)
 	for _, addrKey := range addrKeys {
-		addrDetails, err := client.GetAddressDetails(addrKey.EncodedAddr)
+		addr := addrKey.EncodedAddr
+		err := backoff.Retry(func() error {
+			addrDetails, err := client.GetAddressDetails(addr)
+			if err != nil {
+				return err
+			}
+			counter[addr] = uint64(addrDetails.PendingNonce)
+			return nil
+		}, backoff.NewExponentialBackOff())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get address details of %s", addrKey.EncodedAddr)
 		}
-		nonce := uint64(addrDetails.PendingNonce)
-		counter[addrKey.EncodedAddr] = nonce
 	}
 	return counter, nil
 }
@@ -121,24 +128,36 @@ loop:
 			break loop
 		case <-reset:
 			for _, admin := range admins {
-				addrDetails, err := client.GetAddressDetails(admin.EncodedAddr)
+				addr := admin.EncodedAddr
+				err := backoff.Retry(func() error {
+					addrDetails, err := client.GetAddressDetails(addr)
+					if err != nil {
+						return err
+					}
+					counter[addr] = uint64(addrDetails.PendingNonce)
+					return nil
+				}, backoff.NewExponentialBackOff())
 				if err != nil {
 					log.L().Fatal("Failed to inject actions by APS",
 						zap.Error(err),
 						zap.String("addr", admin.EncodedAddr))
 				}
-				nonce := uint64(addrDetails.PendingNonce)
-				counter[admin.EncodedAddr] = nonce
 			}
 			for _, delegate := range delegates {
-				addrDetails, err := client.GetAddressDetails(delegate.EncodedAddr)
+				addr := delegate.EncodedAddr
+				err := backoff.Retry(func() error {
+					addrDetails, err := client.GetAddressDetails(addr)
+					if err != nil {
+						return err
+					}
+					counter[addr] = uint64(addrDetails.PendingNonce)
+					return nil
+				}, backoff.NewExponentialBackOff())
 				if err != nil {
 					log.L().Fatal("Failed to inject actions by APS",
 						zap.Error(err),
 						zap.String("addr", delegate.EncodedAddr))
 				}
-				nonce := uint64(addrDetails.PendingNonce)
-				counter[delegate.EncodedAddr] = nonce
 			}
 		case <-tick:
 			wg.Add(1)
@@ -344,13 +363,11 @@ func injectTransfer(
 	if tsf.Amount() != nil {
 		request.Amount = tsf.Amount().String()
 	}
-	for i := 0; i < retryNum; i++ {
-		if _, err = c.SendTransfer(request); err == nil {
-			break
-		}
-		time.Sleep(time.Duration(retryInterval) * time.Second)
-	}
-	if err != nil {
+	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
+	if err := backoff.Retry(func() error {
+		_, err := c.SendTransfer(request)
+		return err
+	}, bo); err != nil {
 		log.L().Error("Failed to inject transfer", zap.Error(err))
 	}
 	log.S().Infof("Sent out the signed transfer: %+v", request)
@@ -390,13 +407,11 @@ func injectVote(
 	if selp.GasPrice() != nil {
 		request.GasPrice = selp.GasPrice().String()
 	}
-	for i := 0; i < retryNum; i++ {
-		if _, err = c.SendVote(request); err == nil {
-			break
-		}
-		time.Sleep(time.Duration(retryInterval) * time.Second)
-	}
-	if err != nil {
+	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
+	if err := backoff.Retry(func() error {
+		_, err := c.SendVote(request)
+		return err
+	}, bo); err != nil {
 		log.L().Error("Failed to inject vote", zap.Error(err))
 	}
 	log.S().Infof("Sent out the signed vote: %+v", request)
@@ -580,14 +595,12 @@ func injectExecution(
 	if selp.GasPrice() != nil {
 		request.GasPrice = selp.GasPrice().String()
 	}
-	var err error
-	for i := 0; i < retryNum; i++ {
-		if _, err = c.SendSmartContract(request); err == nil {
-			break
-		}
-		time.Sleep(time.Duration(retryInterval) * time.Second)
-	}
-	if err != nil {
+
+	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
+	if err := backoff.Retry(func() error {
+		_, err := c.SendSmartContract(request)
+		return err
+	}, bo); err != nil {
 		log.L().Error("Failed to inject execution", zap.Error(err))
 	}
 	log.S().Infof("Sent out the signed execution: %+v", request)

@@ -46,6 +46,14 @@
   revision = "67e573d211ace594f1366b4ce9d39726c4b19bd0"
 
 [[projects]]
+  digest = "1:166438587ed45ac211dab8a3ecebf4fa0c186d0db63430fb9127bbc2e5fcdc67"
+  name = "github.com/cenkalti/backoff"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "1e4cf3da559842a91afcb6ea6141451e6c30c618"
+  version = "v2.1.1"
+
+[[projects]]
   branch = "master"
   digest = "1:64c47337097f2e58eb97cc6dd5994b88c142737f2f13a685c90211e72d87ca03"
   name = "github.com/coopernurse/barrister-go"
@@ -1243,6 +1251,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/cenkalti/backoff",
     "github.com/coopernurse/barrister-go",
     "github.com/dgraph-io/badger",
     "github.com/facebookgo/clock",
