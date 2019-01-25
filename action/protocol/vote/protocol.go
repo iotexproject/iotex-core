@@ -10,7 +10,7 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/CoderZhi/go-ethereum/core/vm"
+	"github.com/iotexproject/go-ethereum/core/vm"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"

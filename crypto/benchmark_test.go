@@ -3,7 +3,7 @@ package crypto
 import (
 	"testing"
 
-	"github.com/CoderZhi/go-ethereum/crypto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 )
