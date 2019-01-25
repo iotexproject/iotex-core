@@ -72,9 +72,13 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 		if bucket == nil {
 			return errors.Wrapf(ErrNotExist, "bucket = %s doesn't exist", namespace)
 		}
-		if value = bucket.Get(key); value == nil {
+		v := bucket.Get(key)
+		if v == nil {
 			return errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
 		}
+		value = make([]byte, len(v))
+		// TODO: this is not an efficient way of passing the data
+		copy(value, v)
 		return nil
 	})
 	if err == nil {
