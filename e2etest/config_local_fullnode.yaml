@@ -6,8 +6,6 @@ nodeType: "full_node"            # should be one of "delegate", "full_node", and
 network:
     host: "127.0.0.1"
     port: 30333
-    bootstrapNodes:
-        - "127.0.0.1:30333"
 
 chain:
     chainDBPath: "./chain.db"
