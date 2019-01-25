@@ -1,0 +1,85 @@
+# Gopkg.toml example
+#
+# Refer to https://golang.github.io/dep/docs/Gopkg.toml.html
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#   name = "github.com/x/y"
+#   version = "2.4.0"
+#
+# [prune]
+#   non-go = false
+#   go-tests = true
+#   unused-packages = true
+
+[[constraint]]
+  name = "github.com/libp2p/go-libp2p"
+  version = "~6.0.0"
+
+[[constraint]]
+  name = "github.com/libp2p/go-libp2p-crypto"
+  version = "~2.0.0"
+
+[[constraint]]
+  name = "github.com/libp2p/go-libp2p-host"
+  version = "~3.0.0"
+
+[[constraint]]
+  name = "github.com/libp2p/go-libp2p-kad-dht"
+  version = "~4.4.0"
+
+[[constraint]]
+  name = "github.com/libp2p/go-libp2p-peer"
+  version = "~2.4.0"
+
+[[constraint]]
+  name = "github.com/libp2p/go-libp2p-peerstore"
+  version = "~2.0.0"
+
+[[constraint]]
+  name = "github.com/libp2p/go-libp2p-pubsub"
+  version = "~0.10.0"
+
+[[constraint]]
+  name = "github.com/libp2p/go-libp2p-transport-upgrader"
+  version = "~0.1.0"
+
+[[constraint]]
+  name = "github.com/libp2p/go-tcp-transport"
+  version = "~2.0.0"
+
+[[constraint]]
+  name = "github.com/multiformats/go-multiaddr"
+  version = "~1.3.0"
+
+[[constraint]]
+  name = "github.com/multiformats/go-multihash"
+  version = "~1.0.0"
+
+[[constraint]]
+  name = "github.com/whyrusleeping/go-smux-yamux"
+  version = "~2.0.0"
+
+[[constraint]]
+  name = "github.com/stretchr/testify"
+  version = "~1.2.0"
+
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  version = "~0.9.0"
+
+[prune]
+  go-tests = true
+  unused-packages = true

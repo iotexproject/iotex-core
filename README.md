@@ -26,6 +26,8 @@ contact us if you intend to run it in production.
 |[Golang](https://golang.org) | >= 1.10.2 | The Go Programming Language |
 
 ### Setup Dev Environment
+
+Download the code by
 ```
 mkdir -p ~/go/src/github.com/iotexproject
 cd ~/go/src/github.com/iotexproject
@@ -33,11 +35,15 @@ git clone git@github.com:iotexproject/iotex-core.git
 cd iotex-core
 ```
 
-Install Go dependency management tool from [golang dep](https://github.com/golang/dep) first and then
+Build the project by
+
+```make```
+
+
+If you need to update the dependency, install Go dependency management tool from
+[golang dep](https://github.com/golang/dep). Then, run
 
 ```dep ensure --vendor-only```
-
-```make fmt; make build```
 
 Note: If your Dev Environment is in Ubuntu, you need to export the following Path:
 

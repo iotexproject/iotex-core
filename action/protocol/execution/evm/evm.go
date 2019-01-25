@@ -10,9 +10,9 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/CoderZhi/go-ethereum/common"
-	"github.com/CoderZhi/go-ethereum/core/vm"
-	"github.com/CoderZhi/go-ethereum/params"
+	"github.com/iotexproject/go-ethereum/common"
+	"github.com/iotexproject/go-ethereum/core/vm"
+	"github.com/iotexproject/go-ethereum/params"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"

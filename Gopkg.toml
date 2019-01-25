@@ -1,15 +1,10 @@
 [[constraint]]
   name = "github.com/mattn/go-sqlite3"
-  version = "^1.9.0"
+  version = "~1.10.0"
 
 [[constraint]]
   name = "github.com/go-sql-driver/mysql"
-  version = "^1.4.0"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/CoderZhi/go-ethereum"
-
+  version = "~1.4.0"
 [[constraint]]
   name = "go.etcd.io/bbolt"
   version = "^v1.3.1-etcd.8"
@@ -20,23 +15,40 @@
 
 [[constraint]]
   name = "github.com/golang/mock"
-  version = "^1.0.0"
+  version = "~1.2.0"
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  version = "^1.2.0"
+  version = "~1.2.0"
 
 [[constraint]]
   name = "github.com/pkg/errors"
-  version = "^0.8.0"
+  version = "~0.8.0"
 
 [[constraint]]
   name = "github.com/stretchr/testify"
-  version = "^1.2.0"
+  version = "~1.3.0"
 
 [[constraint]]
   name = "gopkg.in/yaml.v2"
-  version = "^2.1.1"
+  version = "~2.2.0"
+
+[[constraint]]
+  name = "go.uber.org/config"
+  version = "~1.3.0"
+
+[[constraint]]
+  name = "go.uber.org/zap"
+  version = "~1.9.0"
+
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  version = "~0.9.0"
+
+[[constraint]]
+  name = "github.com/iotexproject/go-ethereum"
+  revision = "ccc12f4fab5e9a9038675904481734570e05f95d"
+
 
 [[constraint]]
   name = "github.com/iotexproject/go-fsm"
@@ -46,21 +58,10 @@
   name = "github.com/iotexproject/go-p2p"
   revision = "b70295aa41a56729b5eff2bb0e333fcbadad1fe1"
 
-[[constraint]]
-  name = "go.uber.org/config"
-  version = "1.2.2"
-
 [prune]
   go-tests = true
   unused-packages = true
 
   [[prune.project]]
-      name = "github.com/CoderZhi/go-ethereum"
+      name = "github.com/iotexproject/go-ethereum"
       unused-packages = false
-[[constraint]]
-  name = "github.com/prometheus/client_golang"
-  version = "0.9.1"
-
-[[constraint]]
-  name = "go.uber.org/zap"
-  version = "1.9.1"
