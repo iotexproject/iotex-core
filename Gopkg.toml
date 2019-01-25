@@ -65,3 +65,7 @@
   [[prune.project]]
       name = "github.com/iotexproject/go-ethereum"
       unused-packages = false
+
+[[constraint]]
+  name = "github.com/cenkalti/backoff"
+  version = "2.1.1"
