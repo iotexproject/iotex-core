@@ -18,9 +18,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -112,6 +112,7 @@ var (
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
+		Election: Election{},
 		BlockSync: BlockSync{
 			Interval:   10 * time.Second,
 			BufferSize: 16,
@@ -209,6 +210,15 @@ type (
 		Scheme                string        `yaml:"scheme"`
 		RollDPoS              RollDPoS      `yaml:"rollDPoS"`
 		BlockCreationInterval time.Duration `yaml:"blockCreationInterval"`
+	}
+
+	// Election is the config struct for election package
+	Election struct {
+		DB                     DB     `yaml:"db"`
+		EthRawURL              string `yaml:"ethRawURL"`
+		StakingContractAddress string `yaml:"stakingContractAddress"`
+		EthHeightInterval      uint64 `yaml:"ethHeightInterval"`
+		EthHeightOffset        uint64 `yaml:"ethHeightOffset"`
 	}
 
 	// BlockSync is the config struct for the BlockSync
@@ -322,6 +332,7 @@ type (
 		Network    Network          `yaml:"network"`
 		Chain      Chain            `yaml:"chain"`
 		ActPool    ActPool          `yaml:"actPool"`
+		Election   Election         `yaml:"election"`
 		Consensus  Consensus        `yaml:"consensus"`
 		BlockSync  BlockSync        `yaml:"blockSync"`
 		Dispatcher Dispatcher       `yaml:"dispatcher"`
