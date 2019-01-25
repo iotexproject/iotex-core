@@ -16,7 +16,6 @@ type Footer struct {
 	// endorsements contain COMMIT endorsements from more than 2/3 delegates
 	endorsements    *endorsement.Set
 	commitTimestamp int64
-	round           uint32
 }
 
 // ConvertToBlockFooterPb converts BlockFooterPb
@@ -26,14 +25,12 @@ func (f *Footer) ConvertToBlockFooterPb() *iproto.BlockFooterPb {
 	if f.endorsements != nil {
 		pb.Endorsements = f.endorsements.ToProto()
 	}
-	pb.Round = f.round
 
 	return &pb
 }
 
 // ConvertFromBlockFooterPb converts BlockFooterPb to BlockFooter
 func (f *Footer) ConvertFromBlockFooterPb(pb *iproto.BlockFooterPb) error {
-	f.round = pb.GetRound()
 	f.commitTimestamp = pb.GetCommitTimestamp()
 	pbEndorsements := pb.GetEndorsements()
 	if pbEndorsements == nil {
@@ -58,13 +55,4 @@ func (f *Footer) NumOfDelegateEndorsements(delegates []string) int {
 		map[endorsement.ConsensusVoteTopic]bool{endorsement.COMMIT: true},
 		delegates,
 	)
-}
-
-// Round returns the round the consensus was reached
-func (f *Footer) Round() uint32 {
-	if f.endorsements == nil {
-		return 0
-	}
-
-	return f.endorsements.Round()
 }

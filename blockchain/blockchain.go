@@ -120,6 +120,7 @@ type Blockchain interface {
 		producerPubKey keypair.PublicKey,
 		producerPriKey keypair.PrivateKey,
 		producerAddr string,
+		timestamp int64,
 	) (*block.Block, error)
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *block.Block) error
@@ -664,6 +665,7 @@ func (bc *blockchain) MintNewBlock(
 	producerPubKey keypair.PublicKey,
 	producerPriKey keypair.PrivateKey,
 	producerAddr string,
+	timestamp int64,
 ) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
@@ -706,7 +708,7 @@ func (bc *blockchain) MintNewBlock(
 
 	ra := block.NewRunnableActionsBuilder().
 		SetHeight(bc.tipHeight+1).
-		SetTimeStamp(bc.now()).
+		SetTimeStamp(timestamp).
 		AddActions(actions...).
 		Build(producerAddr, producerPubKey)
 

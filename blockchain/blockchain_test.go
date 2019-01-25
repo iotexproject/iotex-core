@@ -62,6 +62,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -118,6 +119,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -158,6 +160,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -196,6 +199,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -251,6 +255,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -364,6 +369,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			ta.Keyinfo["producer"].PubKey,
 			ta.Keyinfo["producer"].PriKey,
 			ta.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		if v {
 			require.NoError(t, err)
@@ -926,6 +932,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 		ta.Keyinfo["alfa"].PubKey,
 		ta.Keyinfo["alfa"].PriKey,
 		ta.Addrinfo["alfa"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].Bech32())
@@ -1023,6 +1030,7 @@ func TestBlocks(t *testing.T) {
 			ta.Keyinfo["producer"].PubKey,
 			ta.Keyinfo["producer"].PriKey,
 			ta.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.Nil(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -1091,6 +1099,7 @@ func TestActions(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(val.Validate(blk, 0, blk.PrevHash(), true))
 }
