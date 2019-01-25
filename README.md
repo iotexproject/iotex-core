@@ -41,7 +41,7 @@ Build the project by
 
 
 If you need to update the dependency, install Go dependency management tool from
-[golang dep](https://github.com/golang/dep). The run
+[golang dep](https://github.com/golang/dep). Then, run
 
 ```dep ensure --vendor-only```
 
