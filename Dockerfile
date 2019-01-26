@@ -6,20 +6,12 @@ RUN apt-get install -y --no-install-recommends make
 
 COPY . .
 
-ARG SKIP_DEP=false
-
-RUN if [ "$SKIP_DEP" != true ] ; \
-    then \
-	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh && \
-        dep ensure --vendor-only; \
-    fi
-
-RUN mkdir -p $GOPATH/src/github.com/CoderZhi/go-ethereum/ && \
-    mkdir -p $GOPATH/pkg/linux_amd64/github.com/CoderZhi/ && \
-    rm -rf ./vendor/github.com/CoderZhi/go-ethereum/ && \
+RUN mkdir -p $GOPATH/src/github.com/iotexproject/go-ethereum/ && \
+    mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
+    rm -rf ./vendor/github.com/iotexproject/go-ethereum/ && \
     tar -xzvf ./pkg/go-ethereum.tar.gz -C ./pkg && \
-    cp -r ./pkg/go-ethereum/binary_linux/* $GOPATH/pkg/linux_amd64/github.com/CoderZhi/ && \
-    cp -r ./pkg/go-ethereum/go-ethereum/* $GOPATH/src/github.com/CoderZhi/go-ethereum/ && \
+    cp -r ./pkg/go-ethereum/binary_linux/* $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
+    cp -r ./pkg/go-ethereum/go-ethereum/* $GOPATH/src/github.com/iotexproject/go-ethereum/ && \
     rm -rf ./pkg/go-ethereum/ && \
     make clean build && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/server /usr/local/bin/iotex-server  && \

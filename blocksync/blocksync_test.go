@@ -264,8 +264,13 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	}()
 
 	h := chain.TipHeight()
-	blk, err := chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk, err := chain.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.NotNil(blk)
 	require.NoError(err)
 	bs.(*blockSyncer).ackBlockCommit = false
@@ -330,18 +335,33 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk1, err := chain1.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.NotNil(blk1)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk1))
-	blk2, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk2, err := chain1.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.NotNil(blk2)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk2))
-	blk3, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk3, err := chain1.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.NotNil(blk3)
 	require.Nil(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk3))
@@ -400,18 +420,33 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk1, err := chain1.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk1))
-	blk2, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk2, err := chain1.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk2))
-	blk3, err := chain1.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk3, err := chain1.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.Nil(bs1.ProcessBlock(ctx, blk3))
@@ -458,14 +493,24 @@ func TestBlockSyncerSync(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	blk, err := chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk, err := chain.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.NotNil(blk)
 	require.NoError(err)
 	require.Nil(bs.ProcessBlock(ctx, blk))
 
-	blk, err = chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk, err = chain.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.NotNil(blk)
 	require.NoError(err)
 	require.Nil(bs.ProcessBlock(ctx, blk))

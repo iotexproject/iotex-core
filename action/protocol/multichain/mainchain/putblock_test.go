@@ -42,6 +42,7 @@ func TestHandlePutBlock(t *testing.T) {
 
 	addr := testaddress.Addrinfo["producer"]
 	addr2 := testaddress.Addrinfo["echo"]
+	key2 := testaddress.Keyinfo["echo"]
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
@@ -84,13 +85,20 @@ func TestHandlePutBlock(t *testing.T) {
 		big.NewInt(10004),
 	)
 
+	bd := action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).
+		SetDestinationAddress(addr.Bech32()).
+		SetGasLimit(10003).
+		SetAction(pb).Build()
+	selp, err := action.Sign(elp, addr2.Bech32(), key2.PriKey)
+
 	// first put
-	_, err = p.Handle(ctx, pb, ws)
+	_, err = p.Handle(ctx, selp.Action(), ws)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
 	// alredy exist
-	_, err = p.Handle(ctx, pb, ws)
+	_, err = p.Handle(ctx, selp.Action(), ws)
 	require.Error(t, err)
 
 	// get exist
@@ -112,7 +120,14 @@ func TestHandlePutBlock(t *testing.T) {
 		10003,
 		big.NewInt(10004),
 	)
-	_, err = p.Handle(ctx, pb2, ws)
+
+	elp = bd.SetNonce(1).
+		SetDestinationAddress(addr.Bech32()).
+		SetGasLimit(10003).
+		SetAction(pb2).Build()
+	selp, err = action.Sign(elp, addr2.Bech32(), key2.PriKey)
+
+	_, err = p.Handle(ctx, elp.Action(), ws)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 

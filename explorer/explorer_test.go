@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/jsonpb"
@@ -74,6 +75,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return err
@@ -120,6 +122,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	); err != nil {
 		return err
 	}
@@ -136,6 +139,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	); err != nil {
 		return err
 	}
@@ -174,6 +178,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	); err != nil {
 		return err
 	}
@@ -227,8 +232,6 @@ func TestExplorerApi(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
-	require.Nil(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// create chain
 	ctx := context.Background()
@@ -244,6 +247,11 @@ func TestExplorerApi(t *testing.T) {
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
 
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
@@ -921,19 +929,17 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
-	require.Nil(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// create chain
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(ctx))
-
-	sf.AddActionHandlers(execution.NewProtocol(bc))
-
 	defer func() {
 		require.NoError(bc.Stop(ctx))
 	}()
+
+	sf.AddActionHandlers(execution.NewProtocol(bc))
+	require.NoError(addCreatorToFactory(sf))
 
 	svc := Service{
 		bc: bc,
@@ -957,7 +963,9 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
+
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
@@ -1119,7 +1127,8 @@ func TestService_GetDeposits(t *testing.T) {
 	require.NoError(ws.PutState(
 		byteutil.BytesTo20B(subChainAddr.Payload()),
 		&mainchain.SubChain{
-			DepositCount: 2,
+			DepositCount:   2,
+			OwnerPublicKey: ta.Keyinfo["producer"].PubKey,
 		},
 	))
 	depositAddr1 := ta.Addrinfo["alfa"]

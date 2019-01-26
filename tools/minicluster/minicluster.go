@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -76,6 +75,7 @@ func main() {
 			networkPort, explorerPort)
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
+			config.Network.MasterKey = "bootnode"
 		}
 		configs[i] = config
 	}
@@ -219,7 +219,7 @@ func newConfig(
 	cfg.NodeType = config.DelegateType
 
 	cfg.Network.Port = networkPort
-	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWHvPz67ohcSczMF43QqXVtDoTtLmy8qCbbpccM3gYVKNi"}
+	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
 	cfg.Chain.GenesisActionsPath = genesisConfigPath
@@ -229,7 +229,7 @@ func newConfig(
 	cfg.Chain.EnableIndex = true
 	cfg.Chain.EnableAsyncIndexWrite = true
 
-	producerPubKey, _ := crypto.EC283.NewPubKey(producerPriKey)
+	producerPubKey := &producerPriKey.PublicKey
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(producerPubKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(producerPriKey)
 
@@ -241,6 +241,7 @@ func newConfig(
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
+	cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
 	cfg.Consensus.RollDPoS.NumSubEpochs = 2
 	cfg.Consensus.RollDPoS.NumDelegates = numNodes

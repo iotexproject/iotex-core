@@ -13,12 +13,12 @@ import (
 	"math/big"
 	"strings"
 
-	ethereum "github.com/CoderZhi/go-ethereum"
-	"github.com/CoderZhi/go-ethereum/accounts/abi"
-	"github.com/CoderZhi/go-ethereum/accounts/abi/bind"
-	"github.com/CoderZhi/go-ethereum/common"
-	"github.com/CoderZhi/go-ethereum/core/types"
-	"github.com/CoderZhi/go-ethereum/event"
+	ethereum "github.com/iotexproject/go-ethereum"
+	"github.com/iotexproject/go-ethereum/accounts/abi"
+	"github.com/iotexproject/go-ethereum/accounts/abi/bind"
+	"github.com/iotexproject/go-ethereum/common"
+	"github.com/iotexproject/go-ethereum/core/types"
+	"github.com/iotexproject/go-ethereum/event"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

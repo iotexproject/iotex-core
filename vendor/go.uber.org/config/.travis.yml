@@ -1,0 +1,15 @@
+language: go
+sudo: false
+go_import_path: go.uber.org/config
+go:
+  - 1.9.x
+  - 1.10.x
+matrix:
+  # Necessary until we only support Go 1.10 and above.
+  include:
+  - go: 1.10.x
+    env: COVER=true
+install:
+  - make install
+script:
+  - make ci

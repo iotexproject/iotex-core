@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -29,10 +29,10 @@ import (
 const (
 	// Make sure the key pairs used here match the genesis block
 	// Sender's public/private key pair
-	fromPubKey  = "2726440bc26449be22eb5c0564af4b23dc8c373aa79e8cb0f8df2a9e55b4842dbefcde07d95c1dc1f3d1a367086b4f7742115b53c434e8f5abf116333c2c378c51b0ef6176153602"
-	fromPrivKey = "c5364b1a2d99d127439be22edfd657889981e9ba4d6d18fe8eca489d48485371efcb2400"
+	fromPubKey  = "046fd639e777d7ebc441a2f594994f99b3cce0e7c9bc47aa2c71b50b14c561efbc8762b915608fc97b79ba81aa555ef2b5b275c5cc0405873039d67749ffce3476"
+	fromPrivKey = "bb8f0b63179590f1f47c9613b00819d8869591ccdf654c363f5825ac3d05d45f"
 	// Recipient's public key
-	toPubKey = "2ba2e72613783656b92af930719d2a13874bcb4999b7a0ae11a5beb469357da441f41303dc1ad5a4e6c0cdde85ceb11516bbcaca68bb82168255de60e3a216f00c18c1285a3d4402"
+	toPubKey = "0415efbeb0cabe6e920afdff0558e34be9f17f3ef3a70bb60d5eb6c00f517c2f870da979eed4e60deeb627d6335544aa514b25f0225063f4094cedc0ef0b49a316"
 )
 
 func TestLocalActPool(t *testing.T) {
@@ -213,11 +213,11 @@ func newActPoolConfig() (config.Config, error) {
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 
-	pk, sk, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&sk.PublicKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	return cfg, nil
 }

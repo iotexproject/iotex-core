@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -190,6 +190,7 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -208,6 +209,7 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
@@ -236,6 +238,7 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
@@ -264,6 +267,7 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
@@ -605,10 +609,10 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
 	blk1, err := chain.MintNewBlock(
-		actionMap,
-		ta.Keyinfo["producer"].PubKey,
+		actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1, true))
@@ -638,6 +642,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2, true))
@@ -690,6 +695,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3, true))
@@ -744,6 +750,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4, true))
@@ -835,11 +842,11 @@ func newTestConfig() (config.Config, error) {
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 
-	pk, sk, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&sk.PublicKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	return cfg, nil
 }

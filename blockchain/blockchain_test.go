@@ -46,7 +46,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		big.NewInt(10),
 	)
 	pubk, _ := keypair.DecodePublicKey(Gen.CreatorPubKey)
-	sig, _ := hex.DecodeString("3584fe777dd090e1a7a825896f532485ea2cc35d7c300c6c56f0e2e78b51c6ded33f7d0069f4f6f6b6762306466fcff6f261bb30d9e1550f2f8be4f988e740903fd734209cb60101")
+	sig, _ := hex.DecodeString("9c1fb14affb398f850d0642f22f12433526bed742fbfb39115f9df2549b2751347bafe9ddbe50e6f02906bdc83b7c905944adc19583726dfaea83245318132ff01")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
 		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
@@ -62,6 +62,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -113,11 +114,13 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	}
 	accMap := make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+
 	blk, err = bc.MintNewBlock(
 		accMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -158,6 +161,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -196,7 +200,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
+
 	if err != nil {
 		return err
 	}
@@ -251,6 +257,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
@@ -333,7 +340,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 
 	pk, _ := keypair.DecodePublicKey(Gen.CreatorPubKey)
 	// The signature should only matches the transfer amount 3000000000
-	sig, err := hex.DecodeString("a270828edf414f652564495ffdb3ed4799ae949cd8f0b8c108f36aff5e2ef0ee03c81f0161ef59c64a4590517d7cecabcec1b43b170fd70b1187f95a57975135951d867fd8c14901")
+	sig, err := hex.DecodeString("9c1fb14affb398f850d0642f22f12433526bed742fbfb39115f9df2549b2751347bafe9ddbe50e6f02906bdc83b7c905944adc19583726dfaea83245318132ff01")
 	require.NoError(t, err)
 
 	cases := make(map[int64]bool)
@@ -364,6 +371,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			ta.Keyinfo["producer"].PubKey,
 			ta.Keyinfo["producer"].PriKey,
 			ta.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		if v {
 			require.NoError(t, err)
@@ -410,8 +418,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol())
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -419,7 +425,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	sf.AddActionHandlers(vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
-	require.NotNil(bc)
+	require.NoError(addCreatorToFactory(sf))
 
 	ms := &MockSubscriber{counter: 0}
 	err = bc.AddSubscriber(ms)
@@ -434,15 +440,17 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Equal(27, ms.Counter())
 
 	// Load a blockchain from DB
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.Nil(err)
+	sf.AddActionHandlers(account.NewProtocol())
+
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
 	defer func() {
-		err := bc.Stop(ctx)
-		require.NoError(err)
+		require.NoError(bc.Stop(ctx))
 	}()
-	require.NotNil(bc)
 
 	// check hash<-->height mapping
 	blkhash, err := bc.GetHashByHeight(0)
@@ -652,15 +660,14 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol())
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	sf.AddActionHandlers(vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
-	require.NotNil(bc)
+
+	require.NoError(addCreatorToFactory(sf))
 
 	ms := &MockSubscriber{counter: 0}
 	err = bc.AddSubscriber(ms)
@@ -677,6 +684,10 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Equal(0, ms.counter)
 
 	// Load a blockchain from DB
+	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.Nil(err)
+	sf.AddActionHandlers(account.NewProtocol())
+
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
@@ -874,10 +885,11 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
-	require.NoError(sf.Start(context.Background()))
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
-	require.NotNil(bc)
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
 	// TODO: change the value when Candidates size is changed
 	height, err := sf.Height()
 	require.NoError(err)
@@ -902,14 +914,17 @@ func TestCoinbaseTransfer(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	sf.AddActionHandlers(account.NewProtocol())
 	require.Nil(err)
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
-	require.NotNil(bc)
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
+
 	height := bc.TipHeight()
 	require.Equal(0, int(height))
 
@@ -919,6 +934,7 @@ func TestCoinbaseTransfer(t *testing.T) {
 		ta.Keyinfo["alfa"].PubKey,
 		ta.Keyinfo["alfa"].PriKey,
 		ta.Addrinfo["alfa"].Bech32(),
+		0,
 	)
 	require.Nil(err)
 	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].Bech32())
@@ -971,12 +987,16 @@ func TestBlocks(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
+
 	a := ta.Addrinfo["alfa"].Bech32()
 	priKeyA := ta.Keyinfo["alfa"].PriKey
 	c := ta.Addrinfo["bravo"].Bech32()
@@ -1012,6 +1032,7 @@ func TestBlocks(t *testing.T) {
 			ta.Keyinfo["producer"].PubKey,
 			ta.Keyinfo["producer"].PriKey,
 			ta.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.Nil(bc.ValidateBlock(blk, true))
 		require.Nil(bc.CommitBlock(blk))
@@ -1033,12 +1054,15 @@ func TestActions(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
+	defer func() {
+		require.NoError(bc.Stop(context.Background()))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
 	a := ta.Addrinfo["alfa"].Bech32()
 	priKeyA := ta.Keyinfo["alfa"].PriKey
 	c := ta.Addrinfo["bravo"].Bech32()
@@ -1077,6 +1101,7 @@ func TestActions(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(val.Validate(blk, 0, blk.PrevHash(), true))
 }
@@ -1096,8 +1121,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	require.NoError(sf.Start(context.Background()))
-	sf.AddActionHandlers(account.NewProtocol())
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -1106,6 +1129,11 @@ func TestStartExistingBlockchain(t *testing.T) {
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	sf.AddActionHandlers(vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	sf.AddActionHandlers(account.NewProtocol())
 
 	defer func() {
 		require.NoError(sf.Stop(ctx))

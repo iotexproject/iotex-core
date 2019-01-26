@@ -287,7 +287,7 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 		// Load Candidates on the given height from underlying db
 		candidatesKey := candidatesutil.ConstructKey(uint64(h))
 		var err error
-		if err = sf.State(candidatesKey, &candidates); err == nil {
+		if err = sf.state(candidatesKey, &candidates); err == nil {
 			break
 		}
 		if errors.Cause(err) != state.ErrStateNotExist {

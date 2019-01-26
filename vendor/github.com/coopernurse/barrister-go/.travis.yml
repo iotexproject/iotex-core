@@ -1,0 +1,7 @@
+language: go
+go:
+  - 1.9.2
+install:
+  - go get github.com/couchbaselabs/go.assert
+  - go get github.com/coopernurse/retina
+script: ./test.sh

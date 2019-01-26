@@ -26,9 +26,6 @@ type boltDB struct {
 
 // Start opens the BoltDB (creates new file if not existing yet)
 func (b *boltDB) Start(_ context.Context) error {
-	if b.db != nil {
-		return nil
-	}
 	db, err := bolt.Open(b.path, fileMode, nil)
 	if err != nil {
 		return errors.Wrap(ErrIO, err.Error())
@@ -44,7 +41,6 @@ func (b *boltDB) Stop(_ context.Context) error {
 			return errors.Wrap(ErrIO, err.Error())
 		}
 	}
-	b.db = nil
 	return nil
 }
 
@@ -76,9 +72,13 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 		if bucket == nil {
 			return errors.Wrapf(ErrNotExist, "bucket = %s doesn't exist", namespace)
 		}
-		if value = bucket.Get(key); value == nil {
+		v := bucket.Get(key)
+		if v == nil {
 			return errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
 		}
+		value = make([]byte, len(v))
+		// TODO: this is not an efficient way of passing the data
+		copy(value, v)
 		return nil
 	})
 	if err == nil {

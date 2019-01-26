@@ -49,15 +49,15 @@ mockgen -destination=./test/mock/mock_consensus/mock_consensus.go  \
         -package=mock_consensus \
         Consensus
 
-mockgen -destination=./consensus/fsm/mock_context_test.go  \
-        -source=./consensus/fsm/context.go \
-	-self_package=github.com/iotexproject/iotex-core/consensus/fsm \
+mockgen -destination=./consensus/consensusfsm/mock_context_test.go  \
+        -source=./consensus/consensusfsm/context.go \
+	-self_package=github.com/iotexproject/iotex-core/consensus/consensusfsm \
 	-package=consensusfsm \
         Context
 
-mockgen -destination=./consensus/fsm/mock_endorsement_test.go  \
-        -source=./consensus/fsm/endorsement.go \
-	-self_package=github.com/iotexproject/iotex-core/consensus/fsm \
+mockgen -destination=./consensus/consensusfsm/mock_endorsement_test.go  \
+        -source=./consensus/consensusfsm/endorsement.go \
+	-self_package=github.com/iotexproject/iotex-core/consensus/consensusfsm \
 	-package=consensusfsm \
         Endorsement
 
