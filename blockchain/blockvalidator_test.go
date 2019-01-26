@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -24,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
+	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -444,15 +445,10 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	require.NoError(t, chain.Start(ctx))
 	defer require.NoError(t, chain.Stop(ctx))
 
-	pk, err := keypair.DecodePublicKey(
-		"1d1727028b1e9dac0cafa693edd8496297f5c3281924ec578c0526e7340f7180bfa5af059084c8b90954bf2802a0060e145bece9580f9021352eb112340186e68dc9bea4f7711707")
-	require.NoError(t, err)
-	sk, err := keypair.DecodePrivateKey(
-		"29cf385adfc5b1a84bd7e778ea2c056b85c977771005d545e54100266e224fc276ed7101")
-	require.NoError(t, err)
-	pkHash := keypair.HashPubKey(pk)
-	addr := address.New(pkHash[:])
-	blk, err := chain.MintNewBlock(nil, pk, sk, addr.Bech32(), 0)
+	addr := ta.Addrinfo["producer"].Bech32()
+	sk := ta.Keyinfo["producer"].PriKey
+	pk := ta.Keyinfo["producer"].PubKey
+	blk, err := chain.MintNewBlock(nil, pk, sk, addr, 0)
 	require.NoError(t, err)
 	validator := validator{}
 	require.NoError(t, validator.ValidateActionsOnly(
@@ -481,9 +477,9 @@ func TestValidateSecretBlock(t *testing.T) {
 	idList := make([][]uint8, 0)
 	delegates := []string{ta.Addrinfo["producer"].Bech32()}
 	for i := 0; i < 20; i++ {
-		pk, _, err := crypto.EC283.NewKeyPair()
+		sk, err := crypto.GenerateKey()
 		require.NoError(err)
-		pkHash := keypair.HashPubKey(pk)
+		pkHash := keypair.HashPubKey(&sk.PublicKey)
 		addr := address.New(pkHash[:])
 		delegates = append(delegates, addr.Bech32())
 	}
@@ -491,8 +487,8 @@ func TestValidateSecretBlock(t *testing.T) {
 	for _, delegate := range delegates {
 		idList = append(idList, address.Bech32ToID(delegate))
 	}
-	producerSK := crypto.DKG.SkGeneration()
-	_, shares, witness, err := crypto.DKG.Init(producerSK, idList)
+	producerSK := cp.DKG.SkGeneration()
+	_, shares, witness, err := cp.DKG.Init(producerSK, idList)
 	require.NoError(err)
 
 	secretProposals := make([]*action.SecretProposal, 0)

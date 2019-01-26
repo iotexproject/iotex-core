@@ -882,7 +882,11 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		ws      factory.WorkingSet
 		err     error
 	)
-	addr := address.New(keypair.ZeroPublicKey[:])
+	pk, sk, addr, err := bc.genesisProducer()
+	if err != nil {
+		return errors.Wrap(err, "failed to get the key and address of producer")
+	}
+
 	if bc.sf == nil {
 		return errors.New("statefactory cannot be nil")
 	}
@@ -895,7 +899,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
 			AddActions(acts...).
-			Build(addr.Bech32(), keypair.ZeroPublicKey)
+			Build(addr, pk)
 		// run execution and update state trie root hash
 		root, receipts, err := bc.runActions(racts, ws, false)
 		if err != nil {
@@ -908,7 +912,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetReceipts(receipts).
 			SetStateRoot(root).
 			SetDeltaStateDigest(ws.Digest()).
-			SignAndBuild(keypair.ZeroPublicKey, keypair.ZeroPrivateKey)
+			SignAndBuild(pk, sk)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -916,11 +920,11 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
-			Build(addr.Bech32(), keypair.ZeroPublicKey)
+			Build(addr, pk)
 		genesis, err = block.NewBuilder(racts).
 			SetChainID(bc.ChainID()).
 			SetPrevBlockHash(hash.ZeroHash32B).
-			SignAndBuild(keypair.ZeroPublicKey, keypair.ZeroPrivateKey)
+			SignAndBuild(pk, sk)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -950,13 +954,16 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	}
 	// If restarting factory from fresh db, first update state changes in Genesis block
 	if startHeight == 0 {
-		addr := address.New(keypair.ZeroPublicKey[:])
+		pk, _, addr, err := bc.genesisProducer()
+		if err != nil {
+			return errors.Wrap(err, "failed to get the key and address of producer")
+		}
 		acts := NewGenesisActions(bc.config.Chain, ws)
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
 			AddActions(acts...).
-			Build(addr.Bech32(), keypair.ZeroPublicKey)
+			Build(addr, pk)
 		// run execution and update state trie root hash
 		if _, _, err := bc.runActions(racts, ws, false); err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
@@ -1121,3 +1128,15 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
 
 func (bc *blockchain) GetDB() db.KVStore { return bc.dao.kvstore }
+
+func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, string, error) {
+	pk, err := keypair.DecodePublicKey(genesisProducerPublicKey)
+	if err != nil {
+		return nil, nil, "", errors.Wrap(err, "failed to decode public key")
+	}
+	sk, err := keypair.DecodePrivateKey(genesisProducerPrivateKey)
+	if err != nil {
+		return nil, nil, "", errors.Wrap(err, "failed to decode private key")
+	}
+	return pk, sk, bc.config.Chain.Address, nil
+}

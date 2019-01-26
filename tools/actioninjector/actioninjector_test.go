@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -76,7 +76,7 @@ func TestActionInjector(t *testing.T) {
 	transferPayload := ""
 	voteGasLimit := 1000000
 	voteGasPrice := 10
-	contract := "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6"
+	contract := "io1qy8w2uj6qmvfgcy6dgrv24qc5qp26dfp5vx427vk"
 	executionAmount := 0
 	executionGasLimit := 1200000
 	executionGasPrice := 10
@@ -121,11 +121,11 @@ func newConfig() (config.Config, error) {
 	cfg.Chain.EnableIndex = true
 	cfg.Explorer.Enabled = true
 
-	pk, sk, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&sk.PublicKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	cfg.Network.Port = 0
 	cfg.Explorer.Port = 0

@@ -17,6 +17,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
+	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -61,18 +62,14 @@ var testAddrs = []*addrKeyPair{
 }
 
 func newTestAddr() *addrKeyPair {
-	pk, sk, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	if err != nil {
-		log.L().Panic("error when creating test IoTeX address", zap.Error(err))
+		log.L().Panic("Error when creating private key.", zap.Error(err))
 	}
+	pk := &sk.PublicKey
 	pkHash := keypair.HashPubKey(pk)
 	addr := address.New(pkHash[:])
-
-	return &addrKeyPair{
-		pubKey:      pk,
-		priKey:      sk,
-		encodedAddr: addr.Bech32(),
-	}
+	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.Bech32()}
 }
 
 func test21Addrs() []*addrKeyPair {
@@ -225,7 +222,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
 
-	crypto.SortCandidates(candidates, m.LatestEpoch, crypto.CryptoSeed)
+	cp.SortCandidates(candidates, m.LatestEpoch, cp.CryptoSeed)
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
 }
@@ -324,7 +321,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainRawAddrs = append(chainRawAddrs, addr.encodedAddr)
 			addressMap[addr.encodedAddr] = addr
 		}
-		crypto.SortCandidates(chainRawAddrs, 1, crypto.CryptoSeed)
+		cp.SortCandidates(chainRawAddrs, 1, cp.CryptoSeed)
 		for i, rawAddress := range chainRawAddrs {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
@@ -377,7 +374,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 			consensus, err := NewRollDPoSBuilder().
 				SetAddr(chainAddrs[i].encodedAddr).
-				SetPubKey(chainAddrs[i].pubKey).
+				SetPubKey(&chainAddrs[i].priKey.PublicKey).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(cfg.Consensus.RollDPoS).
 				SetBlockchain(chain).

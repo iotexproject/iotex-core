@@ -34,7 +34,7 @@ type ec283 struct {
 }
 
 // NewKeyPair generates a new public/private key pair
-func (c *ec283) NewKeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
+func (c *ec283) NewKeyPair() (keypair.EC283PublicKey, keypair.EC283PrivateKey, error) {
 	var kp C.ec283_key_pair
 	C.keypair_generation(&kp)
 	pubKey := kp.Q
@@ -52,7 +52,7 @@ func (c *ec283) NewKeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 }
 
 // NewPubKey generates a new public key
-func (c *ec283) NewPubKey(priv keypair.PrivateKey) (keypair.PublicKey, error) {
+func (c *ec283) NewPubKey(priv keypair.EC283PrivateKey) (keypair.EC283PublicKey, error) {
 	var pubKey C.ec283_point_lambda_aff
 	privKey, err := c.privateKeyDeserialization(priv)
 	if err != nil {
@@ -69,7 +69,7 @@ func (c *ec283) NewPubKey(priv keypair.PrivateKey) (keypair.PublicKey, error) {
 }
 
 // Sign signs the msg
-func (c *ec283) Sign(priv keypair.PrivateKey, msg []byte) []byte {
+func (c *ec283) Sign(priv keypair.EC283PrivateKey, msg []byte) []byte {
 	msgString := string(msg[:])
 	privKey, err := c.privateKeyDeserialization(priv)
 	if err != nil {
@@ -85,7 +85,7 @@ func (c *ec283) Sign(priv keypair.PrivateKey, msg []byte) []byte {
 }
 
 // Verify verifies the signature
-func (c *ec283) Verify(pub keypair.PublicKey, msg []byte, sig []byte) bool {
+func (c *ec283) Verify(pub keypair.EC283PublicKey, msg []byte, sig []byte) bool {
 	msgString := string(msg[:])
 	pubKey, err := c.publicKeyDeserialization(pub)
 	if err != nil {
@@ -98,7 +98,7 @@ func (c *ec283) Verify(pub keypair.PublicKey, msg []byte, sig []byte) bool {
 	return C.ECDSA_verify(&pubKey, (*C.uint8_t)(&msg[0]), (C.uint64_t)(len(msgString)), &signature) == 1
 }
 
-func (*ec283) publicKeySerialization(pubKey C.ec283_point_lambda_aff) (keypair.PublicKey, error) {
+func (*ec283) publicKeySerialization(pubKey C.ec283_point_lambda_aff) (keypair.EC283PublicKey, error) {
 	var xl [18]uint32
 	for i := 0; i < 9; i++ {
 		xl[i] = (uint32)(pubKey.x[i])
@@ -109,10 +109,10 @@ func (*ec283) publicKeySerialization(pubKey C.ec283_point_lambda_aff) (keypair.P
 	if err != nil {
 		return keypair.ZeroPublicKey, err
 	}
-	return keypair.BytesToPublicKey(buf.Bytes())
+	return keypair.BytesToEC283PublicKey(buf.Bytes())
 }
 
-func (*ec283) publicKeyDeserialization(pubKey keypair.PublicKey) (C.ec283_point_lambda_aff, error) {
+func (*ec283) publicKeyDeserialization(pubKey keypair.EC283PublicKey) (C.ec283_point_lambda_aff, error) {
 	var xl [18]uint32
 	var pub C.ec283_point_lambda_aff
 	rbuf := bytes.NewReader(pubKey[:])
@@ -127,7 +127,7 @@ func (*ec283) publicKeyDeserialization(pubKey keypair.PublicKey) (C.ec283_point_
 	return pub, nil
 }
 
-func (*ec283) privateKeySerialization(privKey [9]C.uint32_t) (keypair.PrivateKey, error) {
+func (*ec283) privateKeySerialization(privKey [9]C.uint32_t) (keypair.EC283PrivateKey, error) {
 	var d [9]uint32
 	for i := 0; i < 9; i++ {
 		d[i] = (uint32)(privKey[i])
@@ -137,10 +137,10 @@ func (*ec283) privateKeySerialization(privKey [9]C.uint32_t) (keypair.PrivateKey
 	if err != nil {
 		return keypair.ZeroPrivateKey, err
 	}
-	return keypair.BytesToPrivateKey(buf.Bytes())
+	return keypair.BytesToEC283PrivateKey(buf.Bytes())
 }
 
-func (*ec283) privateKeyDeserialization(privKey keypair.PrivateKey) ([9]C.uint32_t, error) {
+func (*ec283) privateKeyDeserialization(privKey keypair.EC283PrivateKey) ([9]C.uint32_t, error) {
 	var d [9]uint32
 	var priv [9]C.uint32_t
 	rbuf := bytes.NewReader(privKey[:])

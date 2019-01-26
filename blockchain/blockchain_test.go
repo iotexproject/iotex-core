@@ -46,7 +46,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		big.NewInt(10),
 	)
 	pubk, _ := keypair.DecodePublicKey(Gen.CreatorPubKey)
-	sig, _ := hex.DecodeString("3584fe777dd090e1a7a825896f532485ea2cc35d7c300c6c56f0e2e78b51c6ded33f7d0069f4f6f6b6762306466fcff6f261bb30d9e1550f2f8be4f988e740903fd734209cb60101")
+	sig, _ := hex.DecodeString("9c1fb14affb398f850d0642f22f12433526bed742fbfb39115f9df2549b2751347bafe9ddbe50e6f02906bdc83b7c905944adc19583726dfaea83245318132ff01")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
 		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
@@ -114,6 +114,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	}
 	accMap := make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+
 	blk, err = bc.MintNewBlock(
 		accMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -201,6 +202,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
+
 	if err != nil {
 		return err
 	}
@@ -338,7 +340,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 
 	pk, _ := keypair.DecodePublicKey(Gen.CreatorPubKey)
 	// The signature should only matches the transfer amount 3000000000
-	sig, err := hex.DecodeString("a270828edf414f652564495ffdb3ed4799ae949cd8f0b8c108f36aff5e2ef0ee03c81f0161ef59c64a4590517d7cecabcec1b43b170fd70b1187f95a57975135951d867fd8c14901")
+	sig, err := hex.DecodeString("9c1fb14affb398f850d0642f22f12433526bed742fbfb39115f9df2549b2751347bafe9ddbe50e6f02906bdc83b7c905944adc19583726dfaea83245318132ff01")
 	require.NoError(t, err)
 
 	cases := make(map[int64]bool)

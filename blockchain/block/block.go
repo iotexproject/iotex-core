@@ -12,15 +12,17 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -70,7 +72,7 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.DeltaStateDigest = b.Header.deltaStateDigest[:]
 	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
 	pbHeader.Signature = b.Header.blockSig[:]
-	pbHeader.Pubkey = b.Header.pubkey[:]
+	pbHeader.Pubkey = keypair.PublicKeyToBytes(b.Header.pubkey)
 	pbHeader.DkgID = b.Header.dkgID[:]
 	pbHeader.DkgPubkey = b.Header.dkgPubkey[:]
 	pbHeader.DkgSignature = b.Header.dkgBlockSig[:]
@@ -109,10 +111,15 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.deltaStateDigest[:], pbBlock.GetHeader().GetDeltaStateDigest())
 	copy(b.Header.receiptRoot[:], pbBlock.GetHeader().GetReceiptRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
-	copy(b.Header.pubkey[:], pbBlock.GetHeader().GetPubkey())
 	b.Header.dkgID = pbBlock.GetHeader().GetDkgID()
 	b.Header.dkgPubkey = pbBlock.GetHeader().GetDkgPubkey()
 	b.Header.dkgBlockSig = pbBlock.GetHeader().GetDkgSignature()
+
+	pubKey, err := keypair.BytesToPublicKey(pbBlock.GetHeader().GetPubkey())
+	if err != nil {
+		log.L().Panic("Failed to unmarshal public key.", zap.Error(err))
+	}
+	b.Header.pubkey = pubKey
 }
 
 // ConvertFromBlockPb converts BlockPb to Block
@@ -191,7 +198,11 @@ func (b *Block) VerifyDeltaStateDigest(digest hash.Hash32B) error {
 func (b *Block) VerifySignature() bool {
 	blkHash := b.HashBlock()
 
-	return crypto.EC283.Verify(b.Header.pubkey, blkHash[:], b.Header.blockSig)
+	if len(b.Header.blockSig) != action.SignatureLength {
+		return false
+	}
+	return crypto.VerifySignature(keypair.PublicKeyToBytes(b.Header.pubkey), blkHash[:],
+		b.Header.blockSig[:action.SignatureLength-1])
 }
 
 // ProducerAddress returns the address of producer

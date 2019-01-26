@@ -965,6 +965,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		ta.Addrinfo["producer"].Bech32(),
 		0,
 	)
+
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
@@ -1126,7 +1127,8 @@ func TestService_GetDeposits(t *testing.T) {
 	require.NoError(ws.PutState(
 		byteutil.BytesTo20B(subChainAddr.Payload()),
 		&mainchain.SubChain{
-			DepositCount: 2,
+			DepositCount:   2,
+			OwnerPublicKey: ta.Keyinfo["producer"].PubKey,
 		},
 	))
 	depositAddr1 := ta.Addrinfo["alfa"]

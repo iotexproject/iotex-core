@@ -10,9 +10,9 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -90,7 +90,7 @@ func candidateToPb(cand *Candidate) (*iproto.Candidate, error) {
 	}
 	candidatePb := &iproto.Candidate{
 		Address:          cand.Address,
-		PubKey:           cand.PublicKey[:],
+		PubKey:           keypair.PublicKeyToBytes(cand.PublicKey),
 		CreationHeight:   cand.CreationHeight,
 		LastUpdateHeight: cand.LastUpdateHeight,
 	}
@@ -106,8 +106,10 @@ func pbToCandidate(candPb *iproto.Candidate) (*Candidate, error) {
 		return nil, errors.Wrap(ErrCandidatePb, "protobuf's candidate message cannot be nil")
 	}
 
-	var pk keypair.PublicKey
-	copy(pk[:], candPb.PubKey)
+	pk, err := keypair.BytesToPublicKey(candPb.PubKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal public key")
+	}
 	candidate := &Candidate{
 		Address:          candPb.Address,
 		Votes:            big.NewInt(0).SetBytes(candPb.Votes),

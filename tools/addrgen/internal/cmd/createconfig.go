@@ -10,10 +10,11 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -23,17 +24,19 @@ var createConfigCmd = &cobra.Command{
 	Short: "Creates a yaml config using generated pub/pri key pair.",
 	Long:  `Creates a yaml config using generated pub/pri key pair.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		public, private, err := crypto.EC283.NewKeyPair()
+		private, err := crypto.GenerateKey()
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
+		priKeyBytes := keypair.PrivateKeyToBytes(private)
+		pubKeyBytes := keypair.PublicKeyToBytes(&private.PublicKey)
 		cfgStr := fmt.Sprintf(
 			`chain:
   producerPrivKey: "%x"
   producerPubKey: "%x"
 `,
-			private,
-			public,
+			priKeyBytes,
+			pubKeyBytes,
 		)
 		if err := ioutil.WriteFile(_outputFile, []byte(cfgStr), 0666); err != nil {
 			log.L().Fatal("failed to write file", zap.Error(err))

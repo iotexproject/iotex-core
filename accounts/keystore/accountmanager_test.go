@@ -7,6 +7,7 @@
 package keystore
 
 import (
+	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -77,7 +77,7 @@ func TestAccountManager_Import(t *testing.T) {
 	key, err := keypair.DecodePrivateKey(prikeyProducer)
 	require.NoError(err)
 
-	require.NoError(m.Import(key[:]))
+	require.NoError(m.Import(keypair.PrivateKeyToBytes(key)))
 
 	addr, err := keyToAddress(key)
 	require.NoError(err)
@@ -102,7 +102,7 @@ func TestAccountManager_SignTransfer(t *testing.T) {
 	_, err = m.SignAction(testaddress.Addrinfo["producer"].Bech32(), elp)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
-	key, err := keypair.DecodePrivateKey(prikeyProducer)
+	key, err := hex.DecodeString(prikeyProducer)
 	require.NoError(err)
 
 	require.NoError(m.Import(key[:]))
@@ -131,7 +131,7 @@ func TestAccountManager_SignVote(t *testing.T) {
 	_, err = m.SignAction(testaddress.Addrinfo["producer"].Bech32(), elp)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
-	key, err := keypair.DecodePrivateKey(prikeyProducer)
+	key, err := hex.DecodeString(prikeyProducer)
 	require.NoError(err)
 
 	require.NoError(m.Import(key[:]))
@@ -154,7 +154,7 @@ func TestAccountManager_SignHash(t *testing.T) {
 	require.Nil(signature)
 	require.Equal(ErrNotExist, errors.Cause(err))
 
-	key, err := keypair.DecodePrivateKey(prikeyProducer)
+	key, err := hex.DecodeString(prikeyProducer)
 	require.NoError(err)
 
 	require.NoError(m.Import(key[:]))
@@ -165,10 +165,6 @@ func TestAccountManager_SignHash(t *testing.T) {
 }
 
 func keyToAddress(priKey keypair.PrivateKey) (address.Address, error) {
-	pubKey, err := crypto.EC283.NewPubKey(priKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to derive public key from private key")
-	}
-	pkHash := keypair.HashPubKey(pubKey)
+	pkHash := keypair.HashPubKey(&priKey.PublicKey)
 	return address.New(pkHash[:]), nil
 }

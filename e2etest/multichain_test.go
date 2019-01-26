@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	exp "github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -49,8 +48,8 @@ func TestTwoChains(t *testing.T) {
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Consensus.BlockCreationInterval = time.Second
-	cfg.Chain.ProducerPrivKey = "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
-	cfg.Chain.ProducerPubKey = "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
+	cfg.Chain.ProducerPrivKey = "507f8c8b08358d7ab1d020889a4fa0b8a123b41b6459cb436df4d0d02d8f0ca6"
+	cfg.Chain.ProducerPubKey = "044f22cfc4cf0b417fe7a5ba7205fd7743d26f6b53901a5fa5e61b555af834e98717a1537bdd18b9cded6020fa8cacff1db0520ca32debcbd4468cea79a7114561"
 	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
 	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
 	cfg.Chain.EnableSubChainStartInGenesis = true
@@ -72,14 +71,12 @@ func TestTwoChains(t *testing.T) {
 
 	sk1, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
-	pk1, err := crypto.EC283.NewPubKey(sk1)
-	require.NoError(t, err)
+	pk1 := &sk1.PublicKey
 	pkHash1 := keypair.HashPubKey(pk1)
 	addr1 := address.New(pkHash1[:])
-	sk2, err := keypair.DecodePrivateKey("574f3b95c1afac4c5541ce705654bd92028e6b06bc07655647dd2637528dd98976f0c401")
+	sk2, err := keypair.DecodePrivateKey("82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90")
 	require.NoError(t, err)
-	pk2, err := crypto.EC283.NewPubKey(sk2)
-	require.NoError(t, err)
+	pk2 := &sk2.PublicKey
 	pkHash2 := keypair.HashPubKey(pk2)
 	addr2 := address.New(pkHash2[:])
 

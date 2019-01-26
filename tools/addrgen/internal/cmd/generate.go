@@ -10,10 +10,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -32,14 +33,16 @@ var _addrNum int
 func generate(args []string) string {
 	items := make([]string, _addrNum)
 	for i := 0; i < _addrNum; i++ {
-		public, private, err := crypto.EC283.NewKeyPair()
+		private, err := crypto.GenerateKey()
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
+		priKeyBytes := keypair.PrivateKeyToBytes(private)
+		pubKeyBytes := keypair.PublicKeyToBytes(&private.PublicKey)
 		items[i] = fmt.Sprintf(
 			"{\"PublicKey\": \"%x\", \"PrivateKey\": \"%x\"}",
-			private,
-			public,
+			pubKeyBytes,
+			priKeyBytes,
 		)
 	}
 	return "[" + strings.Join(items, ",") + "]"

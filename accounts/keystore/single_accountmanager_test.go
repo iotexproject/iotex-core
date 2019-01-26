@@ -7,6 +7,7 @@
 package keystore
 
 import (
+	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -24,7 +25,7 @@ import (
 func TestSingleAccountManager_SignTransfer(t *testing.T) {
 	require := require.New(t)
 
-	key, err := keypair.DecodePrivateKey(prikeyProducer)
+	key, err := hex.DecodeString(prikeyProducer)
 	require.NoError(err)
 
 	accountManager := NewMemAccountManager()
@@ -55,7 +56,7 @@ func TestSingleAccountManager_SignTransfer(t *testing.T) {
 func TestSingleAccountManager_SignVote(t *testing.T) {
 	require := require.New(t)
 
-	key, err := keypair.DecodePrivateKey(prikeyProducer)
+	key, err := hex.DecodeString(prikeyProducer)
 	require.NoError(err)
 
 	accountManager := NewMemAccountManager()
@@ -87,11 +88,11 @@ func TestSingleAccountManager_SignVote(t *testing.T) {
 func TestSingleAccountManager_SignHash(t *testing.T) {
 	require := require.New(t)
 
-	key, err := keypair.DecodePrivateKey(prikeyProducer)
+	key, err := hex.DecodeString(prikeyProducer)
 	require.NoError(err)
 
 	accountManager := NewMemAccountManager()
-	require.NoError(accountManager.Import(key[:]))
+	require.NoError(accountManager.Import(key))
 
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)

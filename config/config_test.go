@@ -15,20 +15,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 func TestNewDefaultConfig(t *testing.T) {
-	// Default config doesn't have block producer addr setup
-	cfg, err := New()
-	require.NotNil(t, err)
-	require.Equal(t, Config{}, cfg)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	_, err := New()
+	require.Nil(t, err)
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {
@@ -36,7 +33,7 @@ func TestNewConfigWithoutValidation(t *testing.T) {
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
 	exp := Default
-	exp.Network.MasterKey = "000000000000000000000000000000000000000000000000000000000000000000000000"
+	exp.Network.MasterKey = cfg.Chain.ProducerPrivKey
 	require.Equal(t, exp, cfg)
 }
 
@@ -51,8 +48,9 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 }
 
 func TestNewConfigWithOverride(t *testing.T) {
-	pk, sk, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
+	pk := &sk.PublicKey
 	cfgStr := fmt.Sprintf(`
 nodeType: %s
 chain:
@@ -81,8 +79,9 @@ chain:
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
-	pk, sk, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
+	pk := &sk.PublicKey
 	cfgStr := fmt.Sprintf(`
 nodeType: %s
 chain:
@@ -133,8 +132,9 @@ func TestNewConfigWithLookupEnv(t *testing.T) {
 	err := os.Setenv("IOTEX_TEST_NODE_TYPE", DelegateType)
 	require.Nil(t, err)
 
-	pk, sk, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
+	pk := &sk.PublicKey
 
 	cfgStr := fmt.Sprintf(`
 nodeType: ${IOTEX_TEST_NODE_TYPE:"lightweight"}
@@ -183,9 +183,11 @@ func TestValidateKeyPair(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "encoding/hex:"), err.Error())
 
-	pk, _, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
-	_, sk, err := crypto.EC283.NewKeyPair()
+	sk2, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	pk := &sk2.PublicKey
 	require.Nil(t, err)
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
