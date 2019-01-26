@@ -60,31 +60,51 @@ func (stx *stateTX) RunActions(
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
 ) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
-	stx.blkHeight = blockHeight
 	// Handle actions
 	receipts := make(map[hash.Hash32B]*action.Receipt)
 	for _, elp := range elps {
-		for _, actionHandler := range stx.actionHandlers {
-			receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
-			if err != nil {
-				return hash.ZeroHash32B, nil, errors.Wrapf(
-					err,
-					"error when action %x (nonce: %d) from %s mutates states",
-					elp.Hash(),
-					elp.Nonce(),
-					elp.SrcAddr(),
-				)
-			}
-			if receipt != nil {
-				receipts[elp.Hash()] = receipt
-			}
+		receipt, err := stx.RunAction(ctx, elp)
+		if err != nil {
+			return hash.ZeroHash32B, nil, errors.Wrap(err, "error when run action")
+		}
+		if receipt != nil {
+			receipts[elp.Hash()] = receipt
 		}
 	}
+	return stx.PersistBlockLevelInfo(blockHeight), receipts, nil
+}
 
+// RunAction runs action in the block and track pending changes in working set
+func (stx *stateTX) RunAction(
+	ctx context.Context,
+	elp action.SealedEnvelope,
+) (*action.Receipt, error) {
+	// Handle action
+	for _, actionHandler := range stx.actionHandlers {
+		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
+		if err != nil {
+			return nil, errors.Wrapf(
+				err,
+				"error when action %x (nonce: %d) from %s mutates states",
+				elp.Hash(),
+				elp.Nonce(),
+				elp.SrcAddr(),
+			)
+		}
+		if receipt != nil {
+			return receipt, nil
+		}
+	}
+	return nil, nil
+}
+
+// PersistBlockLevelInfo runs action in the block and track pending changes in working set
+func (stx *stateTX) PersistBlockLevelInfo(blockHeight uint64) hash.Hash32B {
+	stx.blkHeight = blockHeight
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	stx.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
-	return hash.ZeroHash32B, receipts, nil
+	return hash.ZeroHash32B
 }
 
 func (stx *stateTX) Snapshot() int { return stx.cb.Snapshot() }

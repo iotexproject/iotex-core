@@ -670,11 +670,12 @@ func (bc *blockchain) MintNewBlock(
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
 
+	newblockHeight := bc.tipHeight + 1
 	// Use block height as the nonce for coinbase transfer
-	cb := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producerAddr)
+	cb := action.NewCoinBaseTransfer(newblockHeight, bc.genesis.BlockReward, producerAddr)
 	bd := action.EnvelopeBuilder{}
 	// TODO the nonce is wrong, if bd also submit actions
-	elp := bd.SetNonce(bc.tipHeight + 1).
+	elp := bd.SetNonce(newblockHeight).
 		SetDestinationAddress(producerAddr).
 		SetGasLimit(cb.GasLimit()).
 		SetAction(cb).Build()
@@ -683,11 +684,33 @@ func (bc *blockchain) MintNewBlock(
 		return nil, err
 	}
 
-	// initial action iterator
-	actionIterator := actioniterator.NewActionIterator(actionMap)
-	actions, err := PickAction(genesis.BlockGasLimit, actionIterator)
-	// include coinbase transfer
-	actions = append(actions, selp)
+	// run execution and update state trie root hash
+	ws, err := bc.sf.NewWorkingSet()
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
+	}
+
+	gasLimitForContext := genesis.BlockGasLimit
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			BlockHeight:     newblockHeight,
+			BlockHash:       hash.ZeroHash32B,
+			ProducerPubKey:  producerPubKey,
+			BlockTimeStamp:  bc.now(),
+			ProducerAddr:    producerAddr,
+			GasLimit:        &gasLimitForContext,
+			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+		})
+	root, rc, actions, err := bc.pickAndRunActions(ctx, selp, actionMap, ws)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", bc.tipHeight+1)
+	}
+
+	ra := block.NewRunnableActionsBuilder().
+		SetHeight(newblockHeight).
+		SetTimeStamp(bc.now()).
+		AddActions(actions...).
+		Build(producerAddr, producerPubKey)
 
 	validateActionsOnlyTimer := bc.timerFactory.NewTimer("ValidateActionsOnly")
 	if err := bc.validator.ValidateActionsOnly(
@@ -697,28 +720,12 @@ func (bc *blockchain) MintNewBlock(
 		nil,
 		producerPubKey,
 		bc.ChainID(),
-		bc.tipHeight+1,
+		newblockHeight,
 	); err != nil {
 		validateActionsOnlyTimer.End()
 		return nil, err
 	}
 	validateActionsOnlyTimer.End()
-
-	ra := block.NewRunnableActionsBuilder().
-		SetHeight(bc.tipHeight+1).
-		SetTimeStamp(bc.now()).
-		AddActions(actions...).
-		Build(producerAddr, producerPubKey)
-
-	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
-	}
-	root, rc, err := bc.runActions(ra, ws, false)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", bc.tipHeight+1)
-	}
 
 	blk, err := block.NewBuilder(ra).
 		SetChainID(bc.config.Chain.ID).
@@ -1101,6 +1108,51 @@ func (bc *blockchain) runActions(acts block.RunnableActions, ws factory.WorkingS
 		})
 
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
+}
+
+func (bc *blockchain) pickAndRunActions(ctx context.Context, coinBaseSelp action.SealedEnvelope,
+	actionMap map[string][]action.SealedEnvelope, ws factory.WorkingSet) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, []action.SealedEnvelope, error) {
+	if bc.sf == nil {
+		return hash.ZeroHash32B, nil, nil, errors.New("statefactory cannot be nil")
+	}
+	receipts := make(map[hash.Hash32B]*action.Receipt)
+	executedActions := make([]action.SealedEnvelope, 0)
+
+	// handle coinbase transfer
+	receipt, err := ws.RunAction(ctx, coinBaseSelp)
+	if err != nil {
+		return hash.ZeroHash32B, nil, nil, errors.Wrapf(err, "Failed to update state changes for coinbase selp %s", coinBaseSelp.Hash())
+	}
+	if receipt != nil {
+		receipts[coinBaseSelp.Hash()] = receipt
+	}
+	executedActions = append(executedActions, coinBaseSelp)
+
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		return hash.ZeroHash32B, nil, nil, errors.New("failed to get action context")
+	}
+	// initial action iterator
+	actionIterator := actioniterator.NewActionIterator(actionMap)
+	for {
+		nextAction, ok := actionIterator.Next()
+		if !ok {
+			break
+		}
+
+		receipt, err := ws.RunAction(ctx, nextAction)
+		if err != nil {
+			return hash.ZeroHash32B, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %s", nextAction.Hash())
+		}
+		if receipt != nil {
+			// will this ever happen?
+			// revert the over limit one
+			receipts[nextAction.Hash()] = receipt
+		}
+		executedActions = append(executedActions, nextAction)
+	}
+
+	return ws.PersistBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {

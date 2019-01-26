@@ -49,6 +49,8 @@ type (
 	WorkingSet interface {
 		// states and actions
 		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
+		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
+		PersistBlockLevelInfo(blockHeight uint64) hash.Hash32B
 		Snapshot() int
 		Revert(int) error
 		Commit() error
@@ -129,42 +131,61 @@ func (ws *workingSet) RunActions(
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
 ) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
-	ws.blkHeight = blockHeight
 	// Handle actions
 	receipts := make(map[hash.Hash32B]*action.Receipt)
 	for _, elp := range elps {
-		for _, actionHandler := range ws.actionHandlers {
-			receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
-			if err != nil {
-				return hash.ZeroHash32B, nil, errors.Wrapf(
-					err,
-					"error when action %x (nonce: %d) from %s mutates states",
-					elp.Hash(),
-					elp.Nonce(),
-					elp.SrcAddr(),
-				)
-			}
-			if receipt != nil {
-				receipts[elp.Hash()] = receipt
-			}
+		receipt, err := ws.RunAction(ctx, elp)
+		if err != nil {
+			return hash.ZeroHash32B, nil, errors.Wrap(err, "error when run action")
+		}
+		if receipt != nil {
+			receipts[elp.Hash()] = receipt
 		}
 	}
+	return ws.PersistBlockLevelInfo(blockHeight), receipts, nil
+}
 
+// RunAction runs action in the block and track pending changes in working set
+func (ws *workingSet) RunAction(
+	ctx context.Context,
+	elp action.SealedEnvelope,
+) (*action.Receipt, error) {
+	// Handle action
+	for _, actionHandler := range ws.actionHandlers {
+		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
+		if err != nil {
+			return nil, errors.Wrapf(
+				err,
+				"error when action %x (nonce: %d) from %s mutates states",
+				elp.Hash(),
+				elp.Nonce(),
+				elp.SrcAddr(),
+			)
+		}
+		if receipt != nil {
+			return receipt, nil
+		}
+	}
+	return nil, nil
+}
+
+// PersistBlockLevelInfo runs action in the block and track pending changes in working set
+func (ws *workingSet) PersistBlockLevelInfo(blockHeight uint64) hash.Hash32B {
+	ws.blkHeight = blockHeight
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
 	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:], "failed to store accountTrie's root hash")
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	ws.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
-	// Persis the historical accountTrie's root hash
+	// Persist the historical accountTrie's root hash
 	ws.cb.Put(
 		AccountKVNameSpace,
 		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)),
 		rootHash[:],
 		"failed to store accountTrie's root hash",
 	)
-
-	return ws.RootHash(), receipts, nil
+	return ws.RootHash()
 }
 
 func (ws *workingSet) Snapshot() int {

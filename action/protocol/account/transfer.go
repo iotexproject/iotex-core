@@ -114,6 +114,7 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCt
 	if err := recipient.AddBalance(tsf.Amount()); err != nil {
 		return errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
 	}
+
 	// put updated recipient's state to trie
 	if err := StoreAccount(sm, tsf.Recipient(), recipient); err != nil {
 		return errors.Wrap(err, "failed to update pending account changes to trie")
