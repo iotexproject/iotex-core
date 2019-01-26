@@ -8,11 +8,11 @@ package endorsement
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -71,11 +71,16 @@ type Endorsement struct {
 // NewEndorsement creates an Endorsement for an consensus vote
 func NewEndorsement(object *ConsensusVote, endorserPubKey keypair.PublicKey, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
 	hash := object.Hash()
+	sig, err := crypto.Sign(hash[:], endorserPriKey)
+	if err != nil {
+		log.L().Error("Failed to sign endorsement.")
+		return nil
+	}
 	return &Endorsement{
 		object:         object,
 		endorser:       endorserAddr,
 		endorserPubkey: endorserPubKey,
-		signature:      crypto.EC283.Sign(endorserPriKey, hash[:]),
+		signature:      sig,
 	}
 }
 
@@ -102,7 +107,7 @@ func (en *Endorsement) Signature() []byte {
 // VerifySignature verifies that the endorse with pubkey
 func (en *Endorsement) VerifySignature() bool {
 	hash := en.object.Hash()
-	return crypto.EC283.Verify(en.endorserPubkey, hash[:], en.signature)
+	return crypto.VerifySignature(keypair.PublicKeyToBytes(en.endorserPubkey), hash[:], en.signature[:64])
 }
 
 // ToProtoMsg converts an endorsement to endorse proto
@@ -127,7 +132,7 @@ func (en *Endorsement) ToProtoMsg() *iproto.Endorsement {
 		BlockHash:      vote.BlkHash[:],
 		Topic:          topic,
 		Endorser:       en.Endorser(),
-		EndorserPubKey: pubkey[:],
+		EndorserPubKey: keypair.PublicKeyToBytes(pubkey),
 		Decision:       true,
 		Signature:      en.Signature(),
 	}

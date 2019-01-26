@@ -10,6 +10,7 @@ import (
 	"errors"
 
 	"github.com/golang/protobuf/proto"
+
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain/subchainpb"
 )
 

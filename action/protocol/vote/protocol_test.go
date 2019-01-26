@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestProtocol_Handle(t *testing.T) {
@@ -47,6 +48,9 @@ func TestProtocol_Handle(t *testing.T) {
 	addr1 := testaddress.Addrinfo["alfa"].Bech32()
 	addr2 := testaddress.Addrinfo["bravo"].Bech32()
 	addr3 := testaddress.Addrinfo["charlie"].Bech32()
+	k1 := testaddress.Keyinfo["alfa"]
+	k2 := testaddress.Keyinfo["bravo"]
+	k3 := testaddress.Keyinfo["charlie"]
 	pkHash1, _ := address.Bech32ToPKHash(addr1)
 	pkHash2, _ := address.Bech32ToPKHash(addr2)
 	pkHash3, _ := address.Bech32ToPKHash(addr3)
@@ -70,30 +74,30 @@ func TestProtocol_Handle(t *testing.T) {
 			EnableGasCharge: false,
 		})
 
-	vote1, err := action.NewVote(1, addr1, addr1, uint64(100000), big.NewInt(0))
+	vote1, err := testutil.SignedVote(addr1, addr1, k1.PriKey, 1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = p.Handle(ctx, vote1, ws)
+	_, err = p.Handle(ctx, vote1.Action(), ws)
 	require.NoError(err)
 	account1, _ := account.LoadAccount(ws, pkHash1)
 	checkSelfNomination(addr1, account1)
 
-	vote2, err := action.NewVote(1, addr2, addr2, uint64(100000), big.NewInt(0))
+	vote2, err := testutil.SignedVote(addr2, addr2, k2.PriKey, 1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = p.Handle(ctx, vote2, ws)
+	_, err = p.Handle(ctx, vote2.Action(), ws)
 	require.NoError(err)
 	account2, _ := account.LoadAccount(ws, pkHash2)
 	checkSelfNomination(addr2, account2)
 
-	vote3, err := action.NewVote(1, addr3, addr3, uint64(100000), big.NewInt(0))
+	vote3, err := testutil.SignedVote(addr3, addr3, k3.PriKey, 1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = p.Handle(ctx, vote3, ws)
+	_, err = p.Handle(ctx, vote3.Action(), ws)
 	require.NoError(err)
 	account3, _ := account.LoadAccount(ws, pkHash3)
 	checkSelfNomination(addr3, account3)
 
-	unvote1, err := action.NewVote(2, addr1, "", uint64(100000), big.NewInt(0))
+	unvote1, err := testutil.SignedVote(addr1, "", k1.PriKey, 2, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = p.Handle(ctx, unvote1, ws)
+	_, err = p.Handle(ctx, unvote1.Action(), ws)
 	require.NoError(err)
 	account1, _ = account.LoadAccount(ws, pkHash1)
 	require.Equal(uint64(2), account1.Nonce)
@@ -101,9 +105,9 @@ func TestProtocol_Handle(t *testing.T) {
 	require.Equal("", account1.Votee)
 	require.Equal("0", account1.VotingWeight.String())
 
-	vote4, err := action.NewVote(2, addr2, addr3, uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr2, addr3, k2.PriKey, 2, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = p.Handle(ctx, vote4, ws)
+	_, err = p.Handle(ctx, vote4.Action(), ws)
 	require.NoError(err)
 	account2, _ = account.LoadAccount(ws, pkHash2)
 	account3, _ = account.LoadAccount(ws, pkHash3)
@@ -113,9 +117,9 @@ func TestProtocol_Handle(t *testing.T) {
 	require.Equal("0", account2.VotingWeight.String())
 	require.Equal("200", account3.VotingWeight.String())
 
-	unvote2, err := action.NewVote(3, addr2, "", uint64(100000), big.NewInt(0))
+	unvote2, err := testutil.SignedVote(addr2, "", k2.PriKey, 3, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	_, err = p.Handle(ctx, unvote2, ws)
+	_, err = p.Handle(ctx, unvote2.Action(), ws)
 	require.NoError(err)
 	account2, _ = account.LoadAccount(ws, pkHash2)
 	account3, _ = account.LoadAccount(ws, pkHash3)

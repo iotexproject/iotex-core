@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -100,31 +101,31 @@ func TestMerkle(t *testing.T) {
 	require.NoError(err)
 
 	// verify tx hash
-	hash0, e := hex.DecodeString("2e0700057c579478c06de3ecc93035fee468e3b062fe8e624742975d46babff0")
+	hash0, e := hex.DecodeString("aa7842eaa2c0866f11f175046e927b76be0a3e5fa6745ddd29cbf2a169d19638")
 	require.NoError(e)
 	actual := cbtsf0.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash0, actual[:])
 
-	hash1, e := hex.DecodeString("1a481941e49463454dc5a5c2d83eef2cfaee7d7adeb9db86a3c6b3b32e70ee1f")
+	hash1, e := hex.DecodeString("0678c277b9cf830cb38b84d52e6b9c602421fcbe2fb800de9eaf05a3b957d744")
 	require.NoError(e)
 	actual = cbtsf1.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash1, actual[:])
 
-	hash2, e := hex.DecodeString("1c2b3e1c72a8f62e04823401a4a05923d8e56bdea4176ad04d4a851354a07c55")
+	hash2, e := hex.DecodeString("5f6260c1d2afabeba878794f4afc039e36cfb38cb155cc33298afb192bce8ad2")
 	require.NoError(e)
 	actual = cbtsf2.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash2, actual[:])
 
-	hash3, e := hex.DecodeString("59acd91b0fb1eba7fd32d8eec7fcaa33563244d93f84c2dbc416b457c4c14685")
+	hash3, e := hex.DecodeString("070df1615c7626279ded7bc821b23bfd955f7b76b5d6c339b9157a762f99647b")
 	require.NoError(e)
 	actual = cbtsf3.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash3, actual[:])
 
-	hash4, e := hex.DecodeString("eb055592cc3a110ea5aa6f814f3eb6b63a915d45a96c7d1866ece113d95f1f28")
+	hash4, e := hex.DecodeString("949a820054f653dc68e401d99017757bdd59799e829b491dac3d0affc8cadb6d")
 	require.NoError(e)
 	actual = cbtsf4.Hash()
 	t.Logf("actual hash = %x", actual[:])
@@ -178,6 +179,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 		Header: &iproto.BlockHeaderPb{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
+			Pubkey:  keypair.PublicKeyToBytes(senderPubKey),
 		},
 		Actions: []*iproto.ActionPb{
 			{
@@ -185,7 +187,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Transfer: &iproto.TransferPb{},
 				},
 				Sender:       senderAddr,
-				SenderPubKey: senderPubKey[:],
+				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        101,
 			},
@@ -194,7 +196,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Transfer: &iproto.TransferPb{},
 				},
 				Sender:       senderAddr,
-				SenderPubKey: senderPubKey[:],
+				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        102,
 			},
@@ -203,7 +205,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Vote: &iproto.VotePb{},
 				},
 				Sender:       senderAddr,
-				SenderPubKey: senderPubKey[:],
+				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        103,
 			},
@@ -212,7 +214,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Vote: &iproto.VotePb{},
 				},
 				Sender:       senderAddr,
-				SenderPubKey: senderPubKey[:],
+				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        104,
 			},

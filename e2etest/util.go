@@ -31,7 +31,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		big.NewInt(0),
 	)
 	pubk, _ := keypair.DecodePublicKey(blockchain.Gen.CreatorPubKey)
-	sig, _ := hex.DecodeString("a8c2a0d708cd998725585fa0a8441c57b7f1ca2af1bba625eaca721df4716d5d47ae83017c11d3712bce2883f79dce83aa6f069ed7625771530a3fd51f32aa61ef7a9158a505aa01")
+	sig, _ := hex.DecodeString("2fed2c1a7c6dd9ccfe689ca8b691bee179080233a1a5ff9e459d24e18f60bb823848370a55cf2e6ecb034c805a9be1034ac6adbeb35f885387b7e273472b7c2a00")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
 		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).

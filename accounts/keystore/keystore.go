@@ -76,19 +76,19 @@ func (ks *plainKeyStore) Has(encodedAddr string) (bool, error) {
 // Get returns private key from keystore filesystem given encoded address
 func (ks *plainKeyStore) Get(encodedAddr string) (keypair.PrivateKey, error) {
 	if err := validateAddress(encodedAddr); err != nil {
-		return keypair.ZeroPrivateKey, err
+		return nil, err
 	}
 	filePath := filepath.Join(ks.directory, encodedAddr)
 	_, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return keypair.ZeroPrivateKey, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
+			return nil, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
 		}
-		return keypair.ZeroPrivateKey, errors.Wrapf(err, "failed to open file %s", filePath)
+		return nil, errors.Wrapf(err, "failed to open file %s", filePath)
 	}
 	keyBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return keypair.ZeroPrivateKey, errors.Wrapf(err, "failed to read file %s", filePath)
+		return nil, errors.Wrapf(err, "failed to read file %s", filePath)
 	}
 	return keypair.BytesToPrivateKey(keyBytes)
 }
@@ -107,7 +107,7 @@ func (ks *plainKeyStore) Store(encodedAddr string, key keypair.PrivateKey) error
 	if !os.IsNotExist(err) {
 		return errors.Wrapf(err, "failed to get the status of file %s", filePath)
 	}
-	return ioutil.WriteFile(filePath, key[:], 0644)
+	return ioutil.WriteFile(filePath, keypair.PrivateKeyToBytes(key), 0644)
 }
 
 // Remove removes the private key from keystore filesystem given encoded address
@@ -162,11 +162,11 @@ func (ks *memKeyStore) Has(encodedAddr string) (bool, error) {
 // Get returns address stored in map given encoded address of the account
 func (ks *memKeyStore) Get(encodedAddr string) (keypair.PrivateKey, error) {
 	if err := validateAddress(encodedAddr); err != nil {
-		return keypair.ZeroPrivateKey, err
+		return nil, err
 	}
 	key, ok := ks.accounts[encodedAddr]
 	if !ok {
-		return keypair.ZeroPrivateKey, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
+		return nil, errors.Wrapf(ErrNotExist, "encoded address = %s", encodedAddr)
 	}
 	return key, nil
 }

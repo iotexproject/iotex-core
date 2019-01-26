@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/sql"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -52,6 +53,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 		Header: &iproto.BlockHeaderPb{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
+			Pubkey:  keypair.PublicKeyToBytes(pubKey1),
 		},
 		Actions: []*iproto.ActionPb{
 			{
@@ -59,7 +61,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Transfer: &iproto.TransferPb{Recipient: addr2},
 				},
 				Sender:       addr1,
-				SenderPubKey: pubKey1[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 				Version:      version.ProtocolVersion,
 				Nonce:        101,
 			},
@@ -68,7 +70,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Vote: &iproto.VotePb{VoteeAddress: addr2},
 				},
 				Sender:       addr1,
-				SenderPubKey: pubKey1[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 				Version:      version.ProtocolVersion,
 				Nonce:        103,
 			},
@@ -77,7 +79,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Execution: &iproto.ExecutionPb{Contract: addr2},
 				},
 				Sender:       addr1,
-				SenderPubKey: pubKey1[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 				Version:      version.ProtocolVersion,
 				Nonce:        104,
 			},

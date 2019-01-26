@@ -1024,11 +1024,7 @@ func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetr
 	}
 	candidates := make([]explorer.Candidate, 0, len(allCandidates))
 	for _, c := range allCandidates {
-		pubKey, err := keypair.BytesToPubKeyString(c.PublicKey[:])
-		if err != nil {
-			return explorer.CandidateMetrics{}, errors.Wrapf(err,
-				"Invalid candidate pub key")
-		}
+		pubKey := keypair.EncodePublicKey(c.PublicKey)
 		candidates = append(candidates, explorer.Candidate{
 			Address:          c.Address,
 			PubKey:           pubKey,
@@ -1843,7 +1839,7 @@ func convertVoteToExplorerVote(selp action.SealedEnvelope, isPending bool) (expl
 		ID:          hex.EncodeToString(hash[:]),
 		Nonce:       int64(selp.Nonce()),
 		Voter:       vote.Voter(),
-		VoterPubKey: hex.EncodeToString(voterPubkey[:]),
+		VoterPubKey: keypair.EncodePublicKey(voterPubkey),
 		Votee:       vote.Votee(),
 		GasLimit:    int64(selp.GasLimit()),
 		GasPrice:    selp.GasPrice().String(),

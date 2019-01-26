@@ -302,7 +302,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(blk.HashBlock(), blkHash)
 
 		// store to key 0
-		contractAddr := "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6"
+		contractAddr := "io1qy8w2uj6qmvfgcy6dgrv24qc5qp26dfp5vx427vk"
 		data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
 		execution, err = action.NewExecution(
 			testaddress.Addrinfo["producer"].Bech32(), contractAddr, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
@@ -344,7 +344,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, r.Hash)
 
 		// read from key 0
-		contractAddr = "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6"
+		contractAddr = "io1qy8w2uj6qmvfgcy6dgrv24qc5qp26dfp5vx427vk"
 		data, _ = hex.DecodeString("6d4ce63c")
 		execution, err = action.NewExecution(
 			testaddress.Addrinfo["producer"].Bech32(), contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
@@ -516,7 +516,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(0, balance.Cmp(big.NewInt(500000000)))
 
 		log.S().Info("Roll Dice")
-		data, _ = hex.DecodeString("797d9fbd000000000000000000000000fd99ea5ad63d9d3a8a4d614bcae1380695022558")
+		data, _ = hex.DecodeString("797d9fbd000000000000000000000000d950673630e2286adc157c35f2fd73a1ef49d40e")
 		execution, err = action.NewExecution(
 			testaddress.Addrinfo["producer"].Bech32(), contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)

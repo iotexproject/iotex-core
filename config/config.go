@@ -7,18 +7,20 @@
 package config
 
 import (
+	"encoding/hex"
 	"flag"
 	"os"
 	"time"
 
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -71,8 +73,8 @@ var (
 			TrieDBPath:                   "/tmp/trie.db",
 			ID:                           1,
 			Address:                      "",
-			ProducerPubKey:               keypair.EncodePublicKey(keypair.ZeroPublicKey),
-			ProducerPrivKey:              keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
+			ProducerPubKey:               keypair.EncodePublicKey(&PrivateKey.PublicKey),
+			ProducerPrivKey:              keypair.EncodePrivateKey(PrivateKey),
 			GenesisActionsPath:           "",
 			EmptyGenesis:                 false,
 			NumCandidates:                101,
@@ -162,6 +164,9 @@ var (
 		ValidateActPool,
 		ValidateChain,
 	}
+
+	// PrivateKey is a randomly generated producer's key for testing purpose
+	PrivateKey, _ = crypto.GenerateKey()
 )
 
 // Network is the config struct for network package
@@ -354,7 +359,7 @@ func New(validates ...Validate) (Config, error) {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
 	}
 
-	// set network master key to pub key
+	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
 	}
@@ -434,33 +439,33 @@ func (cfg Config) BlockchainAddress() (address.Address, error) {
 func (cfg Config) KeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
 	if err != nil {
-		return keypair.ZeroPublicKey,
-			keypair.ZeroPrivateKey,
-			errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
+		return nil, nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
 	}
 	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
-		return keypair.ZeroPublicKey,
-			keypair.ZeroPrivateKey,
-			errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
+		return nil, nil, errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
 	}
 	return pk, sk, nil
 }
 
 // ValidateKeyPair validates the block producer address
 func ValidateKeyPair(cfg Config) error {
-	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	pkBytes, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
 	if err != nil {
 		return err
 	}
-	pubKey, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		return err
 	}
 	// Validate producer pubkey and prikey by signing a dummy message and verify it
 	validationMsg := "connecting the physical world block by block"
-	sig := crypto.EC283.Sign(priKey, []byte(validationMsg))
-	if !crypto.EC283.Verify(pubKey, []byte(validationMsg), sig) {
+	msgHash := hash.Hash256b([]byte(validationMsg))
+	sig, err := crypto.Sign(msgHash[:], priKey)
+	if err != nil {
+		return err
+	}
+	if !crypto.VerifySignature(pkBytes, msgHash[:], sig[:64]) {
 		return errors.Wrap(ErrInvalidCfg, "block producer has unmatched pubkey and prikey")
 	}
 	return nil

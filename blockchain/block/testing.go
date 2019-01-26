@@ -7,10 +7,10 @@
 package block
 
 import (
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -112,8 +112,8 @@ func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriK
 	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
 	b.blk.Header.pubkey = signerPubKey
 	blkHash := b.blk.HashBlock()
-	sig := crypto.EC283.Sign(signerPriKey, blkHash[:])
-	if len(sig) == 0 {
+	sig, err := crypto.Sign(blkHash[:], signerPriKey)
+	if err != nil {
 		return Block{}, errors.New("Failed to sign block")
 	}
 	b.blk.Header.blockSig = sig

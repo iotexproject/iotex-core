@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -230,7 +229,7 @@ func newConfig(
 	cfg.Chain.EnableIndex = true
 	cfg.Chain.EnableAsyncIndexWrite = true
 
-	producerPubKey, _ := crypto.EC283.NewPubKey(producerPriKey)
+	producerPubKey := &producerPriKey.PublicKey
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(producerPubKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(producerPriKey)
 
