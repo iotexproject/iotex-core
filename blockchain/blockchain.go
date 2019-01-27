@@ -728,7 +728,7 @@ func (bc *blockchain) MintNewBlock(
 		return nil, err
 	}
 	validateActionsOnlyTimer.End()
-	
+
 	blk, err := block.NewBuilder(ra).
 		SetChainID(bc.config.Chain.ID).
 		SetPrevBlockHash(bc.tipHash).
