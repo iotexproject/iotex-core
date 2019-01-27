@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -301,6 +302,12 @@ func AssembleSealedEnvelope(act Envelope, addr string, pk keypair.PublicKey, sig
 
 // Verify verifies the action using sender's public key
 func Verify(sealed SealedEnvelope) error {
+	// Verify source address is the action owner
+	pkHash := keypair.HashPubKey(sealed.srcPubkey)
+	if sealed.srcAddr != address.New(pkHash[:]).Bech32() {
+		return errors.New("source address is not the action owner")
+	}
+	// Verify signature
 	hash := sealed.Hash()
 	if len(sealed.Signature()) != SignatureLength {
 		return errors.New("incorrect length of signature")

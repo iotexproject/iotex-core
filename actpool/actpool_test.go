@@ -75,7 +75,13 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	err = validator.Validate(context.Background(), tsf)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
-	// Case III: Signature verification fails
+	// Case III: Public key verification fails
+	// source address does not match action owner
+	tsf, err = testutil.SignedTransfer(addr1, addr1, priKey2, 1, big.NewInt(1), nil, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	err = validator.Validate(context.Background(), tsf)
+	require.True(strings.Contains(err.Error(), "source address is not the action owner"))
+	// invalid signature
 	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1, addr1, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 

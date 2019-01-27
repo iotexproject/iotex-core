@@ -193,7 +193,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["alfa"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
