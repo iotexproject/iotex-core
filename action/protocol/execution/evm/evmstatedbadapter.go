@@ -559,7 +559,7 @@ func (stateDB *StateDBAdapter) getContract(addr hash.PKHash) (Contract, error) {
 			VotingWeight: big.NewInt(0),
 		}
 	}
-	contract, err := newContract(account, stateDB.dao, stateDB.cb)
+	contract, err := newContract(addr, account, stateDB.dao, stateDB.cb)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
