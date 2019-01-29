@@ -1138,5 +1138,6 @@ func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, 
 	if err != nil {
 		return nil, nil, "", errors.Wrap(err, "failed to decode private key")
 	}
-	return pk, sk, bc.config.Chain.Address, nil
+	pkHash := keypair.HashPubKey(pk)
+	return pk, sk, address.New(pkHash[:]).Bech32(), nil
 }
