@@ -145,20 +145,6 @@ func TestStateTransitions(t *testing.T) {
 				require.Equal(sPrepare, state)
 				evt := <-cfsm.evtq
 				require.Equal(ePrepare, evt.Type())
-				time.Sleep(100 * time.Millisecond)
-				// garbage collection
-				mockClock.Add(4 * time.Second)
-				evt = <-cfsm.evtq
-				require.Equal(eFailedToReceiveBlock, evt.Type())
-				mockClock.Add(2 * time.Second)
-				evt = <-cfsm.evtq
-				require.Equal(eStopReceivingProposalEndorsement, evt.Type())
-				mockClock.Add(2 * time.Second)
-				evt = <-cfsm.evtq
-				require.Equal(eStopReceivingLockEndorsement, evt.Type())
-				mockClock.Add(2 * time.Second)
-				evt = <-cfsm.evtq
-				require.Equal(eFailedToReachConsensusInTime, evt.Type())
 			})
 			t.Run("success-to-mint", func(t *testing.T) {
 				mockCtx.EXPECT().IsDelegate().Return(true).Times(1)

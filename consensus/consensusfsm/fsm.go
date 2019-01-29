@@ -321,6 +321,16 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 		return sPrepare, err
 	}
 	m.ctx.Logger().Info("Start a new round", zap.Duration("delay", delay))
+	isProposer := m.ctx.IsProposer()
+	var blk Endorsement
+	if isProposer {
+		m.ctx.Logger().Info("current node is the proposer")
+		if blk, err = m.ctx.MintBlock(); err != nil || blk == nil {
+			// TODO: review the return state
+			m.ProducePrepareEvent(0)
+			return sPrepare, errors.Wrap(err, "error when minting a block")
+		}
+	}
 	if delay > 0 {
 		time.Sleep(delay)
 	}
@@ -333,14 +343,7 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 	m.produceConsensusEvent(eStopReceivingLockEndorsement, ttl)
 	m.produceConsensusEvent(eFailedToReachConsensusInTime, m.cfg.ProposerInterval)
 	// TODO add timeout for commit collection
-	if m.ctx.IsProposer() {
-		m.ctx.Logger().Info("current node is the proposer")
-		blk, err := m.ctx.MintBlock()
-		if err != nil {
-			// TODO: review the return state
-			m.ProducePrepareEvent(0)
-			return sPrepare, errors.Wrap(err, "error when minting a block")
-		}
+	if isProposer {
 		m.ctx.Logger().Info("Broadcast init proposal.", log.Hex("blockHash", blk.Hash()))
 		m.ProduceReceiveBlockEvent(blk)
 		m.ctx.BroadcastBlockProposal(blk)
