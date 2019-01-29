@@ -470,7 +470,7 @@ func (ws *workingSet) getContract(addr hash.PKHash) (Contract, error) {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
 	// add to contract cache
-	contract := newContract(account, tr)
+	contract := newContract(account, addr, tr)
 	ws.cachedContract[addr] = contract
 	return contract, nil
 }
