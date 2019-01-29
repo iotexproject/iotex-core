@@ -165,10 +165,28 @@ func TestProtocol_Validate(t *testing.T) {
 	err = protocol.Validate(context.Background(), vote)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating votee's address"))
-	// Case III: Votee is not a candidate
-	vote2, err := action.NewVote(1, testaddress.Addrinfo["producer"].Bech32(),
-		testaddress.Addrinfo["alfa"].Bech32(), uint64(100000), big.NewInt(0))
+	// Case III: Voter's address is not the action owner
+	selp, err := testutil.SignedVote(
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(),
+		testaddress.Keyinfo["bravo"].PriKey,
+		uint64(1),
+		uint64(100000),
+		big.NewInt(0),
+	)
 	require.NoError(err)
-	err = protocol.Validate(context.Background(), vote2)
+	err = protocol.Validate(context.Background(), selp.Action())
+	require.Equal(action.ErrSrcAddress, errors.Cause(err))
+	// Case IV: Votee is not a candidate
+	selp, err = testutil.SignedVote(
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(),
+		testaddress.Keyinfo["producer"].PriKey,
+		uint64(1),
+		uint64(100000),
+		big.NewInt(0),
+	)
+	require.NoError(err)
+	err = protocol.Validate(context.Background(), selp.Action())
 	require.Equal(action.ErrVotee, errors.Cause(err))
 }

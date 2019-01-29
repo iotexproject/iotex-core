@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // ExecutionSizeLimit is the maximum size of execution allowed
@@ -68,6 +69,11 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 		if _, err := address.Bech32ToAddress(exec.Contract()); err != nil {
 			return errors.Wrapf(err, "error when validating contract's address %s", exec.Contract())
 		}
+	}
+	// check if sender's address is action owner
+	pkHash := keypair.HashPubKey(exec.SrcPubkey())
+	if exec.Executor() != address.New(pkHash[:]).Bech32() {
+		return errors.Wrap(action.ErrSrcAddress, "executor's address is not the action owner")
 	}
 	return nil
 }

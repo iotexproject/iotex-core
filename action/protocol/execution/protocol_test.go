@@ -852,6 +852,20 @@ func TestProtocol_Validate(t *testing.T) {
 	err = protocol.Validate(context.Background(), ex)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating contract's address"))
+	// Case V: Execution sender is not the action owner
+	selp, err := testutil.SignedExecution(
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(),
+		testaddress.Keyinfo["bravo"].PriKey,
+		uint64(1),
+		big.NewInt(0),
+		uint64(100000),
+		big.NewInt(0),
+		nil,
+	)
+	require.NoError(err)
+	err = protocol.Validate(context.Background(), selp.Action())
+	require.Equal(action.ErrSrcAddress, errors.Cause(err))
 }
 
 /**

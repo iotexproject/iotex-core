@@ -29,4 +29,6 @@ var (
 	ErrVotee = errors.New("votee is not a candidate")
 	// ErrHash indicates the error of action's hash
 	ErrHash = errors.New("invalid hash")
+	// ErrSrcAddress indicates the error of action's source address
+	ErrSrcAddress = errors.New("invalid source address")
 )

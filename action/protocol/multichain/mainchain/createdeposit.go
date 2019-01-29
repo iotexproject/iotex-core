@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -51,6 +52,11 @@ func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, sm protocol.Stat
 }
 
 func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.StateManager) (*state.Account, InOperation, error) {
+	// check if sender's address is action owner
+	pkHash := keypair.HashPubKey(deposit.SrcPubkey())
+	if deposit.Sender() != address.New(pkHash[:]).Bech32() {
+		return nil, InOperation{}, errors.Wrap(action.ErrSrcAddress, "sender's address is not the action owner")
+	}
 	cost, err := deposit.Cost()
 	if err != nil {
 		return nil, InOperation{}, errors.Wrap(err, "error when getting deposit's cost")

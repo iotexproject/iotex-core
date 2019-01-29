@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -164,6 +165,11 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 		if _, err := address.Bech32ToAddress(vote.Votee()); err != nil {
 			return errors.Wrapf(err, "error when validating votee's address %s", vote.Votee())
 		}
+	}
+	// check if sender's address is action owner
+	pkHash := keypair.HashPubKey(vote.SrcPubkey())
+	if vote.Voter() != address.New(pkHash[:]).Bech32() {
+		return errors.Wrap(action.ErrSrcAddress, "voter's address is not the action owner")
 	}
 	if vote.Votee() != "" {
 		// Reject vote if votee is not a candidate

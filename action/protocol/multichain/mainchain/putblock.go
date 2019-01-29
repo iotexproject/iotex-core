@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -48,6 +49,11 @@ func (p *Protocol) validatePutBlock(pb *action.PutBlock, sm protocol.StateManage
 	// can only emit on one height
 	if _, exist := p.getBlockProof(pb.SubChainAddress(), pb.Height()); exist {
 		return errors.Errorf("block %d already exists", pb.Height())
+	}
+	// check if sender's address is action owner
+	pkHash := keypair.HashPubKey(pb.SrcPubkey())
+	if pb.ProducerAddress() != address.New(pkHash[:]).Bech32() {
+		return errors.Wrap(action.ErrSrcAddress, "producer's address is not the action owner")
 	}
 	return nil
 }

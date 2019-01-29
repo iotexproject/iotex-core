@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -168,6 +169,11 @@ func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) erro
 	// check if recipient's address is valid
 	if _, err := address.Bech32ToAddress(tsf.Recipient()); err != nil {
 		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
+	}
+	// check if sender's address is action owner
+	pkHash := keypair.HashPubKey(tsf.SrcPubkey())
+	if tsf.Sender() != address.New(pkHash[:]).Bech32() {
+		return errors.Wrap(action.ErrSrcAddress, "sender's address is not the action owner")
 	}
 	return nil
 }

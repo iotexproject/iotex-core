@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/pkg/errors"
 )
 
 func TestValidateDeposit(t *testing.T) {
@@ -52,9 +53,22 @@ func TestValidateDeposit(t *testing.T) {
 
 	addr := testaddress.Addrinfo["producer"]
 	addr1 := addr.Bech32()
+	key1 := testaddress.Keyinfo["producer"].PriKey
+	key2 := testaddress.Keyinfo["alfa"].PriKey
 	addr2 := address.New(addr.Payload()).Bech32()
 
 	deposit := action.NewCreateDeposit(1, 2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(deposit).SetNonce(1).SetDestinationAddress(addr2).SetGasLimit(testutil.TestGasLimit).SetGasPrice(big.NewInt(0)).Build()
+	_, err = action.Sign(elp, addr1, key2)
+	require.NoError(t, err)
+	_, _, err = p.validateDeposit(deposit, nil)
+	assert.Equal(t, action.ErrSrcAddress, errors.Cause(err))
+
+	_, err = action.Sign(elp, addr1, key1)
+	require.NoError(t, err)
+
 	_, _, err = p.validateDeposit(deposit, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
@@ -78,6 +92,8 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, sf.Commit(ws))
 
 	deposit1 := action.NewCreateDeposit(1, 2, big.NewInt(2000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	elp = bd.SetAction(deposit1).SetNonce(1).SetDestinationAddress(addr2).SetGasLimit(testutil.TestGasLimit).SetGasPrice(big.NewInt(0)).Build()
+	_, err = action.Sign(elp, addr1, key1)
 	_, _, err = p.validateDeposit(deposit1, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 

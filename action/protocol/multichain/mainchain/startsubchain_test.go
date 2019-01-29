@@ -24,12 +24,14 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/pkg/errors"
 )
 
 func TestProtocolValidateSubChainStart(t *testing.T) {
@@ -71,6 +73,12 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
+	// starter's address is not address owner
+	buildEnvelope(start, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["alfa"].PriKey)
+	_, _, err := p.validateStartSubChain(start, nil)
+	assert.Equal(t, action.ErrSrcAddress, errors.Cause(err))
+
+	buildEnvelope(start, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	account, subChainsInOp, err := p.validateStartSubChain(start, nil)
 	assert.NotNil(t, account)
 	assert.NoError(t, err)
@@ -88,6 +96,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
+	buildEnvelope(start, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, subChainsInOp)
 	assert.Nil(t, account)
@@ -106,6 +115,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
+	buildEnvelope(start, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
@@ -124,6 +134,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
+	buildEnvelope(start, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
@@ -142,6 +153,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
+	buildEnvelope(start, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
@@ -160,6 +172,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
+	buildEnvelope(start, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
@@ -199,6 +212,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
+	buildEnvelope(start, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
 	account, subChainsInOp, err = p.validateStartSubChain(start, ws)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
@@ -364,4 +378,10 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	fmt.Println(len(subChainsInOp))
 	_, ok := subChainsInOp.Get(uint32(2))
 	assert.True(t, ok)
+}
+
+func buildEnvelope(start *action.StartSubChain, srcAddr string, sk keypair.PrivateKey) {
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(start).SetNonce(1).SetGasLimit(0).SetGasPrice(big.NewInt(0)).Build()
+	action.Sign(elp, srcAddr, sk)
 }

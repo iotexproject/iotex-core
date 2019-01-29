@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -33,6 +34,11 @@ func (p *Protocol) validateStartSubChain(
 	start *action.StartSubChain,
 	sm protocol.StateManager,
 ) (*state.Account, SubChainsInOperation, error) {
+	// check if starter's address is action owner
+	pkHash := keypair.HashPubKey(start.SrcPubkey())
+	if start.OwnerAddress() != address.New(pkHash[:]).Bech32() {
+		return nil, nil, errors.Wrap(action.ErrSrcAddress, "starter's address is not the action owner")
+	}
 	if start.ChainID() == p.rootChain.ChainID() {
 		return nil, nil, errors.Errorf("%d is used by main chain", start.ChainID())
 	}

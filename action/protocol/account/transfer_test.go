@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestProtocol_HandleTransfer(t *testing.T) {
@@ -125,4 +126,18 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	err = protocol.Validate(context.Background(), tsf)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
+	// Case V: Transfer sender is not the action owner
+	selp, err := testutil.SignedTransfer(
+		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["alfa"].Bech32(),
+		testaddress.Keyinfo["bravo"].PriKey,
+		uint64(1),
+		big.NewInt(100),
+		nil,
+		uint64(100000),
+		big.NewInt(0),
+	)
+	require.NoError(err)
+	err = protocol.Validate(context.Background(), selp.Action())
+	require.Equal(action.ErrSrcAddress, errors.Cause(err))
 }
