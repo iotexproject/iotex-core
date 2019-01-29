@@ -68,7 +68,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		clock,
 	)
 	ctx.round = &roundCtx{height: blockHeight + 1}
-	ctx.cfg.FSM.ProposerInterval = 10 * time.Second
+	ctx.cfg.DelegateInterval = 10 * time.Second
 	ctx.cfg.FSM.AcceptBlockTTL = 4 * time.Second
 	ctx.cfg.FSM.AcceptProposalEndorsementTTL = 2 * time.Second
 	ctx.cfg.FSM.AcceptLockEndorsementTTL = 2 * time.Second
