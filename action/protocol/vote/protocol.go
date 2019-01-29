@@ -10,7 +10,6 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/iotexproject/go-ethereum/core/vm"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -61,7 +60,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 			return nil, errors.Wrapf(err, "failed to get intrinsic gas for vote hash %s", vote.Hash())
 		}
 		if *raCtx.GasLimit < gas {
-			return nil, vm.ErrOutOfGas
+			return nil, action.ErrHitGasLimit
 		}
 		gasFee := big.NewInt(0).Mul(vote.GasPrice(), big.NewInt(0).SetUint64(gas))
 

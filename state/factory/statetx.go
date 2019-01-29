@@ -71,7 +71,7 @@ func (stx *stateTX) RunActions(
 			receipts[elp.Hash()] = receipt
 		}
 	}
-	return stx.PersistBlockLevelInfo(blockHeight), receipts, nil
+	return stx.UpdateBlockLevelInfo(blockHeight), receipts, nil
 }
 
 // RunAction runs action in the block and track pending changes in working set
@@ -98,8 +98,8 @@ func (stx *stateTX) RunAction(
 	return nil, nil
 }
 
-// PersistBlockLevelInfo runs action in the block and track pending changes in working set
-func (stx *stateTX) PersistBlockLevelInfo(blockHeight uint64) hash.Hash32B {
+// UpdateBlockLevelInfo runs action in the block and track pending changes in working set
+func (stx *stateTX) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash32B {
 	stx.blkHeight = blockHeight
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)

@@ -1151,6 +1151,9 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, coinBaseSelp action
 
 		receipt, err := ws.RunAction(ctx, nextAction)
 		if err != nil {
+			if err == action.ErrHitGasLimit {
+				continue
+			}
 			return hash.ZeroHash32B, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %s", nextAction.Hash())
 		}
 		if receipt != nil {
@@ -1159,9 +1162,13 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, coinBaseSelp action
 			receipts[nextAction.Hash()] = receipt
 		}
 		executedActions = append(executedActions, nextAction)
+
+		if *raCtx.GasLimit < genesis.MinimumBlockGasRemaining {
+			break
+		}
 	}
 
-	return ws.PersistBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
+	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {

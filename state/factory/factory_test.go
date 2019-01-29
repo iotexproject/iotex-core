@@ -306,7 +306,7 @@ func TestCandidates(t *testing.T) {
 	require.NotNil(t, err)
 	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
-	newRoot = ws.PersistBlockLevelInfo(0)
+	newRoot = ws.UpdateBlockLevelInfo(0)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(ws))
@@ -325,7 +325,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
-	newRoot = ws.PersistBlockLevelInfo(1)
+	newRoot = ws.UpdateBlockLevelInfo(1)
 	require.NotEqual(t, newRoot, root)
 
 	root = newRoot
@@ -348,7 +348,7 @@ func TestCandidates(t *testing.T) {
 
 	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
-	newRoot = ws.PersistBlockLevelInfo(2)
+	newRoot = ws.UpdateBlockLevelInfo(2)
 	require.NotEqual(t, newRoot, root)
 
 	root = newRoot
@@ -369,13 +369,9 @@ func TestCandidates(t *testing.T) {
 	selp, err = action.Sign(elp, b, priKeyB)
 	require.NoError(t, err)
 
-	/*newRoot, _, err = ws.RunActions(ctx, 3, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)*/
-
 	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
-	newRoot = ws.PersistBlockLevelInfo(3)
+	newRoot = ws.UpdateBlockLevelInfo(3)
 	require.NotEqual(t, newRoot, root)
 
 	root = newRoot
@@ -398,7 +394,7 @@ func TestCandidates(t *testing.T) {
 
 	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
-	newRoot = ws.PersistBlockLevelInfo(4)
+	newRoot = ws.UpdateBlockLevelInfo(4)
 	require.NotEqual(t, newRoot, root)
 
 	root = newRoot
@@ -756,7 +752,7 @@ func TestCandidates(t *testing.T) {
 	require.Nil(t, err)
 	_, err = ws.RunAction(ctx, selp2)
 	require.Nil(t, err)
-	newRoot = ws.PersistBlockLevelInfo(20)
+	newRoot = ws.UpdateBlockLevelInfo(20)
 	require.NotEqual(t, newRoot, root)
 
 	root = newRoot

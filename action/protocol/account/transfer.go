@@ -10,7 +10,6 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/iotexproject/go-ethereum/core/vm"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -50,7 +49,7 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCt
 				return errors.Wrapf(err, "failed to get intrinsic gas for transfer hash %s", tsf.Hash())
 			}
 			if *raCtx.GasLimit < gas {
-				return vm.ErrOutOfGas
+				return action.ErrHitGasLimit
 			}
 
 			gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(gas))

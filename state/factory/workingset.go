@@ -50,7 +50,7 @@ type (
 		// states and actions
 		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
 		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
-		PersistBlockLevelInfo(blockHeight uint64) hash.Hash32B
+		UpdateBlockLevelInfo(blockHeight uint64) hash.Hash32B
 		Snapshot() int
 		Revert(int) error
 		Commit() error
@@ -142,7 +142,7 @@ func (ws *workingSet) RunActions(
 			receipts[elp.Hash()] = receipt
 		}
 	}
-	return ws.PersistBlockLevelInfo(blockHeight), receipts, nil
+	return ws.UpdateBlockLevelInfo(blockHeight), receipts, nil
 }
 
 // RunAction runs action in the block and track pending changes in working set
@@ -169,8 +169,8 @@ func (ws *workingSet) RunAction(
 	return nil, nil
 }
 
-// PersistBlockLevelInfo runs action in the block and track pending changes in working set
-func (ws *workingSet) PersistBlockLevelInfo(blockHeight uint64) hash.Hash32B {
+// UpdateBlockLevelInfo runs action in the block and track pending changes in working set
+func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash32B {
 	ws.blkHeight = blockHeight
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
