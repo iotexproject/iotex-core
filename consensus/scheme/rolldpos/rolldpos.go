@@ -210,6 +210,16 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 		)
 	}
 	if 3*blk.NumOfDelegateEndorsements(epoch.delegates) <= 2*len(epoch.delegates) {
+		log.L().Warn(
+			"Insufficient endorsements in receiving block",
+			zap.Uint64("blockHeight", blk.Height()),
+			zap.Uint64("epoch", epoch.num),
+			zap.Uint32("round", round.number),
+			zap.Int("numOfDelegates", len(epoch.delegates)),
+			zap.Int("numOfDelegateEndorsements", blk.NumOfDelegateEndorsements(epoch.delegates)),
+			zap.Strings("delegates", epoch.delegates),
+		)
+		blk.FooterLogger(log.L()).Info("Endorsements in footer")
 		return errors.New("insufficient endorsements from delegates")
 	}
 

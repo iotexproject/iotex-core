@@ -243,3 +243,16 @@ func (b *Block) Finalize(set *endorsement.Set, ts time.Time) error {
 
 	return nil
 }
+
+// FooterLogger logs the endorsements in block footer
+func (b *Block) FooterLogger(l *zap.Logger) *zap.Logger {
+	if b.endorsements == nil {
+		h := b.HashBlock()
+		return l.With(
+			log.Hex("blockHash", h[:]),
+			zap.Uint64("blockHeight", b.Height()),
+			zap.Int("numOfEndorsements", 0),
+		)
+	}
+	return b.endorsements.EndorsementsLogger(l)
+}
