@@ -7,10 +7,13 @@
 package endorsement
 
 import (
+	"encoding/hex"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -191,6 +194,17 @@ func (en *Endorsement) Deserialize(bs []byte) error {
 	if err := en.FromProtoMsg(&pb); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// MarshalLogObject marshals the endorsement to a zap object
+func (en *Endorsement) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	oe.AddUint8("topic", uint8(en.object.Topic))
+	oe.AddString("warrantee", hex.EncodeToString(en.object.BlkHash))
+	oe.AddUint64("height", en.object.Height)
+	oe.AddUint32("round", en.object.Round)
+	oe.AddString("endorser", en.endorser)
 
 	return nil
 }
