@@ -22,27 +22,27 @@ func TestNoncePriorityQueue(t *testing.T) {
 	require := require.New(t)
 	pq := noncePriorityQueue{}
 	// Push four dummy nonce to the queue
-	heap.Push(&pq, uint64(1))
-	heap.Push(&pq, uint64(3))
-	heap.Push(&pq, uint64(2))
+	heap.Push(&pq, nonceWithTTL{nonce: uint64(1)})
+	heap.Push(&pq, nonceWithTTL{nonce: uint64(3)})
+	heap.Push(&pq, nonceWithTTL{nonce: uint64(2)})
 	// Test Pop implementation
 	i := uint64(1)
 	for pq.Len() > 0 {
-		nonce := heap.Pop(&pq).(uint64)
+		nonce := heap.Pop(&pq).(nonceWithTTL).nonce
 		require.Equal(i, nonce)
 		i++
 	}
 	// Repush the four dummy nonce back to the queue
-	heap.Push(&pq, uint64(3))
-	heap.Push(&pq, uint64(2))
-	heap.Push(&pq, uint64(1))
+	heap.Push(&pq, nonceWithTTL{nonce: uint64(3)})
+	heap.Push(&pq, nonceWithTTL{nonce: uint64(2)})
+	heap.Push(&pq, nonceWithTTL{nonce: uint64(1)})
 	// Test built-in Remove implementation
 	// Remove a random nonce from noncePriorityQueue
 	rand.Seed(time.Now().UnixNano())
 	heap.Remove(&pq, rand.Intn(pq.Len()))
 	t.Log("After randomly removing a dummy nonce, the remaining dummy nonces in the order of popped are as follows:")
 	for pq.Len() > 0 {
-		nonce := heap.Pop(&pq).(uint64)
+		nonce := heap.Pop(&pq).(nonceWithTTL).nonce
 		t.Log(nonce)
 		t.Log()
 	}
@@ -55,15 +55,15 @@ func TestActQueue_Put(t *testing.T) {
 	require.NoError(err)
 	err = q.Put(vote1)
 	require.NoError(err)
-	require.Equal(uint64(2), q.index[0])
+	require.Equal(uint64(2), q.index[0].nonce)
 	require.NotNil(q.items[vote1.Nonce()])
 	tsf2, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(tsf2)
 	require.NoError(err)
-	require.Equal(uint64(1), heap.Pop(&q.index))
+	require.Equal(uint64(1), heap.Pop(&q.index).(nonceWithTTL).nonce)
 	require.Equal(tsf2, q.items[uint64(1)])
-	require.Equal(uint64(2), heap.Pop(&q.index))
+	require.Equal(uint64(2), heap.Pop(&q.index).(nonceWithTTL).nonce)
 	require.Equal(vote1, q.items[uint64(2)])
 	// tsf3 is a replacement transfer
 	tsf3, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
@@ -89,8 +89,8 @@ func TestActQueue_FilterNonce(t *testing.T) {
 	require.NoError(err)
 	q.FilterNonce(uint64(3))
 	require.Equal(1, len(q.items))
-	require.Equal(uint64(3), q.index[0])
-	require.Equal(tsf3, q.items[q.index[0]])
+	require.Equal(uint64(3), q.index[0].nonce)
+	require.Equal(tsf3, q.items[q.index[0].nonce])
 }
 
 func TestActQueue_UpdateNonce(t *testing.T) {
