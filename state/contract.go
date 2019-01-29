@@ -29,16 +29,18 @@ type (
 
 	contract struct {
 		*Account
-		dirtyCode  bool      // contract's code has been set
-		dirtyState bool      // contract's account state has changed
-		code       []byte    // contract byte-code
-		trie       trie.Trie // storage trie of the contract
+		dirtyCode  bool        // contract's code has been set
+		dirtyState bool        // contract's account state has changed
+		addr       hash.PKHash // contract's address
+		code       []byte      // contract byte-code
+		trie       trie.Trie   // storage trie of the contract
 	}
 )
 
 // GetState get the value from contract storage
 func (c *contract) GetState(key hash.Hash32B) ([]byte, error) {
-	v, err := c.trie.Get(key[:])
+	slot := hash.Hash256b(append(key[:], c.addr[:]...))
+	v, err := c.trie.Get(slot[:])
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +50,8 @@ func (c *contract) GetState(key hash.Hash32B) ([]byte, error) {
 // SetState set the value into contract storage
 func (c *contract) SetState(key hash.Hash32B, value []byte) error {
 	c.dirtyState = true
-	return c.trie.Upsert(key[:], value)
+	slot := hash.Hash256b(append(key[:], c.addr[:]...))
+	return c.trie.Upsert(slot[:], value)
 }
 
 // GetCode gets the contract's byte-code
@@ -94,9 +97,10 @@ func (c *contract) RootHash() hash.Hash32B {
 }
 
 // newContract returns a Contract instance
-func newContract(state *Account, tr trie.Trie) Contract {
+func newContract(state *Account, pkhash hash.PKHash, tr trie.Trie) Contract {
 	c := contract{
 		Account: state,
+		addr:    pkhash,
 		trie:    tr,
 	}
 	c.trie.Start(context.Background())
