@@ -192,7 +192,20 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		return nil
 	}
 
-	for i := sync.Start; i <= sync.End; i++ {
+	end := bs.bc.TipHeight()
+	switch {
+	case sync.End < end:
+		end = sync.End
+	case sync.End > end:
+		log.L().Info(
+			"Do not have requested blocks",
+			zap.String("peerID", peer.ID.Pretty()),
+			zap.Uint64("start", sync.Start),
+			zap.Uint64("end", sync.End),
+			zap.Uint64("tipHeight", end),
+		)
+	}
+	for i := sync.Start; i <= end; i++ {
 		blk, err := bs.bc.GetBlockByHeight(i)
 		if err != nil {
 			return err

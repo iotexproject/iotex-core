@@ -14,6 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -198,16 +199,17 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
-	require.NoError(chain.Start(ctx))
-	require.NotNil(chain)
+	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
+	chain.EXPECT().TipHeight().Return(uint64(10)).Times(1)
+	chain.EXPECT().GetBlockByHeight(uint64(1)).Return(nil, errors.New("some error")).Times(1)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NotNil(ap)
 	require.NoError(err)
@@ -215,14 +217,6 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 
 	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
 	require.Nil(err)
-
-	defer func() {
-		require.Nil(chain.Stop(ctx))
-		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-		ctrl.Finish()
-	}()
-
 	pbBs := &iproto.BlockSync{
 		Start: 1,
 		End:   5,
