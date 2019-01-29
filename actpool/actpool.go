@@ -236,7 +236,7 @@ func (ap *actPool) GetCapacity() uint64 {
 func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash hash.Hash32B, actNonce uint64) error {
 	queue := ap.accountActs[sender]
 	if queue == nil {
-		queue = NewActQueue()
+		queue = NewActQueue(WithTimeOut(ap.cfg.ActionExpiry))
 		ap.accountActs[sender] = queue
 		confirmedNonce, err := ap.bc.Nonce(sender)
 		if err != nil {

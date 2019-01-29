@@ -79,17 +79,26 @@ type actQueue struct {
 	ttl            time.Duration
 }
 
+// ActQueueOption is the option for actQueue.
+type ActQueueOption interface {
+	SetActQueueOption(*actQueue)
+}
+
 // NewActQueue create a new action queue
-func NewActQueue() ActQueue {
-	return &actQueue{
+func NewActQueue(ops ...ActQueueOption) ActQueue {
+	aq := &actQueue{
 		items:          make(map[uint64]action.SealedEnvelope),
 		index:          noncePriorityQueue{},
 		startNonce:     uint64(1), // Taking coinbase Action into account, startNonce should start with 1
 		pendingNonce:   uint64(1), // Taking coinbase Action into account, pendingNonce should start with 1
 		pendingBalance: big.NewInt(0),
 		clock:          clock.New(),
-		ttl:            time.Minute * 10,
+		ttl:            0,
 	}
+	for _, op := range ops {
+		op.SetActQueueOption(aq)
+	}
+	return aq
 }
 
 // Overlap returns whether the current queue contains the given nonce
@@ -121,17 +130,25 @@ func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
 	return removed
 }
 
-// UpdateQueue updates the pending nonce and balance of the queue
-func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
-	// First remove all timed out actions
+func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 	removedFromQueue := make([]action.SealedEnvelope, 0)
 	for i := 0; i < len(q.index); i++ {
 		if q.clock.Now().After(q.index[i].deadline) {
 			// remove
-			q.index = append(q.index[:i], q.index[i+1:]...)
 			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
 			delete(q.items, q.index[i].nonce)
+			q.index = append(q.index[:i], q.index[i+1:]...)
 		}
+	}
+	return removedFromQueue
+}
+
+// UpdateQueue updates the pending nonce and balance of the queue
+func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
+	removedFromQueue := make([]action.SealedEnvelope, 0)
+	// First remove all timed out actions
+	if q.ttl != 0 {
+		removedFromQueue = append(removedFromQueue, q.cleanTimeout()...)
 	}
 
 	// Now, starting from the current pending nonce, incrementally find the next pending nonce

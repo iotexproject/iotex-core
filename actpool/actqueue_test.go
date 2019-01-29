@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/facebookgo/clock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -48,7 +50,7 @@ func TestNoncePriorityQueue(t *testing.T) {
 	}
 }
 
-func TestActQueue_Put(t *testing.T) {
+func TestActQueuePut(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	vote1, err := testutil.SignedVote(addr1, addr2, priKey1, 2, 0, big.NewInt(0))
@@ -72,7 +74,7 @@ func TestActQueue_Put(t *testing.T) {
 	require.NotNil(err)
 }
 
-func TestActQueue_FilterNonce(t *testing.T) {
+func TestActQueueFilterNonce(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	tsf1, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
@@ -93,7 +95,7 @@ func TestActQueue_FilterNonce(t *testing.T) {
 	require.Equal(tsf3, q.items[q.index[0].nonce])
 }
 
-func TestActQueue_UpdateNonce(t *testing.T) {
+func TestActQueueUpdateNonce(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	tsf1, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
@@ -123,7 +125,7 @@ func TestActQueue_UpdateNonce(t *testing.T) {
 	require.Equal([]action.SealedEnvelope{tsf3, tsf4}, removed)
 }
 
-func TestActQueue_PendingActs(t *testing.T) {
+func TestActQueuePendingActs(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	vote1, err := testutil.SignedVote(addr1, addr2, priKey1, 2, 0, big.NewInt(0))
@@ -152,7 +154,7 @@ func TestActQueue_PendingActs(t *testing.T) {
 	require.Equal([]action.SealedEnvelope{vote1, tsf2}, actions)
 }
 
-func TestActQueue_AllActs(t *testing.T) {
+func TestActQueueAllActs(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	vote1, err := testutil.SignedVote(addr1, addr2, priKey1, 1, 0, big.NewInt(0))
@@ -167,7 +169,7 @@ func TestActQueue_AllActs(t *testing.T) {
 	require.Equal([]action.SealedEnvelope{vote1, tsf3}, actions)
 }
 
-func TestActQueue_removeActs(t *testing.T) {
+func TestActQueueRemoveActs(t *testing.T) {
 	require := require.New(t)
 	q := NewActQueue().(*actQueue)
 	tsf1, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
@@ -203,4 +205,23 @@ func TestActQueue_removeActs(t *testing.T) {
 	require.Equal(1, len(q.index))
 	require.Equal(1, len(q.items))
 	require.Equal([]action.SealedEnvelope{tsf5, vote6}, removed)
+}
+
+func TestActQueueTimeOutAction(t *testing.T) {
+	c := clock.NewMock()
+	q := NewActQueue(WithClock(c), WithTimeOut(3*time.Minute))
+	tsf1, err := testutil.SignedTransfer(addr1, addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+	tsf2, err := testutil.SignedTransfer(addr1, addr2, priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
+	require.NoError(t, err)
+
+	require.NoError(t, q.Put(tsf1))
+	c.Add(2 * time.Minute)
+
+	require.NoError(t, q.Put(tsf2))
+	q.(*actQueue).cleanTimeout()
+	assert.Equal(t, 2, q.Len())
+	c.Add(2 * time.Minute)
+	q.(*actQueue).cleanTimeout()
+	assert.Equal(t, 1, q.Len())
 }
