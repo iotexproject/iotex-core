@@ -183,3 +183,28 @@ message LogPb {
     bytes blockHash = 6;
     uint32 index = 7;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// BELOW ARE DEFINITIONS FOR BLOCK PRODUCER PROTOCOL
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+message DonateToProducerFund {
+     bytes amount = 1;
+     bytes data = 2;
+}
+
+message ClaimFromProducerFund {
+    bytes amount = 1;
+    bytes data = 2;
+}
+
+message SetBlockReward {
+    bytes amount = 1;
+    bytes data = 2;
+}
+
+message SetEpochReward {
+    bytes amount = 1;
+    bytes data = 2;
+}
