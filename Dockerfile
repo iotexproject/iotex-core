@@ -1,4 +1,4 @@
-FROM golang:1.10-stretch
+FROM golang:1.11.5-stretch
 
 WORKDIR $GOPATH/src/github.com/iotexproject/iotex-core/
 
