@@ -79,7 +79,7 @@ type Agent struct {
 // NewAgent instantiates a local P2P agent instance
 func NewAgent(cfg config.Network, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
 	return &Agent{
-		cfg:                        cfg,
+		cfg: cfg,
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
 	}

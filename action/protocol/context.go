@@ -9,6 +9,8 @@ package protocol
 import (
 	"context"
 
+	"github.com/iotexproject/iotex-core/address"
+
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
@@ -33,6 +35,8 @@ type RunActionsCtx struct {
 	GasLimit *uint64
 	// whether disable gas charge
 	EnableGasCharge bool
+	// Caller is the address of whom issues the action
+	Caller address.Address
 }
 
 // ValidateActionsCtx provides action validators with auxiliary information.
@@ -41,6 +45,8 @@ type ValidateActionsCtx struct {
 	BlockHeight uint64
 	// public key of producer who compose those actions
 	ProducerAddr string
+	// Caller is the address of whom issues the action
+	Caller address.Address
 }
 
 // WithRunActionsCtx add RunActionsCtx into context.
@@ -55,12 +61,12 @@ func GetRunActionsCtx(ctx context.Context) (RunActionsCtx, bool) {
 }
 
 // WithValidateActionsCtx add ValidateActionsCtx into context.
-func WithValidateActionsCtx(ctx context.Context, va *ValidateActionsCtx) context.Context {
+func WithValidateActionsCtx(ctx context.Context, va ValidateActionsCtx) context.Context {
 	return context.WithValue(ctx, validateActionsCtxKey{}, va)
 }
 
 // GetValidateActionsCtx gets validateActions context
-func GetValidateActionsCtx(ctx context.Context) (*ValidateActionsCtx, bool) {
-	va, ok := ctx.Value(validateActionsCtxKey{}).(*ValidateActionsCtx)
+func GetValidateActionsCtx(ctx context.Context) (ValidateActionsCtx, bool) {
+	va, ok := ctx.Value(validateActionsCtxKey{}).(ValidateActionsCtx)
 	return va, ok
 }

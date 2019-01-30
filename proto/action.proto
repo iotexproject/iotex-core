@@ -151,7 +151,7 @@ message ActionPb {
         CreateDepositPb createDeposit = 16;
         SettleDepositPb settleDeposit = 17;
 
-        // PlumChain
+	// PlumChain
         CreatePlumChainPb createPlumChain = 18;
         TerminatePlumChainPb terminatePlumChain = 19;
         PlumPutBlockPb plumPutBlock = 20;
@@ -162,6 +162,12 @@ message ActionPb {
         PlumFinalizeExit plumFinalizeExit = 25;
         PlumSettleDepositPb plumSettleDeposit = 26;
         PlumTransferPb plumTransfer = 27;
+
+        // Block producer protocol actions
+        DonateToProducerFund donateToProducerFund = 30;
+        ClaimFromProducerFund claimFromProducerFund = 31;
+        SetBlockReward setBlockReward = 32;
+        SetEpochReward setEpochReward = 33;
     }
 }
 

@@ -837,11 +837,16 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
 	gasLimit := genesis.BlockGasLimit
+	callerAddr, err := address.Bech32ToAddress(addr)
+	if err != nil {
+		return nil, err
+	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			ProducerAddr:    genesisBlk.ProducerAddress(),
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+			Caller:          callerAddr,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")

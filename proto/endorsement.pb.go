@@ -46,13 +46,13 @@ func (Endorsement_ConsensusVoteTopic) EnumDescriptor() ([]byte, []int) {
 
 // corresponding to prepare and pre-prepare phase in view change protocol
 type Endorsement struct {
-	Height               uint64                         `protobuf:"varint,1,opt,name=height" json:"height,omitempty"`
-	Round                uint32                         `protobuf:"varint,2,opt,name=round" json:"round,omitempty"`
+	Height               uint64                         `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	Round                uint32                         `protobuf:"varint,2,opt,name=round,proto3" json:"round,omitempty"`
 	BlockHash            []byte                         `protobuf:"bytes,3,opt,name=blockHash,proto3" json:"blockHash,omitempty"`
-	Topic                Endorsement_ConsensusVoteTopic `protobuf:"varint,4,opt,name=topic,enum=iproto.Endorsement_ConsensusVoteTopic" json:"topic,omitempty"`
-	Endorser             string                         `protobuf:"bytes,5,opt,name=endorser" json:"endorser,omitempty"`
+	Topic                Endorsement_ConsensusVoteTopic `protobuf:"varint,4,opt,name=topic,proto3,enum=iproto.Endorsement_ConsensusVoteTopic" json:"topic,omitempty"`
+	Endorser             string                         `protobuf:"bytes,5,opt,name=endorser,proto3" json:"endorser,omitempty"`
 	EndorserPubKey       []byte                         `protobuf:"bytes,6,opt,name=endorserPubKey,proto3" json:"endorserPubKey,omitempty"`
-	Decision             bool                           `protobuf:"varint,7,opt,name=decision" json:"decision,omitempty"`
+	Decision             bool                           `protobuf:"varint,7,opt,name=decision,proto3" json:"decision,omitempty"`
 	Signature            []byte                         `protobuf:"bytes,8,opt,name=signature,proto3" json:"signature,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                       `json:"-"`
 	XXX_unrecognized     []byte                         `json:"-"`
@@ -141,8 +141,8 @@ func (m *Endorsement) GetSignature() []byte {
 
 type EndorsementSet struct {
 	BlockHash            []byte         `protobuf:"bytes,1,opt,name=blockHash,proto3" json:"blockHash,omitempty"`
-	Round                uint32         `protobuf:"varint,2,opt,name=round" json:"round,omitempty"`
-	Endorsements         []*Endorsement `protobuf:"bytes,3,rep,name=endorsements" json:"endorsements,omitempty"`
+	Round                uint32         `protobuf:"varint,2,opt,name=round,proto3" json:"round,omitempty"`
+	Endorsements         []*Endorsement `protobuf:"bytes,3,rep,name=endorsements,proto3" json:"endorsements,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
