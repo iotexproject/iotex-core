@@ -174,12 +174,12 @@ func main() {
 			}
 			bcHeights[i] = chains[i].TipHeight()
 			cfg := configs[i].Consensus.RollDPoS
-			minTimeout = int(cfg.Delay/time.Second - cfg.FSM.ProposerInterval/time.Second)
+			minTimeout = int(cfg.Delay/time.Second - cfg.DelegateInterval/time.Second)
 			netTimeout = 0
 			if timeout > minTimeout {
 				netTimeout = timeout - minTimeout
 			}
-			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.FSM.ProposerInterval)
+			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.DelegateInterval)
 
 			log.S().Infof("Node#%d blockchain height: %d", i, bcHeights[i])
 			log.S().Infof("Node#%d state      height: %d", i, stateHeights[i])
@@ -235,7 +235,6 @@ func newConfig(
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Consensus.RollDPoS.DelegateInterval = 10 * time.Second
-	cfg.Consensus.RollDPoS.FSM.ProposerInterval = 10 * time.Second
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 4 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second

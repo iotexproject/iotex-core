@@ -624,7 +624,7 @@ func (ctx *rollDPoSCtx) roundCtxByTime(
 		return nil, err
 	}
 	// proposer interval should be always larger than 0
-	interval := ctx.cfg.FSM.ProposerInterval
+	interval := ctx.cfg.DelegateInterval
 	if interval <= 0 {
 		ctx.logger().Panic("invalid proposer interval")
 	}

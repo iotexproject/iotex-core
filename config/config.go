@@ -95,7 +95,6 @@ var (
 			Scheme: NOOPScheme,
 			RollDPoS: RollDPoS{
 				FSM: consensusfsm.Config{
-					ProposerInterval:             10 * time.Second,
 					UnmatchedEventTTL:            3 * time.Second,
 					UnmatchedEventInterval:       100 * time.Millisecond,
 					AcceptBlockTTL:               4 * time.Second,
@@ -525,7 +524,7 @@ func ValidateRollDPoS(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
 	}
 	ttl := fsm.AcceptLockEndorsementTTL + fsm.AcceptBlockTTL + fsm.AcceptProposalEndorsementTTL
-	if ttl >= fsm.ProposerInterval {
+	if ttl >= rollDPoS.DelegateInterval {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS ttl sum is larger than proposer interval")
 	}
 
