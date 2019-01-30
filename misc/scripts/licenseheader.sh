@@ -6,4 +6,3 @@ for f in $(du -a . | awk '{print $2}' | grep '\.go$' | grep -v '/vendor/' | grep
     mv $f.new $f
   fi
 done
-
