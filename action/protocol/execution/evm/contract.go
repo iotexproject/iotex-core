@@ -139,7 +139,7 @@ func (c *contract) Snapshot() Contract {
 }
 
 // NewContract returns a Contract instance
-func newContract(state *state.Account, dao db.KVStore, batch db.CachedBatch) (Contract, error) {
+func newContract(addr hash.PKHash, state *state.Account, dao db.KVStore, batch db.CachedBatch) (Contract, error) {
 	dbForTrie, err := db.NewKVStoreForTrie(ContractKVNameSpace, dao, db.CachedBatchOption(batch))
 	if err != nil {
 		return nil, err
@@ -147,6 +147,9 @@ func newContract(state *state.Account, dao db.KVStore, batch db.CachedBatch) (Co
 	options := []trie.Option{
 		trie.KVStoreOption(dbForTrie),
 		trie.KeyLengthOption(hash.HashSize),
+		trie.HashFuncOption(func(data []byte) []byte {
+			return trie.DefaultHashFunc(append(addr[:], data...))
+		}),
 	}
 	if state.Root != hash.ZeroHash32B {
 		options = append(options, trie.RootHashOption(state.Root[:]))
