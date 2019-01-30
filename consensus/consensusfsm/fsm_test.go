@@ -84,7 +84,6 @@ func TestStateTransitions(t *testing.T) {
 		AcceptBlockTTL:               4 * time.Second,
 		AcceptProposalEndorsementTTL: 2 * time.Second,
 		AcceptLockEndorsementTTL:     2 * time.Second,
-		ProposerInterval:             10 * time.Second,
 	}, mockCtx, mockClock)
 	require.Nil(err)
 	require.NotNil(cfsm)
@@ -120,6 +119,7 @@ func TestStateTransitions(t *testing.T) {
 			require.NoError(err)
 			require.Equal(sAcceptBlockProposal, state)
 			time.Sleep(100 * time.Millisecond)
+			// garbage collection
 			mockClock.Add(4 * time.Second)
 			evt := <-cfsm.evtq
 			require.Equal(eFailedToReceiveBlock, evt.Type())
@@ -129,10 +129,6 @@ func TestStateTransitions(t *testing.T) {
 			mockClock.Add(2 * time.Second)
 			evt = <-cfsm.evtq
 			require.Equal(eStopReceivingLockEndorsement, evt.Type())
-			// garbage collection
-			mockClock.Add(2 * time.Second)
-			evt = <-cfsm.evtq
-			require.Equal(eFailedToReachConsensusInTime, evt.Type())
 		})
 		t.Run("is-proposer", func(t *testing.T) {
 			t.Run("fail-to-mint", func(t *testing.T) {
@@ -159,6 +155,7 @@ func TestStateTransitions(t *testing.T) {
 				require.Equal(sAcceptBlockProposal, state)
 				evt := <-cfsm.evtq
 				require.Equal(eReceiveBlock, evt.Type())
+				// garbage collection
 				time.Sleep(100 * time.Millisecond)
 				mockClock.Add(4 * time.Second)
 				evt = <-cfsm.evtq
@@ -169,10 +166,6 @@ func TestStateTransitions(t *testing.T) {
 				mockClock.Add(2 * time.Second)
 				evt = <-cfsm.evtq
 				require.Equal(eStopReceivingLockEndorsement, evt.Type())
-				// garbage collection
-				mockClock.Add(2 * time.Second)
-				evt = <-cfsm.evtq
-				require.Equal(eFailedToReachConsensusInTime, evt.Type())
 			})
 		})
 	})
@@ -408,12 +401,5 @@ func TestStateTransitions(t *testing.T) {
 			evt := <-cfsm.evtq
 			require.Equal(ePrepare, evt.Type())
 		})
-	})
-	t.Run("onFailedToReachConsensusInTime", func(t *testing.T) {
-		state, err := cfsm.onFailedToReachConsensusInTime(nil)
-		require.NoError(err)
-		require.Equal(sPrepare, state)
-		evt := <-cfsm.evtq
-		require.Equal(ePrepare, evt.Type())
 	})
 }
