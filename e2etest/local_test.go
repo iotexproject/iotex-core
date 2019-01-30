@@ -15,7 +15,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-ethereum/crypto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -731,8 +731,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["bravo"].Bech32(), candidatesAddr[0])
-	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[1])
+	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[0])
+	require.Equal(ta.Addrinfo["bravo"].Bech32(), candidatesAddr[1])
 
 	// Add block 4
 	// Unvote B
@@ -786,8 +786,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["alfa"].Bech32(), candidatesAddr[0])
-	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[1])
+	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[0])
+	require.Equal(ta.Addrinfo["alfa"].Bech32(), candidatesAddr[1])
 }
 
 func TestBlockchainRecovery(t *testing.T) {

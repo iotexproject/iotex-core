@@ -26,7 +26,6 @@ func TestAddress(t *testing.T) {
 		pkHash := keypair.HashPubKey(&sk.PublicKey)
 
 		assertAddr := func(t *testing.T, addr *AddrV1) {
-			assert.Equal(t, uint8(1), addr.Version())
 			assert.Equal(t, pkHash[:], addr.Payload())
 			assert.Equal(t, pkHash, addr.PublicKeyHash())
 		}

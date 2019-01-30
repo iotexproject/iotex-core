@@ -1177,7 +1177,7 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 
 			var chainIDBytes [4]byte
 			enc.MachineEndian.PutUint32(chainIDBytes[:], 1)
-			payload := append(chainIDBytes[:], append([]byte{address.V1.Version}, []byte(randStringRunes(20))...)...)
+			payload := []byte(randStringRunes(20))
 			receiverAddr, err := address.BytesToAddress(payload)
 			if err != nil {
 				b.Fatal(err)
