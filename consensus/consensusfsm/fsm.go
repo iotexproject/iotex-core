@@ -55,7 +55,6 @@ const (
 	eReceiveLockEndorsement           fsm.EventType = "E_RECEIVE_LOCK_ENDORSEMENT"
 	eStopReceivingLockEndorsement     fsm.EventType = "E_STOP_RECEIVING_LOCK_ENDORSEMENT"
 	eReceivePreCommitEndorsement      fsm.EventType = "E_RECEIVE_PRECOMMIT_ENDORSEMENT"
-	eFailedToReachConsensusInTime     fsm.EventType = "E_FAILED_TO_REACH_CONSENSUS_IN_TIME"
 
 	// BackdoorEvent indicates a backdoor event type
 	BackdoorEvent fsm.EventType = "E_BACKDOOR"
@@ -82,7 +81,6 @@ var (
 // Config defines a set of time durations used in fsm and event queue size
 type Config struct {
 	EventChanSize                uint          `yaml:"eventChanSize"`
-	ProposerInterval             time.Duration `yaml:"proposerInterval"`
 	UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
 	UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
 	AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
@@ -174,13 +172,6 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 			[]fsm.State{
 				sAcceptPreCommitEndorsement,
 				sPrepare, // reach consensus, start next epoch
-			}).
-		AddTransition(
-			sAcceptPreCommitEndorsement,
-			eFailedToReachConsensusInTime,
-			cm.onFailedToReachConsensusInTime,
-			[]fsm.State{
-				sPrepare, // new round
 			})
 	// Add the backdoor transition so that we could unit test the transition from any given state
 	for _, state := range consensusStates {
@@ -341,7 +332,6 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 	m.produceConsensusEvent(eStopReceivingProposalEndorsement, ttl)
 	ttl += m.cfg.AcceptLockEndorsementTTL
 	m.produceConsensusEvent(eStopReceivingLockEndorsement, ttl)
-	m.produceConsensusEvent(eFailedToReachConsensusInTime, m.cfg.ProposerInterval)
 	// TODO add timeout for commit collection
 	if isProposer {
 		m.ctx.Logger().Info("Broadcast init proposal.", log.Hex("blockHash", blk.Hash()))
@@ -476,14 +466,6 @@ func (m *ConsensusFSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, 
 
 	consensusMtc.WithLabelValues("ReachConsenus").Inc()
 	m.ctx.OnConsensusReached()
-	m.ProducePrepareEvent(0)
-
-	return sPrepare, nil
-}
-
-// TODO: delete this function if time rotation is enabled
-func (m *ConsensusFSM) onFailedToReachConsensusInTime(evt fsm.Event) (fsm.State, error) {
-	m.ctx.LoggerWithStats().Error("doesn't reach consensus in time")
 	m.ProducePrepareEvent(0)
 
 	return sPrepare, nil
