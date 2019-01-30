@@ -65,11 +65,14 @@ func (b *Builder) SetDeltaStateDigest(h hash.Hash32B) *Builder {
 }
 
 // SetReceipts sets the receipts after running actions included in this building block.
-func (b *Builder) SetReceipts(rm map[hash.Hash32B]*action.Receipt) *Builder {
-	b.blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
-	for h, r := range rm {
-		b.blk.Receipts[h] = r
-	}
+func (b *Builder) SetReceipts(receipts []*action.Receipt) *Builder {
+	b.blk.Receipts = receipts // make a shallow copy
+	return b
+}
+
+// SetReceiptRoot sets the receipt root after running actions included in this building block.
+func (b *Builder) SetReceiptRoot(h hash.Hash32B) *Builder {
+	b.blk.Header.receiptRoot = h
 	return b
 }
 

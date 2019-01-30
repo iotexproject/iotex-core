@@ -177,7 +177,7 @@ func TestMutateDeposit(t *testing.T) {
 
 	require.NotNil(t, receipt)
 	assert.Equal(t, uint64(300), enc.MachineEndian.Uint64(receipt.ReturnValue))
-	assert.Equal(t, act.Hash(), receipt.Hash)
+	assert.Equal(t, act.Hash(), receipt.ActHash)
 	assert.Equal(t, uint64(0), receipt.Status)
 	gas, err := act.IntrinsicGas()
 	assert.NoError(t, err)

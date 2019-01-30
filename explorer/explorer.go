@@ -1899,7 +1899,7 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 	return explorer.Receipt{
 		ReturnValue:     hex.EncodeToString(receipt.ReturnValue),
 		Status:          int64(receipt.Status),
-		Hash:            hex.EncodeToString(receipt.Hash[:]),
+		Hash:            hex.EncodeToString(receipt.ActHash[:]),
 		GasConsumed:     int64(receipt.GasConsumed),
 		ContractAddress: receipt.ContractAddress,
 		Logs:            logs,

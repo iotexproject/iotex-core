@@ -61,6 +61,9 @@ func (h Header) DeltaStateDigest() hash.Hash32B { return h.deltaStateDigest }
 // PublicKey returns the public key of this header.
 func (h Header) PublicKey() keypair.PublicKey { return h.pubkey }
 
+// ReceiptRoot returns the receipt root after apply this block
+func (h Header) ReceiptRoot() hash.Hash32B { return h.receiptRoot }
+
 // DKGPubkey returns DKG PublicKey.
 func (h Header) DKGPubkey() []byte {
 	pk := make([]byte, len(h.dkgPubkey))
@@ -111,6 +114,7 @@ func (h Header) HeaderLogger(l *zap.Logger) *zap.Logger {
 		log.Hex("prevBlockHash", h.prevBlockHash[:]),
 		log.Hex("txRoot", h.txRoot[:]),
 		log.Hex("stateRoot", h.stateRoot[:]),
+		log.Hex("receiptRoot", h.receiptRoot[:]),
 		log.Hex("deltaStateDigest", h.deltaStateDigest[:]),
 	)
 }
