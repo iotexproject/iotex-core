@@ -134,11 +134,11 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 
 // HandleConsensusMsg handles incoming consensus message
 func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
-	chainHeight := r.ctx.chain.TipHeight()
-	if msg.Height <= chainHeight {
+	consensusHeight := r.ctx.Height()
+	if consensusHeight != 0 && msg.Height < consensusHeight {
 		log.L().Debug(
 			"old consensus message",
-			zap.Uint64("chainHeight", chainHeight),
+			zap.Uint64("consensusHeight", consensusHeight),
 			zap.Uint64("msgHeight", msg.Height),
 		)
 		return nil
