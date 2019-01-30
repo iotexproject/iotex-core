@@ -155,7 +155,6 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 			return errors.Errorf(
 				"block height %d is not the same as consensus message height",
 				block.Height(),
-				msg.Height,
 			)
 		}
 		if !block.VerifySignature() {
@@ -172,7 +171,6 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 			return errors.Errorf(
 				"endorsement height %d is not the same as consensus message height",
 				ew.Height(),
-				msg.Height,
 			)
 		}
 		if !en.VerifySignature() {
