@@ -15,15 +15,48 @@ import (
 
 func TestDonateToProducerFund(t *testing.T) {
 	b := DonateToProducerFundBuilder{}
-	d1 := b.SetAmount(big.NewInt(1)).
+	s1 := b.SetAmount(big.NewInt(1)).
 		SetData([]byte{2}).
 		Build()
-	dProto := d1.Proto()
-	d2 := DonateToProducerFund{}
-	d2.LoadProto(dProto)
-	assert.Equal(t, d1, d2)
+	proto := s1.Proto()
+	s2 := DonateToProducerFund{}
+	s2.LoadProto(proto)
+	assert.Equal(t, s1.Amount(), s2.Amount())
+	assert.Equal(t, s2.Data(), s2.Data())
 }
 
 func TestClaimFromProducerFund(t *testing.T) {
+	b := ClaimFromProducerFundBuilder{}
+	s1 := b.SetAmount(big.NewInt(1)).
+		SetData([]byte{2}).
+		Build()
+	proto := s1.Proto()
+	s2 := ClaimFromProducerFund{}
+	s2.LoadProto(proto)
+	assert.Equal(t, s1.Amount(), s2.Amount())
+	assert.Equal(t, s2.Data(), s2.Data())
+}
 
+func TestSetBlockReward(t *testing.T) {
+	b := SetBlockRewardBuilder{}
+	s1 := b.SetAmount(big.NewInt(1)).
+		SetData([]byte{2}).
+		Build()
+	proto := s1.Proto()
+	s2 := SetBlockReward{}
+	s2.LoadProto(proto)
+	assert.Equal(t, s1.Amount(), s2.Amount())
+	assert.Equal(t, s2.Data(), s2.Data())
+}
+
+func TestSetEpochReward(t *testing.T) {
+	b := SetEpochRewardBuilder{}
+	s1 := b.SetAmount(big.NewInt(1)).
+		SetData([]byte{2}).
+		Build()
+	proto := s1.Proto()
+	s2 := SetEpochReward{}
+	s2.LoadProto(proto)
+	assert.Equal(t, s1.Amount(), s2.Amount())
+	assert.Equal(t, s2.Data(), s2.Data())
 }

@@ -10,7 +10,11 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/pkg/errors"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
+
+	"github.com/iotexproject/iotex-core/pkg/enc"
 
 	"github.com/iotexproject/iotex-core/address"
 
@@ -20,13 +24,15 @@ import (
 
 // Protocol defines the protocol of block producer fund operation and block producer rewarding process.
 type Protocol struct {
-	admin address.Address
+	keyPrefix []byte
 }
 
 // NewProtocol instantiates a block producer protocol instance
-func NewProtocol(admin address.Address) *Protocol {
+func NewProtocol(caller address.Address, nonce uint64) *Protocol {
+	var nonceBytes [8]byte
+	enc.MachineEndian.PutUint64(nonceBytes[:], nonce)
 	return &Protocol{
-		admin: admin,
+		keyPrefix: hash.Hash160b(append(caller.Bytes(), nonceBytes[:]...)),
 	}
 }
 
@@ -44,26 +50,7 @@ func (p *Protocol) Validate(
 	ctx context.Context,
 	act action.Action,
 ) error {
-	vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
-	if !ok {
-		return errors.New("miss action validation context")
-	}
-	switch act := act.(type) {
-	case *SetBlockReward:
-		if err := p.assertAdminPermission(vaCtx); err != nil {
-			return err
-		}
-		if err := p.assertAmount(act.Amount()); err != nil {
-			return err
-		}
-	case *SetEpochReward:
-		if err := p.assertAdminPermission(vaCtx); err != nil {
-			return err
-		}
-		if err := p.assertAmount(act.Amount()); err != nil {
-			return err
-		}
-	}
+	// TODO: validate interface shouldn't be required for protocol code
 	return nil
 }
 
@@ -116,4 +103,14 @@ func (p *Protocol) SettleEpochReward(
 	sm protocol.StateManager,
 ) error {
 	return nil
+}
+
+func (p *Protocol) state(sm protocol.StateManager, key []byte, value interface{}) error {
+	keyHash := byteutil.BytesTo20B(hash.Hash160b(append(p.keyPrefix, key...)))
+	return sm.State(keyHash, value)
+}
+
+func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
+	keyHash := byteutil.BytesTo20B(hash.Hash160b(append(p.keyPrefix, key...)))
+	return sm.PutState(keyHash, value)
 }
