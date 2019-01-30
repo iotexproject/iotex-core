@@ -179,7 +179,7 @@ Default flag values:
 * vote-gas-limit=1000000
 * vote-gas-price=10
 * execution-num=50
-* contract="io1qy8w2uj6qmvfgcy6dgrv24qc5qp26dfp5vx427vk"
+* contract="io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq"
 * execution-amount=0
 * execution-gas-limit=1200000
 * execution-gas-price=10
