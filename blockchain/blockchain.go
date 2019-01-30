@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -717,7 +718,7 @@ func (bc *blockchain) MintNewBlock(
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	root, rc, err := bc.runActions(ra, ws, false)
+	root, rc, err := bc.runActions(ra, ws)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", bc.tipHeight+1)
 	}
@@ -728,6 +729,7 @@ func (bc *blockchain) MintNewBlock(
 		SetStateRoot(root).
 		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
+		SetReceiptRoot(calculateReceiptRoot(rc)).
 		SignAndBuild(producerPubKey, producerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create block")
@@ -901,7 +903,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			AddActions(acts...).
 			Build(addr, pk)
 		// run execution and update state trie root hash
-		root, receipts, err := bc.runActions(racts, ws, false)
+		root, receipts, err := bc.runActions(racts, ws)
 		if err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
 		}
@@ -909,9 +911,10 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		genesis, err = block.NewBuilder(racts).
 			SetChainID(bc.ChainID()).
 			SetPrevBlockHash(Gen.ParentHash).
-			SetReceipts(receipts).
 			SetStateRoot(root).
 			SetDeltaStateDigest(ws.Digest()).
+			SetReceipts(receipts).
+			SetReceiptRoot(calculateReceiptRoot(receipts)).
 			SignAndBuild(pk, sk)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
@@ -965,7 +968,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 			AddActions(acts...).
 			Build(addr, pk)
 		// run execution and update state trie root hash
-		if _, _, err := bc.runActions(racts, ws, false); err != nil {
+		if _, _, err := bc.runActions(racts, ws); err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -989,7 +992,7 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		if ws, err = bc.sf.NewWorkingSet(); err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
-		if _, _, err := bc.runActions(blk.RunnableActions(), ws, true); err != nil {
+		if _, _, err := bc.runActions(blk.RunnableActions(), ws); err != nil {
 			return err
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -1020,7 +1023,7 @@ func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) erro
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 	runTimer := bc.timerFactory.NewTimer("runActions")
-	root, _, err := bc.runActions(blk.RunnableActions(), ws, true)
+	root, receipts, err := bc.runActions(blk.RunnableActions(), ws)
 	runTimer.End()
 	if err != nil {
 		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bc.tipHeight), zap.Error(err))
@@ -1032,6 +1035,10 @@ func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) erro
 
 	if err = blk.VerifyDeltaStateDigest(ws.Digest()); err != nil {
 		return err
+	}
+
+	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
+		return errors.Wrap(err, "Failed to verify receipt root")
 	}
 
 	// attach working set to be committed to state factory
@@ -1075,11 +1082,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 		// write smart contract receipt into DB
 		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
-		blkReceipts := make([]*action.Receipt, 0)
-		for _, receipt := range blk.Receipts {
-			blkReceipts = append(blkReceipts, receipt)
-		}
-		err = bc.dao.putReceipts(blk.Height(), blkReceipts)
+		err = bc.dao.putReceipts(blk.Height(), blk.Receipts)
 		receiptTimer.End()
 		if err != nil {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
@@ -1092,7 +1095,10 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	return nil
 }
 
-func (bc *blockchain) runActions(acts block.RunnableActions, ws factory.WorkingSet, verify bool) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
+func (bc *blockchain) runActions(
+	acts block.RunnableActions,
+	ws factory.WorkingSet,
+) (hash.Hash32B, []*action.Receipt, error) {
 	if bc.sf == nil {
 		return hash.ZeroHash32B, nil, errors.New("statefactory cannot be nil")
 	}
@@ -1127,8 +1133,6 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 
 func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
 
-func (bc *blockchain) GetDB() db.KVStore { return bc.dao.kvstore }
-
 func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, string, error) {
 	pk, err := keypair.DecodePublicKey(genesisProducerPublicKey)
 	if err != nil {
@@ -1140,4 +1144,16 @@ func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, 
 	}
 	pkHash := keypair.HashPubKey(pk)
 	return pk, sk, address.New(pkHash[:]).Bech32(), nil
+}
+
+func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash32B {
+	var h []hash.Hash32B
+	for _, receipt := range receipts {
+		h = append(h, receipt.Hash())
+	}
+	if len(h) == 0 {
+		return hash.ZeroHash32B
+	}
+	res := crypto.NewMerkleTree(h).HashTree()
+	return res
 }

@@ -79,11 +79,7 @@ func (ib *IndexBuilder) Start(_ context.Context) error {
 				)
 			}
 			// index receipts
-			blkReceipts := make([]*action.Receipt, 0)
-			for _, receipt := range blk.Receipts {
-				blkReceipts = append(blkReceipts, receipt)
-			}
-			if err := putReceipts(blk.Height(), blkReceipts, batch); err != nil {
+			if err := putReceipts(blk.Height(), blk.Receipts, batch); err != nil {
 				log.L().Info(
 					"Error when indexing the block",
 					zap.Uint64("height", blk.Height()),
@@ -475,10 +471,10 @@ func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVSto
 	for _, r := range blkReceipts {
 		batch.Put(
 			blockActionReceiptMappingNS,
-			r.Hash[:],
+			r.ActHash[:],
 			heightBytes[:],
 			"Failed to put receipt index for action %x",
-			r.Hash[:],
+			r.ActHash[:],
 		)
 	}
 	return nil

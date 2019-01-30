@@ -10,6 +10,8 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -17,7 +19,7 @@ import (
 type Receipt struct {
 	ReturnValue     []byte
 	Status          uint64
-	Hash            hash.Hash32B
+	ActHash         hash.Hash32B
 	GasConsumed     uint64
 	ContractAddress string
 	Logs            []*Log
@@ -30,8 +32,9 @@ type Log struct {
 	Data        []byte
 	BlockNumber uint64
 	TxnHash     hash.Hash32B
-	BlockHash   hash.Hash32B
-	Index       uint
+	// TODO: in our case, BlockHash is actually txRoot, we need to revisit this field later
+	BlockHash hash.Hash32B
+	Index     uint
 }
 
 // ConvertToReceiptPb converts a Receipt to protobuf's ReceiptPb
@@ -39,7 +42,7 @@ func (receipt *Receipt) ConvertToReceiptPb() *iproto.ReceiptPb {
 	r := &iproto.ReceiptPb{}
 	r.ReturnValue = receipt.ReturnValue
 	r.Status = receipt.Status
-	r.Hash = receipt.Hash[:]
+	r.ActHash = receipt.ActHash[:]
 	r.GasConsumed = receipt.GasConsumed
 	r.ContractAddress = receipt.ContractAddress
 	r.Logs = []*iproto.LogPb{}
@@ -53,7 +56,7 @@ func (receipt *Receipt) ConvertToReceiptPb() *iproto.ReceiptPb {
 func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iproto.ReceiptPb) {
 	receipt.ReturnValue = pbReceipt.GetReturnValue()
 	receipt.Status = pbReceipt.GetStatus()
-	copy(receipt.Hash[:], pbReceipt.GetHash())
+	copy(receipt.ActHash[:], pbReceipt.GetActHash())
 	receipt.GasConsumed = pbReceipt.GetGasConsumed()
 	receipt.ContractAddress = pbReceipt.GetContractAddress()
 	logs := pbReceipt.GetLogs()
@@ -77,6 +80,15 @@ func (receipt *Receipt) Deserialize(buf []byte) error {
 	}
 	receipt.ConvertFromReceiptPb(pbReceipt)
 	return nil
+}
+
+// Hash returns the hash of receipt
+func (receipt *Receipt) Hash() hash.Hash32B {
+	data, err := receipt.Serialize()
+	if err != nil {
+		log.L().Panic("Error when serializing a receipt")
+	}
+	return byteutil.BytesTo32B(hash.Hash256b(data))
 }
 
 // ConvertToLogPb converts a Log to protobuf's LogPb

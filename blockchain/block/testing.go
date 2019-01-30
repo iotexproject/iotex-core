@@ -76,11 +76,8 @@ func (b *TestingBuilder) SetStateRoot(h hash.Hash32B) *TestingBuilder {
 }
 
 // SetReceipts sets the receipts after running actions included in this building block.
-func (b *TestingBuilder) SetReceipts(rm map[hash.Hash32B]*action.Receipt) *TestingBuilder {
-	b.blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
-	for h, r := range rm {
-		b.blk.Receipts[h] = r
-	}
+func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder {
+	b.blk.Receipts = receipts // make a shallow copy
 	return b
 }
 
