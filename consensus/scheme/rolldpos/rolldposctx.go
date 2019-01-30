@@ -421,6 +421,16 @@ func (ctx *rollDPoSCtx) IsProposer() bool {
 	return ctx.round.proposer == ctx.encodedAddr
 }
 
+func (ctx *rollDPoSCtx) Height() uint64 {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	if ctx.round == nil {
+		return 0
+	}
+
+	return ctx.round.height
+}
+
 ///////////////////////////////////////////
 // private functions
 ///////////////////////////////////////////
