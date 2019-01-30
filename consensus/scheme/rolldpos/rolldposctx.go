@@ -548,7 +548,7 @@ func (ctx *rollDPoSCtx) processEndorsement(
 		return errors.Errorf("invalid endorser %s", endorse.Endorser())
 	}
 	if _, ok := expectedTopics[vote.Topic]; !ok {
-		return errors.Errorf("invalid consensus topic %s", vote.Topic)
+		return errors.Errorf("invalid consensus topic %v", vote.Topic)
 	}
 	if vote.Height != ctx.round.height {
 		return errors.Errorf(
