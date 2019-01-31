@@ -81,14 +81,14 @@ func (s *Server) Stop(ctx context.Context) error { return s.server.Shutdown(ctx)
 
 func successHandleFunc(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	if err := w.Write([]byte("OK")); err != nil {
+	if _, err := w.Write([]byte("OK")); err != nil {
 		log.L().Warn("Failed to send http response.", zap.Error(err))
 	}
 }
 
 func failureHandleFunc(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusServiceUnavailable)
-	if err := w.Write([]byte("FAIL")); err != nil {
+	if _, err := w.Write([]byte("FAIL")); err != nil {
 		log.L().Warn("Failed to send http response.", zap.Error(err))
 	}
 }
