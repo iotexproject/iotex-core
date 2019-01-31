@@ -20,7 +20,7 @@ func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, cs consensus.Cons
 	if err := cs.ValidateBlockFooter(blk); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {

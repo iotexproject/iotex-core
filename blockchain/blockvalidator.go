@@ -28,11 +28,10 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(block *block.Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error
+	Validate(block *block.Block, tipHeight uint64, tipHash hash.Hash32B) error
 	// ValidateActionsOnly validates the actions only
 	ValidateActionsOnly(
 		actions []action.SealedEnvelope,
-		containCoinbase bool,
 		secretWitness *action.SecretWitness,
 		secretProposals []*action.SecretProposal,
 		pk keypair.PublicKey,
@@ -69,7 +68,7 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Hash32B, containCoinbase bool) error {
+func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Hash32B) error {
 	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
@@ -80,7 +79,6 @@ func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Ha
 	if v.sf != nil {
 		return v.ValidateActionsOnly(
 			blk.Actions,
-			containCoinbase,
 			blk.SecretWitness,
 			blk.SecretProposals,
 			blk.PublicKey(),
@@ -104,7 +102,6 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 
 func (v *validator) ValidateActionsOnly(
 	actions []action.SealedEnvelope,
-	containCoinbase bool,
 	secretWitness *action.SecretWitness,
 	secretProposals []*action.SecretProposal,
 	pk keypair.PublicKey,
@@ -117,7 +114,6 @@ func (v *validator) ValidateActionsOnly(
 
 	if err := v.validateActions(
 		actions,
-		containCoinbase,
 		secretWitness,
 		secretProposals,
 		pk,
@@ -164,7 +160,6 @@ func (v *validator) ValidateActionsOnly(
 
 func (v *validator) validateActions(
 	actions []action.SealedEnvelope,
-	containCoinbase bool,
 	secretWitness *action.SecretWitness,
 	secretProposals []*action.SecretProposal,
 	pk keypair.PublicKey,
@@ -173,18 +168,12 @@ func (v *validator) validateActions(
 	accountNonceMap map[string][]uint64,
 	errChan chan error,
 ) error {
-	coinbaseCounter := 0
 	producerPK := keypair.HashPubKey(pk)
 	producerAddr := address.New(producerPK[:])
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {
-		// TODO: Maybe need more strict measurement to validate a coinbase transfer
-		if act, ok := selp.Action().(*action.Transfer); ok && act.IsCoinbase() {
-			coinbaseCounter++
-		} else {
-			appendActionIndex(accountNonceMap, selp.SrcAddr(), selp.Nonce())
-		}
+		appendActionIndex(accountNonceMap, selp.SrcAddr(), selp.Nonce())
 
 		ctx := protocol.WithValidateActionsCtx(context.Background(),
 			&protocol.ValidateActionsCtx{
@@ -215,10 +204,6 @@ func (v *validator) validateActions(
 		}
 	}
 	wg.Wait()
-
-	if containCoinbase && coinbaseCounter != 1 || !containCoinbase && coinbaseCounter != 0 {
-		return errors.New("wrong number of coinbase transfers in block")
-	}
 
 	// Verify Witness
 	if secretWitness != nil {

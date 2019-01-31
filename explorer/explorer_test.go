@@ -80,7 +80,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -126,7 +126,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -143,7 +143,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -182,7 +182,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -302,7 +302,7 @@ func TestExplorerApi(t *testing.T) {
 		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
 	}
 	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, true)
-	require.Equal(5, len(transfers))
+	require.Equal(1, len(transfers))
 	require.Nil(err)
 	for i := 0; i < len(transfers)-1; i++ {
 		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
@@ -347,7 +347,7 @@ func TestExplorerApi(t *testing.T) {
 
 	transfers, err = svc.GetTransfersByBlockID(blks[2].ID, 0, 10)
 	require.Nil(err)
-	require.Equal(2, len(transfers))
+	require.Equal(1, len(transfers))
 
 	// fail
 	_, err = svc.GetTransfersByBlockID("", 0, 10)
@@ -416,7 +416,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(blks[0].Size, blk.Size)
 	require.Equal(int64(0), blk.Votes)
 	require.Equal(int64(0), blk.Executions)
-	require.Equal(int64(1), blk.Transfers)
+	require.Equal(int64(0), blk.Transfers)
 
 	_, err = svc.GetBlockByID("")
 	require.Error(err)
@@ -425,10 +425,10 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
-	require.Equal(int64(9), stats.Transfers)
+	require.Equal(int64(5), stats.Transfers)
 	require.Equal(int64(24), stats.Votes)
 	require.Equal(int64(3), stats.Executions)
-	require.Equal(int64(15), stats.Aps)
+	require.Equal(int64(11), stats.Aps)
 
 	// success
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].Bech32())

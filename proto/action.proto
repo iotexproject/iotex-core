@@ -16,7 +16,6 @@ message TransferPb {
     bytes amount  = 1;
     string recipient = 2;
     bytes payload  = 3;
-    bool isCoinbase = 4;
 }
 
 message VotePb {

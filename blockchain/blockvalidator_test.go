@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -53,9 +52,9 @@ func TestWrongRootHash(t *testing.T) {
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
-	require.Nil(val.Validate(&blk, 0, blkhash, true))
+	require.Nil(val.Validate(&blk, 0, blkhash))
 	blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
-	require.NotNil(val.Validate(&blk, 0, blkhash, true))
+	require.NotNil(val.Validate(&blk, 0, blkhash))
 }
 
 func TestSignBlock(t *testing.T) {
@@ -78,7 +77,7 @@ func TestSignBlock(t *testing.T) {
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
-	require.Nil(val.Validate(&blk, 2, blkhash, true))
+	require.Nil(val.Validate(&blk, 2, blkhash))
 }
 
 func TestWrongNonce(t *testing.T) {
@@ -106,14 +105,6 @@ func TestWrongNonce(t *testing.T) {
 	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	// correct nonce
-	cbTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].Bech32())
-	bd := action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
-		SetGasLimit(genesis.ActionGasLimit).
-		SetAction(cbTsf).Build()
-	cbselp, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
-	require.NoError(err)
 
 	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
@@ -124,11 +115,11 @@ func TestWrongNonce(t *testing.T) {
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(cbselp, tsf1).
+		AddActions(tsf1).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
-	require.Nil(val.Validate(&blk, 2, blkhash, true))
+	require.Nil(val.Validate(&blk, 2, blkhash))
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
@@ -151,11 +142,11 @@ func TestWrongNonce(t *testing.T) {
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(cbselp, tsf1, tsf2).
+		AddActions(tsf1, tsf2).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
-	err = val.Validate(&blk, 2, blkhash, true)
+	err = val.Validate(&blk, 2, blkhash)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	vote, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, uint64(100000), big.NewInt(10))
@@ -167,10 +158,10 @@ func TestWrongNonce(t *testing.T) {
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(cbselp, vote).
+		AddActions(vote).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash, true)
+	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -186,10 +177,10 @@ func TestWrongNonce(t *testing.T) {
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(cbselp, tsf3, tsf4).
+		AddActions(tsf3, tsf4).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash, true)
+	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -204,10 +195,10 @@ func TestWrongNonce(t *testing.T) {
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(cbselp, vote2, vote3).
+		AddActions(vote2, vote3).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash, true)
+	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -222,10 +213,10 @@ func TestWrongNonce(t *testing.T) {
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(cbselp, tsf5, tsf6).
+		AddActions(tsf5, tsf6).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash, true)
+	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -240,94 +231,12 @@ func TestWrongNonce(t *testing.T) {
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(cbselp, vote4, vote5).
+		AddActions(vote4, vote5).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash, true)
+	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
-}
-
-func TestWrongCoinbaseTsf(t *testing.T) {
-	cfg := config.Default
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	require := require.New(t)
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.NoError(err)
-
-	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
-	require.NoError(bc.Start(context.Background()))
-	defer func() {
-		require.NoError(bc.Stop(context.Background()))
-	}()
-
-	require.NoError(addCreatorToFactory(sf))
-
-	val := &validator{sf: sf, validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	val.AddActionValidators(account.NewProtocol())
-
-	// no coinbase tsf
-	coinbaseTsf := action.NewCoinBaseTransfer(1, Gen.BlockReward, ta.Addrinfo["producer"].Bech32())
-	bd := action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
-		SetGasLimit(genesis.ActionGasLimit).
-		SetAction(coinbaseTsf).Build()
-	cb, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
-	require.NoError(err)
-
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-
-	blkhash := tsf1.Hash()
-	blk, err := block.NewTestingBuilder().
-		SetChainID(1).
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
-	require.NoError(err)
-
-	err = val.Validate(&blk, 2, blkhash, true)
-	require.Error(err)
-	require.True(
-		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
-	)
-
-	// extra coinbase transfer
-	blk, err = block.NewTestingBuilder().
-		SetChainID(1).
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(cb, cb, tsf1).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
-	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash, true)
-	require.Error(err)
-	require.True(
-		strings.Contains(err.Error(), "wrong number of coinbase transfers in block"),
-	)
-
-	// no transfer
-	blk, err = block.NewTestingBuilder().
-		SetChainID(1).
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
-	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash, true)
-	require.Error(err)
-	require.True(
-		strings.Contains(err.Error(), "wrong number of coinbase transfers"),
-	)
 }
 
 func TestWrongAddress(t *testing.T) {
@@ -365,7 +274,6 @@ func TestWrongAddress(t *testing.T) {
 	require.NoError(t, err)
 	err = val.ValidateActionsOnly(
 		blk1.Actions,
-		false,
 		blk1.SecretWitness,
 		blk1.SecretProposals,
 		blk1.PublicKey(),
@@ -395,7 +303,6 @@ func TestWrongAddress(t *testing.T) {
 
 	err = val.ValidateActionsOnly(
 		blk2.Actions,
-		false,
 		blk2.SecretWitness,
 		blk2.SecretProposals,
 		blk2.PublicKey(),
@@ -424,7 +331,6 @@ func TestWrongAddress(t *testing.T) {
 	require.NoError(t, err)
 	err = val.ValidateActionsOnly(
 		blk3.Actions,
-		false,
 		blk3.SecretWitness,
 		blk3.SecretProposals,
 		blk3.PublicKey(),
@@ -453,7 +359,6 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	validator := validator{}
 	require.NoError(t, validator.ValidateActionsOnly(
 		blk.Actions,
-		true,
 		blk.SecretWitness,
 		blk.SecretProposals,
 		blk.PublicKey(),
@@ -511,7 +416,7 @@ func TestValidateSecretBlock(t *testing.T) {
 	require.NoError(err)
 
 	val := &validator{sf: sf, validatorAddr: delegates[1]}
-	require.NoError(val.Validate(&blk, 2, blkhash, false))
+	require.NoError(val.Validate(&blk, 2, blkhash))
 
 	// Falsify secret proposal
 	dummySecretProposal, err := action.NewSecretProposal(2, delegates[0], delegates[1], []uint32{1, 2, 3, 4, 5})
@@ -526,7 +431,7 @@ func TestValidateSecretBlock(t *testing.T) {
 		SetSecretWitness(secretWitness).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash, false)
+	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(ErrDKGSecretProposal, errors.Cause(err))
 }

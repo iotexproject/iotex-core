@@ -126,7 +126,7 @@ type Blockchain interface {
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *block.Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *block.Block, containCoinbase bool) error
+	ValidateBlock(blk *block.Block) error
 
 	// For action operations
 	// Validator returns the current validator object
@@ -653,12 +653,12 @@ func (bc *blockchain) TipHeight() uint64 {
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *blockchain) ValidateBlock(blk *block.Block, containCoinbase bool) error {
+func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	timer := bc.timerFactory.NewTimer("ValidateBlock")
 	defer timer.End()
-	return bc.validateBlock(blk, containCoinbase)
+	return bc.validateBlock(blk)
 }
 
 func (bc *blockchain) MintNewBlock(
@@ -673,29 +673,13 @@ func (bc *blockchain) MintNewBlock(
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
 
-	// Use block height as the nonce for coinbase transfer
-	cb := action.NewCoinBaseTransfer(bc.tipHeight+1, bc.genesis.BlockReward, producerAddr)
-	bd := action.EnvelopeBuilder{}
-	// TODO the nonce is wrong, if bd also submit actions
-	elp := bd.SetNonce(bc.tipHeight + 1).
-		SetDestinationAddress(producerAddr).
-		SetGasLimit(cb.GasLimit()).
-		SetAction(cb).Build()
-	selp, err := action.Sign(elp, producerAddr, producerPriKey)
-	if err != nil {
-		return nil, err
-	}
-
 	// initial action iterator
 	actionIterator := actioniterator.NewActionIterator(actionMap)
 	actions, err := PickAction(genesis.BlockGasLimit, actionIterator)
-	// include coinbase transfer
-	actions = append(actions, selp)
 
 	validateActionsOnlyTimer := bc.timerFactory.NewTimer("ValidateActionsOnly")
 	if err := bc.validator.ValidateActionsOnly(
 		actions,
-		true,
 		nil,
 		nil,
 		producerPubKey,
@@ -1010,9 +994,9 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 	return nil
 }
 
-func (bc *blockchain) validateBlock(blk *block.Block, containCoinbase bool) error {
+func (bc *blockchain) validateBlock(blk *block.Block) error {
 	validateTimer := bc.timerFactory.NewTimer("validate")
-	err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash, containCoinbase)
+	err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash)
 	validateTimer.End()
 	if err != nil {
 		return errors.Wrapf(err, "error when validating block %d", blk.Height())
