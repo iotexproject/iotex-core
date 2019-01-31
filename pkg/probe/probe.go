@@ -47,7 +47,6 @@ func New(port int, opts ...Option) *Server {
 			return
 		}
 		s.readinessHandler.ServeHTTP(w, r)
-		return
 	}
 	mux.HandleFunc("/readiness", readiness)
 	mux.HandleFunc("/health", readiness)
@@ -73,7 +72,7 @@ func (s *Server) Start(_ context.Context) error {
 // health endpoint.
 func (s *Server) Ready() { atomic.SwapInt32(&s.ready, _ready) }
 
-// Ready makes the probe server starts returning failure status on readiness and
+// NotReady makes the probe server starts returning failure status on readiness and
 // health endpoint.
 func (s *Server) NotReady() { atomic.SwapInt32(&s.ready, _notReady) }
 
@@ -82,10 +81,14 @@ func (s *Server) Stop(ctx context.Context) error { return s.server.Shutdown(ctx)
 
 func successHandleFunc(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	if err := w.Write([]byte("OK")); err != nil {
+		log.L().Warn("Failed to send http response.", zap.Error(err))
+	}
 }
 
 func failureHandleFunc(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusServiceUnavailable)
-	w.Write([]byte("FAIL"))
+	if err := w.Write([]byte("FAIL")); err != nil {
+		log.L().Warn("Failed to send http response.", zap.Error(err))
+	}
 }
