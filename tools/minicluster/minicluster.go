@@ -9,6 +9,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"math"
@@ -23,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/util"
@@ -91,7 +93,7 @@ func main() {
 	}
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(svrs[i], configs[i])
+		go itx.StartServer(context.Background(), svrs[i], probe.New(7788), configs[i])
 	}
 
 	if err := testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
