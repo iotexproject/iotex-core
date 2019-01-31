@@ -76,6 +76,9 @@ func (n *Standalone) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	return nil
 }
 
+// Calibrate triggers an event to calibrate consensus context
+func (n *Standalone) Calibrate(uint64) {}
+
 // ValidateBlockFooter validates signatures in block footer
 func (n *Standalone) ValidateBlockFooter(*block.Block) error {
 	log.L().Warn("Standalone scheme always return true for block footer validation")
