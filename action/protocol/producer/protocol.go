@@ -22,6 +22,11 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
+var (
+	adminKey = []byte("admin")
+	fundKey  = []byte("fund")
+)
+
 // Protocol defines the protocol of block producer fund operation and block producer rewarding process.
 type Protocol struct {
 	keyPrefix []byte
@@ -52,29 +57,6 @@ func (p *Protocol) Validate(
 ) error {
 	// TODO: validate interface shouldn't be required for protocol code
 	return nil
-}
-
-func (p *Protocol) Donate(
-	ctx context.Context,
-	sm protocol.StateManager,
-	amount *big.Int,
-	data []byte,
-) error {
-	return nil
-}
-
-func (p *Protocol) TotalBalance(
-	ctx context.Context,
-	sm protocol.StateManager,
-) (*big.Int, error) {
-	return nil, nil
-}
-
-func (p *Protocol) AvailableBalance(
-	ctx context.Context,
-	sm protocol.StateManager,
-) (*big.Int, error) {
-	return nil, nil
 }
 
 func (p *Protocol) Claim(

@@ -19,12 +19,8 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 )
 
-var (
-	adminKey = []byte("admin")
-)
-
 type admin struct {
-	Admin       address.Address
+	admin       address.Address
 	BlockReward *big.Int
 	EpochReward *big.Int
 }
@@ -32,7 +28,7 @@ type admin struct {
 // Serialize serializes admin state into bytes
 func (a admin) Serialize() ([]byte, error) {
 	gen := producerpb.Admin{
-		Admin:       a.Admin.Bytes(),
+		Admin:       a.admin.Bytes(),
 		BlockReward: a.BlockReward.Bytes(),
 		EpochReward: a.EpochReward.Bytes(),
 	}
@@ -46,7 +42,7 @@ func (a *admin) Deserialize(data []byte) error {
 		return err
 	}
 	var err error
-	if a.Admin, err = address.BytesToAddress(gen.Admin); err != nil {
+	if a.admin, err = address.BytesToAddress(gen.Admin); err != nil {
 		return err
 	}
 	a.BlockReward = big.NewInt(0).SetBytes(gen.BlockReward)
@@ -75,9 +71,19 @@ func (p *Protocol) Initialize(
 		sm,
 		adminKey,
 		&admin{
-			Admin:       raCtx.Caller,
+			admin:       raCtx.Caller,
 			BlockReward: blockReward,
 			EpochReward: epochReward,
+		},
+	); err != nil {
+		return err
+	}
+	if err := p.putState(
+		sm,
+		fundKey,
+		&fund{
+			totalBalance:     big.NewInt(0),
+			availableBalance: big.NewInt(0),
 		},
 	); err != nil {
 		return err
@@ -87,14 +93,14 @@ func (p *Protocol) Initialize(
 
 // Admin returns the address of current admin
 func (p *Protocol) Admin(
-	ctx context.Context,
+	_ context.Context,
 	sm protocol.StateManager,
 ) (address.Address, error) {
 	admin := admin{}
 	if err := p.state(sm, adminKey, &admin); err != nil {
 		return nil, err
 	}
-	return admin.Admin, nil
+	return admin.admin, nil
 }
 
 // SetAdmin sets a new admin address. Only the current admin could make this change
@@ -114,7 +120,7 @@ func (p *Protocol) SetAdmin(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	a.Admin = addr
+	a.admin = addr
 	if err := p.putState(sm, adminKey, &a); err != nil {
 		return err
 	}
@@ -123,7 +129,7 @@ func (p *Protocol) SetAdmin(
 
 // BlockReward returns the block reward amount
 func (p *Protocol) BlockReward(
-	ctx context.Context,
+	_ context.Context,
 	sm protocol.StateManager,
 ) (*big.Int, error) {
 	a := admin{}
@@ -144,7 +150,7 @@ func (p *Protocol) SetBlockReward(
 
 // EpochReward returns the epoch reward amount
 func (p *Protocol) EpochReward(
-	ctx context.Context,
+	_ context.Context,
 	sm protocol.StateManager,
 ) (*big.Int, error) {
 	a := admin{}
@@ -176,7 +182,7 @@ func (p *Protocol) assertAdminPermission(raCtx protocol.RunActionsCtx, sm protoc
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if bytes.Equal(a.Admin.Bytes(), raCtx.Caller.Bytes()) {
+	if bytes.Equal(a.admin.Bytes(), raCtx.Caller.Bytes()) {
 		return nil
 	}
 	return errors.Errorf("%s is not the block producer protocol admin", raCtx.Caller.Bech32())

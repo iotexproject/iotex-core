@@ -23,6 +23,92 @@ import (
 )
 
 func TestProtocol_Admin(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
+		// Update block reward
+		ws, err := stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.NoError(t, p.SetBlockReward(ctx, ws, big.NewInt(20)))
+		stateDB.Commit(ws)
+
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		blockReward, err := p.BlockReward(ctx, ws)
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(20), blockReward)
+
+		// Set block reward again will fail because caller is not admin
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		skNoAuth, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		pkHashNoAuth := keypair.HashPubKey(&skNoAuth.PublicKey)
+		addrNoAuth := address.New(pkHashNoAuth[:])
+		require.Error(t, p.SetBlockReward(
+			protocol.WithRunActionsCtx(
+				context.Background(),
+				protocol.RunActionsCtx{
+					Caller: addrNoAuth,
+				},
+			),
+			ws,
+			big.NewInt(30),
+		))
+
+		// Update epoch reward
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.NoError(t, p.SetEpochReward(ctx, ws, big.NewInt(200)))
+		stateDB.Commit(ws)
+
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		epochReward, err := p.EpochReward(ctx, ws)
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(200), epochReward)
+
+		// Set epoch reward again will fail because caller is not admin
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.Error(t, p.SetEpochReward(
+			protocol.WithRunActionsCtx(
+				context.Background(),
+				protocol.RunActionsCtx{
+					Caller: addrNoAuth,
+				},
+			),
+			ws,
+			big.NewInt(300),
+		))
+
+		// Update admin
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		skNew, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		pkHashNew := keypair.HashPubKey(&skNew.PublicKey)
+		addrNew := address.New(pkHashNew[:])
+		require.NoError(t, p.SetAdmin(ctx, ws, addrNew))
+		stateDB.Commit(ws)
+
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		adminAddr, err := p.Admin(ctx, ws)
+		require.NoError(t, err)
+		assert.Equal(t, addrNew.Bytes(), adminAddr.Bytes())
+
+		// Update admin again will fail because addr is no longer the admin
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		skNew, err = crypto.GenerateKey()
+		require.NoError(t, err)
+		pkHashNew = keypair.HashPubKey(&skNew.PublicKey)
+		addrNew = address.New(pkHashNew[:])
+		require.Error(t, p.SetAdmin(ctx, ws, addrNew))
+	})
+
+}
+
+func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.Factory, *Protocol)) {
 	cfg := config.Default
 	stateDB, err := factory.NewStateDB(cfg, factory.InMemStateDBOption())
 	require.NoError(t, err)
@@ -59,84 +145,12 @@ func TestProtocol_Admin(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(100), epochReward)
 
-	// Update block reward
-	ws, err = stateDB.NewWorkingSet()
+	totalBalance, err := p.TotalBalance(ctx, ws)
 	require.NoError(t, err)
-	require.NoError(t, p.SetBlockReward(ctx, ws, big.NewInt(20)))
-	stateDB.Commit(ws)
+	assert.Equal(t, big.NewInt(0), totalBalance)
+	availableBalance, err := p.AvailableBalance(ctx, ws)
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(0), availableBalance)
 
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	blockReward, err = p.BlockReward(ctx, ws)
-	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(20), blockReward)
-
-	// Set block reward again will fail because caller is not admin
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	skNoAuth, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	pkHashNoAuth := keypair.HashPubKey(&skNoAuth.PublicKey)
-	addrNoAuth := address.New(pkHashNoAuth[:])
-	require.Error(t, p.SetBlockReward(
-		protocol.WithRunActionsCtx(
-			context.Background(),
-			protocol.RunActionsCtx{
-				Caller: addrNoAuth,
-			},
-		),
-		ws,
-		big.NewInt(30),
-	))
-
-	// Update epoch reward
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	require.NoError(t, p.SetEpochReward(ctx, ws, big.NewInt(200)))
-	stateDB.Commit(ws)
-
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	epochReward, err = p.EpochReward(ctx, ws)
-	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(200), epochReward)
-
-	// Set epoch reward again will fail because caller is not admin
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	require.Error(t, p.SetEpochReward(
-		protocol.WithRunActionsCtx(
-			context.Background(),
-			protocol.RunActionsCtx{
-				Caller: addrNoAuth,
-			},
-		),
-		ws,
-		big.NewInt(300),
-	))
-
-	// Update admin
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	skNew, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	pkHashNew := keypair.HashPubKey(&skNew.PublicKey)
-	addrNew := address.New(pkHashNew[:])
-	require.NoError(t, p.SetAdmin(ctx, ws, addrNew))
-	stateDB.Commit(ws)
-
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	adminAddr, err = p.Admin(ctx, ws)
-	require.NoError(t, err)
-	assert.Equal(t, addrNew.Bytes(), adminAddr.Bytes())
-
-	// Update admin again will fail because addr is no longer the admin
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	skNew, err = crypto.GenerateKey()
-	require.NoError(t, err)
-	pkHashNew = keypair.HashPubKey(&skNew.PublicKey)
-	addrNew = address.New(pkHashNew[:])
-	require.Error(t, p.SetAdmin(ctx, ws, addrNew))
+	test(t, ctx, stateDB, p)
 }
