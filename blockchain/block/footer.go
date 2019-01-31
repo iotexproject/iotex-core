@@ -7,52 +7,71 @@
 package block
 
 import (
+	"time"
+
+	"github.com/golang/protobuf/ptypes"
+
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Footer defines a set of proof of this block
 type Footer struct {
-	// endorsements contain COMMIT endorsements from more than 2/3 delegates
-	endorsements    *endorsement.Set
-	commitTimestamp int64
+	endorsements []*endorsement.Endorsement
+	commitTime   time.Time
 }
 
 // ConvertToBlockFooterPb converts BlockFooter
-func (f *Footer) ConvertToBlockFooterPb() *iotextypes.BlockFooter {
+func (f *Footer) ConvertToBlockFooterPb() (*iotextypes.BlockFooter, error) {
 	pb := iotextypes.BlockFooter{}
-	pb.CommitTimestamp = f.commitTimestamp
-	if f.endorsements != nil {
-		pb.Endorsements = f.endorsements.ToProto()
+	commitTime, err := ptypes.TimestampProto(f.commitTime)
+	if err != nil {
+		return nil, err
 	}
-
-	return &pb
+	pb.Timestamp = commitTime
+	pb.Endorsements = []*iotextypes.Endorsement{}
+	for _, en := range f.endorsements {
+		ePb, err := en.Proto()
+		if err != nil {
+			return nil, err
+		}
+		pb.Endorsements = append(pb.Endorsements, ePb)
+	}
+	return &pb, nil
 }
 
 // ConvertFromBlockFooterPb converts BlockFooter to BlockFooter
 func (f *Footer) ConvertFromBlockFooterPb(pb *iotextypes.BlockFooter) error {
-	f.commitTimestamp = pb.GetCommitTimestamp()
+	if pb == nil {
+		return nil
+	}
+	commitTime, err := ptypes.Timestamp(pb.GetTimestamp())
+	if err != nil {
+		return err
+	}
+	f.commitTime = commitTime
 	pbEndorsements := pb.GetEndorsements()
 	if pbEndorsements == nil {
 		return nil
 	}
-	f.endorsements = &endorsement.Set{}
+	f.endorsements = []*endorsement.Endorsement{}
+	for _, ePb := range pbEndorsements {
+		e := &endorsement.Endorsement{}
+		if err := e.LoadProto(ePb); err != nil {
+			return err
+		}
+		f.endorsements = append(f.endorsements, e)
+	}
 
-	return f.endorsements.FromProto(pbEndorsements)
+	return nil
 }
 
 // CommitTime returns the timestamp the block was committed
-func (f *Footer) CommitTime() int64 {
-	return f.commitTimestamp
+func (f *Footer) CommitTime() time.Time {
+	return f.commitTime
 }
 
-// NumOfDelegateEndorsements returns the number of commit endorsements froms delegates
-func (f *Footer) NumOfDelegateEndorsements(delegates []string) int {
-	if f.endorsements == nil {
-		return 0
-	}
-	return f.endorsements.NumOfValidEndorsements(
-		map[endorsement.ConsensusVoteTopic]bool{endorsement.COMMIT: true},
-		delegates,
-	)
+// Endorsements returns the number of commit endorsements froms delegates
+func (f *Footer) Endorsements() []*endorsement.Endorsement {
+	return f.endorsements
 }

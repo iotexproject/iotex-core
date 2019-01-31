@@ -13,7 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Noop is the consensus scheme that does NOT create blocks
@@ -32,7 +32,7 @@ func (n *Noop) Start(_ context.Context) error { return nil }
 func (n *Noop) Stop(_ context.Context) error { return nil }
 
 // HandleConsensusMsg handles incoming consensus message
-func (n *Noop) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
+func (n *Noop) HandleConsensusMsg(*iotextypes.ConsensusMessage) error {
 	log.L().Warn("Noop scheme does not handle incoming consensus message.")
 	return nil
 }

@@ -39,21 +39,6 @@ func NewConsensusEvent(
 	}
 }
 
-// NewConsensusEventWithEndorsement creates a consensus event with endorsement
-func NewConsensusEventWithEndorsement(
-	eventType fsm.EventType,
-	en Endorsement,
-	creationTime time.Time,
-) *ConsensusEvent {
-	return &ConsensusEvent{
-		data:         en,
-		height:       en.Height(),
-		round:        en.Round(),
-		eventType:    eventType,
-		creationTime: creationTime,
-	}
-}
-
 // Height is the height of the event
 func (e *ConsensusEvent) Height() uint64 {
 	return e.height
