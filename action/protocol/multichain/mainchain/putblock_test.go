@@ -55,7 +55,7 @@ func TestHandlePutBlock(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+			Producer:        testaddress.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})

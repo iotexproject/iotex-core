@@ -214,3 +214,11 @@ message SetEpochReward {
     bytes amount = 1;
     bytes data = 2;
 }
+
+message GrantReward {
+    enum GrantRewardType {
+        Block = 0;
+        Epoch = 1;
+    }
+    GrantRewardType type = 1;
+}

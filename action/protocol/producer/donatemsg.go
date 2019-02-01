@@ -23,6 +23,7 @@ var (
 	donateToProducerFundGasPerByte = uint64(100)
 )
 
+// DonateToProducerFund is the action to donate to the block producer fund
 type DonateToProducerFund struct {
 	action.AbstractAction
 	amount *big.Int

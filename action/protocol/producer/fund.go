@@ -107,11 +107,11 @@ func (p *Protocol) assertEnoughBalance(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	account, err := account.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Payload()))
+	acc, err := account.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Payload()))
 	if err != nil {
 		return err
 	}
-	if account.Balance.Cmp(amount) < 0 {
+	if acc.Balance.Cmp(amount) < 0 {
 		return errors.New("balance is not enough for donation")
 	}
 	return nil

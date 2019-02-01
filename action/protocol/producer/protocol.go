@@ -8,23 +8,21 @@ package producer
 
 import (
 	"context"
-	"math/big"
-
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-
-	"github.com/iotexproject/iotex-core/pkg/hash"
-
-	"github.com/iotexproject/iotex-core/pkg/enc"
-
-	"github.com/iotexproject/iotex-core/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
-	adminKey = []byte("admin")
-	fundKey  = []byte("fund")
+	adminKey                    = []byte("admin")
+	fundKey                     = []byte("fund")
+	blockRewardHistoryKeyPrefix = []byte("blockRewardHistory")
+	epochRewardHistoryKeyPrefix = []byte("epochRewardHistory")
+	accountKeyPrefix            = []byte("account")
 )
 
 // Protocol defines the protocol of block producer fund operation and block producer rewarding process.
@@ -56,34 +54,6 @@ func (p *Protocol) Validate(
 	act action.Action,
 ) error {
 	// TODO: validate interface shouldn't be required for protocol code
-	return nil
-}
-
-func (p *Protocol) Claim(
-	ctx context.Context,
-	sm protocol.StateManager,
-	amount *big.Int,
-) error {
-	return nil
-}
-
-func (p *Protocol) UnclaimedBalance(
-	ctx context.Context,
-	sm protocol.StateManager,
-) (*big.Int, error) {
-	return nil, nil
-}
-
-func (p *Protocol) SettleBlockReward(
-	ctx context.Context,
-	sm protocol.StateManager) error {
-	return nil
-}
-
-func (p *Protocol) SettleEpochReward(
-	ctx context.Context,
-	sm protocol.StateManager,
-) error {
 	return nil
 }
 

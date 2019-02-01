@@ -22,17 +22,11 @@ import (
 
 func TestProtocol_Fund(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
-		// Create a test account with 10 token
-		ws, err := stateDB.NewWorkingSet()
-		require.NoError(t, err)
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
-		_, err = account.LoadOrCreateAccount(ws, raCtx.Caller.Bech32(), big.NewInt(10))
-		require.NoError(t, err)
-		require.NoError(t, stateDB.Commit(ws))
 
 		// Donate 5 token
-		ws, err = stateDB.NewWorkingSet()
+		ws, err := stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.NoError(t, p.Donate(ctx, ws, big.NewInt(5), []byte("hello, world")))
 		require.NoError(t, stateDB.Commit(ws))

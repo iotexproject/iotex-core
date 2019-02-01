@@ -20,7 +20,9 @@ message Fund {
     bytes availableBalance = 2;
 }
 
+message RewardHistory {
+}
+
 message Account {
-    bytes address = 1;
     bytes balance = 2;
 }

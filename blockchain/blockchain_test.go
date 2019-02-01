@@ -965,7 +965,7 @@ func TestBlocks(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    ta.Addrinfo["producer"].Bech32(),
+			Producer:        ta.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -1031,7 +1031,7 @@ func TestActions(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    ta.Addrinfo["producer"].Bech32(),
+			Producer:        ta.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -1145,7 +1145,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    ta.Addrinfo["producer"].Bech32(),
+			Producer:        ta.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})

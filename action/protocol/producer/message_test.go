@@ -60,3 +60,12 @@ func TestSetEpochReward(t *testing.T) {
 	assert.Equal(t, s1.Amount(), s2.Amount())
 	assert.Equal(t, s2.Data(), s2.Data())
 }
+
+func TestGrantBlockReward(t *testing.T) {
+	b := GrantRewardBuilder{}
+	s1 := b.SetRewardType(BlockReward).Build()
+	proto := s1.Proto()
+	s2 := GrantReward{}
+	s2.LoadProto(proto)
+	assert.Equal(t, s1.RewardType(), s2.RewardType())
+}

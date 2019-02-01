@@ -23,6 +23,7 @@ var (
 	claimFromProducerFundGasPerByte = uint64(100)
 )
 
+// ClaimFromProducerFund is the action to claim reward from the block producer fund
 type ClaimFromProducerFund struct {
 	action.AbstractAction
 	amount *big.Int
