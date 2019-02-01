@@ -34,6 +34,7 @@ type Consensus interface {
 	lifecycle.StartStopper
 
 	HandleConsensusMsg(*iproto.ConsensusPb) error
+	Calibrate(uint64)
 	ValidateBlockFooter(*block.Block) error
 	Metrics() (scheme.ConsensusMetrics, error)
 }
@@ -216,6 +217,11 @@ func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 // HandleConsensusMsg handles consensus messages
 func (c *IotxConsensus) HandleConsensusMsg(propose *iproto.ConsensusPb) error {
 	return c.scheme.HandleConsensusMsg(propose)
+}
+
+// Calibrate triggers an event to calibrate consensus context
+func (c *IotxConsensus) Calibrate(height uint64) {
+	c.scheme.Calibrate(height)
 }
 
 // ValidateBlockFooter validates the signatures in block footer
