@@ -142,7 +142,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		}
 
 		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
-		latency = time.Now().Sub(t).Nanoseconds() / time.Millisecond.Nanoseconds()
+		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
 		msg, err := iproto.TypifyProtoMsg(broadcast.MsgType, broadcast.MsgBody)
 		if err != nil {
@@ -182,7 +182,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		}
 
 		t, _ := ptypes.Timestamp(unicast.GetTimestamp())
-		latency = time.Now().Sub(t).Nanoseconds() / time.Millisecond.Nanoseconds()
+		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
 		stream, ok := p2p.GetUnicastStream(ctx)
 		if !ok {
