@@ -81,29 +81,6 @@ func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder
 	return b
 }
 
-// SetSecretProposals sets the secret proposals for block which is building.
-func (b *TestingBuilder) SetSecretProposals(sp []*action.SecretProposal) *TestingBuilder {
-	b.blk.SecretProposals = sp
-	return b
-}
-
-// SetSecretWitness sets the secret witness for block which is building.
-func (b *TestingBuilder) SetSecretWitness(sw *action.SecretWitness) *TestingBuilder {
-	b.blk.SecretWitness = sw
-	return b
-}
-
-// SetDKG sets the DKG parts for block which is building.
-func (b *TestingBuilder) SetDKG(id, pk, sig []byte) *TestingBuilder {
-	b.blk.Header.dkgID = make([]byte, len(id))
-	copy(b.blk.Header.dkgID, id)
-	b.blk.Header.dkgPubkey = make([]byte, len(pk))
-	copy(b.blk.Header.dkgPubkey, pk)
-	b.blk.Header.dkgBlockSig = make([]byte, len(sig))
-	copy(b.blk.Header.dkgBlockSig, sig)
-	return b
-}
-
 // SignAndBuild signs and then builds a block.
 func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
@@ -140,37 +117,6 @@ func NewBlockDeprecated(
 			receiptRoot:   hash.ZeroHash32B,
 		},
 		Actions: actions,
-	}
-
-	block.Header.txRoot = block.CalculateTxRoot()
-	return block
-}
-
-// NewSecretBlockDeprecated returns a new DKG secret block
-// This method is deprecated. Only used in old tests.
-func NewSecretBlockDeprecated(
-	chainID uint32,
-	height uint64,
-	prevBlockHash hash.Hash32B,
-	timestamp int64,
-	producer keypair.PublicKey,
-	secretProposals []*action.SecretProposal,
-	secretWitness *action.SecretWitness,
-) *Block {
-	block := &Block{
-		Header: Header{
-			version:       version.ProtocolVersion,
-			chainID:       chainID,
-			height:        height,
-			timestamp:     timestamp,
-			prevBlockHash: prevBlockHash,
-			pubkey:        producer,
-			txRoot:        hash.ZeroHash32B,
-			stateRoot:     hash.ZeroHash32B,
-			receiptRoot:   hash.ZeroHash32B,
-		},
-		SecretProposals: secretProposals,
-		SecretWitness:   secretWitness,
 	}
 
 	block.Header.txRoot = block.CalculateTxRoot()

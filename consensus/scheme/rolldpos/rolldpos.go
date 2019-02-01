@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -105,10 +104,6 @@ func (ew *endorsementWrapper) Round() uint32 {
 
 func (ew *endorsementWrapper) Topic() endorsement.ConsensusVoteTopic {
 	return ew.ConsensusVote().Topic
-}
-
-func verifyDKGSignature(blk *block.Block, seedByte []byte) error {
-	return crypto.BLS.Verify(blk.DKGPubkey(), seedByte, blk.DKGSignature())
 }
 
 // RollDPoS is Roll-DPoS consensus main entrance

@@ -13,8 +13,6 @@ const (
 	HashSize = 32
 	// PKHashSize defines the size of public-key hash
 	PKHashSize = 20
-	// DKGHashSize defines the size of a DKG hash
-	DKGHashSize = 20
 	// CacheHashSize defines the size of local hash key
 	CacheHashSize = 20
 )
@@ -31,8 +29,6 @@ type (
 	Hash32B [HashSize]byte
 	// PKHash for account and smart contract address hash
 	PKHash [PKHashSize]byte
-	// DKGHash for DKG hash
-	DKGHash [DKGHashSize]byte
 	// CacheHash for 20-byte hash used in cache
 	CacheHash [CacheHashSize]byte
 )

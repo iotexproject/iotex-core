@@ -29,9 +29,6 @@ type Header struct {
 	receiptRoot      hash.Hash32B      // root of receipt trie
 	blockSig         []byte            // block signature
 	pubkey           keypair.PublicKey // block producer's public key
-	dkgID            []byte            // dkg ID of producer
-	dkgPubkey        []byte            // dkg public key of producer
-	dkgBlockSig      []byte            // dkg signature of producer
 }
 
 // Version returns the version of this block.
@@ -63,27 +60,6 @@ func (h Header) PublicKey() keypair.PublicKey { return h.pubkey }
 
 // ReceiptRoot returns the receipt root after apply this block
 func (h Header) ReceiptRoot() hash.Hash32B { return h.receiptRoot }
-
-// DKGPubkey returns DKG PublicKey.
-func (h Header) DKGPubkey() []byte {
-	pk := make([]byte, len(h.dkgPubkey))
-	copy(pk, h.dkgPubkey)
-	return pk
-}
-
-// DKGID returns DKG ID.
-func (h Header) DKGID() []byte {
-	id := make([]byte, len(h.dkgID))
-	copy(id, h.dkgID)
-	return id
-}
-
-// DKGSignature returns DKG Signature.
-func (h Header) DKGSignature() []byte {
-	sig := make([]byte, len(h.dkgBlockSig))
-	copy(sig, h.dkgBlockSig)
-	return sig
-}
 
 // ByteStream returns a byte stream of the header.
 func (h Header) ByteStream() []byte {

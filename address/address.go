@@ -59,9 +59,6 @@ func BytesToAddress(bytes []byte) (Address, error) { return V1.BytesToAddress(by
 // Bech32ToPKHash returns the public key hash from an encoded address
 func Bech32ToPKHash(encodedAddr string) (hash.PKHash, error) { return V1.Bech32ToPKHash(encodedAddr) }
 
-// Bech32ToID returns the DKG Address ID from an encoded address
-func Bech32ToID(encodedAddr string) []uint8 { return V1.Bech32ToID(encodedAddr) }
-
 // prefix returns the current prefix
 func prefix() string {
 	prefix := MainnetPrefix
