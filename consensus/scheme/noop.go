@@ -37,6 +37,9 @@ func (n *Noop) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	return nil
 }
 
+// Calibrate triggers an event to calibrate consensus context
+func (n *Noop) Calibrate(uint64) {}
+
 // ValidateBlockFooter validates the block footer
 func (n *Noop) ValidateBlockFooter(*block.Block) error {
 	log.L().Warn("Noop scheme could not calculate delegates by height")

@@ -22,6 +22,8 @@ type Context interface {
 	Logger() *zap.Logger
 	LoggerWithStats() *zap.Logger
 
+	Height() uint64
+
 	NewConsensusEvent(fsm.EventType, interface{}) *ConsensusEvent
 	NewBackdoorEvt(fsm.State) *ConsensusEvent
 
