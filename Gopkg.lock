@@ -160,11 +160,14 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:51958a9d82a82a677688d5b149225d4f578e0381bf59773962cc760badaef8b0"
+  digest = "1:9d6dc4d6de69b330d0de86494d6db90c09848c003d5db748f40c925f865c8534"
   name = "github.com/golang/protobuf"
   packages = [
     "jsonpb",
     "proto",
+    "ptypes",
+    "ptypes/any",
+    "ptypes/duration",
     "ptypes/struct",
     "ptypes/timestamp",
   ]
@@ -1259,6 +1262,7 @@
     "github.com/golang/mock/gomock",
     "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/iotexproject/go-ethereum",
     "github.com/iotexproject/go-ethereum/accounts/abi",

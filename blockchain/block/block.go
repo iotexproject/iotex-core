@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 

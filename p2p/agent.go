@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	p2p "github.com/iotexproject/go-p2p"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	multiaddr "github.com/multiformats/go-multiaddr"
@@ -23,9 +24,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/p2p/pb"
+	p2ppb "github.com/iotexproject/iotex-core/p2p/pb"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -34,7 +35,7 @@ var (
 			Name: "iotex_p2p_message_counter",
 			Help: "P2P message stats",
 		},
-		[]string{"protocol", "message", "direction", "peer", "status"},
+		[]string{"protocol", "message", "direction", "peer", "status", "latency"},
 	)
 )
 
@@ -110,7 +111,8 @@ func (p *Agent) Start(ctx context.Context) error {
 			if err != nil {
 				status = "failure"
 			}
-			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
+			t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
+			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status, strconv.Itoa(int(time.Now().Sub(t)))).Inc()
 		}()
 		if err = proto.Unmarshal(data, &broadcast); err != nil {
 			err = errors.Wrap(err, "error when marshaling broadcast message")
@@ -148,7 +150,8 @@ func (p *Agent) Start(ctx context.Context) error {
 			if err != nil {
 				status = "failure"
 			}
-			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
+			t, _ := ptypes.Timestamp(unicast.GetTimestamp())
+			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status, strconv.Itoa(int(time.Now().Sub(t)))).Inc()
 		}()
 		if err = proto.Unmarshal(data, &unicast); err != nil {
 			err = errors.Wrap(err, "error when marshaling unicast message")
@@ -237,7 +240,13 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	broadcast := p2ppb.BroadcastMsg{ChainId: p2pCtx.ChainID, PeerId: p.host.HostIdentity(), MsgType: msgType, MsgBody: msgBody}
+	broadcast := p2ppb.BroadcastMsg{
+		ChainId:   p2pCtx.ChainID,
+		PeerId:    p.host.HostIdentity(),
+		MsgType:   msgType,
+		MsgBody:   msgBody,
+		Timestamp: ptypes.TimestampNow(),
+	}
 	data, err := proto.Marshal(&broadcast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling broadcast message")
@@ -270,7 +279,13 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	unicast := p2ppb.UnicastMsg{ChainId: p2pCtx.ChainID, PeerId: p.host.HostIdentity(), MsgType: msgType, MsgBody: msgBody}
+	unicast := p2ppb.UnicastMsg{
+		ChainId:   p2pCtx.ChainID,
+		PeerId:    p.host.HostIdentity(),
+		MsgType:   msgType,
+		MsgBody:   msgBody,
+		Timestamp: ptypes.TimestampNow(),
+	}
 	data, err := proto.Marshal(&unicast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling unicast message")
