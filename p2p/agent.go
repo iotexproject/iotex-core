@@ -35,7 +35,15 @@ var (
 			Name: "iotex_p2p_message_counter",
 			Help: "P2P message stats",
 		},
-		[]string{"protocol", "message", "direction", "peer", "status", "latency"},
+		[]string{"protocol", "message", "direction", "peer", "status"},
+	)
+	p2pMsgLatency = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "iotex_p2p_message_latency",
+			Help:    "message latency",
+			Buckets: prometheus.LinearBuckets(0, 100, 60),
+		},
+		[]string{"protocol", "message", "status"},
 	)
 )
 
@@ -99,8 +107,11 @@ func (p *Agent) Start(ctx context.Context) error {
 	if err := host.AddBroadcastPubSub(broadcastTopic, func(ctx context.Context, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
-		var peerID string
-		var broadcast p2ppb.BroadcastMsg
+		var (
+			peerID    string
+			broadcast p2ppb.BroadcastMsg
+			latency   int64
+		)
 		skip := false
 		defer func() {
 			// Skip accounting if the broadcast message is not handled
@@ -111,8 +122,8 @@ func (p *Agent) Start(ctx context.Context) error {
 			if err != nil {
 				status = "failure"
 			}
-			t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
-			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status, strconv.Itoa(int(time.Now().Sub(t)))).Inc()
+			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
+			p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
 		}()
 		if err = proto.Unmarshal(data, &broadcast); err != nil {
 			err = errors.Wrap(err, "error when marshaling broadcast message")
@@ -129,6 +140,10 @@ func (p *Agent) Start(ctx context.Context) error {
 			skip = true
 			return
 		}
+
+		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
+		latency = time.Now().Sub(t).Nanoseconds() / time.Millisecond.Nanoseconds()
+
 		msg, err := iproto.TypifyProtoMsg(broadcast.MsgType, broadcast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying broadcast message")
@@ -143,15 +158,18 @@ func (p *Agent) Start(ctx context.Context) error {
 	if err := host.AddUnicastPubSub(unicastTopic, func(ctx context.Context, _ io.Writer, data []byte) (err error) {
 		// Blocking handling the unicast message until the agent is started
 		<-ready
-		var unicast p2ppb.UnicastMsg
-		var peerID string
+		var (
+			unicast p2ppb.UnicastMsg
+			peerID  string
+			latency int64
+		)
 		defer func() {
 			status := "success"
 			if err != nil {
 				status = "failure"
 			}
-			t, _ := ptypes.Timestamp(unicast.GetTimestamp())
-			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status, strconv.Itoa(int(time.Now().Sub(t)))).Inc()
+			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
+			p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
 		}()
 		if err = proto.Unmarshal(data, &unicast); err != nil {
 			err = errors.Wrap(err, "error when marshaling unicast message")
@@ -162,6 +180,10 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
 		}
+
+		t, _ := ptypes.Timestamp(unicast.GetTimestamp())
+		latency = time.Now().Sub(t).Nanoseconds() / time.Millisecond.Nanoseconds()
+
 		stream, ok := p2p.GetUnicastStream(ctx)
 		if !ok {
 			err = errors.Wrap(err, "error when typifying unicast message")
