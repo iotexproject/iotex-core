@@ -150,6 +150,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		if err := block.Deserialize(data); err != nil {
 			return errors.Wrap(err, "failed to deserialize block")
 		}
+		log.L().Debug("receive block message", zap.Any("msg", block))
 		// TODO: add proof of lock
 		if msg.Height != block.Height() {
 			return errors.Errorf(
@@ -166,6 +167,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		if err := en.Deserialize(data); err != nil {
 			return errors.Wrap(err, "error when deserializing a msg to endorsement")
 		}
+		log.L().Debug("receive consensus message", zap.Any("msg", en))
 		ew := &endorsementWrapper{en}
 		if ew.Height() != msg.Height {
 			return errors.Errorf(
@@ -188,6 +190,11 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		return errors.Errorf("Invalid consensus message type %s", msg.Type)
 	}
 	return nil
+}
+
+// Calibrate called on receive a new block not via consensus
+func (r *RollDPoS) Calibrate(height uint64) {
+	r.cfsm.Calibrate(height)
 }
 
 // ValidateBlockFooter validates the signatures in the block footer

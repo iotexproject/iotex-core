@@ -72,6 +72,16 @@ func (mr *MockConsensusMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockConsensus)(nil).HandleConsensusMsg), arg0)
 }
 
+// Calibrate mocks base method
+func (m *MockConsensus) Calibrate(arg0 uint64) {
+	m.ctrl.Call(m, "Calibrate", arg0)
+}
+
+// Calibrate indicates an expected call of Calibrate
+func (mr *MockConsensusMockRecorder) Calibrate(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Calibrate", reflect.TypeOf((*MockConsensus)(nil).Calibrate), arg0)
+}
+
 // ValidateBlockFooter mocks base method
 func (m *MockConsensus) ValidateBlockFooter(arg0 *block.Block) error {
 	ret := m.ctrl.Call(m, "ValidateBlockFooter", arg0)

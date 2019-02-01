@@ -34,7 +34,7 @@ var (
 			Name: "iotex_p2p_message_counter",
 			Help: "P2P message stats",
 		},
-		[]string{"protocol", "message", "direction", "status"},
+		[]string{"protocol", "message", "direction", "peer", "status"},
 	)
 )
 
@@ -98,6 +98,7 @@ func (p *Agent) Start(ctx context.Context) error {
 	if err := host.AddBroadcastPubSub(broadcastTopic, func(ctx context.Context, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
+		var peerID string
 		var broadcast p2ppb.BroadcastMsg
 		skip := false
 		defer func() {
@@ -109,7 +110,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			if err != nil {
 				status = "failure"
 			}
-			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", status).Inc()
+			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
 		}()
 		if err = proto.Unmarshal(data, &broadcast); err != nil {
 			err = errors.Wrap(err, "error when marshaling broadcast message")
@@ -121,7 +122,8 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.New("error when asserting broadcast msg context")
 			return
 		}
-		if p.host.HostIdentity() == rawmsg.GetFrom().Pretty() {
+		peerID = rawmsg.GetFrom().Pretty()
+		if p.host.HostIdentity() == peerID {
 			skip = true
 			return
 		}
@@ -140,12 +142,13 @@ func (p *Agent) Start(ctx context.Context) error {
 		// Blocking handling the unicast message until the agent is started
 		<-ready
 		var unicast p2ppb.UnicastMsg
+		var peerID string
 		defer func() {
 			status := "success"
 			if err != nil {
 				status = "failure"
 			}
-			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", status).Inc()
+			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
 		}()
 		if err = proto.Unmarshal(data, &unicast); err != nil {
 			err = errors.Wrap(err, "error when marshaling unicast message")
@@ -161,6 +164,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
 		}
+		peerID = stream.Conn().RemotePeer().Pretty()
 		peerInfo := peerstore.PeerInfo{
 			ID:    stream.Conn().RemotePeer(),
 			Addrs: []multiaddr.Multiaddr{stream.Conn().RemoteMultiaddr()},
@@ -216,7 +220,13 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		if err != nil {
 			status = "failure"
 		}
-		p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(msgType)), "out", status).Inc()
+		p2pMsgCounter.WithLabelValues(
+			"broadcast",
+			strconv.Itoa(int(msgType)),
+			"out",
+			p.host.HostIdentity(),
+			status,
+		).Inc()
 	}()
 	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
@@ -249,7 +259,7 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 		if err != nil {
 			status = "failure"
 		}
-		p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", status).Inc()
+		p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
 	}()
 	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
