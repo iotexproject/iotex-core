@@ -62,12 +62,12 @@ func (g *GrantReward) LoadProto(gProto *iproto.GrantReward) error {
 }
 
 // IntrinsicGas returns the intrinsic gas of a grant reward action, which is 0
-func (_ *GrantReward) IntrinsicGas() (uint64, error) {
+func (*GrantReward) IntrinsicGas() (uint64, error) {
 	return 0, nil
 }
 
 // Cost returns the total cost of a grant reward action
-func (_ *GrantReward) Cost() (*big.Int, error) {
+func (*GrantReward) Cost() (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 

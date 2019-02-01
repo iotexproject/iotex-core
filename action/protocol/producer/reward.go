@@ -10,6 +10,9 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -59,7 +62,7 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	return nil
 }
 
-// GrantReward grants the block reward (token) to the block producer
+// GrantBlockReward grants the block reward (token) to the block producer
 func (p *Protocol) GrantBlockReward(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -75,10 +78,10 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateFund(sm, a.BlockReward); err != nil {
+	if err := p.updateAvailableBalance(sm, a.BlockReward); err != nil {
 		return err
 	}
-	if err := p.updateAccount(sm, raCtx.Producer, a.BlockReward); err != nil {
+	if err := p.grantToAccount(sm, raCtx.Producer, a.BlockReward); err != nil {
 		return err
 	}
 	if err := p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
@@ -104,7 +107,7 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateFund(sm, a.EpochReward); err != nil {
+	if err := p.updateAvailableBalance(sm, a.EpochReward); err != nil {
 		return err
 	}
 	addrs, amounts, err := p.splitEpochReward(a.EpochReward)
@@ -112,7 +115,7 @@ func (p *Protocol) GrantEpochReward(
 		return err
 	}
 	for i := range addrs {
-		if err := p.updateAccount(sm, addrs[i], amounts[i]); err != nil {
+		if err := p.grantToAccount(sm, addrs[i], amounts[i]); err != nil {
 			return err
 		}
 	}
@@ -128,6 +131,16 @@ func (p *Protocol) Claim(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		return errors.New("miss action validation context")
+	}
+	if err := p.updateTotalBalance(sm, amount); err != nil {
+		return err
+	}
+	if err := p.claimFromAccount(sm, raCtx.Caller, amount); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -149,19 +162,39 @@ func (p *Protocol) UnclaimedBalance(
 	return nil, err
 }
 
-func (p *Protocol) updateFund(sm protocol.StateManager, amount *big.Int) error {
+func (p *Protocol) updateTotalBalance(sm protocol.StateManager, amount *big.Int) error {
 	f := fund{}
 	if err := p.state(sm, fundKey, &f); err != nil {
 		return err
 	}
-	f.availableBalance = big.NewInt(0).Sub(f.availableBalance, amount)
+	totalBalance := big.NewInt(0).Sub(f.totalBalance, amount)
+	if totalBalance.Cmp(big.NewInt(0)) < 0 {
+		return errors.New("no enough total balance")
+	}
+	f.totalBalance = totalBalance
 	if err := p.putState(sm, fundKey, &f); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *Protocol) updateAccount(sm protocol.StateManager, addr address.Address, amount *big.Int) error {
+func (p *Protocol) updateAvailableBalance(sm protocol.StateManager, amount *big.Int) error {
+	f := fund{}
+	if err := p.state(sm, fundKey, &f); err != nil {
+		return err
+	}
+	availableBalance := big.NewInt(0).Sub(f.availableBalance, amount)
+	if availableBalance.Cmp(big.NewInt(0)) < 0 {
+		return errors.New("no enough available balance")
+	}
+	f.availableBalance = availableBalance
+	if err := p.putState(sm, fundKey, &f); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Protocol) grantToAccount(sm protocol.StateManager, addr address.Address, amount *big.Int) error {
 	acc := rewardAccount{}
 	accKey := append(adminKey, addr.Bytes()...)
 	if err := p.state(sm, accKey, &acc); err != nil {
@@ -175,6 +208,40 @@ func (p *Protocol) updateAccount(sm protocol.StateManager, addr address.Address,
 	acc.balance = big.NewInt(0).Add(acc.balance, amount)
 	if err := p.putState(sm, accKey, &acc); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (p *Protocol) claimFromAccount(sm protocol.StateManager, addr address.Address, amount *big.Int) error {
+	// Update reward account
+	acc := rewardAccount{}
+	accKey := append(adminKey, addr.Bytes()...)
+	if err := p.state(sm, accKey, &acc); err != nil {
+		return err
+	}
+	balance := big.NewInt(0).Sub(acc.balance, amount)
+	if balance.Cmp(big.NewInt(0)) < 0 {
+		return errors.New("no enough available balance")
+	} else if balance.Cmp(big.NewInt(0)) == 0 {
+		// If the account balance is cleared, delete if from the store
+		if err := p.deleteState(sm, accKey); err != nil {
+			return err
+		}
+	} else {
+		acc.balance = balance
+		if err := p.putState(sm, accKey, &acc); err != nil {
+			return err
+		}
+	}
+
+	// Update primary account
+	primAcc, err := account.LoadAccount(sm, byteutil.BytesTo20B(addr.Payload()))
+	if err != nil {
+		return err
+	}
+	primAcc.Balance = big.NewInt(0).Add(primAcc.Balance, amount)
+	if err := account.StoreAccount(sm, addr.Bech32(), primAcc); err != nil {
+
 	}
 	return nil
 }

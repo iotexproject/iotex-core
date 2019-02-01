@@ -40,12 +40,12 @@ func TestProtocol_Fund(t *testing.T) {
 		assert.Equal(t, big.NewInt(5), availableBalance)
 		acc, err := account.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Caller.Payload()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(5), acc.Balance)
+		assert.Equal(t, big.NewInt(995), acc.Balance)
 
 		// Donate another 6 token will fail because
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.Error(t, p.Donate(ctx, ws, big.NewInt(6), []byte("hello, world")))
+		require.Error(t, p.Donate(ctx, ws, big.NewInt(996), []byte("hello, world")))
 	})
 
 }

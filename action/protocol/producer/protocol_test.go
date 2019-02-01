@@ -76,7 +76,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), availableBalance)
 
-	// Create a test account with 10 token
+	// Create a test account with 1000 token
 	ws, err = stateDB.NewWorkingSet()
 	require.NoError(t, err)
 	_, err = account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(1000))

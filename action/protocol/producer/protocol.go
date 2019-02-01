@@ -66,3 +66,8 @@ func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interfac
 	keyHash := byteutil.BytesTo20B(hash.Hash160b(append(p.keyPrefix, key...)))
 	return sm.PutState(keyHash, value)
 }
+
+func (p *Protocol) deleteState(sm protocol.StateManager, key []byte) error {
+	keyHash := byteutil.BytesTo20B(hash.Hash160b(append(p.keyPrefix, key...)))
+	return sm.DelState(keyHash)
+}
