@@ -41,7 +41,7 @@ var (
 		prometheus.HistogramOpts{
 			Name:    "iotex_p2p_message_latency",
 			Help:    "message latency",
-			Buckets: prometheus.LinearBuckets(0, 100, 60),
+			Buckets: prometheus.LinearBuckets(0, 10, 200),
 		},
 		[]string{"protocol", "message", "status"},
 	)
@@ -49,6 +49,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(p2pMsgCounter)
+	prometheus.MustRegister(p2pMsgLatency)
 }
 
 const (
