@@ -664,6 +664,8 @@ func (ctx *rollDPoSCtx) updateRound(height uint64) error {
 		return err
 	}
 	if ctx.round != nil && ctx.round.height == height {
+		round.block = ctx.round.block
+		round.proofOfLock = ctx.round.proofOfLock
 		round.endorsementSets = ctx.round.endorsementSets
 		for _, s := range round.endorsementSets {
 			s.DeleteEndorsements(
