@@ -10,10 +10,14 @@ syntax = "proto3";
 
 package p2ppb;
 
+import "google/protobuf/timestamp.proto";
+
 message BroadcastMsg {
     uint32 chain_id = 1;
     uint32 msg_type = 2;
     bytes msg_body = 3;
+    string peer_id = 4;
+    google.protobuf.Timestamp timestamp = 5;
 }
 
 message UnicastMsg {
@@ -21,5 +25,6 @@ message UnicastMsg {
     string addr = 2;
     uint32 msg_type = 3;
     bytes msg_body = 4;
-	string peer_id = 5;
+    string peer_id = 5;
+    google.protobuf.Timestamp timestamp = 6;
 }
