@@ -27,6 +27,7 @@ var (
 
 // Protocol defines the protocol of block producer fund operation and block producer rewarding process.
 type Protocol struct {
+	addr      address.Address
 	keyPrefix []byte
 }
 
@@ -34,8 +35,10 @@ type Protocol struct {
 func NewProtocol(caller address.Address, nonce uint64) *Protocol {
 	var nonceBytes [8]byte
 	enc.MachineEndian.PutUint64(nonceBytes[:], nonce)
+	h := hash.Hash160b(append(caller.Bytes(), nonceBytes[:]...))
 	return &Protocol{
-		keyPrefix: hash.Hash160b(append(caller.Bytes(), nonceBytes[:]...)),
+		addr:      address.New(h),
+		keyPrefix: h,
 	}
 }
 
@@ -45,6 +48,66 @@ func (p *Protocol) Handle(
 	act action.Action,
 	sm protocol.StateManager,
 ) (*action.Receipt, error) {
+	// TODO: simplify the boilerplate
+	switch act := act.(type) {
+	case *SetBlockReward:
+		gasConsumed, err := act.IntrinsicGas()
+		if err != nil {
+			return p.createReceipt(1, act.Hash(), 0), nil
+		}
+		if err := p.SetBlockReward(ctx, sm, act.Amount()); err != nil {
+			return p.createReceipt(1, act.Hash(), gasConsumed), nil
+		}
+		return p.createReceipt(0, act.Hash(), gasConsumed), nil
+	case *SetEpochReward:
+		gasConsumed, err := act.IntrinsicGas()
+		if err != nil {
+			return p.createReceipt(1, act.Hash(), 0), nil
+		}
+		if err := p.SetEpochReward(ctx, sm, act.Amount()); err != nil {
+			return p.createReceipt(1, act.Hash(), gasConsumed), nil
+		}
+		return p.createReceipt(0, act.Hash(), gasConsumed), nil
+	case *DonateToProducerFund:
+		gasConsumed, err := act.IntrinsicGas()
+		if err != nil {
+			return p.createReceipt(1, act.Hash(), 0), nil
+		}
+		if err := p.Donate(ctx, sm, act.Amount()); err != nil {
+			return p.createReceipt(1, act.Hash(), gasConsumed), nil
+		}
+		return p.createReceipt(0, act.Hash(), gasConsumed), nil
+	case *ClaimFromProducerFund:
+		gasConsumed, err := act.IntrinsicGas()
+		if err != nil {
+			return p.createReceipt(1, act.Hash(), 0), nil
+		}
+		if err := p.Claim(ctx, sm, act.Amount()); err != nil {
+			return p.createReceipt(1, act.Hash(), gasConsumed), nil
+		}
+		return p.createReceipt(0, act.Hash(), gasConsumed), nil
+	case *GrantReward:
+		switch act.RewardType() {
+		case BlockReward:
+			gasConsumed, err := act.IntrinsicGas()
+			if err != nil {
+				return p.createReceipt(1, act.Hash(), 0), nil
+			}
+			if err := p.GrantBlockReward(ctx, sm); err != nil {
+				return p.createReceipt(1, act.Hash(), gasConsumed), nil
+			}
+			return p.createReceipt(0, act.Hash(), gasConsumed), nil
+		case EpochReward:
+			gasConsumed, err := act.IntrinsicGas()
+			if err != nil {
+				return p.createReceipt(1, act.Hash(), 0), nil
+			}
+			if err := p.GrantEpochReward(ctx, sm); err != nil {
+				return p.createReceipt(1, act.Hash(), gasConsumed), nil
+			}
+			return p.createReceipt(0, act.Hash(), gasConsumed), nil
+		}
+	}
 	return nil, nil
 }
 
@@ -70,4 +133,16 @@ func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interfac
 func (p *Protocol) deleteState(sm protocol.StateManager, key []byte) error {
 	keyHash := byteutil.BytesTo20B(hash.Hash160b(append(p.keyPrefix, key...)))
 	return sm.DelState(keyHash)
+}
+
+func (p *Protocol) createReceipt(status uint64, actHash hash.Hash32B, gasConsumed uint64) *action.Receipt {
+	// TODO: need to review the fields
+	return &action.Receipt{
+		ReturnValue:     nil,
+		Status:          0,
+		ActHash:         actHash,
+		GasConsumed:     gasConsumed,
+		ContractAddress: p.addr.Bech32(),
+		Logs:            nil,
+	}
 }

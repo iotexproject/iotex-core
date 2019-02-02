@@ -28,7 +28,7 @@ func TestProtocol_Fund(t *testing.T) {
 		// Donate 5 token
 		ws, err := stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.NoError(t, p.Donate(ctx, ws, big.NewInt(5), []byte("hello, world")))
+		require.NoError(t, p.Donate(ctx, ws, big.NewInt(5)))
 		require.NoError(t, stateDB.Commit(ws))
 
 		ws, err = stateDB.NewWorkingSet()
@@ -45,7 +45,7 @@ func TestProtocol_Fund(t *testing.T) {
 		// Donate another 6 token will fail because
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.Error(t, p.Donate(ctx, ws, big.NewInt(996), []byte("hello, world")))
+		require.Error(t, p.Donate(ctx, ws, big.NewInt(996)))
 	})
 
 }

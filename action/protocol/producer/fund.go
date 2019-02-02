@@ -49,7 +49,6 @@ func (p *Protocol) Donate(
 	ctx context.Context,
 	sm protocol.StateManager,
 	amount *big.Int,
-	data []byte,
 ) error {
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
