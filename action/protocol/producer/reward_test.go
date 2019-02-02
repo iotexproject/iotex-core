@@ -33,7 +33,7 @@ func TestProtocol_GrantReward(t *testing.T) {
 
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.NoError(t, p.Donate(ctx, ws, big.NewInt(200), []byte("hello, world")))
+		require.NoError(t, p.Donate(ctx, ws, big.NewInt(200)))
 		require.NoError(t, stateDB.Commit(ws))
 
 		// Grant block reward
@@ -83,7 +83,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		// Donate 100 token into the block producer fund
 		ws, err := stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.NoError(t, p.Donate(ctx, ws, big.NewInt(20), []byte("hello, world")))
+		require.NoError(t, p.Donate(ctx, ws, big.NewInt(20)))
 		require.NoError(t, stateDB.Commit(ws))
 
 		// Grant block reward

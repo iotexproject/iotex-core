@@ -16,75 +16,68 @@ import (
 	"github.com/iotexproject/iotex-core/proto"
 )
 
-const (
-	// BlockReward indicates that the action is to grant block reward
-	BlockReward = iota
-	// EpochReward indicates that the action is to grant epoch reward
-	EpochReward
-)
-
-// GrantReward is the action to grant either block or epoch reward
-type GrantReward struct {
+// GrantBlockProducerReward is the action to grant either block or epoch reward
+type GrantBlockProducerReward struct {
 	action.AbstractAction
 	t int
 }
 
 // RewardType returns the grant reward type
-func (g *GrantReward) RewardType() int { return g.t }
+func (g *GrantBlockProducerReward) RewardType() int { return g.t }
 
 // ByteStream returns a raw byte stream of a grant reward action
-func (g *GrantReward) ByteStream() []byte {
+func (g *GrantBlockProducerReward) ByteStream() []byte {
 	return byteutil.Must(proto.Marshal(g.Proto()))
 }
 
 // Proto converts a grant reward action struct to a grant reward action protobuf
-func (g *GrantReward) Proto() *iproto.GrantReward {
-	gProto := iproto.GrantReward{}
+func (g *GrantBlockProducerReward) Proto() *iproto.GrantBlockProducerReward {
+	gProto := iproto.GrantBlockProducerReward{}
 	switch g.t {
 	case BlockReward:
-		gProto.Type = iproto.GrantReward_Block
+		gProto.Type = iproto.BlockProducerRewardType_Block
 	case EpochReward:
-		gProto.Type = iproto.GrantReward_Epoch
+		gProto.Type = iproto.BlockProducerRewardType_Epoch
 	}
 	return &gProto
 }
 
 // LoadProto converts a grant reward action protobuf to a grant reward action struct
-func (g *GrantReward) LoadProto(gProto *iproto.GrantReward) error {
-	*g = GrantReward{}
+func (g *GrantBlockProducerReward) LoadProto(gProto *iproto.GrantBlockProducerReward) error {
+	*g = GrantBlockProducerReward{}
 	switch gProto.Type {
-	case iproto.GrantReward_Block:
+	case iproto.BlockProducerRewardType_Block:
 		g.t = BlockReward
-	case iproto.GrantReward_Epoch:
+	case iproto.BlockProducerRewardType_Epoch:
 		g.t = EpochReward
 	}
 	return nil
 }
 
 // IntrinsicGas returns the intrinsic gas of a grant reward action, which is 0
-func (*GrantReward) IntrinsicGas() (uint64, error) {
+func (*GrantBlockProducerReward) IntrinsicGas() (uint64, error) {
 	return 0, nil
 }
 
 // Cost returns the total cost of a grant reward action
-func (*GrantReward) Cost() (*big.Int, error) {
+func (*GrantBlockProducerReward) Cost() (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-// GrantRewardBuilder is the struct to build GrantReward
-type GrantRewardBuilder struct {
+// GrantBlockProducerRewardBuilder is the struct to build GrantBlockProducerReward
+type GrantBlockProducerRewardBuilder struct {
 	action.Builder
-	grantReward GrantReward
+	grantReward GrantBlockProducerReward
 }
 
 // SetRewardType sets the grant reward type
-func (b *GrantRewardBuilder) SetRewardType(t int) *GrantRewardBuilder {
+func (b *GrantBlockProducerRewardBuilder) SetRewardType(t int) *GrantBlockProducerRewardBuilder {
 	b.grantReward.t = t
 	return b
 }
 
 // Build builds a new grant reward action
-func (b *GrantRewardBuilder) Build() GrantReward {
+func (b *GrantBlockProducerRewardBuilder) Build() GrantBlockProducerReward {
 	b.grantReward.AbstractAction = b.Builder.Build()
 	return b.grantReward
 }

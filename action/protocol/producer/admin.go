@@ -139,7 +139,7 @@ func (p *Protocol) BlockReward(
 	return a.BlockReward, nil
 }
 
-// SetBlockReward sets the block reward amount for the block producer. Only the current admin could make this change
+// SetBlockProducerReward sets the block reward amount for the block producer. Only the current admin could make this change
 func (p *Protocol) SetBlockReward(
 	ctx context.Context,
 	sm protocol.StateManager,

@@ -166,8 +166,8 @@ message ActionPb {
         // Block producer protocol actions
         DonateToProducerFund donateToProducerFund = 30;
         ClaimFromProducerFund claimFromProducerFund = 31;
-        SetBlockReward setBlockReward = 32;
-        SetEpochReward setEpochReward = 33;
+        SetBlockProducerReward setBlockProducerReward = 32;
+        GrantBlockProducerReward grantBlockProducerReward = 33;
     }
 }
 
@@ -205,20 +205,17 @@ message ClaimFromProducerFund {
     bytes data = 2;
 }
 
-message SetBlockReward {
-    bytes amount = 1;
-    bytes data = 2;
+enum BlockProducerRewardType {
+    Block = 0;
+    Epoch = 1;
 }
 
-message SetEpochReward {
+message SetBlockProducerReward {
     bytes amount = 1;
     bytes data = 2;
+    BlockProducerRewardType type = 3;
 }
 
-message GrantReward {
-    enum GrantRewardType {
-        Block = 0;
-        Epoch = 1;
-    }
-    GrantRewardType type = 1;
+message GrantBlockProducerReward {
+    BlockProducerRewardType type = 1;
 }

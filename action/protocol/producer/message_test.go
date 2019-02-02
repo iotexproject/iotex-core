@@ -38,34 +38,22 @@ func TestClaimFromProducerFund(t *testing.T) {
 }
 
 func TestSetBlockReward(t *testing.T) {
-	b := SetBlockRewardBuilder{}
+	b := SetBlockProducerRewardBuilder{}
 	s1 := b.SetAmount(big.NewInt(1)).
 		SetData([]byte{2}).
 		Build()
 	proto := s1.Proto()
-	s2 := SetBlockReward{}
-	s2.LoadProto(proto)
-	assert.Equal(t, s1.Amount(), s2.Amount())
-	assert.Equal(t, s2.Data(), s2.Data())
-}
-
-func TestSetEpochReward(t *testing.T) {
-	b := SetEpochRewardBuilder{}
-	s1 := b.SetAmount(big.NewInt(1)).
-		SetData([]byte{2}).
-		Build()
-	proto := s1.Proto()
-	s2 := SetEpochReward{}
+	s2 := SetBlockProducerReward{}
 	s2.LoadProto(proto)
 	assert.Equal(t, s1.Amount(), s2.Amount())
 	assert.Equal(t, s2.Data(), s2.Data())
 }
 
 func TestGrantBlockReward(t *testing.T) {
-	b := GrantRewardBuilder{}
+	b := GrantBlockProducerRewardBuilder{}
 	s1 := b.SetRewardType(BlockReward).Build()
 	proto := s1.Proto()
-	s2 := GrantReward{}
+	s2 := GrantBlockProducerReward{}
 	s2.LoadProto(proto)
 	assert.Equal(t, s1.RewardType(), s2.RewardType())
 }

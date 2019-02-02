@@ -17,6 +17,13 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
+const (
+	// BlockReward indicates that the action is to grant block reward
+	BlockReward = iota
+	// EpochReward indicates that the action is to grant epoch reward
+	EpochReward
+)
+
 var (
 	adminKey                    = []byte("admin")
 	fundKey                     = []byte("fund")
@@ -50,24 +57,27 @@ func (p *Protocol) Handle(
 ) (*action.Receipt, error) {
 	// TODO: simplify the boilerplate
 	switch act := act.(type) {
-	case *SetBlockReward:
-		gasConsumed, err := act.IntrinsicGas()
-		if err != nil {
-			return p.createReceipt(1, act.Hash(), 0), nil
+	case *SetBlockProducerReward:
+		switch act.RewardType() {
+		case BlockReward:
+			gasConsumed, err := act.IntrinsicGas()
+			if err != nil {
+				return p.createReceipt(1, act.Hash(), 0), nil
+			}
+			if err := p.SetBlockReward(ctx, sm, act.Amount()); err != nil {
+				return p.createReceipt(1, act.Hash(), gasConsumed), nil
+			}
+			return p.createReceipt(0, act.Hash(), gasConsumed), nil
+		case EpochReward:
+			gasConsumed, err := act.IntrinsicGas()
+			if err != nil {
+				return p.createReceipt(1, act.Hash(), 0), nil
+			}
+			if err := p.SetEpochReward(ctx, sm, act.Amount()); err != nil {
+				return p.createReceipt(1, act.Hash(), gasConsumed), nil
+			}
+			return p.createReceipt(0, act.Hash(), gasConsumed), nil
 		}
-		if err := p.SetBlockReward(ctx, sm, act.Amount()); err != nil {
-			return p.createReceipt(1, act.Hash(), gasConsumed), nil
-		}
-		return p.createReceipt(0, act.Hash(), gasConsumed), nil
-	case *SetEpochReward:
-		gasConsumed, err := act.IntrinsicGas()
-		if err != nil {
-			return p.createReceipt(1, act.Hash(), 0), nil
-		}
-		if err := p.SetEpochReward(ctx, sm, act.Amount()); err != nil {
-			return p.createReceipt(1, act.Hash(), gasConsumed), nil
-		}
-		return p.createReceipt(0, act.Hash(), gasConsumed), nil
 	case *DonateToProducerFund:
 		gasConsumed, err := act.IntrinsicGas()
 		if err != nil {
@@ -86,7 +96,7 @@ func (p *Protocol) Handle(
 			return p.createReceipt(1, act.Hash(), gasConsumed), nil
 		}
 		return p.createReceipt(0, act.Hash(), gasConsumed), nil
-	case *GrantReward:
+	case *GrantBlockProducerReward:
 		switch act.RewardType() {
 		case BlockReward:
 			gasConsumed, err := act.IntrinsicGas()
