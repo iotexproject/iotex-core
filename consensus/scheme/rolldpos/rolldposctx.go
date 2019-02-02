@@ -244,8 +244,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(en consensusfsm.Endorsement) (con
 			)
 		}
 		if producer != ctx.round.proposer || blk.WorkingSet == nil {
-			containCoinbase := true
-			if err := ctx.chain.ValidateBlock(blk.Block, containCoinbase); err != nil {
+			if err := ctx.chain.ValidateBlock(blk.Block); err != nil {
 				return nil, errors.Wrapf(err, "error when validating the proposed block")
 			}
 		}

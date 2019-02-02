@@ -34,7 +34,6 @@ const (
 // Genesis defines the Genesis default settings
 type Genesis struct {
 	TotalSupply         *big.Int
-	BlockReward         *big.Int
 	Timestamp           int64
 	ParentHash          hash.Hash32B
 	GenesisCoinbaseData string
@@ -80,7 +79,6 @@ type SubChain struct {
 // Gen hardcodes genesis default settings
 var Gen = &Genesis{
 	TotalSupply:         ConvertIotxToRau(10000000000),
-	BlockReward:         ConvertIotxToRau(5),
 	Timestamp:           1524676419,
 	ParentHash:          hash.Hash32B{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",

@@ -28,11 +28,6 @@ func NewGenericValidator(cm ChainManager) *GenericValidator { return &GenericVal
 
 // Validate validates a generic action
 func (v *GenericValidator) Validate(_ context.Context, act action.SealedEnvelope) error {
-
-	// TODO skip coinbase transfer for now because nonce is wrong.
-	if a, ok := act.Action().(*action.Transfer); ok && a.IsCoinbase() {
-		return nil
-	}
 	// Reject over-gassed action
 	if act.GasLimit() > genesis.ActionGasLimit {
 		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")
