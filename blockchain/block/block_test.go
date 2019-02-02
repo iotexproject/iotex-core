@@ -52,84 +52,94 @@ func TestMerkle(t *testing.T) {
 	producerPriKey := ta.Keyinfo["producer"].PriKey
 	amount := uint64(50 << 22)
 	// create testing transactions
-	cbtsf0 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), producerAddr)
-	require.NotNil(cbtsf0)
-	bd := action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).
-		SetDestinationAddress(producerAddr).
-		SetGasLimit(100).
-		SetAction(cbtsf0).Build()
-	selp0, err := action.Sign(elp, producerAddr, producerPriKey)
+	selp0, err := testutil.SignedTransfer(
+		producerAddr,
+		producerAddr,
+		producerPriKey,
+		1,
+		big.NewInt(int64(amount)),
+		nil,
+		100,
+		big.NewInt(0),
+	)
 	require.NoError(err)
 
-	cbtsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["alfa"].Bech32())
-	require.NotNil(cbtsf1)
-	bd = action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["alfa"].Bech32()).
-		SetGasLimit(100).
-		SetAction(cbtsf1).Build()
-	selp1, err := action.Sign(elp, producerAddr, producerPriKey)
+	selp1, err := testutil.SignedTransfer(
+		producerAddr,
+		ta.Addrinfo["alfa"].Bech32(),
+		producerPriKey,
+		1,
+		big.NewInt(int64(amount)),
+		nil,
+		100,
+		big.NewInt(0),
+	)
 	require.NoError(err)
 
-	cbtsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["bravo"].Bech32())
-	require.NotNil(cbtsf2)
-	bd = action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["bravo"].Bech32()).
-		SetGasLimit(100).
-		SetAction(cbtsf2).Build()
-	selp2, err := action.Sign(elp, producerAddr, producerPriKey)
+	selp2, err := testutil.SignedTransfer(
+		producerAddr,
+		ta.Addrinfo["bravo"].Bech32(),
+		producerPriKey,
+		1,
+		big.NewInt(int64(amount)),
+		nil,
+		100,
+		big.NewInt(0),
+	)
 	require.NoError(err)
 
-	cbtsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["charlie"].Bech32())
-	require.NotNil(cbtsf3)
-	bd = action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["charlie"].Bech32()).
-		SetGasLimit(100).
-		SetAction(cbtsf3).Build()
-	selp3, err := action.Sign(elp, producerAddr, producerPriKey)
+	selp3, err := testutil.SignedTransfer(
+		producerAddr,
+		ta.Addrinfo["charlie"].Bech32(),
+		producerPriKey,
+		1,
+		big.NewInt(int64(amount)),
+		nil,
+		100,
+		big.NewInt(0),
+	)
 	require.NoError(err)
 
-	cbtsf4 := action.NewCoinBaseTransfer(1, big.NewInt(int64(amount)), ta.Addrinfo["echo"].Bech32())
-	require.NotNil(cbtsf4)
-	bd = action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).
-		SetDestinationAddress(ta.Addrinfo["echo"].Bech32()).
-		SetGasLimit(100).
-		SetAction(cbtsf4).Build()
-	selp4, err := action.Sign(elp, producerAddr, producerPriKey)
+	selp4, err := testutil.SignedTransfer(
+		producerAddr,
+		ta.Addrinfo["echo"].Bech32(),
+		producerPriKey,
+		1,
+		big.NewInt(int64(amount)),
+		nil,
+		100,
+		big.NewInt(0),
+	)
 	require.NoError(err)
 
 	// verify tx hash
-	hash0, e := hex.DecodeString("fb8b20c5e97a5e4eb54921af76ea304b85aed70056f12169a599847470f05b7c")
+	hash0, e := hex.DecodeString("9e534580106ad77be0e69c8a747839d53a68f0f1151e258261f5ea2fc88c8cb8")
 	require.NoError(e)
-	actual := cbtsf0.Hash()
+	actual := selp0.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash0, actual[:])
 
-	hash1, e := hex.DecodeString("f11831e2fe054bafd4091f166cefe76669c52a0413c2eb00fcc90b953cab5bc3")
+	hash1, e := hex.DecodeString("3a3c0eaae34ecd274e5a4e984674bd5ebecfc2aecbfb249badc1443b6f5121b2")
 	require.NoError(e)
-	actual = cbtsf1.Hash()
+	actual = selp1.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash1, actual[:])
 
-	hash2, e := hex.DecodeString("9ef0a3a1b0c6a38a3677fc5bce0fa66336eeb7e401fce72b52d332de9c7d7bb9")
+	hash2, e := hex.DecodeString("f3d19dd04f8a04ff91103ba7fb5f3b5b2f68d60d000510ac54c3108c12776af0")
 	require.NoError(e)
-	actual = cbtsf2.Hash()
+	actual = selp2.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash2, actual[:])
 
-	hash3, e := hex.DecodeString("e6064ae238e2b2a13368aadc940835a00f8a5c13b42462036741ec897ba70fc7")
+	hash3, e := hex.DecodeString("87ebe8368331cb99c6b6498512eca388d082e83cc317b5f24a9e5754411c5880")
 	require.NoError(e)
-	actual = cbtsf3.Hash()
+	actual = selp3.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash3, actual[:])
 
-	hash4, e := hex.DecodeString("50c6daa836434466ceafdebbea48962cd8171c94c675977f76b2eb42340c3b49")
+	hash4, e := hex.DecodeString("c40e737391cba49df33b2ca2f9a2428e49a14c1cae2456505bac99d4f3e569ba")
 	require.NoError(e)
-	actual = cbtsf4.Hash()
+	actual = selp4.Hash()
 	t.Logf("actual hash = %x", actual[:])
 	require.Equal(hash4, actual[:])
 

@@ -131,13 +131,7 @@ func TestLocalCommit(t *testing.T) {
 	change.Add(change, test)
 
 	require.Equal(
-		big.NewInt(0).Add(
-			blockchain.ConvertIotxToRau(3000000000),
-			big.NewInt(0).Mul(
-				blockchain.Gen.BlockReward,
-				big.NewInt(int64(bc.TipHeight())),
-			),
-		),
+		blockchain.ConvertIotxToRau(3000000000),
 		change,
 	)
 	t.Log("Total balance match")
@@ -193,7 +187,7 @@ func TestLocalCommit(t *testing.T) {
 		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk1, true))
+	require.Nil(chain.ValidateBlock(blk1))
 	require.Nil(chain.CommitBlock(blk1))
 
 	// transfer 2
@@ -212,7 +206,7 @@ func TestLocalCommit(t *testing.T) {
 		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk2, true))
+	require.Nil(chain.ValidateBlock(blk2))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act2 := tsf2.Proto()
@@ -241,7 +235,7 @@ func TestLocalCommit(t *testing.T) {
 		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk3, true))
+	require.Nil(chain.ValidateBlock(blk3))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act3 := tsf3.Proto()
@@ -270,7 +264,7 @@ func TestLocalCommit(t *testing.T) {
 		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk4, true))
+	require.Nil(chain.ValidateBlock(blk4))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act4 := tsf4.Proto()
@@ -347,13 +341,7 @@ func TestLocalCommit(t *testing.T) {
 	change.Add(change, test)
 
 	require.Equal(
-		big.NewInt(0).Add(
-			blockchain.ConvertIotxToRau(3000000000),
-			big.NewInt(0).Mul(
-				blockchain.Gen.BlockReward,
-				big.NewInt(int64(bc.TipHeight())),
-			),
-		),
+		blockchain.ConvertIotxToRau(3000000000),
 		change,
 	)
 	t.Log("Total balance match")
@@ -615,7 +603,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk1, true))
+	require.Nil(chain.ValidateBlock(blk1))
 	require.Nil(chain.CommitBlock(blk1))
 
 	require.NoError(p.BroadcastOutbound(p2pCtx, blk1.ConvertToBlockPb()))
@@ -645,7 +633,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk2, true))
+	require.Nil(chain.ValidateBlock(blk2))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act4 := vote4.Proto()
@@ -698,7 +686,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk3, true))
+	require.Nil(chain.ValidateBlock(blk3))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act6 := vote6.Proto()
@@ -753,7 +741,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk4, true))
+	require.Nil(chain.ValidateBlock(blk4))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act7 := selp.Proto()
