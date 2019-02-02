@@ -106,7 +106,7 @@ func runExecution(
 	if err != nil {
 		return nil, err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return nil, err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -269,7 +269,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
@@ -328,7 +328,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
@@ -369,7 +369,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
@@ -400,7 +400,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 		ws, _ = sf.NewWorkingSet()
@@ -476,7 +476,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		log.S().Info("======= Test RollDice")
@@ -508,7 +508,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		balance, err := bc.Balance(contractAddr)
@@ -540,7 +540,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		// verify balance
@@ -579,7 +579,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		balance, err = bc.Balance(testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(err)
@@ -653,7 +653,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
@@ -733,7 +733,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		log.S().Info("======= Transfer to bravo")
@@ -767,7 +767,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		// get balance
@@ -795,7 +795,7 @@ func TestProtocol_Handle(t *testing.T) {
 			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		// verify balance
