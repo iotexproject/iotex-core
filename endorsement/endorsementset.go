@@ -69,7 +69,7 @@ func (s *Set) AddEndorsement(en *Endorsement) error {
 		if e.ConsensusVote().Topic != en.ConsensusVote().Topic {
 			continue
 		}
-		if e.ConsensusVote().Round < en.ConsensusVote().Round {
+		if e.ConsensusVote().Round <= en.ConsensusVote().Round {
 			s.endorsements[i] = en
 			return nil
 		}

@@ -47,15 +47,16 @@ const (
 	sAcceptPreCommitEndorsement fsm.State = "S_ACCEPT_PRECOMMIT_ENDORSEMENT"
 
 	// consensus event types
-	eCalibrate                        fsm.EventType = "E_CALIBRATE"
-	ePrepare                          fsm.EventType = "E_PREPARE"
-	eReceiveBlock                     fsm.EventType = "E_RECEIVE_BLOCK"
-	eFailedToReceiveBlock             fsm.EventType = "E_FAILED_TO_RECEIVE_BLOCK"
-	eReceiveProposalEndorsement       fsm.EventType = "E_RECEIVE_PROPOSAL_ENDORSEMENT"
-	eStopReceivingProposalEndorsement fsm.EventType = "E_STOP_RECEIVING_PROPOSAL_ENDORSEMENT"
-	eReceiveLockEndorsement           fsm.EventType = "E_RECEIVE_LOCK_ENDORSEMENT"
-	eStopReceivingLockEndorsement     fsm.EventType = "E_STOP_RECEIVING_LOCK_ENDORSEMENT"
-	eReceivePreCommitEndorsement      fsm.EventType = "E_RECEIVE_PRECOMMIT_ENDORSEMENT"
+	eCalibrate                           fsm.EventType = "E_CALIBRATE"
+	ePrepare                             fsm.EventType = "E_PREPARE"
+	eReceiveBlock                        fsm.EventType = "E_RECEIVE_BLOCK"
+	eFailedToReceiveBlock                fsm.EventType = "E_FAILED_TO_RECEIVE_BLOCK"
+	eReceiveProposalEndorsement          fsm.EventType = "E_RECEIVE_PROPOSAL_ENDORSEMENT"
+	eStopReceivingProposalEndorsement    fsm.EventType = "E_STOP_RECEIVING_PROPOSAL_ENDORSEMENT"
+	eReceiveLockEndorsement              fsm.EventType = "E_RECEIVE_LOCK_ENDORSEMENT"
+	eStopReceivingLockEndorsement        fsm.EventType = "E_STOP_RECEIVING_LOCK_ENDORSEMENT"
+	eReceivePreCommitEndorsement         fsm.EventType = "E_RECEIVE_PRECOMMIT_ENDORSEMENT"
+	eFailedToCollectPreCommitEndorsement fsm.EventType = "E_FAILED_TO_COLLECT_PRECOMMIT_ENDORSEMENT"
 
 	// BackdoorEvent indicates a backdoor event type
 	BackdoorEvent fsm.EventType = "E_BACKDOOR"
@@ -81,12 +82,13 @@ var (
 
 // Config defines a set of time durations used in fsm and event queue size
 type Config struct {
-	EventChanSize                uint          `yaml:"eventChanSize"`
-	UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
-	UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
-	AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
-	AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
-	AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
+	EventChanSize                  uint          `yaml:"eventChanSize"`
+	UnmatchedEventTTL              time.Duration `yaml:"unmatchedEventTTL"`
+	UnmatchedEventInterval         time.Duration `yaml:"unmatchedEventInterval"`
+	AcceptBlockTTL                 time.Duration `yaml:"acceptBlockTTL"`
+	AcceptProposalEndorsementTTL   time.Duration `yaml:"acceptProposalEndorsementTTL"`
+	AcceptLockEndorsementTTL       time.Duration `yaml:"acceptLockEndorsementTTL"`
+	CollectPreCommitEndorsementTTL time.Duration `yaml:"collectPreCommitEndorsementTTL"`
 }
 
 // ConsensusFSM wraps over the general purpose FSM and implements the consensus logic
@@ -173,7 +175,13 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 			[]fsm.State{
 				sAcceptPreCommitEndorsement,
 				sPrepare, // reach consensus, start next epoch
-			})
+			}).
+		AddTransition(
+			sAcceptPreCommitEndorsement,
+			eFailedToCollectPreCommitEndorsement,
+			cm.onFailedToCollectPreCommitEndorsement,
+			[]fsm.State{sAcceptPreCommitEndorsement},
+		)
 	// Add the backdoor transition so that we could unit test the transition from any given state
 	for _, state := range consensusStates {
 		b = b.AddTransition(state, BackdoorEvent, cm.handleBackdoorEvt, consensusStates)
@@ -481,7 +489,10 @@ func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error
 	}
 	m.ProduceReceivePreCommitEndorsementEvent(preCommitEndorsement)
 	m.ctx.BroadcastEndorsement(preCommitEndorsement)
-
+	m.produceConsensusEvent(
+		eFailedToCollectPreCommitEndorsement,
+		m.cfg.CollectPreCommitEndorsementTTL,
+	)
 	return sAcceptPreCommitEndorsement, nil
 }
 
@@ -518,6 +529,18 @@ func (m *ConsensusFSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, 
 	m.ProducePrepareEvent(0)
 
 	return sPrepare, nil
+}
+
+// onFailedToCollectPreCommitEndorsement resends pre-commit endorsement
+func (m *ConsensusFSM) onFailedToCollectPreCommitEndorsement(evt fsm.Event) (fsm.State, error) {
+	m.ctx.Logger().Info("resend pre-commit endorsement")
+	m.ctx.BroadcastPreCommitEndorsement()
+	m.produceConsensusEvent(
+		eFailedToCollectPreCommitEndorsement,
+		m.cfg.CollectPreCommitEndorsementTTL,
+	)
+
+	return sAcceptPreCommitEndorsement, nil
 }
 
 // handleBackdoorEvt takes the dst state from the event and move the FSM into it

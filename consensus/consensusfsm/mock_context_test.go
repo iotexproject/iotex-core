@@ -175,6 +175,16 @@ func (mr *MockContextMockRecorder) BroadcastEndorsement(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastEndorsement", reflect.TypeOf((*MockContext)(nil).BroadcastEndorsement), arg0)
 }
 
+// BroadcastPreCommitEndorsement mocks base method
+func (m *MockContext) BroadcastPreCommitEndorsement() {
+	m.ctrl.Call(m, "BroadcastPreCommitEndorsement")
+}
+
+// BroadcastPreCommitEndorsement indicates an expected call of BroadcastPreCommitEndorsement
+func (mr *MockContextMockRecorder) BroadcastPreCommitEndorsement() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastPreCommitEndorsement", reflect.TypeOf((*MockContext)(nil).BroadcastPreCommitEndorsement))
+}
+
 // Prepare mocks base method
 func (m *MockContext) Prepare() (time.Duration, error) {
 	ret := m.ctrl.Call(m, "Prepare")

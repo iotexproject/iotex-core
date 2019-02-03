@@ -80,10 +80,11 @@ func TestStateTransitions(t *testing.T) {
 			}
 		}).AnyTimes()
 	cfsm, err := NewConsensusFSM(Config{
-		EventChanSize:                10,
-		AcceptBlockTTL:               4 * time.Second,
-		AcceptProposalEndorsementTTL: 2 * time.Second,
-		AcceptLockEndorsementTTL:     2 * time.Second,
+		EventChanSize:                  10,
+		AcceptBlockTTL:                 4 * time.Second,
+		AcceptProposalEndorsementTTL:   2 * time.Second,
+		AcceptLockEndorsementTTL:       2 * time.Second,
+		CollectPreCommitEndorsementTTL: 2 * time.Second,
 	}, mockCtx, mockClock)
 	require.Nil(err)
 	require.NotNil(cfsm)
@@ -342,6 +343,10 @@ func TestStateTransitions(t *testing.T) {
 				require.Equal(sAcceptPreCommitEndorsement, state)
 				evt := <-cfsm.evtq
 				require.Equal(eReceivePreCommitEndorsement, evt.Type())
+				time.Sleep(100 * time.Millisecond)
+				mockClock.Add(2 * time.Second)
+				evt = <-cfsm.evtq
+				require.Equal(eFailedToCollectPreCommitEndorsement, evt.Type())
 			})
 		})
 	})
@@ -401,6 +406,16 @@ func TestStateTransitions(t *testing.T) {
 			evt := <-cfsm.evtq
 			require.Equal(ePrepare, evt.Type())
 		})
+	})
+	t.Run("onFailedToCollectPreCommitEndosement", func(t *testing.T) {
+		mockCtx.EXPECT().BroadcastPreCommitEndorsement().Times(1)
+		state, err := cfsm.onFailedToCollectPreCommitEndorsement(nil)
+		require.NoError(err)
+		require.Equal(sAcceptPreCommitEndorsement, state)
+		time.Sleep(100 * time.Millisecond)
+		mockClock.Add(2 * time.Second)
+		evt := <-cfsm.evtq
+		require.Equal(eFailedToCollectPreCommitEndorsement, evt.Type())
 	})
 	t.Run("calibrate", func(t *testing.T) {
 		mockCtx.EXPECT().Height().Return(uint64(2)).Times(2)

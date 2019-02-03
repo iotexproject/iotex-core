@@ -289,6 +289,7 @@ func TestValidateRollDPoS(t *testing.T) {
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 3 * time.Second
+	cfg.Consensus.RollDPoS.FSM.CollectPreCommitEndorsementTTL = 2 * time.Second
 	cfg.Consensus.RollDPoS.DelegateInterval = 8 * time.Second
 	err := ValidateRollDPoS(cfg)
 	require.NotNil(t, err)

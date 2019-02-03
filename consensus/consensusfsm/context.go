@@ -32,6 +32,7 @@ type Context interface {
 
 	BroadcastBlockProposal(Endorsement)
 	BroadcastEndorsement(Endorsement)
+	BroadcastPreCommitEndorsement()
 
 	Prepare() (time.Duration, error)
 	MintBlock() (Endorsement, error)

@@ -123,6 +123,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		ctx.cfg.FSM.AcceptBlockTTL = 4 * time.Second
 		ctx.cfg.FSM.AcceptProposalEndorsementTTL = 2 * time.Second
 		ctx.cfg.FSM.AcceptLockEndorsementTTL = 2 * time.Second
+		ctx.cfg.FSM.CollectPreCommitEndorsementTTL = 2 * time.Second
 		ctx.cfg.ToleratedOvertime = 2 * time.Second
 
 		epoch, err := ctx.epochCtxByHeight(blockHeight + 1)

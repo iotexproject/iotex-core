@@ -368,18 +368,14 @@ func (ctx *rollDPoSCtx) BroadcastEndorsement(en consensusfsm.Endorsement) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	data, err := en.Serialize()
-	if err != nil {
-		ctx.loggerWithStats().Panic("Failed to serialize endorsement", zap.Error(err))
-	}
-	if err := ctx.broadcastHandler(&iproto.ConsensusPb{
-		Height:    ctx.round.height,
-		Round:     ctx.round.number,
-		Type:      iproto.ConsensusPb_ENDORSEMENT,
-		Data:      data,
-		Timestamp: &timestamp.Timestamp{Seconds: ctx.clock.Now().Unix()},
-	}); err != nil {
-		ctx.loggerWithStats().Error("fail to broadcast endorsement", zap.Error(err))
+	ctx.broadcastEndorsement(en)
+}
+
+func (ctx *rollDPoSCtx) BroadcastPreCommitEndorsement() {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	if en, err := ctx.newEndorsement(endorsement.COMMIT); err == nil {
+		ctx.broadcastEndorsement(en)
 	}
 }
 
@@ -433,6 +429,22 @@ func (ctx *rollDPoSCtx) Height() uint64 {
 ///////////////////////////////////////////
 // private functions
 ///////////////////////////////////////////
+
+func (ctx *rollDPoSCtx) broadcastEndorsement(en consensusfsm.Endorsement) {
+	data, err := en.Serialize()
+	if err != nil {
+		ctx.loggerWithStats().Panic("Failed to serialize endorsement", zap.Error(err))
+	}
+	if err := ctx.broadcastHandler(&iproto.ConsensusPb{
+		Height:    ctx.round.height,
+		Round:     ctx.round.number,
+		Type:      iproto.ConsensusPb_ENDORSEMENT,
+		Data:      data,
+		Timestamp: &timestamp.Timestamp{Seconds: ctx.clock.Now().Unix()},
+	}); err != nil {
+		ctx.loggerWithStats().Error("fail to broadcast endorsement", zap.Error(err))
+	}
+}
 
 func (ctx *rollDPoSCtx) hasEnoughEndorsements(
 	hash []byte,
