@@ -32,9 +32,7 @@ type Block struct {
 	Header
 	Footer
 
-	Actions         []action.SealedEnvelope
-	SecretProposals []*action.SecretProposal
-	SecretWitness   *action.SecretWitness
+	Actions []action.SealedEnvelope
 	// TODO: move receipts out of block struct
 	Receipts []*action.Receipt
 
@@ -47,9 +45,6 @@ func (b *Block) ByteStream() []byte {
 
 	// Add the stream of blockSig
 	stream = append(stream, b.Header.blockSig[:]...)
-	stream = append(stream, b.Header.dkgID[:]...)
-	stream = append(stream, b.Header.dkgPubkey[:]...)
-	stream = append(stream, b.Header.dkgBlockSig[:]...)
 
 	for _, act := range b.Actions {
 		stream = append(stream, act.ByteStream()...)
@@ -74,9 +69,6 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
 	pbHeader.Signature = b.Header.blockSig[:]
 	pbHeader.Pubkey = keypair.PublicKeyToBytes(b.Header.pubkey)
-	pbHeader.DkgID = b.Header.dkgID[:]
-	pbHeader.DkgPubkey = b.Header.dkgPubkey[:]
-	pbHeader.DkgSignature = b.Header.dkgBlockSig[:]
 	return &pbHeader
 }
 
@@ -112,9 +104,6 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.deltaStateDigest[:], pbBlock.GetHeader().GetDeltaStateDigest())
 	copy(b.Header.receiptRoot[:], pbBlock.GetHeader().GetReceiptRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
-	b.Header.dkgID = pbBlock.GetHeader().GetDkgID()
-	b.Header.dkgPubkey = pbBlock.GetHeader().GetDkgPubkey()
-	b.Header.dkgBlockSig = pbBlock.GetHeader().GetDkgSignature()
 
 	pubKey, err := keypair.BytesToPublicKey(pbBlock.GetHeader().GetPubkey())
 	if err != nil {
@@ -135,7 +124,6 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) error {
 			return err
 		}
 		b.Actions = append(b.Actions, act)
-		// TODO handle SecretProposal and SecretWitness
 	}
 
 	return b.ConvertFromBlockFooterPb(pbBlock.GetFooter())

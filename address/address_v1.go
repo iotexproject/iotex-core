@@ -62,11 +62,6 @@ func (v *v1) Bech32ToPKHash(encodedAddr string) (hash.PKHash, error) {
 	return addr.PublicKeyHash(), nil
 }
 
-// Bech32ToID returns the DKG Address ID from an encoded address
-func (v *v1) Bech32ToID(encodedAddr string) []uint8 {
-	return hash.Hash256b([]byte(encodedAddr))
-}
-
 func (v *v1) decodeBech32(encodedAddr string) ([]byte, error) {
 	hrp, grouped, err := bech32.Decode(encodedAddr)
 	if hrp != prefix() {
@@ -84,13 +79,6 @@ func (v *v1) decodeBech32(encodedAddr string) ([]byte, error) {
 // 20 bytes: hash derived from the the public key:
 type AddrV1 struct {
 	pkHash hash.PKHash
-}
-
-// DKGAddress contains a pair of DKGkey and a DKGID
-type DKGAddress struct {
-	PrivateKey []uint32
-	PublicKey  []byte
-	ID         []uint8
 }
 
 // Bech32 encodes an address struct into a a Bech32 encoded address string

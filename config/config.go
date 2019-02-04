@@ -108,7 +108,6 @@ var (
 				NumSubEpochs:      1,
 				NumDelegates:      21,
 				TimeBasedRotation: false,
-				EnableDKG:         false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -227,7 +226,6 @@ type (
 		NumSubEpochs      uint                `yaml:"numSubEpochs"`
 		NumDelegates      uint                `yaml:"numDelegates"`
 		TimeBasedRotation bool                `yaml:"timeBasedRotation"`
-		EnableDKG         bool                `yaml:"enableDKG"`
 	}
 
 	// Dispatcher is the dispatcher config

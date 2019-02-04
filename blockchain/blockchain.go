@@ -114,7 +114,7 @@ type Blockchain interface {
 	StateByAddr(address string) (*state.Account, error)
 
 	// For block operations
-	// MintNewBlock creates a new block with given actions and dkg keys
+	// MintNewBlock creates a new block with given actions
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
 		actionMap map[string][]action.SealedEnvelope,
@@ -680,8 +680,6 @@ func (bc *blockchain) MintNewBlock(
 	validateActionsOnlyTimer := bc.timerFactory.NewTimer("ValidateActionsOnly")
 	if err := bc.validator.ValidateActionsOnly(
 		actions,
-		nil,
-		nil,
 		producerPubKey,
 		bc.ChainID(),
 		bc.tipHeight+1,
