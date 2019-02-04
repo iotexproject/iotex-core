@@ -11,9 +11,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -32,13 +34,16 @@ var (
 	accountKeyPrefix            = []byte("account")
 )
 
-// Protocol defines the protocol of block producer fund operation and block producer rewarding process.
+// Protocol defines the protocol of block producer fund operation and block producer rewarding process. It allows the
+// admin to config the block producer reward amount, users to donate tokens to the fund, block producers to grant them
+// block and epoch reward and claim the balance into their personal account
 type Protocol struct {
 	addr      address.Address
 	keyPrefix []byte
 }
 
-// NewProtocol instantiates a block producer protocol instance
+// NewProtocol instantiates a block producer protocol instance. The address of the protocol is defined by the creator's
+// address and the nonce of creating it
 func NewProtocol(caller address.Address, nonce uint64) *Protocol {
 	var nonceBytes [8]byte
 	enc.MachineEndian.PutUint64(nonceBytes[:], nonce)
@@ -62,60 +67,60 @@ func (p *Protocol) Handle(
 		case BlockReward:
 			gasConsumed, err := act.IntrinsicGas()
 			if err != nil {
-				return p.createReceipt(1, act.Hash(), 0), nil
+				return p.settleAction(ctx, sm, 1, 0), nil
 			}
 			if err := p.SetBlockReward(ctx, sm, act.Amount()); err != nil {
-				return p.createReceipt(1, act.Hash(), gasConsumed), nil
+				return p.settleAction(ctx, sm, 1, gasConsumed), nil
 			}
-			return p.createReceipt(0, act.Hash(), gasConsumed), nil
+			return p.settleAction(ctx, sm, 0, gasConsumed), nil
 		case EpochReward:
 			gasConsumed, err := act.IntrinsicGas()
 			if err != nil {
-				return p.createReceipt(1, act.Hash(), 0), nil
+				return p.settleAction(ctx, sm, 1, 0), nil
 			}
 			if err := p.SetEpochReward(ctx, sm, act.Amount()); err != nil {
-				return p.createReceipt(1, act.Hash(), gasConsumed), nil
+				return p.settleAction(ctx, sm, 1, gasConsumed), nil
 			}
-			return p.createReceipt(0, act.Hash(), gasConsumed), nil
+			return p.settleAction(ctx, sm, 0, gasConsumed), nil
 		}
 	case *DonateToProducerFund:
 		gasConsumed, err := act.IntrinsicGas()
 		if err != nil {
-			return p.createReceipt(1, act.Hash(), 0), nil
+			return p.settleAction(ctx, sm, 1, 0), nil
 		}
 		if err := p.Donate(ctx, sm, act.Amount()); err != nil {
-			return p.createReceipt(1, act.Hash(), gasConsumed), nil
+			return p.settleAction(ctx, sm, 1, gasConsumed), nil
 		}
-		return p.createReceipt(0, act.Hash(), gasConsumed), nil
+		return p.settleAction(ctx, sm, 0, gasConsumed), nil
 	case *ClaimFromProducerFund:
 		gasConsumed, err := act.IntrinsicGas()
 		if err != nil {
-			return p.createReceipt(1, act.Hash(), 0), nil
+			return p.settleAction(ctx, sm, 1, 0), nil
 		}
 		if err := p.Claim(ctx, sm, act.Amount()); err != nil {
-			return p.createReceipt(1, act.Hash(), gasConsumed), nil
+			return p.settleAction(ctx, sm, 1, gasConsumed), nil
 		}
-		return p.createReceipt(0, act.Hash(), gasConsumed), nil
+		return p.settleAction(ctx, sm, 0, gasConsumed), nil
 	case *GrantBlockProducerReward:
 		switch act.RewardType() {
 		case BlockReward:
 			gasConsumed, err := act.IntrinsicGas()
 			if err != nil {
-				return p.createReceipt(1, act.Hash(), 0), nil
+				return p.settleAction(ctx, sm, 1, 0), nil
 			}
 			if err := p.GrantBlockReward(ctx, sm); err != nil {
-				return p.createReceipt(1, act.Hash(), gasConsumed), nil
+				return p.settleAction(ctx, sm, 1, gasConsumed), nil
 			}
-			return p.createReceipt(0, act.Hash(), gasConsumed), nil
+			return p.settleAction(ctx, sm, 0, gasConsumed), nil
 		case EpochReward:
 			gasConsumed, err := act.IntrinsicGas()
 			if err != nil {
-				return p.createReceipt(1, act.Hash(), 0), nil
+				return p.settleAction(ctx, sm, 1, 0), nil
 			}
 			if err := p.GrantEpochReward(ctx, sm); err != nil {
-				return p.createReceipt(1, act.Hash(), gasConsumed), nil
+				return p.settleAction(ctx, sm, 1, gasConsumed), nil
 			}
-			return p.createReceipt(0, act.Hash(), gasConsumed), nil
+			return p.settleAction(ctx, sm, 0, gasConsumed), nil
 		}
 	}
 	return nil, nil
@@ -143,6 +148,37 @@ func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interfac
 func (p *Protocol) deleteState(sm protocol.StateManager, key []byte) error {
 	keyHash := byteutil.BytesTo20B(hash.Hash160b(append(p.keyPrefix, key...)))
 	return sm.DelState(keyHash)
+}
+
+func (p *Protocol) settleAction(
+	ctx context.Context,
+	sm protocol.StateManager,
+	status uint64,
+	gasConsumed uint64,
+) *action.Receipt {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss run action context")
+	}
+	if err := p.increaseNonce(sm, raCtx.Caller, raCtx.Nonce); err != nil {
+		return p.createReceipt(1, raCtx.ActionHash, gasConsumed)
+	}
+	return p.createReceipt(status, raCtx.ActionHash, gasConsumed)
+}
+
+func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
+	acc, err := account.LoadAccount(sm, byteutil.BytesTo20B(addr.Payload()))
+	if err != nil {
+		return err
+	}
+	// TODO: this check shouldn't be necessary
+	if nonce > acc.Nonce {
+		acc.Nonce = nonce
+	}
+	if err := account.StoreAccount(sm, addr.Bech32(), acc); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *Protocol) createReceipt(status uint64, actHash hash.Hash32B, gasConsumed uint64) *action.Receipt {

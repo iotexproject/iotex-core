@@ -75,6 +75,8 @@ func (stx *stateTX) RunActions(
 		}
 		callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
 		raCtx.Caller = address.New(callerPKHash[:])
+		raCtx.ActionHash = elp.Hash()
+		raCtx.Nonce = elp.Nonce()
 		ctx = protocol.WithRunActionsCtx(ctx, raCtx)
 		for _, actionHandler := range stx.actionHandlers {
 			receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)

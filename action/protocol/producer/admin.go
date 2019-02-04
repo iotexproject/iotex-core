@@ -17,8 +17,10 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/producer/producerpb"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
+// admin stores the admin data of the block producer protocol
 type admin struct {
 	admin       address.Address
 	BlockReward *big.Int
@@ -59,7 +61,7 @@ func (p *Protocol) Initialize(
 ) error {
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
-		return errors.New("miss action validation context")
+		log.S().Panic("Miss run action context")
 	}
 	if err := p.assertAmount(blockReward); err != nil {
 		return err
@@ -111,7 +113,7 @@ func (p *Protocol) SetAdmin(
 ) error {
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
-		return errors.New("miss action validation context")
+		log.S().Panic("Miss run action context")
 	}
 	if err := p.assertAdminPermission(raCtx, sm); err != nil {
 		return err
@@ -139,7 +141,7 @@ func (p *Protocol) BlockReward(
 	return a.BlockReward, nil
 }
 
-// SetBlockProducerReward sets the block reward amount for the block producer. Only the current admin could make this change
+// SetBlockReward sets the block reward amount for the block producer. Only the current admin could make this change
 func (p *Protocol) SetBlockReward(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -196,7 +198,7 @@ func (p *Protocol) setReward(
 ) error {
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
-		return errors.New("miss action validation context")
+		log.S().Panic("Miss run action context")
 	}
 	if err := p.assertAdminPermission(raCtx, sm); err != nil {
 		return err

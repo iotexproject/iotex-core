@@ -75,8 +75,8 @@ func (s *SetBlockProducerReward) LoadProto(sProto *iproto.SetBlockProducerReward
 }
 
 // IntrinsicGas returns the intrinsic gas of a set block producer reward action
-func (c *SetBlockProducerReward) IntrinsicGas() (uint64, error) {
-	dataLen := uint64(len(c.Data()))
+func (s *SetBlockProducerReward) IntrinsicGas() (uint64, error) {
+	dataLen := uint64(len(s.Data()))
 	if (math.MaxUint64-setBlockRewardBaseGas)/setBlockRewardGasPerByte < dataLen {
 		return 0, action.ErrOutOfGas
 	}
@@ -84,12 +84,12 @@ func (c *SetBlockProducerReward) IntrinsicGas() (uint64, error) {
 }
 
 // Cost returns the total cost of a set block producer reward action
-func (c *SetBlockProducerReward) Cost() (*big.Int, error) {
-	intrinsicGas, err := c.IntrinsicGas()
+func (s *SetBlockProducerReward) Cost() (*big.Int, error) {
+	intrinsicGas, err := s.IntrinsicGas()
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting intrinsic gas for the set block reward action")
 	}
-	return big.NewInt(0).Mul(c.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
+	return big.NewInt(0).Mul(s.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
 }
 
 // SetBlockProducerRewardBuilder is the struct to build SetBlockProducerReward

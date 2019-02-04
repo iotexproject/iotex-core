@@ -10,19 +10,20 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/producer/producerpb"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
+// rewardHistory is the dummy struct to record a reward. Only key matters.
 type rewardHistory struct{}
 
 // Serialize serializes reward history state into bytes
@@ -40,6 +41,7 @@ func (b *rewardHistory) Deserialize(data []byte) error {
 	return nil
 }
 
+// rewardHistory stores the unclaimed balance of an account
 type rewardAccount struct {
 	balance *big.Int
 }
@@ -69,7 +71,7 @@ func (p *Protocol) GrantBlockReward(
 ) error {
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
-		return errors.New("miss action validation context")
+		log.S().Panic("Miss run action context")
 	}
 	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
 		return err
@@ -97,7 +99,7 @@ func (p *Protocol) GrantEpochReward(
 ) error {
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
-		return errors.New("miss action validation context")
+		log.S().Panic("Miss run action context")
 	}
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, raCtx.EpochNumber); err != nil {
 		return err
@@ -133,7 +135,7 @@ func (p *Protocol) Claim(
 ) error {
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
-		return errors.New("miss action validation context")
+		log.S().Panic("Miss run action context")
 	}
 	if err := p.updateTotalBalance(sm, amount); err != nil {
 		return err

@@ -856,6 +856,8 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 			Caller:          callerAddr,
+			ActionHash:      hash.ZeroHash32B,
+			Nonce:           0,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")

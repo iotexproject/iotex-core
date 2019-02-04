@@ -36,6 +36,10 @@ type RunActionsCtx struct {
 	Producer address.Address
 	// Caller is the address of whom issues this action
 	Caller address.Address
+	// ActionHash is the hash of the action with the sealed envelope
+	ActionHash hash.Hash32B
+	// Nonce is the nonce of the action
+	Nonce uint64
 }
 
 // ValidateActionsCtx provides action validators with auxiliary information.

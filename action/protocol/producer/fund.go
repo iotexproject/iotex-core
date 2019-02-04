@@ -16,9 +16,12 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/producer/producerpb"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
+// fund stores the balance of the block producer fund. The difference between total and available balance should be
+// equal to the unclaimed balance in all reward accounts
 type fund struct {
 	totalBalance     *big.Int
 	availableBalance *big.Int
@@ -52,7 +55,7 @@ func (p *Protocol) Donate(
 ) error {
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
-		return errors.New("miss action validation context")
+		log.S().Panic("Miss run action context")
 	}
 	if err := p.assertEnoughBalance(raCtx, sm, amount); err != nil {
 		return err

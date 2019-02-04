@@ -144,8 +144,9 @@ func (ws *workingSet) RunActions(
 		}
 		callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
 		raCtx.Caller = address.New(callerPKHash[:])
+		raCtx.ActionHash = elp.Hash()
+		raCtx.Nonce = elp.Nonce()
 		ctx = protocol.WithRunActionsCtx(ctx, raCtx)
-
 		for _, actionHandler := range ws.actionHandlers {
 			receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 			if err != nil {
