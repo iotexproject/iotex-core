@@ -9,14 +9,13 @@ package block
 import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // RunnableActions is abstructed from block which contains information to execute all actions in a block.
 type RunnableActions struct {
 	blockHeight         uint64
 	blockTimeStamp      int64
-	blockProducerPubKey keypair.PublicKey
+	blockProducerPubKey []byte
 	blockProducerAddr   string
 	txHash              hash.Hash32B
 	actions             []action.SealedEnvelope
@@ -33,7 +32,7 @@ func (ra RunnableActions) BlockTimeStamp() int64 {
 }
 
 // BlockProducerPubKey return BlockProducerPubKey.
-func (ra RunnableActions) BlockProducerPubKey() keypair.PublicKey {
+func (ra RunnableActions) BlockProducerPubKey() []byte {
 	return ra.blockProducerPubKey
 }
 
@@ -78,7 +77,7 @@ func (b *RunnableActionsBuilder) AddActions(acts ...action.SealedEnvelope) *Runn
 }
 
 // Build signs and then builds a block.
-func (b *RunnableActionsBuilder) Build(producerAddr string, producerPubKey keypair.PublicKey) RunnableActions {
+func (b *RunnableActionsBuilder) Build(producerAddr string, producerPubKey []byte) RunnableActions {
 	b.ra.blockProducerAddr = producerAddr
 	b.ra.blockProducerPubKey = producerPubKey
 	b.ra.txHash = calculateTxRoot(b.ra.actions)

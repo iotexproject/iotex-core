@@ -39,7 +39,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
 
-	selp := action.AssembleSealedEnvelope(elp, blockchain.Gen.CreatorAddr(), pubk, sig)
+	selp := action.AssembleSealedEnvelope(elp, blockchain.Gen.CreatorAddr(), keypair.PublicKeyToBytes(pubk), sig)
 
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}

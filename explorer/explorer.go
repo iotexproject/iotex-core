@@ -820,7 +820,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			Size:       int64(totalSize),
 			GenerateBy: explorer.BlockGenerator{
 				Name:    "",
-				Address: keypair.EncodePublicKey(blk.PublicKey()),
+				Address: hex.EncodeToString(blk.PublicKey()),
 			},
 			TxRoot:           hex.EncodeToString(txRoot[:]),
 			StateRoot:        hex.EncodeToString(stateRoot[:]),
@@ -871,7 +871,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		Size:       int64(totalSize),
 		GenerateBy: explorer.BlockGenerator{
 			Name:    "",
-			Address: keypair.EncodePublicKey(blk.PublicKey()),
+			Address: hex.EncodeToString(blk.PublicKey()),
 		},
 		TxRoot:           hex.EncodeToString(txRoot[:]),
 		StateRoot:        hex.EncodeToString(stateRoot[:]),
@@ -1018,7 +1018,7 @@ func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetr
 	}
 	candidates := make([]explorer.Candidate, 0, len(allCandidates))
 	for _, c := range allCandidates {
-		pubKey := keypair.EncodePublicKey(c.PublicKey)
+		pubKey := hex.EncodeToString(c.PublicKey)
 		candidates = append(candidates, explorer.Candidate{
 			Address:          c.Address,
 			PubKey:           pubKey,
@@ -1833,7 +1833,7 @@ func convertVoteToExplorerVote(selp action.SealedEnvelope, isPending bool) (expl
 		ID:          hex.EncodeToString(hash[:]),
 		Nonce:       int64(selp.Nonce()),
 		Voter:       vote.Voter(),
-		VoterPubKey: keypair.EncodePublicKey(voterPubkey),
+		VoterPubKey: hex.EncodeToString(voterPubkey),
 		Votee:       vote.Votee(),
 		GasLimit:    int64(selp.GasLimit()),
 		GasPrice:    selp.GasPrice().String(),

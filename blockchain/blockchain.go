@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"strconv"
 	"sync"
@@ -27,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto/key"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -118,8 +120,7 @@ type Blockchain interface {
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
 		actionMap map[string][]action.SealedEnvelope,
-		producerPubKey keypair.PublicKey,
-		producerPriKey keypair.PrivateKey,
+		producerPubKey, producerPrvKey []byte,
 		producerAddr string,
 		timestamp int64,
 	) (*block.Block, error)
@@ -167,11 +168,8 @@ type blockchain struct {
 // Option sets blockchain construction parameter
 type Option func(*blockchain, config.Config) error
 
-// key specifies the type of recovery height key used by context
-type key string
-
 // RecoveryHeightKey indicates the recovery height key used by context
-const RecoveryHeightKey key = "recoveryHeight"
+const RecoveryHeightKey string = "recoveryHeight"
 
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
@@ -663,8 +661,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 
 func (bc *blockchain) MintNewBlock(
 	actionMap map[string][]action.SealedEnvelope,
-	producerPubKey keypair.PublicKey,
-	producerPriKey keypair.PrivateKey,
+	producerPubKey, producerPrvKey []byte,
 	producerAddr string,
 	timestamp int64,
 ) (*block.Block, error) {
@@ -714,7 +711,7 @@ func (bc *blockchain) MintNewBlock(
 		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
 		SetReceiptRoot(calculateReceiptRoot(rc)).
-		SignAndBuild(producerPubKey, producerPriKey)
+		SignAndBuild(producerPubKey, producerPrvKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create block")
 	}
@@ -1117,16 +1114,20 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 
 func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
 
-func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, string, error) {
-	pk, err := keypair.DecodePublicKey(genesisProducerPublicKey)
+func (bc *blockchain) genesisProducer() ([]byte, []byte, string, error) {
+	pk, err := hex.DecodeString(genesisProducerPublicKey)
 	if err != nil {
 		return nil, nil, "", errors.Wrap(err, "failed to decode public key")
 	}
-	sk, err := keypair.DecodePrivateKey(genesisProducerPrivateKey)
+	sk, err := hex.DecodeString(genesisProducerPrivateKey)
 	if err != nil {
 		return nil, nil, "", errors.Wrap(err, "failed to decode private key")
 	}
-	pkHash := keypair.HashPubKey(pk)
+	pubk, err := key.NewPublicKeyFromBytes(pk)
+	if err != nil {
+		return nil, nil, "", errors.Wrap(err, key.ErrInvalidKey.Error())
+	}
+	pkHash := pubk.PubKeyHash()
 	return pk, sk, address.New(pkHash[:]).Bech32(), nil
 }
 

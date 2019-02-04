@@ -17,17 +17,16 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/crypto/key"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 func putBlockToParentChain(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPubKey keypair.PublicKey,
-	senderPriKey keypair.PrivateKey,
+	senderPubKey, senderPriKey []byte,
 	senderAddr string,
 	b *block.Block,
 ) {
@@ -48,8 +47,7 @@ func putBlockToParentChain(
 func putBlockToParentChainTask(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPubKey keypair.PublicKey,
-	senderPriKey keypair.PrivateKey,
+	senderPubKey, senderPriKey []byte,
 	b *block.Block,
 ) error {
 	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, senderPubKey, senderPriKey, b)
@@ -66,12 +64,14 @@ func putBlockToParentChainTask(
 func constructPutSubChainBlockRequest(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPubKey keypair.PublicKey,
-	senderPriKey keypair.PrivateKey,
+	senderPubKey, senderPriKey []byte,
 	b *block.Block,
 ) (explorerapi.PutSubChainBlockRequest, error) {
-	senderPKHash := keypair.HashPubKey(senderPubKey)
-	senderPCAddr := address.New(senderPKHash[:]).Bech32()
+	pk, err := key.NewPublicKeyFromBytes(senderPubKey)
+	if err != nil {
+		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, key.ErrInvalidKey.Error())
+	}
+	senderPCAddr := address.New(pk.PubKeyHash()).Bech32()
 
 	// get sender current pending nonce on parent chain
 	senderPCAddrDetails, err := rootChainAPI.GetAddressDetails(senderPCAddr)
@@ -109,7 +109,7 @@ func constructPutSubChainBlockRequest(
 		Version:         int64(selp.Version()),
 		Nonce:           int64(selp.Nonce()),
 		SenderAddress:   selp.SrcAddr(),
-		SenderPubKey:    keypair.EncodePublicKey(senderPubKey),
+		SenderPubKey:    hex.EncodeToString(senderPubKey),
 		GasLimit:        int64(selp.GasLimit()),
 		GasPrice:        selp.GasPrice().String(),
 		SubChainAddress: pb.SubChainAddress(),

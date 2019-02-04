@@ -12,7 +12,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -64,7 +63,7 @@ func (sd *SettleDeposit) Index() uint64 { return sd.index }
 func (sd *SettleDeposit) Sender() string { return sd.SrcAddr() }
 
 // SenderPublicKey returns the sender public key. It's the wrapper of Action.SrcPubkey
-func (sd *SettleDeposit) SenderPublicKey() keypair.PublicKey { return sd.SrcPubkey() }
+func (sd *SettleDeposit) SenderPublicKey() []byte { return sd.SrcPubkey() }
 
 // Recipient returns the recipient address. It's the wrapper of Action.DstAddr. The recipient should be an address on
 // the sub-chain

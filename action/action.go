@@ -9,12 +9,11 @@ package action
 import (
 	"math/big"
 
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/crypto/key"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
@@ -57,7 +56,7 @@ type SealedEnvelope struct {
 	Envelope
 
 	srcAddr   string
-	srcPubkey keypair.PublicKey
+	srcPubkey []byte
 	signature []byte
 }
 
@@ -113,7 +112,7 @@ func (act *Envelope) ByteStream() []byte {
 func (sealed *SealedEnvelope) Hash() hash.Hash32B {
 	stream := sealed.Envelope.ByteStream()
 	stream = append(stream, sealed.srcAddr...)
-	stream = append(stream, keypair.PublicKeyToBytes(sealed.srcPubkey)...)
+	stream = append(stream, sealed.srcPubkey...)
 	return blake2b.Sum256(stream)
 }
 
@@ -121,7 +120,7 @@ func (sealed *SealedEnvelope) Hash() hash.Hash32B {
 func (sealed *SealedEnvelope) SrcAddr() string { return sealed.srcAddr }
 
 // SrcPubkey returns the source public key
-func (sealed *SealedEnvelope) SrcPubkey() keypair.PublicKey { return sealed.srcPubkey }
+func (sealed *SealedEnvelope) SrcPubkey() []byte { return sealed.srcPubkey }
 
 // Signature returns signature bytes
 func (sealed *SealedEnvelope) Signature() []byte {
@@ -138,7 +137,7 @@ func (sealed SealedEnvelope) Proto() *iproto.ActionPb {
 		Nonce:        elp.nonce,
 		GasLimit:     elp.gasLimit,
 		Sender:       sealed.srcAddr,
-		SenderPubKey: keypair.PublicKeyToBytes(sealed.srcPubkey),
+		SenderPubKey: sealed.srcPubkey,
 		Signature:    sealed.signature,
 	}
 	if elp.gasPrice != nil {
@@ -175,17 +174,13 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
-	srcPub, err := keypair.BytesToPublicKey(pbAct.SenderPubKey)
-	if err != nil {
-		return err
-	}
 	if sealed == nil {
 		return errors.New("nil action to load proto")
 	}
 	*sealed = SealedEnvelope{}
 
 	sealed.srcAddr = pbAct.Sender
-	sealed.srcPubkey = srcPub
+	sealed.srcPubkey = pbAct.SenderPubKey
 	sealed.signature = make([]byte, len(pbAct.Signature))
 	copy(sealed.signature, pbAct.Signature)
 	sealed.version = pbAct.Version
@@ -257,16 +252,20 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
 }
 
 // Sign signs the action using sender's private key
-func Sign(act Envelope, addr string, sk keypair.PrivateKey) (SealedEnvelope, error) {
+func Sign(act Envelope, addr string, prvk []byte) (SealedEnvelope, error) {
 	sealed := SealedEnvelope{Envelope: act}
 
+	sk, err := key.NewPrivateKeyFromBytes(prvk)
+	if err != nil {
+		return sealed, errors.Wrapf(err, key.ErrInvalidKey.Error())
+	}
 	sealed.srcAddr = addr
-	sealed.srcPubkey = &sk.PublicKey
+	sealed.srcPubkey = sk.PubKey().PubKeyBytes()
 	// the reason to set context here is because some actions use envelope information in their proto define. for example transfer use des addr as Receipt. This will change hash value.
 	sealed.payload.SetEnvelopeContext(sealed)
 
 	hash := sealed.Hash()
-	sig, err := crypto.Sign(hash[:], sk)
+	sig, err := sk.Sign(hash[:])
 	if err != nil {
 		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
 	}
@@ -276,7 +275,7 @@ func Sign(act Envelope, addr string, sk keypair.PrivateKey) (SealedEnvelope, err
 
 // FakeSeal creates a SealedActionEnvelope without signature.
 // This method should be only used in tests.
-func FakeSeal(act Envelope, addr string, pubk keypair.PublicKey) SealedEnvelope {
+func FakeSeal(act Envelope, addr string, pubk []byte) SealedEnvelope {
 	sealed := SealedEnvelope{
 		Envelope:  act,
 		srcAddr:   addr,
@@ -288,7 +287,7 @@ func FakeSeal(act Envelope, addr string, pubk keypair.PublicKey) SealedEnvelope 
 
 // AssembleSealedEnvelope assembles a SealedEnvelope use Envelope, Sender Address and Signature.
 // This method should be only used in tests.
-func AssembleSealedEnvelope(act Envelope, addr string, pk keypair.PublicKey, sig []byte) SealedEnvelope {
+func AssembleSealedEnvelope(act Envelope, addr string, pk, sig []byte) SealedEnvelope {
 	sealed := SealedEnvelope{
 		Envelope:  act,
 		srcAddr:   addr,
@@ -305,8 +304,11 @@ func Verify(sealed SealedEnvelope) error {
 	if len(sealed.Signature()) != SignatureLength {
 		return errors.New("incorrect length of signature")
 	}
-	if success := crypto.VerifySignature(keypair.PublicKeyToBytes(sealed.SrcPubkey()), hash[:],
-		sealed.Signature()[:SignatureLength-1]); success {
+	pk, err := key.NewPublicKeyFromBytes(sealed.srcPubkey)
+	if err != nil {
+		return errors.Wrap(err, key.ErrInvalidKey.Error())
+	}
+	if success := pk.Verify(hash[:], sealed.Signature()[:SignatureLength-1]); success {
 		return nil
 	}
 	return errors.Wrapf(

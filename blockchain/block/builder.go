@@ -7,12 +7,11 @@
 package block
 
 import (
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/crypto/key"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -100,10 +99,14 @@ func (b *Builder) SetDKG(id, pk, sig []byte) *Builder {
 }
 
 // SignAndBuild signs and then builds a block.
-func (b *Builder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
+func (b *Builder) SignAndBuild(signerPubKey, signerPriKey []byte) (Block, error) {
 	b.blk.Header.pubkey = signerPubKey
 	blkHash := b.blk.HashBlock()
-	sig, err := crypto.Sign(blkHash[:], signerPriKey)
+	sk, err := key.NewPrivateKeyFromBytes(signerPriKey)
+	if err != nil {
+		return Block{}, err
+	}
+	sig, err := sk.Sign(blkHash[:])
 	if err != nil {
 		return Block{}, errors.New("Failed to sign block")
 	}

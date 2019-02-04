@@ -13,7 +13,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -61,7 +60,7 @@ func (ex *Execution) Executor() string {
 }
 
 // ExecutorPublicKey returns the executor's public key
-func (ex *Execution) ExecutorPublicKey() keypair.PublicKey {
+func (ex *Execution) ExecutorPublicKey() []byte {
 	return ex.SrcPubkey()
 }
 

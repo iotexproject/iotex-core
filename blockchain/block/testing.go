@@ -7,12 +7,11 @@
 package block
 
 import (
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/crypto/key"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -105,11 +104,15 @@ func (b *TestingBuilder) SetDKG(id, pk, sig []byte) *TestingBuilder {
 }
 
 // SignAndBuild signs and then builds a block.
-func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
+func (b *TestingBuilder) SignAndBuild(signerPubKey, signerPriKey []byte) (Block, error) {
 	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
 	b.blk.Header.pubkey = signerPubKey
 	blkHash := b.blk.HashBlock()
-	sig, err := crypto.Sign(blkHash[:], signerPriKey)
+	sk, err := key.NewPrivateKeyFromBytes(signerPriKey)
+	if err != nil {
+		return Block{}, err
+	}
+	sig, err := sk.Sign(blkHash[:])
 	if err != nil {
 		return Block{}, errors.New("Failed to sign block")
 	}
@@ -124,7 +127,7 @@ func NewBlockDeprecated(
 	height uint64,
 	prevBlockHash hash.Hash32B,
 	timestamp int64,
-	producer keypair.PublicKey,
+	producer []byte,
 	actions []action.SealedEnvelope,
 ) *Block {
 	block := &Block{
@@ -140,37 +143,6 @@ func NewBlockDeprecated(
 			receiptRoot:   hash.ZeroHash32B,
 		},
 		Actions: actions,
-	}
-
-	block.Header.txRoot = block.CalculateTxRoot()
-	return block
-}
-
-// NewSecretBlockDeprecated returns a new DKG secret block
-// This method is deprecated. Only used in old tests.
-func NewSecretBlockDeprecated(
-	chainID uint32,
-	height uint64,
-	prevBlockHash hash.Hash32B,
-	timestamp int64,
-	producer keypair.PublicKey,
-	secretProposals []*action.SecretProposal,
-	secretWitness *action.SecretWitness,
-) *Block {
-	block := &Block{
-		Header: Header{
-			version:       version.ProtocolVersion,
-			chainID:       chainID,
-			height:        height,
-			timestamp:     timestamp,
-			prevBlockHash: prevBlockHash,
-			pubkey:        producer,
-			txRoot:        hash.ZeroHash32B,
-			stateRoot:     hash.ZeroHash32B,
-			receiptRoot:   hash.ZeroHash32B,
-		},
-		SecretProposals: secretProposals,
-		SecretWitness:   secretWitness,
 	}
 
 	block.Header.txRoot = block.CalculateTxRoot()

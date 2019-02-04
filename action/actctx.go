@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // AbstractAction is an abstract implementation of Action interface
@@ -18,7 +17,7 @@ type AbstractAction struct {
 	version   uint32
 	nonce     uint64
 	srcAddr   string
-	srcPubkey keypair.PublicKey
+	srcPubkey []byte
 	dstAddr   string
 	gasLimit  uint64
 	gasPrice  *big.Int
@@ -35,7 +34,7 @@ func (act *AbstractAction) Nonce() uint64 { return act.nonce }
 func (act *AbstractAction) SrcAddr() string { return act.srcAddr }
 
 // SrcPubkey returns the source public key
-func (act *AbstractAction) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
+func (act *AbstractAction) SrcPubkey() []byte { return act.srcPubkey }
 
 // DstAddr returns the destination address
 func (act *AbstractAction) DstAddr() string { return act.dstAddr }
@@ -59,7 +58,7 @@ func (act *AbstractAction) Hash() hash.Hash32B { return act.hash }
 func (act *AbstractAction) BasicActionSize() uint32 {
 	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
 	size := 4 + 8 + 8
-	size += len(act.srcAddr) + len(act.dstAddr) + len(keypair.PublicKeyToBytes(act.srcPubkey))
+	size += len(act.srcAddr) + len(act.dstAddr) + len(act.srcPubkey)
 	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
 		size += len(act.gasPrice.Bytes())
 	}

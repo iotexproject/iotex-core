@@ -12,11 +12,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // SignedTransfer return a signed transfer
-func SignedTransfer(senderAddr string, recipientAddr string, senderPriKey keypair.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
+func SignedTransfer(senderAddr string, recipientAddr string, senderPriKey []byte, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
 	transfer, err := action.NewTransfer(nonce, amount, senderAddr, recipientAddr, payload, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, err
@@ -35,7 +34,7 @@ func SignedTransfer(senderAddr string, recipientAddr string, senderPriKey keypai
 }
 
 // SignedVote return a signed vote
-func SignedVote(voterAddr string, voteeAddr string, voterPriKey keypair.PrivateKey, nonce uint64, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
+func SignedVote(voterAddr string, voteeAddr string, voterPriKey []byte, nonce uint64, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
 	vote, err := action.NewVote(nonce, voterAddr, voteeAddr, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, err
@@ -54,7 +53,7 @@ func SignedVote(voterAddr string, voteeAddr string, voterPriKey keypair.PrivateK
 }
 
 // SignedExecution return a signed execution
-func SignedExecution(executorAddr string, contractAddr string, executorPriKey keypair.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (action.SealedEnvelope, error) {
+func SignedExecution(executorAddr string, contractAddr string, executorPriKey []byte, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (action.SealedEnvelope, error) {
 	execution, err := action.NewExecution(executorAddr, contractAddr, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
 		return action.SealedEnvelope{}, err

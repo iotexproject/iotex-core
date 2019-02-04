@@ -19,8 +19,8 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/crypto/key"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -34,7 +34,7 @@ type Validator interface {
 		actions []action.SealedEnvelope,
 		secretWitness *action.SecretWitness,
 		secretProposals []*action.SecretProposal,
-		pk keypair.PublicKey,
+		pk []byte,
 		chainID uint32,
 		height uint64,
 	) error
@@ -104,7 +104,7 @@ func (v *validator) ValidateActionsOnly(
 	actions []action.SealedEnvelope,
 	secretWitness *action.SecretWitness,
 	secretProposals []*action.SecretProposal,
-	pk keypair.PublicKey,
+	pk []byte,
 	chainID uint32,
 	height uint64,
 ) error {
@@ -162,14 +162,17 @@ func (v *validator) validateActions(
 	actions []action.SealedEnvelope,
 	secretWitness *action.SecretWitness,
 	secretProposals []*action.SecretProposal,
-	pk keypair.PublicKey,
+	pk []byte,
 	chainID uint32,
 	height uint64,
 	accountNonceMap map[string][]uint64,
 	errChan chan error,
 ) error {
-	producerPK := keypair.HashPubKey(pk)
-	producerAddr := address.New(producerPK[:])
+	pubk, err := key.NewPublicKeyFromBytes(pk)
+	if err != nil {
+		return errors.Wrap(err, key.ErrInvalidKey.Error())
+	}
+	producerAddr := address.New(pubk.PubKeyHash())
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {

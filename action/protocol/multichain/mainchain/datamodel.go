@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain/mainchainpb"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -26,7 +25,7 @@ type SubChain struct {
 	StartHeight        uint64
 	StopHeight         uint64
 	ParentHeightOffset uint64
-	OwnerPublicKey     keypair.PublicKey
+	OwnerPublicKey     []byte
 	CurrentHeight      uint64
 	DepositCount       uint64
 }
@@ -38,7 +37,7 @@ func (bs SubChain) Serialize() ([]byte, error) {
 		StartHeight:        bs.StartHeight,
 		StopHeight:         bs.StopHeight,
 		ParentHeightOffset: bs.ParentHeightOffset,
-		OwnerPublicKey:     keypair.PublicKeyToBytes(bs.OwnerPublicKey),
+		OwnerPublicKey:     bs.OwnerPublicKey,
 		CurrentHeight:      bs.CurrentHeight,
 		DepositCount:       bs.DepositCount,
 	}
@@ -57,11 +56,6 @@ func (bs *SubChain) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, gen); err != nil {
 		return err
 	}
-	pub, err := keypair.BytesToPublicKey(gen.OwnerPublicKey)
-	if err != nil {
-		return err
-	}
-
 	*bs = SubChain{
 		ChainID:            gen.ChainID,
 		SecurityDeposit:    &big.Int{},
@@ -69,7 +63,7 @@ func (bs *SubChain) Deserialize(data []byte) error {
 		StartHeight:        gen.StartHeight,
 		StopHeight:         gen.StopHeight,
 		ParentHeightOffset: gen.ParentHeightOffset,
-		OwnerPublicKey:     pub,
+		OwnerPublicKey:     gen.OwnerPublicKey,
 		CurrentHeight:      gen.CurrentHeight,
 		DepositCount:       gen.DepositCount,
 	}
@@ -89,7 +83,7 @@ type BlockProof struct {
 	SubChainAddress   string
 	Height            uint64
 	Roots             []MerkleRoot
-	ProducerPublicKey keypair.PublicKey
+	ProducerPublicKey []byte
 	ProducerAddress   string
 }
 
@@ -107,7 +101,7 @@ func (bp BlockProof) Serialize() ([]byte, error) {
 		SubChainAddress:   bp.SubChainAddress,
 		Height:            bp.Height,
 		Roots:             r,
-		ProducerPublicKey: keypair.PublicKeyToBytes(bp.ProducerPublicKey),
+		ProducerPublicKey: bp.ProducerPublicKey,
 		ProducerAddress:   bp.ProducerAddress,
 	}
 	return proto.Marshal(gen)
@@ -117,10 +111,6 @@ func (bp BlockProof) Serialize() ([]byte, error) {
 func (bp *BlockProof) Deserialize(data []byte) error {
 	gen := &mainchainpb.BlockProof{}
 	if err := proto.Unmarshal(data, gen); err != nil {
-		return err
-	}
-	pub, err := keypair.BytesToPublicKey(gen.ProducerPublicKey)
-	if err != nil {
 		return err
 	}
 	r := make([]MerkleRoot, len(gen.Roots))
@@ -134,7 +124,7 @@ func (bp *BlockProof) Deserialize(data []byte) error {
 		SubChainAddress:   gen.SubChainAddress,
 		Height:            gen.Height,
 		Roots:             r,
-		ProducerPublicKey: pub,
+		ProducerPublicKey: gen.ProducerPublicKey,
 		ProducerAddress:   gen.ProducerAddress,
 	}
 	return nil

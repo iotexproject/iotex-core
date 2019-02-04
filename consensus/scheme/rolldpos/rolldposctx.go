@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
@@ -48,8 +47,8 @@ type roundCtx struct {
 type rollDPoSCtx struct {
 	cfg              config.RollDPoS
 	encodedAddr      string
-	pubKey           keypair.PublicKey
-	priKey           keypair.PrivateKey
+	pubKey           []byte
+	priKey           []byte
 	chain            blockchain.Blockchain
 	actPool          actpool.ActPool
 	broadcastHandler scheme.Broadcast

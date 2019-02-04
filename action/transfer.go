@@ -13,7 +13,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -73,7 +72,7 @@ func (tsf *Transfer) Payload() []byte { return tsf.payload }
 func (tsf *Transfer) Sender() string { return tsf.SrcAddr() }
 
 // SenderPublicKey returns the sender public key. It's the wrapper of Action.SrcPubkey
-func (tsf *Transfer) SenderPublicKey() keypair.PublicKey { return tsf.SrcPubkey() }
+func (tsf *Transfer) SenderPublicKey() []byte { return tsf.SrcPubkey() }
 
 // Recipient returns the recipient address. It's the wrapper of Action.DstAddr
 func (tsf *Transfer) Recipient() string { return tsf.DstAddr() }

@@ -7,10 +7,13 @@
 package testaddress
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/crypto/key"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -36,9 +39,19 @@ var Addrinfo map[string]*address.AddrV1
 // Keyinfo contains the private key information
 var Keyinfo map[string]*Key
 
+type testkey struct {
+	PubKey  []byte
+	PrvKey  []byte
+	Address *address.AddrV1
+}
+
+// testkey contains the public/private key information
+var Testkey map[string]*testkey
+
 func init() {
 	Addrinfo = make(map[string]*address.AddrV1)
 	Keyinfo = make(map[string]*Key)
+	Testkey = make(map[string]*testkey)
 
 	priKey, _ := keypair.DecodePrivateKey(prikeyProducer)
 	pubKey := &priKey.PublicKey
@@ -82,4 +95,67 @@ func init() {
 	pubKey = &priKey.PublicKey
 	Addrinfo["galilei"] = address.V1.New(keypair.HashPubKey(pubKey))
 	Keyinfo["galilei"] = &Key{PubKey: pubKey, PriKey: priKey}
+
+	b, _ := hex.DecodeString(prikeyProducer)
+	sk, _ := key.NewPrivateKeyFromBytes(b)
+	pk := sk.PubKey()
+	Testkey["producer"] = &testkey{
+		PubKey:  pk.PubKeyBytes(),
+		PrvKey:  b,
+		Address: address.V1.New(byteutil.BytesTo20B(pk.PubKeyHash())),
+	}
+
+	b, _ = hex.DecodeString(prikeyA)
+	sk, _ = key.NewPrivateKeyFromBytes(b)
+	pk = sk.PubKey()
+	Testkey["alfa"] = &testkey{
+		PubKey:  pk.PubKeyBytes(),
+		PrvKey:  b,
+		Address: address.V1.New(byteutil.BytesTo20B(pk.PubKeyHash())),
+	}
+
+	b, _ = hex.DecodeString(prikeyB)
+	sk, _ = key.NewPrivateKeyFromBytes(b)
+	pk = sk.PubKey()
+	Testkey["bravo"] = &testkey{
+		PubKey:  pk.PubKeyBytes(),
+		PrvKey:  b,
+		Address: address.V1.New(byteutil.BytesTo20B(pk.PubKeyHash())),
+	}
+
+	b, _ = hex.DecodeString(prikeyC)
+	sk, _ = key.NewPrivateKeyFromBytes(b)
+	pk = sk.PubKey()
+	Testkey["charlie"] = &testkey{
+		PubKey:  pk.PubKeyBytes(),
+		PrvKey:  b,
+		Address: address.V1.New(byteutil.BytesTo20B(pk.PubKeyHash())),
+	}
+
+	b, _ = hex.DecodeString(prikeyD)
+	sk, _ = key.NewPrivateKeyFromBytes(b)
+	pk = sk.PubKey()
+	Testkey["delta"] = &testkey{
+		PubKey:  pk.PubKeyBytes(),
+		PrvKey:  b,
+		Address: address.V1.New(byteutil.BytesTo20B(pk.PubKeyHash())),
+	}
+
+	b, _ = hex.DecodeString(prikeyE)
+	sk, _ = key.NewPrivateKeyFromBytes(b)
+	pk = sk.PubKey()
+	Testkey["echo"] = &testkey{
+		PubKey:  pk.PubKeyBytes(),
+		PrvKey:  b,
+		Address: address.V1.New(byteutil.BytesTo20B(pk.PubKeyHash())),
+	}
+
+	b, _ = hex.DecodeString(prikeyF)
+	sk, _ = key.NewPrivateKeyFromBytes(b)
+	pk = sk.PubKey()
+	Testkey["foxtrot"] = &testkey{
+		PubKey:  pk.PubKeyBytes(),
+		PrvKey:  b,
+		Address: address.V1.New(byteutil.BytesTo20B(pk.PubKeyHash())),
+	}
 }

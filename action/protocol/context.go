@@ -10,7 +10,6 @@ import (
 	"context"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 type runActionsCtxKey struct{}
@@ -24,7 +23,7 @@ type RunActionsCtx struct {
 	// hash of block containing those actions
 	BlockHash hash.Hash32B
 	// public key of producer who compose those actions
-	ProducerPubKey keypair.PublicKey
+	ProducerPubKey []byte
 	// timestamp of block containing those actions
 	BlockTimeStamp int64
 	// producer who compose those actions

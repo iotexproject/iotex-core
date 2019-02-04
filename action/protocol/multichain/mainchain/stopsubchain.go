@@ -15,8 +15,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/crypto/key"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -65,11 +65,13 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 	if err := sm.PutState(subChainPKHash, subChain); err != nil {
 		return err
 	}
-	acct, err := p.validateSubChainOwnership(
-		keypair.HashPubKey(subChain.OwnerPublicKey),
-		stop.SrcAddr(),
-		sm,
-	)
+	pk, err := key.NewPublicKeyFromBytes(subChain.OwnerPublicKey)
+	if err != nil {
+		return errors.Wrapf(err, key.ErrInvalidKey.Error())
+	}
+	var pkHash hash.PKHash
+	copy(pkHash[:], pk.PubKeyHash())
+	acct, err := p.validateSubChainOwnership(pkHash, stop.SrcAddr(), sm)
 	if err != nil {
 		return errors.Wrapf(err, "error when getting the account of sender %s", stop.SrcAddr())
 	}

@@ -8,6 +8,7 @@ package consensus
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 
 	"github.com/facebookgo/clock"
@@ -22,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/proto"
@@ -146,7 +146,7 @@ func NewConsensus(
 						return nil, errors.Wrapf(err, "error when get converting iotex address to address")
 					}
 					subChainAddr := address.New(rootChainAddr.Payload())
-					pubKey, err := keypair.DecodePublicKey(rawc.PubKey)
+					pubKey, err := hex.DecodeString(rawc.PubKey)
 					if err != nil {
 						log.L().Error("Error when convert candidate PublicKey.", zap.Error(err))
 					}
@@ -235,16 +235,16 @@ func (c *IotxConsensus) Scheme() scheme.Scheme {
 }
 
 // GetAddr returns the iotex address
-func GetAddr(cfg config.Config) (keypair.PublicKey, keypair.PrivateKey, string) {
+func GetAddr(cfg config.Config) ([]byte, []byte, string) {
 	addr, err := cfg.BlockchainAddress()
 	if err != nil {
 		log.L().Panic("Fail to create new consensus.", zap.Error(err))
 	}
-	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	pk, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
 	if err != nil {
 		log.L().Panic("Fail to create new consensus.", zap.Error(err))
 	}
-	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	sk, err := hex.DecodeString(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		log.L().Panic("Fail to create new consensus.", zap.Error(err))
 	}

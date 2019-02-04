@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
@@ -116,7 +115,7 @@ func (pb *PutBlock) Roots() map[string]hash.Hash32B { return pb.roots }
 func (pb *PutBlock) ProducerAddress() string { return pb.srcAddr }
 
 // ProducerPublicKey return producer public key.
-func (pb *PutBlock) ProducerPublicKey() keypair.PublicKey { return pb.SrcPubkey() }
+func (pb *PutBlock) ProducerPublicKey() []byte { return pb.SrcPubkey() }
 
 // ByteStream returns the byte representation of put block action.
 func (pb *PutBlock) ByteStream() []byte {

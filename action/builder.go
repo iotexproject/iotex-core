@@ -9,7 +9,6 @@ package action
 import (
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -43,7 +42,7 @@ func (b *Builder) SetDestinationAddress(addr string) *Builder {
 }
 
 // SetSourcePublicKey sets action's source's public key.
-func (b *Builder) SetSourcePublicKey(key keypair.PublicKey) *Builder {
+func (b *Builder) SetSourcePublicKey(key []byte) *Builder {
 	b.act.srcPubkey = key
 	return b
 }

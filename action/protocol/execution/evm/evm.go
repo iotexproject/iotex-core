@@ -19,8 +19,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/crypto/key"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -57,7 +57,7 @@ type Params struct {
 }
 
 // NewParams creates a new context for use in the EVM.
-func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp int64, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
+func NewParams(blkHeight uint64, producerPubKey []byte, blkTimeStamp int64, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	/*
 		var beneficiary common.Address
@@ -81,8 +81,11 @@ func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp 
 		contractAddr := common.BytesToAddress(contract.Payload())
 		contractAddrPointer = &contractAddr
 	}
-	producerHash := keypair.HashPubKey(producerPubKey)
-	producer := common.BytesToAddress(producerHash[:])
+	pk, err := key.NewPublicKeyFromBytes(producerPubKey)
+	if err != nil {
+		return nil, errors.Wrap(err, key.ErrInvalidKey.Error())
+	}
+	producer := common.BytesToAddress(pk.PubKeyHash())
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
@@ -142,7 +145,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 func ExecuteContract(
 	blkHeight uint64,
 	blkHash hash.Hash32B,
-	producerPubKey keypair.PublicKey,
+	producerPubKey []byte,
 	blkTimeStamp int64,
 	sm protocol.StateManager,
 	execution *action.Execution,
