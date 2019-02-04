@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -32,8 +31,6 @@ type Validator interface {
 	// ValidateActionsOnly validates the actions only
 	ValidateActionsOnly(
 		actions []action.SealedEnvelope,
-		secretWitness *action.SecretWitness,
-		secretProposals []*action.SecretProposal,
 		pk keypair.PublicKey,
 		chainID uint32,
 		height uint64,
@@ -63,8 +60,6 @@ var (
 	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
 	// ErrBalance indicates the error of balance
 	ErrBalance = errors.New("invalid balance")
-	// ErrDKGSecretProposal indicates the error of DKG secret proposal
-	ErrDKGSecretProposal = errors.New("invalid DKG secret proposal")
 )
 
 // Validate validates the given block's content
@@ -79,8 +74,6 @@ func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Ha
 	if v.sf != nil {
 		return v.ValidateActionsOnly(
 			blk.Actions,
-			blk.SecretWitness,
-			blk.SecretProposals,
 			blk.PublicKey(),
 			blk.ChainID(),
 			blk.Height(),
@@ -102,8 +95,6 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 
 func (v *validator) ValidateActionsOnly(
 	actions []action.SealedEnvelope,
-	secretWitness *action.SecretWitness,
-	secretProposals []*action.SecretProposal,
 	pk keypair.PublicKey,
 	chainID uint32,
 	height uint64,
@@ -114,8 +105,6 @@ func (v *validator) ValidateActionsOnly(
 
 	if err := v.validateActions(
 		actions,
-		secretWitness,
-		secretProposals,
 		pk,
 		chainID,
 		height,
@@ -160,8 +149,6 @@ func (v *validator) ValidateActionsOnly(
 
 func (v *validator) validateActions(
 	actions []action.SealedEnvelope,
-	secretWitness *action.SecretWitness,
-	secretProposals []*action.SecretProposal,
 	pk keypair.PublicKey,
 	chainID uint32,
 	height uint64,
@@ -205,38 +192,6 @@ func (v *validator) validateActions(
 	}
 	wg.Wait()
 
-	// Verify Witness
-	if secretWitness != nil {
-		// Verify witness sender address
-		if _, err := address.Bech32ToAddress(secretWitness.SrcAddr()); err != nil {
-			return errors.Wrapf(err, "failed to validate witness sender's address %s", secretWitness.SrcAddr())
-		}
-		appendActionIndex(accountNonceMap, secretWitness.SrcAddr(), secretWitness.Nonce())
-	}
-
-	// Verify Secrets
-	for _, sp := range secretProposals {
-		// Verify address
-		if _, err := address.Bech32ToAddress(sp.SrcAddr()); err != nil {
-			return errors.Wrapf(err, "failed to validate secret sender's address %s", sp.SrcAddr())
-		}
-		if _, err := address.Bech32ToAddress(sp.DstAddr()); err != nil {
-			return errors.Wrapf(err, "failed to validate secret recipient's address %s", sp.DstAddr())
-		}
-		appendActionIndex(accountNonceMap, sp.SrcAddr(), sp.Nonce())
-
-		// verify secret if the validator is recipient
-		if v.validatorAddr == sp.DstAddr() {
-			validatorID := address.Bech32ToID(v.validatorAddr)
-			result, err := crypto.DKG.ShareVerify(validatorID, sp.Secret(), secretWitness.Witness())
-			if err == nil {
-				err = ErrDKGSecretProposal
-			}
-			if !result {
-				return errors.Wrap(err, "failed to verify the DKG secret share")
-			}
-		}
-	}
 	return nil
 }
 

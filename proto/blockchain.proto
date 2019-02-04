@@ -27,9 +27,6 @@ message BlockHeaderPb {
     bytes reserved = 10;
     bytes signature = 11;
     bytes pubkey = 12;
-    bytes dkgID = 13;
-    bytes dkgPubkey = 14;
-    bytes dkgSignature = 15;
 }
 
 // footer of a block

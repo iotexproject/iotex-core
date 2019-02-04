@@ -76,29 +76,6 @@ func (b *Builder) SetReceiptRoot(h hash.Hash32B) *Builder {
 	return b
 }
 
-// SetSecretProposals sets the secret proposals for block which is building.
-func (b *Builder) SetSecretProposals(sp []*action.SecretProposal) *Builder {
-	b.blk.SecretProposals = sp
-	return b
-}
-
-// SetSecretWitness sets the secret witness for block which is building.
-func (b *Builder) SetSecretWitness(sw *action.SecretWitness) *Builder {
-	b.blk.SecretWitness = sw
-	return b
-}
-
-// SetDKG sets the DKG parts for block which is building.
-func (b *Builder) SetDKG(id, pk, sig []byte) *Builder {
-	b.blk.Header.dkgID = make([]byte, len(id))
-	copy(b.blk.Header.dkgID, id)
-	b.blk.Header.dkgPubkey = make([]byte, len(pk))
-	copy(b.blk.Header.dkgPubkey, pk)
-	b.blk.Header.dkgBlockSig = make([]byte, len(sig))
-	copy(b.blk.Header.dkgBlockSig, sig)
-	return b
-}
-
 // SignAndBuild signs and then builds a block.
 func (b *Builder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.pubkey = signerPubKey

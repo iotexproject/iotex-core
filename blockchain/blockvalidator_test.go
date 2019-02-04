@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -21,12 +20,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state/factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -274,8 +270,6 @@ func TestWrongAddress(t *testing.T) {
 	require.NoError(t, err)
 	err = val.ValidateActionsOnly(
 		blk1.Actions,
-		blk1.SecretWitness,
-		blk1.SecretProposals,
 		blk1.PublicKey(),
 		blk1.ChainID(),
 		blk1.Height(),
@@ -303,8 +297,6 @@ func TestWrongAddress(t *testing.T) {
 
 	err = val.ValidateActionsOnly(
 		blk2.Actions,
-		blk2.SecretWitness,
-		blk2.SecretProposals,
 		blk2.PublicKey(),
 		blk2.ChainID(),
 		blk2.Height(),
@@ -331,8 +323,6 @@ func TestWrongAddress(t *testing.T) {
 	require.NoError(t, err)
 	err = val.ValidateActionsOnly(
 		blk3.Actions,
-		blk3.SecretWitness,
-		blk3.SecretProposals,
 		blk3.PublicKey(),
 		blk3.ChainID(),
 		blk3.Height(),
@@ -359,79 +349,8 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	validator := validator{}
 	require.NoError(t, validator.ValidateActionsOnly(
 		blk.Actions,
-		blk.SecretWitness,
-		blk.SecretProposals,
 		blk.PublicKey(),
 		blk.ChainID(),
 		blk.Height(),
 	))
-}
-
-func TestValidateSecretBlock(t *testing.T) {
-	cfg := config.Default
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	require := require.New(t)
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.NoError(err)
-	require.NoError(sf.Start(context.Background()))
-	require.Nil(addCreatorToFactory(sf))
-
-	idList := make([][]uint8, 0)
-	delegates := []string{ta.Addrinfo["producer"].Bech32()}
-	for i := 0; i < 20; i++ {
-		sk, err := crypto.GenerateKey()
-		require.NoError(err)
-		pkHash := keypair.HashPubKey(&sk.PublicKey)
-		addr := address.New(pkHash[:])
-		delegates = append(delegates, addr.Bech32())
-	}
-
-	for _, delegate := range delegates {
-		idList = append(idList, address.Bech32ToID(delegate))
-	}
-	producerSK := cp.DKG.SkGeneration()
-	_, shares, witness, err := cp.DKG.Init(producerSK, idList)
-	require.NoError(err)
-
-	secretProposals := make([]*action.SecretProposal, 0)
-	for i, share := range shares {
-		secretProposal, err := action.NewSecretProposal(uint64(i+1), delegates[0], delegates[i], share)
-		require.NoError(err)
-		secretProposals = append(secretProposals, secretProposal)
-	}
-	secretWitness, err := action.NewSecretWitness(uint64(22), delegates[0], witness)
-	require.NoError(err)
-	blkhash := secretProposals[0].Hash()
-	blk, err := block.NewTestingBuilder().
-		SetChainID(1).
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		SetSecretProposals(secretProposals).
-		SetSecretWitness(secretWitness).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
-	require.NoError(err)
-
-	val := &validator{sf: sf, validatorAddr: delegates[1]}
-	require.NoError(val.Validate(&blk, 2, blkhash))
-
-	// Falsify secret proposal
-	dummySecretProposal, err := action.NewSecretProposal(2, delegates[0], delegates[1], []uint32{1, 2, 3, 4, 5})
-	require.NoError(err)
-	secretProposals[1] = dummySecretProposal
-	blk, err = block.NewTestingBuilder().
-		SetChainID(1).
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		SetSecretProposals(secretProposals).
-		SetSecretWitness(secretWitness).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
-	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash)
-	require.Error(err)
-	require.Equal(ErrDKGSecretProposal, errors.Cause(err))
 }
