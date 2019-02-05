@@ -289,11 +289,11 @@
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
-  digest = "1:eaa8dcbae193f564ce217ba2b294ff923c6215a77542c310b71926a52a343616"
+  digest = "1:b10a83d3f0f844a2eeb49275edfc2d12bccae4019ffbda1083eebcfc077a495f"
   name = "github.com/iotexproject/go-p2p"
   packages = ["."]
   pruneopts = "UT"
-  revision = "b70295aa41a56729b5eff2bb0e333fcbadad1fe1"
+  revision = "c26edc20f3d7c9ed16b6d996d162548cda979673"
 
 [[projects]]
   digest = "1:9999472bf9c934426d967c507d61f2de84affb8318b8d8c8bc38b3486edbd826"
@@ -583,15 +583,15 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:adf1f0ab3d4bedd10f384b94bf71b6d37dfe48832b61120e146dcc20b81ee8b3"
+  digest = "1:875ec2777e25f997cf505f4202d3a50b7cf06d75cacab7a52e1dfedba575cfc2"
   name = "github.com/libp2p/go-libp2p-pubsub"
   packages = [
     ".",
     "pb",
   ]
   pruneopts = "UT"
-  revision = "3d408775deaf28da57cc356d37f2b8bf9c57db64"
-  version = "v0.10.2"
+  revision = "f736644fe805a9f5677c82aca25c82da7cde2c76"
+  version = "v0.11.10"
 
 [[projects]]
   digest = "1:e9460a69b97787611cb5fd53e3532a61b29f04db69ba9a3701e3ca9be85ac8c5"
@@ -784,12 +784,12 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:e54be212eca970f4d5d39899666aef429c437969783e360a0cab075ba1423a80"
+  digest = "1:9d6b6d261e5b37bfc62ec0d8e2b2efcff7174729713eeba9d2201990503a2801"
   name = "github.com/multiformats/go-multiaddr"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2b4e098f3e0aa2c8bc960f0e4bdc3247efc3749c"
-  version = "v1.3.0"
+  revision = "8c3eb5dc1c12c5723d5b1d7de82abfa0e6f719d7"
+  version = "v1.4.0"
 
 [[projects]]
   digest = "1:555234f024280947ee62e4e911f367fd8b1cad57490108076e2578ec7dde5075"
