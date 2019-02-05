@@ -239,7 +239,7 @@ func (p *Agent) Start(ctx context.Context) error {
 				log.L().Info("Connection failed.", zap.Error(err))
 				errNum++
 				if errNum == tryNum {
-					return errors.New("failed to connect to any bootstrap node.")
+					return errors.New("failed to connect to any bootstrap node")
 				}
 			case <-conn:
 				connNum++
