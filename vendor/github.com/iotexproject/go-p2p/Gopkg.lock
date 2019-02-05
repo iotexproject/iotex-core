@@ -427,15 +427,15 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:adf1f0ab3d4bedd10f384b94bf71b6d37dfe48832b61120e146dcc20b81ee8b3"
+  digest = "1:875ec2777e25f997cf505f4202d3a50b7cf06d75cacab7a52e1dfedba575cfc2"
   name = "github.com/libp2p/go-libp2p-pubsub"
   packages = [
     ".",
     "pb",
   ]
   pruneopts = "UT"
-  revision = "3d408775deaf28da57cc356d37f2b8bf9c57db64"
-  version = "v0.10.2"
+  revision = "f736644fe805a9f5677c82aca25c82da7cde2c76"
+  version = "v0.11.10"
 
 [[projects]]
   digest = "1:e9460a69b97787611cb5fd53e3532a61b29f04db69ba9a3701e3ca9be85ac8c5"
@@ -620,12 +620,12 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:e54be212eca970f4d5d39899666aef429c437969783e360a0cab075ba1423a80"
+  digest = "1:9d6b6d261e5b37bfc62ec0d8e2b2efcff7174729713eeba9d2201990503a2801"
   name = "github.com/multiformats/go-multiaddr"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2b4e098f3e0aa2c8bc960f0e4bdc3247efc3749c"
-  version = "v1.3.0"
+  revision = "8c3eb5dc1c12c5723d5b1d7de82abfa0e6f719d7"
+  version = "v1.4.0"
 
 [[projects]]
   digest = "1:555234f024280947ee62e4e911f367fd8b1cad57490108076e2578ec7dde5075"
@@ -939,11 +939,11 @@
   input-imports = [
     "github.com/ipfs/go-cid",
     "github.com/libp2p/go-libp2p",
+    "github.com/libp2p/go-libp2p-circuit",
     "github.com/libp2p/go-libp2p-crypto",
     "github.com/libp2p/go-libp2p-host",
     "github.com/libp2p/go-libp2p-kad-dht",
     "github.com/libp2p/go-libp2p-net",
-    "github.com/libp2p/go-libp2p-peer",
     "github.com/libp2p/go-libp2p-peerstore",
     "github.com/libp2p/go-libp2p-protocol",
     "github.com/libp2p/go-libp2p-pubsub",

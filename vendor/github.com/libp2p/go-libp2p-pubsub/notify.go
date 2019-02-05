@@ -17,16 +17,9 @@ func (p *PubSubNotif) ClosedStream(n inet.Network, s inet.Stream) {
 
 func (p *PubSubNotif) Connected(n inet.Network, c inet.Conn) {
 	go func() {
-		s, err := p.host.NewStream(p.ctx, c.RemotePeer(), p.rt.Protocols()...)
-		if err != nil {
-			log.Warning("opening new stream to peer: ", err, c.LocalPeer(), c.RemotePeer())
-			return
-		}
-
 		select {
-		case p.newPeers <- s:
+		case p.newPeers <- c.RemotePeer():
 		case <-p.ctx.Done():
-			s.Reset()
 		}
 	}()
 }
