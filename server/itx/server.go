@@ -43,6 +43,7 @@ type Server struct {
 	mainChainProtocol    *mainchain.Protocol
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
+	subModuleCancel      context.CancelFunc
 }
 
 // NewServer creates a new server
@@ -111,18 +112,20 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
-	if err := s.p2pAgent.Start(ctx); err != nil {
+	cctx, cancel := context.WithCancel(context.Background())
+	s.subModuleCancel = cancel
+	if err := s.p2pAgent.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting P2P agent")
 	}
 	if err := s.rootChainService.Blockchain().AddSubscriber(s); err != nil {
 		return errors.Wrap(err, "error when starting sub-chain starter")
 	}
 	for _, cs := range s.chainservices {
-		if err := cs.Start(ctx); err != nil {
+		if err := cs.Start(cctx); err != nil {
 			return errors.Wrap(err, "error when starting blockchain")
 		}
 	}
-	if err := s.dispatcher.Start(ctx); err != nil {
+	if err := s.dispatcher.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting dispatcher")
 	}
 
@@ -131,6 +134,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
+	defer s.subModuleCancel()
 	if err := s.p2pAgent.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping P2P agent")
 	}

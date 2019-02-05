@@ -19,7 +19,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	_ "net/http/pprof"
 
@@ -52,6 +51,7 @@ func main() {
 	signal.Notify(stop, syscall.SIGTERM)
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := make(chan struct{})
+	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 
 	cfg, err := config.New()
 	if err != nil {
@@ -71,11 +71,10 @@ func main() {
 		<-stopped
 
 		// liveness end
-		pctx, lc := context.WithTimeout(context.Background(), time.Second*3)
-		defer lc()
-		if err := probeSvr.Stop(pctx); err != nil {
+		if err := probeSvr.Stop(livenessCtx); err != nil {
 			log.L().Error("Error when stopping probe server.", zap.Error(err))
 		}
+		livenessCancel()
 	}()
 
 	// create and start the node
@@ -96,6 +95,7 @@ func main() {
 
 	itx.StartServer(ctx, svr, probeSvr, cfg)
 	close(stopped)
+	<-livenessCtx.Done()
 }
 
 func initLogger(cfg config.Config) {
