@@ -1,6 +1,7 @@
 package multiaddr
 
 import (
+	"bytes"
 	"encoding/base32"
 	"encoding/binary"
 	"fmt"
@@ -45,8 +46,9 @@ func (t twrp) ValidateBytes(b []byte) error {
 	return t.validbyte(b)
 }
 
-var TranscoderIP4 = NewTranscoderFromFunctions(ip4StB, ipBtS, nil)
-var TranscoderIP6 = NewTranscoderFromFunctions(ip6StB, ipBtS, nil)
+var TranscoderIP4 = NewTranscoderFromFunctions(ip4StB, ip4BtS, nil)
+var TranscoderIP6 = NewTranscoderFromFunctions(ip6StB, ip6BtS, nil)
+var TranscoderIP6Zone = NewTranscoderFromFunctions(ip6zoneStB, ip6zoneBtS, ip6zoneVal)
 
 func ip4StB(s string) ([]byte, error) {
 	i := net.ParseIP(s).To4()
@@ -54,6 +56,31 @@ func ip4StB(s string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to parse ip4 addr: %s", s)
 	}
 	return i, nil
+}
+
+func ip6zoneStB(s string) ([]byte, error) {
+	if len(s) == 0 {
+		return nil, fmt.Errorf("empty ip6zone")
+	}
+	return []byte(s), nil
+}
+
+func ip6zoneBtS(b []byte) (string, error) {
+	if len(b) == 0 {
+		return "", fmt.Errorf("invalid length (should be > 0)")
+	}
+	return string(b), nil
+}
+
+func ip6zoneVal(b []byte) error {
+	if len(b) == 0 {
+		return fmt.Errorf("invalid length (should be > 0)")
+	}
+	// Not supported as this would break multiaddrs.
+	if bytes.IndexByte(b, '/') >= 0 {
+		return fmt.Errorf("IPv6 zone ID contains '/': %s", string(b))
+	}
+	return nil
 }
 
 func ip6StB(s string) ([]byte, error) {
@@ -64,7 +91,16 @@ func ip6StB(s string) ([]byte, error) {
 	return i, nil
 }
 
-func ipBtS(b []byte) (string, error) {
+func ip6BtS(b []byte) (string, error) {
+	ip := net.IP(b)
+	if ip4 := ip.To4(); ip4 != nil {
+		// Go fails to prepend the `::ffff:` part.
+		return "::ffff:" + ip4.String(), nil
+	}
+	return ip.String(), nil
+}
+
+func ip4BtS(b []byte) (string, error) {
 	return net.IP(b).String(), nil
 }
 
