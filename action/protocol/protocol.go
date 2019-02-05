@@ -9,6 +9,10 @@ package protocol
 import (
 	"context"
 
+	"github.com/iotexproject/iotex-core/pkg/enc"
+
+	"github.com/iotexproject/iotex-core/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -19,6 +23,8 @@ import (
 type Protocol interface {
 	ActionValidator
 	ActionHandler
+	Address() address.Address
+	Tags() [][]byte
 }
 
 // ActionValidator is the interface of validating an action
@@ -62,4 +68,12 @@ type StateManager interface {
 	DelState(pkHash hash.PKHash) error
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch
+}
+
+// GenerateProtocolAddress generate
+func GenerateProtocolAddress(caller address.Address, nonce uint64) address.Address {
+	var nonceBytes [8]byte
+	enc.MachineEndian.PutUint64(nonceBytes[:], nonce)
+	h := hash.Hash160b(append(caller.Bytes(), nonceBytes[:]...))
+	return address.New(h)
 }

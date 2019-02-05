@@ -11,6 +11,10 @@ package iproto;
 
 import "google/protobuf/timestamp.proto";
 
+message RegisterProtocol {
+    bytes code = 1;
+}
+
 message TransferPb {
     // used by state-based model
     bytes amount  = 1;
@@ -150,6 +154,8 @@ message ActionPb {
     bytes gasPrice = 6;
     bytes signature = 7;
     oneof action {
+        RegisterProtocol registerProtocol = 9;
+
         TransferPb transfer = 10;
         VotePb vote = 11;
         ExecutionPb execution = 12;

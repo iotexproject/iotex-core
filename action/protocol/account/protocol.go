@@ -20,10 +20,24 @@ import (
 )
 
 // Protocol defines the protocol of handling account
-type Protocol struct{}
+type Protocol struct {
+	addr address.Address
+	tags [][]byte
+}
 
 // NewProtocol instantiates the protocol of account
-func NewProtocol() *Protocol { return &Protocol{} }
+func NewProtocol(caller address.Address, nonce uint64, tags ...[]byte) *Protocol {
+	return &Protocol{
+		addr: protocol.GenerateProtocolAddress(caller, nonce),
+		tags: tags,
+	}
+}
+
+// Address returns the protocol address
+func (p *Protocol) Address() address.Address { return p.addr }
+
+// Tags returns the tags
+func (p *Protocol) Tags() [][]byte { return p.tags }
 
 // Handle handles an account
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
