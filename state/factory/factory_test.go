@@ -41,7 +41,7 @@ const testTriePath = "trie.test"
 func voteForm(height uint64, cs []*state.Candidate) []string {
 	r := make([]string, len(cs))
 	for i := 0; i < len(cs); i++ {
-		r[i] = (*cs[i]).Address + ":" + strconv.FormatInt(cs[i].Votes.Int64(), 10)
+		r[i] = cs[i].Address + ":" + strconv.FormatInt(cs[i].Votes.Int64(), 10)
 	}
 	return r
 }
