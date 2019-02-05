@@ -154,7 +154,7 @@ func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) 
 	for _, b := range data {
 
 		// Discard unused bits.
-		b = b << (8 - fromBits)
+		b <<= (8 - fromBits)
 
 		// How many bits remaining to extract from the input data.
 		remFromBits := fromBits
@@ -175,7 +175,7 @@ func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) 
 
 			// Discard the bits we just extracted and get ready for
 			// next iteration.
-			b = b << toExtract
+			b <<= toExtract
 			remFromBits -= toExtract
 			filledBits += toExtract
 
@@ -191,7 +191,7 @@ func ConvertBits(data []byte, fromBits, toBits uint8, pad bool) ([]byte, error) 
 
 	// We pad any unfinished group if specified.
 	if pad && filledBits > 0 {
-		nextByte = nextByte << (toBits - filledBits)
+		nextByte <<= (toBits - filledBits)
 		regrouped = append(regrouped, nextByte)
 		filledBits = 0
 		nextByte = 0

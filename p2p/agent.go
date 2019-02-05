@@ -224,12 +224,12 @@ func (p *Agent) Start(ctx context.Context) error {
 					dialRetryInterval,
 					numDialRetries,
 				); err != nil {
-					err := errors.Wrap(err, fmt.Sprintf("error when connecting bootstrap node %s", bootstrapNode))
+					err := errors.Wrap(err, fmt.Sprintf("error when connecting bootstrap node %s", bootAddr.String()))
 					connErrChan <- err
 					return
 				}
 				conn <- true
-				log.L().Info("Connected bootstrap node.", zap.String("address", bootstrapNode))
+				log.L().Info("Connected bootstrap node.", zap.String("address", bootAddr.String()))
 			}()
 		}
 		// wait on bootnodes connection

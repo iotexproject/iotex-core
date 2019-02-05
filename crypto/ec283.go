@@ -70,7 +70,7 @@ func (c *ec283) NewPubKey(priv keypair.EC283PrivateKey) (keypair.EC283PublicKey,
 
 // Sign signs the msg
 func (c *ec283) Sign(priv keypair.EC283PrivateKey, msg []byte) []byte {
-	msgString := string(msg[:])
+	msgString := string(msg)
 	privKey, err := c.privateKeyDeserialization(priv)
 	if err != nil {
 		return nil

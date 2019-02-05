@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 // ConsensusVoteTopic defines the topic of an consensus vote
@@ -58,7 +58,7 @@ func (en *ConsensusVote) Hash() hash.Hash32B {
 	stream := byteutil.Uint64ToBytes(en.Height)
 	stream = append(stream, uint8(en.Topic))
 	stream = append(stream, byteutil.Uint32ToBytes(en.Round)...)
-	stream = append(stream, en.BlkHash[:]...)
+	stream = append(stream, en.BlkHash...)
 
 	return blake2b.Sum256(stream)
 }
@@ -132,7 +132,7 @@ func (en *Endorsement) ToProtoMsg() *iproto.Endorsement {
 	return &iproto.Endorsement{
 		Height:         vote.Height,
 		Round:          vote.Round,
-		BlockHash:      vote.BlkHash[:],
+		BlockHash:      vote.BlkHash,
 		Topic:          topic,
 		Endorser:       en.Endorser(),
 		EndorserPubKey: keypair.PublicKeyToBytes(pubkey),
@@ -191,11 +191,7 @@ func (en *Endorsement) Deserialize(bs []byte) error {
 	if err := proto.Unmarshal(bs, &pb); err != nil {
 		return err
 	}
-	if err := en.FromProtoMsg(&pb); err != nil {
-		return err
-	}
-
-	return nil
+	return en.FromProtoMsg(&pb)
 }
 
 // MarshalLogObject marshals the endorsement to a zap object

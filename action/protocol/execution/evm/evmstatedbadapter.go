@@ -116,7 +116,10 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 		stateDB.logError(err)
 		return
 	}
-	state.SubBalance(amount)
+	if err := state.SubBalance(amount); err != nil {
+		log.L().Error("Failed to sub balance.", zap.Error(err))
+		return
+	}
 	if err := account.StoreAccount(stateDB.sm, addr.Bech32(), state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 	}
@@ -138,7 +141,10 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 		stateDB.logError(err)
 		return
 	}
-	state.AddBalance(amount)
+	if err := state.AddBalance(amount); err != nil {
+		log.L().Error("Failed to add balance.", zap.Error(err))
+		return
+	}
 	if err := account.StoreAccount(stateDB.sm, addr.Bech32(), state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 	}
@@ -216,7 +222,10 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 	s.Balance = nil
 	s.Balance = big.NewInt(0)
 	addrHash := byteutil.BytesTo20B(evmAddr.Bytes())
-	stateDB.sm.PutState(addrHash, s)
+	if err := stateDB.sm.PutState(addrHash, s); err != nil {
+		log.L().Error("Failed to kill contract.", zap.Error(err))
+		return false
+	}
 	// mark it as deleted
 	stateDB.suicided[addrHash] = struct{}{}
 	return true

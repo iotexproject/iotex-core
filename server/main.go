@@ -71,7 +71,8 @@ func main() {
 		<-stopped
 
 		// liveness end
-		pctx, _ := context.WithTimeout(context.Background(), time.Second*3)
+		pctx, lc := context.WithTimeout(context.Background(), time.Second*3)
+		defer lc()
 		if err := probeSvr.Stop(pctx); err != nil {
 			log.L().Error("Error when stopping probe server.", zap.Error(err))
 		}

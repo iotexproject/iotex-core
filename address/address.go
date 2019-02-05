@@ -28,7 +28,7 @@ const (
 )
 
 // ErrInvalidAddr indicates the invalid address error
-var ErrInvalidAddr = errors.New("Invalid address")
+var ErrInvalidAddr = errors.New("invalid address")
 
 var isTestNet bool
 

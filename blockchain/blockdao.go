@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -595,7 +595,7 @@ func deleteVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 
 		if delta, ok := senderDelta[Sender]; ok {
 			senderCount[Sender] += delta
-			senderDelta[Sender] = senderDelta[Sender] + 1
+			senderDelta[Sender]++
 		} else {
 			senderDelta[Sender] = 1
 		}
@@ -608,7 +608,7 @@ func deleteVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 
 		if delta, ok := recipientDelta[Recipient]; ok {
 			recipientCount[Recipient] += delta
-			recipientDelta[Recipient] = recipientDelta[Recipient] + 1
+			recipientDelta[Recipient]++
 		} else {
 			recipientDelta[Recipient] = 1
 		}

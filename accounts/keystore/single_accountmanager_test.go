@@ -29,7 +29,7 @@ func TestSingleAccountManager_SignTransfer(t *testing.T) {
 	require.NoError(err)
 
 	accountManager := NewMemAccountManager()
-	require.NoError(accountManager.Import(key[:]))
+	require.NoError(accountManager.Import(key))
 
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)
@@ -60,7 +60,7 @@ func TestSingleAccountManager_SignVote(t *testing.T) {
 	require.NoError(err)
 
 	accountManager := NewMemAccountManager()
-	require.NoError(accountManager.Import(key[:]))
+	require.NoError(accountManager.Import(key))
 
 	m, err := NewSingleAccountManager(accountManager)
 	require.NoError(err)

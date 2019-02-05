@@ -189,24 +189,21 @@ func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 	}
 
 	// TODO: To be deprecated
-	if err = putTransfers(store, blk, batch); err != nil {
+	if err := putTransfers(store, blk, batch); err != nil {
 		return err
 	}
 
 	// TODO: To be deprecated
-	if err = putVotes(store, blk, batch); err != nil {
+	if err := putVotes(store, blk, batch); err != nil {
 		return err
 	}
 
 	// TODO: To be deprecated
-	if err = putExecutions(store, blk, batch); err != nil {
+	if err := putExecutions(store, blk, batch); err != nil {
 		return err
 	}
 
-	if err = putActions(store, blk, batch); err != nil {
-		return err
-	}
-	return nil
+	return putActions(store, blk, batch)
 }
 
 // TODO: To be deprecated
@@ -294,7 +291,7 @@ func putVotes(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 		}
 		if delta, ok := senderDelta[Sender]; ok {
 			senderVoteCount += delta
-			senderDelta[Sender] = senderDelta[Sender] + 1
+			senderDelta[Sender]++
 		} else {
 			senderDelta[Sender] = 1
 		}
@@ -318,7 +315,7 @@ func putVotes(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 		}
 		if delta, ok := recipientDelta[Recipient]; ok {
 			recipientVoteCount += delta
-			recipientDelta[Recipient] = recipientDelta[Recipient] + 1
+			recipientDelta[Recipient]++
 		} else {
 			recipientDelta[Recipient] = 1
 		}
