@@ -836,11 +836,7 @@ func TestServiceGetPeers(t *testing.T) {
 	svc := Service{
 		dp: mDp,
 		neighborsHandler: func(_ context.Context) ([]peerstore.PeerInfo, error) {
-			return []peerstore.PeerInfo{
-				peerstore.PeerInfo{},
-				peerstore.PeerInfo{},
-				peerstore.PeerInfo{},
-			}, nil
+			return []peerstore.PeerInfo{{}, {}, {}}, nil
 		},
 		networkInfoHandler: func() peerstore.PeerInfo {
 			return peerstore.PeerInfo{}

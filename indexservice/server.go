@@ -56,7 +56,7 @@ func (s *Server) Start(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "error when get the blockchain address")
 		}
-		addr = hex.EncodeToString(blockAddr.Bytes()[:])
+		addr = hex.EncodeToString(blockAddr.Bytes())
 	}
 	s.idx.hexEncodedNodeAddr = addr
 

@@ -26,7 +26,7 @@ func TestLogReceipt(t *testing.T) {
 	s, err := log.Serialize()
 	require.NoError(err)
 	actuallog := action.Log{}
-	actuallog.Deserialize(s)
+	require.NoError(actuallog.Deserialize(s))
 	require.Equal(log.Address, actuallog.Address)
 	require.Equal(log.Topics[0], actuallog.Topics[0])
 	require.Equal(len(log.Topics), len(actuallog.Topics))
@@ -41,7 +41,7 @@ func TestLogReceipt(t *testing.T) {
 	s, err = receipt.Serialize()
 	require.NoError(err)
 	actualReceipt := action.Receipt{}
-	actualReceipt.Deserialize(s)
+	require.NoError(actualReceipt.Deserialize(s))
 	require.Equal(receipt.ReturnValue, actualReceipt.ReturnValue)
 	require.Equal(receipt.Status, actualReceipt.Status)
 	require.Equal(receipt.GasConsumed, actualReceipt.GasConsumed)

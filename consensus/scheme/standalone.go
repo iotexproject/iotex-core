@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 // Standalone is the consensus scheme that periodically create blocks
@@ -44,7 +44,10 @@ func (s *standaloneHandler) Run() {
 		log.L().Error("Failed to commit.", zap.Error(err))
 		return
 	}
-	s.pubCb(blk)
+	if err := s.pubCb(blk); err != nil {
+		log.L().Error("Failed to publish event.", zap.Error(err))
+		return
+	}
 }
 
 // NewStandalone creates a Standalone struct.

@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -159,7 +159,7 @@ func (s *Set) ToProto() *iproto.EndorsementSet {
 	}
 
 	return &iproto.EndorsementSet{
-		BlockHash:    s.blkHash[:],
+		BlockHash:    s.blkHash,
 		Round:        s.round,
 		Endorsements: endorsements,
 	}

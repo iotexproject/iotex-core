@@ -208,7 +208,7 @@ func TestActPool_AddActs(t *testing.T) {
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
-		nTsf, err := testutil.SignedTransfer(addr1, addr2, priKey2, uint64(i), big.NewInt(50), nil, uint64(0), big.NewInt(0))
+		nTsf, err := testutil.SignedTransfer(addr1, addr2, priKey2, i, big.NewInt(50), nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
 
 		ap2.allActions[nTsf.Hash()] = nTsf

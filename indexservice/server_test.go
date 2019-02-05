@@ -6,11 +6,13 @@
 package indexservice
 
 import (
+	"context"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/stretchr/testify/require"
 )
 
 func TestServer(t *testing.T) {
@@ -20,7 +22,7 @@ func TestServer(t *testing.T) {
 	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemDaoOption())
 
 	svr := NewServer(config.Default, bc)
-	err := svr.Start(nil)
+	err := svr.Start(context.Background())
 	require.Nil(err)
 
 	db := svr.idx.store.GetDB()
@@ -29,6 +31,6 @@ func TestServer(t *testing.T) {
 	_, err = db.Prepare("SELECT * FROM transfer_history WHERE node_address=?")
 	require.Nil(err)
 
-	err = svr.Stop(nil)
+	err = svr.Stop(context.Background())
 	require.Nil(err)
 }

@@ -37,7 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -317,7 +317,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		chainRawAddrs := make([]string, 0, numNodes)
-		addressMap := make(map[string]*addrKeyPair, 0)
+		addressMap := make(map[string]*addrKeyPair)
 		for _, addr := range chainAddrs {
 			chainRawAddrs = append(chainRawAddrs, addr.encodedAddr)
 			addressMap[addr.encodedAddr] = addr

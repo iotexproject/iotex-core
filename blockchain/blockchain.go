@@ -676,6 +676,9 @@ func (bc *blockchain) MintNewBlock(
 	// initial action iterator
 	actionIterator := actioniterator.NewActionIterator(actionMap)
 	actions, err := PickAction(genesis.BlockGasLimit, actionIterator)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to pick actions")
+	}
 
 	validateActionsOnlyTimer := bc.timerFactory.NewTimer("ValidateActionsOnly")
 	if err := bc.validator.ValidateActionsOnly(
@@ -698,11 +701,11 @@ func (bc *blockchain) MintNewBlock(
 	// run execution and update state trie root hash
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
+		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	root, rc, err := bc.runActions(ra, ws)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", bc.tipHeight+1)
+		return nil, errors.Wrapf(err, "failed to update state changes in new block %d", bc.tipHeight+1)
 	}
 
 	blk, err := block.NewBuilder(ra).
@@ -714,7 +717,7 @@ func (bc *blockchain) MintNewBlock(
 		SetReceiptRoot(calculateReceiptRoot(rc)).
 		SignAndBuild(producerPubKey, producerPriKey)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to create block")
+		return nil, errors.Wrapf(err, "failed to create block")
 	}
 	blk.WorkingSet = ws
 
@@ -1059,7 +1062,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		// detach working set so it can be freed by GC
 		blk.WorkingSet = nil
 		if err != nil {
-			log.L().Panic("Error when commiting states.", zap.Error(err))
+			log.L().Panic("Error when committing states.", zap.Error(err))
 		}
 
 		// write smart contract receipt into DB

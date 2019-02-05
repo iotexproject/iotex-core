@@ -91,19 +91,13 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 func (sdb *stateDB) Start(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	if err := sdb.dao.Start(ctx); err != nil {
-		return err
-	}
-	return nil
+	return sdb.dao.Start(ctx)
 }
 
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	if err := sdb.dao.Stop(ctx); err != nil {
-		return err
-	}
-	return nil
+	return sdb.dao.Stop(ctx)
 }
 
 // AddActionHandlers adds action handlers to the state factory

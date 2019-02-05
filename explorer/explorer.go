@@ -32,7 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -121,9 +121,9 @@ func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, 
 	details := explorer.AddressDetails{
 		Address:      address,
 		TotalBalance: state.Balance.String(),
-		Nonce:        int64((*state).Nonce),
+		Nonce:        int64(state.Nonce),
 		PendingNonce: int64(pendingNonce),
-		IsCandidate:  (*state).IsCandidate,
+		IsCandidate:  state.IsCandidate,
 	}
 
 	return details, nil
@@ -1941,17 +1941,17 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iproto.
 }
 
 func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
-	MaxTransferPayloadBytes uint64) (*iproto.ActionPb, error) {
+	maxTransferPayloadBytes uint64) (*iproto.ActionPb, error) {
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return nil, err
 	}
-	if uint64(len(payload)) > MaxTransferPayloadBytes {
+	if uint64(len(payload)) > maxTransferPayloadBytes {
 		return nil, errors.Wrapf(
 			ErrTransfer,
 			"transfer payload contains %d bytes, and is longer than %d bytes limit",
 			len(payload),
-			MaxTransferPayloadBytes,
+			maxTransferPayloadBytes,
 		)
 	}
 	senderPubKey, err := keypair.StringToPubKeyBytes(tsfJSON.SenderPubKey)

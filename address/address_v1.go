@@ -68,7 +68,7 @@ func (v *v1) decodeBech32(encodedAddr string) ([]byte, error) {
 		return nil, errors.Wrapf(err, "hrp %s and address prefix %s don't match", hrp, prefix())
 	}
 	// Group the payload into 8 bit groups.
-	payload, err := bech32.ConvertBits(grouped[:], 5, 8, false)
+	payload, err := bech32.ConvertBits(grouped, 5, 8, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error when converting 5 bit groups into the payload")
 	}

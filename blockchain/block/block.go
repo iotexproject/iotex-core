@@ -44,7 +44,7 @@ func (b *Block) ByteStream() []byte {
 	stream := b.Header.ByteStream()
 
 	// Add the stream of blockSig
-	stream = append(stream, b.Header.blockSig[:]...)
+	stream = append(stream, b.Header.blockSig...)
 
 	for _, act := range b.Actions {
 		stream = append(stream, act.ByteStream()...)
@@ -67,7 +67,7 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.StateRoot = b.Header.stateRoot[:]
 	pbHeader.DeltaStateDigest = b.Header.deltaStateDigest[:]
 	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
-	pbHeader.Signature = b.Header.blockSig[:]
+	pbHeader.Signature = b.Header.blockSig
 	pbHeader.Pubkey = keypair.PublicKeyToBytes(b.Header.pubkey)
 	return &pbHeader
 }
