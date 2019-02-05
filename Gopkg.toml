@@ -56,7 +56,7 @@
 
 [[constraint]]
   name = "github.com/iotexproject/go-p2p"
-  revision = "b70295aa41a56729b5eff2bb0e333fcbadad1fe1"
+  revision = "c26edc20f3d7c9ed16b6d996d162548cda979673"
 
 [prune]
   go-tests = true

@@ -18,6 +18,8 @@ type Multiaddr interface {
 	Equal(Multiaddr) bool
 
 	// Bytes returns the []byte representation of this Multiaddr
+	//
+	// This function may expose immutable, internal state. Do not modify.
 	Bytes() []byte
 
 	// String returns the string representation of this Multiaddr
@@ -41,5 +43,8 @@ type Multiaddr interface {
 	Decapsulate(Multiaddr) Multiaddr
 
 	// ValueForProtocol returns the value (if any) following the specified protocol
+	//
+	// Note: protocols can appear multiple times in a single multiaddr.
+	// Consider using `ForEach` to walk over the addr manually.
 	ValueForProtocol(code int) (string, error)
 }
