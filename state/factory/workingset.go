@@ -152,7 +152,7 @@ func (ws *workingSet) RunActions(
 
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
-	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:], "failed to store accountTrie's root hash")
+	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash, "failed to store accountTrie's root hash")
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	ws.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
@@ -160,7 +160,7 @@ func (ws *workingSet) RunActions(
 	ws.cb.Put(
 		AccountKVNameSpace,
 		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)),
-		rootHash[:],
+		rootHash,
 		"failed to store accountTrie's root hash",
 	)
 

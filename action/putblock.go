@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 // PutBlockIntrinsicGas is the instrinsic gas for put block action.
@@ -96,7 +96,7 @@ func (pb *PutBlock) Proto() *iproto.PutBlockPb {
 
 		act.Roots = append(act.Roots, &iproto.MerkleRoot{
 			Name:  k,
-			Value: nv[:],
+			Value: nv,
 		})
 	}
 

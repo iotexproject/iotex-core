@@ -33,7 +33,7 @@ func BenchmarkBoltDB_Get(b *testing.B) {
 		for i := range data {
 			data[i] = byte(rand.Int())
 		}
-		require.NoError(b, db.Put("ns", key, data[:]))
+		require.NoError(b, db.Put("ns", key, data))
 
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
