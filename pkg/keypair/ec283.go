@@ -34,7 +34,7 @@ type (
 // BytesToEC283PublicKey converts a byte slice to PublicKey
 func BytesToEC283PublicKey(pubKey []byte) (EC283PublicKey, error) {
 	if len(pubKey) != ec283pubKeyLength {
-		return ZeroPublicKey, errors.Wrap(ErrPublicKey, "Invalid public key length")
+		return ZeroPublicKey, errors.Wrap(ErrPublicKey, "invalid public key length")
 	}
 	var publicKey EC283PublicKey
 	copy(publicKey[:], pubKey)
@@ -44,7 +44,7 @@ func BytesToEC283PublicKey(pubKey []byte) (EC283PublicKey, error) {
 // BytesToEC283PrivateKey converts a byte slice to PrivateKey
 func BytesToEC283PrivateKey(priKey []byte) (EC283PrivateKey, error) {
 	if len(priKey) != ec283privKeyLength {
-		return ZeroPrivateKey, errors.Wrap(ErrPrivateKey, "Invalid private key length")
+		return ZeroPrivateKey, errors.Wrap(ErrPrivateKey, "invalid private key length")
 	}
 	var privateKey EC283PrivateKey
 	copy(privateKey[:], priKey)
