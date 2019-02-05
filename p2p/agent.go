@@ -8,8 +8,8 @@ package p2p
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -202,22 +202,55 @@ func (p *Agent) Start(ctx context.Context) error {
 	}
 
 	if len(p.cfg.BootstrapNodes) > 0 {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-		randBootstrapNodeAddr := p.cfg.BootstrapNodes[r.Intn(len(p.cfg.BootstrapNodes))]
-		bootAddr := multiaddr.StringCast(randBootstrapNodeAddr)
-		if !strings.Contains(bootAddr.String(), host.HostIdentity()) {
-			if err := exponentialRetry(
-				func() error {
-					return host.ConnectWithMultiaddr(ctx, bootAddr)
-				},
-				dialRetryInterval,
-				numDialRetries,
-			); err != nil {
-				return errors.Wrapf(err, "error when connecting bootstrap node %s", randBootstrapNodeAddr)
+		var (
+			tryNum  int
+			errNum  int
+			connNum int
+		)
+		conn := make(chan interface{}, len(p.cfg.BootstrapNodes))
+		connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
+
+		// try to connect to all bootstrap node beside itself.
+		for _, bootstrapNode := range p.cfg.BootstrapNodes {
+			bootAddr := multiaddr.StringCast(bootstrapNode)
+			if strings.Contains(bootAddr.String(), host.HostIdentity()) {
+				continue
 			}
-			log.L().Info("Connected bootstrap node.", zap.String("address", randBootstrapNodeAddr))
+
+			tryNum++
+			go func() {
+				if err := exponentialRetry(
+					func() error { return host.ConnectWithMultiaddr(ctx, bootAddr) },
+					dialRetryInterval,
+					numDialRetries,
+				); err != nil {
+					err := errors.Wrap(err, fmt.Sprintf("error when connecting bootstrap node %s", bootstrapNode))
+					connErrChan <- err
+					return
+				}
+				conn <- true
+				log.L().Info("Connected bootstrap node.", zap.String("address", bootstrapNode))
+			}()
+		}
+		// wait on bootnodes connection
+		for {
+			select {
+			case err := <-connErrChan:
+				log.L().Info("Connection failed.", zap.Error(err))
+				errNum++
+				if errNum == tryNum {
+					return errors.New("failed to connect to any bootstrap node")
+				}
+			case <-conn:
+				connNum++
+			}
+			// can add more condition later
+			if connNum >= 1 {
+				break
+			}
 		}
 	}
+
 	if err := host.JoinOverlay(ctx); err != nil {
 		return errors.Wrap(err, "error when joining overlay")
 	}
