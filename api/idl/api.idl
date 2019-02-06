@@ -15,7 +15,7 @@
 
 // 3. barrister api.idl | $GOPATH/bin/idl2go -i -p api
 
-interface Explorer {
+interface API {
     // get the address detail of an address
     // response is the JSON string of AddressDetailsPb
     getAccount(address string) string
