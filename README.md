@@ -1,7 +1,7 @@
 # iotex-core
 
 [![Join the chat at https://gitter.im/iotex-dev-community/Lobby](https://badges.gitter.im/iotex-dev-community/Lobby.svg)](https://gitter.im/iotex-dev-community/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![Go version](https://img.shields.io/badge/go-1.10.2-blue.svg)](https://github.com/moovweb/gvm)
+[![Go version](https://img.shields.io/badge/go-1.11.5-blue.svg)](https://github.com/moovweb/gvm)
 [![CircleCI](https://circleci.com/gh/iotexproject/iotex-core.svg?style=svg&circle-token=fe0817d127f251a34b8bdd3336a808c7537e5ec0)](https://circleci.com/gh/iotexproject/iotex-core)
 [![Go Report Card](https://goreportcard.com/badge/github.com/iotexproject/iotex-core)](https://goreportcard.com/report/github.com/iotexproject/iotex-core)
 [![Coverage](https://codecov.io/gh/iotexproject/iotex-core/branch/master/graph/badge.svg)](https://codecov.io/gh/iotexproject/iotex-core)
@@ -23,7 +23,7 @@ contact us if you intend to run it in production.
 
 | Components | Version | Description |
 |----------|-------------|-------------|
-|[Golang](https://golang.org) | >= 1.10.2 | The Go Programming Language |
+|[Golang](https://golang.org) | >= 1.11.5 | The Go Programming Language |
 
 ### Setup Dev Environment
 
@@ -179,7 +179,7 @@ Default flag values:
 * vote-gas-limit=1000000
 * vote-gas-price=10
 * execution-num=50
-* contract="io1qy8w2uj6qmvfgcy6dgrv24qc5qp26dfp5vx427vk"
+* contract="io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq"
 * execution-amount=0
 * execution-gas-limit=1200000
 * execution-gas-price=10

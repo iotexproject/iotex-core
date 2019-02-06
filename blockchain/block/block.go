@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -32,10 +32,9 @@ type Block struct {
 	Header
 	Footer
 
-	Actions         []action.SealedEnvelope
-	SecretProposals []*action.SecretProposal
-	SecretWitness   *action.SecretWitness
-	Receipts        map[hash.Hash32B]*action.Receipt
+	Actions []action.SealedEnvelope
+	// TODO: move receipts out of block struct
+	Receipts []*action.Receipt
 
 	WorkingSet factory.WorkingSet
 }
@@ -45,10 +44,7 @@ func (b *Block) ByteStream() []byte {
 	stream := b.Header.ByteStream()
 
 	// Add the stream of blockSig
-	stream = append(stream, b.Header.blockSig[:]...)
-	stream = append(stream, b.Header.dkgID[:]...)
-	stream = append(stream, b.Header.dkgPubkey[:]...)
-	stream = append(stream, b.Header.dkgBlockSig[:]...)
+	stream = append(stream, b.Header.blockSig...)
 
 	for _, act := range b.Actions {
 		stream = append(stream, act.ByteStream()...)
@@ -71,11 +67,8 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.StateRoot = b.Header.stateRoot[:]
 	pbHeader.DeltaStateDigest = b.Header.deltaStateDigest[:]
 	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
-	pbHeader.Signature = b.Header.blockSig[:]
+	pbHeader.Signature = b.Header.blockSig
 	pbHeader.Pubkey = keypair.PublicKeyToBytes(b.Header.pubkey)
-	pbHeader.DkgID = b.Header.dkgID[:]
-	pbHeader.DkgPubkey = b.Header.dkgPubkey[:]
-	pbHeader.DkgSignature = b.Header.dkgBlockSig[:]
 	return &pbHeader
 }
 
@@ -111,9 +104,6 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.deltaStateDigest[:], pbBlock.GetHeader().GetDeltaStateDigest())
 	copy(b.Header.receiptRoot[:], pbBlock.GetHeader().GetReceiptRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
-	b.Header.dkgID = pbBlock.GetHeader().GetDkgID()
-	b.Header.dkgPubkey = pbBlock.GetHeader().GetDkgPubkey()
-	b.Header.dkgBlockSig = pbBlock.GetHeader().GetDkgSignature()
 
 	pubKey, err := keypair.BytesToPublicKey(pbBlock.GetHeader().GetPubkey())
 	if err != nil {
@@ -134,7 +124,6 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) error {
 			return err
 		}
 		b.Actions = append(b.Actions, act)
-		// TODO handle SecretProposal and SecretWitness
 	}
 
 	return b.ConvertFromBlockFooterPb(pbBlock.GetFooter())
@@ -205,6 +194,14 @@ func (b *Block) VerifySignature() bool {
 		b.Header.blockSig[:action.SignatureLength-1])
 }
 
+// VerifyReceiptRoot verifies the receipt root in header
+func (b *Block) VerifyReceiptRoot(root hash.Hash32B) error {
+	if b.Header.receiptRoot != root {
+		return errors.New("receipt root hash does not match")
+	}
+	return nil
+}
+
 // ProducerAddress returns the address of producer
 func (b *Block) ProducerAddress() string {
 	pkHash := keypair.HashPubKey(b.Header.pubkey)
@@ -223,6 +220,7 @@ func (b *Block) RunnableActions() RunnableActions {
 		blockProducerPubKey: b.Header.pubkey,
 		blockProducerAddr:   addr.Bech32(),
 		actions:             b.Actions,
+		txHash:              b.txRoot,
 	}
 }
 

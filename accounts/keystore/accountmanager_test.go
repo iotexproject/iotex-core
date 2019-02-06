@@ -105,7 +105,7 @@ func TestAccountManager_SignTransfer(t *testing.T) {
 	key, err := hex.DecodeString(prikeyProducer)
 	require.NoError(err)
 
-	require.NoError(m.Import(key[:]))
+	require.NoError(m.Import(key))
 
 	selp, err := m.SignAction(testaddress.Addrinfo["producer"].Bech32(), elp)
 	require.NoError(err)
@@ -134,7 +134,7 @@ func TestAccountManager_SignVote(t *testing.T) {
 	key, err := hex.DecodeString(prikeyProducer)
 	require.NoError(err)
 
-	require.NoError(m.Import(key[:]))
+	require.NoError(m.Import(key))
 
 	selp, err := m.SignAction(testaddress.Addrinfo["producer"].Bech32(), elp)
 	require.NoError(err)
@@ -157,7 +157,7 @@ func TestAccountManager_SignHash(t *testing.T) {
 	key, err := hex.DecodeString(prikeyProducer)
 	require.NoError(err)
 
-	require.NoError(m.Import(key[:]))
+	require.NoError(m.Import(key))
 
 	signature, err = m.SignHash(testaddress.Addrinfo["producer"].Bech32(), hash[:])
 	require.NoError(err)

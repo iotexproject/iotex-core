@@ -93,7 +93,7 @@ func (idx *Indexer) HandleBlock(blk *block.Block) error {
 
 // BuildIndex builds the index for a block
 func (idx *Indexer) BuildIndex(blk *block.Block) error {
-	idx.store.Transact(func(tx *sql.Tx) error {
+	return idx.store.Transact(func(tx *sql.Tx) error {
 		// log transfer to transfer history table
 		if err := idx.UpdateTransferHistory(blk, tx); err != nil {
 			return errors.Wrapf(err, "failed to update transfer to transfer history table")
@@ -132,7 +132,6 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 
 		return nil
 	})
-	return nil
 }
 
 // UpdateTransferHistory stores transfer information into transfer history table

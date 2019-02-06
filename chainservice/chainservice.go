@@ -29,7 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -108,7 +108,9 @@ func New(
 		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
-		chain.AddSubscriber(indexBuilder)
+		if err := chain.AddSubscriber(indexBuilder); err != nil {
+			log.L().Warn("Failed to add subscriber: index builder.", zap.Error(err))
+		}
 	}
 
 	// Create ActPool

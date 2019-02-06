@@ -32,36 +32,40 @@ import (
 func TestBlockDAO(t *testing.T) {
 	getBlocks := func() []*block.Block {
 		amount := uint64(50 << 22)
-		// create testing transfers
-		cbTsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["alfa"].Bech32())
-		assert.NotNil(t, cbTsf1)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetNonce(1).
-			SetDestinationAddress(testaddress.Addrinfo["alfa"].Bech32()).
-			SetGasLimit(genesis.ActionGasLimit).
-			SetAction(cbTsf1).Build()
-		scbTsf1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"].PriKey)
+		tsf1, err := testutil.SignedTransfer(
+			testaddress.Addrinfo["alfa"].Bech32(),
+			testaddress.Addrinfo["alfa"].Bech32(),
+			testaddress.Keyinfo["alfa"].PriKey,
+			1,
+			big.NewInt(int64(amount)),
+			nil,
+			genesis.ActionGasLimit,
+			big.NewInt(0),
+		)
 		require.NoError(t, err)
 
-		cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["bravo"].Bech32())
-		assert.NotNil(t, cbTsf2)
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetNonce(1).
-			SetDestinationAddress(testaddress.Addrinfo["bravo"].Bech32()).
-			SetGasLimit(genesis.ActionGasLimit).
-			SetAction(cbTsf2).Build()
-		scbTsf2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].Bech32(), testaddress.Keyinfo["bravo"].PriKey)
+		tsf2, err := testutil.SignedTransfer(
+			testaddress.Addrinfo["bravo"].Bech32(),
+			testaddress.Addrinfo["bravo"].Bech32(),
+			testaddress.Keyinfo["bravo"].PriKey,
+			2,
+			big.NewInt(int64(amount)),
+			nil,
+			genesis.ActionGasLimit,
+			big.NewInt(0),
+		)
 		require.NoError(t, err)
 
-		require.NoError(t, err)
-		cbTsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["charlie"].Bech32())
-		assert.NotNil(t, cbTsf3)
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetNonce(1).
-			SetDestinationAddress(testaddress.Addrinfo["charlie"].Bech32()).
-			SetGasLimit(genesis.ActionGasLimit).
-			SetAction(cbTsf3).Build()
-		scbTsf3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].Bech32(), testaddress.Keyinfo["charlie"].PriKey)
+		tsf3, err := testutil.SignedTransfer(
+			testaddress.Addrinfo["charlie"].Bech32(),
+			testaddress.Addrinfo["charlie"].Bech32(),
+			testaddress.Keyinfo["charlie"].PriKey,
+			3,
+			big.NewInt(int64(amount)),
+			nil,
+			genesis.ActionGasLimit,
+			big.NewInt(0),
+		)
 		require.NoError(t, err)
 
 		// create testing votes
@@ -90,8 +94,8 @@ func TestBlockDAO(t *testing.T) {
 			testutil.TestGasLimit,
 			big.NewInt(0),
 		)
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetNonce(4).
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetNonce(4).
 			SetDestinationAddress(testaddress.Addrinfo["delta"].Bech32()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit1).Build()
@@ -138,7 +142,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(1).
 			SetPrevBlockHash(hash1).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(scbTsf1, vote1, execution1, sdeposit1).
+			AddActions(tsf1, vote1, execution1, sdeposit1).
 			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 
@@ -148,7 +152,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(2).
 			SetPrevBlockHash(hash2).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(scbTsf2, vote2, execution2, sdeposit2).
+			AddActions(tsf2, vote2, execution2, sdeposit2).
 			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 
@@ -158,7 +162,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(3).
 			SetPrevBlockHash(hash3).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(scbTsf3, vote3, execution3, sdeposit3).
+			AddActions(tsf3, vote3, execution3, sdeposit3).
 			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 		return []*block.Block{&blk1, &blk2, &blk3}
@@ -716,7 +720,7 @@ func TestBlockDao_putReceipts(t *testing.T) {
 	blkDao := newBlockDAO(db.NewMemKVStore(), true)
 	receipts := []*action.Receipt{
 		{
-			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
 			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
@@ -724,7 +728,7 @@ func TestBlockDao_putReceipts(t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 		{
-			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
 			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,
@@ -734,8 +738,8 @@ func TestBlockDao_putReceipts(t *testing.T) {
 	}
 	require.NoError(t, blkDao.putReceipts(1, receipts))
 	for _, receipt := range receipts {
-		r, err := blkDao.getReceiptByActionHash(receipt.Hash)
+		r, err := blkDao.getReceiptByActionHash(receipt.ActHash)
 		require.NoError(t, err)
-		assert.Equal(t, receipt.Hash, r.Hash)
+		assert.Equal(t, receipt.ActHash, r.ActHash)
 	}
 }

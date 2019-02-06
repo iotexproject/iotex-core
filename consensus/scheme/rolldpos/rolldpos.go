@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -107,10 +106,6 @@ func (ew *endorsementWrapper) Topic() endorsement.ConsensusVoteTopic {
 	return ew.ConsensusVote().Topic
 }
 
-func verifyDKGSignature(blk *block.Block, seedByte []byte) error {
-	return crypto.BLS.Verify(blk.DKGPubkey(), seedByte, blk.DKGSignature())
-}
-
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
 	cfsm *consensusfsm.ConsensusFSM
@@ -134,11 +129,11 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 
 // HandleConsensusMsg handles incoming consensus message
 func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
-	chainHeight := r.ctx.chain.TipHeight()
-	if msg.Height <= chainHeight {
+	consensusHeight := r.ctx.Height()
+	if consensusHeight != 0 && msg.Height < consensusHeight {
 		log.L().Debug(
 			"old consensus message",
-			zap.Uint64("chainHeight", chainHeight),
+			zap.Uint64("consensusHeight", consensusHeight),
 			zap.Uint64("msgHeight", msg.Height),
 		)
 		return nil
@@ -150,6 +145,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		if err := block.Deserialize(data); err != nil {
 			return errors.Wrap(err, "failed to deserialize block")
 		}
+		log.L().Debug("receive block message", zap.Any("msg", block))
 		// TODO: add proof of lock
 		if msg.Height != block.Height() {
 			return errors.Errorf(
@@ -166,6 +162,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		if err := en.Deserialize(data); err != nil {
 			return errors.Wrap(err, "error when deserializing a msg to endorsement")
 		}
+		log.L().Debug("receive consensus message", zap.Any("msg", en))
 		ew := &endorsementWrapper{en}
 		if ew.Height() != msg.Height {
 			return errors.Errorf(
@@ -188,6 +185,11 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		return errors.Errorf("Invalid consensus message type %s", msg.Type)
 	}
 	return nil
+}
+
+// Calibrate called on receive a new block not via consensus
+func (r *RollDPoS) Calibrate(height uint64) {
+	r.cfsm.Calibrate(height)
 }
 
 // ValidateBlockFooter validates the signatures in the block footer

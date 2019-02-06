@@ -163,7 +163,7 @@ func ExecuteContract(
 	receipt := &action.Receipt{
 		ReturnValue:     retval,
 		GasConsumed:     ps.gas - remainingGas,
-		Hash:            execution.Hash(),
+		ActHash:         execution.Hash(),
 		ContractAddress: contractAddress,
 	}
 	if err != nil {

@@ -244,8 +244,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(en consensusfsm.Endorsement) (con
 			)
 		}
 		if producer != ctx.round.proposer || blk.WorkingSet == nil {
-			containCoinbase := true
-			if err := ctx.chain.ValidateBlock(blk.Block, containCoinbase); err != nil {
+			if err := ctx.chain.ValidateBlock(blk.Block); err != nil {
 				return nil, errors.Wrapf(err, "error when validating the proposed block")
 			}
 		}
@@ -419,6 +418,16 @@ func (ctx *rollDPoSCtx) IsProposer() bool {
 	defer ctx.mutex.RUnlock()
 
 	return ctx.round.proposer == ctx.encodedAddr
+}
+
+func (ctx *rollDPoSCtx) Height() uint64 {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	if ctx.round == nil {
+		return 0
+	}
+
+	return ctx.round.height
 }
 
 ///////////////////////////////////////////
@@ -624,7 +633,7 @@ func (ctx *rollDPoSCtx) roundCtxByTime(
 		return nil, err
 	}
 	// proposer interval should be always larger than 0
-	interval := ctx.cfg.FSM.ProposerInterval
+	interval := ctx.cfg.DelegateInterval
 	if interval <= 0 {
 		ctx.logger().Panic("invalid proposer interval")
 	}
@@ -655,6 +664,8 @@ func (ctx *rollDPoSCtx) updateRound(height uint64) error {
 		return err
 	}
 	if ctx.round != nil && ctx.round.height == height {
+		round.block = ctx.round.block
+		round.proofOfLock = ctx.round.proofOfLock
 		round.endorsementSets = ctx.round.endorsementSets
 		for _, s := range round.endorsementSets {
 			s.DeleteEndorsements(

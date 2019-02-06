@@ -152,7 +152,7 @@ func (e *extensionNode) serialize() []byte {
 		Node: &triepb.NodePb_Extend{
 			Extend: &triepb.ExtendPb{
 				Path:  e.path,
-				Value: e.childHash[:],
+				Value: e.childHash,
 			},
 		},
 	}

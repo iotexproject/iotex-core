@@ -25,7 +25,7 @@ func Sort(hashes [][]byte, nonce uint64) {
 	nb := make([]byte, 8)
 	enc.MachineEndian.PutUint64(nb, nonce)
 
-	sort.Slice(hashes[:], func(i, j int) bool {
+	sort.Slice(hashes, func(i, j int) bool {
 		hi := blake2b.Sum256(append(append(hashes[i], CryptoSeed...), nb...))
 		hj := blake2b.Sum256(append(append(hashes[j], CryptoSeed...), nb...))
 		return bytes.Compare(hi[:], hj[:]) < 0
@@ -37,7 +37,7 @@ func SortCandidates(candidates []string, epochNum uint64, cryptoSeed []byte) {
 	nb := make([]byte, 8)
 	enc.MachineEndian.PutUint64(nb, epochNum)
 
-	sort.Slice(candidates[:], func(i, j int) bool {
+	sort.Slice(candidates, func(i, j int) bool {
 		hi := blake2b.Sum256(append(append([]byte(candidates[i]), cryptoSeed...), nb...))
 		hj := blake2b.Sum256(append(append([]byte(candidates[j]), cryptoSeed...), nb...))
 		return bytes.Compare(hi[:], hj[:]) < 0

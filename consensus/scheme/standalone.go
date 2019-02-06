@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 // Standalone is the consensus scheme that periodically create blocks
@@ -44,7 +44,10 @@ func (s *standaloneHandler) Run() {
 		log.L().Error("Failed to commit.", zap.Error(err))
 		return
 	}
-	s.pubCb(blk)
+	if err := s.pubCb(blk); err != nil {
+		log.L().Error("Failed to publish event.", zap.Error(err))
+		return
+	}
 }
 
 // NewStandalone creates a Standalone struct.
@@ -75,6 +78,9 @@ func (n *Standalone) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	log.L().Warn("Noop scheme does not handle incoming block propose requests.")
 	return nil
 }
+
+// Calibrate triggers an event to calibrate consensus context
+func (n *Standalone) Calibrate(uint64) {}
 
 // ValidateBlockFooter validates signatures in block footer
 func (n *Standalone) ValidateBlockFooter(*block.Block) error {

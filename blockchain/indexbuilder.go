@@ -40,6 +40,7 @@ func init() {
 type IndexBuilder struct {
 	store        db.KVStore
 	pendingBlks  chan *block.Block
+	cancelChan   chan interface{}
 	timerFactory *prometheustimer.TimerFactory
 }
 
@@ -61,6 +62,7 @@ func NewIndexBuilder(chain Blockchain) (*IndexBuilder, error) {
 	return &IndexBuilder{
 		store:        bc.dao.kvstore,
 		pendingBlks:  make(chan *block.Block, 64), // Actually 1 should be enough
+		cancelChan:   make(chan interface{}),
 		timerFactory: timerFactory,
 	}, nil
 }
@@ -68,37 +70,38 @@ func NewIndexBuilder(chain Blockchain) (*IndexBuilder, error) {
 // Start starts the index builder
 func (ib *IndexBuilder) Start(_ context.Context) error {
 	go func() {
-		for blk := range ib.pendingBlks {
-			timer := ib.timerFactory.NewTimer("indexBlock")
-			batch := db.NewBatch()
-			if err := indexBlock(ib.store, blk, batch); err != nil {
-				log.L().Info(
-					"Error when indexing the block",
-					zap.Uint64("height", blk.Height()),
-					zap.Error(err),
-				)
+		for {
+			select {
+			case <-ib.cancelChan:
+				return
+			case blk := <-ib.pendingBlks:
+				timer := ib.timerFactory.NewTimer("indexBlock")
+				batch := db.NewBatch()
+				if err := indexBlock(ib.store, blk, batch); err != nil {
+					log.L().Info(
+						"Error when indexing the block",
+						zap.Uint64("height", blk.Height()),
+						zap.Error(err),
+					)
+				}
+				// index receipts
+				if err := putReceipts(blk.Height(), blk.Receipts, batch); err != nil {
+					log.L().Info(
+						"Error when indexing the block",
+						zap.Uint64("height", blk.Height()),
+						zap.Error(err),
+					)
+				}
+				batchSizeMtc.WithLabelValues().Set(float64(batch.Size()))
+				if err := ib.store.Commit(batch); err != nil {
+					log.L().Info(
+						"Error when indexing the block",
+						zap.Uint64("height", blk.Height()),
+						zap.Error(err),
+					)
+				}
+				timer.End()
 			}
-			// index receipts
-			blkReceipts := make([]*action.Receipt, 0)
-			for _, receipt := range blk.Receipts {
-				blkReceipts = append(blkReceipts, receipt)
-			}
-			if err := putReceipts(blk.Height(), blkReceipts, batch); err != nil {
-				log.L().Info(
-					"Error when indexing the block",
-					zap.Uint64("height", blk.Height()),
-					zap.Error(err),
-				)
-			}
-			batchSizeMtc.WithLabelValues().Set(float64(batch.Size()))
-			if err := ib.store.Commit(batch); err != nil {
-				log.L().Info(
-					"Error when indexing the block",
-					zap.Uint64("height", blk.Height()),
-					zap.Error(err),
-				)
-			}
-			timer.End()
 		}
 	}()
 	return nil
@@ -106,7 +109,7 @@ func (ib *IndexBuilder) Start(_ context.Context) error {
 
 // Stop stops the index builder
 func (ib *IndexBuilder) Stop(_ context.Context) error {
-	close(ib.pendingBlks)
+	close(ib.cancelChan)
 	return nil
 }
 
@@ -186,24 +189,21 @@ func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 	}
 
 	// TODO: To be deprecated
-	if err = putTransfers(store, blk, batch); err != nil {
+	if err := putTransfers(store, blk, batch); err != nil {
 		return err
 	}
 
 	// TODO: To be deprecated
-	if err = putVotes(store, blk, batch); err != nil {
+	if err := putVotes(store, blk, batch); err != nil {
 		return err
 	}
 
 	// TODO: To be deprecated
-	if err = putExecutions(store, blk, batch); err != nil {
+	if err := putExecutions(store, blk, batch); err != nil {
 		return err
 	}
 
-	if err = putActions(store, blk, batch); err != nil {
-		return err
-	}
-	return nil
+	return putActions(store, blk, batch)
 }
 
 // TODO: To be deprecated
@@ -291,7 +291,7 @@ func putVotes(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 		}
 		if delta, ok := senderDelta[Sender]; ok {
 			senderVoteCount += delta
-			senderDelta[Sender] = senderDelta[Sender] + 1
+			senderDelta[Sender]++
 		} else {
 			senderDelta[Sender] = 1
 		}
@@ -315,7 +315,7 @@ func putVotes(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 		}
 		if delta, ok := recipientDelta[Recipient]; ok {
 			recipientVoteCount += delta
-			recipientDelta[Recipient] = recipientDelta[Recipient] + 1
+			recipientDelta[Recipient]++
 		} else {
 			recipientDelta[Recipient] = 1
 		}
@@ -475,10 +475,10 @@ func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVSto
 	for _, r := range blkReceipts {
 		batch.Put(
 			blockActionReceiptMappingNS,
-			r.Hash[:],
+			r.ActHash[:],
 			heightBytes[:],
 			"Failed to put receipt index for action %x",
-			r.Hash[:],
+			r.ActHash[:],
 		)
 	}
 	return nil

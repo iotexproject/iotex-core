@@ -101,6 +101,18 @@ func (mr *MockContextMockRecorder) LoggerWithStats() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoggerWithStats", reflect.TypeOf((*MockContext)(nil).LoggerWithStats))
 }
 
+// Height mocks base method
+func (m *MockContext) Height() uint64 {
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// Height indicates an expected call of Height
+func (mr *MockContextMockRecorder) Height() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContext)(nil).Height))
+}
+
 // NewConsensusEvent mocks base method
 func (m *MockContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{}) *ConsensusEvent {
 	ret := m.ctrl.Call(m, "NewConsensusEvent", arg0, arg1)

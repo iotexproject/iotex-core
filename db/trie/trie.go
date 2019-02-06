@@ -36,6 +36,12 @@ var (
 	ErrNotExist = errors.New("not exist in trie")
 )
 
+// DefaultHashFunc implements a default hash function with blake2b.Sum256
+func DefaultHashFunc(data []byte) []byte {
+	h := blake2b.Sum256(data)
+	return h[:]
+}
+
 // Trie is the interface of Merkle Patricia Trie
 type Trie interface {
 	// Start starts the trie and the corresponding dependencies
@@ -144,10 +150,7 @@ func KVStoreOption(kvStore KVStore) Option {
 func NewTrie(options ...Option) (Trie, error) {
 	t := &branchRootTrie{
 		keyLength: 20,
-		hashFunc: func(b []byte) []byte {
-			h := blake2b.Sum256(b)
-			return h[:]
-		},
+		hashFunc:  DefaultHashFunc,
 	}
 	for _, opt := range options {
 		if err := opt(t); err != nil {

@@ -84,7 +84,6 @@ func TestStateTransitions(t *testing.T) {
 		AcceptBlockTTL:               4 * time.Second,
 		AcceptProposalEndorsementTTL: 2 * time.Second,
 		AcceptLockEndorsementTTL:     2 * time.Second,
-		ProposerInterval:             10 * time.Second,
 	}, mockCtx, mockClock)
 	require.Nil(err)
 	require.NotNil(cfsm)
@@ -94,7 +93,7 @@ func TestStateTransitions(t *testing.T) {
 		t.Run("with-error", func(t *testing.T) {
 			mockCtx.EXPECT().Prepare().Return(10*time.Second, errors.New("some error")).Times(1)
 			state, err := cfsm.prepare(nil)
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sPrepare, state)
 			time.Sleep(100 * time.Millisecond)
 			mockClock.Add(10 * time.Second)
@@ -120,6 +119,7 @@ func TestStateTransitions(t *testing.T) {
 			require.NoError(err)
 			require.Equal(sAcceptBlockProposal, state)
 			time.Sleep(100 * time.Millisecond)
+			// garbage collection
 			mockClock.Add(4 * time.Second)
 			evt := <-cfsm.evtq
 			require.Equal(eFailedToReceiveBlock, evt.Type())
@@ -129,10 +129,6 @@ func TestStateTransitions(t *testing.T) {
 			mockClock.Add(2 * time.Second)
 			evt = <-cfsm.evtq
 			require.Equal(eStopReceivingLockEndorsement, evt.Type())
-			// garbage collection
-			mockClock.Add(2 * time.Second)
-			evt = <-cfsm.evtq
-			require.Equal(eFailedToReachConsensusInTime, evt.Type())
 		})
 		t.Run("is-proposer", func(t *testing.T) {
 			t.Run("fail-to-mint", func(t *testing.T) {
@@ -141,7 +137,7 @@ func TestStateTransitions(t *testing.T) {
 				mockCtx.EXPECT().Prepare().Return(time.Duration(0), nil).Times(1)
 				mockCtx.EXPECT().MintBlock().Return(nil, errors.New("some error")).Times(1)
 				state, err := cfsm.prepare(nil)
-				require.Error(err)
+				require.NoError(err)
 				require.Equal(sPrepare, state)
 				evt := <-cfsm.evtq
 				require.Equal(ePrepare, evt.Type())
@@ -159,6 +155,7 @@ func TestStateTransitions(t *testing.T) {
 				require.Equal(sAcceptBlockProposal, state)
 				evt := <-cfsm.evtq
 				require.Equal(eReceiveBlock, evt.Type())
+				// garbage collection
 				time.Sleep(100 * time.Millisecond)
 				mockClock.Add(4 * time.Second)
 				evt = <-cfsm.evtq
@@ -169,10 +166,6 @@ func TestStateTransitions(t *testing.T) {
 				mockClock.Add(2 * time.Second)
 				evt = <-cfsm.evtq
 				require.Equal(eStopReceivingLockEndorsement, evt.Type())
-				// garbage collection
-				mockClock.Add(2 * time.Second)
-				evt = <-cfsm.evtq
-				require.Equal(eFailedToReachConsensusInTime, evt.Type())
 			})
 		})
 	})
@@ -184,12 +177,12 @@ func TestStateTransitions(t *testing.T) {
 		require.Equal(sAcceptBlockProposal, state)
 		t.Run("invalid-fsm-event", func(t *testing.T) {
 			state, err := cfsm.onReceiveBlock(nil)
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptBlockProposal, state)
 		})
 		t.Run("invalid-data-type", func(t *testing.T) {
 			state, err := cfsm.onReceiveBlock(&ConsensusEvent{})
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptBlockProposal, state)
 		})
 		t.Run("fail-to-new-proposal-endorsement", func(t *testing.T) {
@@ -221,7 +214,7 @@ func TestStateTransitions(t *testing.T) {
 	t.Run("onReceiveProposalEndorsement", func(t *testing.T) {
 		t.Run("invalid-fsm-event", func(t *testing.T) {
 			state, err := cfsm.onReceiveProposalEndorsement(nil)
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptProposalEndorsement, state)
 		})
 		t.Run("invalid-data", func(t *testing.T) {
@@ -229,7 +222,7 @@ func TestStateTransitions(t *testing.T) {
 				eventType: eReceiveProposalEndorsement,
 				data:      nil,
 			})
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptProposalEndorsement, state)
 		})
 		t.Run("fail-to-add-proposal-endorsement", func(t *testing.T) {
@@ -262,7 +255,7 @@ func TestStateTransitions(t *testing.T) {
 					eventType: eReceiveProposalEndorsement,
 					data:      NewMockEndorsement(ctrl),
 				})
-				require.Error(err)
+				require.NoError(err)
 				require.Equal(sPrepare, state)
 				evt := <-cfsm.evtq
 				require.Equal(ePrepare, evt.Type())
@@ -291,7 +284,7 @@ func TestStateTransitions(t *testing.T) {
 	t.Run("onReceiveLockEndorsement", func(t *testing.T) {
 		t.Run("invalid-fsm-event", func(t *testing.T) {
 			state, err := cfsm.onReceiveLockEndorsement(nil)
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptLockEndorsement, state)
 		})
 		t.Run("invalid-data", func(t *testing.T) {
@@ -299,7 +292,7 @@ func TestStateTransitions(t *testing.T) {
 				eventType: eReceiveLockEndorsement,
 				data:      nil,
 			})
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptLockEndorsement, state)
 		})
 		t.Run("fail-to-add-lock-endorsement", func(t *testing.T) {
@@ -309,7 +302,7 @@ func TestStateTransitions(t *testing.T) {
 				eventType: eReceiveLockEndorsement,
 				data:      mockEndorsement,
 			})
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptLockEndorsement, state)
 		})
 		t.Run("not-ready-to-pre-commit", func(t *testing.T) {
@@ -331,7 +324,7 @@ func TestStateTransitions(t *testing.T) {
 					eventType: eReceiveLockEndorsement,
 					data:      NewMockEndorsement(ctrl),
 				})
-				require.Error(err)
+				require.NoError(err)
 				require.Equal(sPrepare, state)
 				evt := <-cfsm.evtq
 				require.Equal(ePrepare, evt.Type())
@@ -362,7 +355,7 @@ func TestStateTransitions(t *testing.T) {
 	t.Run("onReceivePreCommitEndorsement", func(t *testing.T) {
 		t.Run("invalid-fsm-event", func(t *testing.T) {
 			state, err := cfsm.onReceivePreCommitEndorsement(nil)
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptPreCommitEndorsement, state)
 		})
 		t.Run("invalid-data", func(t *testing.T) {
@@ -370,7 +363,7 @@ func TestStateTransitions(t *testing.T) {
 				eventType: eReceivePreCommitEndorsement,
 				data:      nil,
 			})
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptPreCommitEndorsement, state)
 		})
 		t.Run("fail-to-add-commit-endorsement", func(t *testing.T) {
@@ -380,7 +373,7 @@ func TestStateTransitions(t *testing.T) {
 				eventType: eReceiveLockEndorsement,
 				data:      mockEndorsement,
 			})
-			require.Error(err)
+			require.NoError(err)
 			require.Equal(sAcceptPreCommitEndorsement, state)
 		})
 		t.Run("not-enough-commit-endorsement", func(t *testing.T) {
@@ -409,11 +402,28 @@ func TestStateTransitions(t *testing.T) {
 			require.Equal(ePrepare, evt.Type())
 		})
 	})
-	t.Run("onFailedToReachConsensusInTime", func(t *testing.T) {
-		state, err := cfsm.onFailedToReachConsensusInTime(nil)
+	t.Run("calibrate", func(t *testing.T) {
+		mockCtx.EXPECT().Height().Return(uint64(2)).Times(2)
+		state, err := cfsm.calibrate(nil)
+		require.Error(err)
+		require.Equal(sPrepare, state)
+		state, err = cfsm.calibrate(&ConsensusEvent{
+			eventType: eCalibrate,
+			data:      nil,
+		})
+		require.Error(err)
+		require.Equal(sPrepare, state)
+		state, err = cfsm.calibrate(&ConsensusEvent{
+			eventType: eCalibrate,
+			data:      uint64(1),
+		})
+		require.Error(err)
+		require.Equal(sPrepare, state)
+		state, err = cfsm.calibrate(&ConsensusEvent{
+			eventType: eCalibrate,
+			data:      uint64(2),
+		})
 		require.NoError(err)
 		require.Equal(sPrepare, state)
-		evt := <-cfsm.evtq
-		require.Equal(ePrepare, evt.Type())
 	})
 }

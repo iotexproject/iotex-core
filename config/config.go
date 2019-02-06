@@ -95,7 +95,6 @@ var (
 			Scheme: NOOPScheme,
 			RollDPoS: RollDPoS{
 				FSM: consensusfsm.Config{
-					ProposerInterval:             10 * time.Second,
 					UnmatchedEventTTL:            3 * time.Second,
 					UnmatchedEventInterval:       100 * time.Millisecond,
 					AcceptBlockTTL:               4 * time.Second,
@@ -109,7 +108,6 @@ var (
 				NumSubEpochs:      1,
 				NumDelegates:      21,
 				TimeBasedRotation: false,
-				EnableDKG:         false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -141,6 +139,7 @@ var (
 			HeartbeatInterval:     10 * time.Second,
 			HTTPProfilingPort:     0,
 			HTTPMetricsPort:       8080,
+			HTTPProbePort:         7788,
 			StartSubChainInterval: 10 * time.Second,
 		},
 		DB: DB{
@@ -227,7 +226,6 @@ type (
 		NumSubEpochs      uint                `yaml:"numSubEpochs"`
 		NumDelegates      uint                `yaml:"numDelegates"`
 		TimeBasedRotation bool                `yaml:"timeBasedRotation"`
-		EnableDKG         bool                `yaml:"enableDKG"`
 	}
 
 	// Dispatcher is the dispatcher config
@@ -268,6 +266,7 @@ type (
 		// 0 by default, meaning performance profiling has been disabled
 		HTTPProfilingPort     int           `yaml:"httpProfilingPort"`
 		HTTPMetricsPort       int           `yaml:"httpMetricsPort"`
+		HTTPProbePort         int           `yaml:"httpProbePort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
 	}
 
@@ -464,11 +463,11 @@ func ValidateKeyPair(cfg Config) error {
 	// Validate producer pubkey and prikey by signing a dummy message and verify it
 	validationMsg := "connecting the physical world block by block"
 	msgHash := hash.Hash256b([]byte(validationMsg))
-	sig, err := crypto.Sign(msgHash[:], priKey)
+	sig, err := crypto.Sign(msgHash, priKey)
 	if err != nil {
 		return err
 	}
-	if !crypto.VerifySignature(pkBytes, msgHash[:], sig[:64]) {
+	if !crypto.VerifySignature(pkBytes, msgHash, sig[:64]) {
 		return errors.Wrap(ErrInvalidCfg, "block producer has unmatched pubkey and prikey")
 	}
 	return nil
@@ -525,7 +524,7 @@ func ValidateRollDPoS(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
 	}
 	ttl := fsm.AcceptLockEndorsementTTL + fsm.AcceptBlockTTL + fsm.AcceptProposalEndorsementTTL
-	if ttl >= fsm.ProposerInterval {
+	if ttl >= rollDPoS.DelegateInterval {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS ttl sum is larger than proposer interval")
 	}
 

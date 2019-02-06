@@ -32,7 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -121,9 +121,9 @@ func (exp *Service) GetAddressDetails(address string) (explorer.AddressDetails, 
 	details := explorer.AddressDetails{
 		Address:      address,
 		TotalBalance: state.Balance.String(),
-		Nonce:        int64((*state).Nonce),
+		Nonce:        int64(state.Nonce),
 		PendingNonce: int64(pendingNonce),
-		IsCandidate:  (*state).IsCandidate,
+		IsCandidate:  state.IsCandidate,
 	}
 
 	return details, nil
@@ -157,30 +157,24 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 		}
 
 		for i := len(selps) - 1; i >= 0; i-- {
-			act := selps[i].Action().(*action.Transfer)
-			if showCoinBase || !act.IsCoinbase() {
-				transferCount++
-			}
+			transferCount++
 
 			if transferCount <= offset {
 				continue
 			}
 
-			// if showCoinBase is true, add coinbase transfers, else only put non-coinbase transfers
-			if showCoinBase || !act.IsCoinbase() {
-				if int64(len(res)) >= limit {
-					return res, nil
-				}
-
-				explorerTransfer, err := convertTsfToExplorerTsf(selps[i], false)
-				if err != nil {
-					return []explorer.Transfer{}, errors.Wrapf(err,
-						"failed to convert transfer %v to explorer's JSON transfer", selps[i])
-				}
-				explorerTransfer.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
-				explorerTransfer.BlockID = blkID
-				res = append(res, explorerTransfer)
+			if int64(len(res)) >= limit {
+				return res, nil
 			}
+
+			explorerTransfer, err := convertTsfToExplorerTsf(selps[i], false)
+			if err != nil {
+				return []explorer.Transfer{}, errors.Wrapf(err,
+					"failed to convert transfer %v to explorer's JSON transfer", selps[i])
+			}
+			explorerTransfer.Timestamp = blk.ConvertToBlockHeaderPb().GetTimestamp().GetSeconds()
+			explorerTransfer.BlockID = blkID
+			res = append(res, explorerTransfer)
 		}
 	}
 
@@ -1813,7 +1807,7 @@ func convertTsfToExplorerTsf(selp action.SealedEnvelope, isPending bool) (explor
 		Fee:        "", // TODO: we need to get the actual fee.
 		Payload:    hex.EncodeToString(transfer.Payload()),
 		GasLimit:   int64(selp.GasLimit()),
-		IsCoinbase: transfer.IsCoinbase(),
+		IsCoinbase: false,
 		IsPending:  isPending,
 	}
 	if transfer.Amount() != nil && len(transfer.Amount().String()) > 0 {
@@ -1899,7 +1893,7 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 	return explorer.Receipt{
 		ReturnValue:     hex.EncodeToString(receipt.ReturnValue),
 		Status:          int64(receipt.Status),
-		Hash:            hex.EncodeToString(receipt.Hash[:]),
+		Hash:            hex.EncodeToString(receipt.ActHash[:]),
 		GasConsumed:     int64(receipt.GasConsumed),
 		ContractAddress: receipt.ContractAddress,
 		Logs:            logs,
@@ -1947,17 +1941,17 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iproto.
 }
 
 func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
-	MaxTransferPayloadBytes uint64) (*iproto.ActionPb, error) {
+	maxTransferPayloadBytes uint64) (*iproto.ActionPb, error) {
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return nil, err
 	}
-	if uint64(len(payload)) > MaxTransferPayloadBytes {
+	if uint64(len(payload)) > maxTransferPayloadBytes {
 		return nil, errors.Wrapf(
 			ErrTransfer,
 			"transfer payload contains %d bytes, and is longer than %d bytes limit",
 			len(payload),
-			MaxTransferPayloadBytes,
+			maxTransferPayloadBytes,
 		)
 	}
 	senderPubKey, err := keypair.StringToPubKeyBytes(tsfJSON.SenderPubKey)
@@ -1979,10 +1973,9 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
 	actPb := &iproto.ActionPb{
 		Action: &iproto.ActionPb_Transfer{
 			Transfer: &iproto.TransferPb{
-				Amount:     amount.Bytes(),
-				Recipient:  tsfJSON.Recipient,
-				Payload:    payload,
-				IsCoinbase: tsfJSON.IsCoinbase,
+				Amount:    amount.Bytes(),
+				Recipient: tsfJSON.Recipient,
+				Payload:   payload,
 			},
 		},
 		Version:      uint32(tsfJSON.Version),

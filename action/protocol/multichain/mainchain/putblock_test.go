@@ -91,6 +91,7 @@ func TestHandlePutBlock(t *testing.T) {
 		SetGasLimit(10003).
 		SetAction(pb).Build()
 	selp, err := action.Sign(elp, addr2.Bech32(), key2.PriKey)
+	require.NoError(t, err)
 
 	// first put
 	_, err = p.Handle(ctx, selp.Action(), ws)
@@ -126,6 +127,7 @@ func TestHandlePutBlock(t *testing.T) {
 		SetGasLimit(10003).
 		SetAction(pb2).Build()
 	selp, err = action.Sign(elp, addr2.Bech32(), key2.PriKey)
+	require.NoError(t, err)
 
 	_, err = p.Handle(ctx, elp.Action(), ws)
 	require.NoError(t, err)

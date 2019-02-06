@@ -47,6 +47,7 @@ const (
 	sAcceptPreCommitEndorsement fsm.State = "S_ACCEPT_PRECOMMIT_ENDORSEMENT"
 
 	// consensus event types
+	eCalibrate                        fsm.EventType = "E_CALIBRATE"
 	ePrepare                          fsm.EventType = "E_PREPARE"
 	eReceiveBlock                     fsm.EventType = "E_RECEIVE_BLOCK"
 	eFailedToReceiveBlock             fsm.EventType = "E_FAILED_TO_RECEIVE_BLOCK"
@@ -55,7 +56,6 @@ const (
 	eReceiveLockEndorsement           fsm.EventType = "E_RECEIVE_LOCK_ENDORSEMENT"
 	eStopReceivingLockEndorsement     fsm.EventType = "E_STOP_RECEIVING_LOCK_ENDORSEMENT"
 	eReceivePreCommitEndorsement      fsm.EventType = "E_RECEIVE_PRECOMMIT_ENDORSEMENT"
-	eFailedToReachConsensusInTime     fsm.EventType = "E_FAILED_TO_REACH_CONSENSUS_IN_TIME"
 
 	// BackdoorEvent indicates a backdoor event type
 	BackdoorEvent fsm.EventType = "E_BACKDOOR"
@@ -82,7 +82,6 @@ var (
 // Config defines a set of time durations used in fsm and event queue size
 type Config struct {
 	EventChanSize                uint          `yaml:"eventChanSize"`
-	ProposerInterval             time.Duration `yaml:"proposerInterval"`
 	UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
 	UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
 	AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
@@ -174,17 +173,11 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 			[]fsm.State{
 				sAcceptPreCommitEndorsement,
 				sPrepare, // reach consensus, start next epoch
-			}).
-		AddTransition(
-			sAcceptPreCommitEndorsement,
-			eFailedToReachConsensusInTime,
-			cm.onFailedToReachConsensusInTime,
-			[]fsm.State{
-				sPrepare, // new round
 			})
 	// Add the backdoor transition so that we could unit test the transition from any given state
 	for _, state := range consensusStates {
 		b = b.AddTransition(state, BackdoorEvent, cm.handleBackdoorEvt, consensusStates)
+		b = b.AddTransition(state, eCalibrate, cm.calibrate, []fsm.State{sPrepare, state})
 	}
 	m, err := b.Build()
 	if err != nil {
@@ -267,6 +260,11 @@ func (m *ConsensusFSM) NumPendingEvents() int {
 	return len(m.evtq)
 }
 
+// Calibrate calibrates the state if necessary
+func (m *ConsensusFSM) Calibrate(height uint64) {
+	m.produce(m.ctx.NewConsensusEvent(eCalibrate, height), 0)
+}
+
 // ProducePrepareEvent produces an ePrepare event after delay
 func (m *ConsensusFSM) ProducePrepareEvent(delay time.Duration) {
 	m.produceConsensusEvent(ePrepare, delay)
@@ -314,11 +312,37 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 	}
 }
 
+func (m *ConsensusFSM) calibrate(evt fsm.Event) (fsm.State, error) {
+	cEvt, ok := evt.(*ConsensusEvent)
+	if !ok {
+		return sPrepare, errors.New("invalid fsm event")
+	}
+	height, ok := cEvt.Data().(uint64)
+	if !ok {
+		return sPrepare, errors.New("invalid data type")
+	}
+	consensusHeight := m.ctx.Height()
+	if consensusHeight > height {
+		return sPrepare, errors.New("ignore old calibrate event")
+	}
+	m.ctx.Logger().Debug(
+		"Calibrate consensus context",
+		zap.Uint64("consensusHeight", consensusHeight),
+		zap.Uint64("height", height),
+	)
+	m.ProducePrepareEvent(0)
+	return sPrepare, nil
+}
+
 func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 	delay, err := m.ctx.Prepare()
-	if err != nil || !m.ctx.IsDelegate() {
+	switch {
+	case err != nil:
+		m.ctx.Logger().Error("Error during prepare", zap.Error(err))
+		fallthrough
+	case !m.ctx.IsDelegate():
 		m.ProducePrepareEvent(delay)
-		return sPrepare, err
+		return sPrepare, nil
 	}
 	m.ctx.Logger().Info("Start a new round", zap.Duration("delay", delay))
 	isProposer := m.ctx.IsProposer()
@@ -327,8 +351,9 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 		m.ctx.Logger().Info("current node is the proposer")
 		if blk, err = m.ctx.MintBlock(); err != nil || blk == nil {
 			// TODO: review the return state
+			m.ctx.Logger().Error("Error when minting a block", zap.Error(err))
 			m.ProducePrepareEvent(0)
-			return sPrepare, errors.Wrap(err, "error when minting a block")
+			return sPrepare, nil
 		}
 	}
 	if delay > 0 {
@@ -341,7 +366,6 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 	m.produceConsensusEvent(eStopReceivingProposalEndorsement, ttl)
 	ttl += m.cfg.AcceptLockEndorsementTTL
 	m.produceConsensusEvent(eStopReceivingLockEndorsement, ttl)
-	m.produceConsensusEvent(eFailedToReachConsensusInTime, m.cfg.ProposerInterval)
 	// TODO add timeout for commit collection
 	if isProposer {
 		m.ctx.Logger().Info("Broadcast init proposal.", log.Hex("blockHash", blk.Hash()))
@@ -356,11 +380,13 @@ func (m *ConsensusFSM) onReceiveBlock(evt fsm.Event) (fsm.State, error) {
 	m.ctx.Logger().Debug("Receive block")
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
-		return sAcceptBlockProposal, errors.Wrapf(ErrEvtCast, "invalid fsm event %+v", evt)
+		m.ctx.Logger().Error("invalid fsm event", zap.Any("event", evt))
+		return sAcceptBlockProposal, nil
 	}
 	block, ok := cEvt.Data().(Endorsement)
 	if !ok {
-		return sAcceptBlockProposal, errors.Wrapf(ErrEvtConvert, "invalid data type")
+		m.ctx.Logger().Error("invalid data type", zap.Any("data", cEvt.Data()))
+		return sAcceptBlockProposal, nil
 	}
 	en, err := m.ctx.NewProposalEndorsement(block)
 	if err != nil {
@@ -392,11 +418,13 @@ func (m *ConsensusFSM) onFailedToReceiveBlock(evt fsm.Event) (fsm.State, error) 
 func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event) (fsm.State, error) {
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
-		return sAcceptProposalEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
+		m.ctx.Logger().Error("failed to cast to consensus event", zap.Any("event", evt))
+		return sAcceptProposalEndorsement, nil
 	}
 	en, ok := cEvt.Data().(Endorsement)
 	if !ok {
-		return sAcceptProposalEndorsement, errors.Wrap(ErrEvtConvert, "invalid data type")
+		m.ctx.Logger().Error("invalid data type", zap.Any("data", cEvt.Data()))
+		return sAcceptProposalEndorsement, nil
 	}
 	err := m.ctx.AddProposalEndorsement(en)
 	if err != nil || !m.ctx.IsLocked() {
@@ -407,13 +435,14 @@ func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event) (fsm.State, e
 	lockEndorsement, err := m.ctx.NewLockEndorsement()
 	if err != nil {
 		// TODO: review return state
+		m.ctx.Logger().Error("error when producing lock endorsement", zap.Error(err))
 		m.ProducePrepareEvent(0)
-		return sPrepare, err
+		return sPrepare, nil
 	}
 	m.ProduceReceiveLockEndorsementEvent(lockEndorsement)
 	m.ctx.BroadcastEndorsement(lockEndorsement)
 
-	return sAcceptLockEndorsement, err
+	return sAcceptLockEndorsement, nil
 }
 
 func (m *ConsensusFSM) onStopReceivingProposalEndorsement(evt fsm.Event) (fsm.State, error) {
@@ -425,23 +454,30 @@ func (m *ConsensusFSM) onStopReceivingProposalEndorsement(evt fsm.Event) (fsm.St
 func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error) {
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
-		return sAcceptLockEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
+		m.ctx.Logger().Error("failed to cast to consensus event", zap.Any("event", evt))
+		return sAcceptLockEndorsement, nil
 	}
 	en, ok := cEvt.Data().(Endorsement)
 	if !ok {
-		return sAcceptLockEndorsement, errors.Wrap(ErrEvtConvert, "invalid data type")
+		m.ctx.Logger().Error("invalid data type", zap.Any("data", cEvt.Data()))
+		return sAcceptLockEndorsement, nil
 	}
 	err := m.ctx.AddLockEndorsement(en)
-	if err != nil || !m.ctx.ReadyToPreCommit() {
-		return sAcceptLockEndorsement, err
+	switch {
+	case err != nil:
+		m.ctx.Logger().Error("failed to add lock endorsement", zap.Error(err))
+		fallthrough
+	case !m.ctx.ReadyToPreCommit():
+		return sAcceptLockEndorsement, nil
 	}
 	m.ctx.LoggerWithStats().Debug("Ready to pre-commit")
 	preCommitEndorsement, err := m.ctx.NewPreCommitEndorsement()
 	if err != nil {
 		// TODO: Review return state
+		m.ctx.Logger().Error("error when producing pre-commit endorsement", zap.Error(err))
 		m.ProducePrepareEvent(0)
 
-		return sPrepare, err
+		return sPrepare, nil
 	}
 	m.ProduceReceivePreCommitEndorsementEvent(preCommitEndorsement)
 	m.ctx.BroadcastEndorsement(preCommitEndorsement)
@@ -460,14 +496,17 @@ func (m *ConsensusFSM) onStopReceivingLockEndorsement(evt fsm.Event) (fsm.State,
 func (m *ConsensusFSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, error) {
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
-		return sAcceptPreCommitEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
+		m.ctx.Logger().Error("failed to cast to consensus event", zap.Any("event", evt))
+		return sAcceptPreCommitEndorsement, nil
 	}
 	en, ok := cEvt.Data().(Endorsement)
 	if !ok {
-		return sAcceptPreCommitEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to endorsement")
+		m.ctx.Logger().Error("invalid data type", zap.Any("data", cEvt.Data()))
+		return sAcceptPreCommitEndorsement, nil
 	}
 	if err := m.ctx.AddPreCommitEndorsement(en); err != nil {
-		return sAcceptPreCommitEndorsement, err
+		m.ctx.Logger().Error("error when adding pre-commit endorsement", zap.Error(err))
+		return sAcceptPreCommitEndorsement, nil
 	}
 	if !m.ctx.ReadyToCommit() {
 		return sAcceptPreCommitEndorsement, nil
@@ -476,14 +515,6 @@ func (m *ConsensusFSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, 
 
 	consensusMtc.WithLabelValues("ReachConsenus").Inc()
 	m.ctx.OnConsensusReached()
-	m.ProducePrepareEvent(0)
-
-	return sPrepare, nil
-}
-
-// TODO: delete this function if time rotation is enabled
-func (m *ConsensusFSM) onFailedToReachConsensusInTime(evt fsm.Event) (fsm.State, error) {
-	m.ctx.LoggerWithStats().Error("doesn't reach consensus in time")
 	m.ProducePrepareEvent(0)
 
 	return sPrepare, nil

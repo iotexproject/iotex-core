@@ -16,7 +16,6 @@ message TransferPb {
     bytes amount  = 1;
     string recipient = 2;
     bytes payload  = 3;
-    bool isCoinbase = 4;
 }
 
 message VotePb {
@@ -28,15 +27,6 @@ message ExecutionPb {
     bytes amount  = 1;
     string contract = 2;
     bytes data = 3;
-}
-
-message SecretProposalPb {
-    string recipient = 1;
-    repeated uint32 secret = 2;
-}
-
-message SecretWitnessPb {
-    repeated bytes witness = 1;
 }
 
 message StartSubChainPb {
@@ -154,33 +144,31 @@ message ActionPb {
         TransferPb transfer = 10;
         VotePb vote = 11;
         ExecutionPb execution = 12;
-        SecretProposalPb secretProposal = 13;
-        SecretWitnessPb secretWitness = 14;
         // FedChain
-        StartSubChainPb startSubChain = 15;
-        StopSubChainPb stopSubChain = 16;
-        PutBlockPb putBlock = 17;
-        CreateDepositPb createDeposit = 18;
-        SettleDepositPb settleDeposit = 19;
+        StartSubChainPb startSubChain = 13;
+        StopSubChainPb stopSubChain = 14;
+        PutBlockPb putBlock = 15;
+        CreateDepositPb createDeposit = 16;
+        SettleDepositPb settleDeposit = 17;
 
         // PlumChain
-        CreatePlumChainPb createPlumChain = 20;
-        TerminatePlumChainPb terminatePlumChain = 21;
-        PlumPutBlockPb plumPutBlock = 22;
-        PlumCreateDepositPb plumCreateDeposit = 23;
-        PlumStartExitPb plumStartExit = 24;
-        PlumChallengeExit plumChallengeExit = 25;
-        PlumResponseChallengeExit plumResponseChallengeExit = 26;
-        PlumFinalizeExit plumFinalizeExit = 27;
-        PlumSettleDepositPb plumSettleDeposit = 28;
-        PlumTransferPb plumTransfer = 29;
+        CreatePlumChainPb createPlumChain = 18;
+        TerminatePlumChainPb terminatePlumChain = 19;
+        PlumPutBlockPb plumPutBlock = 20;
+        PlumCreateDepositPb plumCreateDeposit = 21;
+        PlumStartExitPb plumStartExit = 22;
+        PlumChallengeExit plumChallengeExit = 23;
+        PlumResponseChallengeExit plumResponseChallengeExit = 24;
+        PlumFinalizeExit plumFinalizeExit = 25;
+        PlumSettleDepositPb plumSettleDeposit = 26;
+        PlumTransferPb plumTransfer = 27;
     }
 }
 
 message ReceiptPb {
     bytes returnValue = 1;
     uint64 status = 2;
-    bytes hash = 3;
+    bytes actHash = 3;
     uint64 gasConsumed = 4;
     string contractAddress = 5;
     repeated LogPb logs = 6;

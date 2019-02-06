@@ -76,34 +76,8 @@ func (b *TestingBuilder) SetStateRoot(h hash.Hash32B) *TestingBuilder {
 }
 
 // SetReceipts sets the receipts after running actions included in this building block.
-func (b *TestingBuilder) SetReceipts(rm map[hash.Hash32B]*action.Receipt) *TestingBuilder {
-	b.blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
-	for h, r := range rm {
-		b.blk.Receipts[h] = r
-	}
-	return b
-}
-
-// SetSecretProposals sets the secret proposals for block which is building.
-func (b *TestingBuilder) SetSecretProposals(sp []*action.SecretProposal) *TestingBuilder {
-	b.blk.SecretProposals = sp
-	return b
-}
-
-// SetSecretWitness sets the secret witness for block which is building.
-func (b *TestingBuilder) SetSecretWitness(sw *action.SecretWitness) *TestingBuilder {
-	b.blk.SecretWitness = sw
-	return b
-}
-
-// SetDKG sets the DKG parts for block which is building.
-func (b *TestingBuilder) SetDKG(id, pk, sig []byte) *TestingBuilder {
-	b.blk.Header.dkgID = make([]byte, len(id))
-	copy(b.blk.Header.dkgID, id)
-	b.blk.Header.dkgPubkey = make([]byte, len(pk))
-	copy(b.blk.Header.dkgPubkey, pk)
-	b.blk.Header.dkgBlockSig = make([]byte, len(sig))
-	copy(b.blk.Header.dkgBlockSig, sig)
+func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder {
+	b.blk.Receipts = receipts // make a shallow copy
 	return b
 }
 
@@ -143,37 +117,6 @@ func NewBlockDeprecated(
 			receiptRoot:   hash.ZeroHash32B,
 		},
 		Actions: actions,
-	}
-
-	block.Header.txRoot = block.CalculateTxRoot()
-	return block
-}
-
-// NewSecretBlockDeprecated returns a new DKG secret block
-// This method is deprecated. Only used in old tests.
-func NewSecretBlockDeprecated(
-	chainID uint32,
-	height uint64,
-	prevBlockHash hash.Hash32B,
-	timestamp int64,
-	producer keypair.PublicKey,
-	secretProposals []*action.SecretProposal,
-	secretWitness *action.SecretWitness,
-) *Block {
-	block := &Block{
-		Header: Header{
-			version:       version.ProtocolVersion,
-			chainID:       chainID,
-			height:        height,
-			timestamp:     timestamp,
-			prevBlockHash: prevBlockHash,
-			pubkey:        producer,
-			txRoot:        hash.ZeroHash32B,
-			stateRoot:     hash.ZeroHash32B,
-			receiptRoot:   hash.ZeroHash32B,
-		},
-		SecretProposals: secretProposals,
-		SecretWitness:   secretWitness,
 	}
 
 	block.Header.txRoot = block.CalculateTxRoot()

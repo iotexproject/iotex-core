@@ -9,6 +9,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"math"
@@ -23,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/util"
@@ -91,7 +93,7 @@ func main() {
 	}
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(svrs[i], configs[i])
+		go itx.StartServer(context.Background(), svrs[i], probe.New(7788), configs[i])
 	}
 
 	if err := testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -174,12 +176,12 @@ func main() {
 			}
 			bcHeights[i] = chains[i].TipHeight()
 			cfg := configs[i].Consensus.RollDPoS
-			minTimeout = int(cfg.Delay/time.Second - cfg.FSM.ProposerInterval/time.Second)
+			minTimeout = int(cfg.Delay/time.Second - cfg.DelegateInterval/time.Second)
 			netTimeout = 0
 			if timeout > minTimeout {
 				netTimeout = timeout - minTimeout
 			}
-			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.FSM.ProposerInterval)
+			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.DelegateInterval)
 
 			log.S().Infof("Node#%d blockchain height: %d", i, bcHeights[i])
 			log.S().Infof("Node#%d state      height: %d", i, stateHeights[i])
@@ -235,7 +237,6 @@ func newConfig(
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Consensus.RollDPoS.DelegateInterval = 10 * time.Second
-	cfg.Consensus.RollDPoS.FSM.ProposerInterval = 10 * time.Second
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 4 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second

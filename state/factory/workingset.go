@@ -48,9 +48,10 @@ type (
 	// WorkingSet defines an interface for working set of states changes
 	WorkingSet interface {
 		// states and actions
-		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
+		//RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
 		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
 		UpdateBlockLevelInfo(blockHeight uint64) hash.Hash32B
+		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, []*action.Receipt, error)
 		Snapshot() int
 		Revert(int) error
 		Commit() error
@@ -130,16 +131,16 @@ func (ws *workingSet) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
-) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
+) (hash.Hash32B, []*action.Receipt, error) {
 	// Handle actions
-	receipts := make(map[hash.Hash32B]*action.Receipt)
+	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
 		receipt, err := ws.RunAction(ctx, elp)
 		if err != nil {
 			return hash.ZeroHash32B, nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
-			receipts[elp.Hash()] = receipt
+			receipts = append(receipts, receipt)
 		}
 	}
 	return ws.UpdateBlockLevelInfo(blockHeight), receipts, nil
@@ -174,7 +175,7 @@ func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash32B {
 	ws.blkHeight = blockHeight
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
-	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:], "failed to store accountTrie's root hash")
+	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash, "failed to store accountTrie's root hash")
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	ws.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
@@ -182,7 +183,7 @@ func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash32B {
 	ws.cb.Put(
 		AccountKVNameSpace,
 		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)),
-		rootHash[:],
+		rootHash,
 		"failed to store accountTrie's root hash",
 	)
 	return ws.RootHash()

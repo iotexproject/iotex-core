@@ -37,7 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -197,9 +197,10 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	addr := newTestAddr()
 	r, err := NewRollDPoSBuilder().
 		SetConfig(config.RollDPoS{
-			NumDelegates: 4,
-			NumSubEpochs: 1,
-			FSM:          config.Default.Consensus.RollDPoS.FSM,
+			NumDelegates:     4,
+			NumSubEpochs:     1,
+			FSM:              config.Default.Consensus.RollDPoS.FSM,
+			DelegateInterval: 10 * time.Second,
 		}).
 		SetAddr(addr.encodedAddr).
 		SetPubKey(addr.pubKey).
@@ -214,7 +215,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	r.ctx.round = &roundCtx{height: blockHeight + 1}
-	clock.Add(r.ctx.cfg.FSM.ProposerInterval)
+	clock.Add(r.ctx.cfg.DelegateInterval)
 	require.NoError(t, r.ctx.updateEpoch(blockHeight+1))
 	require.NoError(t, r.ctx.updateRound(blockHeight+1))
 
@@ -298,7 +299,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.ProposerInterval = time.Second
+		cfg.Consensus.RollDPoS.DelegateInterval = time.Second
 		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 400 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 200 * time.Millisecond
@@ -316,7 +317,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		chainRawAddrs := make([]string, 0, numNodes)
-		addressMap := make(map[string]*addrKeyPair, 0)
+		addressMap := make(map[string]*addrKeyPair)
 		for _, addr := range chainAddrs {
 			chainRawAddrs = append(chainRawAddrs, addr.encodedAddr)
 			addressMap[addr.encodedAddr] = addr

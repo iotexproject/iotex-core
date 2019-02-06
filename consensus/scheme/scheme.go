@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 // CreateBlockCB defines the callback to create a new block
@@ -34,6 +34,7 @@ type Scheme interface {
 	lifecycle.StartStopper
 
 	HandleConsensusMsg(msg *iproto.ConsensusPb) error
+	Calibrate(uint64)
 	ValidateBlockFooter(*block.Block) error
 	Metrics() (ConsensusMetrics, error)
 }

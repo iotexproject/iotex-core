@@ -41,7 +41,7 @@ const testTriePath = "trie.test"
 func voteForm(height uint64, cs []*state.Candidate) []string {
 	r := make([]string, len(cs))
 	for i := 0; i < len(cs); i++ {
-		r[i] = (*cs[i]).Address + ":" + strconv.FormatInt((*cs[i]).Votes.Int64(), 10)
+		r[i] = cs[i].Address + ":" + strconv.FormatInt(cs[i].Votes.Int64(), 10)
 	}
 	return r
 }
@@ -1085,7 +1085,7 @@ func TestFactory_RootHashByHeight(t *testing.T) {
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, _, err = ws.RunActions(nil, 1, nil)
+	_, _, err = ws.RunActions(context.Background(), 1, nil)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
@@ -1189,13 +1189,13 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 
 			var chainIDBytes [4]byte
 			enc.MachineEndian.PutUint32(chainIDBytes[:], 1)
-			payload := append(chainIDBytes[:], append([]byte{address.V1.Version}, []byte(randStringRunes(20))...)...)
+			payload := []byte(randStringRunes(20))
 			receiverAddr, err := address.BytesToAddress(payload)
 			if err != nil {
 				b.Fatal(err)
 			}
 			receiver := receiverAddr.Bech32()
-			nonces[senderIdx] = nonces[senderIdx] + 1
+			nonces[senderIdx] += nonces[senderIdx]
 			tx, err := action.NewTransfer(nonces[senderIdx], big.NewInt(1), accounts[senderIdx], receiver, nil, uint64(0), big.NewInt(0))
 			if err != nil {
 				b.Fatal(err)

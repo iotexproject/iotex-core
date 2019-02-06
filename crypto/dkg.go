@@ -113,7 +113,7 @@ func (d *dkg) Init(ms []uint32, ids [][]uint8) ([][]uint32, [][]uint32, [][]byte
 
 		return coeffsDes, sharesDes, witnessByte, nil
 	}
-	return [][]uint32{}, [][]uint32{}, [][]byte{}, errors.New("Failed to initialize shamir secret sharing")
+	return [][]uint32{}, [][]uint32{}, [][]byte{}, errors.New("failed to initialize shamir secret sharing")
 }
 
 // SharesCollect collects and verifies the received keys
@@ -132,7 +132,7 @@ func (d *dkg) SharesCollect(id []uint8, shares [][]uint32, witnesses [][][]byte)
 		for j := 0; j < Degree+1; j++ {
 			point, err := pointDeserialization(witnesses[i][j])
 			if err != nil {
-				return [numnodes]bool{}, errors.New("Failed to deserialize point")
+				return [numnodes]bool{}, errors.New("failed to deserialize point")
 			}
 			witnessList[i][j] = point
 		}

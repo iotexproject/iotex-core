@@ -246,6 +246,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(err)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
+	cs.EXPECT().Calibrate(uint64(1)).Times(1)
 
 	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
 	require.Nil(err)
@@ -304,6 +305,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(err)
 	cs1 := mock_consensus.NewMockConsensus(ctrl)
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
@@ -317,6 +319,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.Nil(err)
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs2, err := NewBlockSyncer(cfg, chain2, ap2, cs2, opts...)
 	require.Nil(err)
 
@@ -390,6 +393,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.Nil(err)
 	cs1 := mock_consensus.NewMockConsensus(ctrl)
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
 	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
@@ -402,6 +406,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.Nil(err)
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs2, err := NewBlockSyncer(cfg, chain2, ap2, cs2, opts...)
 	require.Nil(err)
 
@@ -472,6 +477,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NoError(err)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
 
 	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
 	require.NotNil(bs)

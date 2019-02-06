@@ -20,12 +20,13 @@ func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, cs consensus.Cons
 	if err := cs.ValidateBlockFooter(blk); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
+	cs.Calibrate(blk.Height())
 	// remove transfers in this block from ActPool and reset ActPool state
 	ap.Reset()
 	return nil
