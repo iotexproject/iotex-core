@@ -11,7 +11,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/CoderZhi/go-ethereum/common"
+	"github.com/iotexproject/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -241,7 +241,12 @@ func TestSnapshot(t *testing.T) {
 	k2 := byteutil.BytesTo32B(hash.Hash160b([]byte("dog")))
 	v2 := byteutil.BytesTo32B(hash.Hash256b([]byte("dog")))
 
-	c1, err := newContract(s, db.NewMemKVStore(), db.NewCachedBatch())
+	c1, err := newContract(
+		testaddress.Addrinfo["alfa"].PublicKeyHash(),
+		s,
+		db.NewMemKVStore(),
+		db.NewCachedBatch(),
+	)
 	require.NoError(err)
 	require.NoError(c1.SetState(k2, v2[:]))
 	c2 := c1.Snapshot()

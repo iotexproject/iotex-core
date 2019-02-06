@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -107,10 +106,6 @@ func (ew *endorsementWrapper) Topic() endorsement.ConsensusVoteTopic {
 	return ew.ConsensusVote().Topic
 }
 
-func verifyDKGSignature(blk *block.Block, seedByte []byte) error {
-	return crypto.BLS.Verify(blk.DKGPubkey(), seedByte, blk.DKGSignature())
-}
-
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
 	cfsm *consensusfsm.ConsensusFSM
@@ -122,6 +117,7 @@ func (r *RollDPoS) Start(ctx context.Context) error {
 	if err := r.cfsm.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting the consensus FSM")
 	}
+	r.ctx.round = &roundCtx{height: 0}
 	r.cfsm.ProducePrepareEvent(r.ctx.cfg.Delay)
 	return nil
 }
@@ -133,11 +129,11 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 
 // HandleConsensusMsg handles incoming consensus message
 func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
-	chainHeight := r.ctx.chain.TipHeight()
-	if msg.Height <= chainHeight {
+	consensusHeight := r.ctx.Height()
+	if consensusHeight != 0 && msg.Height < consensusHeight {
 		log.L().Debug(
 			"old consensus message",
-			zap.Uint64("chainHeight", chainHeight),
+			zap.Uint64("consensusHeight", consensusHeight),
 			zap.Uint64("msgHeight", msg.Height),
 		)
 		return nil
@@ -149,12 +145,12 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		if err := block.Deserialize(data); err != nil {
 			return errors.Wrap(err, "failed to deserialize block")
 		}
+		log.L().Debug("receive block message", zap.Any("msg", block))
 		// TODO: add proof of lock
 		if msg.Height != block.Height() {
 			return errors.Errorf(
 				"block height %d is not the same as consensus message height",
 				block.Height(),
-				msg.Height,
 			)
 		}
 		if !block.VerifySignature() {
@@ -166,12 +162,12 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 		if err := en.Deserialize(data); err != nil {
 			return errors.Wrap(err, "error when deserializing a msg to endorsement")
 		}
+		log.L().Debug("receive consensus message", zap.Any("msg", en))
 		ew := &endorsementWrapper{en}
 		if ew.Height() != msg.Height {
 			return errors.Errorf(
 				"endorsement height %d is not the same as consensus message height",
 				ew.Height(),
-				msg.Height,
 			)
 		}
 		if !en.VerifySignature() {
@@ -191,24 +187,39 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	return nil
 }
 
+// Calibrate called on receive a new block not via consensus
+func (r *RollDPoS) Calibrate(height uint64) {
+	r.cfsm.Calibrate(height)
+}
+
 // ValidateBlockFooter validates the signatures in the block footer
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	epoch, err := r.ctx.epochCtxByHeight(blk.Height())
 	if err != nil {
 		return err
 	}
-	proposer, err := r.ctx.getProposer(blk.Height(), blk.Round(), epoch.delegates)
+	round, err := r.ctx.roundCtxByTime(epoch, blk.Height(), time.Unix(blk.Timestamp(), 0))
 	if err != nil {
 		return err
 	}
-	if proposer != blk.ProducerAddress() {
+	if round.proposer != blk.ProducerAddress() {
 		return errors.Errorf(
 			"block proposer %s is invalid, %s expected",
 			blk.ProducerAddress(),
-			proposer,
+			round.proposer,
 		)
 	}
 	if 3*blk.NumOfDelegateEndorsements(epoch.delegates) <= 2*len(epoch.delegates) {
+		log.L().Warn(
+			"Insufficient endorsements in receiving block",
+			zap.Uint64("blockHeight", blk.Height()),
+			zap.Uint64("epoch", epoch.num),
+			zap.Uint32("round", round.number),
+			zap.Int("numOfDelegates", len(epoch.delegates)),
+			zap.Int("numOfDelegateEndorsements", blk.NumOfDelegateEndorsements(epoch.delegates)),
+			zap.Strings("delegates", epoch.delegates),
+		)
+		blk.FooterLogger(log.L()).Info("Endorsements in footer")
 		return errors.New("insufficient endorsements from delegates")
 	}
 
@@ -222,11 +233,6 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	epoch, err := r.ctx.epochCtxByHeight(height + 1)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating epoch")
-	}
-	// Compute block producer
-	_, producer, err := r.ctx.calcProposer(height+1, epoch.delegates, time.Duration(0))
-	if err != nil {
-		return metrics, errors.Wrap(err, "error when calculating the block producer")
 	}
 	// Get all candidates
 	candidates, err := r.ctx.chain.CandidatesByHeight(height)
@@ -242,7 +248,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		LatestEpoch:         epoch.num,
 		LatestHeight:        height,
 		LatestDelegates:     epoch.delegates,
-		LatestBlockProducer: producer,
+		LatestBlockProducer: r.ctx.round.proposer,
 		Candidates:          candidateAddresses,
 	}, nil
 }

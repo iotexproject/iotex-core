@@ -7,47 +7,52 @@
 package keypair
 
 import (
+	"strings"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	publicKey  = "336eb60a5741f585a8e81de64e071327a3b96c15af4af5723598a07b6121e8e813bbd0056ba71ae29c0d64252e913f60afaeb11059908b81ff27cbfa327fd371d35f5ec0cbc01705"
-	privateKey = "925f0c9e4b6f6d92f2961d01aff6204c44d73c0b9d0da188582932d4fcad0d8ee8c66600"
+	publicKey  = "04403d3c0dbd3270ddfc248c3df1f9aafd60f1d8e7456961c9ef26292262cc68f0ea9690263bef9e197a38f06026814fc70912c2b98d2e90a68f8ddc5328180a01"
+	privateKey = "82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90"
 )
 
 func TestKeypair(t *testing.T) {
 	require := require.New(t)
 
 	_, err := DecodePublicKey("")
-	require.Equal(ErrPublicKey, errors.Cause(err))
+	require.True(strings.Contains(err.Error(), "invalid secp256k1 public key"))
 	_, err = DecodePrivateKey("")
-	require.Equal(ErrPrivateKey, errors.Cause(err))
+	require.True(strings.Contains(err.Error(), "invalid length, need 256 bits"))
 
 	pubKey, err := DecodePublicKey(publicKey)
-	require.Nil(err)
+	require.NoError(err)
 	priKey, err := DecodePrivateKey(privateKey)
-	require.Nil(err)
+	require.NoError(err)
 
 	require.Equal(publicKey, EncodePublicKey(pubKey))
 	require.Equal(privateKey, EncodePrivateKey(priKey))
 
+	pubKeyBytes := PublicKeyToBytes(pubKey)
+	priKeyBytes := PrivateKeyToBytes(priKey)
+
+	_, err = BytesToPublicKey([]byte{1, 2, 3})
+	require.Error(err)
+	_, err = BytesToPrivateKey([]byte{4, 5, 6})
+	require.Error(err)
+
+	pk, err := BytesToPublicKey(pubKeyBytes)
+	require.NoError(err)
+	sk, err := BytesToPrivateKey(priKeyBytes)
+	require.NoError(err)
+
+	require.Equal(publicKey, EncodePublicKey(pk))
+	require.Equal(privateKey, EncodePrivateKey(sk))
+
 	_, err = StringToPubKeyBytes("")
-	require.Equal(ErrPublicKey, errors.Cause(err))
-	_, err = StringToPriKeyBytes("")
-	require.Equal(ErrPrivateKey, errors.Cause(err))
+	require.Error(err)
 
-	pubKeyBytes, err := StringToPubKeyBytes(publicKey)
-	require.Nil(err)
-	priKeyBytes, err := StringToPriKeyBytes(privateKey)
-	require.Nil(err)
-
-	pubKeyString, err := BytesToPubKeyString(pubKeyBytes)
-	require.Nil(err)
-	priKeyString, err := BytesToPriKeyString(priKeyBytes)
-	require.Nil(err)
-	require.Equal(publicKey, pubKeyString)
-	require.Equal(privateKey, priKeyString)
+	_, err = StringToPubKeyBytes(publicKey)
+	require.NoError(err)
 }

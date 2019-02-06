@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/CoderZhi/go-ethereum/common"
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -101,11 +101,12 @@ func runExecution(
 		testaddress.Keyinfo["producer"].PubKey,
 		testaddress.Keyinfo["producer"].PriKey,
 		testaddress.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return nil, err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return nil, err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -121,8 +122,7 @@ func (sct *smartContractTest) prepareBlockchain(
 ) blockchain.Blockchain {
 	cfg := config.Default
 	cfg.Chain.EnableGasCharge = true
-	cfg.Chain.WriteIndexInChainDB = true
-	cfg.Explorer.Enabled = true
+	cfg.Chain.EnableIndex = true
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemDaoOption(),
@@ -217,8 +217,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableGasCharge = true
-		cfg.Chain.WriteIndexInChainDB = true
-		cfg.Explorer.Enabled = true
+		cfg.Chain.EnableIndex = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
@@ -267,15 +266,16 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
 		eHash := execution.Hash()
 		r, _ := bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.Hash)
+		require.Equal(eHash, r.ActHash)
 		contract, err := address.Bech32ToAddress(r.ContractAddress)
 		require.NoError(err)
 		ws, err = sf.NewWorkingSet()
@@ -302,7 +302,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(blk.HashBlock(), blkHash)
 
 		// store to key 0
-		contractAddr := "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6"
+		contractAddr := "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq"
 		data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
 		execution, err = action.NewExecution(
 			testaddress.Addrinfo["producer"].Bech32(), contractAddr, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
@@ -325,9 +325,10 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
@@ -340,10 +341,10 @@ func TestProtocol_Handle(t *testing.T) {
 
 		eHash = execution.Hash()
 		r, _ = bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.Hash)
+		require.Equal(eHash, r.ActHash)
 
 		// read from key 0
-		contractAddr = "io1qxxmp4gy39mjrgkvfpje6aqlwc77x8f4vu5kl9k6"
+		contractAddr = "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq"
 		data, _ = hex.DecodeString("6d4ce63c")
 		execution, err = action.NewExecution(
 			testaddress.Addrinfo["producer"].Bech32(), contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
@@ -365,15 +366,16 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
 		eHash = execution.Hash()
 		r, _ = bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.Hash)
+		require.Equal(eHash, r.ActHash)
 
 		data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
 		execution1, err := action.NewExecution(
@@ -395,9 +397,10 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["alfa"].PubKey,
 			testaddress.Keyinfo["alfa"].PriKey,
 			testaddress.Addrinfo["alfa"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 		ws, _ = sf.NewWorkingSet()
@@ -418,8 +421,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableGasCharge = true
-		cfg.Chain.WriteIndexInChainDB = true
-		cfg.Explorer.Enabled = true
+		cfg.Chain.EnableIndex = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
@@ -471,15 +473,16 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		log.S().Info("======= Test RollDice")
 		eHash := execution.Hash()
 		r, _ := bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.Hash)
+		require.Equal(eHash, r.ActHash)
 		contractAddr := r.ContractAddress
 		data, _ = hex.DecodeString("d0e30db0")
 		execution, err = action.NewExecution(
@@ -502,9 +505,10 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		balance, err := bc.Balance(contractAddr)
@@ -512,7 +516,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(0, balance.Cmp(big.NewInt(500000000)))
 
 		log.S().Info("Roll Dice")
-		data, _ = hex.DecodeString("797d9fbd000000000000000000000000fd99ea5ad63d9d3a8a4d614bcae1380695022558")
+		data, _ = hex.DecodeString("797d9fbd000000000000000000000000d950673630e2286adc157c35f2fd73a1ef49d40e")
 		execution, err = action.NewExecution(
 			testaddress.Addrinfo["producer"].Bech32(), contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
@@ -533,9 +537,10 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		// verify balance
@@ -571,9 +576,10 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		balance, err = bc.Balance(testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(err)
@@ -592,8 +598,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg := config.Default
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.WriteIndexInChainDB = true
-		cfg.Explorer.Enabled = true
+		cfg.Chain.EnableIndex = true
 		bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
@@ -645,15 +650,16 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
 		eHash := execution.Hash()
 		r, _ := bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.Hash)
+		require.Equal(eHash, r.ActHash)
 		contract := r.ContractAddress
 		contractAddr, err := address.Bech32ToAddress(contract)
 		require.NoError(err)
@@ -724,9 +730,10 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		log.S().Info("======= Transfer to bravo")
@@ -757,9 +764,10 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["alfa"].PubKey,
 			testaddress.Keyinfo["alfa"].PriKey,
 			testaddress.Addrinfo["alfa"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		// get balance
@@ -784,15 +792,16 @@ func TestProtocol_Handle(t *testing.T) {
 			testaddress.Keyinfo["producer"].PubKey,
 			testaddress.Keyinfo["producer"].PriKey,
 			testaddress.Addrinfo["producer"].Bech32(),
+			0,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk, true))
+		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 
 		// verify balance
 		eHash = execution.Hash()
 		r, _ = bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.Hash)
+		require.Equal(eHash, r.ActHash)
 		h = r.ReturnValue[len(r.ReturnValue)-8:]
 		amount := binary.BigEndian.Uint64(h)
 		require.Equal(uint64(8000), amount)

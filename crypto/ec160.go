@@ -63,7 +63,7 @@ func (c *ec160) NewPubKey(priv []byte) ([]byte, error) {
 
 // Sign signs the msg
 func (c *ec160) Sign(priv []byte, msg []byte) []byte {
-	msgString := string(msg[:])
+	msgString := string(msg)
 	privKey, err := c.privateKeyDeserialization(priv)
 	if err != nil {
 		return nil
@@ -79,7 +79,7 @@ func (c *ec160) Sign(priv []byte, msg []byte) []byte {
 
 // Verify verifies the signature
 func (c *ec160) Verify(pub []byte, msg []byte, sig []byte) bool {
-	msgString := string(msg[:])
+	msgString := string(msg)
 	pubKey, err := c.publicKeyDeserialization(pub)
 	if err != nil {
 		return false
@@ -108,7 +108,7 @@ func (c *ec160) publicKeySerialization(pubKey C.ec160_point_aff) ([]byte, error)
 func (c *ec160) publicKeyDeserialization(pubKey []byte) (C.ec160_point_aff, error) {
 	var xy [10]uint32
 	var pub C.ec160_point_aff
-	rbuf := bytes.NewReader(pubKey[:])
+	rbuf := bytes.NewReader(pubKey)
 	err := binary.Read(rbuf, enc.MachineEndian, &xy)
 	if err != nil {
 		return pub, err
@@ -136,7 +136,7 @@ func (c *ec160) privateKeySerialization(privKey [5]C.uint32_t) ([]byte, error) {
 func (c *ec160) privateKeyDeserialization(privKey []byte) ([5]C.uint32_t, error) {
 	var d [5]uint32
 	var priv [5]C.uint32_t
-	rbuf := bytes.NewReader(privKey[:])
+	rbuf := bytes.NewReader(privKey)
 	err := binary.Read(rbuf, enc.MachineEndian, &d)
 	if err != nil {
 		return priv, err

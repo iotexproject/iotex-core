@@ -13,7 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 // Noop is the consensus scheme that does NOT create blocks
@@ -36,6 +36,9 @@ func (n *Noop) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	log.L().Warn("Noop scheme does not handle incoming consensus message.")
 	return nil
 }
+
+// Calibrate triggers an event to calibrate consensus context
+func (n *Noop) Calibrate(uint64) {}
 
 // ValidateBlockFooter validates the block footer
 func (n *Noop) ValidateBlockFooter(*block.Block) error {

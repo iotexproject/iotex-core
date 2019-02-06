@@ -17,15 +17,12 @@ import (
 
 // V1 is a singleton and defines V1 address metadata
 var V1 = v1{
-	AddressLength: 21,
-	Version:       1,
+	AddressLength: 20,
 }
 
 type v1 struct {
 	// AddressLength indicates the byte length of an address
 	AddressLength int
-	// Version indicates the version number
-	Version uint8
 }
 
 // New constructs an address struct
@@ -49,15 +46,8 @@ func (v *v1) BytesToAddress(bytes []byte) (*AddrV1, error) {
 	if len(bytes) != v.AddressLength {
 		return nil, errors.Wrapf(ErrInvalidAddr, "invalid address length in bytes: %d", len(bytes))
 	}
-	if version := bytes[0]; version != v.Version {
-		return nil, errors.Wrapf(
-			ErrInvalidAddr,
-			"the address represented by the bytes is of version %d",
-			version,
-		)
-	}
 	var pkHash hash.PKHash
-	copy(pkHash[:], bytes[1:])
+	copy(pkHash[:], bytes)
 	return &AddrV1{
 		pkHash: pkHash,
 	}, nil
@@ -72,42 +62,29 @@ func (v *v1) Bech32ToPKHash(encodedAddr string) (hash.PKHash, error) {
 	return addr.PublicKeyHash(), nil
 }
 
-// Bech32ToID returns the DKG Address ID from an encoded address
-func (v *v1) Bech32ToID(encodedAddr string) []uint8 {
-	return hash.Hash256b([]byte(encodedAddr))
-}
-
 func (v *v1) decodeBech32(encodedAddr string) ([]byte, error) {
 	hrp, grouped, err := bech32.Decode(encodedAddr)
 	if hrp != prefix() {
 		return nil, errors.Wrapf(err, "hrp %s and address prefix %s don't match", hrp, prefix())
 	}
 	// Group the payload into 8 bit groups.
-	payload, err := bech32.ConvertBits(grouped[:], 5, 8, false)
+	payload, err := bech32.ConvertBits(grouped, 5, 8, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error when converting 5 bit groups into the payload")
 	}
 	return payload, nil
 }
 
-// AddrV1 is V1 address format to be used on IoTeX blockchain and subchains. It is composed of parts in the
-// following order:
-// 1. 20 bytes: hash derived from the the public key
+// AddrV1 is V1 address format to be used on IoTeX blockchain and subchains. It is composed of
+// 20 bytes: hash derived from the the public key:
 type AddrV1 struct {
 	pkHash hash.PKHash
-}
-
-// DKGAddress contains a pair of DKGkey and a DKGID
-type DKGAddress struct {
-	PrivateKey []uint32
-	PublicKey  []byte
-	ID         []uint8
 }
 
 // Bech32 encodes an address struct into a a Bech32 encoded address string
 // The encoded address string will start with "io" for mainnet, and with "it" for testnet
 func (addr *AddrV1) Bech32() string {
-	payload := append([]byte{V1.Version}, addr.pkHash[:]...)
+	payload := addr.pkHash[:]
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {
@@ -124,12 +101,7 @@ func (addr *AddrV1) Bech32() string {
 
 // Bytes converts an address struct into a byte array
 func (addr *AddrV1) Bytes() []byte {
-	return append([]byte{1}, addr.pkHash[:]...)
-}
-
-// Version returns the address version
-func (addr *AddrV1) Version() uint8 {
-	return V1.Version
+	return addr.pkHash[:]
 }
 
 // Payload returns the payload, which is the public key hash

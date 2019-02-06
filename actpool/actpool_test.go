@@ -9,6 +9,7 @@ package actpool
 import (
 	"context"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -85,7 +86,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		SetDestinationAddress(addr1).Build()
 	selp := action.FakeSeal(elp, addr1, pubKey1)
 	err = validator.Validate(context.Background(), selp)
-	require.Equal(action.ErrAction, errors.Cause(err))
+	require.True(strings.Contains(err.Error(), "incorrect length of signature"))
 	// Case IV: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(50),
 		[]byte{}, uint64(100000), big.NewInt(0))
@@ -207,7 +208,7 @@ func TestActPool_AddActs(t *testing.T) {
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
-		nTsf, err := testutil.SignedTransfer(addr1, addr2, priKey2, uint64(i), big.NewInt(50), nil, uint64(0), big.NewInt(0))
+		nTsf, err := testutil.SignedTransfer(addr1, addr2, priKey2, i, big.NewInt(50), nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
 
 		ap2.allActions[nTsf.Hash()] = nTsf

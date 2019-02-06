@@ -7,16 +7,18 @@
 package config
 
 import (
+	"encoding/hex"
 	"flag"
 	"os"
 	"time"
 
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
-	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -59,7 +61,7 @@ var (
 	Default = Config{
 		NodeType: FullNodeType,
 		Network: Network{
-			Host:           "127.0.0.1",
+			Host:           "0.0.0.0",
 			Port:           4689,
 			ExternalHost:   "",
 			ExternalPort:   4689,
@@ -68,12 +70,11 @@ var (
 		},
 		Chain: Chain{
 			ChainDBPath:                  "/tmp/chain.db",
-			WriteIndexInChainDB:          false,
 			TrieDBPath:                   "/tmp/trie.db",
 			ID:                           1,
 			Address:                      "",
-			ProducerPubKey:               keypair.EncodePublicKey(keypair.ZeroPublicKey),
-			ProducerPrivKey:              keypair.EncodePrivateKey(keypair.ZeroPrivateKey),
+			ProducerPubKey:               keypair.EncodePublicKey(&PrivateKey.PublicKey),
+			ProducerPrivKey:              keypair.EncodePrivateKey(PrivateKey),
 			GenesisActionsPath:           "",
 			EmptyGenesis:                 false,
 			NumCandidates:                101,
@@ -81,17 +82,19 @@ var (
 			EnableSubChainStartInGenesis: false,
 			EnableGasCharge:              false,
 			EnableTrielessStateDB:        true,
+			EnableIndex:                  false,
+			EnableAsyncIndexWrite:        false,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
 			MaxNumActsPerAcct: 2000,
 			MaxNumActsToPick:  0,
+			ActionExpiry:      10 * time.Minute,
 		},
 		Consensus: Consensus{
 			Scheme: NOOPScheme,
 			RollDPoS: RollDPoS{
 				FSM: consensusfsm.Config{
-					ProposerInterval:             10 * time.Second,
 					UnmatchedEventTTL:            3 * time.Second,
 					UnmatchedEventInterval:       100 * time.Millisecond,
 					AcceptBlockTTL:               4 * time.Second,
@@ -99,12 +102,12 @@ var (
 					AcceptLockEndorsementTTL:     2 * time.Second,
 					EventChanSize:                10000,
 				},
+				ToleratedOvertime: 2 * time.Second,
 				DelegateInterval:  10 * time.Second,
 				Delay:             5 * time.Second,
 				NumSubEpochs:      1,
 				NumDelegates:      21,
 				TimeBasedRotation: false,
-				EnableDKG:         false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -136,6 +139,7 @@ var (
 			HeartbeatInterval:     10 * time.Second,
 			HTTPProfilingPort:     0,
 			HTTPMetricsPort:       8080,
+			HTTPProbePort:         7788,
 			StartSubChainInterval: 10 * time.Second,
 		},
 		DB: DB{
@@ -160,6 +164,9 @@ var (
 		ValidateActPool,
 		ValidateChain,
 	}
+
+	// PrivateKey is a randomly generated producer's key for testing purpose
+	PrivateKey, _ = crypto.GenerateKey()
 )
 
 // Network is the config struct for network package
@@ -176,7 +183,6 @@ type (
 	// Chain is the config struct for blockchain package
 	Chain struct {
 		ChainDBPath                  string `yaml:"chainDBPath"`
-		WriteIndexInChainDB          bool   `yaml:"writeIndexInChainDB"`
 		TrieDBPath                   string `yaml:"trieDBPath"`
 		ID                           uint32 `yaml:"id"`
 		Address                      string `yaml:"address"`
@@ -191,6 +197,10 @@ type (
 
 		// enable gas charge for block producer
 		EnableGasCharge bool `yaml:"enableGasCharge"`
+		// enable index the block actions and receipts
+		EnableIndex bool `yaml:"enableIndex"`
+		// enable writing the block actions' and receipts' index asynchronously
+		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -210,12 +220,12 @@ type (
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
 		FSM               consensusfsm.Config `yaml:"fsm"`
+		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
 		DelegateInterval  time.Duration       `yaml:"delegateInterval"`
 		Delay             time.Duration       `yaml:"delay"`
 		NumSubEpochs      uint                `yaml:"numSubEpochs"`
 		NumDelegates      uint                `yaml:"numDelegates"`
 		TimeBasedRotation bool                `yaml:"timeBasedRotation"`
-		EnableDKG         bool                `yaml:"enableDKG"`
 	}
 
 	// Dispatcher is the dispatcher config
@@ -256,6 +266,7 @@ type (
 		// 0 by default, meaning performance profiling has been disabled
 		HTTPProfilingPort     int           `yaml:"httpProfilingPort"`
 		HTTPMetricsPort       int           `yaml:"httpMetricsPort"`
+		HTTPProbePort         int           `yaml:"httpProbePort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
 	}
 
@@ -268,6 +279,8 @@ type (
 		// MaxNumActsToPick indicates maximum number of actions to pick to mint a block. Default is 0, which means no
 		// limit on the number of actions to pick.
 		MaxNumActsToPick uint64 `yaml:"maxNumActsToPick"`
+		// ActionExpiry defines how long an action will be kept in action pool.
+		ActionExpiry time.Duration `yaml:"actionExpiry"`
 	}
 
 	// DB is the config for database
@@ -348,7 +361,7 @@ func New(validates ...Validate) (Config, error) {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
 	}
 
-	// set network master key to pub key
+	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
 	}
@@ -428,33 +441,33 @@ func (cfg Config) BlockchainAddress() (address.Address, error) {
 func (cfg Config) KeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
 	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
 	if err != nil {
-		return keypair.ZeroPublicKey,
-			keypair.ZeroPrivateKey,
-			errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
+		return nil, nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
 	}
 	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
-		return keypair.ZeroPublicKey,
-			keypair.ZeroPrivateKey,
-			errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
+		return nil, nil, errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
 	}
 	return pk, sk, nil
 }
 
 // ValidateKeyPair validates the block producer address
 func ValidateKeyPair(cfg Config) error {
-	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	pkBytes, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
 	if err != nil {
 		return err
 	}
-	pubKey, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		return err
 	}
 	// Validate producer pubkey and prikey by signing a dummy message and verify it
 	validationMsg := "connecting the physical world block by block"
-	sig := crypto.EC283.Sign(priKey, []byte(validationMsg))
-	if !crypto.EC283.Verify(pubKey, []byte(validationMsg), sig) {
+	msgHash := hash.Hash256b([]byte(validationMsg))
+	sig, err := crypto.Sign(msgHash, priKey)
+	if err != nil {
+		return err
+	}
+	if !crypto.VerifySignature(pkBytes, msgHash, sig[:64]) {
 		return errors.Wrap(ErrInvalidCfg, "block producer has unmatched pubkey and prikey")
 	}
 	return nil
@@ -511,7 +524,7 @@ func ValidateRollDPoS(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
 	}
 	ttl := fsm.AcceptLockEndorsementTTL + fsm.AcceptBlockTTL + fsm.AcceptProposalEndorsementTTL
-	if ttl >= fsm.ProposerInterval {
+	if ttl >= rollDPoS.DelegateInterval {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS ttl sum is larger than proposer interval")
 	}
 

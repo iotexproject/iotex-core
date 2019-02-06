@@ -9,6 +9,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"math"
@@ -20,10 +21,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/util"
@@ -76,6 +77,7 @@ func main() {
 			networkPort, explorerPort)
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
+			config.Network.MasterKey = "bootnode"
 		}
 		configs[i] = config
 	}
@@ -91,7 +93,7 @@ func main() {
 	}
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(svrs[i], configs[i])
+		go itx.StartServer(context.Background(), svrs[i], probe.New(7788), configs[i])
 	}
 
 	if err := testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
@@ -174,12 +176,12 @@ func main() {
 			}
 			bcHeights[i] = chains[i].TipHeight()
 			cfg := configs[i].Consensus.RollDPoS
-			minTimeout = int(cfg.Delay/time.Second - cfg.FSM.ProposerInterval/time.Second)
+			minTimeout = int(cfg.Delay/time.Second - cfg.DelegateInterval/time.Second)
 			netTimeout = 0
 			if timeout > minTimeout {
 				netTimeout = timeout - minTimeout
 			}
-			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.FSM.ProposerInterval)
+			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.DelegateInterval)
 
 			log.S().Infof("Node#%d blockchain height: %d", i, bcHeights[i])
 			log.S().Infof("Node#%d state      height: %d", i, stateHeights[i])
@@ -219,27 +221,28 @@ func newConfig(
 	cfg.NodeType = config.DelegateType
 
 	cfg.Network.Port = networkPort
-	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWHvPz67ohcSczMF43QqXVtDoTtLmy8qCbbpccM3gYVKNi"}
+	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
 	cfg.Chain.GenesisActionsPath = genesisConfigPath
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.NumCandidates = numNodes
-	cfg.Chain.WriteIndexInChainDB = true
+	cfg.Chain.EnableIndex = true
+	cfg.Chain.EnableAsyncIndexWrite = true
 
-	producerPubKey, _ := crypto.EC283.NewPubKey(producerPriKey)
+	producerPubKey := &producerPriKey.PublicKey
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(producerPubKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(producerPriKey)
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Consensus.RollDPoS.DelegateInterval = 10 * time.Second
-	cfg.Consensus.RollDPoS.FSM.ProposerInterval = 10 * time.Second
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 4 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
+	cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
 	cfg.Consensus.RollDPoS.NumSubEpochs = 2
 	cfg.Consensus.RollDPoS.NumDelegates = numNodes

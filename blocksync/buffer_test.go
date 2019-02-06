@@ -46,6 +46,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	defer ctrl.Finish()
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
 		require.Nil(chain.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -63,8 +64,13 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinSkipNil, re)
 
-	blk, err := chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk, err := chain.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.Nil(err)
 	moved, re = b.Flush(blk)
 	assert.Equal(true, moved)
@@ -138,6 +144,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	defer ctrl.Finish()
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
 		require.Nil(chain.Stop(ctx))
 		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -176,7 +183,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(4),
-		hash.Hash32B{},
+		blk.HashBlock(),
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -187,7 +194,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(5),
-		hash.Hash32B{},
+		blk.HashBlock(),
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -198,7 +205,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(6),
-		hash.Hash32B{},
+		blk.HashBlock(),
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -209,7 +216,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(8),
-		hash.Hash32B{},
+		blk.HashBlock(),
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -220,7 +227,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(14),
-		hash.Hash32B{},
+		blk.HashBlock(),
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -231,7 +238,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(16),
-		hash.Hash32B{},
+		blk.HashBlock(),
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -244,8 +251,13 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert.Len(b.GetBlocksIntervalsToSync(5), 2)
 	assert.Len(b.GetBlocksIntervalsToSync(1), 1)
 
-	blk, err = chain.MintNewBlock(nil, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey, ta.Addrinfo["producer"].Bech32())
+	blk, err = chain.MintNewBlock(
+		nil,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].Bech32(),
+		0,
+	)
 	require.Nil(err)
 	b.Flush(blk)
 	assert.Len(b.GetBlocksIntervalsToSync(0), 0)

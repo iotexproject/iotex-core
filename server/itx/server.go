@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
@@ -42,6 +43,7 @@ type Server struct {
 	mainChainProtocol    *mainchain.Protocol
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
+	subModuleCancel      context.CancelFunc
 }
 
 // NewServer creates a new server
@@ -110,18 +112,20 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
-	if err := s.p2pAgent.Start(ctx); err != nil {
+	cctx, cancel := context.WithCancel(context.Background())
+	s.subModuleCancel = cancel
+	if err := s.p2pAgent.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting P2P agent")
 	}
 	if err := s.rootChainService.Blockchain().AddSubscriber(s); err != nil {
 		return errors.Wrap(err, "error when starting sub-chain starter")
 	}
 	for _, cs := range s.chainservices {
-		if err := cs.Start(ctx); err != nil {
+		if err := cs.Start(cctx); err != nil {
 			return errors.Wrap(err, "error when starting blockchain")
 		}
 	}
-	if err := s.dispatcher.Start(ctx); err != nil {
+	if err := s.dispatcher.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting dispatcher")
 	}
 
@@ -130,19 +134,20 @@ func (s *Server) Start(ctx context.Context) error {
 
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
-	if err := s.rootChainService.Blockchain().RemoveSubscriber(s); err != nil {
-		return errors.Wrap(err, "error when unsubscribing root chain block creation")
+	defer s.subModuleCancel()
+	if err := s.p2pAgent.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping P2P agent")
 	}
 	if err := s.dispatcher.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping dispatcher")
+	}
+	if err := s.rootChainService.Blockchain().RemoveSubscriber(s); err != nil {
+		return errors.Wrap(err, "error when unsubscribing root chain block creation")
 	}
 	for _, cs := range s.chainservices {
 		if err := cs.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping blockchain")
 		}
-	}
-	if err := s.p2pAgent.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping P2P agent")
 	}
 	return nil
 }
@@ -241,17 +246,12 @@ func (s *Server) Dispatcher() dispatcher.Dispatcher {
 }
 
 // StartServer starts a node server
-func StartServer(svr *Server, cfg config.Config) {
-	ctx := context.Background()
+func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg config.Config) {
 	if err := svr.Start(ctx); err != nil {
 		log.L().Fatal("Failed to start server.", zap.Error(err))
 		return
 	}
-	defer func() {
-		if err := svr.Stop(ctx); err != nil {
-			log.L().Panic("Failed to stop server.", zap.Error(err))
-		}
-	}()
+	probeSvr.Ready()
 
 	if cfg.System.HeartbeatInterval > 0 {
 		task := routine.NewRecurringTask(NewHeartbeatHandler(svr).Log, cfg.System.HeartbeatInterval)
@@ -278,17 +278,29 @@ func StartServer(svr *Server, cfg config.Config) {
 		}()
 	}
 
+	var mserv http.Server
 	if cfg.System.HTTPMetricsPort > 0 {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
 		log.RegisterLevelConfigMux(mux)
-		registerHealthCheckMux(mux)
 		port := fmt.Sprintf(":%d", cfg.System.HTTPMetricsPort)
+		mserv = http.Server{
+			Addr:    port,
+			Handler: mux,
+		}
 		go func() {
-			if err := http.ListenAndServe(port, mux); err != nil {
+			if err := mserv.ListenAndServe(); err != nil {
 				log.L().Error("Error when serving metrics data.", zap.Error(err))
 			}
 		}()
 	}
-	select {}
+
+	<-ctx.Done()
+	probeSvr.NotReady()
+	if err := mserv.Shutdown(ctx); err != nil {
+		log.L().Error("Error when serving metrics data.", zap.Error(err))
+	}
+	if err := svr.Stop(ctx); err != nil {
+		log.L().Panic("Failed to stop server.", zap.Error(err))
+	}
 }

@@ -18,10 +18,12 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
@@ -54,6 +56,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 		Header: &iproto.BlockHeaderPb{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
+			Pubkey:  keypair.PublicKeyToBytes(pubKey1),
 		},
 		Actions: []*iproto.ActionPb{
 			{
@@ -61,7 +64,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Transfer: &iproto.TransferPb{Recipient: addr2},
 				},
 				Sender:       addr1,
-				SenderPubKey: pubKey1[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 				Version:      version.ProtocolVersion,
 				Nonce:        101,
 			},
@@ -70,7 +73,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Vote: &iproto.VotePb{VoteeAddress: addr2},
 				},
 				Sender:       addr1,
-				SenderPubKey: pubKey1[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 				Version:      version.ProtocolVersion,
 				Nonce:        103,
 			},
@@ -79,7 +82,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Execution: &iproto.ExecutionPb{Contract: addr2},
 				},
 				Sender:       addr1,
-				SenderPubKey: pubKey1[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 				Version:      version.ProtocolVersion,
 				Nonce:        104,
 			},
@@ -88,7 +91,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	require.NoError(err)
 	receipts := []*action.Receipt{
 		{
-			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
 			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
@@ -96,7 +99,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 		{
-			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("2"))),
+			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("2"))),
 			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,
@@ -104,9 +107,9 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 	}
-	blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
+	blk.Receipts = make([]*action.Receipt, 0)
 	for _, receipt := range receipts {
-		blk.Receipts[receipt.Hash] = receipt
+		blk.Receipts = append(blk.Receipts, receipt)
 	}
 
 	err = idx.BuildIndex(&blk)
@@ -117,11 +120,11 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 
 	// get receipt
-	blkHash, err := idx.GetBlockByIndex(IndexReceipt, receipts[0].Hash)
+	blkHash, err := idx.GetBlockByIndex(IndexReceipt, receipts[0].Hash())
 	require.Nil(err)
 	require.Equal(blkHash, blk.HashBlock())
 
-	blkHash, err = idx.GetBlockByIndex(IndexReceipt, receipts[1].Hash)
+	blkHash, err = idx.GetBlockByIndex(IndexReceipt, receipts[1].Hash())
 	require.Nil(err)
 	require.Equal(blkHash, blk.HashBlock())
 
@@ -194,6 +197,8 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 func TestIndexServiceOnSqlite3(t *testing.T) {
 	t.Run("Indexer", func(t *testing.T) {
+		testutil.CleanupPath(t, config.Default.DB.SQLITE3.SQLite3File)
+		defer testutil.CleanupPath(t, config.Default.DB.SQLITE3.SQLite3File)
 		testSQLite3StorePutGet(sql.NewSQLite3(config.Default.DB.SQLITE3), t)
 	})
 }

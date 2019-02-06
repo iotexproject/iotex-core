@@ -10,8 +10,9 @@ import (
 	"bytes"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -158,8 +159,17 @@ func (s *Set) ToProto() *iproto.EndorsementSet {
 	}
 
 	return &iproto.EndorsementSet{
-		BlockHash:    s.blkHash[:],
+		BlockHash:    s.blkHash,
 		Round:        s.round,
 		Endorsements: endorsements,
 	}
+}
+
+// EndorsementsLogger logs the details of the endorsements in the set
+func (s *Set) EndorsementsLogger(l *zap.Logger) *zap.Logger {
+	for i, en := range s.endorsements {
+		l = l.With(zap.Object(string(i), en))
+	}
+
+	return l
 }

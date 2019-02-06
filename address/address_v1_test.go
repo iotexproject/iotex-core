@@ -11,22 +11,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 func TestAddress(t *testing.T) {
 	runTest := func(t *testing.T) {
-		pk, _, err := crypto.EC283.NewKeyPair()
+		sk, err := crypto.GenerateKey()
 		require.NoError(t, err)
 
-		pkHash := keypair.HashPubKey(pk)
+		pkHash := keypair.HashPubKey(&sk.PublicKey)
 
 		assertAddr := func(t *testing.T, addr *AddrV1) {
-			assert.Equal(t, uint8(1), addr.Version())
 			assert.Equal(t, pkHash[:], addr.Payload())
 			assert.Equal(t, pkHash, addr.PublicKeyHash())
 		}
@@ -63,10 +62,10 @@ func TestAddress(t *testing.T) {
 func TestAddressError(t *testing.T) {
 	t.Parallel()
 
-	pk, _, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
-	pkHash := keypair.HashPubKey(pk)
+	pkHash := keypair.HashPubKey(&sk.PublicKey)
 	addr1 := V1.New(pkHash)
 	require.NoError(t, err)
 

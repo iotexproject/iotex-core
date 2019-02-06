@@ -25,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -34,6 +34,7 @@ type Consensus interface {
 	lifecycle.StartStopper
 
 	HandleConsensusMsg(*iproto.ConsensusPb) error
+	Calibrate(uint64)
 	ValidateBlockFooter(*block.Block) error
 	Metrics() (scheme.ConsensusMetrics, error)
 }
@@ -82,13 +83,14 @@ func NewConsensus(
 		}
 	}
 
+	clock := clock.New()
 	cs := &IotxConsensus{cfg: cfg.Consensus}
 	mintBlockCB := func() (*block.Block, error) {
 		actionMap := ap.PendingActionMap()
 		log.L().Debug("Pick actions.", zap.Int("actions", len(actionMap)))
 
 		pk, sk, addr := GetAddr(cfg)
-		blk, err := bc.MintNewBlock(actionMap, pk, sk, addr)
+		blk, err := bc.MintNewBlock(actionMap, pk, sk, addr, clock.Now().Unix())
 		if err != nil {
 			log.L().Error("Failed to mint a block.", zap.Error(err))
 			return nil, err
@@ -117,7 +119,6 @@ func NewConsensus(
 	}
 
 	var err error
-	clock := clock.New()
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
 		pk, sk, addr := GetAddr(cfg)
@@ -216,6 +217,11 @@ func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 // HandleConsensusMsg handles consensus messages
 func (c *IotxConsensus) HandleConsensusMsg(propose *iproto.ConsensusPb) error {
 	return c.scheme.HandleConsensusMsg(propose)
+}
+
+// Calibrate triggers an event to calibrate consensus context
+func (c *IotxConsensus) Calibrate(height uint64) {
+	c.scheme.Calibrate(height)
 }
 
 // ValidateBlockFooter validates the signatures in block footer

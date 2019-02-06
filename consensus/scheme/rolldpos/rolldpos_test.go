@@ -17,23 +17,27 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
+	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/p2p/node"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -58,18 +62,14 @@ var testAddrs = []*addrKeyPair{
 }
 
 func newTestAddr() *addrKeyPair {
-	pk, sk, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	if err != nil {
-		log.L().Panic("error when creating test IoTeX address", zap.Error(err))
+		log.L().Panic("Error when creating private key.", zap.Error(err))
 	}
+	pk := &sk.PublicKey
 	pkHash := keypair.HashPubKey(pk)
 	addr := address.New(pkHash[:])
-
-	return &addrKeyPair{
-		pubKey:      pk,
-		priKey:      sk,
-		encodedAddr: addr.Bech32(),
-	}
+	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.Bech32()}
 }
 
 func test21Addrs() []*addrKeyPair {
@@ -173,8 +173,19 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		candidates[i] = testAddrs[i].encodedAddr
 	}
 
+	clock := clock.NewMock()
+	blockHeight := uint64(8)
+	blk := block.NewBlockDeprecated(
+		1,
+		blockHeight,
+		hash.Hash32B{},
+		testutil.TimestampNowFromClock(clock),
+		testAddrs[0].pubKey,
+		make([]action.SealedEnvelope, 0),
+	)
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().TipHeight().Return(uint64(8)).Times(1)
+	blockchain.EXPECT().TipHeight().Return(blockHeight).Times(1)
+	blockchain.EXPECT().GetBlockByHeight(blockHeight).Return(blk, nil).Times(1)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
 		{Address: candidates[1]},
@@ -185,7 +196,12 @@ func TestRollDPoS_Metrics(t *testing.T) {
 
 	addr := newTestAddr()
 	r, err := NewRollDPoSBuilder().
-		SetConfig(config.RollDPoS{NumDelegates: 4, NumSubEpochs: 1}).
+		SetConfig(config.RollDPoS{
+			NumDelegates:     4,
+			NumSubEpochs:     1,
+			FSM:              config.Default.Consensus.RollDPoS.FSM,
+			DelegateInterval: 10 * time.Second,
+		}).
 		SetAddr(addr.encodedAddr).
 		SetPubKey(addr.pubKey).
 		SetPriKey(addr.priKey).
@@ -194,15 +210,20 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
+		SetClock(clock).
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
+	r.ctx.round = &roundCtx{height: blockHeight + 1}
+	clock.Add(r.ctx.cfg.DelegateInterval)
+	require.NoError(t, r.ctx.updateEpoch(blockHeight+1))
+	require.NoError(t, r.ctx.updateRound(blockHeight+1))
 
 	m, err := r.Metrics()
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
 
-	crypto.SortCandidates(candidates, m.LatestEpoch, crypto.CryptoSeed)
+	cp.SortCandidates(candidates, m.LatestEpoch, cp.CryptoSeed)
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
 }
@@ -278,14 +299,15 @@ func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.ProposerInterval = 1 * time.Second
+		cfg.Consensus.RollDPoS.DelegateInterval = time.Second
 		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 400 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 200 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.UnmatchedEventTTL = 400 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 10 * time.Millisecond
+		cfg.Consensus.RollDPoS.ToleratedOvertime = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 		cfg.Consensus.RollDPoS.NumSubEpochs = 1
-		// TODO: re-enable DKG
-		cfg.Consensus.RollDPoS.EnableDKG = false
 
 		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
@@ -295,12 +317,12 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}
 
 		chainRawAddrs := make([]string, 0, numNodes)
-		addressMap := make(map[string]*addrKeyPair, 0)
+		addressMap := make(map[string]*addrKeyPair)
 		for _, addr := range chainAddrs {
 			chainRawAddrs = append(chainRawAddrs, addr.encodedAddr)
 			addressMap[addr.encodedAddr] = addr
 		}
-		crypto.SortCandidates(chainRawAddrs, 1, crypto.CryptoSeed)
+		cp.SortCandidates(chainRawAddrs, 1, cp.CryptoSeed)
 		for i, rawAddress := range chainRawAddrs {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
@@ -353,7 +375,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 			consensus, err := NewRollDPoSBuilder().
 				SetAddr(chainAddrs[i].encodedAddr).
-				SetPubKey(chainAddrs[i].pubKey).
+				SetPubKey(&chainAddrs[i].priKey.PublicKey).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(cfg.Consensus.RollDPoS).
 				SetBlockchain(chain).
@@ -401,7 +423,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 4*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
 			for _, chain := range chains {
 				if blk, err := chain.GetBlockByHeight(1); blk == nil || err != nil {
 					return false, nil

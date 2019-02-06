@@ -17,8 +17,9 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/pkg/enc"
 )
 
 const (
@@ -70,7 +71,7 @@ func (b *bls) NewPubKey(sk []uint32) ([]byte, error) {
 func (b *bls) Sign(privkey []uint32, msg []byte) (bool, []byte, error) {
 	var sigSer [sigSize]C.uint32_t
 	var privkeySer [privkeySize]C.uint32_t
-	msgString := string(msg[:])
+	msgString := string(msg)
 	for i := 0; i < privkeySize; i++ {
 		privkeySer[i] = (C.uint32_t)(privkey[i])
 	}
@@ -87,7 +88,7 @@ func (b *bls) Sign(privkey []uint32, msg []byte) (bool, []byte, error) {
 
 // Verify verifies a signature
 func (b *bls) Verify(pubkey []byte, msg []byte, signature []byte) error {
-	msgString := string(msg[:])
+	msgString := string(msg)
 	pk, err := twistPointDeserialization(pubkey)
 	if err != nil {
 		return err
@@ -161,7 +162,7 @@ func (b *bls) VerifyAggregate(ids [][]uint8, pubkeys [][]byte, msg []byte, aggsi
 	var idsSer [Degree + 1][idlength]C.uint8_t
 	var pubkeysSer [Degree + 1]C.ec_point_aff_twist
 	var err error
-	msgString := string(msg[:])
+	msgString := string(msg)
 
 	for i := 0; i < Degree+1; i++ {
 		for j := 0; j < idlength; j++ {
@@ -227,7 +228,7 @@ func pointSerialization(point C.ec160_point_aff) ([]byte, error) {
 func pointDeserialization(point []byte) (C.ec160_point_aff, error) {
 	var xl [10]uint32
 	var ecPoint C.ec160_point_aff
-	rbuf := bytes.NewReader(point[:])
+	rbuf := bytes.NewReader(point)
 	err := binary.Read(rbuf, enc.MachineEndian, &xl)
 	if err != nil {
 		return ecPoint, err
@@ -260,7 +261,7 @@ func twistPointSerialization(point C.ec_point_aff_twist) ([]byte, error) {
 func twistPointDeserialization(point []byte) (C.ec_point_aff_twist, error) {
 	var xl [30]uint32
 	var ecPoint C.ec_point_aff_twist
-	rbuf := bytes.NewReader(point[:])
+	rbuf := bytes.NewReader(point)
 	err := binary.Read(rbuf, enc.MachineEndian, &xl)
 	if err != nil {
 		return ecPoint, err

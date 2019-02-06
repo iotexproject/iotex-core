@@ -516,16 +516,16 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, producerPubKey keypair.PublicKey, producerPriKey keypair.PrivateKey, producerAddr string) (*block.Block, error) {
-	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, producerPubKey, producerPriKey, producerAddr)
+func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, producerPubKey keypair.PublicKey, producerPriKey keypair.PrivateKey, producerAddr string, timestamp int64) (*block.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, producerPubKey, producerPriKey, producerAddr, timestamp)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(actionMap, producerPubKey, producerPriKey, producerAddr interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), actionMap, producerPubKey, producerPriKey, producerAddr)
+func (mr *MockBlockchainMockRecorder) MintNewBlock(actionMap, producerPubKey, producerPriKey, producerAddr, timestamp interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), actionMap, producerPubKey, producerPriKey, producerAddr, timestamp)
 }
 
 // CommitBlock mocks base method
@@ -541,15 +541,15 @@ func (mr *MockBlockchainMockRecorder) CommitBlock(blk interface{}) *gomock.Call 
 }
 
 // ValidateBlock mocks base method
-func (m *MockBlockchain) ValidateBlock(blk *block.Block, containCoinbase bool) error {
-	ret := m.ctrl.Call(m, "ValidateBlock", blk, containCoinbase)
+func (m *MockBlockchain) ValidateBlock(blk *block.Block) error {
+	ret := m.ctrl.Call(m, "ValidateBlock", blk)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ValidateBlock indicates an expected call of ValidateBlock
-func (mr *MockBlockchainMockRecorder) ValidateBlock(blk, containCoinbase interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk, containCoinbase)
+func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
 }
 
 // Validator mocks base method

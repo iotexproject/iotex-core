@@ -109,7 +109,7 @@ func constructPutSubChainBlockRequest(
 		Version:         int64(selp.Version()),
 		Nonce:           int64(selp.Nonce()),
 		SenderAddress:   selp.SrcAddr(),
-		SenderPubKey:    hex.EncodeToString(senderPubKey[:]),
+		SenderPubKey:    keypair.EncodePublicKey(senderPubKey),
 		GasLimit:        int64(selp.GasLimit()),
 		GasPrice:        selp.GasPrice().String(),
 		SubChainAddress: pb.SubChainAddress(),

@@ -14,7 +14,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/iotexproject/go-ethereum/crypto"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -23,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -131,13 +131,7 @@ func TestLocalCommit(t *testing.T) {
 	change.Add(change, test)
 
 	require.Equal(
-		big.NewInt(0).Add(
-			blockchain.ConvertIotxToRau(3000000000),
-			big.NewInt(0).Mul(
-				blockchain.Gen.BlockReward,
-				big.NewInt(int64(bc.TipHeight())),
-			),
-		),
+		blockchain.ConvertIotxToRau(3000000000),
 		change,
 	)
 	t.Log("Total balance match")
@@ -190,9 +184,10 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk1, true))
+	require.Nil(chain.ValidateBlock(blk1))
 	require.Nil(chain.CommitBlock(blk1))
 
 	// transfer 2
@@ -208,9 +203,10 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk2, true))
+	require.Nil(chain.ValidateBlock(blk2))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act2 := tsf2.Proto()
@@ -236,9 +232,10 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk3, true))
+	require.Nil(chain.ValidateBlock(blk3))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act3 := tsf3.Proto()
@@ -264,9 +261,10 @@ func TestLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk4, true))
+	require.Nil(chain.ValidateBlock(blk4))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act4 := tsf4.Proto()
@@ -343,13 +341,7 @@ func TestLocalCommit(t *testing.T) {
 	change.Add(change, test)
 
 	require.Equal(
-		big.NewInt(0).Add(
-			blockchain.ConvertIotxToRau(3000000000),
-			big.NewInt(0).Mul(
-				blockchain.Gen.BlockReward,
-				big.NewInt(int64(bc.TipHeight())),
-			),
-		),
+		blockchain.ConvertIotxToRau(3000000000),
 		change,
 	)
 	t.Log("Total balance match")
@@ -605,13 +597,13 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
 	blk1, err := chain.MintNewBlock(
-		actionMap,
-		ta.Keyinfo["producer"].PubKey,
+		actionMap, ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk1, true))
+	require.Nil(chain.ValidateBlock(blk1))
 	require.Nil(chain.CommitBlock(blk1))
 
 	require.NoError(p.BroadcastOutbound(p2pCtx, blk1.ConvertToBlockPb()))
@@ -638,9 +630,10 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk2, true))
+	require.Nil(chain.ValidateBlock(blk2))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act4 := vote4.Proto()
@@ -690,9 +683,10 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk3, true))
+	require.Nil(chain.ValidateBlock(blk3))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act6 := vote6.Proto()
@@ -725,8 +719,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["bravo"].Bech32(), candidatesAddr[0])
-	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[1])
+	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[0])
+	require.Equal(ta.Addrinfo["bravo"].Bech32(), candidatesAddr[1])
 
 	// Add block 4
 	// Unvote B
@@ -744,9 +738,10 @@ func TestVoteLocalCommit(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk4, true))
+	require.Nil(chain.ValidateBlock(blk4))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act7 := selp.Proto()
@@ -779,8 +774,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["alfa"].Bech32(), candidatesAddr[0])
-	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[1])
+	require.Equal(ta.Addrinfo["delta"].Bech32(), candidatesAddr[0])
+	require.Equal(ta.Addrinfo["alfa"].Bech32(), candidatesAddr[1])
 }
 
 func TestBlockchainRecovery(t *testing.T) {
@@ -835,11 +830,11 @@ func newTestConfig() (config.Config, error) {
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 
-	pk, sk, err := crypto.EC283.NewKeyPair()
+	sk, err := crypto.GenerateKey()
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
+	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&sk.PublicKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	return cfg, nil
 }

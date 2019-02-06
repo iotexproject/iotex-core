@@ -12,16 +12,18 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -30,10 +32,9 @@ type Block struct {
 	Header
 	Footer
 
-	Actions         []action.SealedEnvelope
-	SecretProposals []*action.SecretProposal
-	SecretWitness   *action.SecretWitness
-	Receipts        map[hash.Hash32B]*action.Receipt
+	Actions []action.SealedEnvelope
+	// TODO: move receipts out of block struct
+	Receipts []*action.Receipt
 
 	WorkingSet factory.WorkingSet
 }
@@ -43,10 +44,7 @@ func (b *Block) ByteStream() []byte {
 	stream := b.Header.ByteStream()
 
 	// Add the stream of blockSig
-	stream = append(stream, b.Header.blockSig[:]...)
-	stream = append(stream, b.Header.dkgID[:]...)
-	stream = append(stream, b.Header.dkgPubkey[:]...)
-	stream = append(stream, b.Header.dkgBlockSig[:]...)
+	stream = append(stream, b.Header.blockSig...)
 
 	for _, act := range b.Actions {
 		stream = append(stream, act.ByteStream()...)
@@ -69,11 +67,8 @@ func (b *Block) ConvertToBlockHeaderPb() *iproto.BlockHeaderPb {
 	pbHeader.StateRoot = b.Header.stateRoot[:]
 	pbHeader.DeltaStateDigest = b.Header.deltaStateDigest[:]
 	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
-	pbHeader.Signature = b.Header.blockSig[:]
-	pbHeader.Pubkey = b.Header.pubkey[:]
-	pbHeader.DkgID = b.Header.dkgID[:]
-	pbHeader.DkgPubkey = b.Header.dkgPubkey[:]
-	pbHeader.DkgSignature = b.Header.dkgBlockSig[:]
+	pbHeader.Signature = b.Header.blockSig
+	pbHeader.Pubkey = keypair.PublicKeyToBytes(b.Header.pubkey)
 	return &pbHeader
 }
 
@@ -109,10 +104,12 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iproto.BlockPb) {
 	copy(b.Header.deltaStateDigest[:], pbBlock.GetHeader().GetDeltaStateDigest())
 	copy(b.Header.receiptRoot[:], pbBlock.GetHeader().GetReceiptRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
-	copy(b.Header.pubkey[:], pbBlock.GetHeader().GetPubkey())
-	b.Header.dkgID = pbBlock.GetHeader().GetDkgID()
-	b.Header.dkgPubkey = pbBlock.GetHeader().GetDkgPubkey()
-	b.Header.dkgBlockSig = pbBlock.GetHeader().GetDkgSignature()
+
+	pubKey, err := keypair.BytesToPublicKey(pbBlock.GetHeader().GetPubkey())
+	if err != nil {
+		log.L().Panic("Failed to unmarshal public key.", zap.Error(err))
+	}
+	b.Header.pubkey = pubKey
 }
 
 // ConvertFromBlockPb converts BlockPb to Block
@@ -127,7 +124,6 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iproto.BlockPb) error {
 			return err
 		}
 		b.Actions = append(b.Actions, act)
-		// TODO handle SecretProposal and SecretWitness
 	}
 
 	return b.ConvertFromBlockFooterPb(pbBlock.GetFooter())
@@ -191,7 +187,19 @@ func (b *Block) VerifyDeltaStateDigest(digest hash.Hash32B) error {
 func (b *Block) VerifySignature() bool {
 	blkHash := b.HashBlock()
 
-	return crypto.EC283.Verify(b.Header.pubkey, blkHash[:], b.Header.blockSig)
+	if len(b.Header.blockSig) != action.SignatureLength {
+		return false
+	}
+	return crypto.VerifySignature(keypair.PublicKeyToBytes(b.Header.pubkey), blkHash[:],
+		b.Header.blockSig[:action.SignatureLength-1])
+}
+
+// VerifyReceiptRoot verifies the receipt root in header
+func (b *Block) VerifyReceiptRoot(root hash.Hash32B) error {
+	if b.Header.receiptRoot != root {
+		return errors.New("receipt root hash does not match")
+	}
+	return nil
 }
 
 // ProducerAddress returns the address of producer
@@ -212,11 +220,12 @@ func (b *Block) RunnableActions() RunnableActions {
 		blockProducerPubKey: b.Header.pubkey,
 		blockProducerAddr:   addr.Bech32(),
 		actions:             b.Actions,
+		txHash:              b.txRoot,
 	}
 }
 
 // Finalize creates a footer for the block
-func (b *Block) Finalize(set *endorsement.Set, round uint32, ts time.Time) error {
+func (b *Block) Finalize(set *endorsement.Set, ts time.Time) error {
 	if b.endorsements != nil {
 		return errors.New("the block has been finalized")
 	}
@@ -227,9 +236,21 @@ func (b *Block) Finalize(set *endorsement.Set, round uint32, ts time.Time) error
 	if err != nil {
 		return err
 	}
-	b.round = round
 	b.endorsements = commitEndorsements
 	b.commitTimestamp = ts.Unix()
 
 	return nil
+}
+
+// FooterLogger logs the endorsements in block footer
+func (b *Block) FooterLogger(l *zap.Logger) *zap.Logger {
+	if b.endorsements == nil {
+		h := b.HashBlock()
+		return l.With(
+			log.Hex("blockHash", h[:]),
+			zap.Uint64("blockHeight", b.Height()),
+			zap.Int("numOfEndorsements", 0),
+		)
+	}
+	return b.endorsements.EndorsementsLogger(l)
 }

@@ -7,10 +7,10 @@
 package block
 
 import (
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -65,34 +65,14 @@ func (b *Builder) SetDeltaStateDigest(h hash.Hash32B) *Builder {
 }
 
 // SetReceipts sets the receipts after running actions included in this building block.
-func (b *Builder) SetReceipts(rm map[hash.Hash32B]*action.Receipt) *Builder {
-	b.blk.Receipts = make(map[hash.Hash32B]*action.Receipt)
-	for h, r := range rm {
-		b.blk.Receipts[h] = r
-	}
+func (b *Builder) SetReceipts(receipts []*action.Receipt) *Builder {
+	b.blk.Receipts = receipts // make a shallow copy
 	return b
 }
 
-// SetSecretProposals sets the secret proposals for block which is building.
-func (b *Builder) SetSecretProposals(sp []*action.SecretProposal) *Builder {
-	b.blk.SecretProposals = sp
-	return b
-}
-
-// SetSecretWitness sets the secret witness for block which is building.
-func (b *Builder) SetSecretWitness(sw *action.SecretWitness) *Builder {
-	b.blk.SecretWitness = sw
-	return b
-}
-
-// SetDKG sets the DKG parts for block which is building.
-func (b *Builder) SetDKG(id, pk, sig []byte) *Builder {
-	b.blk.Header.dkgID = make([]byte, len(id))
-	copy(b.blk.Header.dkgID, id)
-	b.blk.Header.dkgPubkey = make([]byte, len(pk))
-	copy(b.blk.Header.dkgPubkey, pk)
-	b.blk.Header.dkgBlockSig = make([]byte, len(sig))
-	copy(b.blk.Header.dkgBlockSig, sig)
+// SetReceiptRoot sets the receipt root after running actions included in this building block.
+func (b *Builder) SetReceiptRoot(h hash.Hash32B) *Builder {
+	b.blk.Header.receiptRoot = h
 	return b
 }
 
@@ -100,8 +80,8 @@ func (b *Builder) SetDKG(id, pk, sig []byte) *Builder {
 func (b *Builder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.pubkey = signerPubKey
 	blkHash := b.blk.HashBlock()
-	sig := crypto.EC283.Sign(signerPriKey, blkHash[:])
-	if len(sig) == 0 {
+	sig, err := crypto.Sign(blkHash[:], signerPriKey)
+	if err != nil {
 		return Block{}, errors.New("Failed to sign block")
 	}
 	b.blk.Header.blockSig = sig

@@ -12,10 +12,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	glog "log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	_ "net/http/pprof"
 
@@ -24,6 +27,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
@@ -42,12 +46,36 @@ func init() {
 }
 
 func main() {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	signal.Notify(stop, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	livenessCtx, livenessCancel := context.WithCancel(context.Background())
+
 	cfg, err := config.New()
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
-
 	initLogger(cfg)
+
+	// liveness start
+	probeSvr := probe.New(cfg.System.HTTPProbePort)
+	if err := probeSvr.Start(ctx); err != nil {
+		log.L().Fatal("Failed to start probe server.", zap.Error(err))
+	}
+	go func() {
+		<-stop
+		// start stopping
+		cancel()
+		<-stopped
+
+		// liveness end
+		if err := probeSvr.Stop(livenessCtx); err != nil {
+			log.L().Error("Error when stopping probe server.", zap.Error(err))
+		}
+		livenessCancel()
+	}()
 
 	// create and start the node
 	svr, err := itx.NewServer(cfg)
@@ -65,7 +93,9 @@ func main() {
 		}
 	}
 
-	itx.StartServer(svr, cfg)
+	itx.StartServer(ctx, svr, probeSvr, cfg)
+	close(stopped)
+	<-livenessCtx.Done()
 }
 
 func initLogger(cfg config.Config) {

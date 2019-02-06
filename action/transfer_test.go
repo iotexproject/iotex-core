@@ -43,11 +43,3 @@ func TestTransferSignVerify(t *testing.T) {
 	// verify signature
 	require.NoError(Verify(selp))
 }
-
-func TestCoinbaseTsf(t *testing.T) {
-	require := require.New(t)
-	recipientAddr := testaddress.Addrinfo["bravo"]
-	coinbaseTsf := NewCoinBaseTransfer(1, big.NewInt(int64(5)), recipientAddr.Bech32())
-	require.NotNil(t, coinbaseTsf)
-	require.True(coinbaseTsf.isCoinbase)
-}

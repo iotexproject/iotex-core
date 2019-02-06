@@ -7,17 +7,20 @@
 package endorsement
 
 import (
+	"encoding/hex"
+
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 // ConsensusVoteTopic defines the topic of an consensus vote
@@ -55,7 +58,7 @@ func (en *ConsensusVote) Hash() hash.Hash32B {
 	stream := byteutil.Uint64ToBytes(en.Height)
 	stream = append(stream, uint8(en.Topic))
 	stream = append(stream, byteutil.Uint32ToBytes(en.Round)...)
-	stream = append(stream, en.BlkHash[:]...)
+	stream = append(stream, en.BlkHash...)
 
 	return blake2b.Sum256(stream)
 }
@@ -71,11 +74,16 @@ type Endorsement struct {
 // NewEndorsement creates an Endorsement for an consensus vote
 func NewEndorsement(object *ConsensusVote, endorserPubKey keypair.PublicKey, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
 	hash := object.Hash()
+	sig, err := crypto.Sign(hash[:], endorserPriKey)
+	if err != nil {
+		log.L().Error("Failed to sign endorsement.")
+		return nil
+	}
 	return &Endorsement{
 		object:         object,
 		endorser:       endorserAddr,
 		endorserPubkey: endorserPubKey,
-		signature:      crypto.EC283.Sign(endorserPriKey, hash[:]),
+		signature:      sig,
 	}
 }
 
@@ -102,7 +110,7 @@ func (en *Endorsement) Signature() []byte {
 // VerifySignature verifies that the endorse with pubkey
 func (en *Endorsement) VerifySignature() bool {
 	hash := en.object.Hash()
-	return crypto.EC283.Verify(en.endorserPubkey, hash[:], en.signature)
+	return crypto.VerifySignature(keypair.PublicKeyToBytes(en.endorserPubkey), hash[:], en.signature[:64])
 }
 
 // ToProtoMsg converts an endorsement to endorse proto
@@ -124,10 +132,10 @@ func (en *Endorsement) ToProtoMsg() *iproto.Endorsement {
 	return &iproto.Endorsement{
 		Height:         vote.Height,
 		Round:          vote.Round,
-		BlockHash:      vote.BlkHash[:],
+		BlockHash:      vote.BlkHash,
 		Topic:          topic,
 		Endorser:       en.Endorser(),
-		EndorserPubKey: pubkey[:],
+		EndorserPubKey: keypair.PublicKeyToBytes(pubkey),
 		Decision:       true,
 		Signature:      en.Signature(),
 	}
@@ -183,9 +191,16 @@ func (en *Endorsement) Deserialize(bs []byte) error {
 	if err := proto.Unmarshal(bs, &pb); err != nil {
 		return err
 	}
-	if err := en.FromProtoMsg(&pb); err != nil {
-		return err
-	}
+	return en.FromProtoMsg(&pb)
+}
+
+// MarshalLogObject marshals the endorsement to a zap object
+func (en *Endorsement) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	oe.AddUint8("topic", uint8(en.object.Topic))
+	oe.AddString("warrantee", hex.EncodeToString(en.object.BlkHash))
+	oe.AddUint64("height", en.object.Height)
+	oe.AddUint32("round", en.object.Round)
+	oe.AddString("endorser", en.endorser)
 
 	return nil
 }

@@ -10,9 +10,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/CoderZhi/go-ethereum/accounts/abi/bind"
-	"github.com/CoderZhi/go-ethereum/common"
-	"github.com/CoderZhi/go-ethereum/ethclient"
+	"github.com/iotexproject/go-ethereum/accounts/abi/bind"
+	"github.com/iotexproject/go-ethereum/common"
+	"github.com/iotexproject/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 )
 

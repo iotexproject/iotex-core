@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/jsonpb"
@@ -74,11 +75,12 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	)
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -120,10 +122,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -136,10 +139,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -174,10 +178,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		time.Now().Unix(),
 	); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -218,8 +223,7 @@ func TestExplorerApi(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.WriteIndexInChainDB = true
-	cfg.Explorer.Enabled = true
+	cfg.Chain.EnableIndex = true
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -228,8 +232,6 @@ func TestExplorerApi(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
-	require.Nil(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// create chain
 	ctx := context.Background()
@@ -245,6 +247,11 @@ func TestExplorerApi(t *testing.T) {
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	require.NoError(addCreatorToFactory(sf))
 
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
@@ -295,7 +302,7 @@ func TestExplorerApi(t *testing.T) {
 		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
 	}
 	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, true)
-	require.Equal(5, len(transfers))
+	require.Equal(1, len(transfers))
 	require.Nil(err)
 	for i := 0; i < len(transfers)-1; i++ {
 		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
@@ -340,7 +347,7 @@ func TestExplorerApi(t *testing.T) {
 
 	transfers, err = svc.GetTransfersByBlockID(blks[2].ID, 0, 10)
 	require.Nil(err)
-	require.Equal(2, len(transfers))
+	require.Equal(1, len(transfers))
 
 	// fail
 	_, err = svc.GetTransfersByBlockID("", 0, 10)
@@ -409,7 +416,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(blks[0].Size, blk.Size)
 	require.Equal(int64(0), blk.Votes)
 	require.Equal(int64(0), blk.Executions)
-	require.Equal(int64(1), blk.Transfers)
+	require.Equal(int64(0), blk.Transfers)
 
 	_, err = svc.GetBlockByID("")
 	require.Error(err)
@@ -418,10 +425,10 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
-	require.Equal(int64(9), stats.Transfers)
+	require.Equal(int64(5), stats.Transfers)
 	require.Equal(int64(24), stats.Votes)
 	require.Equal(int64(3), stats.Executions)
-	require.Equal(int64(15), stats.Aps)
+	require.Equal(int64(11), stats.Aps)
 
 	// success
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].Bech32())
@@ -829,11 +836,7 @@ func TestServiceGetPeers(t *testing.T) {
 	svc := Service{
 		dp: mDp,
 		neighborsHandler: func(_ context.Context) ([]peerstore.PeerInfo, error) {
-			return []peerstore.PeerInfo{
-				peerstore.PeerInfo{},
-				peerstore.PeerInfo{},
-				peerstore.PeerInfo{},
-			}, nil
+			return []peerstore.PeerInfo{{}, {}, {}}, nil
 		},
 		networkInfoHandler: func() peerstore.PeerInfo {
 			return peerstore.PeerInfo{}
@@ -913,8 +916,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.WriteIndexInChainDB = true
-	cfg.Explorer.Enabled = true
+	cfg.Chain.EnableIndex = true
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -923,19 +925,17 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
-	require.Nil(sf.Start(context.Background()))
-	require.NoError(addCreatorToFactory(sf))
 
 	// create chain
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
 	require.NoError(bc.Start(ctx))
-
-	sf.AddActionHandlers(execution.NewProtocol(bc))
-
 	defer func() {
 		require.NoError(bc.Stop(ctx))
 	}()
+
+	sf.AddActionHandlers(execution.NewProtocol(bc))
+	require.NoError(addCreatorToFactory(sf))
 
 	svc := Service{
 		bc: bc,
@@ -959,7 +959,9 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
+
 	require.NoError(err)
 	require.Nil(bc.CommitBlock(blk))
 
@@ -1121,7 +1123,8 @@ func TestService_GetDeposits(t *testing.T) {
 	require.NoError(ws.PutState(
 		byteutil.BytesTo20B(subChainAddr.Payload()),
 		&mainchain.SubChain{
-			DepositCount: 2,
+			DepositCount:   2,
+			OwnerPublicKey: ta.Keyinfo["producer"].PubKey,
 		},
 	))
 	depositAddr1 := ta.Addrinfo["alfa"]

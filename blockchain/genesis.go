@@ -24,12 +24,16 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-const testnetActionPath = "testnet_actions.yaml"
+const (
+	testnetActionPath = "testnet_actions.yaml"
+	// TODO: Gensis block producer's keypair should be a config. Note genesis block producer is not the creator
+	genesisProducerPublicKey  = "0444b7ac782c60e90b1aa263fe4d61dbe73bf8260d3e773ce9f4f0dbc181e8e5f2e3b6f6d4cf47f1d53af95cf24b88b92037125c7bf6f63b55bebbb8579b3a9b24"
+	genesisProducerPrivateKey = "bace9b2435db45b119e1570b4ea9c57993b2311e0c408d743d87cd22838ae892"
+)
 
 // Genesis defines the Genesis default settings
 type Genesis struct {
 	TotalSupply         *big.Int
-	BlockReward         *big.Int
 	Timestamp           int64
 	ParentHash          hash.Hash32B
 	GenesisCoinbaseData string
@@ -75,7 +79,6 @@ type SubChain struct {
 // Gen hardcodes genesis default settings
 var Gen = &Genesis{
 	TotalSupply:         ConvertIotxToRau(10000000000),
-	BlockReward:         ConvertIotxToRau(5),
 	Timestamp:           1524676419,
 	ParentHash:          hash.Hash32B{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",

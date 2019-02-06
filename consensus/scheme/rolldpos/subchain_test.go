@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
@@ -37,6 +38,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 		Header: &iproto.BlockHeaderPb{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
+			Pubkey:  keypair.PublicKeyToBytes(pubKey),
 		},
 		Actions: []*iproto.ActionPb{
 			{
@@ -44,7 +46,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Transfer: &iproto.TransferPb{},
 				},
 				Sender:       addr,
-				SenderPubKey: pubKey[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        101,
 			},
@@ -53,7 +55,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Transfer: &iproto.TransferPb{},
 				},
 				Sender:       addr,
-				SenderPubKey: pubKey[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        102,
 			},
@@ -62,7 +64,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Vote: &iproto.VotePb{},
 				},
 				Sender:       addr,
-				SenderPubKey: pubKey[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        103,
 			},
@@ -71,7 +73,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Vote: &iproto.VotePb{},
 				},
 				Sender:       addr,
-				SenderPubKey: pubKey[:],
+				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        104,
 			},
@@ -89,7 +91,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 		Version:         1,
 		Nonce:           100,
 		SenderAddress:   addr,
-		SenderPubKey:    hex.EncodeToString(pubKey[:]),
+		SenderPubKey:    keypair.EncodePublicKey(pubKey),
 		GasLimit:        1000000,
 		GasPrice:        "10",
 		SubChainAddress: subAddr,

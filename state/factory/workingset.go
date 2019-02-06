@@ -48,7 +48,7 @@ type (
 	// WorkingSet defines an interface for working set of states changes
 	WorkingSet interface {
 		// states and actions
-		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
+		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, []*action.Receipt, error)
 		Snapshot() int
 		Revert(int) error
 		Commit() error
@@ -128,10 +128,10 @@ func (ws *workingSet) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
-) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error) {
+) (hash.Hash32B, []*action.Receipt, error) {
 	ws.blkHeight = blockHeight
 	// Handle actions
-	receipts := make(map[hash.Hash32B]*action.Receipt)
+	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
 		for _, actionHandler := range ws.actionHandlers {
 			receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
@@ -145,14 +145,14 @@ func (ws *workingSet) RunActions(
 				)
 			}
 			if receipt != nil {
-				receipts[elp.Hash()] = receipt
+				receipts = append(receipts, receipt)
 			}
 		}
 	}
 
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
-	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash[:], "failed to store accountTrie's root hash")
+	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash, "failed to store accountTrie's root hash")
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	ws.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
@@ -160,7 +160,7 @@ func (ws *workingSet) RunActions(
 	ws.cb.Put(
 		AccountKVNameSpace,
 		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)),
-		rootHash[:],
+		rootHash,
 		"failed to store accountTrie's root hash",
 	)
 

@@ -32,36 +32,40 @@ import (
 func TestBlockDAO(t *testing.T) {
 	getBlocks := func() []*block.Block {
 		amount := uint64(50 << 22)
-		// create testing transfers
-		cbTsf1 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["alfa"].Bech32())
-		assert.NotNil(t, cbTsf1)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetNonce(1).
-			SetDestinationAddress(testaddress.Addrinfo["alfa"].Bech32()).
-			SetGasLimit(genesis.ActionGasLimit).
-			SetAction(cbTsf1).Build()
-		scbTsf1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"].PriKey)
+		tsf1, err := testutil.SignedTransfer(
+			testaddress.Addrinfo["alfa"].Bech32(),
+			testaddress.Addrinfo["alfa"].Bech32(),
+			testaddress.Keyinfo["alfa"].PriKey,
+			1,
+			big.NewInt(int64(amount)),
+			nil,
+			genesis.ActionGasLimit,
+			big.NewInt(0),
+		)
 		require.NoError(t, err)
 
-		cbTsf2 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["bravo"].Bech32())
-		assert.NotNil(t, cbTsf2)
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetNonce(1).
-			SetDestinationAddress(testaddress.Addrinfo["bravo"].Bech32()).
-			SetGasLimit(genesis.ActionGasLimit).
-			SetAction(cbTsf2).Build()
-		scbTsf2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].Bech32(), testaddress.Keyinfo["bravo"].PriKey)
+		tsf2, err := testutil.SignedTransfer(
+			testaddress.Addrinfo["bravo"].Bech32(),
+			testaddress.Addrinfo["bravo"].Bech32(),
+			testaddress.Keyinfo["bravo"].PriKey,
+			2,
+			big.NewInt(int64(amount)),
+			nil,
+			genesis.ActionGasLimit,
+			big.NewInt(0),
+		)
 		require.NoError(t, err)
 
-		require.NoError(t, err)
-		cbTsf3 := action.NewCoinBaseTransfer(1, big.NewInt(int64((amount))), testaddress.Addrinfo["charlie"].Bech32())
-		assert.NotNil(t, cbTsf3)
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetNonce(1).
-			SetDestinationAddress(testaddress.Addrinfo["charlie"].Bech32()).
-			SetGasLimit(genesis.ActionGasLimit).
-			SetAction(cbTsf3).Build()
-		scbTsf3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].Bech32(), testaddress.Keyinfo["charlie"].PriKey)
+		tsf3, err := testutil.SignedTransfer(
+			testaddress.Addrinfo["charlie"].Bech32(),
+			testaddress.Addrinfo["charlie"].Bech32(),
+			testaddress.Keyinfo["charlie"].PriKey,
+			3,
+			big.NewInt(int64(amount)),
+			nil,
+			genesis.ActionGasLimit,
+			big.NewInt(0),
+		)
 		require.NoError(t, err)
 
 		// create testing votes
@@ -90,8 +94,8 @@ func TestBlockDAO(t *testing.T) {
 			testutil.TestGasLimit,
 			big.NewInt(0),
 		)
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetNonce(4).
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetNonce(4).
 			SetDestinationAddress(testaddress.Addrinfo["delta"].Bech32()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit1).Build()
@@ -138,7 +142,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(1).
 			SetPrevBlockHash(hash1).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(scbTsf1, vote1, execution1, sdeposit1).
+			AddActions(tsf1, vote1, execution1, sdeposit1).
 			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 
@@ -148,7 +152,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(2).
 			SetPrevBlockHash(hash2).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(scbTsf2, vote2, execution2, sdeposit2).
+			AddActions(tsf2, vote2, execution2, sdeposit2).
 			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 
@@ -158,7 +162,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(3).
 			SetPrevBlockHash(hash3).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(scbTsf3, vote3, execution3, sdeposit3).
+			AddActions(tsf3, vote3, execution3, sdeposit3).
 			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 		return []*block.Block{&blk1, &blk2, &blk3}
@@ -277,238 +281,242 @@ func TestBlockDAO(t *testing.T) {
 		blkHash3 := blks[2].HashBlock()
 
 		// Test getBlockHashByTransferHash
-		blkHash, err := dao.getBlockHashByTransferHash(transferHash1)
+		blkHash, err := getBlockHashByTransferHash(dao.kvstore, transferHash1)
 		require.NoError(t, err)
 		require.Equal(t, blkHash1, blkHash)
-		blkHash, err = dao.getBlockHashByTransferHash(transferHash2)
+		blkHash, err = getBlockHashByTransferHash(dao.kvstore, transferHash2)
 		require.NoError(t, err)
 		require.Equal(t, blkHash2, blkHash)
-		blkHash, err = dao.getBlockHashByTransferHash(transferHash3)
+		blkHash, err = getBlockHashByTransferHash(dao.kvstore, transferHash3)
 		require.NoError(t, err)
 		require.Equal(t, blkHash3, blkHash)
 
 		// Test getBlockHashByVoteHash
-		blkHash, err = dao.getBlockHashByVoteHash(voteHash1)
+		blkHash, err = getBlockHashByVoteHash(dao.kvstore, voteHash1)
 		require.NoError(t, err)
 		require.Equal(t, blkHash1, blkHash)
-		blkHash, err = dao.getBlockHashByVoteHash(voteHash2)
+		blkHash, err = getBlockHashByVoteHash(dao.kvstore, voteHash2)
 		require.NoError(t, err)
 		require.Equal(t, blkHash2, blkHash)
-		blkHash, err = dao.getBlockHashByVoteHash(voteHash3)
+		blkHash, err = getBlockHashByVoteHash(dao.kvstore, voteHash3)
 		require.NoError(t, err)
 		require.Equal(t, blkHash3, blkHash)
 
 		// Test getBlockHashByExecutionHash
-		blkHash, err = dao.getBlockHashByExecutionHash(executionHash1)
+		blkHash, err = getBlockHashByExecutionHash(dao.kvstore, executionHash1)
 		require.NoError(t, err)
 		require.Equal(t, blkHash1, blkHash)
-		blkHash, err = dao.getBlockHashByExecutionHash(executionHash2)
+		blkHash, err = getBlockHashByExecutionHash(dao.kvstore, executionHash2)
 		require.NoError(t, err)
 		require.Equal(t, blkHash2, blkHash)
-		blkHash, err = dao.getBlockHashByExecutionHash(executionHash3)
+		blkHash, err = getBlockHashByExecutionHash(dao.kvstore, executionHash3)
 		require.NoError(t, err)
 		require.Equal(t, blkHash3, blkHash)
 
 		// Test getBlockHashByActionHash
-		blkHash, err = dao.getBlockHashByActionHash(depositHash1)
+		blkHash, err = getBlockHashByActionHash(dao.kvstore, depositHash1)
 		require.NoError(t, err)
 		require.Equal(t, blkHash1, blkHash)
-		blkHash, err = dao.getBlockHashByActionHash(depositHash2)
+		blkHash, err = getBlockHashByActionHash(dao.kvstore, depositHash2)
 		require.NoError(t, err)
 		require.Equal(t, blkHash2, blkHash)
-		blkHash, err = dao.getBlockHashByActionHash(depositHash3)
+		blkHash, err = getBlockHashByActionHash(dao.kvstore, depositHash3)
 		require.NoError(t, err)
 		require.Equal(t, blkHash3, blkHash)
 
 		// Test get transfers
-		senderTransferCount, err := dao.getTransferCountBySenderAddress(testaddress.Addrinfo["alfa"].Bech32())
+		senderTransferCount, err := getTransferCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderTransferCount)
-		senderTransfers, err := dao.getTransfersBySenderAddress(testaddress.Addrinfo["alfa"].Bech32())
+		senderTransfers, err := getTransfersBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderTransfers))
-		recipientTransferCount, err := dao.getTransferCountByRecipientAddress(testaddress.Addrinfo["alfa"].Bech32())
+		recipientTransferCount, err := getTransferCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientTransferCount)
-		recipientTransfers, err := dao.getTransfersByRecipientAddress(testaddress.Addrinfo["alfa"].Bech32())
+		recipientTransfers, err := getTransfersByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, transferHash1, recipientTransfers[0])
 
-		senderTransferCount, err = dao.getTransferCountBySenderAddress(testaddress.Addrinfo["bravo"].Bech32())
+		senderTransferCount, err = getTransferCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderTransferCount)
-		senderTransfers, err = dao.getTransfersBySenderAddress(testaddress.Addrinfo["bravo"].Bech32())
+		senderTransfers, err = getTransfersBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderTransfers))
-		recipientTransferCount, err = dao.getTransferCountByRecipientAddress(testaddress.Addrinfo["bravo"].Bech32())
+		recipientTransferCount, err = getTransferCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientTransferCount)
-		recipientTransfers, err = dao.getTransfersByRecipientAddress(testaddress.Addrinfo["bravo"].Bech32())
+		recipientTransfers, err = getTransfersByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, transferHash2, recipientTransfers[0])
 
-		senderTransferCount, err = dao.getTransferCountBySenderAddress(testaddress.Addrinfo["charlie"].Bech32())
+		senderTransferCount, err = getTransferCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderTransferCount)
-		senderTransfers, err = dao.getTransfersBySenderAddress(testaddress.Addrinfo["charlie"].Bech32())
+		senderTransfers, err = getTransfersBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderTransfers))
-		recipientTransferCount, err = dao.getTransferCountByRecipientAddress(testaddress.Addrinfo["charlie"].Bech32())
+		recipientTransferCount, err = getTransferCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientTransferCount)
-		recipientTransfers, err = dao.getTransfersByRecipientAddress(testaddress.Addrinfo["charlie"].Bech32())
+		recipientTransfers, err = getTransfersByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, transferHash3, recipientTransfers[0])
 
 		// Test get votes
-		senderVoteCount, err := dao.getVoteCountBySenderAddress(testaddress.Addrinfo["alfa"].Bech32())
+		senderVoteCount, err := getVoteCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderVoteCount)
-		senderVotes, err := dao.getVotesBySenderAddress(testaddress.Addrinfo["alfa"].Bech32())
+		senderVotes, err := getVotesBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderVotes))
 		require.Equal(t, voteHash1, senderVotes[0])
-		recipientVoteCount, err := dao.getVoteCountByRecipientAddress(testaddress.Addrinfo["alfa"].Bech32())
+		recipientVoteCount, err := getVoteCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientVoteCount)
-		recipientVotes, err := dao.getVotesByRecipientAddress(testaddress.Addrinfo["alfa"].Bech32())
+		recipientVotes, err := getVotesByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, voteHash1, recipientVotes[0])
 
-		senderVoteCount, err = dao.getVoteCountBySenderAddress(testaddress.Addrinfo["bravo"].Bech32())
+		senderVoteCount, err = getVoteCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderVoteCount)
-		senderVotes, err = dao.getVotesBySenderAddress(testaddress.Addrinfo["bravo"].Bech32())
+		senderVotes, err = getVotesBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderVotes))
 		require.Equal(t, voteHash2, senderVotes[0])
-		recipientVoteCount, err = dao.getVoteCountByRecipientAddress(testaddress.Addrinfo["bravo"].Bech32())
+		recipientVoteCount, err = getVoteCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientVoteCount)
-		recipientVotes, err = dao.getVotesByRecipientAddress(testaddress.Addrinfo["bravo"].Bech32())
+		recipientVotes, err = getVotesByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, voteHash2, recipientVotes[0])
 
-		senderVoteCount, err = dao.getVoteCountBySenderAddress(testaddress.Addrinfo["charlie"].Bech32())
+		senderVoteCount, err = getVoteCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), senderVoteCount)
-		senderVotes, err = dao.getVotesBySenderAddress(testaddress.Addrinfo["charlie"].Bech32())
+		senderVotes, err = getVotesBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(senderVotes))
 		require.Equal(t, voteHash3, senderVotes[0])
-		recipientVoteCount, err = dao.getVoteCountByRecipientAddress(testaddress.Addrinfo["charlie"].Bech32())
+		recipientVoteCount, err = getVoteCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientVoteCount)
-		recipientVotes, err = dao.getVotesByRecipientAddress(testaddress.Addrinfo["charlie"].Bech32())
+		recipientVotes, err = getVotesByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientTransfers))
 		require.Equal(t, voteHash3, recipientVotes[0])
 
 		// Test get executions
-		executorExecutionCount, err := dao.getExecutionCountByExecutorAddress(testaddress.Addrinfo["alfa"].Bech32())
+		executorExecutionCount, err := getExecutionCountByExecutorAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), executorExecutionCount)
-		executorExecutions, err := dao.getExecutionsByExecutorAddress(testaddress.Addrinfo["alfa"].Bech32())
+		executorExecutions, err := getExecutionsByExecutorAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(executorExecutions))
 		require.Equal(t, executionHash1, executorExecutions[0])
-		contractExecutionCount, err := dao.getExecutionCountByContractAddress(testaddress.Addrinfo["alfa"].Bech32())
+		contractExecutionCount, err := getExecutionCountByContractAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), contractExecutionCount)
-		contractExecutions, err := dao.getExecutionsByContractAddress(testaddress.Addrinfo["alfa"].Bech32())
+		contractExecutions, err := getExecutionsByContractAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 0, len(contractExecutions))
 
-		executorExecutionCount, err = dao.getExecutionCountByExecutorAddress(testaddress.Addrinfo["bravo"].Bech32())
+		executorExecutionCount, err = getExecutionCountByExecutorAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), executorExecutionCount)
-		executorExecutions, err = dao.getExecutionsByExecutorAddress(testaddress.Addrinfo["bravo"].Bech32())
+		executorExecutions, err = getExecutionsByExecutorAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(executorExecutions))
 		require.Equal(t, executionHash2, executorExecutions[0])
-		contractExecutionCount, err = dao.getExecutionCountByContractAddress(testaddress.Addrinfo["bravo"].Bech32())
+		contractExecutionCount, err = getExecutionCountByContractAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), contractExecutionCount)
-		contractExecutions, err = dao.getExecutionsByContractAddress(testaddress.Addrinfo["bravo"].Bech32())
+		contractExecutions, err = getExecutionsByContractAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 0, len(contractExecutions))
 
-		executorExecutionCount, err = dao.getExecutionCountByExecutorAddress(testaddress.Addrinfo["charlie"].Bech32())
+		executorExecutionCount, err = getExecutionCountByExecutorAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), executorExecutionCount)
-		executorExecutions, err = dao.getExecutionsByExecutorAddress(testaddress.Addrinfo["charlie"].Bech32())
+		executorExecutions, err = getExecutionsByExecutorAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(executorExecutions))
 		require.Equal(t, executionHash3, executorExecutions[0])
-		contractExecutionCount, err = dao.getExecutionCountByContractAddress(testaddress.Addrinfo["charlie"].Bech32())
+		contractExecutionCount, err = getExecutionCountByContractAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), contractExecutionCount)
-		contractExecutions, err = dao.getExecutionsByContractAddress(testaddress.Addrinfo["charlie"].Bech32())
+		contractExecutions, err = getExecutionsByContractAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 0, len(contractExecutions))
 
-		contractExecutionCount, err = dao.getExecutionCountByContractAddress(testaddress.Addrinfo["delta"].Bech32())
+		contractExecutionCount, err = getExecutionCountByContractAddress(dao.kvstore, testaddress.Addrinfo["delta"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(3), contractExecutionCount)
-		contractExecutions, err = dao.getExecutionsByContractAddress(testaddress.Addrinfo["delta"].Bech32())
+		contractExecutions, err = getExecutionsByContractAddress(dao.kvstore, testaddress.Addrinfo["delta"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 3, len(contractExecutions))
 		require.Equal(t, executionHash1, contractExecutions[0])
 		require.Equal(t, executionHash2, contractExecutions[1])
 		require.Equal(t, executionHash3, contractExecutions[2])
 
+		return
+		// TODO: enable the tests bellow after we deprecate the old index ways and conform to index everything in the
+		// generic way
+
 		// Test get actions
-		senderActionCount, err := dao.getActionCountBySenderAddress(testaddress.Addrinfo["alfa"].Bech32())
+		senderActionCount, err := getActionCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err := dao.getActionsBySenderAddress(testaddress.Addrinfo["alfa"].Bech32())
+		senderActions, err := getActionsBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash1, senderActions[3])
-		recipientActionCount, err := dao.getActionCountByRecipientAddress(testaddress.Addrinfo["alfa"].Bech32())
+		recipientActionCount, err := getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err := dao.getActionsByRecipientAddress(testaddress.Addrinfo["alfa"].Bech32())
+		recipientActions, err := getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 2, len(recipientActions))
 
-		senderActionCount, err = dao.getActionCountBySenderAddress(testaddress.Addrinfo["bravo"].Bech32())
+		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = dao.getActionsBySenderAddress(testaddress.Addrinfo["bravo"].Bech32())
+		senderActions, err = getActionsBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash2, senderActions[3])
-		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.Addrinfo["bravo"].Bech32())
+		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.Addrinfo["bravo"].Bech32())
+		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 2, len(recipientActions))
 
-		senderActionCount, err = dao.getActionCountBySenderAddress(testaddress.Addrinfo["charlie"].Bech32())
+		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = dao.getActionsBySenderAddress(testaddress.Addrinfo["charlie"].Bech32())
+		senderActions, err = getActionsBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash3, senderActions[3])
-		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.Addrinfo["charlie"].Bech32())
+		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.Addrinfo["charlie"].Bech32())
+		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 2, len(recipientActions))
 
-		recipientActionCount, err = dao.getActionCountByRecipientAddress(testaddress.Addrinfo["delta"].Bech32())
+		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["delta"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, uint64(6), recipientActionCount)
-		recipientActions, err = dao.getActionsByRecipientAddress(testaddress.Addrinfo["delta"].Bech32())
+		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["delta"].Bech32())
 		require.NoError(t, err)
 		require.Equal(t, 6, len(recipientActions))
 		require.Equal(t, depositHash1, recipientActions[1])
@@ -554,55 +562,55 @@ func TestBlockDAO(t *testing.T) {
 
 		transfers, votes, executions := action.ClassifyActions(blks[2].Actions)
 		transferHash := transfers[0].Hash()
-		blkHash, err := dao.getBlockHashByTransferHash(transferHash)
+		blkHash, err := getBlockHashByTransferHash(dao.kvstore, transferHash)
 		require.NoError(err)
 		require.Equal(blks[2].HashBlock(), blkHash)
 		voteHash := votes[0].Hash()
-		blkHash, err = dao.getBlockHashByVoteHash(voteHash)
+		blkHash, err = getBlockHashByVoteHash(dao.kvstore, voteHash)
 		require.NoError(err)
 		require.Equal(blks[2].HashBlock(), blkHash)
 		executionHash := executions[0].Hash()
-		blkHash, err = dao.getBlockHashByExecutionHash(executionHash)
+		blkHash, err = getBlockHashByExecutionHash(dao.kvstore, executionHash)
 		require.NoError(err)
 		require.Equal(blks[2].HashBlock(), blkHash)
 
 		charlieAddr := testaddress.Addrinfo["charlie"].Bech32()
 		deltaAddr := testaddress.Addrinfo["delta"].Bech32()
 
-		transfersFromCharlie, _ := dao.getTransfersBySenderAddress(charlieAddr)
+		transfersFromCharlie, _ := getTransfersBySenderAddress(dao.kvstore, charlieAddr)
 		require.Equal(1, len(transfersFromCharlie))
-		transfersToCharlie, _ := dao.getTransfersByRecipientAddress(charlieAddr)
+		transfersToCharlie, _ := getTransfersByRecipientAddress(dao.kvstore, charlieAddr)
 		require.Equal(1, len(transfersToCharlie))
-		transferFromCharlieCount, _ := dao.getTransferCountBySenderAddress(charlieAddr)
+		transferFromCharlieCount, _ := getTransferCountBySenderAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(1), transferFromCharlieCount)
-		transferToCharlieCount, _ := dao.getTransferCountByRecipientAddress(charlieAddr)
+		transferToCharlieCount, _ := getTransferCountByRecipientAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(1), transferToCharlieCount)
 
-		votesFromCharlie, _ := dao.getVotesBySenderAddress(charlieAddr)
+		votesFromCharlie, _ := getVotesBySenderAddress(dao.kvstore, charlieAddr)
 		require.Equal(1, len(votesFromCharlie))
-		votesToCharlie, _ := dao.getVotesByRecipientAddress(charlieAddr)
+		votesToCharlie, _ := getVotesByRecipientAddress(dao.kvstore, charlieAddr)
 		require.Equal(1, len(votesToCharlie))
-		voteFromCharlieCount, _ := dao.getVoteCountBySenderAddress(charlieAddr)
+		voteFromCharlieCount, _ := getVoteCountBySenderAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(1), voteFromCharlieCount)
-		voteToCharlieCount, _ := dao.getVoteCountByRecipientAddress(charlieAddr)
+		voteToCharlieCount, _ := getVoteCountByRecipientAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(1), voteToCharlieCount)
 
-		execsFromCharlie, _ := dao.getExecutionsByExecutorAddress(charlieAddr)
+		execsFromCharlie, _ := getExecutionsByExecutorAddress(dao.kvstore, charlieAddr)
 		require.Equal(1, len(execsFromCharlie))
-		execsToCharlie, _ := dao.getExecutionsByContractAddress(charlieAddr)
+		execsToCharlie, _ := getExecutionsByContractAddress(dao.kvstore, charlieAddr)
 		require.Equal(0, len(execsToCharlie))
-		execFromCharlieCount, _ := dao.getExecutionCountByExecutorAddress(charlieAddr)
+		execFromCharlieCount, _ := getExecutionCountByExecutorAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(1), execFromCharlieCount)
-		execToCharlieCount, _ := dao.getExecutionCountByContractAddress(charlieAddr)
+		execToCharlieCount, _ := getExecutionCountByContractAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(0), execToCharlieCount)
 
-		execsFromDelta, _ := dao.getExecutionsByExecutorAddress(deltaAddr)
+		execsFromDelta, _ := getExecutionsByExecutorAddress(dao.kvstore, deltaAddr)
 		require.Equal(0, len(execsFromDelta))
-		execsToDelta, _ := dao.getExecutionsByContractAddress(deltaAddr)
+		execsToDelta, _ := getExecutionsByContractAddress(dao.kvstore, deltaAddr)
 		require.Equal(3, len(execsToDelta))
-		execFromDeltaCount, _ := dao.getExecutionCountByExecutorAddress(deltaAddr)
+		execFromDeltaCount, _ := getExecutionCountByExecutorAddress(dao.kvstore, deltaAddr)
 		require.Equal(uint64(0), execFromDeltaCount)
-		execToDeltaCount, _ := dao.getExecutionCountByContractAddress(deltaAddr)
+		execToDeltaCount, _ := getExecutionCountByContractAddress(dao.kvstore, deltaAddr)
 		require.Equal(uint64(3), execToDeltaCount)
 
 		_, err = dao.getBlockchainHeight()
@@ -627,50 +635,50 @@ func TestBlockDAO(t *testing.T) {
 		require.NoError(err)
 		require.Equal(uint64(2), executionCount)
 
-		blkHash, err = dao.getBlockHashByTransferHash(transferHash)
+		blkHash, err = getBlockHashByTransferHash(dao.kvstore, transferHash)
 		require.Equal(db.ErrNotExist, errors.Cause(err))
 		require.Equal(hash.ZeroHash32B, blkHash)
-		blkHash, err = dao.getBlockHashByVoteHash(voteHash)
+		blkHash, err = getBlockHashByVoteHash(dao.kvstore, voteHash)
 		require.Equal(db.ErrNotExist, errors.Cause(err))
 		require.Equal(hash.ZeroHash32B, blkHash)
-		blkHash, err = dao.getBlockHashByExecutionHash(executionHash)
+		blkHash, err = getBlockHashByExecutionHash(dao.kvstore, executionHash)
 		require.Equal(db.ErrNotExist, errors.Cause(err))
 		require.Equal(hash.ZeroHash32B, blkHash)
 
-		transfersFromCharlie, _ = dao.getTransfersBySenderAddress(charlieAddr)
+		transfersFromCharlie, _ = getTransfersBySenderAddress(dao.kvstore, charlieAddr)
 		require.Equal(0, len(transfersFromCharlie))
-		transfersToCharlie, _ = dao.getTransfersByRecipientAddress(charlieAddr)
+		transfersToCharlie, _ = getTransfersByRecipientAddress(dao.kvstore, charlieAddr)
 		require.Equal(0, len(transfersToCharlie))
-		transferFromCharlieCount, _ = dao.getTransferCountBySenderAddress(charlieAddr)
+		transferFromCharlieCount, _ = getTransferCountBySenderAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(0), transferFromCharlieCount)
-		transferToCharlieCount, _ = dao.getTransferCountByRecipientAddress(charlieAddr)
+		transferToCharlieCount, _ = getTransferCountByRecipientAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(0), transferToCharlieCount)
 
-		votesFromCharlie, _ = dao.getVotesBySenderAddress(charlieAddr)
+		votesFromCharlie, _ = getVotesBySenderAddress(dao.kvstore, charlieAddr)
 		require.Equal(0, len(votesFromCharlie))
-		votesToCharlie, _ = dao.getVotesByRecipientAddress(charlieAddr)
+		votesToCharlie, _ = getVotesByRecipientAddress(dao.kvstore, charlieAddr)
 		require.Equal(0, len(votesToCharlie))
-		voteFromCharlieCount, _ = dao.getVoteCountBySenderAddress(charlieAddr)
+		voteFromCharlieCount, _ = getVoteCountBySenderAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(0), voteFromCharlieCount)
-		voteToCharlieCount, _ = dao.getVoteCountByRecipientAddress(charlieAddr)
+		voteToCharlieCount, _ = getVoteCountByRecipientAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(0), voteToCharlieCount)
 
-		execsFromCharlie, _ = dao.getExecutionsByExecutorAddress(charlieAddr)
+		execsFromCharlie, _ = getExecutionsByExecutorAddress(dao.kvstore, charlieAddr)
 		require.Equal(0, len(execsFromCharlie))
-		execsToCharlie, _ = dao.getExecutionsByContractAddress(charlieAddr)
+		execsToCharlie, _ = getExecutionsByContractAddress(dao.kvstore, charlieAddr)
 		require.Equal(0, len(execsToCharlie))
-		execFromCharlieCount, _ = dao.getExecutionCountByExecutorAddress(charlieAddr)
+		execFromCharlieCount, _ = getExecutionCountByExecutorAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(0), execFromCharlieCount)
-		execToCharlieCount, _ = dao.getExecutionCountByContractAddress(charlieAddr)
+		execToCharlieCount, _ = getExecutionCountByContractAddress(dao.kvstore, charlieAddr)
 		require.Equal(uint64(0), execToCharlieCount)
 
-		execsFromDelta, _ = dao.getExecutionsByExecutorAddress(deltaAddr)
+		execsFromDelta, _ = getExecutionsByExecutorAddress(dao.kvstore, deltaAddr)
 		require.Equal(0, len(execsFromDelta))
-		execsToDelta, _ = dao.getExecutionsByContractAddress(deltaAddr)
+		execsToDelta, _ = getExecutionsByContractAddress(dao.kvstore, deltaAddr)
 		require.Equal(2, len(execsToDelta))
-		execFromDeltaCount, _ = dao.getExecutionCountByExecutorAddress(deltaAddr)
+		execFromDeltaCount, _ = getExecutionCountByExecutorAddress(dao.kvstore, deltaAddr)
 		require.Equal(uint64(0), execFromDeltaCount)
-		execToDeltaCount, _ = dao.getExecutionCountByContractAddress(deltaAddr)
+		execToDeltaCount, _ = getExecutionCountByContractAddress(dao.kvstore, deltaAddr)
 		require.Equal(uint64(2), execToDeltaCount)
 	}
 
@@ -712,7 +720,7 @@ func TestBlockDao_putReceipts(t *testing.T) {
 	blkDao := newBlockDAO(db.NewMemKVStore(), true)
 	receipts := []*action.Receipt{
 		{
-			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
 			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
@@ -720,7 +728,7 @@ func TestBlockDao_putReceipts(t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 		{
-			Hash:            byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
 			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,
@@ -730,8 +738,8 @@ func TestBlockDao_putReceipts(t *testing.T) {
 	}
 	require.NoError(t, blkDao.putReceipts(1, receipts))
 	for _, receipt := range receipts {
-		r, err := blkDao.getReceiptByActionHash(receipt.Hash)
+		r, err := blkDao.getReceiptByActionHash(receipt.ActHash)
 		require.NoError(t, err)
-		assert.Equal(t, receipt.Hash, r.Hash)
+		assert.Equal(t, receipt.ActHash, r.ActHash)
 	}
 }

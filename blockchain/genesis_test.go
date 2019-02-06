@@ -55,7 +55,7 @@ func TestGenesis(t *testing.T) {
 	assert.Equal(uint64(0), genesisBlk.Height())
 	assert.Equal(int64(1524676419), genesisBlk.Timestamp())
 	assert.Equal(hash.ZeroHash32B, genesisBlk.PrevHash())
-	genesisHash, _ := hex.DecodeString("0b0f780b0b04a94056cced523fb22d3774ac73ca4e508aff1b45adf97b1536b7")
+	genesisHash, _ := hex.DecodeString("dc1190b5b57329584af76a98558c3fcd3b21c0e74134c350d94fba1222c6e7de")
 	h := genesisBlk.HashBlock()
 	assert.Equal(genesisHash, h[:])
 }

@@ -91,16 +91,17 @@ func (s *storeBase) Transact(txFunc func(*sql.Tx) error) (err error) {
 		return err
 	}
 	defer func() {
-		if p := recover(); p != nil {
+		switch {
+		case recover() != nil:
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
 				logger.Error().Err(rollbackErr) // log err after Rollback
 			}
-		} else if err != nil {
+		case err != nil:
 			// err is non-nil; don't change it
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
 				logger.Error().Err(rollbackErr)
 			}
-		} else {
+		default:
 			// err is nil; if Commit returns error update err
 			if commitErr := tx.Commit(); commitErr != nil {
 				logger.Error().Err(commitErr)

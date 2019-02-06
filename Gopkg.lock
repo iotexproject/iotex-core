@@ -11,38 +11,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5b4c887ab9efb18442e476db95a7b94511f6772db92ca402f3dc1a736f8041b2"
-  name = "github.com/CoderZhi/go-ethereum"
-  packages = [
-    ".",
-    "accounts",
-    "accounts/abi",
-    "accounts/abi/bind",
-    "accounts/keystore",
-    "common",
-    "common/hexutil",
-    "common/math",
-    "common/mclock",
-    "core/types",
-    "core/vm",
-    "crypto",
-    "crypto/bn256",
-    "crypto/bn256/cloudflare",
-    "crypto/bn256/google",
-    "crypto/secp256k1",
-    "crypto/sha3",
-    "ethclient",
-    "event",
-    "log",
-    "params",
-    "rlp",
-    "rpc",
-  ]
-  pruneopts = "T"
-  revision = "3340b3e2135f54e6a10d36f46062fe6d22945e5a"
-
-[[projects]]
-  branch = "master"
   digest = "1:4cf11742b199ab3aacf26b00187e72f7ff8ba2145f363b74f295d54f098f79e4"
   name = "github.com/agl/ed25519"
   packages = [
@@ -76,6 +44,14 @@
   packages = ["btcec"]
   pruneopts = "UT"
   revision = "67e573d211ace594f1366b4ce9d39726c4b19bd0"
+
+[[projects]]
+  digest = "1:166438587ed45ac211dab8a3ecebf4fa0c186d0db63430fb9127bbc2e5fcdc67"
+  name = "github.com/cenkalti/backoff"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "1e4cf3da559842a91afcb6ea6141451e6c30c618"
+  version = "v2.1.1"
 
 [[projects]]
   branch = "master"
@@ -176,19 +152,22 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:bc38c7c481812e178d85160472e231c5e1c9a7f5845d67e23ee4e706933c10d8"
+  digest = "1:b60efdeb75d3c0ceed88783ac2495256aba3491a537d0f31401202579fd62a94"
   name = "github.com/golang/mock"
   packages = ["gomock"]
   pruneopts = "UT"
-  revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
-  version = "v1.1.1"
+  revision = "51421b967af1f557f93a59e0057aaf15ca02e29c"
+  version = "v1.2.0"
 
 [[projects]]
-  digest = "1:51958a9d82a82a677688d5b149225d4f578e0381bf59773962cc760badaef8b0"
+  digest = "1:9d6dc4d6de69b330d0de86494d6db90c09848c003d5db748f40c925f865c8534"
   name = "github.com/golang/protobuf"
   packages = [
     "jsonpb",
     "proto",
+    "ptypes",
+    "ptypes/any",
+    "ptypes/duration",
     "ptypes/struct",
     "ptypes/timestamp",
   ]
@@ -272,6 +251,37 @@
   version = "v1.0"
 
 [[projects]]
+  digest = "1:a622f1f4113a27efa60889d2fda997236135b653a105b5cd536cbca50cce091f"
+  name = "github.com/iotexproject/go-ethereum"
+  packages = [
+    ".",
+    "accounts",
+    "accounts/abi",
+    "accounts/abi/bind",
+    "accounts/keystore",
+    "common",
+    "common/hexutil",
+    "common/math",
+    "common/mclock",
+    "core/types",
+    "core/vm",
+    "crypto",
+    "crypto/bn256",
+    "crypto/bn256/cloudflare",
+    "crypto/bn256/google",
+    "crypto/secp256k1",
+    "crypto/sha3",
+    "ethclient",
+    "event",
+    "log",
+    "params",
+    "rlp",
+    "rpc",
+  ]
+  pruneopts = "T"
+  revision = "ccc12f4fab5e9a9038675904481734570e05f95d"
+
+[[projects]]
   digest = "1:9adf8a325fcb0d2185fe93bbb740e011222ae8e8e4ba475924404fe6c1c323f3"
   name = "github.com/iotexproject/go-fsm"
   packages = ["."]
@@ -279,11 +289,11 @@
   revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
 
 [[projects]]
-  digest = "1:eaa8dcbae193f564ce217ba2b294ff923c6215a77542c310b71926a52a343616"
+  digest = "1:b10a83d3f0f844a2eeb49275edfc2d12bccae4019ffbda1083eebcfc077a495f"
   name = "github.com/iotexproject/go-p2p"
   packages = ["."]
   pruneopts = "UT"
-  revision = "b70295aa41a56729b5eff2bb0e333fcbadad1fe1"
+  revision = "c26edc20f3d7c9ed16b6d996d162548cda979673"
 
 [[projects]]
   digest = "1:9999472bf9c934426d967c507d61f2de84affb8318b8d8c8bc38b3486edbd826"
@@ -573,15 +583,15 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:adf1f0ab3d4bedd10f384b94bf71b6d37dfe48832b61120e146dcc20b81ee8b3"
+  digest = "1:875ec2777e25f997cf505f4202d3a50b7cf06d75cacab7a52e1dfedba575cfc2"
   name = "github.com/libp2p/go-libp2p-pubsub"
   packages = [
     ".",
     "pb",
   ]
   pruneopts = "UT"
-  revision = "3d408775deaf28da57cc356d37f2b8bf9c57db64"
-  version = "v0.10.2"
+  revision = "f736644fe805a9f5677c82aca25c82da7cde2c76"
+  version = "v0.11.10"
 
 [[projects]]
   digest = "1:e9460a69b97787611cb5fd53e3532a61b29f04db69ba9a3701e3ca9be85ac8c5"
@@ -774,12 +784,12 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:e54be212eca970f4d5d39899666aef429c437969783e360a0cab075ba1423a80"
+  digest = "1:9d6b6d261e5b37bfc62ec0d8e2b2efcff7174729713eeba9d2201990503a2801"
   name = "github.com/multiformats/go-multiaddr"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2b4e098f3e0aa2c8bc960f0e4bdc3247efc3749c"
-  version = "v1.3.0"
+  revision = "8c3eb5dc1c12c5723d5b1d7de82abfa0e6f719d7"
+  version = "v1.4.0"
 
 [[projects]]
   digest = "1:555234f024280947ee62e4e911f367fd8b1cad57490108076e2578ec7dde5075"
@@ -955,15 +965,15 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:c40d65817cdd41fac9aa7af8bed56927bb2d6d47e4fea566a74880f5c2b1c41e"
+  digest = "1:5da8ce674952566deae4dbc23d07c85caafc6cfa815b0b3e03e41979cedb8750"
   name = "github.com/stretchr/testify"
   packages = [
     "assert",
     "require",
   ]
   pruneopts = "UT"
-  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
-  version = "v1.2.2"
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
@@ -1244,16 +1254,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/CoderZhi/go-ethereum",
-    "github.com/CoderZhi/go-ethereum/accounts/abi",
-    "github.com/CoderZhi/go-ethereum/accounts/abi/bind",
-    "github.com/CoderZhi/go-ethereum/common",
-    "github.com/CoderZhi/go-ethereum/core/types",
-    "github.com/CoderZhi/go-ethereum/core/vm",
-    "github.com/CoderZhi/go-ethereum/crypto",
-    "github.com/CoderZhi/go-ethereum/ethclient",
-    "github.com/CoderZhi/go-ethereum/event",
-    "github.com/CoderZhi/go-ethereum/params",
+    "github.com/cenkalti/backoff",
     "github.com/coopernurse/barrister-go",
     "github.com/dgraph-io/badger",
     "github.com/facebookgo/clock",
@@ -1261,7 +1262,18 @@
     "github.com/golang/mock/gomock",
     "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
+    "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
+    "github.com/iotexproject/go-ethereum",
+    "github.com/iotexproject/go-ethereum/accounts/abi",
+    "github.com/iotexproject/go-ethereum/accounts/abi/bind",
+    "github.com/iotexproject/go-ethereum/common",
+    "github.com/iotexproject/go-ethereum/core/types",
+    "github.com/iotexproject/go-ethereum/core/vm",
+    "github.com/iotexproject/go-ethereum/crypto",
+    "github.com/iotexproject/go-ethereum/ethclient",
+    "github.com/iotexproject/go-ethereum/event",
+    "github.com/iotexproject/go-ethereum/params",
     "github.com/iotexproject/go-fsm",
     "github.com/iotexproject/go-p2p",
     "github.com/libp2p/go-libp2p-peerstore",

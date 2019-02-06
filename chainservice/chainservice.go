@@ -29,7 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -39,6 +39,7 @@ type ChainService struct {
 	consensus    consensus.Consensus
 	chain        blockchain.Blockchain
 	explorer     *explorer.Server
+	indexBuilder *blockchain.IndexBuilder
 	indexservice *indexservice.Server
 	protocols    []protocol.Protocol
 }
@@ -101,6 +102,17 @@ func New(
 		chain = blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	}
 
+	var indexBuilder *blockchain.IndexBuilder
+	var err error
+	if cfg.Chain.EnableIndex && cfg.Chain.EnableAsyncIndexWrite {
+		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
+			return nil, errors.Wrap(err, "failed to create index builder")
+		}
+		if err := chain.AddSubscriber(indexBuilder); err != nil {
+			log.L().Warn("Failed to add subscriber: index builder.", zap.Error(err))
+		}
+	}
+
 	// Create ActPool
 	actPool, err := actpool.NewActPool(chain, cfg.ActPool)
 	if err != nil {
@@ -118,9 +130,6 @@ func New(
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}
 	bs, err := blocksync.NewBlockSyncer(
 		cfg,
@@ -171,6 +180,7 @@ func New(
 		blocksync:    bs,
 		consensus:    consensus,
 		indexservice: idx,
+		indexBuilder: indexBuilder,
 		explorer:     exp,
 	}, nil
 }
@@ -196,11 +206,21 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			return errors.Wrap(err, "error when starting explorer")
 		}
 	}
+	if cs.indexBuilder != nil {
+		if err := cs.indexBuilder.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting index builder")
+		}
+	}
 	return nil
 }
 
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
+	if cs.indexBuilder != nil {
+		if err := cs.indexBuilder.Stop(ctx); err != nil {
+			return errors.Wrap(err, "error when stopping index builder")
+		}
+	}
 	if cs.explorer != nil {
 		if err := cs.explorer.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping explorer")

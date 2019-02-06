@@ -141,9 +141,9 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		}
 
 		// log receipt index
-		for receiptHash := range blk.Receipts {
+		for _, receipt := range blk.Receipts {
 			// map receipt to block
-			if err := idx.UpdateBlockByIndex(blk, tx, IndexReceipt, receiptHash, blk.HashBlock()); err != nil {
+			if err := idx.UpdateBlockByIndex(blk, tx, IndexReceipt, receipt.Hash(), blk.HashBlock()); err != nil {
 				return errors.Wrapf(err, "failed to update receipt to block")
 			}
 		}

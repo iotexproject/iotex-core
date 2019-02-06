@@ -26,7 +26,7 @@ func TestLogReceipt(t *testing.T) {
 	s, err := log.Serialize()
 	require.NoError(err)
 	actuallog := action.Log{}
-	actuallog.Deserialize(s)
+	require.NoError(actuallog.Deserialize(s))
 	require.Equal(log.Address, actuallog.Address)
 	require.Equal(log.Topics[0], actuallog.Topics[0])
 	require.Equal(len(log.Topics), len(actuallog.Topics))
@@ -37,16 +37,16 @@ func TestLogReceipt(t *testing.T) {
 	require.Equal(log.Index, actuallog.Index)
 
 	receipt := action.Receipt{ReturnValue: []byte("12345"), Status: 5, GasConsumed: 6, ContractAddress: "aaaaa", Logs: []*action.Log{&log}}
-	copy(receipt.Hash[:], hash.Hash256b([]byte("33333")))
+	copy(receipt.ActHash[:], hash.Hash256b([]byte("33333")))
 	s, err = receipt.Serialize()
 	require.NoError(err)
 	actualReceipt := action.Receipt{}
-	actualReceipt.Deserialize(s)
+	require.NoError(actualReceipt.Deserialize(s))
 	require.Equal(receipt.ReturnValue, actualReceipt.ReturnValue)
 	require.Equal(receipt.Status, actualReceipt.Status)
 	require.Equal(receipt.GasConsumed, actualReceipt.GasConsumed)
 	require.Equal(receipt.ContractAddress, actualReceipt.ContractAddress)
 	require.Equal(receipt.Logs[0], actualReceipt.Logs[0])
 	require.Equal(len(receipt.Logs), len(actualReceipt.Logs))
-	require.Equal(receipt.Hash, actualReceipt.Hash)
+	require.Equal(receipt.ActHash, actualReceipt.ActHash)
 }

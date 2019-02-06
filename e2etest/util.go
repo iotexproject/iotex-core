@@ -31,7 +31,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		big.NewInt(0),
 	)
 	pubk, _ := keypair.DecodePublicKey(blockchain.Gen.CreatorPubKey)
-	sig, _ := hex.DecodeString("a8c2a0d708cd998725585fa0a8441c57b7f1ca2af1bba625eaca721df4716d5d47ae83017c11d3712bce2883f79dce83aa6f069ed7625771530a3fd51f32aa61ef7a9158a505aa01")
+	sig, _ := hex.DecodeString("da334834c0169a28d9e85035ca7b51df17ec03310bde7902be32d311d7233fe259f49af86330697a4d2d68b74a1d3219a0db003a31c6416b4c86b5fcbebfd8c800")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
 		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
@@ -48,11 +48,12 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -104,11 +105,12 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -145,11 +147,12 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -182,11 +185,12 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -227,11 +231,12 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
 		ta.Addrinfo["producer"].Bech32(),
+		0,
 	)
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk, true); err != nil {
+	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
