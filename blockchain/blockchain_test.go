@@ -1098,7 +1098,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	}()
 
 	require.NoError(addTestingTsfBlocks(bc))
-	require.True(5 == bc.TipHeight())
+	require.Equal(uint64(5), bc.TipHeight())
 
 	// delete state db and recover to tip
 	testutil.CleanupPath(t, testTriePath)
@@ -1114,7 +1114,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	height, _ := chain.sf.Height()
 	require.Equal(bc.TipHeight(), height)
 
-	// recover to height 3
+	// recover to height 3 from empty state DB
 	testutil.CleanupPath(t, testTriePath)
 	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
@@ -1125,7 +1125,13 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(chain.startExistingBlockchain(3))
 	height, _ = chain.sf.Height()
 	require.Equal(bc.TipHeight(), height)
-	require.True(3 == height)
+	require.Equal(uint64(3), height)
+
+	// recover to height 2 from an existing state DB with Height 3
+	require.NoError(chain.startExistingBlockchain(2))
+	height, _ = chain.sf.Height()
+	require.Equal(bc.TipHeight(), height)
+	require.Equal(uint64(2), height)
 }
 
 func addCreatorToFactory(sf factory.Factory) error {
