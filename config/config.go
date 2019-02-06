@@ -54,11 +54,15 @@ const (
 	StandaloneScheme = "STANDALONE"
 	// NOOPScheme means that the node does not create only block
 	NOOPScheme = "NOOP"
-	// Indexer Indentifiers
+	// IndexerTransfer is table identifier for transfer index in indexer
 	IndexTransfer  = "transfer"
+	// IndexerVote is table identifier for vote index in indexer
 	IndexVote      = "vote"
+	// IndexerExecution is table identifier for execution index in indexer
 	IndexExecution = "execution"
+	// IndexerAction is table identifier for action index in indexer
 	IndexAction    = "action"
+	// IndexerReceipt is table identifier for receipt index in indexer
 	IndexReceipt   = "receipt"
 )
 
