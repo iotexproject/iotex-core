@@ -25,7 +25,7 @@ contact us if you intend to run it in production.
 |----------|-------------|-------------|
 |[Golang](https://golang.org) | >= 1.11.5 | The Go Programming Language |
 
-### Setup Dev Environment
+## Setup Dev Environment
 
 Download the code by
 ```
@@ -47,19 +47,13 @@ If you need to update the dependency, install Go dependency management tool from
 
 Note: If your Dev Environment is in Ubuntu, you need to export the following Path:
 
-LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/blslib
-
-~~#### Setup Precommit Hook~~
-
-~~Install git hook tools from [precommit hook](https://pre-commit.com/) first and then~~
-
-~~```pre-commit install```~~
+```LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/blslib```
 
 ### Run Unit Tests
 ```make test```
 
 ### Reboot
-```make reboot``` reboots server from fresh database.
+```make reboot``` reboots blockchain from fresh database.
 
 You will see log message output like:
 ```
@@ -79,7 +73,7 @@ You will see log message output like:
 ```
 
 ### Run
-```make run``` restarts server with existing database.
+```make run``` restarts blockchain with existing database.
 
 You will see log message output like:
 ```
@@ -125,7 +119,7 @@ You will see log message output like:
 2018-10-18T14:23:18-07:00 |INFO| start RPC server on 127.0.0.1:4692
 ```
 
-# Deploy w/ Docker Image
+### Deploy w/ Docker Image
 
 ```make docker```
 
