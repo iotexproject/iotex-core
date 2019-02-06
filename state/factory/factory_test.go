@@ -268,7 +268,7 @@ func TestCandidates(t *testing.T) {
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+			Producer:        testaddress.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -298,7 +298,7 @@ func TestCandidates(t *testing.T) {
 	zeroGasLimit := uint64(0)
 	zctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+			Producer:        testaddress.Addrinfo["producer"],
 			GasLimit:        &zeroGasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -936,7 +936,7 @@ func TestUnvote(t *testing.T) {
 	gasLimit := uint64(10000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+			Producer:        testaddress.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -1196,7 +1196,7 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 		b.StartTimer()
 		zctx := protocol.WithRunActionsCtx(context.Background(),
 			protocol.RunActionsCtx{
-				ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+				Producer:        testaddress.Addrinfo["producer"],
 				GasLimit:        &gasLimit,
 				EnableGasCharge: false,
 			})

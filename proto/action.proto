@@ -162,6 +162,12 @@ message ActionPb {
         PlumFinalizeExit plumFinalizeExit = 25;
         PlumSettleDepositPb plumSettleDeposit = 26;
         PlumTransferPb plumTransfer = 27;
+
+        // Rewarding protocol actions
+        DepositToRewardingFund depositToRewardingFund = 30;
+        ClaimFromRewardingFund claimFromRewardingFund = 31;
+        SetReward setReward = 32;
+        GrantReward grantReward = 33;
     }
 }
 
@@ -182,4 +188,34 @@ message LogPb {
     bytes txnHash = 5;
     bytes blockHash = 6;
     uint32 index = 7;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// BELOW ARE DEFINITIONS FOR BLOCK PRODUCER PROTOCOL
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+message DepositToRewardingFund {
+     bytes amount = 1;
+     bytes data = 2;
+}
+
+message ClaimFromRewardingFund {
+    bytes amount = 1;
+    bytes data = 2;
+}
+
+enum RewardType {
+    Block = 0;
+    Epoch = 1;
+}
+
+message SetReward {
+    bytes amount = 1;
+    bytes data = 2;
+    RewardType type = 3;
+}
+
+message GrantReward {
+    RewardType type = 1;
 }

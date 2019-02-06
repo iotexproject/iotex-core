@@ -1212,7 +1212,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    ta.Addrinfo["producer"].Bech32(),
+			Producer:        ta.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})

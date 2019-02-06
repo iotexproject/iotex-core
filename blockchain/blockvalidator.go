@@ -162,11 +162,15 @@ func (v *validator) validateActions(
 	for _, selp := range actions {
 		appendActionIndex(accountNonceMap, selp.SrcAddr(), selp.Nonce())
 
-		ctx := protocol.WithValidateActionsCtx(context.Background(),
-			&protocol.ValidateActionsCtx{
+		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+		ctx := protocol.WithValidateActionsCtx(
+			context.Background(),
+			protocol.ValidateActionsCtx{
 				BlockHeight:  height,
 				ProducerAddr: producerAddr.Bech32(),
-			})
+				Caller:       address.New(callerPKHash[:]),
+			},
+		)
 
 		for _, validator := range v.actionEnvelopeValidators {
 			wg.Add(1)

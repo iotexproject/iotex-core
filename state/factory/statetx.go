@@ -9,6 +9,10 @@ package factory
 import (
 	"context"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -64,6 +68,16 @@ func (stx *stateTX) RunActions(
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
+		// Add caller address into the run action context
+		raCtx, ok := protocol.GetRunActionsCtx(ctx)
+		if !ok {
+			log.S().Panic("Miss context to run action")
+		}
+		callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
+		raCtx.Caller = address.New(callerPKHash[:])
+		raCtx.ActionHash = elp.Hash()
+		raCtx.Nonce = elp.Nonce()
+		ctx = protocol.WithRunActionsCtx(ctx, raCtx)
 		for _, actionHandler := range stx.actionHandlers {
 			receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
 			if err != nil {

@@ -39,7 +39,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if !ok {
 		return nil, errors.New("failed to get RunActionsCtx")
 	}
-	receipt, err := evm.ExecuteContract(raCtx.BlockHeight, raCtx.BlockHash, raCtx.ProducerPubKey, raCtx.BlockTimeStamp,
+	receipt, err := evm.ExecuteContract(raCtx.BlockHeight, raCtx.BlockHash, raCtx.Producer, raCtx.BlockTimeStamp,
 		sm, exec, p.cm, raCtx.GasLimit, raCtx.EnableGasCharge)
 
 	if err != nil {

@@ -805,11 +805,15 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
+	producer, err := address.Bech32ToAddress(blk.ProducerAddress())
+	if err != nil {
+		return nil, err
+	}
 	gasLimit := genesis.BlockGasLimit
 	return evm.ExecuteContract(
 		blk.Height(),
 		blk.HashBlock(),
-		blk.PublicKey(),
+		producer,
 		blk.Timestamp(),
 		ws,
 		ex,
@@ -837,11 +841,23 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
 	gasLimit := genesis.BlockGasLimit
+	callerAddr, err := address.Bech32ToAddress(addr)
+	if err != nil {
+		return nil, err
+	}
+	producer, err := address.Bech32ToAddress(genesisBlk.ProducerAddress())
+	if err != nil {
+		return nil, err
+	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    genesisBlk.ProducerAddress(),
+			EpochNumber:     0,
+			Producer:        producer,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+			Caller:          callerAddr,
+			ActionHash:      hash.ZeroHash32B,
+			Nonce:           0,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
@@ -1103,13 +1119,17 @@ func (bc *blockchain) runActions(
 	}
 	gasLimit := genesis.BlockGasLimit
 	// update state factory
+	producer, err := address.Bech32ToAddress(acts.BlockProducerAddr())
+	if err != nil {
+		return hash.ZeroHash32B, nil, err
+	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
+			EpochNumber:     0, // TODO: need to get the actual epoch number from RollDPoS
 			BlockHeight:     acts.BlockHeight(),
 			BlockHash:       acts.TxHash(),
-			ProducerPubKey:  acts.BlockProducerPubKey(),
 			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
-			ProducerAddr:    acts.BlockProducerAddr(),
+			Producer:        producer,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
