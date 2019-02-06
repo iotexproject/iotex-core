@@ -35,7 +35,7 @@ func TestEncodeDecode(t *testing.T) {
 	require.NoError(s2.Deserialize(ss))
 	require.Equal(big.NewInt(20000000), s2.Balance)
 	require.Equal(uint64(0x10), s2.Nonce)
-	require.Equal(hash.ZeroHash32B, s2.Root)
+	require.Equal(hash.ZeroHash256, s2.Root)
 	require.Equal([]byte("testing codehash"), s2.CodeHash)
 	require.Equal(big.NewInt(1000000000), s2.VotingWeight)
 	require.Equal("testing votee", s2.Votee)

@@ -12,13 +12,13 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
-func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash32B {
-	var h []hash.Hash32B
+func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash256 {
+	var h []hash.Hash256
 	for _, act := range acts {
 		h = append(h, act.Hash())
 	}
 	if len(h) == 0 {
-		return hash.ZeroHash32B
+		return hash.ZeroHash256
 	}
 	return crypto.NewMerkleTree(h).HashTree()
 }

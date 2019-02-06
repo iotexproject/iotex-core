@@ -69,7 +69,7 @@ func newTestAddr() *addrKeyPair {
 	pk := &sk.PublicKey
 	pkHash := keypair.HashPubKey(pk)
 	addr := address.New(pkHash[:])
-	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.Bech32()}
+	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.String()}
 }
 
 func test21Addrs() []*addrKeyPair {
@@ -178,7 +178,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	blk := block.NewBlockDeprecated(
 		1,
 		blockHeight,
-		hash.Hash32B{},
+		hash.Hash256{},
 		testutil.TimestampNowFromClock(clock),
 		testAddrs[0].pubKey,
 		make([]action.SealedEnvelope, 0),

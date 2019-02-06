@@ -80,7 +80,7 @@ type (
 		// Revert sets the cached batch to the state at the given snapshot
 		Revert(int) error
 		// Digest of the cached batch
-		Digest() hash.Hash32B
+		Digest() hash.Hash256
 		// clone clones the cached batch
 		clone() CachedBatch
 	}
@@ -303,7 +303,7 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	return nil
 }
 
-func (cb *cachedBatch) Digest() hash.Hash32B {
+func (cb *cachedBatch) Digest() hash.Hash256 {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 

@@ -26,20 +26,20 @@ func TestAddress(t *testing.T) {
 		pkHash := keypair.HashPubKey(&sk.PublicKey)
 
 		assertAddr := func(t *testing.T, addr *AddrV1) {
-			assert.Equal(t, pkHash[:], addr.Payload())
+			assert.Equal(t, pkHash[:], addr.Bytes())
 			assert.Equal(t, pkHash, addr.PublicKeyHash())
 		}
 
 		addr1 := V1.New(pkHash)
 		assertAddr(t, addr1)
 
-		encodedAddr := addr1.Bech32()
+		encodedAddr := addr1.String()
 		if isTestNet {
 			require.True(t, strings.HasPrefix(encodedAddr, TestnetPrefix))
 		} else {
 			require.True(t, strings.HasPrefix(encodedAddr, MainnetPrefix))
 		}
-		addr2, err := V1.Bech32ToAddress(encodedAddr)
+		addr2, err := V1.StringToAddress(encodedAddr)
 		require.NoError(t, err)
 		assertAddr(t, addr2)
 
@@ -69,10 +69,10 @@ func TestAddressError(t *testing.T) {
 	addr1 := V1.New(pkHash)
 	require.NoError(t, err)
 
-	encodedAddr := addr1.Bech32()
+	encodedAddr := addr1.String()
 	encodedAddrBytes := []byte(encodedAddr)
 	encodedAddrBytes[len(encodedAddrBytes)-1] = 'o'
-	addr2, err := V1.Bech32ToAddress(string(encodedAddrBytes))
+	addr2, err := V1.StringToAddress(string(encodedAddrBytes))
 	assert.Nil(t, addr2)
 	assert.Error(t, err)
 }

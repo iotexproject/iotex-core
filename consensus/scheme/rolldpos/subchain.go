@@ -71,7 +71,7 @@ func constructPutSubChainBlockRequest(
 	b *block.Block,
 ) (explorerapi.PutSubChainBlockRequest, error) {
 	senderPKHash := keypair.HashPubKey(senderPubKey)
-	senderPCAddr := address.New(senderPKHash[:]).Bech32()
+	senderPCAddr := address.New(senderPKHash[:]).String()
 
 	// get sender current pending nonce on parent chain
 	senderPCAddrDetails, err := rootChainAPI.GetAddressDetails(senderPCAddr)
@@ -79,7 +79,7 @@ func constructPutSubChainBlockRequest(
 		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to get address details")
 	}
 
-	rootm := make(map[string]hash.Hash32B)
+	rootm := make(map[string]hash.Hash256)
 	rootm["state"] = b.StateRoot()
 	rootm["tx"] = b.TxRoot()
 	pb := action.NewPutBlock(

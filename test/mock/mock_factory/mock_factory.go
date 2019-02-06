@@ -6,13 +6,14 @@ package mock_factory
 
 import (
 	context "context"
+	big "math/big"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
-	big "math/big"
-	reflect "reflect"
 )
 
 // MockFactory is a mock of Factory interface
@@ -102,9 +103,9 @@ func (mr *MockFactoryMockRecorder) AccountState(arg0 interface{}) *gomock.Call {
 }
 
 // RootHash mocks base method
-func (m *MockFactory) RootHash() hash.Hash32B {
+func (m *MockFactory) RootHash() hash.Hash256 {
 	ret := m.ctrl.Call(m, "RootHash")
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	return ret0
 }
 
@@ -114,9 +115,9 @@ func (mr *MockFactoryMockRecorder) RootHash() *gomock.Call {
 }
 
 // RootHashByHeight mocks base method
-func (m *MockFactory) RootHashByHeight(arg0 uint64) (hash.Hash32B, error) {
+func (m *MockFactory) RootHashByHeight(arg0 uint64) (hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "RootHashByHeight", arg0)
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -178,7 +179,7 @@ func (mr *MockFactoryMockRecorder) CandidatesByHeight(arg0 interface{}) *gomock.
 }
 
 // State mocks base method
-func (m *MockFactory) State(arg0 hash.PKHash, arg1 interface{}) error {
+func (m *MockFactory) State(arg0 hash.Hash160, arg1 interface{}) error {
 	ret := m.ctrl.Call(m, "State", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0

@@ -89,7 +89,7 @@ func TestTwoChains(t *testing.T) {
 	}))
 
 	require.NoError(t, testutil.WaitUntil(time.Second, 10*time.Second, func() (bool, error) {
-		balanceStr, err := mainChainClient.GetAddressBalance(addr1.Bech32())
+		balanceStr, err := mainChainClient.GetAddressBalance(addr1.String())
 		if err != nil {
 			return false, err
 		}
@@ -109,23 +109,23 @@ func TestTwoChains(t *testing.T) {
 		return svr.ChainService(2) != nil, nil
 	}))
 
-	details, err := mainChainClient.GetAddressDetails(addr1.Bech32())
+	details, err := mainChainClient.GetAddressDetails(addr1.String())
 	require.NoError(t, err)
 	createDeposit := action.NewCreateDeposit(
 		uint64(details.Nonce)+1,
 		2,
 		big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx)),
-		addr1.Bech32(),
-		addr2.Bech32(),
+		addr1.String(),
+		addr2.String(),
 		testutil.TestGasLimit,
 		big.NewInt(0),
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(createDeposit).
 		SetNonce(uint64(details.Nonce) + 1).
-		SetDestinationAddress(addr2.Bech32()).
+		SetDestinationAddress(addr2.String()).
 		SetGasLimit(testutil.TestGasLimit).Build()
-	selp, err := action.Sign(elp, addr1.Bech32(), sk1)
+	selp, err := action.Sign(elp, addr1.String(), sk1)
 	require.NoError(t, err)
 
 	createRes, err := mainChainClient.CreateDeposit(explorer.CreateDepositRequest{
@@ -164,7 +164,7 @@ func TestTwoChains(t *testing.T) {
 		fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(cfg.Chain.ID).Explorer().Port()+1),
 	)
 
-	details, err = subChainClient.GetAddressDetails(addr2.Bech32())
+	details, err = subChainClient.GetAddressDetails(addr2.String())
 	var nonce uint64
 	if err != nil {
 		nonce = 1
@@ -175,17 +175,17 @@ func TestTwoChains(t *testing.T) {
 		nonce,
 		big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx)),
 		index,
-		addr1.Bech32(),
-		addr2.Bech32(),
+		addr1.String(),
+		addr2.String(),
 		testutil.TestGasLimit,
 		big.NewInt(0),
 	)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(settleDeposit).
 		SetNonce(nonce).
-		SetDestinationAddress(addr2.Bech32()).
+		SetDestinationAddress(addr2.String()).
 		SetGasLimit(testutil.TestGasLimit).Build()
-	selp, err = action.Sign(elp, addr1.Bech32(), sk1)
+	selp, err = action.Sign(elp, addr1.String(), sk1)
 	require.NoError(t, err)
 
 	settleRes, err := subChainClient.SettleDeposit(explorer.SettleDepositRequest{

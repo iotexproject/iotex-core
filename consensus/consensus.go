@@ -141,11 +141,11 @@ func NewConsensus(
 				for _, rawc := range rawcs.Candidates {
 					// TODO: this is a short term walk around. We don't need to convert root chain address to sub chain
 					// address. Instead we should use public key to identify the block producer
-					rootChainAddr, err := address.Bech32ToAddress(rawc.Address)
+					rootChainAddr, err := address.StringToAddress(rawc.Address)
 					if err != nil {
 						return nil, errors.Wrapf(err, "error when get converting iotex address to address")
 					}
-					subChainAddr := address.New(rootChainAddr.Payload())
+					subChainAddr := address.New(rootChainAddr.Bytes())
 					pubKey, err := keypair.DecodePublicKey(rawc.PubKey)
 					if err != nil {
 						log.L().Error("Error when convert candidate PublicKey.", zap.Error(err))
@@ -155,7 +155,7 @@ func NewConsensus(
 						log.L().Error("Error when setting candidate total votes.", zap.Error(err))
 					}
 					cs = append(cs, &state.Candidate{
-						Address:          subChainAddr.Bech32(),
+						Address:          subChainAddr.String(),
 						PublicKey:        pubKey,
 						Votes:            votes,
 						CreationHeight:   uint64(rawc.CreationHeight),
@@ -248,5 +248,5 @@ func GetAddr(cfg config.Config) (keypair.PublicKey, keypair.PrivateKey, string) 
 	if err != nil {
 		log.L().Panic("Fail to create new consensus.", zap.Error(err))
 	}
-	return pk, sk, addr.Bech32()
+	return pk, sk, addr.String()
 }

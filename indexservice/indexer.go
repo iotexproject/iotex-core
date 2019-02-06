@@ -60,7 +60,7 @@ func (idx *Indexer) HandleBlock(blk *block.Block) error {
 
 // BuildIndex builds the index for a block
 func (idx *Indexer) BuildIndex(blk *block.Block) error {
-	idx.store.Transact(func(tx *sql.Tx) error {
+	if err := idx.store.Transact(func(tx *sql.Tx) error {
 		transfers, votes, executions := action.ClassifyActions(blk.Actions)
 		// log transfer index
 		for _, transfer := range transfers {
@@ -135,13 +135,15 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
 // UpdateBlockByIndex maps index hash to block hash
-func (idx *Indexer) UpdateBlockByIndex(blk *block.Block, tx *sql.Tx, indexIdentifier string, indexHash hash.Hash32B,
-	blockHash hash.Hash32B) error {
+func (idx *Indexer) UpdateBlockByIndex(blk *block.Block, tx *sql.Tx, indexIdentifier string, indexHash hash.Hash256,
+	blockHash hash.Hash256) error {
 	insertQuery := fmt.Sprintf("INSERT INTO %s (node_address,index_hash,block_hash) VALUES (?, ?, ?)",
 		idx.getBlockByIndexTableName(indexIdentifier))
 	if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(indexHash[:]), blockHash[:]); err != nil {
@@ -152,7 +154,7 @@ func (idx *Indexer) UpdateBlockByIndex(blk *block.Block, tx *sql.Tx, indexIdenti
 
 // UpdateIndexHistory stores index information into index history table
 func (idx *Indexer) UpdateIndexHistory(blk *block.Block, tx *sql.Tx, indexIdentifier string, userAddr string,
-	indexHash hash.Hash32B) error {
+	indexHash hash.Hash256) error {
 	insertQuery := fmt.Sprintf("INSERT INTO %s (node_address,user_address,index_hash) VALUES (?, ?, ?)",
 		idx.getIndexHistoryTableName(indexIdentifier))
 	if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, userAddr, indexHash[:]); err != nil {
@@ -162,7 +164,7 @@ func (idx *Indexer) UpdateIndexHistory(blk *block.Block, tx *sql.Tx, indexIdenti
 }
 
 // GetIndexHistory gets index history
-func (idx *Indexer) GetIndexHistory(indexIdentifier string, userAddr string) ([]hash.Hash32B, error) {
+func (idx *Indexer) GetIndexHistory(indexIdentifier string, userAddr string) ([]hash.Hash256, error) {
 	getQuery := fmt.Sprintf("SELECT * FROM %s WHERE node_address=? AND user_address=?",
 		idx.getIndexHistoryTableName(indexIdentifier))
 	indexHashes, err := idx.getIndexHistory(getQuery, userAddr)
@@ -173,47 +175,47 @@ func (idx *Indexer) GetIndexHistory(indexIdentifier string, userAddr string) ([]
 }
 
 // GetBlockByIndex returns block hash by index hash
-func (idx *Indexer) GetBlockByIndex(indexIdentifier string, indexHash hash.Hash32B) (hash.Hash32B, error) {
+func (idx *Indexer) GetBlockByIndex(indexIdentifier string, indexHash hash.Hash256) (hash.Hash256, error) {
 	getQuery := fmt.Sprintf("SELECT * FROM %s WHERE node_address=? AND index_hash=?",
 		idx.getBlockByIndexTableName(indexIdentifier))
 	blkHash, err := idx.blockByIndex(getQuery, indexHash)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to get block hash by index hash")
+		return hash.ZeroHash256, errors.Wrapf(err, "failed to get block hash by index hash")
 	}
 	return blkHash, nil
 }
 
 // blockByIndex returns block by receipt hash
-func (idx *Indexer) blockByIndex(getQuery string, actionHash hash.Hash32B) (hash.Hash32B, error) {
+func (idx *Indexer) blockByIndex(getQuery string, actionHash hash.Hash256) (hash.Hash256, error) {
 	db := idx.store.GetDB()
 
 	stmt, err := db.Prepare(getQuery)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
+		return hash.ZeroHash256, errors.Wrapf(err, "failed to prepare get query")
 	}
 
 	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(actionHash[:]))
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
+		return hash.ZeroHash256, errors.Wrapf(err, "failed to execute get query")
 	}
 
 	var blockByIndex BlockByIndex
 	parsedRows, err := s.ParseSQLRows(rows, &blockByIndex)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
+		return hash.ZeroHash256, errors.Wrapf(err, "failed to parse results")
 	}
 
 	if len(parsedRows) == 0 {
-		return hash.ZeroHash32B, ErrNotExist
+		return hash.ZeroHash256, ErrNotExist
 	}
 
-	var hash hash.Hash32B
+	var hash hash.Hash256
 	copy(hash[:], parsedRows[0].(*BlockByIndex).BlockHash)
 	return hash, nil
 }
 
 // getIndexHistory gets index history
-func (idx *Indexer) getIndexHistory(getQuery string, userAddr string) ([]hash.Hash32B, error) {
+func (idx *Indexer) getIndexHistory(getQuery string, userAddr string) ([]hash.Hash256, error) {
 	db := idx.store.GetDB()
 
 	stmt, err := db.Prepare(getQuery)
@@ -232,9 +234,9 @@ func (idx *Indexer) getIndexHistory(getQuery string, userAddr string) ([]hash.Ha
 		return nil, errors.Wrapf(err, "failed to parse results")
 	}
 
-	var indexHashes []hash.Hash32B
+	var indexHashes []hash.Hash256
 	for _, parsedRow := range parsedRows {
-		var hash hash.Hash32B
+		var hash hash.Hash256
 		copy(hash[:], parsedRow.(*IndexHistory).IndexHash)
 		indexHashes = append(indexHashes, hash)
 	}

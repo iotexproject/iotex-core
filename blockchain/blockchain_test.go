@@ -41,7 +41,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		1,
 		big.NewInt(3000000000),
 		Gen.CreatorAddr(),
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
 	)
@@ -49,7 +49,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	sig, _ := hex.DecodeString("c05c3ff8c9820038c03881c97f544593619ca4d1617c7c6d695aaf828339da9616877649d70948094a05a86b171320d1aae9afa4432606be3b263f808e11816e00")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
-		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
+		SetDestinationAddress(ta.Addrinfo["producer"].String()).
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
@@ -61,7 +61,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -74,18 +74,18 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 
-	addr0 := ta.Addrinfo["producer"].Bech32()
+	addr0 := ta.Addrinfo["producer"].String()
 	priKey0 := ta.Keyinfo["producer"].PriKey
-	addr1 := ta.Addrinfo["alfa"].Bech32()
+	addr1 := ta.Addrinfo["alfa"].String()
 	priKey1 := ta.Keyinfo["alfa"].PriKey
-	addr2 := ta.Addrinfo["bravo"].Bech32()
-	addr3 := ta.Addrinfo["charlie"].Bech32()
+	addr2 := ta.Addrinfo["bravo"].String()
+	addr3 := ta.Addrinfo["charlie"].String()
 	priKey3 := ta.Keyinfo["charlie"].PriKey
-	addr4 := ta.Addrinfo["delta"].Bech32()
+	addr4 := ta.Addrinfo["delta"].String()
 	priKey4 := ta.Keyinfo["delta"].PriKey
-	addr5 := ta.Addrinfo["echo"].Bech32()
+	addr5 := ta.Addrinfo["echo"].String()
 	priKey5 := ta.Keyinfo["echo"].PriKey
-	addr6 := ta.Addrinfo["foxtrot"].Bech32()
+	addr6 := ta.Addrinfo["foxtrot"].String()
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	tsf1, err := testutil.SignedTransfer(addr0, addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
@@ -119,7 +119,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		accMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -160,7 +160,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		accMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -199,7 +199,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		accMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 
@@ -256,7 +256,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		accMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -351,14 +351,14 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			1,
 			big.NewInt(3000000000+k),
 			Gen.CreatorAddr(),
-			ta.Addrinfo["producer"].Bech32(),
+			ta.Addrinfo["producer"].String(),
 			[]byte{}, uint64(100000),
 			big.NewInt(10),
 		)
 		require.NoError(t, err)
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetAction(tsf).
-			SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
+			SetDestinationAddress(ta.Addrinfo["producer"].String()).
 			SetNonce(1).
 			SetGasLimit(100000).
 			SetGasPrice(big.NewInt(10)).Build()
@@ -370,7 +370,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 			actionMap,
 			ta.Keyinfo["producer"].PubKey,
 			ta.Keyinfo["producer"].PriKey,
-			ta.Addrinfo["producer"].Bech32(),
+			ta.Addrinfo["producer"].String(),
 			0,
 		)
 		if v {
@@ -513,7 +513,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Equal(hash5, blk.HashBlock())
 	fmt.Printf("block 5 hash = %x\n", hash5)
 
-	empblk, err := bc.GetBlockByHash(hash.ZeroHash32B)
+	empblk, err := bc.GetBlockByHash(hash.ZeroHash256)
 	require.Nil(empblk)
 	require.NotNil(err.Error())
 
@@ -531,8 +531,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	// add block with wrong height
 	selp, err := testutil.SignedTransfer(
-		ta.Addrinfo["producer"].Bech32(),
-		ta.Addrinfo["bravo"].Bech32(),
+		ta.Addrinfo["producer"].String(),
+		ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["producer"].PriKey,
 		1,
 		big.NewInt(50),
@@ -556,8 +556,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	// add block with zero prev hash
 	selp2, err := testutil.SignedTransfer(
-		ta.Addrinfo["producer"].Bech32(),
-		ta.Addrinfo["bravo"].Bech32(),
+		ta.Addrinfo["producer"].String(),
+		ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["producer"].PriKey,
 		1,
 		big.NewInt(50),
@@ -570,7 +570,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	nblk, err = block.NewTestingBuilder().
 		SetChainID(0).
 		SetHeight(h+1).
-		SetPrevBlockHash(hash.ZeroHash32B).
+		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
@@ -610,27 +610,27 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.Equal(vote1.Hash(), voteHash)
 	}
 
-	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].Bech32())
+	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].String())
 	require.Nil(err)
 	require.Equal(len(fromTransfers), 5)
 
-	toTransfers, err := bc.GetTransfersToAddress(ta.Addrinfo["charlie"].Bech32())
+	toTransfers, err := bc.GetTransfersToAddress(ta.Addrinfo["charlie"].String())
 	require.Nil(err)
 	require.Equal(len(toTransfers), 2)
 
-	fromVotes, err := bc.GetVotesFromAddress(ta.Addrinfo["charlie"].Bech32())
+	fromVotes, err := bc.GetVotesFromAddress(ta.Addrinfo["charlie"].String())
 	require.Nil(err)
 	require.Equal(len(fromVotes), 1)
 
-	fromVotes, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].Bech32())
+	fromVotes, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].String())
 	require.Nil(err)
 	require.Equal(len(fromVotes), 1)
 
-	toVotes, err := bc.GetVotesToAddress(ta.Addrinfo["charlie"].Bech32())
+	toVotes, err := bc.GetVotesToAddress(ta.Addrinfo["charlie"].String())
 	require.Nil(err)
 	require.Equal(len(toVotes), 1)
 
-	toVotes, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].Bech32())
+	toVotes, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].String())
 	require.Nil(err)
 	require.Equal(len(toVotes), 1)
 
@@ -642,9 +642,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Nil(err)
 	require.Equal(totalVotes, uint64(23))
 
-	_, err = bc.GetTransferByTransferHash(hash.ZeroHash32B)
+	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
 	require.NotNil(err)
-	_, err = bc.GetVoteByVoteHash(hash.ZeroHash32B)
+	_, err = bc.GetVoteByVoteHash(hash.ZeroHash256)
 	require.NotNil(err)
 	_, err = bc.StateByAddr("")
 	require.NotNil(err)
@@ -747,7 +747,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Nil(err)
 	require.Equal(hash4, blk.HashBlock())
 	fmt.Printf("block 4 hash = %x\n", hash4)
-	empblk, err := bc.GetBlockByHash(hash.ZeroHash32B)
+	empblk, err := bc.GetBlockByHash(hash.ZeroHash256)
 	require.Nil(empblk)
 	require.NotNil(err.Error())
 	blk, err = bc.GetBlockByHeight(60000)
@@ -762,8 +762,8 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 	// add block with wrong height
 	selp, err := testutil.SignedTransfer(
-		ta.Addrinfo["producer"].Bech32(),
-		ta.Addrinfo["bravo"].Bech32(),
+		ta.Addrinfo["producer"].String(),
+		ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["producer"].PriKey,
 		1,
 		big.NewInt(50),
@@ -786,8 +786,8 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// add block with zero prev hash
 	selp2, err := testutil.SignedTransfer(
-		ta.Addrinfo["producer"].Bech32(),
-		ta.Addrinfo["bravo"].Bech32(),
+		ta.Addrinfo["producer"].String(),
+		ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["producer"].PriKey,
 		1,
 		big.NewInt(50),
@@ -800,7 +800,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	nblk, err = block.NewTestingBuilder().
 		SetChainID(0).
 		SetHeight(h+1).
-		SetPrevBlockHash(hash.ZeroHash32B).
+		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
@@ -832,25 +832,25 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		_, err = bc.GetVoteByVoteHash(voteHash)
 		require.NotNil(err)
 	}
-	_, err = bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].Bech32())
+	_, err = bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].String())
 	require.NotNil(err)
-	_, err = bc.GetTransfersToAddress(ta.Addrinfo["charlie"].Bech32())
+	_, err = bc.GetTransfersToAddress(ta.Addrinfo["charlie"].String())
 	require.NotNil(err)
-	_, err = bc.GetVotesFromAddress(ta.Addrinfo["charlie"].Bech32())
+	_, err = bc.GetVotesFromAddress(ta.Addrinfo["charlie"].String())
 	require.NotNil(err)
-	_, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].Bech32())
+	_, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].String())
 	require.NotNil(err)
-	_, err = bc.GetVotesToAddress(ta.Addrinfo["charlie"].Bech32())
+	_, err = bc.GetVotesToAddress(ta.Addrinfo["charlie"].String())
 	require.NotNil(err)
-	_, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].Bech32())
+	_, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].String())
 	require.NotNil(err)
 	_, err = bc.GetTotalTransfers()
 	require.NotNil(err)
 	_, err = bc.GetTotalVotes()
 	require.NotNil(err)
-	_, err = bc.GetTransferByTransferHash(hash.ZeroHash32B)
+	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
 	require.NotNil(err)
-	_, err = bc.GetVoteByVoteHash(hash.ZeroHash32B)
+	_, err = bc.GetVoteByVoteHash(hash.ZeroHash256)
 	require.NotNil(err)
 	_, err = bc.StateByAddr("")
 	require.NotNil(err)
@@ -921,7 +921,7 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	require.Equal(uint64(0), s.Nonce)
 	bal := big.NewInt(7700000000)
 	require.Equal(bal.Mul(bal, big.NewInt(1e18)).String(), s.Balance.String())
-	require.Equal(hash.ZeroHash32B, s.Root)
+	require.Equal(hash.ZeroHash256, s.Root)
 	require.Equal([]byte(nil), s.CodeHash)
 	require.Equal(false, s.IsCandidate)
 	require.Equal(big.NewInt(0), s.VotingWeight)
@@ -953,9 +953,9 @@ func TestBlocks(t *testing.T) {
 
 	require.NoError(addCreatorToFactory(sf))
 
-	a := ta.Addrinfo["alfa"].Bech32()
+	a := ta.Addrinfo["alfa"].String()
 	priKeyA := ta.Keyinfo["alfa"].PriKey
-	c := ta.Addrinfo["bravo"].Bech32()
+	c := ta.Addrinfo["bravo"].String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	_, err = account.LoadOrCreateAccount(ws, a, big.NewInt(100000))
@@ -987,7 +987,7 @@ func TestBlocks(t *testing.T) {
 			actionMap,
 			ta.Keyinfo["producer"].PubKey,
 			ta.Keyinfo["producer"].PriKey,
-			ta.Addrinfo["producer"].Bech32(),
+			ta.Addrinfo["producer"].String(),
 			0,
 		)
 		require.Nil(bc.ValidateBlock(blk))
@@ -1019,9 +1019,9 @@ func TestActions(t *testing.T) {
 	}()
 
 	require.NoError(addCreatorToFactory(sf))
-	a := ta.Addrinfo["alfa"].Bech32()
+	a := ta.Addrinfo["alfa"].String()
 	priKeyA := ta.Keyinfo["alfa"].PriKey
-	c := ta.Addrinfo["bravo"].Bech32()
+	c := ta.Addrinfo["bravo"].String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	_, err = account.LoadOrCreateAccount(ws, a, big.NewInt(100000))
@@ -1056,7 +1056,7 @@ func TestActions(t *testing.T) {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(val.Validate(blk, 0, blk.PrevHash()))
@@ -1139,7 +1139,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].Bech32(), Gen.TotalSupply); err != nil {
+	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(), Gen.TotalSupply); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit

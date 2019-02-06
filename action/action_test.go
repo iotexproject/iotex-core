@@ -18,18 +18,18 @@ import (
 
 func TestActionProto(t *testing.T) {
 	require := require.New(t)
-	v, err := NewVote(0, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Addrinfo["bravo"].Bech32(),
+	v, err := NewVote(0, testaddress.Addrinfo["alfa"].String(), testaddress.Addrinfo["bravo"].String(),
 		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	fmt.Println(v)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetDestinationAddress(testaddress.Addrinfo["bravo"].Bech32()).
+	elp := bd.SetDestinationAddress(testaddress.Addrinfo["bravo"].String()).
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 
-	selp, err := Sign(elp, testaddress.Addrinfo["alfa"].Bech32(), testaddress.Keyinfo["alfa"].PriKey)
+	selp, err := Sign(elp, testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey)
 	require.NoError(err)
 
 	require.NoError(Verify(selp))

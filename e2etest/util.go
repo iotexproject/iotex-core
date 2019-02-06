@@ -26,7 +26,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		1,
 		blockchain.ConvertIotxToRau(3000000000),
 		blockchain.Gen.CreatorAddr(),
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(0),
 	)
@@ -34,7 +34,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	sig, _ := hex.DecodeString("da334834c0169a28d9e85035ca7b51df17ec03310bde7902be32d311d7233fe259f49af86330697a4d2d68b74a1d3219a0db003a31c6416b4c86b5fcbebfd8c800")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
-		SetDestinationAddress(ta.Addrinfo["producer"].Bech32()).
+		SetDestinationAddress(ta.Addrinfo["producer"].String()).
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
@@ -47,7 +47,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -60,17 +60,17 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		return err
 	}
 
-	addr0 := ta.Addrinfo["producer"].Bech32()
+	addr0 := ta.Addrinfo["producer"].String()
 	priKey0 := ta.Keyinfo["producer"].PriKey
-	addr1 := ta.Addrinfo["alfa"].Bech32()
-	addr2 := ta.Addrinfo["bravo"].Bech32()
-	addr3 := ta.Addrinfo["charlie"].Bech32()
+	addr1 := ta.Addrinfo["alfa"].String()
+	addr2 := ta.Addrinfo["bravo"].String()
+	addr3 := ta.Addrinfo["charlie"].String()
 	priKey3 := ta.Keyinfo["charlie"].PriKey
-	addr4 := ta.Addrinfo["delta"].Bech32()
+	addr4 := ta.Addrinfo["delta"].String()
 	priKey4 := ta.Keyinfo["delta"].PriKey
-	addr5 := ta.Addrinfo["echo"].Bech32()
+	addr5 := ta.Addrinfo["echo"].String()
 	priKey5 := ta.Keyinfo["echo"].PriKey
-	addr6 := ta.Addrinfo["foxtrot"].Bech32()
+	addr6 := ta.Addrinfo["foxtrot"].String()
 	// Add block 2
 	// test --> A, B, C, D, E, F
 	tsf1, err := testutil.SignedTransfer(addr0, addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
@@ -104,7 +104,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -146,7 +146,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -184,7 +184,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -230,7 +230,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {

@@ -187,7 +187,7 @@ func (p *Protocol) assertAdminPermission(raCtx protocol.RunActionsCtx, sm protoc
 	if bytes.Equal(a.admin.Bytes(), raCtx.Caller.Bytes()) {
 		return nil
 	}
-	return errors.Errorf("%s is not the rewarding protocol admin", raCtx.Caller.Bech32())
+	return errors.Errorf("%s is not the rewarding protocol admin", raCtx.Caller.String())
 }
 
 func (p *Protocol) setReward(

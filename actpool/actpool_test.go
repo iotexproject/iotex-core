@@ -36,16 +36,16 @@ const (
 
 var (
 	chainID = config.Default.Chain.ID
-	addr1   = testaddress.Addrinfo["alfa"].Bech32()
+	addr1   = testaddress.Addrinfo["alfa"].String()
 	pubKey1 = testaddress.Keyinfo["alfa"].PubKey
 	priKey1 = testaddress.Keyinfo["alfa"].PriKey
-	addr2   = testaddress.Addrinfo["bravo"].Bech32()
+	addr2   = testaddress.Addrinfo["bravo"].String()
 	priKey2 = testaddress.Keyinfo["bravo"].PriKey
-	addr3   = testaddress.Addrinfo["charlie"].Bech32()
+	addr3   = testaddress.Addrinfo["charlie"].String()
 	priKey3 = testaddress.Keyinfo["charlie"].PriKey
-	addr4   = testaddress.Addrinfo["delta"].Bech32()
+	addr4   = testaddress.Addrinfo["delta"].String()
 	priKey4 = testaddress.Keyinfo["delta"].PriKey
-	addr5   = testaddress.Addrinfo["echo"].Bech32()
+	addr5   = testaddress.Addrinfo["echo"].String()
 	priKey5 = testaddress.Keyinfo["echo"].PriKey
 )
 

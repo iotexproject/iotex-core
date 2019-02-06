@@ -32,10 +32,10 @@ func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: ""}
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -57,10 +57,10 @@ func TestSignBlock(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: ""}
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -102,7 +102,7 @@ func TestWrongNonce(t *testing.T) {
 
 	// correct nonce
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -130,7 +130,7 @@ func TestWrongNonce(t *testing.T) {
 	require.Nil(sf.Commit(ws))
 
 	// low nonce
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blk, err = block.NewTestingBuilder().
@@ -145,7 +145,7 @@ func TestWrongNonce(t *testing.T) {
 	err = val.Validate(&blk, 2, blkhash)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 1, uint64(100000), big.NewInt(10))
+	vote, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 1, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	blkhash = tsf1.Hash()
@@ -162,10 +162,10 @@ func TestWrongNonce(t *testing.T) {
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// duplicate nonce
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -180,10 +180,10 @@ func TestWrongNonce(t *testing.T) {
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote2, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, uint64(100000), big.NewInt(10))
+	vote2, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
-	vote3, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, uint64(100000), big.NewInt(10))
+	vote3, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -199,9 +199,9 @@ func TestWrongNonce(t *testing.T) {
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// non consecutive nonce
-	tsf5, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf5, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	tsf6, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf6, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -216,9 +216,9 @@ func TestWrongNonce(t *testing.T) {
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	vote4, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, uint64(100000), big.NewInt(10))
+	vote4, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 2, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-	vote5, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey, 4, uint64(100000), big.NewInt(10))
+	vote5, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 4, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	blkhash = tsf1.Hash()
@@ -252,18 +252,18 @@ func TestWrongAddress(t *testing.T) {
 		execution.NewProtocol(bc))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
-	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].Bech32(), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].String(), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).SetDestinationAddress(invalidRecipient).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	selp, err := action.Sign(elp, ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	blk1, err := block.NewTestingBuilder().
 		SetChainID(1).
 		SetHeight(3).
-		SetPrevBlockHash(hash.ZeroHash32B).
+		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
@@ -278,18 +278,18 @@ func TestWrongAddress(t *testing.T) {
 	require.True(t, strings.Contains(err.Error(), "error when validating recipient's address"))
 
 	invalidVotee := "ioaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	vote, err := action.NewVote(1, ta.Addrinfo["producer"].Bech32(), invalidVotee, uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(1, ta.Addrinfo["producer"].String(), invalidVotee, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).SetDestinationAddress(invalidVotee).Build()
-	selp, err = action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	selp, err = action.Sign(elp, ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	blk2, err := block.NewTestingBuilder().
 		SetChainID(1).
 		SetHeight(3).
-		SetPrevBlockHash(hash.ZeroHash32B).
+		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
@@ -305,18 +305,18 @@ func TestWrongAddress(t *testing.T) {
 	require.True(t, strings.Contains(err.Error(), "error when validating votee's address"))
 
 	invalidContract := "123"
-	execution, err := action.NewExecution(ta.Addrinfo["producer"].Bech32(), invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
+	execution, err := action.NewExecution(ta.Addrinfo["producer"].String(), invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(execution).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).SetDestinationAddress(invalidContract).Build()
-	selp, err = action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	selp, err = action.Sign(elp, ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	blk3, err := block.NewTestingBuilder().
 		SetChainID(1).
 		SetHeight(3).
-		SetPrevBlockHash(hash.ZeroHash32B).
+		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
@@ -341,7 +341,7 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	require.NoError(t, chain.Start(ctx))
 	defer require.NoError(t, chain.Stop(ctx))
 
-	addr := ta.Addrinfo["producer"].Bech32()
+	addr := ta.Addrinfo["producer"].String()
 	sk := ta.Keyinfo["producer"].PriKey
 	pk := ta.Keyinfo["producer"].PubKey
 	blk, err := chain.MintNewBlock(nil, pk, sk, addr, 0)

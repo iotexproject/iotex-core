@@ -31,31 +31,31 @@ type Key struct {
 }
 
 // Addrinfo contains the address information
-var Addrinfo map[string]*address.AddrV1
+var Addrinfo map[string]address.Address
 
 // Keyinfo contains the private key information
 var Keyinfo map[string]*Key
 
 func init() {
-	Addrinfo = make(map[string]*address.AddrV1)
+	Addrinfo = make(map[string]address.Address)
 	Keyinfo = make(map[string]*Key)
 
 	priKey, _ := keypair.DecodePrivateKey(prikeyProducer)
 	pubKey := &priKey.PublicKey
 	Addrinfo["producer"] = address.V1.New(keypair.HashPubKey(pubKey))
-	fmt.Printf("Producer's address is %s\n", Addrinfo["producer"].Bech32())
+	fmt.Printf("Producer's address is %s\n", Addrinfo["producer"].String())
 	Keyinfo["producer"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyA)
 	pubKey = &priKey.PublicKey
 	Addrinfo["alfa"] = address.V1.New(keypair.HashPubKey(pubKey))
-	fmt.Printf("Alfa's address is %s\n", Addrinfo["alfa"].Bech32())
+	fmt.Printf("Alfa's address is %s\n", Addrinfo["alfa"].String())
 	Keyinfo["alfa"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyB)
 	pubKey = &priKey.PublicKey
 	Addrinfo["bravo"] = address.V1.New(keypair.HashPubKey(pubKey))
-	fmt.Printf("Bravo's address is %s\n", Addrinfo["bravo"].Bech32())
+	fmt.Printf("Bravo's address is %s\n", Addrinfo["bravo"].String())
 	Keyinfo["bravo"] = &Key{PubKey: pubKey, PriKey: priKey}
 
 	priKey, _ = keypair.DecodePrivateKey(prikeyC)
