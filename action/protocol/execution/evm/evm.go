@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -57,7 +56,7 @@ type Params struct {
 }
 
 // NewParams creates a new context for use in the EVM.
-func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp int64, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
+func NewParams(blkHeight uint64, producerAddr address.Address, blkTimeStamp int64, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	/*
 		var beneficiary common.Address
@@ -81,8 +80,7 @@ func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp 
 		contractAddr := common.BytesToAddress(contract.Payload())
 		contractAddrPointer = &contractAddr
 	}
-	producerHash := keypair.HashPubKey(producerPubKey)
-	producer := common.BytesToAddress(producerHash[:])
+	producer := common.BytesToAddress(producerAddr.Payload())
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
@@ -142,7 +140,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 func ExecuteContract(
 	blkHeight uint64,
 	blkHash hash.Hash32B,
-	producerPubKey keypair.PublicKey,
+	producer address.Address,
 	blkTimeStamp int64,
 	sm protocol.StateManager,
 	execution *action.Execution,
@@ -151,7 +149,7 @@ func ExecuteContract(
 	enableGasCharge bool,
 ) (*action.Receipt, error) {
 	stateDB := NewStateDBAdapter(cm, sm, blkHeight, blkHash, execution.Hash())
-	ps, err := NewParams(blkHeight, producerPubKey, blkTimeStamp, execution, stateDB)
+	ps, err := NewParams(blkHeight, producer, blkTimeStamp, execution, stateDB)
 	if err != nil {
 		return nil, err
 	}

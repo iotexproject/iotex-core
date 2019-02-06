@@ -145,7 +145,7 @@ func (sct *smartContractTest) prepareBlockchain(
 	gasLimit := uint64(10000000)
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+			Producer:        testaddress.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -238,7 +238,7 @@ func TestProtocol_Handle(t *testing.T) {
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+				Producer:        testaddress.Addrinfo["producer"],
 				GasLimit:        &gasLimit,
 				EnableGasCharge: testutil.EnableGasCharge,
 			})
@@ -445,7 +445,7 @@ func TestProtocol_Handle(t *testing.T) {
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+				Producer:        testaddress.Addrinfo["producer"],
 				GasLimit:        &gasLimit,
 				EnableGasCharge: testutil.EnableGasCharge,
 			})
@@ -622,7 +622,7 @@ func TestProtocol_Handle(t *testing.T) {
 		gasLimit := uint64(10000000)
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+				Producer:        testaddress.Addrinfo["producer"],
 				GasLimit:        &gasLimit,
 				EnableGasCharge: testutil.EnableGasCharge,
 			})
