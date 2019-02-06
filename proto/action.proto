@@ -151,7 +151,7 @@ message ActionPb {
         CreateDepositPb createDeposit = 16;
         SettleDepositPb settleDeposit = 17;
 
-	// PlumChain
+        // PlumChain
         CreatePlumChainPb createPlumChain = 18;
         TerminatePlumChainPb terminatePlumChain = 19;
         PlumPutBlockPb plumPutBlock = 20;
@@ -163,11 +163,11 @@ message ActionPb {
         PlumSettleDepositPb plumSettleDeposit = 26;
         PlumTransferPb plumTransfer = 27;
 
-        // Block producer protocol actions
-        DonateToProducerFund donateToProducerFund = 30;
-        ClaimFromProducerFund claimFromProducerFund = 31;
-        SetBlockProducerReward setBlockProducerReward = 32;
-        GrantBlockProducerReward grantBlockProducerReward = 33;
+        // Rewarding protocol actions
+        DepositToRewardingFund depositToRewardingFund = 30;
+        ClaimFromRewardingFund claimFromRewardingFund = 31;
+        SetReward setReward = 32;
+        GrantReward grantReward = 33;
     }
 }
 
@@ -195,27 +195,27 @@ message LogPb {
 // BELOW ARE DEFINITIONS FOR BLOCK PRODUCER PROTOCOL
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-message DonateToProducerFund {
+message DepositToRewardingFund {
      bytes amount = 1;
      bytes data = 2;
 }
 
-message ClaimFromProducerFund {
+message ClaimFromRewardingFund {
     bytes amount = 1;
     bytes data = 2;
 }
 
-enum BlockProducerRewardType {
+enum RewardType {
     Block = 0;
     Epoch = 1;
 }
 
-message SetBlockProducerReward {
+message SetReward {
     bytes amount = 1;
     bytes data = 2;
-    BlockProducerRewardType type = 3;
+    RewardType type = 3;
 }
 
-message GrantBlockProducerReward {
-    BlockProducerRewardType type = 1;
+message GrantReward {
+    RewardType type = 1;
 }

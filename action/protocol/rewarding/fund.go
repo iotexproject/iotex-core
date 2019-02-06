@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package producer
+package rewarding
 
 import (
 	"context"
@@ -15,39 +15,39 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/producer/producerpb"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-// fund stores the balance of the block producer fund. The difference between total and available balance should be
+// fund stores the balance of the rewarding fund. The difference between total and available balance should be
 // equal to the unclaimed balance in all reward accounts
 type fund struct {
 	totalBalance     *big.Int
-	availableBalance *big.Int
+	unclaimedBalance *big.Int
 }
 
 // Serialize serializes fund state into bytes
 func (f fund) Serialize() ([]byte, error) {
-	gen := producerpb.Fund{
+	gen := rewardingpb.Fund{
 		TotalBalance:     f.totalBalance.Bytes(),
-		AvailableBalance: f.availableBalance.Bytes(),
+		UnclaimedBalance: f.unclaimedBalance.Bytes(),
 	}
 	return proto.Marshal(&gen)
 }
 
 // Deserialize deserializes bytes into fund state
 func (f *fund) Deserialize(data []byte) error {
-	gen := producerpb.Fund{}
+	gen := rewardingpb.Fund{}
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
 	f.totalBalance = big.NewInt(0).SetBytes(gen.TotalBalance)
-	f.availableBalance = big.NewInt(0).SetBytes(gen.AvailableBalance)
+	f.unclaimedBalance = big.NewInt(0).SetBytes(gen.UnclaimedBalance)
 	return nil
 }
 
-// Donate donates token into the block producer fund
+// Donate donates token into the rewarding fund
 func (p *Protocol) Donate(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -61,7 +61,7 @@ func (p *Protocol) Donate(
 		return err
 	}
 	// Subtract balance from caller
-	acc, err := account.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Payload()))
+	acc, err := account.LoadOrCreateAccount(sm, raCtx.Caller.Bech32(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
@@ -73,14 +73,14 @@ func (p *Protocol) Donate(
 		return err
 	}
 	f.totalBalance = big.NewInt(0).Add(f.totalBalance, amount)
-	f.availableBalance = big.NewInt(0).Add(f.availableBalance, amount)
+	f.unclaimedBalance = big.NewInt(0).Add(f.unclaimedBalance, amount)
 	if err := p.putState(sm, fundKey, &f); err != nil {
 		return err
 	}
 	return nil
 }
 
-// TotalBalance returns the total balance of the block producer fund
+// TotalBalance returns the total balance of the rewarding fund
 func (p *Protocol) TotalBalance(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -92,7 +92,7 @@ func (p *Protocol) TotalBalance(
 	return f.totalBalance, nil
 }
 
-// AvailableBalance returns the available balance of the block producer fund
+// AvailableBalance returns the available balance of the rewarding fund
 func (p *Protocol) AvailableBalance(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -101,7 +101,7 @@ func (p *Protocol) AvailableBalance(
 	if err := p.state(sm, fundKey, &f); err != nil {
 		return nil, err
 	}
-	return f.availableBalance, nil
+	return f.unclaimedBalance, nil
 }
 
 func (p *Protocol) assertEnoughBalance(

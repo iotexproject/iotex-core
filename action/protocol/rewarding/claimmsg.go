@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package producer
+package rewarding
 
 import (
 	"math"
@@ -19,55 +19,55 @@ import (
 )
 
 var (
-	claimFromProducerFundBaseGas    = uint64(10000)
-	claimFromProducerFundGasPerByte = uint64(100)
+	claimFromRewardingFundBaseGas    = uint64(10000)
+	claimFromRewardingFundGasPerByte = uint64(100)
 )
 
-// ClaimFromProducerFund is the action to claim reward from the block producer fund
-type ClaimFromProducerFund struct {
+// ClaimFromRewardingFund is the action to claim reward from the rewarding fund
+type ClaimFromRewardingFund struct {
 	action.AbstractAction
 	amount *big.Int
 	data   []byte
 }
 
 // Amount returns the amount to claim
-func (c *ClaimFromProducerFund) Amount() *big.Int { return c.amount }
+func (c *ClaimFromRewardingFund) Amount() *big.Int { return c.amount }
 
 // Data returns the additional data
-func (c *ClaimFromProducerFund) Data() []byte { return c.data }
+func (c *ClaimFromRewardingFund) Data() []byte { return c.data }
 
 // ByteStream returns a raw byte stream of a claim action
-func (c *ClaimFromProducerFund) ByteStream() []byte {
+func (c *ClaimFromRewardingFund) ByteStream() []byte {
 	return byteutil.Must(proto.Marshal(c.Proto()))
 }
 
 // Proto converts a claim action struct to a claim action protobuf
-func (c *ClaimFromProducerFund) Proto() *iproto.ClaimFromProducerFund {
-	return &iproto.ClaimFromProducerFund{
+func (c *ClaimFromRewardingFund) Proto() *iproto.ClaimFromRewardingFund {
+	return &iproto.ClaimFromRewardingFund{
 		Amount: c.amount.Bytes(),
 		Data:   c.data,
 	}
 }
 
 // LoadProto converts a claim action protobuf to a claim action struct
-func (c *ClaimFromProducerFund) LoadProto(claim *iproto.ClaimFromProducerFund) error {
-	*c = ClaimFromProducerFund{}
+func (c *ClaimFromRewardingFund) LoadProto(claim *iproto.ClaimFromRewardingFund) error {
+	*c = ClaimFromRewardingFund{}
 	c.amount = big.NewInt(0).SetBytes(claim.Amount)
 	c.data = claim.Data
 	return nil
 }
 
 // IntrinsicGas returns the intrinsic gas of a claim action
-func (c *ClaimFromProducerFund) IntrinsicGas() (uint64, error) {
+func (c *ClaimFromRewardingFund) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(c.Data()))
-	if (math.MaxUint64-claimFromProducerFundBaseGas)/claimFromProducerFundGasPerByte < dataLen {
+	if (math.MaxUint64-claimFromRewardingFundBaseGas)/claimFromRewardingFundGasPerByte < dataLen {
 		return 0, action.ErrOutOfGas
 	}
-	return claimFromProducerFundBaseGas + claimFromProducerFundGasPerByte*dataLen, nil
+	return claimFromRewardingFundBaseGas + claimFromRewardingFundGasPerByte*dataLen, nil
 }
 
 // Cost returns the total cost of a claim action
-func (c *ClaimFromProducerFund) Cost() (*big.Int, error) {
+func (c *ClaimFromRewardingFund) Cost() (*big.Int, error) {
 	intrinsicGas, err := c.IntrinsicGas()
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting intrinsic gas for the claim action")
@@ -75,26 +75,26 @@ func (c *ClaimFromProducerFund) Cost() (*big.Int, error) {
 	return big.NewInt(0).Mul(c.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
 }
 
-// ClaimFromProducerFundBuilder is the struct to build ClaimFromProducerFund
-type ClaimFromProducerFundBuilder struct {
+// ClaimFromRewardingFundBuilder is the struct to build ClaimFromRewardingFund
+type ClaimFromRewardingFundBuilder struct {
 	action.Builder
-	claim ClaimFromProducerFund
+	claim ClaimFromRewardingFund
 }
 
 // SetAmount sets the amount to claim
-func (b *ClaimFromProducerFundBuilder) SetAmount(amount *big.Int) *ClaimFromProducerFundBuilder {
+func (b *ClaimFromRewardingFundBuilder) SetAmount(amount *big.Int) *ClaimFromRewardingFundBuilder {
 	b.claim.amount = amount
 	return b
 }
 
 // SetData sets the additional data
-func (b *ClaimFromProducerFundBuilder) SetData(data []byte) *ClaimFromProducerFundBuilder {
+func (b *ClaimFromRewardingFundBuilder) SetData(data []byte) *ClaimFromRewardingFundBuilder {
 	b.claim.data = data
 	return b
 }
 
-// Build builds a new claim from producer fund action
-func (b *ClaimFromProducerFundBuilder) Build() ClaimFromProducerFund {
+// Build builds a new claim from rewarding fund action
+func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
 	b.claim.AbstractAction = b.Builder.Build()
 	return b.claim
 }

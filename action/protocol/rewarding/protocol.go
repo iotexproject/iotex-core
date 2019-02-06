@@ -4,10 +4,11 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package producer
+package rewarding
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -34,15 +35,15 @@ var (
 	accountKeyPrefix            = []byte("account")
 )
 
-// Protocol defines the protocol of block producer fund operation and block producer rewarding process. It allows the
-// admin to config the block producer reward amount, users to donate tokens to the fund, block producers to grant them
-// block and epoch reward and claim the balance into their personal account
+// Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
+// reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
+// beneficiaries to claim the balance into their personal account.
 type Protocol struct {
 	addr      address.Address
 	keyPrefix []byte
 }
 
-// NewProtocol instantiates a block producer protocol instance. The address of the protocol is defined by the creator's
+// NewProtocol instantiates a rewarding protocol instance. The address of the protocol is defined by the creator's
 // address and the nonce of creating it
 func NewProtocol(caller address.Address, nonce uint64) *Protocol {
 	var nonceBytes [8]byte
@@ -54,7 +55,7 @@ func NewProtocol(caller address.Address, nonce uint64) *Protocol {
 	}
 }
 
-// Handle handles the actions on the block producer protocol
+// Handle handles the actions on the rewarding protocol
 func (p *Protocol) Handle(
 	ctx context.Context,
 	act action.Action,
@@ -62,7 +63,7 @@ func (p *Protocol) Handle(
 ) (*action.Receipt, error) {
 	// TODO: simplify the boilerplate
 	switch act := act.(type) {
-	case *SetBlockProducerReward:
+	case *SetReward:
 		switch act.RewardType() {
 		case BlockReward:
 			gasConsumed, err := act.IntrinsicGas()
@@ -83,7 +84,7 @@ func (p *Protocol) Handle(
 			}
 			return p.settleAction(ctx, sm, 0, gasConsumed), nil
 		}
-	case *DonateToProducerFund:
+	case *DonateToRewardingFund:
 		gasConsumed, err := act.IntrinsicGas()
 		if err != nil {
 			return p.settleAction(ctx, sm, 1, 0), nil
@@ -92,7 +93,7 @@ func (p *Protocol) Handle(
 			return p.settleAction(ctx, sm, 1, gasConsumed), nil
 		}
 		return p.settleAction(ctx, sm, 0, gasConsumed), nil
-	case *ClaimFromProducerFund:
+	case *ClaimFromRewardingFund:
 		gasConsumed, err := act.IntrinsicGas()
 		if err != nil {
 			return p.settleAction(ctx, sm, 1, 0), nil
@@ -101,7 +102,7 @@ func (p *Protocol) Handle(
 			return p.settleAction(ctx, sm, 1, gasConsumed), nil
 		}
 		return p.settleAction(ctx, sm, 0, gasConsumed), nil
-	case *GrantBlockProducerReward:
+	case *GrantReward:
 		switch act.RewardType() {
 		case BlockReward:
 			gasConsumed, err := act.IntrinsicGas()
@@ -126,7 +127,7 @@ func (p *Protocol) Handle(
 	return nil, nil
 }
 
-// Validate validates the actions on the block producer protocol
+// Validate validates the actions on the rewarding protocol
 func (p *Protocol) Validate(
 	ctx context.Context,
 	act action.Action,
@@ -167,7 +168,7 @@ func (p *Protocol) settleAction(
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := account.LoadAccount(sm, byteutil.BytesTo20B(addr.Payload()))
+	acc, err := account.LoadOrCreateAccount(sm, addr.Bech32(), big.NewInt(0))
 	if err != nil {
 		return err
 	}

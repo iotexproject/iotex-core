@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package producer
+package rewarding
 
 import (
 	"context"
@@ -80,7 +80,7 @@ func TestProtocol_GrantReward(t *testing.T) {
 
 func TestProtocol_ClaimReward(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
-		// Donate 100 token into the block producer fund
+		// Donate 20 token into the rewarding fund
 		ws, err := stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.NoError(t, p.Donate(ctx, ws, big.NewInt(20)))

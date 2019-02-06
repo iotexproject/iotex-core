@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package producer
+package rewarding
 
 import (
 	"bytes"
@@ -15,12 +15,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/producer/producerpb"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// admin stores the admin data of the block producer protocol
+// admin stores the admin data of the rewarding protocol
 type admin struct {
 	admin       address.Address
 	BlockReward *big.Int
@@ -29,7 +29,7 @@ type admin struct {
 
 // Serialize serializes admin state into bytes
 func (a admin) Serialize() ([]byte, error) {
-	gen := producerpb.Admin{
+	gen := rewardingpb.Admin{
 		Admin:       a.admin.Bytes(),
 		BlockReward: a.BlockReward.Bytes(),
 		EpochReward: a.EpochReward.Bytes(),
@@ -39,7 +39,7 @@ func (a admin) Serialize() ([]byte, error) {
 
 // Deserialize deserializes bytes into admin state
 func (a *admin) Deserialize(data []byte) error {
-	gen := producerpb.Admin{}
+	gen := rewardingpb.Admin{}
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (a *admin) Deserialize(data []byte) error {
 	return nil
 }
 
-// Initialize initializes the block producer protocol by setting the original admin, block and epoch reward
+// Initialize initializes the rewarding protocol by setting the original admin, block and epoch reward
 func (p *Protocol) Initialize(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -85,7 +85,7 @@ func (p *Protocol) Initialize(
 		fundKey,
 		&fund{
 			totalBalance:     big.NewInt(0),
-			availableBalance: big.NewInt(0),
+			unclaimedBalance: big.NewInt(0),
 		},
 	); err != nil {
 		return err
@@ -141,7 +141,7 @@ func (p *Protocol) BlockReward(
 	return a.BlockReward, nil
 }
 
-// SetBlockReward sets the block reward amount for the block producer. Only the current admin could make this change
+// SetBlockReward sets the block reward amount for the block rewarding. Only the current admin could make this change
 func (p *Protocol) SetBlockReward(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -162,7 +162,7 @@ func (p *Protocol) EpochReward(
 	return a.EpochReward, nil
 }
 
-// SetEpochReward sets the epoch reward amount shared by all block producers in an epoch. Only the current admin could
+// SetEpochReward sets the epoch reward amount shared by all beneficiaries in an epoch. Only the current admin could
 // make this change
 func (p *Protocol) SetEpochReward(
 	ctx context.Context,
@@ -187,7 +187,7 @@ func (p *Protocol) assertAdminPermission(raCtx protocol.RunActionsCtx, sm protoc
 	if bytes.Equal(a.admin.Bytes(), raCtx.Caller.Bytes()) {
 		return nil
 	}
-	return errors.Errorf("%s is not the block producer protocol admin", raCtx.Caller.Bech32())
+	return errors.Errorf("%s is not the rewarding protocol admin", raCtx.Caller.Bech32())
 }
 
 func (p *Protocol) setReward(

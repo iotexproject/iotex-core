@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package producer
+package rewarding
 
 import (
 	"context"
@@ -15,11 +15,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/producer/producerpb"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -28,13 +27,13 @@ type rewardHistory struct{}
 
 // Serialize serializes reward history state into bytes
 func (b rewardHistory) Serialize() ([]byte, error) {
-	gen := producerpb.RewardHistory{}
+	gen := rewardingpb.RewardHistory{}
 	return proto.Marshal(&gen)
 }
 
 // Deserialize deserializes bytes into reward history state
 func (b *rewardHistory) Deserialize(data []byte) error {
-	gen := producerpb.RewardHistory{}
+	gen := rewardingpb.RewardHistory{}
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
@@ -48,7 +47,7 @@ type rewardAccount struct {
 
 // Serialize serializes account state into bytes
 func (a rewardAccount) Serialize() ([]byte, error) {
-	gen := producerpb.Account{
+	gen := rewardingpb.Account{
 		Balance: a.balance.Bytes(),
 	}
 	return proto.Marshal(&gen)
@@ -56,7 +55,7 @@ func (a rewardAccount) Serialize() ([]byte, error) {
 
 // Deserialize deserializes bytes into account state
 func (a *rewardAccount) Deserialize(data []byte) error {
-	gen := producerpb.Account{}
+	gen := rewardingpb.Account{}
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
@@ -92,7 +91,7 @@ func (p *Protocol) GrantBlockReward(
 	return nil
 }
 
-// GrantEpochReward grants the block reward (token) to all block producers in a block
+// GrantEpochReward grants the epoch reward (token) to all beneficiaries of a epoch
 func (p *Protocol) GrantEpochReward(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -127,7 +126,7 @@ func (p *Protocol) GrantEpochReward(
 	return nil
 }
 
-// Claim claims the token from the block producer fund
+// Claim claims the token from the rewarding fund
 func (p *Protocol) Claim(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -185,11 +184,11 @@ func (p *Protocol) updateAvailableBalance(sm protocol.StateManager, amount *big.
 	if err := p.state(sm, fundKey, &f); err != nil {
 		return err
 	}
-	availableBalance := big.NewInt(0).Sub(f.availableBalance, amount)
+	availableBalance := big.NewInt(0).Sub(f.unclaimedBalance, amount)
 	if availableBalance.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("no enough available balance")
 	}
-	f.availableBalance = availableBalance
+	f.unclaimedBalance = availableBalance
 	if err := p.putState(sm, fundKey, &f); err != nil {
 		return err
 	}
@@ -237,7 +236,7 @@ func (p *Protocol) claimFromAccount(sm protocol.StateManager, addr address.Addre
 	}
 
 	// Update primary account
-	primAcc, err := account.LoadAccount(sm, byteutil.BytesTo20B(addr.Payload()))
+	primAcc, err := account.LoadOrCreateAccount(sm, addr.Bech32(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
@@ -258,7 +257,7 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 }
 
 func (p *Protocol) splitEpochReward(totalAmount *big.Int) ([]address.Address, []*big.Int, error) {
-	// TODO: implement splitting epoch reward for a set of block producer accounts
+	// TODO: implement splitting epoch reward for a set of rewarding accounts
 	return nil, nil, nil
 }
 

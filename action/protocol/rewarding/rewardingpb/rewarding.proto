@@ -7,7 +7,7 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
-package producerpb;
+package rewardingpb;
 
 message Admin {
     bytes admin = 1;
@@ -17,7 +17,7 @@ message Admin {
 
 message Fund {
     bytes totalBalance = 1;
-    bytes availableBalance = 2;
+    bytes unclaimedBalance = 2;
 }
 
 message RewardHistory {

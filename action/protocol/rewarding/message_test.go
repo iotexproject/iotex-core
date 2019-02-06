@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disset epoch rewarded. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package producer
+package rewarding
 
 import (
 	"math/big"
@@ -13,47 +13,47 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDonateToProducerFund(t *testing.T) {
-	b := DonateToProducerFundBuilder{}
+func TestDonateToRewardingFund(t *testing.T) {
+	b := DonateToRewardingFundBuilder{}
 	s1 := b.SetAmount(big.NewInt(1)).
 		SetData([]byte{2}).
 		Build()
 	proto := s1.Proto()
-	s2 := DonateToProducerFund{}
+	s2 := DonateToRewardingFund{}
 	s2.LoadProto(proto)
 	assert.Equal(t, s1.Amount(), s2.Amount())
 	assert.Equal(t, s2.Data(), s2.Data())
 }
 
-func TestClaimFromProducerFund(t *testing.T) {
-	b := ClaimFromProducerFundBuilder{}
+func TestClaimFromRewardingFund(t *testing.T) {
+	b := ClaimFromRewardingFundBuilder{}
 	s1 := b.SetAmount(big.NewInt(1)).
 		SetData([]byte{2}).
 		Build()
 	proto := s1.Proto()
-	s2 := ClaimFromProducerFund{}
+	s2 := ClaimFromRewardingFund{}
 	s2.LoadProto(proto)
 	assert.Equal(t, s1.Amount(), s2.Amount())
 	assert.Equal(t, s2.Data(), s2.Data())
 }
 
 func TestSetBlockReward(t *testing.T) {
-	b := SetBlockProducerRewardBuilder{}
+	b := SetRewardBuilder{}
 	s1 := b.SetAmount(big.NewInt(1)).
 		SetData([]byte{2}).
 		Build()
 	proto := s1.Proto()
-	s2 := SetBlockProducerReward{}
+	s2 := SetReward{}
 	s2.LoadProto(proto)
 	assert.Equal(t, s1.Amount(), s2.Amount())
 	assert.Equal(t, s2.Data(), s2.Data())
 }
 
 func TestGrantBlockReward(t *testing.T) {
-	b := GrantBlockProducerRewardBuilder{}
+	b := GrantRewardBuilder{}
 	s1 := b.SetRewardType(BlockReward).Build()
 	proto := s1.Proto()
-	s2 := GrantBlockProducerReward{}
+	s2 := GrantReward{}
 	s2.LoadProto(proto)
 	assert.Equal(t, s1.RewardType(), s2.RewardType())
 }
