@@ -9,6 +9,7 @@ package blockchain
 import (
 	"context"
 	"math/big"
+	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -961,12 +962,25 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		}
 		startHeight = 1
 	}
-	if recoveryHeight > 0 && startHeight <= recoveryHeight {
+	if recoveryHeight > 0 {
 		for bc.tipHeight > recoveryHeight {
 			if err := bc.dao.deleteTipBlock(); err != nil {
 				return err
 			}
 			bc.tipHeight--
+		}
+		if startHeight > bc.tipHeight {
+			startHeight = 0
+			// Delete existing state DB and reinitialize it
+			if err := os.Remove(bc.config.Chain.TrieDBPath); err != nil {
+				return errors.Wrap(err, "failed to delete existing state DB")
+			}
+			if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
+				return errors.Wrap(err, "failed to reinitialize state DB")
+			}
+			if err := bc.sf.Start(context.Background()); err != nil {
+				return errors.Wrap(err, "failed to start state factory")
+			}
 		}
 	}
 	for i := startHeight; i <= bc.tipHeight; i++ {
