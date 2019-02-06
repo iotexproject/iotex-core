@@ -9,7 +9,7 @@ import (
 
 const BarristerVersion string = "0.1.6"
 const BarristerChecksum string = "90a6e79cd2874d2f7decd0bb58d80471"
-const BarristerDateGenerated int64 = 1548137151451000000
+const BarristerDateGenerated int64 = 1549330729958000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -1205,7 +1205,7 @@ var IdlJsonRaw = `[
         "type": "comment",
         "name": "",
         "comment": "",
-        "value": "Copyright (c) 2018 IoTeX\nThis is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no\nwarranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent\npermitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache\nLicense 2.0 that can be found in the LICENSE file.",
+        "value": "Copyright (c) 2019 IoTeX\nThis is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no\nwarranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent\npermitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache\nLicense 2.0 that can be found in the LICENSE file.",
         "extends": "",
         "fields": null,
         "values": null,
@@ -4185,7 +4185,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1548137151451,
+        "date_generated": 1549330729958,
         "checksum": "90a6e79cd2874d2f7decd0bb58d80471"
     }
 ]`
