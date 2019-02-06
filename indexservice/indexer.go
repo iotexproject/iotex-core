@@ -21,22 +21,8 @@ import (
 )
 
 // If you want to add a new index table, please:
-// 1. add a index unique identifier below
-// 2. add this index unique identifier to one of table list
-const (
-	IndexTransfer  = "transfer"
-	IndexVote      = "vote"
-	IndexExecution = "execution"
-	IndexAction    = "action"
-	IndexReceipt   = "receipt"
-)
-
-var (
-	// BlockByIndexList store list of BlockByIndex tables
-	BlockByIndexList = []string{IndexTransfer, IndexVote, IndexExecution, IndexAction, IndexReceipt}
-	// IndexHistoryList store list of IndexHistory tables
-	IndexHistoryList = []string{IndexTransfer, IndexVote, IndexExecution, IndexAction}
-)
+// 1. add a index unique identifier in indexconfig
+// 2. add this index unique identifier to one of table list in index config
 
 type (
 	// BlockByIndex defines the base schema of "index to block" table
@@ -79,15 +65,15 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		// log transfer index
 		for _, transfer := range transfers {
 			// put new transfer for sender
-			if err := idx.UpdateIndexHistory(blk, tx, IndexTransfer, transfer.Sender(), transfer.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexTransfer, transfer.Sender(), transfer.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update transfer to transfer history table")
 			}
 			// put new transfer for recipient
-			if err := idx.UpdateIndexHistory(blk, tx, IndexTransfer, transfer.Recipient(), transfer.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexTransfer, transfer.Recipient(), transfer.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update transfer to transfer history table")
 			}
 			// map transfer to block
-			if err := idx.UpdateBlockByIndex(blk, tx, IndexTransfer, transfer.Hash(), blk.HashBlock()); err != nil {
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexTransfer, transfer.Hash(), blk.HashBlock()); err != nil {
 				return errors.Wrapf(err, "failed to update transfer to block")
 			}
 		}
@@ -95,15 +81,15 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		// log vote index
 		for _, vote := range votes {
 			// put new vote for sender
-			if err := idx.UpdateIndexHistory(blk, tx, IndexVote, vote.Voter(), vote.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexVote, vote.Voter(), vote.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update vote to vote history table")
 			}
 			// put new vote for recipient
-			if err := idx.UpdateIndexHistory(blk, tx, IndexVote, vote.Votee(), vote.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexVote, vote.Votee(), vote.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update vote to vote history table")
 			}
 			// map vote to block
-			if err := idx.UpdateBlockByIndex(blk, tx, IndexVote, vote.Hash(), blk.HashBlock()); err != nil {
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexVote, vote.Hash(), blk.HashBlock()); err != nil {
 				return errors.Wrapf(err, "failed to update transfer to block")
 			}
 		}
@@ -111,15 +97,15 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		// log execution index
 		for _, execution := range executions {
 			// put new execution for executor
-			if err := idx.UpdateIndexHistory(blk, tx, IndexExecution, execution.Executor(), execution.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexExecution, execution.Executor(), execution.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update execution to execution history table")
 			}
 			// put new execution for contract
-			if err := idx.UpdateIndexHistory(blk, tx, IndexExecution, execution.Contract(), execution.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexExecution, execution.Contract(), execution.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update execution to execution history table")
 			}
 			// map execution to block
-			if err := idx.UpdateBlockByIndex(blk, tx, IndexExecution, execution.Hash(), blk.HashBlock()); err != nil {
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexExecution, execution.Hash(), blk.HashBlock()); err != nil {
 				return errors.Wrapf(err, "failed to update transfer to block")
 			}
 		}
@@ -127,15 +113,15 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		// log action index
 		for _, selp := range blk.Actions {
 			// put new action for sender
-			if err := idx.UpdateIndexHistory(blk, tx, IndexAction, selp.SrcAddr(), selp.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexAction, selp.SrcAddr(), selp.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update action to action history table")
 			}
 			// put new transfer for recipient
-			if err := idx.UpdateIndexHistory(blk, tx, IndexAction, selp.DstAddr(), selp.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexAction, selp.DstAddr(), selp.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update action to action history table")
 			}
 			// map action to block
-			if err := idx.UpdateBlockByIndex(blk, tx, IndexAction, selp.Hash(), blk.HashBlock()); err != nil {
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexAction, selp.Hash(), blk.HashBlock()); err != nil {
 				return errors.Wrapf(err, "failed to update transfer to block")
 			}
 		}
@@ -143,7 +129,7 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		// log receipt index
 		for _, receipt := range blk.Receipts {
 			// map receipt to block
-			if err := idx.UpdateBlockByIndex(blk, tx, IndexReceipt, receipt.Hash(), blk.HashBlock()); err != nil {
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexReceipt, receipt.Hash(), blk.HashBlock()); err != nil {
 				return errors.Wrapf(err, "failed to update receipt to block")
 			}
 		}
@@ -266,7 +252,7 @@ func (idx *Indexer) getIndexHistoryTableName(indexIndentifier string) string {
 // CreateTablesIfNotExist creates tables in local database
 func (idx *Indexer) CreateTablesIfNotExist() error {
 	// create block by index tables
-	for _, indexIdentifier := range BlockByIndexList {
+	for _, indexIdentifier := range idx.cfg.BlockByIndexList {
 		if _, err := idx.store.GetDB().Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s ([node_address] TEXT NOT NULL, "+
 			"[index_hash] BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)", idx.getBlockByIndexTableName(indexIdentifier))); err != nil {
 			return err
@@ -274,7 +260,7 @@ func (idx *Indexer) CreateTablesIfNotExist() error {
 	}
 
 	// create index history tables
-	for _, indexIdentifier := range IndexHistoryList {
+	for _, indexIdentifier := range idx.cfg.IndexHistoryList {
 		if _, err := idx.store.GetDB().Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s ([node_address] TEXT NOT NULL, "+
 			"[user_address] TEXT NOT NULL, [index_hash] BLOB(32) NOT NULL)", idx.getIndexHistoryTableName(indexIdentifier))); err != nil {
 			return err

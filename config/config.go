@@ -54,6 +54,12 @@ const (
 	StandaloneScheme = "STANDALONE"
 	// NOOPScheme means that the node does not create only block
 	NOOPScheme = "NOOP"
+	// Indexer Indentifiers
+	IndexTransfer  = "transfer"
+	IndexVote      = "vote"
+	IndexExecution = "execution"
+	IndexAction    = "action"
+	IndexReceipt   = "receipt"
 )
 
 var (
@@ -134,6 +140,8 @@ var (
 			Enabled:           false,
 			NodeAddr:          "",
 			WhetherLocalStore: true,
+			BlockByIndexList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction, IndexReceipt},
+			IndexHistoryList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction},
 		},
 		System: System{
 			HeartbeatInterval:     10 * time.Second,
@@ -257,6 +265,10 @@ type (
 		Enabled           bool   `yaml:"enabled"`
 		NodeAddr          string `yaml:"nodeAddr"`
 		WhetherLocalStore bool   `yaml:"whetherLocalStore"`
+		// BlockByIndexList store list of BlockByIndex tables
+		BlockByIndexList []string `yaml:"blockByIndexList"`
+		// IndexHistoryList store list of IndexHistory tables
+		IndexHistoryList []string `yaml:"indexHistoryList"`
 	}
 
 	// System is the system config

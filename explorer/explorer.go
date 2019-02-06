@@ -198,7 +198,7 @@ func (exp *Service) GetTransfersByAddress(address string, offset int64, limit in
 	var res []explorer.Transfer
 	var transfers []hash.Hash32B
 	if exp.cfg.UseIndexer {
-		transferHistory, err := exp.idx.Indexer().GetIndexHistory(indexservice.IndexTransfer, address)
+		transferHistory, err := exp.idx.Indexer().GetIndexHistory(config.IndexTransfer, address)
 		if err != nil {
 			return []explorer.Transfer{}, err
 		}
@@ -379,7 +379,7 @@ func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64)
 	var res []explorer.Vote
 	var votes []hash.Hash32B
 	if exp.cfg.UseIndexer {
-		voteHistory, err := exp.idx.Indexer().GetIndexHistory(indexservice.IndexVote, address)
+		voteHistory, err := exp.idx.Indexer().GetIndexHistory(config.IndexVote, address)
 		if err != nil {
 			return []explorer.Vote{}, err
 		}
@@ -562,7 +562,7 @@ func (exp *Service) GetExecutionsByAddress(address string, offset int64, limit i
 	var res []explorer.Execution
 	var executions []hash.Hash32B
 	if exp.cfg.UseIndexer {
-		executionHistory, err := exp.idx.Indexer().GetIndexHistory(indexservice.IndexExecution, address)
+		executionHistory, err := exp.idx.Indexer().GetIndexHistory(config.IndexExecution, address)
 		if err != nil {
 			return []explorer.Execution{}, err
 		}
@@ -701,7 +701,7 @@ func (exp *Service) GetReceiptByActionID(id string) (explorer.Receipt, error) {
 	}
 
 	// get receipt from indexer
-	blkHash, err := exp.idx.Indexer().GetBlockByIndex(indexservice.IndexReceipt, actionHash)
+	blkHash, err := exp.idx.Indexer().GetBlockByIndex(config.IndexReceipt, actionHash)
 	if err != nil {
 		return explorer.Receipt{}, err
 	}
@@ -1572,7 +1572,7 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 	// Fetch from block
 	var blkHash hash.Hash32B
 	if useIndexer {
-		hash, err := idx.Indexer().GetBlockByIndex(indexservice.IndexTransfer, transferHash)
+		hash, err := idx.Indexer().GetBlockByIndex(config.IndexTransfer, transferHash)
 		if err != nil {
 			return explorerTransfer, err
 		}
@@ -1615,7 +1615,7 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 	// Fetch from block
 	var blkHash hash.Hash32B
 	if useIndexer {
-		hash, err := idx.Indexer().GetBlockByIndex(indexservice.IndexVote, voteHash)
+		hash, err := idx.Indexer().GetBlockByIndex(config.IndexVote, voteHash)
 		if err != nil {
 			return explorerVote, err
 		}
@@ -1658,7 +1658,7 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	// Fetch from block
 	var blkHash hash.Hash32B
 	if useIndexer {
-		hash, err := idx.Indexer().GetBlockByIndex(indexservice.IndexExecution, executionHash)
+		hash, err := idx.Indexer().GetBlockByIndex(config.IndexExecution, executionHash)
 		if err != nil {
 			return explorerExecution, err
 		}
