@@ -108,9 +108,10 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 		},
 	}
 	blk.Receipts = make([]*action.Receipt, 0)
-	for _, receipt := range receipts {
+	/*for _, receipt := range receipts {
 		blk.Receipts = append(blk.Receipts, receipt)
-	}
+	}*/
+	blk.Receipts = append(blk.Receipts, receipts...)
 
 	err = idx.BuildIndex(&blk)
 	require.Nil(err)
