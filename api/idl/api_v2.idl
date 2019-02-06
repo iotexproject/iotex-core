@@ -1,0 +1,83 @@
+// Copyright (c) 2019 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile this file:
+// 1. Install the barrister translator (IDL -> JSON)
+// you need to be root (or use sudo)
+// pip install barrister
+
+// 2. Install barrister-go
+// go get github.com/coopernurse/barrister-go
+// go install github.com/coopernurse/barrister-go/idl2go
+
+// 3. barrister api_v2.idl | $GOPATH/bin/idl2go -i -p api_v2
+
+interface Explorer {
+    // get the address detail of an address
+    // response is the JSON string of AddressDetailsPb
+    getAddressDetails(address string) string
+
+    // get list of actions by start block height, action offset and limit
+    // response is a list of JSON strings of ActionPb
+    getLastActionsByRange(startBlockHeight int, offset int, limit int) []string
+
+    // get action from action hash
+    // response is a JSON string of ActionPb
+    getActionByHash(actionHash string) string
+
+    // get list of actions belonging to an address
+    // response is a list of JSON strings of ActionPb
+    getActionsByAddress(address string, offset int, limit int) []string
+
+    // get list of unconfirmed actions in actpool belonging to an address
+    // response is a list of JSON strings of ActionPb
+    getUnconfirmedActionsByAddress(address string, offset int, limit int) []string
+
+    // get all actions in a block
+    // response is a list of JSON strings of ActionPb
+    getActionsByBlockHash(blkHash string, offset int, limit int) []string
+
+    // get list of block metadata by block id offset and limit
+    // response is a list of JSON strings of BlockMetaPb
+    getLastBlocksByRange(offset int, limit int) []string
+
+    // get block metadata by block hash
+    // response is a JSON string of BlockMetaPb
+    getBlockByHash(blkHash string) string
+
+    // get chain metadata
+    // return value is a JSON string of ChainMetaPb
+    getChainMeta() string
+
+    // get consensus metrics
+    // response is a JSON string of ConsensusMetricsPb
+    getConsensusMetrics() string
+
+    // sendAction
+    // request is a JSON string of ActionPb
+    // response is the hash of action
+    sendAction(request string) string
+
+    // get receipt by action Hash
+    // response is a JSON string of ReceiptPb
+    getReceiptByActionHash(hash string) string
+
+    // TODO: read execution state
+    // request is a JSON string of ActionPb
+    // response is the return value of receipt
+    readExecutionState(request string) string
+
+    // get deposits on a sub-chain
+    // response is a list of JSON strings of DepositPb
+    getDeposits(subChainID int, offset int, limit int) []string
+
+    // suggest gas price
+    suggestGasPrice() int
+
+    // estimate gas for action
+    // request is a JSON string of ActionPb
+    estimateGasForAction(request string) int
+}
