@@ -92,6 +92,28 @@ message CandidateList {
     repeated Candidate candidates = 1;
 }
 
+// Blockchain Metadata
+message ChainMeta {
+    uint64 height = 1;
+    string supply = 2;
+    int64 numActions = 3;
+    int64 tps = 4;
+}
+
+// Block Metadata
+message BlockMeta {
+    string hash = 1;
+    uint64 height = 2;
+    int64 timestamp = 3;
+    int64 numActions = 4;
+    string producerAddress = 5;
+    string transferAmount = 6;
+    int64 size = 7;
+    string txRoot = 8;
+    string receiptRoot = 9;
+    string deltaStateDigest = 10;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // BELOW ARE DEFINITIONS FOR TEST-ONLY MESSAGES!
 ////////////////////////////////////////////////////////////////////////////////////////////////////

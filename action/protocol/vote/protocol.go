@@ -52,9 +52,13 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 	if raCtx.EnableGasCharge {
 		// Load or create account for producer
-		producer, err := account.LoadOrCreateAccount(sm, raCtx.ProducerAddr, big.NewInt(0))
+		producer, err := account.LoadOrCreateAccount(sm, raCtx.Producer.Bech32(), big.NewInt(0))
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to load or create the account of block producer %s", raCtx.ProducerAddr)
+			return nil, errors.Wrapf(
+				err,
+				"failed to load or create the account of block producer %s",
+				raCtx.Producer.Bech32(),
+			)
 		}
 		gas, err := vote.IntrinsicGas()
 		if err != nil {
@@ -78,7 +82,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 			return nil, errors.Wrapf(err, "failed to compensate gas to producer")
 		}
 		// Put updated producer's state to trie
-		if err := account.StoreAccount(sm, raCtx.ProducerAddr, producer); err != nil {
+		if err := account.StoreAccount(sm, raCtx.Producer.Bech32(), producer); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		*raCtx.GasLimit -= gas
