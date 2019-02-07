@@ -8,6 +8,7 @@ package indexservice
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,9 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/sql"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -86,6 +89,29 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 		},
 	})
 	require.NoError(err)
+	receipts := []*action.Receipt{
+		{
+			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ReturnValue:     []byte("1"),
+			Status:          1,
+			GasConsumed:     1,
+			ContractAddress: "1",
+			Logs:            []*action.Log{},
+		},
+		{
+			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("2"))),
+			ReturnValue:     []byte("2"),
+			Status:          2,
+			GasConsumed:     2,
+			ContractAddress: "2",
+			Logs:            []*action.Log{},
+		},
+	}
+	blk.Receipts = make([]*action.Receipt, 0)
+	/*for _, receipt := range receipts {
+		blk.Receipts = append(blk.Receipts, receipt)
+	}*/
+	blk.Receipts = append(blk.Receipts, receipts...)
 
 	err = idx.BuildIndex(&blk)
 	require.Nil(err)
@@ -94,93 +120,80 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 	transfers, votes, executions := action.ClassifyActions(blk.Actions)
 
+	// get receipt
+	blkHash, err := idx.GetBlockByIndex(config.IndexReceipt, receipts[0].Hash())
+	require.Nil(err)
+	require.Equal(blkHash, blk.HashBlock())
+
+	blkHash, err = idx.GetBlockByIndex(config.IndexReceipt, receipts[1].Hash())
+	require.Nil(err)
+	require.Equal(blkHash, blk.HashBlock())
+
 	// get transfer
-	transferHashes, err := idx.GetTransferHistory(addr1)
+	transferHashes, err := idx.GetIndexHistory(config.IndexTransfer, addr1)
 	require.Nil(err)
 	require.Equal(1, len(transferHashes))
 	transfer := transfers[0].Hash()
 	require.Equal(transfer, transferHashes[0])
 
 	// get vote
-	voteHashes, err := idx.GetVoteHistory(addr1)
+	voteHashes, err := idx.GetIndexHistory(config.IndexVote, addr1)
 	require.Nil(err)
 	require.Equal(1, len(voteHashes))
 	vote := votes[0].Hash()
 	require.Equal(vote, voteHashes[0])
 
 	// get execution
-	executionHashes, err := idx.GetExecutionHistory(addr1)
+	executionHashes, err := idx.GetIndexHistory(config.IndexExecution, addr1)
 	require.Nil(err)
 	require.Equal(1, len(executionHashes))
 	execution := executions[0].Hash()
 	require.Equal(execution, executionHashes[0])
 
 	// get action
-	actionHashes, err := idx.GetActionHistory(addr1)
+	actionHashes, err := idx.GetIndexHistory(config.IndexAction, addr1)
 	require.Nil(err)
 	require.Equal(3, len(actionHashes))
 	action := blk.Actions[0].Hash()
 	require.Equal(action, actionHashes[0])
 
 	// transfer map to block
-	blkHash1, err := idx.GetBlockByTransfer(transfers[0].Hash())
+	blkHash1, err := idx.GetBlockByIndex(config.IndexTransfer, transfers[0].Hash())
 	require.Nil(err)
 	require.Equal(blkHash1, blk.HashBlock())
 
 	// vote map to block
-	blkHash2, err := idx.GetBlockByVote(votes[0].Hash())
+	blkHash2, err := idx.GetBlockByIndex(config.IndexVote, votes[0].Hash())
 	require.Nil(err)
 	require.Equal(blkHash2, blk.HashBlock())
 
 	// execution map to block
-	blkHash3, err := idx.GetBlockByExecution(executions[0].Hash())
+	blkHash3, err := idx.GetBlockByIndex(config.IndexExecution, executions[0].Hash())
 	require.Nil(err)
 	require.Equal(blkHash3, blk.HashBlock())
 
 	// action map to block
-	blkHash4, err := idx.GetBlockByAction(blk.Actions[0].Hash())
+	blkHash4, err := idx.GetBlockByIndex(config.IndexAction, blk.Actions[0].Hash())
 	require.Nil(err)
 	require.Equal(blkHash4, blk.HashBlock())
 
-	// delete transfers
-	stmt, err := db.Prepare("DELETE FROM transfer_history WHERE node_address=?")
-	require.Nil(err)
-	_, err = stmt.Exec(nodeAddr)
-	require.Nil(err)
-	stmt, err = db.Prepare("DELETE FROM transfer_to_block WHERE node_address=?")
-	require.Nil(err)
-	_, err = stmt.Exec(nodeAddr)
-	require.Nil(err)
+	// create block by index tables
+	for _, indexIdentifier := range idx.cfg.BlockByIndexList {
+		stmt, err := db.Prepare(fmt.Sprintf("DELETE FROM %s WHERE node_address=?",
+			idx.getBlockByIndexTableName(indexIdentifier)))
+		require.Nil(err)
+		_, err = stmt.Exec(nodeAddr)
+		require.Nil(err)
+	}
 
-	// delete votes
-	stmt, err = db.Prepare("DELETE FROM vote_history WHERE node_address=?")
-	require.Nil(err)
-	_, err = stmt.Exec(nodeAddr)
-	require.Nil(err)
-	stmt, err = db.Prepare("DELETE FROM vote_to_block WHERE node_address=?")
-	require.Nil(err)
-	_, err = stmt.Exec(nodeAddr)
-	require.Nil(err)
-
-	// delete executions
-	stmt, err = db.Prepare("DELETE FROM execution_history WHERE node_address=?")
-	require.Nil(err)
-	_, err = stmt.Exec(nodeAddr)
-	require.Nil(err)
-	stmt, err = db.Prepare("DELETE FROM execution_to_block WHERE node_address=?")
-	require.Nil(err)
-	_, err = stmt.Exec(nodeAddr)
-	require.Nil(err)
-
-	// delete actions
-	stmt, err = db.Prepare("DELETE FROM action_history WHERE node_address=?")
-	require.Nil(err)
-	_, err = stmt.Exec(nodeAddr)
-	require.Nil(err)
-	stmt, err = db.Prepare("DELETE FROM action_to_block WHERE node_address=?")
-	require.Nil(err)
-	_, err = stmt.Exec(nodeAddr)
-	require.Nil(err)
+	// create index history tables
+	for _, indexIdentifier := range idx.cfg.IndexHistoryList {
+		stmt, err := db.Prepare(fmt.Sprintf("DELETE FROM %s WHERE node_address=?",
+			idx.getIndexHistoryTableName(indexIdentifier)))
+		require.Nil(err)
+		_, err = stmt.Exec(nodeAddr)
+		require.Nil(err)
+	}
 }
 
 func TestIndexServiceOnSqlite3(t *testing.T) {
