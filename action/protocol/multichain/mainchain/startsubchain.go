@@ -92,17 +92,17 @@ func (p *Protocol) mutateSubChainState(
 	}
 	subChainsInOp = subChainsInOp.Append(InOperation{
 		ID:   start.ChainID(),
-		Addr: address.New(addr[:]).Bytes(),
+		Addr: addr[:],
 	})
 	return sm.PutState(SubChainsInOperationKey, &subChainsInOp)
 }
 
-func createSubChainAddress(ownerAddr string, nonce uint64) (hash.PKHash, error) {
-	addr, err := address.Bech32ToAddress(ownerAddr)
+func createSubChainAddress(ownerAddr string, nonce uint64) (hash.Hash160, error) {
+	addr, err := address.FromString(ownerAddr)
 	if err != nil {
-		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", ownerAddr)
+		return hash.ZeroHash160, errors.Wrapf(err, "cannot get the public key hash of address %s", ownerAddr)
 	}
 	bytes := make([]byte, 8)
 	enc.MachineEndian.PutUint64(bytes, nonce)
-	return byteutil.BytesTo20B(hash.Hash160b(append(addr.Payload(), bytes...))), nil
+	return byteutil.BytesTo20B(hash.Hash160b(append(addr.Bytes(), bytes...))), nil
 }

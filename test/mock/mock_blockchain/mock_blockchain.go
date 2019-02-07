@@ -6,6 +6,9 @@ package mock_blockchain
 
 import (
 	context "context"
+	big "math/big"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
@@ -14,8 +17,6 @@ import (
 	keypair "github.com/iotexproject/iotex-core/pkg/keypair"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
-	big "math/big"
-	reflect "reflect"
 )
 
 // MockBlockchain is a mock of Blockchain interface
@@ -118,7 +119,7 @@ func (mr *MockBlockchainMockRecorder) CandidatesByHeight(height interface{}) *go
 }
 
 // GetHeightByHash mocks base method
-func (m *MockBlockchain) GetHeightByHash(h hash.Hash32B) (uint64, error) {
+func (m *MockBlockchain) GetHeightByHash(h hash.Hash256) (uint64, error) {
 	ret := m.ctrl.Call(m, "GetHeightByHash", h)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
@@ -131,9 +132,9 @@ func (mr *MockBlockchainMockRecorder) GetHeightByHash(h interface{}) *gomock.Cal
 }
 
 // GetHashByHeight mocks base method
-func (m *MockBlockchain) GetHashByHeight(height uint64) (hash.Hash32B, error) {
+func (m *MockBlockchain) GetHashByHeight(height uint64) (hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetHashByHeight", height)
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -157,7 +158,7 @@ func (mr *MockBlockchainMockRecorder) GetBlockByHeight(height interface{}) *gomo
 }
 
 // GetBlockByHash mocks base method
-func (m *MockBlockchain) GetBlockByHash(h hash.Hash32B) (*block.Block, error) {
+func (m *MockBlockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "GetBlockByHash", h)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
@@ -222,9 +223,9 @@ func (mr *MockBlockchainMockRecorder) GetTotalActions() *gomock.Call {
 }
 
 // GetTransfersFromAddress mocks base method
-func (m *MockBlockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, error) {
+func (m *MockBlockchain) GetTransfersFromAddress(address string) ([]hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetTransfersFromAddress", address)
-	ret0, _ := ret[0].([]hash.Hash32B)
+	ret0, _ := ret[0].([]hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -235,9 +236,9 @@ func (mr *MockBlockchainMockRecorder) GetTransfersFromAddress(address interface{
 }
 
 // GetTransfersToAddress mocks base method
-func (m *MockBlockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, error) {
+func (m *MockBlockchain) GetTransfersToAddress(address string) ([]hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetTransfersToAddress", address)
-	ret0, _ := ret[0].([]hash.Hash32B)
+	ret0, _ := ret[0].([]hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -248,7 +249,7 @@ func (mr *MockBlockchainMockRecorder) GetTransfersToAddress(address interface{})
 }
 
 // GetTransferByTransferHash mocks base method
-func (m *MockBlockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error) {
+func (m *MockBlockchain) GetTransferByTransferHash(h hash.Hash256) (*action.Transfer, error) {
 	ret := m.ctrl.Call(m, "GetTransferByTransferHash", h)
 	ret0, _ := ret[0].(*action.Transfer)
 	ret1, _ := ret[1].(error)
@@ -261,9 +262,9 @@ func (mr *MockBlockchainMockRecorder) GetTransferByTransferHash(h interface{}) *
 }
 
 // GetBlockHashByTransferHash mocks base method
-func (m *MockBlockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
+func (m *MockBlockchain) GetBlockHashByTransferHash(h hash.Hash256) (hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetBlockHashByTransferHash", h)
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -274,9 +275,9 @@ func (mr *MockBlockchainMockRecorder) GetBlockHashByTransferHash(h interface{}) 
 }
 
 // GetVotesFromAddress mocks base method
-func (m *MockBlockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error) {
+func (m *MockBlockchain) GetVotesFromAddress(address string) ([]hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetVotesFromAddress", address)
-	ret0, _ := ret[0].([]hash.Hash32B)
+	ret0, _ := ret[0].([]hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -287,9 +288,9 @@ func (mr *MockBlockchainMockRecorder) GetVotesFromAddress(address interface{}) *
 }
 
 // GetVotesToAddress mocks base method
-func (m *MockBlockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) {
+func (m *MockBlockchain) GetVotesToAddress(address string) ([]hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetVotesToAddress", address)
-	ret0, _ := ret[0].([]hash.Hash32B)
+	ret0, _ := ret[0].([]hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -300,7 +301,7 @@ func (mr *MockBlockchainMockRecorder) GetVotesToAddress(address interface{}) *go
 }
 
 // GetVoteByVoteHash mocks base method
-func (m *MockBlockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
+func (m *MockBlockchain) GetVoteByVoteHash(h hash.Hash256) (*action.Vote, error) {
 	ret := m.ctrl.Call(m, "GetVoteByVoteHash", h)
 	ret0, _ := ret[0].(*action.Vote)
 	ret1, _ := ret[1].(error)
@@ -313,9 +314,9 @@ func (mr *MockBlockchainMockRecorder) GetVoteByVoteHash(h interface{}) *gomock.C
 }
 
 // GetBlockHashByVoteHash mocks base method
-func (m *MockBlockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
+func (m *MockBlockchain) GetBlockHashByVoteHash(h hash.Hash256) (hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetBlockHashByVoteHash", h)
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -326,9 +327,9 @@ func (mr *MockBlockchainMockRecorder) GetBlockHashByVoteHash(h interface{}) *gom
 }
 
 // GetExecutionsFromAddress mocks base method
-func (m *MockBlockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, error) {
+func (m *MockBlockchain) GetExecutionsFromAddress(address string) ([]hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetExecutionsFromAddress", address)
-	ret0, _ := ret[0].([]hash.Hash32B)
+	ret0, _ := ret[0].([]hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -339,9 +340,9 @@ func (mr *MockBlockchainMockRecorder) GetExecutionsFromAddress(address interface
 }
 
 // GetExecutionsToAddress mocks base method
-func (m *MockBlockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, error) {
+func (m *MockBlockchain) GetExecutionsToAddress(address string) ([]hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetExecutionsToAddress", address)
-	ret0, _ := ret[0].([]hash.Hash32B)
+	ret0, _ := ret[0].([]hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -352,7 +353,7 @@ func (mr *MockBlockchainMockRecorder) GetExecutionsToAddress(address interface{}
 }
 
 // GetExecutionByExecutionHash mocks base method
-func (m *MockBlockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error) {
+func (m *MockBlockchain) GetExecutionByExecutionHash(h hash.Hash256) (*action.Execution, error) {
 	ret := m.ctrl.Call(m, "GetExecutionByExecutionHash", h)
 	ret0, _ := ret[0].(*action.Execution)
 	ret1, _ := ret[1].(error)
@@ -365,9 +366,9 @@ func (mr *MockBlockchainMockRecorder) GetExecutionByExecutionHash(h interface{})
 }
 
 // GetBlockHashByExecutionHash mocks base method
-func (m *MockBlockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
+func (m *MockBlockchain) GetBlockHashByExecutionHash(h hash.Hash256) (hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetBlockHashByExecutionHash", h)
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -378,7 +379,7 @@ func (mr *MockBlockchainMockRecorder) GetBlockHashByExecutionHash(h interface{})
 }
 
 // GetReceiptByActionHash mocks base method
-func (m *MockBlockchain) GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
+func (m *MockBlockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "GetReceiptByActionHash", h)
 	ret0, _ := ret[0].(*action.Receipt)
 	ret1, _ := ret[1].(error)
@@ -391,9 +392,9 @@ func (mr *MockBlockchainMockRecorder) GetReceiptByActionHash(h interface{}) *gom
 }
 
 // GetActionsFromAddress mocks base method
-func (m *MockBlockchain) GetActionsFromAddress(address string) ([]hash.Hash32B, error) {
+func (m *MockBlockchain) GetActionsFromAddress(address string) ([]hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetActionsFromAddress", address)
-	ret0, _ := ret[0].([]hash.Hash32B)
+	ret0, _ := ret[0].([]hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -404,9 +405,9 @@ func (mr *MockBlockchainMockRecorder) GetActionsFromAddress(address interface{})
 }
 
 // GetActionsToAddress mocks base method
-func (m *MockBlockchain) GetActionsToAddress(address string) ([]hash.Hash32B, error) {
+func (m *MockBlockchain) GetActionsToAddress(address string) ([]hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetActionsToAddress", address)
-	ret0, _ := ret[0].([]hash.Hash32B)
+	ret0, _ := ret[0].([]hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -417,7 +418,7 @@ func (mr *MockBlockchainMockRecorder) GetActionsToAddress(address interface{}) *
 }
 
 // GetActionByActionHash mocks base method
-func (m *MockBlockchain) GetActionByActionHash(h hash.Hash32B) (action.SealedEnvelope, error) {
+func (m *MockBlockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
 	ret := m.ctrl.Call(m, "GetActionByActionHash", h)
 	ret0, _ := ret[0].(action.SealedEnvelope)
 	ret1, _ := ret[1].(error)
@@ -430,9 +431,9 @@ func (mr *MockBlockchainMockRecorder) GetActionByActionHash(h interface{}) *gomo
 }
 
 // GetBlockHashByActionHash mocks base method
-func (m *MockBlockchain) GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error) {
+func (m *MockBlockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetBlockHashByActionHash", h)
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -479,9 +480,9 @@ func (mr *MockBlockchainMockRecorder) ChainAddress() *gomock.Call {
 }
 
 // TipHash mocks base method
-func (m *MockBlockchain) TipHash() hash.Hash32B {
+func (m *MockBlockchain) TipHash() hash.Hash256 {
 	ret := m.ctrl.Call(m, "TipHash")
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	return ret0
 }
 

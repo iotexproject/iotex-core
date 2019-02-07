@@ -23,20 +23,20 @@ func TestTransferSignVerify(t *testing.T) {
 	recipientAddr := testaddress.Addrinfo["alfa"]
 	senderKey := testaddress.Keyinfo["producer"]
 
-	tsf, err := NewTransfer(0, big.NewInt(10), senderAddr.Bech32(), recipientAddr.Bech32(), []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := NewTransfer(0, big.NewInt(10), senderAddr.String(), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetDestinationAddress(recipientAddr.Bech32()).
+	elp := bd.SetDestinationAddress(recipientAddr.String()).
 		SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
 
-	w := AssembleSealedEnvelope(elp, senderAddr.Bech32(), senderKey.PubKey, []byte("lol"))
+	w := AssembleSealedEnvelope(elp, senderAddr.String(), senderKey.PubKey, []byte("lol"))
 	require.Error(Verify(w))
 
 	// sign the transfer
-	selp, err := Sign(elp, senderAddr.Bech32(), senderKey.PriKey)
+	selp, err := Sign(elp, senderAddr.String(), senderKey.PriKey)
 	require.NoError(err)
 	require.NotNil(selp)
 

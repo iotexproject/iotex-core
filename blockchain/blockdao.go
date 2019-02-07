@@ -140,10 +140,10 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
 
 // getBlockHash returns the block hash by height
-func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash32B, error) {
+func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash256, error) {
 	key := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
-	hash := hash.ZeroHash32B
+	hash := hash.ZeroHash256
 	if err != nil {
 		return hash, errors.Wrap(err, "failed to get block hash")
 	}
@@ -155,7 +155,7 @@ func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash32B, error) {
 }
 
 // getBlockHeight returns the block height by hash
-func (dao *blockDAO) getBlockHeight(hash hash.Hash32B) (uint64, error) {
+func (dao *blockDAO) getBlockHeight(hash hash.Hash256) (uint64, error) {
 	key := append(hashPrefix, hash[:]...)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
 	if err != nil {
@@ -168,7 +168,7 @@ func (dao *blockDAO) getBlockHeight(hash hash.Hash32B) (uint64, error) {
 }
 
 // getBlock returns a block
-func (dao *blockDAO) getBlock(hash hash.Hash32B) (*block.Block, error) {
+func (dao *blockDAO) getBlock(hash hash.Hash256) (*block.Block, error) {
 	value, err := dao.kvstore.Get(blockNS, hash[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block %x", hash)
@@ -247,7 +247,7 @@ func (dao *blockDAO) getTotalActions() (uint64, error) {
 }
 
 // getReceiptByActionHash returns the receipt by execution hash
-func (dao *blockDAO) getReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
+func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
 	heightBytes, err := dao.kvstore.Get(blockActionReceiptMappingNS, h[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipt index for action %x", h)

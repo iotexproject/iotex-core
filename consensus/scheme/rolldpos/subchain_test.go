@@ -29,10 +29,10 @@ func TestPutBlockToParentChain(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	addr := testaddress.Addrinfo["producer"].Bech32()
+	addr := testaddress.Addrinfo["producer"].String()
 	pubKey := testaddress.Keyinfo["producer"].PubKey
 	priKey := testaddress.Keyinfo["producer"].PriKey
-	subAddr := testaddress.Addrinfo["echo"].Bech32()
+	subAddr := testaddress.Addrinfo["echo"].String()
 	blk := block.Block{}
 	blkpb := &iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{

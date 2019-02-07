@@ -18,7 +18,7 @@ type RunnableActions struct {
 	blockTimeStamp      int64
 	blockProducerPubKey keypair.PublicKey
 	blockProducerAddr   string
-	txHash              hash.Hash32B
+	txHash              hash.Hash256
 	actions             []action.SealedEnvelope
 }
 
@@ -43,7 +43,7 @@ func (ra RunnableActions) BlockProducerAddr() string {
 }
 
 // TxHash returns TxHash.
-func (ra RunnableActions) TxHash() hash.Hash32B { return ra.txHash }
+func (ra RunnableActions) TxHash() hash.Hash256 { return ra.txHash }
 
 // Actions returns Actions.
 func (ra RunnableActions) Actions() []action.SealedEnvelope {

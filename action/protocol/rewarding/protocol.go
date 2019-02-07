@@ -49,8 +49,9 @@ func NewProtocol(caller address.Address, nonce uint64) *Protocol {
 	var nonceBytes [8]byte
 	enc.MachineEndian.PutUint64(nonceBytes[:], nonce)
 	h := hash.Hash160b(append(caller.Bytes(), nonceBytes[:]...))
+	addr, _ := address.FromBytes(h)
 	return &Protocol{
-		addr:      address.New(h),
+		addr:      addr,
 		keyPrefix: h,
 	}
 }
@@ -168,7 +169,7 @@ func (p *Protocol) settleAction(
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := account.LoadOrCreateAccount(sm, addr.Bech32(), big.NewInt(0))
+	acc, err := account.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
@@ -176,20 +177,20 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 	if nonce > acc.Nonce {
 		acc.Nonce = nonce
 	}
-	if err := account.StoreAccount(sm, addr.Bech32(), acc); err != nil {
+	if err := account.StoreAccount(sm, addr.String(), acc); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *Protocol) createReceipt(status uint64, actHash hash.Hash32B, gasConsumed uint64) *action.Receipt {
+func (p *Protocol) createReceipt(status uint64, actHash hash.Hash256, gasConsumed uint64) *action.Receipt {
 	// TODO: need to review the fields
 	return &action.Receipt{
 		ReturnValue:     nil,
 		Status:          0,
 		ActHash:         actHash,
 		GasConsumed:     gasConsumed,
-		ContractAddress: p.addr.Bech32(),
+		ContractAddress: p.addr.String(),
 		Logs:            nil,
 	}
 }

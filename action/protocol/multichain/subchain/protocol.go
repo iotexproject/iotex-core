@@ -128,10 +128,14 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.Stat
 	return account.StoreAccount(sm, deposit.Recipient(), recipient)
 }
 
-func depositAddress(index uint64) hash.PKHash {
+func depositAddress(index uint64) hash.Hash160 {
 	return byteutil.BytesTo20B(hash.Hash160b([]byte(fmt.Sprintf("depositToSubChain.%d", index))))
 }
 
-func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
-	return address.Bech32ToPKHash(srcAddr)
+func srcAddressPKHash(srcAddr string) (hash.Hash160, error) {
+	addr, err := address.FromString(srcAddr)
+	if err != nil {
+		return hash.ZeroHash160, err
+	}
+	return byteutil.BytesTo20B(addr.Bytes()), nil
 }

@@ -95,10 +95,11 @@ func (p *Protocol) account(sender string, sm protocol.StateManager) (*state.Acco
 	if sm == nil {
 		return p.sf.AccountState(sender)
 	}
-	addrHash, err := address.Bech32ToPKHash(sender)
+	addr, err := address.FromString(sender)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
 	return account.LoadAccount(sm, addrHash)
 }
 
@@ -134,19 +135,19 @@ func (p *Protocol) subChainsInOperation(sm protocol.StateManager) (SubChainsInOp
 	return subChainsInOp, nil
 }
 
-func srcAddressPKHash(srcAddr string) (hash.PKHash, error) {
-	addr, err := address.Bech32ToAddress(srcAddr)
+func srcAddressPKHash(srcAddr string) (hash.Hash160, error) {
+	addr, err := address.FromString(srcAddr)
 	if err != nil {
-		return hash.ZeroPKHash, errors.Wrapf(err, "cannot get the public key hash of address %s", srcAddr)
+		return hash.ZeroHash160, errors.Wrapf(err, "cannot get the public key hash of address %s", srcAddr)
 	}
-	return byteutil.BytesTo20B(addr.Payload()), nil
+	return byteutil.BytesTo20B(addr.Bytes()), nil
 }
 
 // SubChain returns the confirmed sub-chain state
 func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 	var subChain SubChain
-	if err := p.sf.State(byteutil.BytesTo20B(addr.Payload()), &subChain); err != nil {
-		return nil, errors.Wrapf(err, "error when loading state of %x", addr.Payload())
+	if err := p.sf.State(byteutil.BytesTo20B(addr.Bytes()), &subChain); err != nil {
+		return nil, errors.Wrapf(err, "error when loading state of %x", addr.Bytes())
 	}
 	return &subChain, nil
 }

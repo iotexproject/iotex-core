@@ -85,7 +85,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
-		hash.Hash32B{},
+		hash.Hash256{},
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -164,7 +164,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
-		hash.Hash32B{},
+		hash.Hash256{},
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -263,7 +263,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk)
@@ -336,7 +336,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk1)
@@ -346,7 +346,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk2)
@@ -356,7 +356,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk3)
@@ -423,7 +423,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk1)
@@ -433,7 +433,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk2)
@@ -443,7 +443,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk3)
@@ -497,7 +497,7 @@ func TestBlockSyncerSync(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk)
@@ -508,7 +508,7 @@ func TestBlockSyncerSync(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk)

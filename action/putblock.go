@@ -28,7 +28,7 @@ type PutBlock struct {
 
 	subChainAddress string
 	height          uint64
-	roots           map[string]hash.Hash32B
+	roots           map[string]hash.Hash256
 }
 
 // NewPutBlock instantiates a putting sub-chain block action struct.
@@ -37,7 +37,7 @@ func NewPutBlock(
 	subChainAddress string,
 	producerAddress string,
 	height uint64,
-	roots map[string]hash.Hash32B,
+	roots map[string]hash.Hash256,
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) *PutBlock {
@@ -68,7 +68,7 @@ func (pb *PutBlock) LoadProto(putBlockPb *iproto.PutBlockPb) error {
 	pb.subChainAddress = putBlockPb.SubChainAddress
 	pb.height = putBlockPb.Height
 
-	pb.roots = make(map[string]hash.Hash32B)
+	pb.roots = make(map[string]hash.Hash256)
 	for _, r := range putBlockPb.Roots {
 		pb.roots[r.Name] = byteutil.BytesTo32B(r.Value)
 	}
@@ -110,7 +110,7 @@ func (pb *PutBlock) SubChainAddress() string { return pb.subChainAddress }
 func (pb *PutBlock) Height() uint64 { return pb.height }
 
 // Roots return merkel roots put in.
-func (pb *PutBlock) Roots() map[string]hash.Hash32B { return pb.roots }
+func (pb *PutBlock) Roots() map[string]hash.Hash256 { return pb.roots }
 
 // ProducerAddress return producer address.
 func (pb *PutBlock) ProducerAddress() string { return pb.srcAddr }

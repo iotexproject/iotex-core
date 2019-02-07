@@ -40,7 +40,7 @@ func TestStorePutGet(sqlStore Store, t *testing.T) {
 
 	nodeAddress := "aaa"
 	userAddress := "bbb"
-	actionHash := hash.ZeroHash32B
+	actionHash := hash.ZeroHash256
 
 	// create table
 	_, err = dbinstance.Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +
@@ -113,7 +113,7 @@ func TestStoreTransaction(sqlStore Store, t *testing.T) {
 	nodeAddress := "aaa"
 	userAddress1 := "bbb1"
 	userAddress2 := "bbb2"
-	actionHash := hash.ZeroHash32B
+	actionHash := hash.ZeroHash256
 
 	// create table
 	_, err = dbinstance.Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +

@@ -69,7 +69,11 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 			return nil, errors.Wrap(err, "failed to decode private key")
 		}
 		pkHash := keypair.HashPubKey(pk)
-		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: address.New(pkHash[:]).Bech32(), PriKey: sk})
+		addr, err := address.FromBytes(pkHash[:])
+		if err != nil {
+			return nil, err
+		}
+		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 	return addrKeys, nil
 }
@@ -309,12 +313,12 @@ func DeployContract(
 	executionData string,
 	retryNum int,
 	retryInterval int,
-) (hash.Hash32B, error) {
+) (hash.Hash256, error) {
 	executor, nonce := createExecutionInjection(counter, delegates)
 	selp, execution, err := createSignedExecution(executor, action.EmptyAddress, nonce, big.NewInt(0),
 		uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrap(err, "failed to create signed execution")
+		return hash.ZeroHash256, errors.Wrap(err, "failed to create signed execution")
 	}
 	log.L().Info("Created signed execution")
 

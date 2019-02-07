@@ -34,12 +34,14 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	sk, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	pkHash := keypair.HashPubKey(&sk.PublicKey)
-	addr := address.New(pkHash[:])
+	addr, err := address.FromBytes(pkHash[:])
+	require.NoError(t, err)
 
 	skProducer, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	pkHashProducer := keypair.HashPubKey(&skProducer.PublicKey)
-	addrProducer := address.New(pkHashProducer[:])
+	addrProducer, err := address.FromBytes(pkHashProducer[:])
+	require.NoError(t, err)
 	p := NewProtocol(addr, 1)
 
 	// Initialize the protocol
@@ -79,7 +81,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	// Create a test account with 1000 token
 	ws, err = stateDB.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(1000))
+	_, err = account.LoadOrCreateAccount(ws, addr.String(), big.NewInt(1000))
 	require.NoError(t, err)
 	require.NoError(t, stateDB.Commit(ws))
 

@@ -24,7 +24,7 @@ func decodeHash(in string) [32]byte {
 }
 
 func TestMerkleTree(t *testing.T) {
-	var inputs []hash.Hash32B
+	var inputs []hash.Hash256
 
 	// with no leave
 	m := NewMerkleTree(inputs)

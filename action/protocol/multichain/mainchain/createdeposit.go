@@ -22,7 +22,7 @@ import (
 )
 
 // DepositAddress returns the deposit address (20-byte)
-func DepositAddress(subChainAddr []byte, depositIndex uint64) hash.PKHash {
+func DepositAddress(subChainAddr []byte, depositIndex uint64) hash.Hash160 {
 	var stream []byte
 	stream = append(stream, subChainAddr...)
 	stream = append(stream, []byte(".deposit.")...)
@@ -85,7 +85,7 @@ func (p *Protocol) mutateDeposit(
 	}
 
 	// Update sub-chain state
-	addr, err := address.BytesToAddress(subChainInOp.Addr)
+	addr, err := address.FromBytes(subChainInOp.Addr)
 	if err != nil {
 		return nil, err
 	}
@@ -95,12 +95,12 @@ func (p *Protocol) mutateDeposit(
 	}
 	depositIndex := subChain.DepositCount
 	subChain.DepositCount++
-	if err := sm.PutState(byteutil.BytesTo20B(addr.Payload()), subChain); err != nil {
+	if err := sm.PutState(byteutil.BytesTo20B(addr.Bytes()), subChain); err != nil {
 		return nil, err
 	}
 
 	// Insert deposit state
-	recipient, err := address.Bech32ToAddress(deposit.Recipient())
+	recipient, err := address.FromString(deposit.Recipient())
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (p *Protocol) mutateDeposit(
 		Status:          0,
 		ActHash:         deposit.Hash(),
 		GasConsumed:     gas,
-		ContractAddress: addr.Bech32(),
+		ContractAddress: addr.String(),
 	}
 	return &receipt, nil
 }

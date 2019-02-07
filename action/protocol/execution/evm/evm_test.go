@@ -18,9 +18,9 @@ import (
 func TestLogReceipt(t *testing.T) {
 	require := require.New(t)
 	log := action.Log{Address: "abcde", Data: []byte("12345"), BlockNumber: 5, Index: 6}
-	var topic hash.Hash32B
+	var topic hash.Hash256
 	copy(topic[:], hash.Hash256b([]byte("12345")))
-	log.Topics = []hash.Hash32B{topic}
+	log.Topics = []hash.Hash256{topic}
 	copy(log.TxnHash[:], hash.Hash256b([]byte("11111")))
 	copy(log.BlockHash[:], hash.Hash256b([]byte("22222")))
 	s, err := log.Serialize()

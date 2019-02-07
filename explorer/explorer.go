@@ -187,7 +187,7 @@ func (exp *Service) GetTransferByID(transferID string) (explorer.Transfer, error
 	if err != nil {
 		return explorer.Transfer{}, err
 	}
-	var transferHash hash.Hash32B
+	var transferHash hash.Hash256
 	copy(transferHash[:], bytes)
 
 	return getTransfer(exp.bc, exp.ap, transferHash, exp.idx, exp.cfg.UseIndexer)
@@ -196,7 +196,7 @@ func (exp *Service) GetTransferByID(transferID string) (explorer.Transfer, error
 // GetTransfersByAddress returns all transfers associated with an address
 func (exp *Service) GetTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
 	var res []explorer.Transfer
-	var transfers []hash.Hash32B
+	var transfers []hash.Hash256
 	if exp.cfg.UseIndexer {
 		transferHistory, err := exp.idx.Indexer().GetIndexHistory(config.IndexTransfer, address)
 		if err != nil {
@@ -281,7 +281,7 @@ func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int6
 	if err != nil {
 		return []explorer.Transfer{}, err
 	}
-	var hash hash.Hash32B
+	var hash hash.Hash256
 	copy(hash[:], bytes)
 
 	blk, err := exp.bc.GetBlockByHash(hash)
@@ -368,7 +368,7 @@ func (exp *Service) GetVoteByID(voteID string) (explorer.Vote, error) {
 	if err != nil {
 		return explorer.Vote{}, err
 	}
-	var voteHash hash.Hash32B
+	var voteHash hash.Hash256
 	copy(voteHash[:], bytes)
 
 	return getVote(exp.bc, exp.ap, voteHash, exp.idx, exp.cfg.UseIndexer)
@@ -377,7 +377,7 @@ func (exp *Service) GetVoteByID(voteID string) (explorer.Vote, error) {
 // GetVotesByAddress returns all votes associated with an address
 func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
 	var res []explorer.Vote
-	var votes []hash.Hash32B
+	var votes []hash.Hash256
 	if exp.cfg.UseIndexer {
 		voteHistory, err := exp.idx.Indexer().GetIndexHistory(config.IndexVote, address)
 		if err != nil {
@@ -461,7 +461,7 @@ func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) (
 	if err != nil {
 		return []explorer.Vote{}, err
 	}
-	var hash hash.Hash32B
+	var hash hash.Hash256
 	copy(hash[:], bytes)
 
 	blk, err := exp.bc.GetBlockByHash(hash)
@@ -551,7 +551,7 @@ func (exp *Service) GetExecutionByID(executionID string) (explorer.Execution, er
 	if err != nil {
 		return explorer.Execution{}, err
 	}
-	var executionHash hash.Hash32B
+	var executionHash hash.Hash256
 	copy(executionHash[:], bytes)
 
 	return getExecution(exp.bc, exp.ap, executionHash, exp.idx, exp.cfg.UseIndexer)
@@ -560,7 +560,7 @@ func (exp *Service) GetExecutionByID(executionID string) (explorer.Execution, er
 // GetExecutionsByAddress returns all executions associated with an address
 func (exp *Service) GetExecutionsByAddress(address string, offset int64, limit int64) ([]explorer.Execution, error) {
 	var res []explorer.Execution
-	var executions []hash.Hash32B
+	var executions []hash.Hash256
 	if exp.cfg.UseIndexer {
 		executionHistory, err := exp.idx.Indexer().GetIndexHistory(config.IndexExecution, address)
 		if err != nil {
@@ -643,7 +643,7 @@ func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int
 	if err != nil {
 		return []explorer.Execution{}, err
 	}
-	var hash hash.Hash32B
+	var hash hash.Hash256
 	copy(hash[:], bytes)
 
 	blk, err := exp.bc.GetBlockByHash(hash)
@@ -688,7 +688,7 @@ func (exp *Service) GetReceiptByActionID(id string) (explorer.Receipt, error) {
 	if err != nil {
 		return explorer.Receipt{}, err
 	}
-	var actionHash hash.Hash32B
+	var actionHash hash.Hash256
 	copy(actionHash[:], bytes)
 
 	// get receipt from boltdb
@@ -724,7 +724,7 @@ func (exp *Service) GetCreateDeposit(createDepositID string) (explorer.CreateDep
 	if err != nil {
 		return explorer.CreateDeposit{}, err
 	}
-	var createDepositHash hash.Hash32B
+	var createDepositHash hash.Hash256
 	copy(createDepositHash[:], bytes)
 	return getCreateDeposit(exp.bc, exp.ap, createDepositHash)
 }
@@ -766,7 +766,7 @@ func (exp *Service) GetSettleDeposit(settleDepositID string) (explorer.SettleDep
 	if err != nil {
 		return explorer.SettleDeposit{}, err
 	}
-	var settleDepositHash hash.Hash32B
+	var settleDepositHash hash.Hash256
 	copy(settleDepositHash[:], bytes)
 	return getSettleDeposit(exp.bc, exp.ap, settleDepositHash)
 }
@@ -859,7 +859,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 	if err != nil {
 		return explorer.Block{}, err
 	}
-	var hash hash.Hash32B
+	var hash hash.Hash256
 	copy(hash[:], bytes)
 
 	blk, err := exp.bc.GetBlockByHash(hash)
@@ -1432,7 +1432,7 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 	if targetSubChain.ID != uint32(subChainID) {
 		return nil, errors.Errorf("sub-chain %d is not found in operation", subChainID)
 	}
-	subChainAddr, err := address.BytesToAddress(targetSubChain.Addr)
+	subChainAddr, err := address.FromBytes(targetSubChain.Addr)
 	if err != nil {
 		return nil, err
 	}
@@ -1451,13 +1451,13 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 		if err != nil {
 			return nil, err
 		}
-		recipient, err := address.BytesToAddress(deposit.Addr)
+		recipient, err := address.FromBytes(deposit.Addr)
 		if err != nil {
 			return nil, err
 		}
 		deposits = append(deposits, explorer.Deposit{
 			Amount:    deposit.Amount.String(),
-			Address:   recipient.Bech32(),
+			Address:   recipient.String(),
 			Confirmed: deposit.Confirmed,
 		})
 		if idx > 0 {
@@ -1556,7 +1556,7 @@ func (exp *Service) GetStateRootHash(blockHeight int64) (string, error) {
 }
 
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer
-func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash32B, idx *indexservice.Server, useIndexer bool) (explorer.Transfer, error) {
+func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash.Hash256, idx *indexservice.Server, useIndexer bool) (explorer.Transfer, error) {
 	explorerTransfer := explorer.Transfer{}
 
 	selp, err := bc.GetActionByActionHash(transferHash)
@@ -1570,7 +1570,7 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 	}
 
 	// Fetch from block
-	var blkHash hash.Hash32B
+	var blkHash hash.Hash256
 	if useIndexer {
 		hash, err := idx.Indexer().GetBlockByIndex(config.IndexTransfer, transferHash)
 		if err != nil {
@@ -1599,7 +1599,7 @@ func getTransfer(bc blockchain.Blockchain, ap actpool.ActPool, transferHash hash
 }
 
 // getVote takes in a blockchain and voteHash and returns an Explorer Vote
-func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B, idx *indexservice.Server, useIndexer bool) (explorer.Vote, error) {
+func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash256, idx *indexservice.Server, useIndexer bool) (explorer.Vote, error) {
 	explorerVote := explorer.Vote{}
 
 	selp, err := bc.GetActionByActionHash(voteHash)
@@ -1613,7 +1613,7 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 	}
 
 	// Fetch from block
-	var blkHash hash.Hash32B
+	var blkHash hash.Hash256
 	if useIndexer {
 		hash, err := idx.Indexer().GetBlockByIndex(config.IndexVote, voteHash)
 		if err != nil {
@@ -1642,7 +1642,7 @@ func getVote(bc blockchain.Blockchain, ap actpool.ActPool, voteHash hash.Hash32B
 }
 
 // getExecution takes in a blockchain and executionHash and returns an Explorer execution
-func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash hash.Hash32B, idx *indexservice.Server, useIndexer bool) (explorer.Execution, error) {
+func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash hash.Hash256, idx *indexservice.Server, useIndexer bool) (explorer.Execution, error) {
 	explorerExecution := explorer.Execution{}
 
 	selp, err := bc.GetActionByActionHash(executionHash)
@@ -1656,7 +1656,7 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 	}
 
 	// Fetch from block
-	var blkHash hash.Hash32B
+	var blkHash hash.Hash256
 	if useIndexer {
 		hash, err := idx.Indexer().GetBlockByIndex(config.IndexExecution, executionHash)
 		if err != nil {
@@ -1688,7 +1688,7 @@ func getExecution(bc blockchain.Blockchain, ap actpool.ActPool, executionHash ha
 func getCreateDeposit(
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
-	createDepositHash hash.Hash32B,
+	createDepositHash hash.Hash256,
 ) (explorer.CreateDeposit, error) {
 	pending := false
 	var selp action.SealedEnvelope
@@ -1750,7 +1750,7 @@ func castActionToCreateDeposit(selp action.SealedEnvelope, pending bool) (explor
 func getSettleDeposit(
 	bc blockchain.Blockchain,
 	ap actpool.ActPool,
-	settleDepositHash hash.Hash32B,
+	settleDepositHash hash.Hash256,
 ) (explorer.SettleDeposit, error) {
 	pending := false
 	var selp action.SealedEnvelope

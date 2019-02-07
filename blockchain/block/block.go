@@ -150,17 +150,17 @@ func (b *Block) Deserialize(buf []byte) error {
 }
 
 // CalculateTxRoot returns the Merkle root of all txs and actions in this block.
-func (b *Block) CalculateTxRoot() hash.Hash32B {
+func (b *Block) CalculateTxRoot() hash.Hash256 {
 	return calculateTxRoot(b.Actions)
 }
 
 // HashBlock return the hash of this block (actually hash of block header)
-func (b *Block) HashBlock() hash.Hash32B {
+func (b *Block) HashBlock() hash.Hash256 {
 	return blake2b.Sum256(b.Header.ByteStream())
 }
 
 // VerifyStateRoot verifies the state root in header
-func (b *Block) VerifyStateRoot(root hash.Hash32B) error {
+func (b *Block) VerifyStateRoot(root hash.Hash256) error {
 	if b.Header.stateRoot != root {
 		return errors.Errorf(
 			"state root hash does not match, expected = %x, actual = %x",
@@ -172,7 +172,7 @@ func (b *Block) VerifyStateRoot(root hash.Hash32B) error {
 }
 
 // VerifyDeltaStateDigest verifies the delta state digest in header
-func (b *Block) VerifyDeltaStateDigest(digest hash.Hash32B) error {
+func (b *Block) VerifyDeltaStateDigest(digest hash.Hash256) error {
 	if b.Header.deltaStateDigest != digest {
 		return errors.Errorf(
 			"delta state digest doesn't match, expected = %x, actual = %x",
@@ -195,7 +195,7 @@ func (b *Block) VerifySignature() bool {
 }
 
 // VerifyReceiptRoot verifies the receipt root in header
-func (b *Block) VerifyReceiptRoot(root hash.Hash32B) error {
+func (b *Block) VerifyReceiptRoot(root hash.Hash256) error {
 	if b.Header.receiptRoot != root {
 		return errors.New("receipt root hash does not match")
 	}
@@ -205,20 +205,19 @@ func (b *Block) VerifyReceiptRoot(root hash.Hash32B) error {
 // ProducerAddress returns the address of producer
 func (b *Block) ProducerAddress() string {
 	pkHash := keypair.HashPubKey(b.Header.pubkey)
-	addr := address.New(pkHash[:])
-
-	return addr.Bech32()
+	addr, _ := address.FromBytes(pkHash[:])
+	return addr.String()
 }
 
 // RunnableActions abstructs RunnableActions from a Block.
 func (b *Block) RunnableActions() RunnableActions {
 	pkHash := keypair.HashPubKey(b.Header.pubkey)
-	addr := address.New(pkHash[:])
+	addr, _ := address.FromBytes(pkHash[:])
 	return RunnableActions{
 		blockHeight:         b.Header.height,
 		blockTimeStamp:      b.Header.timestamp,
 		blockProducerPubKey: b.Header.pubkey,
-		blockProducerAddr:   addr.Bech32(),
+		blockProducerAddr:   addr.String(),
 		actions:             b.Actions,
 		txHash:              b.txRoot,
 	}

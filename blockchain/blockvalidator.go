@@ -27,7 +27,7 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(block *block.Block, tipHeight uint64, tipHash hash.Hash32B) error
+	Validate(block *block.Block, tipHeight uint64, tipHash hash.Hash256) error
 	// ValidateActionsOnly validates the actions only
 	ValidateActionsOnly(
 		actions []action.SealedEnvelope,
@@ -63,7 +63,7 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Hash32B) error {
+func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Hash256) error {
 	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
@@ -156,19 +156,26 @@ func (v *validator) validateActions(
 	errChan chan error,
 ) error {
 	producerPK := keypair.HashPubKey(pk)
-	producerAddr := address.New(producerPK[:])
+	producerAddr, err := address.FromBytes(producerPK[:])
+	if err != nil {
+		return err
+	}
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {
 		appendActionIndex(accountNonceMap, selp.SrcAddr(), selp.Nonce())
 
 		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+		caller, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return err
+		}
 		ctx := protocol.WithValidateActionsCtx(
 			context.Background(),
 			protocol.ValidateActionsCtx{
 				BlockHeight:  height,
-				ProducerAddr: producerAddr.Bech32(),
-				Caller:       address.New(callerPKHash[:]),
+				ProducerAddr: producerAddr.String(),
+				Caller:       caller,
 			},
 		)
 
@@ -199,7 +206,7 @@ func (v *validator) validateActions(
 	return nil
 }
 
-func verifyHeightAndHash(blk *block.Block, tipHeight uint64, tipHash hash.Hash32B) error {
+func verifyHeightAndHash(blk *block.Block, tipHeight uint64, tipHash hash.Hash256) error {
 	if blk == nil {
 		return ErrInvalidBlock
 	}

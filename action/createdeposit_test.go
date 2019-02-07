@@ -19,8 +19,8 @@ import (
 func TestCreateDeposit(t *testing.T) {
 	t.Parallel()
 
-	addr1 := testaddress.Addrinfo["producer"].Bech32()
-	addr2 := testaddress.Addrinfo["alfa"].Bech32()
+	addr1 := testaddress.Addrinfo["producer"].String()
+	addr2 := testaddress.Addrinfo["alfa"].String()
 
 	assertDeposit := func(deposit *CreateDeposit) {
 		require.NotNil(t, deposit)
@@ -47,8 +47,8 @@ func TestCreateDeposit(t *testing.T) {
 func TestCreateDepositProto(t *testing.T) {
 	t.Parallel()
 
-	addr1 := testaddress.Addrinfo["producer"].Bech32()
-	addr2 := testaddress.Addrinfo["alfa"].Bech32()
+	addr1 := testaddress.Addrinfo["producer"].String()
+	addr2 := testaddress.Addrinfo["alfa"].String()
 
 	assertDeposit := func(deposit *CreateDeposit) {
 		require.NotNil(t, deposit)

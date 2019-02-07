@@ -25,19 +25,19 @@ func TestPutBlock(t *testing.T) {
 	assertPB := func(pb *PutBlock) {
 		assert.Equal(t, uint32(version.ProtocolVersion), pb.version)
 		assert.Equal(t, uint64(1), pb.Nonce())
-		assert.Equal(t, addr.Bech32(), pb.ProducerAddress())
-		assert.Equal(t, addr2.Bech32(), pb.SubChainAddress())
+		assert.Equal(t, addr.String(), pb.ProducerAddress())
+		assert.Equal(t, addr2.String(), pb.SubChainAddress())
 		assert.Equal(t, uint64(10001), pb.Height())
 		assert.Equal(t, byteutil.BytesTo32B([]byte("10002")), pb.Roots()["10002"])
 		assert.Equal(t, uint64(10003), pb.GasLimit())
 		assert.Equal(t, big.NewInt(10004), pb.GasPrice())
 	}
-	roots := make(map[string]hash.Hash32B)
+	roots := make(map[string]hash.Hash256)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := NewPutBlock(
 		1,
-		addr2.Bech32(),
-		addr.Bech32(),
+		addr2.String(),
+		addr.String(),
 		10001,
 		roots,
 		10003,
@@ -49,15 +49,15 @@ func TestPutBlock(t *testing.T) {
 
 func TestPutBlockProto(t *testing.T) {
 	addr2 := testaddress.Addrinfo["echo"]
-	roots := make(map[string]hash.Hash32B)
+	roots := make(map[string]hash.Hash256)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := &PutBlock{
-		subChainAddress: addr2.Bech32(),
+		subChainAddress: addr2.String(),
 		height:          10001,
 		roots:           roots,
 	}
 	assertPB := func(pb *PutBlock) {
-		assert.Equal(t, addr2.Bech32(), pb.SubChainAddress())
+		assert.Equal(t, addr2.String(), pb.SubChainAddress())
 		assert.Equal(t, uint64(10001), pb.Height())
 		assert.Equal(t, byteutil.BytesTo32B([]byte("10002")), pb.Roots()["10002"])
 	}
@@ -72,15 +72,15 @@ func TestPutBlockProto(t *testing.T) {
 func TestPutBlockByteStream(t *testing.T) {
 	addr := testaddress.Addrinfo["producer"]
 	addr2 := testaddress.Addrinfo["echo"]
-	roots := make(map[string]hash.Hash32B)
+	roots := make(map[string]hash.Hash256)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	roots["10003"] = byteutil.BytesTo32B([]byte("10003"))
 	roots["10004"] = byteutil.BytesTo32B([]byte("10004"))
 	roots["10005"] = byteutil.BytesTo32B([]byte("10005"))
 	pb := NewPutBlock(
 		1,
-		addr2.Bech32(),
-		addr.Bech32(),
+		addr2.String(),
+		addr.String(),
 		10001,
 		roots,
 		10003,

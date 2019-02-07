@@ -25,7 +25,7 @@ type RunActionsCtx struct {
 	// height of block containing those actions
 	BlockHeight uint64
 	// hash of block containing those actions
-	BlockHash hash.Hash32B
+	BlockHash hash.Hash256
 	// timestamp of block containing those actions
 	BlockTimeStamp int64
 	// gas Limit for perform those actions
@@ -37,7 +37,7 @@ type RunActionsCtx struct {
 	// Caller is the address of whom issues this action
 	Caller address.Address
 	// ActionHash is the hash of the action with the sealed envelope
-	ActionHash hash.Hash32B
+	ActionHash hash.Hash256
 	// Nonce is the nonce of the action
 	Nonce uint64
 }

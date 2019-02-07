@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -75,19 +74,19 @@ func TestSubChainsInOperation(t *testing.T) {
 	sc1 = sc1.Append(
 		InOperation{
 			ID:   3,
-			Addr: address.New(hash.Hash160b([]byte{3})).Bytes(),
+			Addr: hash.Hash160b([]byte{3})[:],
 		},
 	)
 	sc1 = sc1.Append(
 		InOperation{
 			ID:   1,
-			Addr: address.New(hash.Hash160b([]byte{1})).Bytes(),
+			Addr: hash.Hash160b([]byte{1})[:],
 		},
 	)
 	sc1 = sc1.Append(
 		InOperation{
 			ID:   2,
-			Addr: address.New(hash.Hash160b([]byte{2})).Bytes(),
+			Addr: hash.Hash160b([]byte{2})[:],
 		},
 	)
 

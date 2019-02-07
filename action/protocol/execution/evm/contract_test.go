@@ -47,15 +47,15 @@ func TestCreateContract(t *testing.T) {
 	addr := testaddress.Addrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
-	_, err = account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(0))
+	_, err = account.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	stateDB := StateDBAdapter{
 		sm:             ws,
-		cachedContract: make(map[hash.PKHash]Contract),
+		cachedContract: make(map[hash.Hash160]Contract),
 		dao:            ws.GetDB(),
 		cb:             ws.GetCachedBatch(),
 	}
-	contract := addr.PublicKeyHash()
+	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
 	stateDB.SetCode(evmContract, code)
@@ -85,7 +85,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(err)
 
 	// reload same contract
-	contract1, err := account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(0))
+	contract1, err := account.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 	require.Nil(sf.Commit(ws))
@@ -98,12 +98,12 @@ func TestCreateContract(t *testing.T) {
 	// reload same contract
 	ws, err = sf.NewWorkingSet()
 	require.Nil(err)
-	contract1, err = account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(0))
+	contract1, err = account.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 	stateDB = StateDBAdapter{
 		sm:             ws,
-		cachedContract: make(map[hash.PKHash]Contract),
+		cachedContract: make(map[hash.Hash160]Contract),
 		dao:            ws.GetDB(),
 		cb:             ws.GetCachedBatch(),
 	}
@@ -130,15 +130,15 @@ func TestLoadStoreContract(t *testing.T) {
 	addr := testaddress.Addrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
-	_, err = account.LoadOrCreateAccount(ws, addr.Bech32(), big.NewInt(0))
+	_, err = account.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	stateDB := StateDBAdapter{
 		sm:             ws,
-		cachedContract: make(map[hash.PKHash]Contract),
+		cachedContract: make(map[hash.Hash160]Contract),
 		dao:            ws.GetDB(),
 		cb:             ws.GetCachedBatch(),
 	}
-	contract := addr.PublicKeyHash()
+	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
 	stateDB.SetCode(evmContract, code)
@@ -153,14 +153,14 @@ func TestLoadStoreContract(t *testing.T) {
 	v1 := byteutil.BytesTo32B(hash.Hash256b([]byte("cat")))
 	k2 := byteutil.BytesTo32B(hash.Hash160b([]byte("dog")))
 	v2 := byteutil.BytesTo32B(hash.Hash256b([]byte("dog")))
-	require.Nil(stateDB.setContractState(contract, k1, v1))
-	require.Nil(stateDB.setContractState(contract, k2, v2))
+	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract), k1, v1))
+	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract), k2, v2))
 
 	code1 := []byte("2nd contract creation")
 	addr1 := testaddress.Addrinfo["bravo"]
-	_, err = account.LoadOrCreateAccount(ws, addr1.Bech32(), big.NewInt(0))
+	_, err = account.LoadOrCreateAccount(ws, addr1.String(), big.NewInt(0))
 	require.Nil(err)
-	contract1 := addr1.PublicKeyHash()
+	contract1 := addr1.Bytes()
 	var evmContract1 common.Address
 	copy(evmContract1[:], contract1[:])
 	stateDB.SetCode(evmContract1, code1)
@@ -173,8 +173,8 @@ func TestLoadStoreContract(t *testing.T) {
 	v3 := byteutil.BytesTo32B(hash.Hash256b([]byte("egg")))
 	k4 := byteutil.BytesTo32B(hash.Hash160b([]byte("hen")))
 	v4 := byteutil.BytesTo32B(hash.Hash256b([]byte("hen")))
-	require.Nil(stateDB.setContractState(contract1, k3, v3))
-	require.Nil(stateDB.setContractState(contract1, k4, v4))
+	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract1), k3, v3))
+	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract1), k4, v4))
 	require.NoError(stateDB.commitContracts())
 	stateDB.clear()
 
@@ -200,31 +200,31 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(err)
 	stateDB = StateDBAdapter{
 		sm:             ws,
-		cachedContract: make(map[hash.PKHash]Contract),
+		cachedContract: make(map[hash.Hash160]Contract),
 		dao:            ws.GetDB(),
 		cb:             ws.GetCachedBatch(),
 	}
 
-	w, err := stateDB.getContractState(contract, k1)
+	w, err := stateDB.getContractState(byteutil.BytesTo20B(contract), k1)
 	require.Nil(err)
 	require.Equal(v1, w)
-	w, err = stateDB.getContractState(contract, k2)
+	w, err = stateDB.getContractState(byteutil.BytesTo20B(contract), k2)
 	require.Nil(err)
 	require.Equal(v2, w)
-	_, err = stateDB.getContractState(contract, k3)
+	_, err = stateDB.getContractState(byteutil.BytesTo20B(contract), k3)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
-	_, err = stateDB.getContractState(contract, k4)
+	_, err = stateDB.getContractState(byteutil.BytesTo20B(contract), k4)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	// query second contract
-	w, err = stateDB.getContractState(contract1, k3)
+	w, err = stateDB.getContractState(byteutil.BytesTo20B(contract1), k3)
 	require.Nil(err)
 	require.Equal(v3, w)
-	w, err = stateDB.getContractState(contract1, k4)
+	w, err = stateDB.getContractState(byteutil.BytesTo20B(contract1), k4)
 	require.Nil(err)
 	require.Equal(v4, w)
-	_, err = stateDB.getContractState(contract1, k1)
+	_, err = stateDB.getContractState(byteutil.BytesTo20B(contract1), k1)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
-	_, err = stateDB.getContractState(contract1, k2)
+	_, err = stateDB.getContractState(byteutil.BytesTo20B(contract1), k2)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	require.Nil(sf.Stop(context.Background()))
 }
@@ -242,7 +242,7 @@ func TestSnapshot(t *testing.T) {
 	v2 := byteutil.BytesTo32B(hash.Hash256b([]byte("dog")))
 
 	c1, err := newContract(
-		testaddress.Addrinfo["alfa"].PublicKeyHash(),
+		byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes()),
 		s,
 		db.NewMemKVStore(),
 		db.NewCachedBatch(),

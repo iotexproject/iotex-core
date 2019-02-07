@@ -22,11 +22,11 @@ type Header struct {
 	chainID          uint32            // this chain's ID
 	height           uint64            // block height
 	timestamp        int64             // unix timestamp
-	prevBlockHash    hash.Hash32B      // hash of previous block
-	txRoot           hash.Hash32B      // merkle root of all transactions
-	stateRoot        hash.Hash32B      // root of state trie
-	deltaStateDigest hash.Hash32B      // digest of state change by this block
-	receiptRoot      hash.Hash32B      // root of receipt trie
+	prevBlockHash    hash.Hash256      // hash of previous block
+	txRoot           hash.Hash256      // merkle root of all transactions
+	stateRoot        hash.Hash256      // root of state trie
+	deltaStateDigest hash.Hash256      // digest of state change by this block
+	receiptRoot      hash.Hash256      // root of receipt trie
 	blockSig         []byte            // block signature
 	pubkey           keypair.PublicKey // block producer's public key
 }
@@ -44,22 +44,22 @@ func (h Header) Height() uint64 { return h.height }
 func (h Header) Timestamp() int64 { return h.timestamp }
 
 // PrevHash returns the hash of prev block.
-func (h Header) PrevHash() hash.Hash32B { return h.prevBlockHash }
+func (h Header) PrevHash() hash.Hash256 { return h.prevBlockHash }
 
 // TxRoot returns the hash of all actions in this block.
-func (h Header) TxRoot() hash.Hash32B { return h.txRoot }
+func (h Header) TxRoot() hash.Hash256 { return h.txRoot }
 
 // StateRoot returns the state root after applying this block.
-func (h Header) StateRoot() hash.Hash32B { return h.stateRoot }
+func (h Header) StateRoot() hash.Hash256 { return h.stateRoot }
 
 // DeltaStateDigest returns the delta sate digest after applying this block.
-func (h Header) DeltaStateDigest() hash.Hash32B { return h.deltaStateDigest }
+func (h Header) DeltaStateDigest() hash.Hash256 { return h.deltaStateDigest }
 
 // PublicKey returns the public key of this header.
 func (h Header) PublicKey() keypair.PublicKey { return h.pubkey }
 
 // ReceiptRoot returns the receipt root after apply this block
-func (h Header) ReceiptRoot() hash.Hash32B { return h.receiptRoot }
+func (h Header) ReceiptRoot() hash.Hash256 { return h.receiptRoot }
 
 // ByteStream returns a byte stream of the header.
 func (h Header) ByteStream() []byte {
