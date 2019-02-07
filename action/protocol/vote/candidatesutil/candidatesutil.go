@@ -88,7 +88,7 @@ func ConstructKey(height uint64) hash.Hash160 {
 	heightInBytes := byteutil.Uint64ToBytes(height)
 	k := []byte(CandidatesPrefix)
 	k = append(k, heightInBytes...)
-	return byteutil.BytesTo20B(hash.Hash160b(k))
+	return hash.Hash160b(k)
 }
 
 // addCandidate adds a new candidate to candidateMap

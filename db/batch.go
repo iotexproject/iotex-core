@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (
@@ -317,16 +316,14 @@ func (cb *cachedBatch) Digest() hash.Hash256 {
 		}
 		bytes = append(bytes, wi.serialize()...)
 	}
-	return byteutil.BytesTo32B(hash.Hash256b(bytes))
+	return hash.Hash256b(bytes)
 }
 
 //======================================
 // private functions
 //======================================
-func (cb *cachedBatch) hash(namespace string, key []byte) hash.CacheHash {
-	stream := hash.Hash160b([]byte(namespace))
-	stream = append(stream, key...)
-	return byteutil.BytesToCacheHash(hash.Hash160b(stream))
+func (cb *cachedBatch) hash(namespace string, key []byte) hash.Hash160 {
+	return hash.Hash160b(append([]byte(namespace), key...))
 }
 
 // clone clones the batch

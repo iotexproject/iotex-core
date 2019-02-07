@@ -66,7 +66,7 @@ func TestCreateContract(t *testing.T) {
 	v := stateDB.GetCode(evmContract)
 	require.Equal(code, v)
 	// non-existing contract
-	addr1 := byteutil.BytesTo20B(hash.Hash160b([]byte("random")))
+	addr1 := hash.Hash160b([]byte("random"))
 	var evmAddr1 common.Address
 	copy(evmAddr1[:], addr1[:])
 	h := stateDB.GetCodeHash(evmAddr1)
@@ -149,10 +149,10 @@ func TestLoadStoreContract(t *testing.T) {
 	v := stateDB.GetCode(evmContract)
 	require.Equal(code, v)
 	// insert entries into storage
-	k1 := byteutil.BytesTo32B(hash.Hash160b([]byte("cat")))
-	v1 := byteutil.BytesTo32B(hash.Hash256b([]byte("cat")))
-	k2 := byteutil.BytesTo32B(hash.Hash160b([]byte("dog")))
-	v2 := byteutil.BytesTo32B(hash.Hash256b([]byte("dog")))
+	k1 := hash.Hash256b([]byte("cat"))
+	v1 := hash.Hash256b([]byte("cat"))
+	k2 := hash.Hash256b([]byte("dog"))
+	v2 := hash.Hash256b([]byte("dog"))
 	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract), k1, v1))
 	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract), k2, v2))
 
@@ -169,10 +169,10 @@ func TestLoadStoreContract(t *testing.T) {
 	v = stateDB.GetCode(evmContract1)
 	require.Equal(code1, v)
 	// insert entries into storage
-	k3 := byteutil.BytesTo32B(hash.Hash160b([]byte("egg")))
-	v3 := byteutil.BytesTo32B(hash.Hash256b([]byte("egg")))
-	k4 := byteutil.BytesTo32B(hash.Hash160b([]byte("hen")))
-	v4 := byteutil.BytesTo32B(hash.Hash256b([]byte("hen")))
+	k3 := hash.Hash256b([]byte("egg"))
+	v3 := hash.Hash256b([]byte("egg"))
+	k4 := hash.Hash256b([]byte("hen"))
+	v4 := hash.Hash256b([]byte("hen"))
 	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract1), k3, v3))
 	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract1), k4, v4))
 	require.NoError(stateDB.commitContracts())
@@ -236,10 +236,10 @@ func TestSnapshot(t *testing.T) {
 		Balance:      big.NewInt(5),
 		VotingWeight: big.NewInt(0),
 	}
-	k1 := byteutil.BytesTo32B(hash.Hash160b([]byte("cat")))
-	v1 := byteutil.BytesTo32B(hash.Hash256b([]byte("cat")))
-	k2 := byteutil.BytesTo32B(hash.Hash160b([]byte("dog")))
-	v2 := byteutil.BytesTo32B(hash.Hash256b([]byte("dog")))
+	k1 := hash.Hash256b([]byte("cat"))
+	v1 := hash.Hash256b([]byte("cat"))
+	k2 := hash.Hash256b([]byte("dog"))
+	v2 := hash.Hash256b([]byte("dog"))
 
 	c1, err := newContract(
 		byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes()),
