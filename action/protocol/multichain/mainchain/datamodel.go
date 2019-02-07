@@ -81,7 +81,7 @@ func (bs *SubChain) Deserialize(data []byte) error {
 // MerkleRoot defines a merkle root in block proof.
 type MerkleRoot struct {
 	Name  string
-	Value hash.Hash32B
+	Value hash.Hash256
 }
 
 // BlockProof represents the block proof of a sub-chain in the state factory

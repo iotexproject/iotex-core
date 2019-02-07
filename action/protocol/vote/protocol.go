@@ -52,12 +52,12 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 	if raCtx.EnableGasCharge {
 		// Load or create account for producer
-		producer, err := account.LoadOrCreateAccount(sm, raCtx.Producer.Bech32(), big.NewInt(0))
+		producer, err := account.LoadOrCreateAccount(sm, raCtx.Producer.String(), big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
 				"failed to load or create the account of block producer %s",
-				raCtx.Producer.Bech32(),
+				raCtx.Producer.String(),
 			)
 		}
 		gas, err := vote.IntrinsicGas()
@@ -82,7 +82,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 			return nil, errors.Wrapf(err, "failed to compensate gas to producer")
 		}
 		// Put updated producer's state to trie
-		if err := account.StoreAccount(sm, raCtx.Producer.Bech32(), producer); err != nil {
+		if err := account.StoreAccount(sm, raCtx.Producer.String(), producer); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		*raCtx.GasLimit -= gas
@@ -165,7 +165,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	}
 	// check if votee's address is valid
 	if vote.Votee() != action.EmptyAddress {
-		if _, err := address.Bech32ToAddress(vote.Votee()); err != nil {
+		if _, err := address.FromString(vote.Votee()); err != nil {
 			return errors.Wrapf(err, "error when validating votee's address %s", vote.Votee())
 		}
 	}

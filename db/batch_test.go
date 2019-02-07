@@ -166,6 +166,6 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 		b.StartTimer()
 		h := cb.Digest()
 		b.StopTimer()
-		require.NotEqual(b, hash.ZeroHash32B, h)
+		require.NotEqual(b, hash.ZeroHash256, h)
 	}
 }

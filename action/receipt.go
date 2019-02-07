@@ -19,7 +19,7 @@ import (
 type Receipt struct {
 	ReturnValue     []byte
 	Status          uint64
-	ActHash         hash.Hash32B
+	ActHash         hash.Hash256
 	GasConsumed     uint64
 	ContractAddress string
 	Logs            []*Log
@@ -28,12 +28,12 @@ type Receipt struct {
 // Log stores an evm contract event
 type Log struct {
 	Address     string
-	Topics      []hash.Hash32B
+	Topics      []hash.Hash256
 	Data        []byte
 	BlockNumber uint64
-	TxnHash     hash.Hash32B
+	TxnHash     hash.Hash256
 	// TODO: in our case, BlockHash is actually txRoot, we need to revisit this field later
-	BlockHash hash.Hash32B
+	BlockHash hash.Hash256
 	Index     uint
 }
 
@@ -83,7 +83,7 @@ func (receipt *Receipt) Deserialize(buf []byte) error {
 }
 
 // Hash returns the hash of receipt
-func (receipt *Receipt) Hash() hash.Hash32B {
+func (receipt *Receipt) Hash() hash.Hash256 {
 	data, err := receipt.Serialize()
 	if err != nil {
 		log.L().Panic("Error when serializing a receipt")
@@ -111,7 +111,7 @@ func (log *Log) ConvertToLogPb() *iproto.LogPb {
 func (log *Log) ConvertFromLogPb(pbLog *iproto.LogPb) {
 	log.Address = pbLog.GetAddress()
 	pbLogs := pbLog.GetTopics()
-	log.Topics = make([]hash.Hash32B, len(pbLogs))
+	log.Topics = make([]hash.Hash256, len(pbLogs))
 	for i, topic := range pbLogs {
 		copy(log.Topics[i][:], topic)
 	}

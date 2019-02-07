@@ -51,15 +51,15 @@ type (
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		AccountState(string) (*state.Account, error)
-		RootHash() hash.Hash32B
-		RootHashByHeight(uint64) (hash.Hash32B, error)
+		RootHash() hash.Hash256
+		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
 		NewWorkingSet() (WorkingSet, error)
 		Commit(WorkingSet) error
 		// Candidate pool
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
 
-		State(hash.PKHash, interface{}) error
+		State(hash.Hash160, interface{}) error
 		AddActionHandlers(...protocol.ActionHandler)
 	}
 
@@ -209,22 +209,22 @@ func (sf *factory) AccountState(addr string) (*state.Account, error) {
 }
 
 // RootHash returns the hash of the root node of the state trie
-func (sf *factory) RootHash() hash.Hash32B {
+func (sf *factory) RootHash() hash.Hash256 {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	return sf.rootHash()
 }
 
 // RootHashByHeight returns the hash of the root node of the state trie at a given height
-func (sf *factory) RootHashByHeight(blockHeight uint64) (hash.Hash32B, error) {
+func (sf *factory) RootHashByHeight(blockHeight uint64) (hash.Hash256, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
 	data, err := sf.dao.Get(AccountKVNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)))
 	if err != nil {
-		return hash.ZeroHash32B, err
+		return hash.ZeroHash256, err
 	}
-	var rootHash hash.Hash32B
+	var rootHash hash.Hash256
 	copy(rootHash[:], data)
 	return rootHash, nil
 }
@@ -305,7 +305,7 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 }
 
 // State returns a confirmed state in the state factory
-func (sf *factory) State(addr hash.PKHash, state interface{}) error {
+func (sf *factory) State(addr hash.Hash160, state interface{}) error {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
@@ -316,11 +316,11 @@ func (sf *factory) State(addr hash.PKHash, state interface{}) error {
 // private trie constructor functions
 //======================================
 
-func (sf *factory) rootHash() hash.Hash32B {
+func (sf *factory) rootHash() hash.Hash256 {
 	return byteutil.BytesTo32B(sf.accountTrie.RootHash())
 }
 
-func (sf *factory) state(addr hash.PKHash, s interface{}) error {
+func (sf *factory) state(addr hash.Hash160, s interface{}) error {
 	data, err := sf.accountTrie.Get(addr[:])
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
@@ -334,11 +334,12 @@ func (sf *factory) state(addr hash.PKHash, s interface{}) error {
 	return nil
 }
 
-func (sf *factory) accountState(addr string) (*state.Account, error) {
-	pkHash, err := address.Bech32ToPKHash(addr)
+func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
+	pkHash := byteutil.BytesTo20B(addr.Bytes())
 	var account state.Account
 	if err := sf.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {

@@ -22,7 +22,7 @@ type AbstractAction struct {
 	dstAddr   string
 	gasLimit  uint64
 	gasPrice  *big.Int
-	hash      hash.Hash32B
+	hash      hash.Hash256
 }
 
 // Version returns the version
@@ -53,7 +53,7 @@ func (act *AbstractAction) GasPrice() *big.Int {
 }
 
 // Hash returns the hash value of referred SealedActionEnvelope hash.
-func (act *AbstractAction) Hash() hash.Hash32B { return act.hash }
+func (act *AbstractAction) Hash() hash.Hash256 { return act.hash }
 
 // BasicActionSize returns the basic size of action
 func (act *AbstractAction) BasicActionSize() uint32 {

@@ -140,11 +140,11 @@ func (sdb *stateDB) AccountState(addr string) (*state.Account, error) {
 }
 
 // RootHash returns the hash of the root node of the state trie
-func (sdb *stateDB) RootHash() hash.Hash32B { return hash.ZeroHash32B }
+func (sdb *stateDB) RootHash() hash.Hash256 { return hash.ZeroHash256 }
 
 // RootHashByHeight returns the hash of the root node of the state trie at a given height
-func (sdb *stateDB) RootHashByHeight(blockHeight uint64) (hash.Hash32B, error) {
-	return hash.ZeroHash32B, nil
+func (sdb *stateDB) RootHashByHeight(blockHeight uint64) (hash.Hash256, error) {
+	return hash.ZeroHash256, nil
 }
 
 // Height returns factory's height
@@ -219,7 +219,7 @@ func (sdb *stateDB) CandidatesByHeight(height uint64) ([]*state.Candidate, error
 }
 
 // State returns a confirmed state in the state factory
-func (sdb *stateDB) State(addr hash.PKHash, state interface{}) error {
+func (sdb *stateDB) State(addr hash.Hash160, state interface{}) error {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 
@@ -230,7 +230,7 @@ func (sdb *stateDB) State(addr hash.PKHash, state interface{}) error {
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) state(addr hash.PKHash, s interface{}) error {
+func (sdb *stateDB) state(addr hash.Hash160, s interface{}) error {
 	data, err := sdb.dao.Get(AccountKVNameSpace, addr[:])
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
@@ -244,8 +244,12 @@ func (sdb *stateDB) state(addr hash.PKHash, s interface{}) error {
 	return nil
 }
 
-func (sdb *stateDB) accountState(addr string) (*state.Account, error) {
-	pkHash, err := address.Bech32ToPKHash(addr)
+func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
+	addr, err := address.FromString(encodedAddr)
+	if err != nil {
+		return nil, err
+	}
+	pkHash := byteutil.BytesTo20B(addr.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}

@@ -21,7 +21,7 @@ import (
 )
 
 func (p *Protocol) subChainToStop(subChainAddr string) (*SubChain, error) {
-	addr, err := address.Bech32ToAddress(subChainAddr)
+	addr, err := address.FromString(subChainAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func (p *Protocol) subChainToStop(subChainAddr string) (*SubChain, error) {
 }
 
 func (p *Protocol) validateSubChainOwnership(
-	ownerPKHash hash.PKHash,
+	ownerPKHash hash.Hash160,
 	sender string,
 	sm protocol.StateManager,
 ) (*state.Account, error) {

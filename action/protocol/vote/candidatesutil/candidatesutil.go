@@ -36,15 +36,16 @@ func LoadAndAddCandidates(sm protocol.StateManager, vote *action.Vote) error {
 }
 
 // LoadAndDeleteCandidates loads candidates from trie and deletes a candidate if exists
-func LoadAndDeleteCandidates(sm protocol.StateManager, addr string) error {
+func LoadAndDeleteCandidates(sm protocol.StateManager, encodedAddr string) error {
 	candidateMap, err := GetMostRecentCandidateMap(sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to get most recent candidates from trie")
 	}
-	addrHash, err := address.Bech32ToPKHash(addr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert address to public key hash")
 	}
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
 	if _, ok := candidateMap[addrHash]; ok {
 		delete(candidateMap, addrHash)
 	}
@@ -64,7 +65,7 @@ func LoadAndUpdateCandidates(sm protocol.StateManager, addr string, votingWeight
 }
 
 // GetMostRecentCandidateMap gets the most recent candidateMap from trie
-func GetMostRecentCandidateMap(sm protocol.StateManager) (map[hash.PKHash]*state.Candidate, error) {
+func GetMostRecentCandidateMap(sm protocol.StateManager) (map[hash.Hash160]*state.Candidate, error) {
 	var sc state.CandidateList
 	for h := int(sm.Height()); h >= 0; h-- {
 		candidatesKey := ConstructKey(uint64(h))
@@ -77,13 +78,13 @@ func GetMostRecentCandidateMap(sm protocol.StateManager) (map[hash.PKHash]*state
 		}
 	}
 	if sm.Height() == uint64(0) {
-		return make(map[hash.PKHash]*state.Candidate), nil
+		return make(map[hash.Hash160]*state.Candidate), nil
 	}
 	return nil, errors.Wrap(state.ErrStateNotExist, "failed to get most recent state of candidateList")
 }
 
 // ConstructKey constructs a key for candidates storage
-func ConstructKey(height uint64) hash.PKHash {
+func ConstructKey(height uint64) hash.Hash160 {
 	heightInBytes := byteutil.Uint64ToBytes(height)
 	k := []byte(CandidatesPrefix)
 	k = append(k, heightInBytes...)
@@ -91,12 +92,13 @@ func ConstructKey(height uint64) hash.PKHash {
 }
 
 // addCandidate adds a new candidate to candidateMap
-func addCandidate(candidateMap map[hash.PKHash]*state.Candidate, vote *action.Vote, height uint64) error {
+func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, vote *action.Vote, height uint64) error {
 	votePubkey := vote.VoterPublicKey()
-	voterPKHash, err := address.Bech32ToPKHash(vote.Voter())
+	voterAddr, err := address.FromString(vote.Voter())
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
 	}
+	voterPKHash := byteutil.BytesTo20B(voterAddr.Bytes())
 	if _, ok := candidateMap[voterPKHash]; !ok {
 		candidateMap[voterPKHash] = &state.Candidate{
 			Address:        vote.Voter(),
@@ -110,15 +112,16 @@ func addCandidate(candidateMap map[hash.PKHash]*state.Candidate, vote *action.Vo
 
 // updateCandidate updates a candidate state
 func updateCandidate(
-	candiateMap map[hash.PKHash]*state.Candidate,
-	addr string,
+	candiateMap map[hash.Hash160]*state.Candidate,
+	encodedAddr string,
 	totalWeight *big.Int,
 	blockHeight uint64,
 ) error {
-	addrHash, err := address.Bech32ToPKHash(addr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
 	}
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
 	// Candidate was added when self-nomination, always exist in cachedCandidates
 	candidate := candiateMap[addrHash]
 	candidate.Votes = totalWeight
@@ -128,7 +131,7 @@ func updateCandidate(
 }
 
 // storeCandidates puts updated candidates to trie
-func storeCandidates(candidateMap map[hash.PKHash]*state.Candidate, sm protocol.StateManager) error {
+func storeCandidates(candidateMap map[hash.Hash160]*state.Candidate, sm protocol.StateManager) error {
 	candidateList, err := state.MapToCandidates(candidateMap)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert candidate map to candidate list")

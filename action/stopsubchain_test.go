@@ -23,13 +23,13 @@ func TestStopSubChain(t *testing.T) {
 		assert.Equal(t, uint32(version.ProtocolVersion), stop.version)
 		assert.Equal(t, uint64(1), stop.Nonce())
 		assert.Equal(t, "aaaa", stop.ChainAddress())
-		assert.Equal(t, addr.Bech32(), stop.SrcAddr())
+		assert.Equal(t, addr.String(), stop.SrcAddr())
 		assert.Equal(t, uint64(10003), stop.StopHeight())
 		assert.Equal(t, uint64(10005), stop.GasLimit())
 		assert.Equal(t, big.NewInt(10006), stop.GasPrice())
 	}
 	stop := NewStopSubChain(
-		addr.Bech32(),
+		addr.String(),
 		1,
 		"aaaa",
 		10003,
@@ -47,7 +47,7 @@ func TestStopSubChainProto(t *testing.T) {
 	}
 
 	stop := NewStopSubChain(
-		addr.Bech32(),
+		addr.String(),
 		1,
 		"aaaa",
 		10003,

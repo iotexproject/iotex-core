@@ -15,13 +15,13 @@ import (
 
 // Merkle tree struct
 type Merkle struct {
-	root hash.Hash32B
-	leaf []hash.Hash32B
+	root hash.Hash256
+	leaf []hash.Hash256
 	size int
 }
 
 // NewMerkleTree creates a merkle tree given hashed leaves
-func NewMerkleTree(leaves []hash.Hash32B) *Merkle {
+func NewMerkleTree(leaves []hash.Hash256) *Merkle {
 	size := len(leaves)
 	if size == 0 {
 		log.L().Warn("Try to create merkle tree with empty leaf list!")
@@ -29,7 +29,7 @@ func NewMerkleTree(leaves []hash.Hash32B) *Merkle {
 	}
 
 	mk := &Merkle{
-		leaf: make([]hash.Hash32B, (size+1)>>1<<1),
+		leaf: make([]hash.Hash256, (size+1)>>1<<1),
 		size: size,
 	}
 
@@ -50,13 +50,13 @@ func NewMerkleTree(leaves []hash.Hash32B) *Merkle {
 }
 
 // HashTree calculates the root hash of a merkle tree
-func (mk *Merkle) HashTree() hash.Hash32B {
-	if mk.root != hash.ZeroHash32B {
+func (mk *Merkle) HashTree() hash.Hash256 {
+	if mk.root != hash.ZeroHash256 {
 		return mk.root
 	}
 
 	length := mk.size >> 1
-	merkle := make([]hash.Hash32B, length)
+	merkle := make([]hash.Hash256, length)
 
 	// first round, compute hash from original leaf
 	for i := 0; i < length; i++ {

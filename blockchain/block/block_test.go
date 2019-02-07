@@ -47,7 +47,7 @@ func TestBasicHash(t *testing.T) {
 func TestMerkle(t *testing.T) {
 	require := require.New(t)
 
-	producerAddr := ta.Addrinfo["producer"].Bech32()
+	producerAddr := ta.Addrinfo["producer"].String()
 	producerPubKey := ta.Keyinfo["producer"].PubKey
 	producerPriKey := ta.Keyinfo["producer"].PriKey
 	amount := uint64(50 << 22)
@@ -66,7 +66,7 @@ func TestMerkle(t *testing.T) {
 
 	selp1, err := testutil.SignedTransfer(
 		producerAddr,
-		ta.Addrinfo["alfa"].Bech32(),
+		ta.Addrinfo["alfa"].String(),
 		producerPriKey,
 		1,
 		big.NewInt(int64(amount)),
@@ -78,7 +78,7 @@ func TestMerkle(t *testing.T) {
 
 	selp2, err := testutil.SignedTransfer(
 		producerAddr,
-		ta.Addrinfo["bravo"].Bech32(),
+		ta.Addrinfo["bravo"].String(),
 		producerPriKey,
 		1,
 		big.NewInt(int64(amount)),
@@ -90,7 +90,7 @@ func TestMerkle(t *testing.T) {
 
 	selp3, err := testutil.SignedTransfer(
 		producerAddr,
-		ta.Addrinfo["charlie"].Bech32(),
+		ta.Addrinfo["charlie"].String(),
 		producerPriKey,
 		1,
 		big.NewInt(int64(amount)),
@@ -102,7 +102,7 @@ func TestMerkle(t *testing.T) {
 
 	selp4, err := testutil.SignedTransfer(
 		producerAddr,
-		ta.Addrinfo["echo"].Bech32(),
+		ta.Addrinfo["echo"].String(),
 		producerPriKey,
 		1,
 		big.NewInt(int64(amount)),
@@ -172,7 +172,7 @@ func TestMerkle(t *testing.T) {
 	block := NewBlockDeprecated(
 		0,
 		0,
-		hash.ZeroHash32B,
+		hash.ZeroHash256,
 		testutil.TimestampNow(),
 		producerPubKey,
 		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
@@ -185,7 +185,7 @@ func TestMerkle(t *testing.T) {
 
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
-	senderAddr := ta.Addrinfo["producer"].Bech32()
+	senderAddr := ta.Addrinfo["producer"].String()
 	senderPubKey := ta.Keyinfo["producer"].PubKey
 	require.NoError(t, blk.ConvertFromBlockPb(&iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{

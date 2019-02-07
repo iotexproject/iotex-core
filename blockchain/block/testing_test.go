@@ -20,7 +20,7 @@ func TestTestingBuilder(t *testing.T) {
 	nblk, err := NewTestingBuilder().
 		SetChainID(0).
 		SetHeight(1).
-		SetPrevBlockHash(hash.ZeroHash32B).
+		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(t, err)

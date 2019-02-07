@@ -61,12 +61,12 @@ func (p *Protocol) Donate(
 		return err
 	}
 	// Subtract balance from caller
-	acc, err := account.LoadOrCreateAccount(sm, raCtx.Caller.Bech32(), big.NewInt(0))
+	acc, err := account.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, amount)
-	account.StoreAccount(sm, raCtx.Caller.Bech32(), acc)
+	account.StoreAccount(sm, raCtx.Caller.String(), acc)
 	// Add balance to fund
 	f := fund{}
 	if err := p.state(sm, fundKey, &f); err != nil {
@@ -109,7 +109,7 @@ func (p *Protocol) assertEnoughBalance(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	acc, err := account.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Payload()))
+	acc, err := account.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
 	if err != nil {
 		return err
 	}

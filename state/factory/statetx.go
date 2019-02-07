@@ -47,10 +47,10 @@ func newStateTX(
 }
 
 // RootHash returns the hash of the root node of the accountTrie
-func (stx *stateTX) RootHash() hash.Hash32B { return hash.ZeroHash32B }
+func (stx *stateTX) RootHash() hash.Hash256 { return hash.ZeroHash256 }
 
 // Digest returns the delta state digest
-func (stx *stateTX) Digest() hash.Hash32B { return stx.GetCachedBatch().Digest() }
+func (stx *stateTX) Digest() hash.Hash256 { return stx.GetCachedBatch().Digest() }
 
 // Version returns the Version of this working set
 func (stx *stateTX) Version() uint64 { return stx.ver }
@@ -63,7 +63,7 @@ func (stx *stateTX) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
-) (hash.Hash32B, []*action.Receipt, error) {
+) (hash.Hash256, []*action.Receipt, error) {
 	stx.blkHeight = blockHeight
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
@@ -74,14 +74,18 @@ func (stx *stateTX) RunActions(
 			log.S().Panic("Miss context to run action")
 		}
 		callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
-		raCtx.Caller = address.New(callerPKHash[:])
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return hash.ZeroHash256, nil, err
+		}
+		raCtx.Caller = callerAddr
 		raCtx.ActionHash = elp.Hash()
 		raCtx.Nonce = elp.Nonce()
 		ctx = protocol.WithRunActionsCtx(ctx, raCtx)
 		for _, actionHandler := range stx.actionHandlers {
 			receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
 			if err != nil {
-				return hash.ZeroHash32B, nil, errors.Wrapf(
+				return hash.ZeroHash256, nil, errors.Wrapf(
 					err,
 					"error when action %x (nonce: %d) from %s mutates states",
 					elp.Hash(),
@@ -98,7 +102,7 @@ func (stx *stateTX) RunActions(
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	stx.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
-	return hash.ZeroHash32B, receipts, nil
+	return hash.ZeroHash256, receipts, nil
 }
 
 func (stx *stateTX) Snapshot() int { return stx.cb.Snapshot() }
@@ -126,7 +130,7 @@ func (stx *stateTX) GetCachedBatch() db.CachedBatch {
 }
 
 // State pulls a state from DB
-func (stx *stateTX) State(hash hash.PKHash, s interface{}) error {
+func (stx *stateTX) State(hash hash.Hash160, s interface{}) error {
 	stateDBMtc.WithLabelValues("get").Inc()
 	mstate, err := stx.cb.Get(AccountKVNameSpace, hash[:])
 	if errors.Cause(err) == db.ErrNotExist {
@@ -141,7 +145,7 @@ func (stx *stateTX) State(hash hash.PKHash, s interface{}) error {
 }
 
 // PutState puts a state into DB
-func (stx *stateTX) PutState(pkHash hash.PKHash, s interface{}) error {
+func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 	stateDBMtc.WithLabelValues("put").Inc()
 	ss, err := state.Serialize(s)
 	if err != nil {
@@ -152,7 +156,7 @@ func (stx *stateTX) PutState(pkHash hash.PKHash, s interface{}) error {
 }
 
 // DelState deletes a state from DB
-func (stx *stateTX) DelState(pkHash hash.PKHash) error {
+func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 	stx.cb.Delete(AccountKVNameSpace, pkHash[:], "error when deleting k = %x", pkHash)
 	return nil
 }

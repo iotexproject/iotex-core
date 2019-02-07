@@ -53,14 +53,14 @@ const (
 )
 
 func addTestingBlocks(bc blockchain.Blockchain) error {
-	addr0 := ta.Addrinfo["producer"].Bech32()
+	addr0 := ta.Addrinfo["producer"].String()
 	priKey0 := ta.Keyinfo["producer"].PriKey
-	addr1 := ta.Addrinfo["alfa"].Bech32()
+	addr1 := ta.Addrinfo["alfa"].String()
 	priKey1 := ta.Keyinfo["alfa"].PriKey
-	addr2 := ta.Addrinfo["bravo"].Bech32()
-	addr3 := ta.Addrinfo["charlie"].Bech32()
+	addr2 := ta.Addrinfo["bravo"].String()
+	addr3 := ta.Addrinfo["charlie"].String()
 	priKey3 := ta.Keyinfo["charlie"].PriKey
-	addr4 := ta.Addrinfo["delta"].Bech32()
+	addr4 := ta.Addrinfo["delta"].String()
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	tsf, err := testutil.SignedTransfer(addr0, addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
@@ -74,7 +74,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	)
 	if err != nil {
@@ -121,7 +121,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -138,7 +138,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -177,7 +177,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -189,19 +189,19 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 }
 
 func addActsToActPool(ap actpool.ActPool) error {
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["alfa"].Bech32(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["alfa"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Addrinfo["producer"].String(), ta.Keyinfo["alfa"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["bravo"].Bech32(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
-	execution1, err := testutil.SignedExecution(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["delta"].Bech32(), ta.Keyinfo["producer"].PriKey, 5,
+	execution1, err := testutil.SignedExecution(ta.Addrinfo["producer"].String(), ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	if err != nil {
 		return err
@@ -267,31 +267,31 @@ func TestExplorerApi(t *testing.T) {
 		gs:  GasStation{bc, explorerCfg},
 	}
 
-	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].Bech32(), 0, 10)
+	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
 	require.Nil(err)
 	require.Equal(5, len(transfers))
 
-	votes, err := svc.GetVotesByAddress(ta.Addrinfo["charlie"].Bech32(), 0, 10)
+	votes, err := svc.GetVotesByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
 	require.Nil(err)
 	require.Equal(4, len(votes))
 
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["charlie"].Bech32(), 0, 2)
+	votes, err = svc.GetVotesByAddress(ta.Addrinfo["charlie"].String(), 0, 2)
 	require.Nil(err)
 	require.Equal(2, len(votes))
 
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["alfa"].Bech32(), 0, 10)
+	votes, err = svc.GetVotesByAddress(ta.Addrinfo["alfa"].String(), 0, 10)
 	require.Nil(err)
 	require.Equal(2, len(votes))
 
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["delta"].Bech32(), 0, 10)
+	votes, err = svc.GetVotesByAddress(ta.Addrinfo["delta"].String(), 0, 10)
 	require.Nil(err)
 	require.Equal(0, len(votes))
 
-	executions, err := svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].Bech32(), 0, 10)
+	executions, err := svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
 	require.Nil(err)
 	require.Equal(2, len(executions))
 
-	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["alfa"].Bech32(), 0, 10)
+	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["alfa"].String(), 0, 10)
 	require.Nil(err)
 	require.Equal(1, len(executions))
 
@@ -431,7 +431,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(int64(11), stats.Aps)
 
 	// success
-	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].Bech32())
+	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].String())
 	require.Nil(err)
 	require.Equal("3", balance)
 
@@ -440,12 +440,12 @@ func TestExplorerApi(t *testing.T) {
 	require.Error(err)
 
 	// success
-	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].Bech32())
+	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].String())
 	require.Nil(err)
 	require.Equal("3", addressDetails.TotalBalance)
 	require.Equal(int64(8), addressDetails.Nonce)
 	require.Equal(int64(9), addressDetails.PendingNonce)
-	require.Equal(ta.Addrinfo["charlie"].Bech32(), addressDetails.Address)
+	require.Equal(ta.Addrinfo["charlie"].String(), addressDetails.Address)
 
 	// error
 	_, err = svc.GetAddressDetails("")
@@ -459,27 +459,27 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 
 	// success
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].Bech32(), 0, 3)
+	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].String(), 0, 3)
 	require.Nil(err)
 	require.Equal(2, len(transfers))
 	require.Equal(int64(2), transfers[0].Nonce)
 	require.Equal(int64(4), transfers[1].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].Bech32(), 0, 3)
+	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].String(), 0, 3)
 	require.Nil(err)
 	require.Equal(1, len(votes))
 	require.Equal(int64(3), votes[0].Nonce)
-	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].Bech32(), 0, 3)
+	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].String(), 0, 3)
 	require.Nil(err)
 	require.Equal(1, len(executions))
 	require.Equal(int64(5), executions[0].Nonce)
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].Bech32(), 1, 1)
+	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].String(), 1, 1)
 	require.Nil(err)
 	require.Equal(1, len(transfers))
 	require.Equal(int64(4), transfers[0].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].Bech32(), 1, 1)
+	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].String(), 1, 1)
 	require.Nil(err)
 	require.Equal(0, len(votes))
-	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].Bech32(), 1, 1)
+	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].String(), 1, 1)
 	require.Nil(err)
 	require.Equal(0, len(executions))
 
@@ -522,7 +522,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Execution)
 	require.Equal(&votes[0], res.Vote)
 
-	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].Bech32(), 0, 10)
+	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
 	require.NoError(err)
 	res, err = svc.GetBlockOrActionByHash(executions[0].ID)
 	require.NoError(err)
@@ -637,8 +637,8 @@ func TestService_SendTransfer(t *testing.T) {
 	r := explorer.SendTransferRequest{
 		Version:      0x1,
 		Nonce:        1,
-		Sender:       ta.Addrinfo["producer"].Bech32(),
-		Recipient:    ta.Addrinfo["alfa"].Bech32(),
+		Sender:       ta.Addrinfo["producer"].String(),
+		Recipient:    ta.Addrinfo["alfa"].String(),
 		Amount:       big.NewInt(1).String(),
 		GasPrice:     big.NewInt(0).String(),
 		SenderPubKey: keypair.EncodePublicKey(ta.Keyinfo["producer"].PubKey),
@@ -674,8 +674,8 @@ func TestService_SendVote(t *testing.T) {
 	r := explorer.SendVoteRequest{
 		Version:     0x1,
 		Nonce:       1,
-		Voter:       ta.Addrinfo["producer"].Bech32(),
-		Votee:       ta.Addrinfo["alfa"].Bech32(),
+		Voter:       ta.Addrinfo["producer"].String(),
+		Votee:       ta.Addrinfo["alfa"].String(),
 		VoterPubKey: keypair.EncodePublicKey(ta.Keyinfo["producer"].PubKey),
 		GasPrice:    big.NewInt(0).String(),
 		Signature:   "",
@@ -704,7 +704,7 @@ func TestService_SendSmartContract(t *testing.T) {
 		return nil
 	}, gs: GasStation{chain, config.Explorer{}}}
 
-	execution, err := testutil.SignedExecution(ta.Addrinfo["producer"].Bech32(), ta.Addrinfo["delta"].Bech32(), ta.Keyinfo["producer"].PriKey, 1,
+	execution, err := testutil.SignedExecution(ta.Addrinfo["producer"].String(), ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 1,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	require.NoError(err)
 	explorerExecution, _ := convertExecutionToExplorerExecution(execution, true)
@@ -759,7 +759,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 	r := explorer.PutSubChainBlockRequest{
 		Version:       0x1,
 		Nonce:         1,
-		SenderAddress: ta.Addrinfo["producer"].Bech32(),
+		SenderAddress: ta.Addrinfo["producer"].String(),
 		SenderPubKey:  keypair.EncodePublicKey(ta.Keyinfo["producer"].PubKey),
 		GasPrice:      big.NewInt(0).String(),
 		Signature:     "",
@@ -794,12 +794,12 @@ func TestServiceSendAction(t *testing.T) {
 	_, err = svc.SendAction(request)
 	require.NotNil(err)
 
-	roots := make(map[string]hash.Hash32B)
+	roots := make(map[string]hash.Hash256)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := action.NewPutBlock(
 		1,
 		"",
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		100,
 		roots,
 		10000,
@@ -809,7 +809,7 @@ func TestServiceSendAction(t *testing.T) {
 	elp := bd.SetAction(pb).
 		SetDestinationAddress("").
 		SetGasLimit(10000).SetNonce(1).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	selp, err := action.Sign(elp, ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	var marshaler jsonpb.Marshaler
@@ -948,7 +948,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
 	// data, _ := hex.DecodeString("6060604052600436106100565763ffffffff7c010000000000000000000000000000000000000000000000000000000060003504166341c0e1b581146100585780637bf786f81461006b578063fbf788d61461009c575b005b341561006357600080fd5b6100566100ca565b341561007657600080fd5b61008a600160a060020a03600435166100f1565b60405190815260200160405180910390f35b34156100a757600080fd5b610056600160a060020a036004351660243560ff60443516606435608435610103565b60005433600160a060020a03908116911614156100ef57600054600160a060020a0316ff5b565b60016020526000908152604090205481565b600160a060020a0385166000908152600160205260408120548190861161012957600080fd5b3087876040516c01000000000000000000000000600160a060020a03948516810282529290931690910260148301526028820152604801604051809103902091506001828686866040516000815260200160405260006040516020015260405193845260ff90921660208085019190915260408085019290925260608401929092526080909201915160208103908084039060008661646e5a03f115156101cf57600080fd5b505060206040510351600054600160a060020a039081169116146101f257600080fd5b50600160a060020a03808716600090815260016020526040902054860390301631811161026257600160a060020a0387166000818152600160205260409081902088905582156108fc0290839051600060405180830381858888f19350505050151561025d57600080fd5b6102b7565b6000547f2250e2993c15843b32621c89447cc589ee7a9f049c026986e545d3c2c0c6f97890600160a060020a0316604051600160a060020a03909116815260200160405180910390a186600160a060020a0316ff5b505050505050505600a165627a7a72305820533e856fc37e3d64d1706bcc7dfb6b1d490c8d566ea498d9d01ec08965a896ca0029")
 
-	execution, err := testutil.SignedExecution(ta.Addrinfo["producer"].Bech32(), action.EmptyAddress, ta.Keyinfo["producer"].PriKey, 1,
+	execution, err := testutil.SignedExecution(ta.Addrinfo["producer"].String(), action.EmptyAddress, ta.Keyinfo["producer"].PriKey, 1,
 		big.NewInt(0), 1000000, big.NewInt(testutil.TestGasPrice), data)
 	require.NoError(err)
 
@@ -958,7 +958,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 
@@ -1001,18 +1001,18 @@ func TestService_CreateDeposit(t *testing.T) {
 		10,
 		2,
 		big.NewInt(10000),
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		// Test explorer only, so that it doesn't matter the address is not on sub-chain
-		ta.Addrinfo["alfa"].Bech32(),
+		ta.Addrinfo["alfa"].String(),
 		1000,
 		big.NewInt(100),
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(deposit).
 		SetGasLimit(1000).
-		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].Bech32()).
+		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].String()).
 		SetNonce(10).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	selp, err := action.Sign(elp, ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	res, error := svc.CreateDeposit(explorer.CreateDepositRequest{
@@ -1062,18 +1062,18 @@ func TestService_SettleDeposit(t *testing.T) {
 		10,
 		big.NewInt(10000),
 		100000,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		// Test explorer only, so that it doesn't matter the address is not on sub-chain
-		ta.Addrinfo["alfa"].Bech32(),
+		ta.Addrinfo["alfa"].String(),
 		1000,
 		big.NewInt(100),
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(deposit).
 		SetGasLimit(1000).
-		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].Bech32()).
+		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].String()).
 		SetNonce(10).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["producer"].Bech32(), ta.Keyinfo["producer"].PriKey)
+	selp, err := action.Sign(elp, ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	res, error := svc.SettleDeposit(explorer.SettleDepositRequest{
@@ -1121,7 +1121,7 @@ func TestService_GetDeposits(t *testing.T) {
 		},
 	))
 	require.NoError(ws.PutState(
-		byteutil.BytesTo20B(subChainAddr.Payload()),
+		byteutil.BytesTo20B(subChainAddr.Bytes()),
 		&mainchain.SubChain{
 			DepositCount:   2,
 			OwnerPublicKey: ta.Keyinfo["producer"].PubKey,
@@ -1205,7 +1205,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].Bech32(),
+	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(),
 		blockchain.Gen.TotalSupply); err != nil {
 		return err
 	}

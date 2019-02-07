@@ -38,7 +38,7 @@ func (v *GenericValidator) Validate(_ context.Context, act action.SealedEnvelope
 		return errors.Wrap(action.ErrInsufficientBalanceForGas, "insufficient gas")
 	}
 	// Check if action source address is valid
-	if _, err := address.Bech32ToAddress(act.SrcAddr()); err != nil {
+	if _, err := address.FromString(act.SrcAddr()); err != nil {
 		return errors.Wrapf(err, "error when validating source address %s", act.SrcAddr())
 	}
 	// Verify action using action sender's public key

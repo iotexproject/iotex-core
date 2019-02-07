@@ -83,12 +83,12 @@ func TestLocalActPool(t *testing.T) {
 	fromPKHash := keypair.HashPubKey(fromPK)
 	toPKHash := keypair.HashPubKey(toPK)
 
-	from := address.New(fromPKHash[:]).Bech32()
-	to := address.New(toPKHash[:]).Bech32()
+	from, _ := address.FromBytes(fromPKHash[:])
+	to, _ := address.FromBytes(toPKHash[:])
 	priKey, _ := keypair.DecodePrivateKey(fromPrivKey)
 
 	// Create three valid actions from "from" to "to"
-	tsf1, err := testutil.SignedTransfer(from, to, priKey, uint64(1), big.NewInt(1),
+	tsf1, err := testutil.SignedTransfer(from.String(), to.String(), priKey, uint64(1), big.NewInt(1),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
@@ -99,18 +99,18 @@ func TestLocalActPool(t *testing.T) {
 		return len(acts) == 1, nil
 	}))
 
-	vote2, err := testutil.SignedVote(from, from, priKey, uint64(2), uint64(100000), big.NewInt(0))
+	vote2, err := testutil.SignedVote(from.String(), from.String(), priKey, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(from, to, priKey, uint64(3), big.NewInt(3),
+	tsf3, err := testutil.SignedTransfer(from.String(), to.String(), priKey, uint64(3), big.NewInt(3),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Create contract
-	exec4, err := testutil.SignedExecution(from, action.EmptyAddress, priKey, uint64(4), big.NewInt(0),
+	exec4, err := testutil.SignedExecution(from.String(), action.EmptyAddress, priKey, uint64(4), big.NewInt(0),
 		uint64(120000), big.NewInt(10), []byte{})
 	require.NoError(err)
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote5, err := testutil.SignedVote(from, from, priKey, uint64(2), uint64(100000), big.NewInt(0))
+	vote5, err := testutil.SignedVote(from.String(), from.String(), priKey, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(cli.BroadcastOutbound(p2pCtx, vote2.Proto()))
@@ -172,8 +172,10 @@ func TestPressureActPool(t *testing.T) {
 	fromPKHash := keypair.HashPubKey(fromPK)
 	toPKHash := keypair.HashPubKey(toPK)
 
-	from := address.New(fromPKHash[:]).Bech32()
-	to := address.New(toPKHash[:]).Bech32()
+	fromAddr, _ := address.FromBytes(fromPKHash[:])
+	from := fromAddr.String()
+	toAddr, _ := address.FromBytes(toPKHash[:])
+	to := toAddr.String()
 	priKey, _ := keypair.DecodePrivateKey(fromPrivKey)
 
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})

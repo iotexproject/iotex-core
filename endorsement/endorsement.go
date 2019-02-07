@@ -53,8 +53,8 @@ func NewConsensusVote(blkHash []byte, height uint64, round uint32, topic Consens
 	}
 }
 
-// Hash returns a Hash32B for the consensus vote
-func (en *ConsensusVote) Hash() hash.Hash32B {
+// Hash returns a Hash256 for the consensus vote
+func (en *ConsensusVote) Hash() hash.Hash256 {
 	stream := byteutil.Uint64ToBytes(en.Height)
 	stream = append(stream, uint8(en.Topic))
 	stream = append(stream, byteutil.Uint32ToBytes(en.Round)...)

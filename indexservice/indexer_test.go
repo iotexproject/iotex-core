@@ -38,9 +38,9 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	}()
 
 	nodeAddr := "aaa"
-	addr1 := testaddress.Addrinfo["alfa"].Bech32()
+	addr1 := testaddress.Addrinfo["alfa"].String()
 	pubKey1 := testaddress.Keyinfo["alfa"].PubKey
-	addr2 := testaddress.Addrinfo["bravo"].Bech32()
+	addr2 := testaddress.Addrinfo["bravo"].String()
 	cfg := config.Default
 	idx := Indexer{
 		cfg:                cfg.Indexer,
