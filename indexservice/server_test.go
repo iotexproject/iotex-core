@@ -28,7 +28,7 @@ func TestServer(t *testing.T) {
 	db := svr.idx.store.GetDB()
 
 	// get
-	_, err = db.Prepare("SELECT * FROM transfer_history WHERE node_address=?")
+	_, err = db.Prepare("SELECT * FROM index_history_transfer WHERE node_address=?")
 	require.Nil(err)
 
 	err = svr.Stop(context.Background())

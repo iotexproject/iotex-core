@@ -9,6 +9,7 @@ package indexservice
 import (
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -19,56 +20,22 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
+// If you want to add a new index table, please:
+// 1. add a index unique identifier in indexconfig
+// 2. add this index unique identifier to one of table list in index config
+
 type (
-	// TransferHistory defines the schema of "transfer history" table
-	TransferHistory struct {
+	// BlockByIndex defines the base schema of "index to block" table
+	BlockByIndex struct {
+		NodeAddress string
+		IndexHash   []byte
+		BlockHash   []byte
+	}
+	// IndexHistory defines the schema of "index history" table
+	IndexHistory struct {
 		NodeAddress string
 		UserAddress string
-		TrasferHash string
-	}
-	// TransferToBlock defines the schema of "transfer hash to block hash" table
-	TransferToBlock struct {
-		NodeAddress string
-		TrasferHash string
-		BlockHash   string
-	}
-	// VoteHistory defines the schema of "vote history" table
-	VoteHistory struct {
-		NodeAddress string
-		UserAddress string
-		VoteHash    string
-	}
-	// VoteToBlock defines the schema of "vote hash to block hash" table
-	VoteToBlock struct {
-		NodeAddress string
-		VoteHash    string
-		BlockHash   string
-	}
-	// ExecutionHistory defines the schema of "execution history" table
-	ExecutionHistory struct {
-		NodeAddress   string
-		UserAddress   string
-		ExecutionHash string
-	}
-	// ExecutionToBlock defines the schema of "execution hash to block hash" table
-	ExecutionToBlock struct {
-		NodeAddress   string
-		ExecutionHash string
-		BlockHash     string
-	}
-
-	// ActionHistory defines the schema of "action history" table
-	ActionHistory struct {
-		NodeAddress string
-		UserAddress string
-		ActionHash  string
-	}
-
-	// ActionToBlock defines the schema of "action hash to block hash" table
-	ActionToBlock struct {
-		NodeAddress string
-		ActionHash  string
-		BlockHash   string
+		IndexHash   string
 	}
 )
 
@@ -93,402 +60,131 @@ func (idx *Indexer) HandleBlock(blk *block.Block) error {
 
 // BuildIndex builds the index for a block
 func (idx *Indexer) BuildIndex(blk *block.Block) error {
-	return idx.store.Transact(func(tx *sql.Tx) error {
-		// log transfer to transfer history table
-		if err := idx.UpdateTransferHistory(blk, tx); err != nil {
-			return errors.Wrapf(err, "failed to update transfer to transfer history table")
-		}
-		// map transfer to block
-		if err := idx.UpdateTransferToBlock(blk, tx); err != nil {
-			return errors.Wrapf(err, "failed to update transfer to block")
-		}
-
-		// log vote to vote history table
-		if err := idx.UpdateVoteHistory(blk, tx); err != nil {
-			return errors.Wrapf(err, "failed to update vote to vote history table")
-		}
-		// map vote to block
-		if err := idx.UpdateVoteToBlock(blk, tx); err != nil {
-			return errors.Wrapf(err, "failed to update vote to block")
-		}
-
-		// log execution to execution history table
-		if err := idx.UpdateExecutionHistory(blk, tx); err != nil {
-			return errors.Wrapf(err, "failed to update execution to execution history table")
-		}
-		// map execution to block
-		if err := idx.UpdateExecutionToBlock(blk, tx); err != nil {
-			return errors.Wrapf(err, "failed to update execution to block")
+	idx.store.Transact(func(tx *sql.Tx) error {
+		transfers, votes, executions := action.ClassifyActions(blk.Actions)
+		// log transfer index
+		for _, transfer := range transfers {
+			// put new transfer for sender
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexTransfer, transfer.Sender(), transfer.Hash()); err != nil {
+				return errors.Wrapf(err, "failed to update transfer to transfer history table")
+			}
+			// put new transfer for recipient
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexTransfer, transfer.Recipient(), transfer.Hash()); err != nil {
+				return errors.Wrapf(err, "failed to update transfer to transfer history table")
+			}
+			// map transfer to block
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexTransfer, transfer.Hash(), blk.HashBlock()); err != nil {
+				return errors.Wrapf(err, "failed to update transfer to block")
+			}
 		}
 
-		// log action to action history table
-		if err := idx.UpdateActionHistory(blk, tx); err != nil {
-			return errors.Wrapf(err, "failed to update action to action history table")
+		// log vote index
+		for _, vote := range votes {
+			// put new vote for sender
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexVote, vote.Voter(), vote.Hash()); err != nil {
+				return errors.Wrapf(err, "failed to update vote to vote history table")
+			}
+			// put new vote for recipient
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexVote, vote.Votee(), vote.Hash()); err != nil {
+				return errors.Wrapf(err, "failed to update vote to vote history table")
+			}
+			// map vote to block
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexVote, vote.Hash(), blk.HashBlock()); err != nil {
+				return errors.Wrapf(err, "failed to update transfer to block")
+			}
 		}
-		// map action to block
-		if err := idx.UpdateActionToBlock(blk, tx); err != nil {
-			return errors.Wrap(err, "failed to update action to block")
+
+		// log execution index
+		for _, execution := range executions {
+			// put new execution for executor
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexExecution, execution.Executor(), execution.Hash()); err != nil {
+				return errors.Wrapf(err, "failed to update execution to execution history table")
+			}
+			// put new execution for contract
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexExecution, execution.Contract(), execution.Hash()); err != nil {
+				return errors.Wrapf(err, "failed to update execution to execution history table")
+			}
+			// map execution to block
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexExecution, execution.Hash(), blk.HashBlock()); err != nil {
+				return errors.Wrapf(err, "failed to update transfer to block")
+			}
+		}
+
+		// log action index
+		for _, selp := range blk.Actions {
+			// put new action for sender
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexAction, selp.SrcAddr(), selp.Hash()); err != nil {
+				return errors.Wrapf(err, "failed to update action to action history table")
+			}
+			// put new transfer for recipient
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexAction, selp.DstAddr(), selp.Hash()); err != nil {
+				return errors.Wrapf(err, "failed to update action to action history table")
+			}
+			// map action to block
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexAction, selp.Hash(), blk.HashBlock()); err != nil {
+				return errors.Wrapf(err, "failed to update transfer to block")
+			}
+		}
+
+		// log receipt index
+		for _, receipt := range blk.Receipts {
+			// map receipt to block
+			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexReceipt, receipt.Hash(), blk.HashBlock()); err != nil {
+				return errors.Wrapf(err, "failed to update receipt to block")
+			}
 		}
 
 		return nil
 	})
+	return nil
 }
 
-// UpdateTransferHistory stores transfer information into transfer history table
-func (idx *Indexer) UpdateTransferHistory(blk *block.Block, tx *sql.Tx) error {
-	insertQuery := "INSERT INTO transfer_history (node_address,user_address,transfer_hash) VALUES (?, ?, ?)"
-	transfers, _, _ := action.ClassifyActions(blk.Actions)
-	for _, transfer := range transfers {
-		transferHash := transfer.Hash()
-
-		// put new transfer for sender
-		senderAddr := transfer.Sender()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, senderAddr, transferHash[:]); err != nil {
-			return err
-		}
-
-		// put new transfer for recipient
-		receiverAddr := transfer.Recipient()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, receiverAddr, transferHash[:]); err != nil {
-			return err
-		}
+// UpdateBlockByIndex maps index hash to block hash
+func (idx *Indexer) UpdateBlockByIndex(blk *block.Block, tx *sql.Tx, indexIdentifier string, indexHash hash.Hash32B,
+	blockHash hash.Hash32B) error {
+	insertQuery := fmt.Sprintf("INSERT INTO %s (node_address,index_hash,block_hash) VALUES (?, ?, ?)",
+		idx.getBlockByIndexTableName(indexIdentifier))
+	if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(indexHash[:]), blockHash[:]); err != nil {
+		return err
 	}
 	return nil
 }
 
-// GetTransferHistory gets transfer history
-func (idx *Indexer) GetTransferHistory(userAddr string) ([]hash.Hash32B, error) {
-	getQuery := "SELECT * FROM transfer_history WHERE node_address=? AND user_address=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var transferHistory TransferHistory
-	parsedRows, err := s.ParseSQLRows(rows, &transferHistory)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse results")
-	}
-
-	var transferHashes []hash.Hash32B
-	for _, parsedRow := range parsedRows {
-		var hash hash.Hash32B
-		copy(hash[:], parsedRow.(*TransferHistory).TrasferHash)
-		transferHashes = append(transferHashes, hash)
-	}
-	return transferHashes, nil
-}
-
-// UpdateTransferToBlock maps transfer hash to block hash
-func (idx *Indexer) UpdateTransferToBlock(blk *block.Block, tx *sql.Tx) error {
-	blockHash := blk.HashBlock()
-	insertQuery := "INSERT INTO transfer_to_block (node_address,transfer_hash,block_hash) VALUES (?, ?, ?)"
-	transfers, _, _ := action.ClassifyActions(blk.Actions)
-	for _, transfer := range transfers {
-		transferHash := transfer.Hash()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(transferHash[:]), blockHash[:]); err != nil {
-			return err
-		}
+// UpdateIndexHistory stores index information into index history table
+func (idx *Indexer) UpdateIndexHistory(blk *block.Block, tx *sql.Tx, indexIdentifier string, userAddr string,
+	indexHash hash.Hash32B) error {
+	insertQuery := fmt.Sprintf("INSERT INTO %s (node_address,user_address,index_hash) VALUES (?, ?, ?)",
+		idx.getIndexHistoryTableName(indexIdentifier))
+	if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, userAddr, indexHash[:]); err != nil {
+		return err
 	}
 	return nil
 }
 
-// GetBlockByTransfer returns block hash by transfer hash
-func (idx *Indexer) GetBlockByTransfer(transferHash hash.Hash32B) (hash.Hash32B, error) {
-	getQuery := "SELECT * FROM transfer_to_block WHERE node_address=? AND transfer_hash=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
+// GetIndexHistory gets index history
+func (idx *Indexer) GetIndexHistory(indexIdentifier string, userAddr string) ([]hash.Hash32B, error) {
+	getQuery := fmt.Sprintf("SELECT * FROM %s WHERE node_address=? AND user_address=?",
+		idx.getIndexHistoryTableName(indexIdentifier))
+	indexHashes, err := idx.getIndexHistory(getQuery, userAddr)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
+		return nil, errors.Wrapf(err, "failed to get index history")
 	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(transferHash[:]))
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var transferToBlock TransferToBlock
-	parsedRows, err := s.ParseSQLRows(rows, &transferToBlock)
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
-	}
-
-	if len(parsedRows) == 0 {
-		return hash.ZeroHash32B, ErrNotExist
-	}
-
-	var hash hash.Hash32B
-	copy(hash[:], parsedRows[0].(*TransferToBlock).BlockHash)
-	return hash, nil
+	return indexHashes, nil
 }
 
-// UpdateVoteHistory stores vote information into vote history table
-func (idx *Indexer) UpdateVoteHistory(blk *block.Block, tx *sql.Tx) error {
-	insertQuery := "INSERT INTO vote_history (node_address,user_address,vote_hash) VALUES (?, ?, ?)"
-	_, votes, _ := action.ClassifyActions(blk.Actions)
-	for _, vote := range votes {
-		voteHash := vote.Hash()
-
-		// put new vote for sender
-		senderAddr := vote.Voter()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, senderAddr, voteHash[:]); err != nil {
-			return err
-		}
-
-		// put new vote for recipient
-		recipientAddr := vote.Votee()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, recipientAddr, voteHash[:]); err != nil {
-			return err
-		}
+// GetBlockByIndex returns block hash by index hash
+func (idx *Indexer) GetBlockByIndex(indexIdentifier string, indexHash hash.Hash32B) (hash.Hash32B, error) {
+	getQuery := fmt.Sprintf("SELECT * FROM %s WHERE node_address=? AND index_hash=?",
+		idx.getBlockByIndexTableName(indexIdentifier))
+	blkHash, err := idx.blockByIndex(getQuery, indexHash)
+	if err != nil {
+		return hash.ZeroHash32B, errors.Wrapf(err, "failed to get block hash by index hash")
 	}
-	return nil
+	return blkHash, nil
 }
 
-// GetVoteHistory gets vote history
-func (idx *Indexer) GetVoteHistory(userAddr string) ([]hash.Hash32B, error) {
-	getQuery := "SELECT * FROM vote_history WHERE node_address=? AND user_address=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var voteHistory VoteHistory
-	parsedRows, err := s.ParseSQLRows(rows, &voteHistory)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse results")
-	}
-
-	var voteHashes []hash.Hash32B
-	for _, parsedRow := range parsedRows {
-		var hash hash.Hash32B
-		copy(hash[:], parsedRow.(*VoteHistory).VoteHash)
-		voteHashes = append(voteHashes, hash)
-	}
-	return voteHashes, nil
-}
-
-// UpdateVoteToBlock maps vote hash to block hash
-func (idx *Indexer) UpdateVoteToBlock(blk *block.Block, tx *sql.Tx) error {
-	blockHash := blk.HashBlock()
-	insertQuery := "INSERT INTO vote_to_block (node_address,vote_hash,block_hash) VALUES (?, ?, ?)"
-	_, votes, _ := action.ClassifyActions(blk.Actions)
-	for _, vote := range votes {
-		voteHash := vote.Hash()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(voteHash[:]), blockHash[:]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// GetBlockByVote returns block hash by vote hash
-func (idx *Indexer) GetBlockByVote(voteHash hash.Hash32B) (hash.Hash32B, error) {
-	getQuery := "SELECT * FROM vote_to_block WHERE node_address=? AND vote_hash=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(voteHash[:]))
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var voteToBlock VoteToBlock
-	parsedRows, err := s.ParseSQLRows(rows, &voteToBlock)
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
-	}
-
-	if len(parsedRows) == 0 {
-		return hash.ZeroHash32B, ErrNotExist
-	}
-
-	var hash hash.Hash32B
-	copy(hash[:], parsedRows[0].(*VoteToBlock).BlockHash)
-	return hash, nil
-}
-
-// UpdateExecutionHistory stores execution information into execution history table
-func (idx *Indexer) UpdateExecutionHistory(blk *block.Block, tx *sql.Tx) error {
-	insertQuery := "INSERT INTO execution_history (node_address,user_address,execution_hash) VALUES (?, ?, ?)"
-	_, _, executions := action.ClassifyActions(blk.Actions)
-	for _, execution := range executions {
-		executionHash := execution.Hash()
-
-		// put new execution for executor
-		executorAddr := execution.Executor()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, executorAddr, executionHash[:]); err != nil {
-			return err
-		}
-
-		// put new execution for contract
-		contractAddr := execution.Contract()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, contractAddr, executionHash[:]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// GetExecutionHistory gets execution history
-func (idx *Indexer) GetExecutionHistory(userAddr string) ([]hash.Hash32B, error) {
-	getQuery := "SELECT * FROM execution_history WHERE node_address=? AND user_address=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var executionHistory ExecutionHistory
-	parsedRows, err := s.ParseSQLRows(rows, &executionHistory)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse results")
-	}
-
-	var executionHashes []hash.Hash32B
-	for _, parsedRow := range parsedRows {
-		var hash hash.Hash32B
-		copy(hash[:], parsedRow.(*ExecutionHistory).ExecutionHash)
-		executionHashes = append(executionHashes, hash)
-	}
-	return executionHashes, nil
-}
-
-// UpdateExecutionToBlock maps execution hash to block hash
-func (idx *Indexer) UpdateExecutionToBlock(blk *block.Block, tx *sql.Tx) error {
-	blockHash := blk.HashBlock()
-	insertQuery := "INSERT INTO execution_to_block (node_address,execution_hash,block_hash) VALUES (?, ?, ?)"
-	_, _, executions := action.ClassifyActions(blk.Actions)
-	for _, execution := range executions {
-		executionHash := execution.Hash()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(executionHash[:]), blockHash[:]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// GetBlockByExecution returns block hash by execution hash
-func (idx *Indexer) GetBlockByExecution(executionHash hash.Hash32B) (hash.Hash32B, error) {
-	getQuery := "SELECT * FROM execution_to_block WHERE node_address=? AND execution_hash=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, hex.EncodeToString(executionHash[:]))
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var executionToBlock ExecutionToBlock
-	parsedRows, err := s.ParseSQLRows(rows, &executionToBlock)
-	if err != nil {
-		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
-	}
-
-	if len(parsedRows) == 0 {
-		return hash.ZeroHash32B, ErrNotExist
-	}
-
-	var hash hash.Hash32B
-	copy(hash[:], parsedRows[0].(*ExecutionToBlock).BlockHash)
-	return hash, nil
-}
-
-// UpdateActionHistory stores action information into action history table
-func (idx *Indexer) UpdateActionHistory(blk *block.Block, tx *sql.Tx) error {
-	insertQuery := "INSERT INTO action_history (node_address,user_address,action_hash) VALUES (?, ?, ?)"
-	for _, selp := range blk.Actions {
-		actionHash := selp.Hash()
-
-		// put new action for sender
-		senderAddr := selp.SrcAddr()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, senderAddr, actionHash[:]); err != nil {
-			return err
-		}
-
-		// put new transfer for recipient
-		receiverAddr := selp.DstAddr()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, receiverAddr, actionHash[:]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// GetActionHistory gets action history
-func (idx *Indexer) GetActionHistory(userAddr string) ([]hash.Hash32B, error) {
-	getQuery := "SELECT * FROM action_history WHERE node_address=? AND user_address=?"
-	db := idx.store.GetDB()
-
-	stmt, err := db.Prepare(getQuery)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare get query")
-	}
-
-	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute get query")
-	}
-
-	var actionHistory ActionHistory
-	parsedRows, err := s.ParseSQLRows(rows, &actionHistory)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse results")
-	}
-
-	var actionHashes []hash.Hash32B
-	for _, parsedRow := range parsedRows {
-		var hash hash.Hash32B
-		copy(hash[:], parsedRow.(*ActionHistory).ActionHash)
-		actionHashes = append(actionHashes, hash)
-	}
-	return actionHashes, nil
-}
-
-// UpdateActionToBlock maps action hash to block hash
-func (idx *Indexer) UpdateActionToBlock(blk *block.Block, tx *sql.Tx) error {
-	blockHash := blk.HashBlock()
-	insertQuery := "INSERT INTO action_to_block (node_address,action_hash,block_hash) VALUES (?, ?, ?)"
-	for _, selp := range blk.Actions {
-		actionHash := selp.Hash()
-		if _, err := tx.Exec(insertQuery, idx.hexEncodedNodeAddr, hex.EncodeToString(actionHash[:]), blockHash[:]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// GetBlockByAction returns block hash by action hash
-func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, error) {
-	getQuery := "SELECT * FROM action_to_block WHERE node_address=? AND action_hash=?"
+// blockByIndex returns block by receipt hash
+func (idx *Indexer) blockByIndex(getQuery string, actionHash hash.Hash32B) (hash.Hash32B, error) {
 	db := idx.store.GetDB()
 
 	stmt, err := db.Prepare(getQuery)
@@ -501,8 +197,8 @@ func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, err
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to execute get query")
 	}
 
-	var actionToBlock ActionToBlock
-	parsedRows, err := s.ParseSQLRows(rows, &actionToBlock)
+	var blockByIndex BlockByIndex
+	parsedRows, err := s.ParseSQLRows(rows, &blockByIndex)
 	if err != nil {
 		return hash.ZeroHash32B, errors.Wrapf(err, "failed to parse results")
 	}
@@ -512,50 +208,63 @@ func (idx *Indexer) GetBlockByAction(actionHash hash.Hash32B) (hash.Hash32B, err
 	}
 
 	var hash hash.Hash32B
-	copy(hash[:], parsedRows[0].(*ActionToBlock).BlockHash)
+	copy(hash[:], parsedRows[0].(*BlockByIndex).BlockHash)
 	return hash, nil
+}
+
+// getIndexHistory gets index history
+func (idx *Indexer) getIndexHistory(getQuery string, userAddr string) ([]hash.Hash32B, error) {
+	db := idx.store.GetDB()
+
+	stmt, err := db.Prepare(getQuery)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to prepare get query")
+	}
+
+	rows, err := stmt.Query(idx.hexEncodedNodeAddr, userAddr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to execute get query")
+	}
+
+	var indexHistory IndexHistory
+	parsedRows, err := s.ParseSQLRows(rows, &indexHistory)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse results")
+	}
+
+	var indexHashes []hash.Hash32B
+	for _, parsedRow := range parsedRows {
+		var hash hash.Hash32B
+		copy(hash[:], parsedRow.(*IndexHistory).IndexHash)
+		indexHashes = append(indexHashes, hash)
+	}
+	return indexHashes, nil
+}
+
+func (idx *Indexer) getBlockByIndexTableName(indexIndentifier string) string {
+	return fmt.Sprintf("block_by_index_%s", indexIndentifier)
+}
+
+func (idx *Indexer) getIndexHistoryTableName(indexIndentifier string) string {
+	return fmt.Sprintf("index_history_%s", indexIndentifier)
 }
 
 // CreateTablesIfNotExist creates tables in local database
 func (idx *Indexer) CreateTablesIfNotExist() error {
-	// create action tables
-	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +
-		"TEXT NOT NULL, [action_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS action_to_block ([node_address] TEXT NOT NULL, [action_hash] " +
-		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
+	// create block by index tables
+	for _, indexIdentifier := range idx.cfg.BlockByIndexList {
+		if _, err := idx.store.GetDB().Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s ([node_address] TEXT NOT NULL, "+
+			"[index_hash] BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)", idx.getBlockByIndexTableName(indexIdentifier))); err != nil {
+			return err
+		}
 	}
 
-	// create transfer tables
-	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS transfer_history ([node_address] TEXT NOT NULL, [user_address] " +
-		"TEXT NOT NULL, [transfer_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS transfer_to_block ([node_address] TEXT NOT NULL, [transfer_hash] " +
-		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-
-	// create vote tables
-	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS vote_history ([node_address] TEXT NOT NULL, [user_address] " +
-		"TEXT NOT NULL, [vote_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS vote_to_block ([node_address] TEXT NOT NULL, [vote_hash] " +
-		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-
-	// create execution tables
-	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS execution_history ([node_address] TEXT NOT NULL, [user_address] " +
-		"TEXT NOT NULL, [execution_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
-	}
-	if _, err := idx.store.GetDB().Exec("CREATE TABLE IF NOT EXISTS execution_to_block ([node_address] TEXT NOT NULL, [execution_hash] " +
-		"BLOB(32) NOT NULL, [block_hash] BLOB(32) NOT NULL)"); err != nil {
-		return err
+	// create index history tables
+	for _, indexIdentifier := range idx.cfg.IndexHistoryList {
+		if _, err := idx.store.GetDB().Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s ([node_address] TEXT NOT NULL, "+
+			"[user_address] TEXT NOT NULL, [index_hash] BLOB(32) NOT NULL)", idx.getIndexHistoryTableName(indexIdentifier))); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -54,6 +54,16 @@ const (
 	StandaloneScheme = "STANDALONE"
 	// NOOPScheme means that the node does not create only block
 	NOOPScheme = "NOOP"
+	// IndexTransfer is table identifier for transfer index in indexer
+	IndexTransfer = "transfer"
+	// IndexVote is table identifier for vote index in indexer
+	IndexVote = "vote"
+	// IndexExecution is table identifier for execution index in indexer
+	IndexExecution = "execution"
+	// IndexAction is table identifier for action index in indexer
+	IndexAction = "action"
+	// IndexReceipt is table identifier for receipt index in indexer
+	IndexReceipt = "receipt"
 )
 
 var (
@@ -119,10 +129,10 @@ var (
 			EventChanSize: 10000,
 		},
 		Explorer: Explorer{
-			Enabled:   false,
-			UseRDS:    false,
-			Port:      14004,
-			TpsWindow: 10,
+			Enabled:    false,
+			UseIndexer: false,
+			Port:       14004,
+			TpsWindow:  10,
 			GasStation: GasStation{
 				SuggestBlockWindow: 20,
 				DefaultGas:         1,
@@ -134,6 +144,8 @@ var (
 			Enabled:           false,
 			NodeAddr:          "",
 			WhetherLocalStore: true,
+			BlockByIndexList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction, IndexReceipt},
+			IndexHistoryList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction},
 		},
 		System: System{
 			HeartbeatInterval:     10 * time.Second,
@@ -237,7 +249,7 @@ type (
 	Explorer struct {
 		Enabled    bool       `yaml:"enabled"`
 		IsTest     bool       `yaml:"isTest"`
-		UseRDS     bool       `yaml:"useRDS"`
+		UseIndexer bool       `yaml:"useIndexer"`
 		Port       int        `yaml:"port"`
 		TpsWindow  int        `yaml:"tpsWindow"`
 		GasStation GasStation `yaml:"gasStation"`
@@ -257,6 +269,10 @@ type (
 		Enabled           bool   `yaml:"enabled"`
 		NodeAddr          string `yaml:"nodeAddr"`
 		WhetherLocalStore bool   `yaml:"whetherLocalStore"`
+		// BlockByIndexList store list of BlockByIndex tables
+		BlockByIndexList []string `yaml:"blockByIndexList"`
+		// IndexHistoryList store list of IndexHistory tables
+		IndexHistoryList []string `yaml:"indexHistoryList"`
 	}
 
 	// System is the system config
