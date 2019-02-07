@@ -8,10 +8,10 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "1dc5278d22c8f17ff2bc906ccfd20735"
-const BarristerDateGenerated int64 = 1549482691258000000
+const BarristerChecksum string = "613b2250d445a285d7d1346d9b59b581"
+const BarristerDateGenerated int64 = 1549492195775000000
 
-type Explorer interface {
+type API interface {
 	GetAccount(address string) (string, error)
 	GetActions(start int64, count int64) ([]string, error)
 	GetAction(actionHash string) (string, error)
@@ -28,26 +28,26 @@ type Explorer interface {
 	EstimateGasForAction(request string) (int64, error)
 }
 
-func NewExplorerProxy(c barrister.Client) Explorer {
-	return ExplorerProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))}
+func NewAPIProxy(c barrister.Client) API {
+	return APIProxy{c, barrister.MustParseIdlJson([]byte(IdlJsonRaw))}
 }
 
-type ExplorerProxy struct {
+type APIProxy struct {
 	client barrister.Client
 	idl    *barrister.Idl
 }
 
-func (_p ExplorerProxy) GetAccount(address string) (string, error) {
-	_res, _err := _p.client.Call("Explorer.getAccount", address)
+func (_p APIProxy) GetAccount(address string) (string, error) {
+	_res, _err := _p.client.Call("API.getAccount", address)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getAccount").Returns
+		_retType := _p.idl.Method("API.getAccount").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getAccount returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getAccount returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -55,17 +55,17 @@ func (_p ExplorerProxy) GetAccount(address string) (string, error) {
 	return "", _err
 }
 
-func (_p ExplorerProxy) GetActions(start int64, count int64) ([]string, error) {
-	_res, _err := _p.client.Call("Explorer.getActions", start, count)
+func (_p APIProxy) GetActions(start int64, count int64) ([]string, error) {
+	_res, _err := _p.client.Call("API.getActions", start, count)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getActions").Returns
+		_retType := _p.idl.Method("API.getActions").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]string{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.([]string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getActions returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getActions returned invalid type: %v", _t)
 			return []string{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -73,17 +73,17 @@ func (_p ExplorerProxy) GetActions(start int64, count int64) ([]string, error) {
 	return []string{}, _err
 }
 
-func (_p ExplorerProxy) GetAction(actionHash string) (string, error) {
-	_res, _err := _p.client.Call("Explorer.getAction", actionHash)
+func (_p APIProxy) GetAction(actionHash string) (string, error) {
+	_res, _err := _p.client.Call("API.getAction", actionHash)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getAction").Returns
+		_retType := _p.idl.Method("API.getAction").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getAction returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getAction returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -91,17 +91,17 @@ func (_p ExplorerProxy) GetAction(actionHash string) (string, error) {
 	return "", _err
 }
 
-func (_p ExplorerProxy) GetActionsByAddress(address string, start int64, count int64) ([]string, error) {
-	_res, _err := _p.client.Call("Explorer.getActionsByAddress", address, start, count)
+func (_p APIProxy) GetActionsByAddress(address string, start int64, count int64) ([]string, error) {
+	_res, _err := _p.client.Call("API.getActionsByAddress", address, start, count)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getActionsByAddress").Returns
+		_retType := _p.idl.Method("API.getActionsByAddress").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]string{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.([]string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getActionsByAddress returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getActionsByAddress returned invalid type: %v", _t)
 			return []string{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -109,17 +109,17 @@ func (_p ExplorerProxy) GetActionsByAddress(address string, start int64, count i
 	return []string{}, _err
 }
 
-func (_p ExplorerProxy) GetUnconfirmedActionsByAddress(address string, offset int64, limit int64) ([]string, error) {
-	_res, _err := _p.client.Call("Explorer.getUnconfirmedActionsByAddress", address, offset, limit)
+func (_p APIProxy) GetUnconfirmedActionsByAddress(address string, offset int64, limit int64) ([]string, error) {
+	_res, _err := _p.client.Call("API.getUnconfirmedActionsByAddress", address, offset, limit)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getUnconfirmedActionsByAddress").Returns
+		_retType := _p.idl.Method("API.getUnconfirmedActionsByAddress").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]string{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.([]string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getUnconfirmedActionsByAddress returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getUnconfirmedActionsByAddress returned invalid type: %v", _t)
 			return []string{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -127,17 +127,17 @@ func (_p ExplorerProxy) GetUnconfirmedActionsByAddress(address string, offset in
 	return []string{}, _err
 }
 
-func (_p ExplorerProxy) GetActionsByBlock(blkHash string, start int64, count int64) ([]string, error) {
-	_res, _err := _p.client.Call("Explorer.getActionsByBlock", blkHash, start, count)
+func (_p APIProxy) GetActionsByBlock(blkHash string, start int64, count int64) ([]string, error) {
+	_res, _err := _p.client.Call("API.getActionsByBlock", blkHash, start, count)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getActionsByBlock").Returns
+		_retType := _p.idl.Method("API.getActionsByBlock").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]string{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.([]string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getActionsByBlock returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getActionsByBlock returned invalid type: %v", _t)
 			return []string{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -145,17 +145,17 @@ func (_p ExplorerProxy) GetActionsByBlock(blkHash string, start int64, count int
 	return []string{}, _err
 }
 
-func (_p ExplorerProxy) GetBlockMetas(start int64, number int64) ([]string, error) {
-	_res, _err := _p.client.Call("Explorer.getBlockMetas", start, number)
+func (_p APIProxy) GetBlockMetas(start int64, number int64) ([]string, error) {
+	_res, _err := _p.client.Call("API.getBlockMetas", start, number)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getBlockMetas").Returns
+		_retType := _p.idl.Method("API.getBlockMetas").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]string{}), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.([]string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getBlockMetas returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getBlockMetas returned invalid type: %v", _t)
 			return []string{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -163,17 +163,17 @@ func (_p ExplorerProxy) GetBlockMetas(start int64, number int64) ([]string, erro
 	return []string{}, _err
 }
 
-func (_p ExplorerProxy) GetBlockMeta(blkHash string) (string, error) {
-	_res, _err := _p.client.Call("Explorer.getBlockMeta", blkHash)
+func (_p APIProxy) GetBlockMeta(blkHash string) (string, error) {
+	_res, _err := _p.client.Call("API.getBlockMeta", blkHash)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getBlockMeta").Returns
+		_retType := _p.idl.Method("API.getBlockMeta").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getBlockMeta returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getBlockMeta returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -181,17 +181,17 @@ func (_p ExplorerProxy) GetBlockMeta(blkHash string) (string, error) {
 	return "", _err
 }
 
-func (_p ExplorerProxy) GetChainMeta() (string, error) {
-	_res, _err := _p.client.Call("Explorer.getChainMeta")
+func (_p APIProxy) GetChainMeta() (string, error) {
+	_res, _err := _p.client.Call("API.getChainMeta")
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getChainMeta").Returns
+		_retType := _p.idl.Method("API.getChainMeta").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getChainMeta returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getChainMeta returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -199,17 +199,17 @@ func (_p ExplorerProxy) GetChainMeta() (string, error) {
 	return "", _err
 }
 
-func (_p ExplorerProxy) SendAction(request string) (string, error) {
-	_res, _err := _p.client.Call("Explorer.sendAction", request)
+func (_p APIProxy) SendAction(request string) (string, error) {
+	_res, _err := _p.client.Call("API.sendAction", request)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.sendAction").Returns
+		_retType := _p.idl.Method("API.sendAction").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.sendAction returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.sendAction returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -217,17 +217,17 @@ func (_p ExplorerProxy) SendAction(request string) (string, error) {
 	return "", _err
 }
 
-func (_p ExplorerProxy) GetReceiptByAction(hash string) (string, error) {
-	_res, _err := _p.client.Call("Explorer.getReceiptByAction", hash)
+func (_p APIProxy) GetReceiptByAction(hash string) (string, error) {
+	_res, _err := _p.client.Call("API.getReceiptByAction", hash)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getReceiptByAction").Returns
+		_retType := _p.idl.Method("API.getReceiptByAction").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getReceiptByAction returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.getReceiptByAction returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -235,17 +235,17 @@ func (_p ExplorerProxy) GetReceiptByAction(hash string) (string, error) {
 	return "", _err
 }
 
-func (_p ExplorerProxy) ReadContract(request string) (string, error) {
-	_res, _err := _p.client.Call("Explorer.readContract", request)
+func (_p APIProxy) ReadContract(request string) (string, error) {
+	_res, _err := _p.client.Call("API.readContract", request)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.readContract").Returns
+		_retType := _p.idl.Method("API.readContract").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(string)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.readContract returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.readContract returned invalid type: %v", _t)
 			return "", &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -253,17 +253,17 @@ func (_p ExplorerProxy) ReadContract(request string) (string, error) {
 	return "", _err
 }
 
-func (_p ExplorerProxy) SuggestGasPrice() (int64, error) {
-	_res, _err := _p.client.Call("Explorer.suggestGasPrice")
+func (_p APIProxy) SuggestGasPrice() (int64, error) {
+	_res, _err := _p.client.Call("API.suggestGasPrice")
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.suggestGasPrice").Returns
+		_retType := _p.idl.Method("API.suggestGasPrice").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.suggestGasPrice returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.suggestGasPrice returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -271,17 +271,17 @@ func (_p ExplorerProxy) SuggestGasPrice() (int64, error) {
 	return int64(0), _err
 }
 
-func (_p ExplorerProxy) EstimateGasForAction(request string) (int64, error) {
-	_res, _err := _p.client.Call("Explorer.estimateGasForAction", request)
+func (_p APIProxy) EstimateGasForAction(request string) (int64, error) {
+	_res, _err := _p.client.Call("API.estimateGasForAction", request)
 	if _err == nil {
-		_retType := _p.idl.Method("Explorer.estimateGasForAction").Returns
+		_retType := _p.idl.Method("API.estimateGasForAction").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(int64(0)), _res, "")
 	}
 	if _err == nil {
 		_cast, _ok := _res.(int64)
 		if !_ok {
 			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.estimateGasForAction returned invalid type: %v", _t)
+			_msg := fmt.Sprintf("API.estimateGasForAction returned invalid type: %v", _t)
 			return int64(0), &barrister.JsonRpcError{Code: -32000, Message: _msg}
 		}
 		return _cast, nil
@@ -289,13 +289,13 @@ func (_p ExplorerProxy) EstimateGasForAction(request string) (int64, error) {
 	return int64(0), _err
 }
 
-func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
-	return NewServer(idl, &barrister.JsonSerializer{forceASCII}, explorer)
+func NewJSONServer(idl *barrister.Idl, forceASCII bool, api API) barrister.Server {
+	return NewServer(idl, &barrister.JsonSerializer{forceASCII}, api)
 }
 
-func NewServer(idl *barrister.Idl, ser barrister.Serializer, explorer Explorer) barrister.Server {
+func NewServer(idl *barrister.Idl, ser barrister.Serializer, api API) barrister.Server {
 	_svr := barrister.NewServer(idl, ser)
-	_svr.AddHandler("Explorer", explorer)
+	_svr.AddHandler("API", api)
 	return _svr
 }
 
@@ -354,7 +354,7 @@ var IdlJsonRaw = `[
     },
     {
         "type": "interface",
-        "name": "Explorer",
+        "name": "API",
         "comment": "",
         "value": "",
         "extends": "",
@@ -696,7 +696,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1549482691258,
-        "checksum": "1dc5278d22c8f17ff2bc906ccfd20735"
+        "date_generated": 1549492195775,
+        "checksum": "613b2250d445a285d7d1346d9b59b581"
     }
 ]`
