@@ -500,14 +500,14 @@ func (stateDB *StateDBAdapter) GetCodeSize(evmAddr common.Address) int {
 func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 	addr := byteutil.BytesTo20B(evmAddr[:])
 	if contract, ok := stateDB.cachedContract[addr]; ok {
-		contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
+		contract.SetCode(hash.Hash256b(code), code)
 		return
 	}
 	contract, err := stateDB.getContract(addr)
 	if err != nil {
 		log.L().Error("Failed to get contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
 	}
-	contract.SetCode(byteutil.BytesTo32B(hash.Hash256b(code)), code)
+	contract.SetCode(hash.Hash256b(code), code)
 }
 
 // GetState gets state

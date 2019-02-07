@@ -157,7 +157,7 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 		for i := range v {
 			v[i] = byte(rand.Intn(8))
 		}
-		cb.Put(bucket1, k, v[:], "")
+		cb.Put(bucket1, k[:], v[:], "")
 	}
 	require.Equal(b, 10000, cb.Size())
 
