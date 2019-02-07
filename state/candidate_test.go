@@ -38,15 +38,15 @@ func TestCandidate(t *testing.T) {
 		Votes:     big.NewInt(3),
 	}
 
-	cand1Addr, err := address.StringToAddress(cand1.Address)
+	cand1Addr, err := address.FromString(cand1.Address)
 	require.NoError(err)
 	cand1Hash := byteutil.BytesTo20B(cand1Addr.Bytes())
 
-	cand2Addr, err := address.StringToAddress(cand2.Address)
+	cand2Addr, err := address.FromString(cand2.Address)
 	require.NoError(err)
 	cand2Hash := byteutil.BytesTo20B(cand2Addr.Bytes())
 
-	cand3Addr, err := address.StringToAddress(cand3.Address)
+	cand3Addr, err := address.FromString(cand3.Address)
 	require.NoError(err)
 	cand3Hash := byteutil.BytesTo20B(cand3Addr.Bytes())
 

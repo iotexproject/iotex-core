@@ -92,8 +92,12 @@ func (stateDB *StateDBAdapter) Error() error {
 
 // CreateAccount creates an account in iotx blockchain
 func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
-	addr := address.New(evmAddr.Bytes())
-	_, err := account.LoadOrCreateAccount(stateDB.sm, addr.String(), big.NewInt(0))
+	addr, err := address.FromBytes(evmAddr.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return
+	}
+	_, err = account.LoadOrCreateAccount(stateDB.sm, addr.String(), big.NewInt(0))
 	if err != nil {
 		log.L().Error("Failed to create account.", zap.Error(err))
 		// stateDB.logError(err)
@@ -109,7 +113,11 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 	}
 	// stateDB.GetBalance(evmAddr)
 	log.L().Debug(fmt.Sprintf("SubBalance %v from %s", amount, evmAddr.Hex()))
-	addr := address.New(evmAddr.Bytes())
+	addr, err := address.FromBytes(evmAddr.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return
+	}
 	state, err := stateDB.AccountState(addr.String())
 	if err != nil {
 		log.L().Error("Failed to sub balance.", zap.Error(err))
@@ -134,7 +142,11 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 	// stateDB.GetBalance(evmAddr)
 	log.L().Debug(fmt.Sprintf("AddBalance %v from %s", amount, evmAddr.Hex()))
 
-	addr := address.New(evmAddr.Bytes())
+	addr, err := address.FromBytes(evmAddr.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return
+	}
 	state, err := account.LoadOrCreateAccount(stateDB.sm, addr.String(), big.NewInt(0))
 	if err != nil {
 		log.L().Error("Failed to add balance.", log.Hex("addrHash", evmAddr[:]))
@@ -152,7 +164,11 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 
 // GetBalance gets the balance of account
 func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
-	addr := address.New(evmAddr.Bytes())
+	addr, err := address.FromBytes(evmAddr.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return big.NewInt(0)
+	}
 	state, err := stateDB.AccountState(addr.String())
 	if err != nil {
 		log.L().Error("Failed to get balance.", zap.Error(err))
@@ -165,7 +181,11 @@ func (stateDB *StateDBAdapter) GetBalance(evmAddr common.Address) *big.Int {
 
 // GetNonce gets the nonce of account
 func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
-	addr := address.New(evmAddr.Bytes())
+	addr, err := address.FromBytes(evmAddr.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return 0
+	}
 	state, err := stateDB.AccountState(addr.String())
 	if err != nil {
 		log.L().Error("Failed to get nonce.", zap.Error(err))
@@ -180,7 +200,11 @@ func (stateDB *StateDBAdapter) GetNonce(evmAddr common.Address) uint64 {
 
 // SetNonce sets the nonce of account
 func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
-	addr := address.New(evmAddr.Bytes())
+	addr, err := address.FromBytes(evmAddr.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return
+	}
 	s, err := stateDB.AccountState(addr.String())
 	if err != nil {
 		log.L().Error("Failed to set nonce.", zap.Error(err))
@@ -212,7 +236,11 @@ func (stateDB *StateDBAdapter) GetRefund() uint64 {
 
 // Suicide kills the contract
 func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
-	addr := address.New(evmAddr.Bytes())
+	addr, err := address.FromBytes(evmAddr.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return false
+	}
 	s, err := stateDB.AccountState(addr.String())
 	if err != nil || s == state.EmptyAccount {
 		log.L().Debug("Account does not exist.", zap.String("address", addr.String()))
@@ -240,7 +268,11 @@ func (stateDB *StateDBAdapter) HasSuicided(evmAddr common.Address) bool {
 
 // Exist checks the existence of an address
 func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
-	addr := address.New(evmAddr.Bytes())
+	addr, err := address.FromBytes(evmAddr.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return false
+	}
 	log.L().Debug("Check existence.", zap.String("address", addr.String()), log.Hex("addrHash", evmAddr[:]))
 	if s, err := stateDB.AccountState(addr.String()); err != nil || s == state.EmptyAccount {
 		log.L().Debug("Account does not exist.", zap.String("address", addr.String()))
@@ -251,7 +283,11 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 
 // Empty returns true if the the contract is empty
 func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
-	addr := address.New(evmAddr.Bytes())
+	addr, err := address.FromBytes(evmAddr.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return true
+	}
 	log.L().Debug("Check whether the contract is empty.")
 	s, err := stateDB.AccountState(addr.String())
 	if err != nil || s == state.EmptyAccount {
@@ -327,7 +363,11 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 // AddLog adds log
 func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 	log.L().Debug("Called AddLog.", zap.Any("log", evmLog))
-	addr := address.New(evmLog.Address.Bytes())
+	addr, err := address.FromBytes(evmLog.Address.Bytes())
+	if err != nil {
+		log.L().Error("Failed to convert evm address.", zap.Error(err))
+		return
+	}
 	var topics []hash.Hash256
 	for _, evmTopic := range evmLog.Topics {
 		var topic hash.Hash256
@@ -387,7 +427,7 @@ func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(commo
 
 // AccountState returns an account state
 func (stateDB *StateDBAdapter) AccountState(encodedAddr string) (*state.Account, error) {
-	addr, err := address.StringToAddress(encodedAddr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get public key hash from encoded address")
 	}

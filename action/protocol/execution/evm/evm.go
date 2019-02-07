@@ -66,14 +66,14 @@ func NewParams(blkHeight uint64, producerAddr address.Address, blkTimeStamp int6
 			beneficiary = *author
 		}
 	*/
-	executor, err := address.StringToAddress(execution.Executor())
+	executor, err := address.FromString(execution.Executor())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert encoded executor address to address")
 	}
 	executorAddr := common.BytesToAddress(executor.Bytes())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
-		contract, err := address.StringToAddress(execution.Contract())
+		contract, err := address.FromString(execution.Contract())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert encoded contract address to address")
 		}
@@ -223,7 +223,10 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-		contractAddress := address.New(evmContractAddress.Bytes())
+		contractAddress, err := address.FromBytes(evmContractAddress.Bytes())
+		if err != nil {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
+		}
 		contractRawAddress = contractAddress.String()
 	} else {
 		stateDB.SetNonce(evmParams.context.Origin, stateDB.GetNonce(evmParams.context.Origin)+1)

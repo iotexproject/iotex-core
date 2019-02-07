@@ -245,7 +245,7 @@ func (sdb *stateDB) state(addr hash.Hash160, s interface{}) error {
 }
 
 func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
-	addr, err := address.StringToAddress(encodedAddr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return nil, err
 	}

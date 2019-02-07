@@ -352,7 +352,8 @@ func TestStartSubChainInGenesis(t *testing.T) {
 
 	scAddr, err := createSubChainAddress(blockchain.Gen.CreatorAddr(), 0)
 	require.NoError(t, err)
-	addr := address.New(scAddr[:])
+	addr, err := address.FromBytes(scAddr[:])
+	require.NoError(t, err)
 	sc, err := p.SubChain(addr)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(2), sc.ChainID)

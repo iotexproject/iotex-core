@@ -54,7 +54,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 
 // LoadOrCreateAccount either loads an account state or creates an account state
 func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) (*state.Account, error) {
-	addr, err := address.StringToAddress(encodedAddr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
@@ -89,7 +89,7 @@ func LoadAccount(sm protocol.StateManager, addrHash hash.Hash160) (*state.Accoun
 
 // StoreAccount puts updated account state to trie
 func StoreAccount(sm protocol.StateManager, encodedAddr string, acct *state.Account) error {
-	addr, err := address.StringToAddress(encodedAddr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}

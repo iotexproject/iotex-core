@@ -21,7 +21,7 @@ import (
 )
 
 func (p *Protocol) subChainToStop(subChainAddr string) (*SubChain, error) {
-	addr, err := address.StringToAddress(subChainAddr)
+	addr, err := address.FromString(subChainAddr)
 	if err != nil {
 		return nil, err
 	}

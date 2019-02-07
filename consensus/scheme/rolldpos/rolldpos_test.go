@@ -68,7 +68,10 @@ func newTestAddr() *addrKeyPair {
 	}
 	pk := &sk.PublicKey
 	pkHash := keypair.HashPubKey(pk)
-	addr := address.New(pkHash[:])
+	addr, err := address.FromBytes(pkHash[:])
+	if err != nil {
+		log.L().Panic("Error when creating address.", zap.Error(err))
+	}
 	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.String()}
 }
 

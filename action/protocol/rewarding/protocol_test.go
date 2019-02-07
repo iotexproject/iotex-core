@@ -34,12 +34,14 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	sk, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	pkHash := keypair.HashPubKey(&sk.PublicKey)
-	addr := address.New(pkHash[:])
+	addr, err := address.FromBytes(pkHash[:])
+	require.NoError(t, err)
 
 	skProducer, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	pkHashProducer := keypair.HashPubKey(&skProducer.PublicKey)
-	addrProducer := address.New(pkHashProducer[:])
+	addrProducer, err := address.FromBytes(pkHashProducer[:])
+	require.NoError(t, err)
 	p := NewProtocol(addr, 1)
 
 	// Initialize the protocol

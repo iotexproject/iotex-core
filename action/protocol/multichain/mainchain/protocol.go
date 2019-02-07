@@ -95,7 +95,7 @@ func (p *Protocol) account(sender string, sm protocol.StateManager) (*state.Acco
 	if sm == nil {
 		return p.sf.AccountState(sender)
 	}
-	addr, err := address.StringToAddress(sender)
+	addr, err := address.FromString(sender)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
@@ -136,7 +136,7 @@ func (p *Protocol) subChainsInOperation(sm protocol.StateManager) (SubChainsInOp
 }
 
 func srcAddressPKHash(srcAddr string) (hash.Hash160, error) {
-	addr, err := address.StringToAddress(srcAddr)
+	addr, err := address.FromString(srcAddr)
 	if err != nil {
 		return hash.ZeroHash160, errors.Wrapf(err, "cannot get the public key hash of address %s", srcAddr)
 	}

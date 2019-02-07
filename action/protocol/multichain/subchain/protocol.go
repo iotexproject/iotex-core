@@ -133,7 +133,7 @@ func depositAddress(index uint64) hash.Hash160 {
 }
 
 func srcAddressPKHash(srcAddr string) (hash.Hash160, error) {
-	addr, err := address.StringToAddress(srcAddr)
+	addr, err := address.FromString(srcAddr)
 	if err != nil {
 		return hash.ZeroHash160, err
 	}

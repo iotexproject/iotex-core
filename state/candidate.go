@@ -137,7 +137,7 @@ func CandidatesToMap(candidates CandidateList) (map[hash.Hash160]*Candidate, err
 		if candidate == nil {
 			return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")
 		}
-		addr, err := address.StringToAddress(candidate.Address)
+		addr, err := address.FromString(candidate.Address)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get the hash of the address")
 		}

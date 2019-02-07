@@ -278,7 +278,7 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		return nil
 	}
 	pkHash := keypair.HashPubKey(pubKey)
-	address := address.New(pkHash[:])
+	address, err := address.FromBytes(pkHash[:])
 	if err != nil {
 		log.L().Error("Failed to get producer's address by public key.", zap.Error(err))
 		return nil
@@ -805,7 +805,7 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	producer, err := address.StringToAddress(blk.ProducerAddress())
+	producer, err := address.FromString(blk.ProducerAddress())
 	if err != nil {
 		return nil, err
 	}
@@ -841,11 +841,11 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
 	gasLimit := genesis.BlockGasLimit
-	callerAddr, err := address.StringToAddress(addr)
+	callerAddr, err := address.FromString(addr)
 	if err != nil {
 		return nil, err
 	}
-	producer, err := address.StringToAddress(genesisBlk.ProducerAddress())
+	producer, err := address.FromString(genesisBlk.ProducerAddress())
 	if err != nil {
 		return nil, err
 	}
@@ -1119,7 +1119,7 @@ func (bc *blockchain) runActions(
 	}
 	gasLimit := genesis.BlockGasLimit
 	// update state factory
-	producer, err := address.StringToAddress(acts.BlockProducerAddr())
+	producer, err := address.FromString(acts.BlockProducerAddr())
 	if err != nil {
 		return hash.ZeroHash256, nil, err
 	}
@@ -1162,7 +1162,11 @@ func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, 
 		return nil, nil, "", errors.Wrap(err, "failed to decode private key")
 	}
 	pkHash := keypair.HashPubKey(pk)
-	return pk, sk, address.New(pkHash[:]).String(), nil
+	addr, err := address.FromBytes(pkHash[:])
+	if err != nil {
+		return nil, nil, "", errors.Wrap(err, "failed to create address")
+	}
+	return pk, sk, addr.String(), nil
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {

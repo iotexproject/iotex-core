@@ -70,7 +70,7 @@ func (s *Server) HandleBlock(blk *block.Block) error {
 		if s.isSubChainRunning(runnableSubChain.ID) {
 			continue
 		}
-		addr, err := address.BytesToAddress(runnableSubChain.Addr)
+		addr, err := address.FromBytes(runnableSubChain.Addr)
 		if err != nil {
 			log.L().Error("Error when getting the sub-chain address",
 				zap.Error(err),

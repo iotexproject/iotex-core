@@ -41,7 +41,7 @@ func LoadAndDeleteCandidates(sm protocol.StateManager, encodedAddr string) error
 	if err != nil {
 		return errors.Wrap(err, "failed to get most recent candidates from trie")
 	}
-	addr, err := address.StringToAddress(encodedAddr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert address to public key hash")
 	}
@@ -94,7 +94,7 @@ func ConstructKey(height uint64) hash.Hash160 {
 // addCandidate adds a new candidate to candidateMap
 func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, vote *action.Vote, height uint64) error {
 	votePubkey := vote.VoterPublicKey()
-	voterAddr, err := address.StringToAddress(vote.Voter())
+	voterAddr, err := address.FromString(vote.Voter())
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
 	}
@@ -117,7 +117,7 @@ func updateCandidate(
 	totalWeight *big.Int,
 	blockHeight uint64,
 ) error {
-	addr, err := address.StringToAddress(encodedAddr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
 	}

@@ -143,7 +143,11 @@ func (ws *workingSet) RunActions(
 			log.S().Panic("Miss context to run action")
 		}
 		callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
-		raCtx.Caller = address.New(callerPKHash[:])
+		caller, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return hash.ZeroHash256, nil, err
+		}
+		raCtx.Caller = caller
 		raCtx.ActionHash = elp.Hash()
 		raCtx.Nonce = elp.Nonce()
 		ctx = protocol.WithRunActionsCtx(ctx, raCtx)

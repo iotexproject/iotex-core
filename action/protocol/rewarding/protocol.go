@@ -49,8 +49,9 @@ func NewProtocol(caller address.Address, nonce uint64) *Protocol {
 	var nonceBytes [8]byte
 	enc.MachineEndian.PutUint64(nonceBytes[:], nonce)
 	h := hash.Hash160b(append(caller.Bytes(), nonceBytes[:]...))
+	addr, _ := address.FromBytes(h)
 	return &Protocol{
-		addr:      address.New(h),
+		addr:      addr,
 		keyPrefix: h,
 	}
 }

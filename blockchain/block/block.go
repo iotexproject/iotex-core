@@ -205,15 +205,14 @@ func (b *Block) VerifyReceiptRoot(root hash.Hash256) error {
 // ProducerAddress returns the address of producer
 func (b *Block) ProducerAddress() string {
 	pkHash := keypair.HashPubKey(b.Header.pubkey)
-	addr := address.New(pkHash[:])
-
+	addr, _ := address.FromBytes(pkHash[:])
 	return addr.String()
 }
 
 // RunnableActions abstructs RunnableActions from a Block.
 func (b *Block) RunnableActions() RunnableActions {
 	pkHash := keypair.HashPubKey(b.Header.pubkey)
-	addr := address.New(pkHash[:])
+	addr, _ := address.FromBytes(pkHash[:])
 	return RunnableActions{
 		blockHeight:         b.Header.height,
 		blockTimeStamp:      b.Header.timestamp,

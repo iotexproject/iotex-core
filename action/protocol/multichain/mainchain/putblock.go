@@ -29,7 +29,7 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, sm protocol.StateManager)
 		return err
 	}
 	// Update the block producer's nonce
-	addr, err := address.StringToAddress(pb.ProducerAddress())
+	addr, err := address.FromString(pb.ProducerAddress())
 	if err != nil {
 		return err
 	}

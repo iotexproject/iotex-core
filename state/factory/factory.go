@@ -335,7 +335,7 @@ func (sf *factory) state(addr hash.Hash160, s interface{}) error {
 }
 
 func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
-	addr, err := address.StringToAddress(encodedAddr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}

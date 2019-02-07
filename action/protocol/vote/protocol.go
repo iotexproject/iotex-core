@@ -165,7 +165,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	}
 	// check if votee's address is valid
 	if vote.Votee() != action.EmptyAddress {
-		if _, err := address.StringToAddress(vote.Votee()); err != nil {
+		if _, err := address.FromString(vote.Votee()); err != nil {
 			return errors.Wrapf(err, "error when validating votee's address %s", vote.Votee())
 		}
 	}

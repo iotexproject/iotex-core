@@ -73,12 +73,14 @@ func TestTwoChains(t *testing.T) {
 	require.NoError(t, err)
 	pk1 := &sk1.PublicKey
 	pkHash1 := keypair.HashPubKey(pk1)
-	addr1 := address.New(pkHash1[:])
+	addr1, err := address.FromBytes(pkHash1[:])
+	require.NoError(t, err)
 	sk2, err := keypair.DecodePrivateKey("82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90")
 	require.NoError(t, err)
 	pk2 := &sk2.PublicKey
 	pkHash2 := keypair.HashPubKey(pk2)
-	addr2 := address.New(pkHash2[:])
+	addr2, err := address.FromBytes(pkHash2[:])
+	require.NoError(t, err)
 
 	mainChainClient := exp.NewExplorerProxy(
 		fmt.Sprintf("http://127.0.0.1:%d", svr.ChainService(cfg.Chain.ID).Explorer().Port()),

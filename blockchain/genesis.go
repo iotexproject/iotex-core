@@ -188,7 +188,8 @@ func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.Priva
 // generateAddr returns the string address according to public key
 func generateAddr(pk keypair.PublicKey) string {
 	pkHash := keypair.HashPubKey(pk)
-	return address.New(pkHash[:]).String()
+	addr, _ := address.FromBytes(pkHash[:])
+	return addr.String()
 }
 
 // loadGenesisData loads data of creator and actions contained in genesis block

@@ -41,7 +41,8 @@ func TestProtocol_Admin(t *testing.T) {
 		skNoAuth, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		pkHashNoAuth := keypair.HashPubKey(&skNoAuth.PublicKey)
-		addrNoAuth := address.New(pkHashNoAuth[:])
+		addrNoAuth, err := address.FromBytes(pkHashNoAuth[:])
+		require.NoError(t, err)
 		require.Error(t, p.SetBlockReward(
 			protocol.WithRunActionsCtx(
 				context.Background(),
@@ -85,7 +86,8 @@ func TestProtocol_Admin(t *testing.T) {
 		skNew, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		pkHashNew := keypair.HashPubKey(&skNew.PublicKey)
-		addrNew := address.New(pkHashNew[:])
+		addrNew, err := address.FromBytes(pkHashNew[:])
+		require.NoError(t, err)
 		require.NoError(t, p.SetAdmin(ctx, ws, addrNew))
 		stateDB.Commit(ws)
 
@@ -101,7 +103,8 @@ func TestProtocol_Admin(t *testing.T) {
 		skNew, err = crypto.GenerateKey()
 		require.NoError(t, err)
 		pkHashNew = keypair.HashPubKey(&skNew.PublicKey)
-		addrNew = address.New(pkHashNew[:])
+		addrNew, err = address.FromBytes(pkHashNew[:])
+		require.NoError(t, err)
 		require.Error(t, p.SetAdmin(ctx, ws, addrNew))
 	})
 

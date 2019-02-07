@@ -85,7 +85,7 @@ func (p *Protocol) mutateDeposit(
 	}
 
 	// Update sub-chain state
-	addr, err := address.BytesToAddress(subChainInOp.Addr)
+	addr, err := address.FromBytes(subChainInOp.Addr)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (p *Protocol) mutateDeposit(
 	}
 
 	// Insert deposit state
-	recipient, err := address.StringToAddress(deposit.Recipient())
+	recipient, err := address.FromString(deposit.Recipient())
 	if err != nil {
 		return nil, err
 	}

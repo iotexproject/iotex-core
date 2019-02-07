@@ -153,7 +153,7 @@ func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) erro
 		return errors.Wrap(action.ErrBalance, "negative value")
 	}
 	// check if recipient's address is valid
-	if _, err := address.StringToAddress(tsf.Recipient()); err != nil {
+	if _, err := address.FromString(tsf.Recipient()); err != nil {
 		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
 	}
 	return nil

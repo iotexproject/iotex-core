@@ -169,7 +169,7 @@ func (sct *smartContractTest) deployContract(
 	r.NoError(err)
 	stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256, hash.ZeroHash256)
 	var evmContractAddrHash common.Address
-	addr, _ := address.StringToAddress(contractAddress)
+	addr, _ := address.FromString(contractAddress)
 	copy(evmContractAddrHash[:], addr.Bytes())
 	code := stateDB.GetCode(evmContractAddrHash)
 	codeHex := hex.EncodeToString(code)
@@ -276,7 +276,7 @@ func TestProtocol_Handle(t *testing.T) {
 		eHash := execution.Hash()
 		r, _ := bc.GetReceiptByActionHash(eHash)
 		require.Equal(eHash, r.ActHash)
-		contract, err := address.StringToAddress(r.ContractAddress)
+		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
@@ -661,7 +661,7 @@ func TestProtocol_Handle(t *testing.T) {
 		r, _ := bc.GetReceiptByActionHash(eHash)
 		require.Equal(eHash, r.ActHash)
 		contract := r.ContractAddress
-		contractAddr, err := address.StringToAddress(contract)
+		contractAddr, err := address.FromString(contract)
 		require.NoError(err)
 		h := contractAddr.Bytes()
 		ws, err = sf.NewWorkingSet()
@@ -676,7 +676,7 @@ func TestProtocol_Handle(t *testing.T) {
 		log.S().Info("======= Transfer to alfa")
 		data, _ = hex.DecodeString("a9059cbb")
 		alfa := hash.ZeroHash256
-		addr, _ := address.StringToAddress(testaddress.Addrinfo["alfa"].String())
+		addr, _ := address.FromString(testaddress.Addrinfo["alfa"].String())
 		to := addr.Bytes()
 
 		alfa.SetBytes(to)
@@ -702,7 +702,7 @@ func TestProtocol_Handle(t *testing.T) {
 		// send 20000 token to bravo
 		data, _ = hex.DecodeString("a9059cbb")
 		bravo := hash.ZeroHash256
-		addr, _ = address.StringToAddress(testaddress.Addrinfo["bravo"].String())
+		addr, _ = address.FromString(testaddress.Addrinfo["bravo"].String())
 		to = addr.Bytes()
 		bravo.SetBytes(to)
 		value = hash.ZeroHash256

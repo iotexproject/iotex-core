@@ -65,7 +65,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	}
 	// check if contract's address is valid
 	if exec.Contract() != action.EmptyAddress {
-		if _, err := address.StringToAddress(exec.Contract()); err != nil {
+		if _, err := address.FromString(exec.Contract()); err != nil {
 			return errors.Wrapf(err, "error when validating contract's address %s", exec.Contract())
 		}
 	}

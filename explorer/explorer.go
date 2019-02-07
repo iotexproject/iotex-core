@@ -1432,7 +1432,7 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 	if targetSubChain.ID != uint32(subChainID) {
 		return nil, errors.Errorf("sub-chain %d is not found in operation", subChainID)
 	}
-	subChainAddr, err := address.BytesToAddress(targetSubChain.Addr)
+	subChainAddr, err := address.FromBytes(targetSubChain.Addr)
 	if err != nil {
 		return nil, err
 	}
@@ -1451,7 +1451,7 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 		if err != nil {
 			return nil, err
 		}
-		recipient, err := address.BytesToAddress(deposit.Addr)
+		recipient, err := address.FromBytes(deposit.Addr)
 		if err != nil {
 			return nil, err
 		}

@@ -92,13 +92,13 @@ func (p *Protocol) mutateSubChainState(
 	}
 	subChainsInOp = subChainsInOp.Append(InOperation{
 		ID:   start.ChainID(),
-		Addr: address.New(addr[:]).Bytes(),
+		Addr: addr[:],
 	})
 	return sm.PutState(SubChainsInOperationKey, &subChainsInOp)
 }
 
 func createSubChainAddress(ownerAddr string, nonce uint64) (hash.Hash160, error) {
-	addr, err := address.StringToAddress(ownerAddr)
+	addr, err := address.FromString(ownerAddr)
 	if err != nil {
 		return hash.ZeroHash160, errors.Wrapf(err, "cannot get the public key hash of address %s", ownerAddr)
 	}

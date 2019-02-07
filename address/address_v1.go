@@ -15,8 +15,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// V1 is a singleton and defines V1 address metadata
-var V1 = v1{
+// _v1 is a singleton and defines V1 address metadata
+var _v1 = v1{
 	AddressLength: 20,
 }
 
@@ -25,31 +25,24 @@ type v1 struct {
 	AddressLength int
 }
 
-// New constructs an address struct
-func (v *v1) New(pkHash hash.Hash160) *AddrV1 {
-	return &AddrV1{
-		pkHash: pkHash,
-	}
-}
-
-// StringToAddress decodes an encoded address string into an address struct
-func (v *v1) StringToAddress(encodedAddr string) (*AddrV1, error) {
+// FromString decodes an encoded address string into an address struct
+func (v *v1) FromString(encodedAddr string) (*AddrV1, error) {
 	payload, err := v.decodeBech32(encodedAddr)
 	if err != nil {
 		return nil, err
 	}
-	return v.BytesToAddress(payload)
+	return v.FromBytes(payload)
 }
 
-// BytesToAddress converts a byte array into an address struct
-func (v *v1) BytesToAddress(bytes []byte) (*AddrV1, error) {
+// FromBytes converts a byte array into an address struct
+func (v *v1) FromBytes(bytes []byte) (*AddrV1, error) {
 	if len(bytes) != v.AddressLength {
 		return nil, errors.Wrapf(ErrInvalidAddr, "invalid address length in bytes: %d", len(bytes))
 	}
-	var pkHash hash.Hash160
-	copy(pkHash[:], bytes)
+	var payload hash.Hash160
+	copy(payload[:], bytes)
 	return &AddrV1{
-		pkHash: pkHash,
+		payload: payload,
 	}, nil
 }
 
@@ -69,13 +62,13 @@ func (v *v1) decodeBech32(encodedAddr string) ([]byte, error) {
 // AddrV1 is V1 address format to be used on IoTeX blockchain and subchains. It is composed of
 // 20 bytes: hash derived from the the public key:
 type AddrV1 struct {
-	pkHash hash.Hash160
+	payload hash.Hash160
 }
 
 // String encodes an address struct into a a String encoded address string
 // The encoded address string will start with "io" for mainnet, and with "it" for testnet
 func (addr *AddrV1) String() string {
-	payload := addr.pkHash[:]
+	payload := addr.payload[:]
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {
@@ -92,10 +85,5 @@ func (addr *AddrV1) String() string {
 
 // Bytes converts an address struct into a byte array
 func (addr *AddrV1) Bytes() []byte {
-	return addr.pkHash[:]
-}
-
-// PublicKeyHash returns the public key hash
-func (addr *AddrV1) PublicKeyHash() hash.Hash160 {
-	return addr.pkHash
+	return addr.payload[:]
 }
