@@ -67,7 +67,7 @@ func blockProofKey(addr string, height uint64) hash.Hash160 {
 	temp := make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, height)
 	stream = append(stream, temp...)
-	return byteutil.BytesTo20B(hash.Hash160b(stream))
+	return hash.Hash160b(stream)
 }
 
 func putBlockToBlockProof(pb *action.PutBlock) BlockProof {

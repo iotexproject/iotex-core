@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -91,7 +90,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	require.NoError(err)
 	receipts := []*action.Receipt{
 		{
-			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ActHash:         hash.Hash256b([]byte("1")),
 			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
@@ -99,7 +98,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 		{
-			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("2"))),
+			ActHash:         hash.Hash256b([]byte("2")),
 			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,

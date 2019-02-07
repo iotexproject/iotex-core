@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -49,10 +48,10 @@ func NewProtocol(caller address.Address, nonce uint64) *Protocol {
 	var nonceBytes [8]byte
 	enc.MachineEndian.PutUint64(nonceBytes[:], nonce)
 	h := hash.Hash160b(append(caller.Bytes(), nonceBytes[:]...))
-	addr, _ := address.FromBytes(h)
+	addr, _ := address.FromBytes(h[:])
 	return &Protocol{
 		addr:      addr,
-		keyPrefix: h,
+		keyPrefix: h[:],
 	}
 }
 
@@ -138,17 +137,17 @@ func (p *Protocol) Validate(
 }
 
 func (p *Protocol) state(sm protocol.StateManager, key []byte, value interface{}) error {
-	keyHash := byteutil.BytesTo20B(hash.Hash160b(append(p.keyPrefix, key...)))
+	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	return sm.State(keyHash, value)
 }
 
 func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
-	keyHash := byteutil.BytesTo20B(hash.Hash160b(append(p.keyPrefix, key...)))
+	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	return sm.PutState(keyHash, value)
 }
 
 func (p *Protocol) deleteState(sm protocol.StateManager, key []byte) error {
-	keyHash := byteutil.BytesTo20B(hash.Hash160b(append(p.keyPrefix, key...)))
+	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	return sm.DelState(keyHash)
 }
 

@@ -70,23 +70,26 @@ func TestBlockProofState(t *testing.T) {
 func TestSubChainsInOperation(t *testing.T) {
 	t.Parallel()
 
+	addr1 := hash.Hash160b([]byte{3})
+	addr2 := hash.Hash160b([]byte{1})
+	addr3 := hash.Hash160b([]byte{2})
 	var sc1 SubChainsInOperation
 	sc1 = sc1.Append(
 		InOperation{
 			ID:   3,
-			Addr: hash.Hash160b([]byte{3})[:],
+			Addr: addr1[:],
 		},
 	)
 	sc1 = sc1.Append(
 		InOperation{
 			ID:   1,
-			Addr: hash.Hash160b([]byte{1})[:],
+			Addr: addr2[:],
 		},
 	)
 	sc1 = sc1.Append(
 		InOperation{
 			ID:   2,
-			Addr: hash.Hash160b([]byte{2})[:],
+			Addr: addr3[:],
 		},
 	)
 

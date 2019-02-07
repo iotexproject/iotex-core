@@ -20,22 +20,24 @@ type (
 	Hash256 [32]byte
 	// Hash160 for 160-bit hash used for account and smart contract address
 	Hash160 [20]byte
-	// CacheHash for 160-bit hash used in cache
-	CacheHash [20]byte
 )
 
 // Hash160b returns 160-bit (20-byte) hash of input
-func Hash160b(input []byte) []byte {
+func Hash160b(input []byte) Hash160 {
 	// use Blake2b algorithm
 	digest := blake2b.Sum256(input)
-	return digest[7:27]
+	var hash Hash160
+	copy(hash[:], digest[7:27])
+	return hash
 }
 
 // Hash256b returns 256-bit (32-byte) hash of input
-func Hash256b(input []byte) []byte {
+func Hash256b(input []byte) Hash256 {
 	// use Blake2b algorithm
 	digest := blake2b.Sum256(input)
-	return digest[:]
+	var hash Hash256
+	copy(hash[:], digest[:])
+	return hash
 }
 
 // SetBytes copies the byte slice into hash

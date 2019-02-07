@@ -11,7 +11,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -88,7 +87,7 @@ func (receipt *Receipt) Hash() hash.Hash256 {
 	if err != nil {
 		log.L().Panic("Error when serializing a receipt")
 	}
-	return byteutil.BytesTo32B(hash.Hash256b(data))
+	return hash.Hash256b(data)
 }
 
 // ConvertToLogPb converts a Log to protobuf's LogPb

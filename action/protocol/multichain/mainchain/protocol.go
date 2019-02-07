@@ -28,7 +28,7 @@ var (
 	MinSecurityDeposit = big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx))
 	// SubChainsInOperationKey is to find the used chain IDs in the state factory
 	// TODO: this is a not safe way to define the key, as other protocols could collide it
-	SubChainsInOperationKey = byteutil.BytesTo20B(hash.Hash160b([]byte("subChainsInOperation")))
+	SubChainsInOperationKey = hash.Hash160b([]byte("subChainsInOperation"))
 )
 
 // Protocol defines the protocol of handling multi-chain actions on main-chain

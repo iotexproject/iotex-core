@@ -1189,7 +1189,7 @@ func TestService_GetStateRootHash(t *testing.T) {
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	sf := mock_factory.NewMockFactory(ctrl)
 	bc.EXPECT().GetFactory().Return(sf).AnyTimes()
-	rootHash := byteutil.BytesTo32B(hash.Hash256b([]byte("test")))
+	rootHash := hash.Hash256b([]byte("test"))
 	sf.EXPECT().RootHashByHeight(gomock.Any()).Return(rootHash, nil).Times(1)
 
 	defer ctrl.Finish()
