@@ -37,13 +37,6 @@ func BytesTo20B(b []byte) hash.Hash160 {
 	return h
 }
 
-// BytesToCacheHash converts a byte slice to CacheHash
-func BytesToCacheHash(b []byte) hash.CacheHash {
-	var h hash.CacheHash
-	copy(h[:], b)
-	return h
-}
-
 // BytesTo32B converts a byte slice to 32-Byte array
 func BytesTo32B(b []byte) hash.Hash256 {
 	var h hash.Hash256

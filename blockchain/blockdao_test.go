@@ -13,8 +13,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -720,7 +718,7 @@ func TestBlockDao_putReceipts(t *testing.T) {
 	blkDao := newBlockDAO(db.NewMemKVStore(), true)
 	receipts := []*action.Receipt{
 		{
-			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ActHash:         hash.Hash256b([]byte("1")),
 			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
@@ -728,7 +726,7 @@ func TestBlockDao_putReceipts(t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 		{
-			ActHash:         byteutil.BytesTo32B(hash.Hash256b([]byte("1"))),
+			ActHash:         hash.Hash256b([]byte("1")),
 			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,

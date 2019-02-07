@@ -129,7 +129,7 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.Stat
 }
 
 func depositAddress(index uint64) hash.Hash160 {
-	return byteutil.BytesTo20B(hash.Hash160b([]byte(fmt.Sprintf("depositToSubChain.%d", index))))
+	return hash.Hash160b([]byte(fmt.Sprintf("depositToSubChain.%d", index)))
 }
 
 func srcAddressPKHash(srcAddr string) (hash.Hash160, error) {

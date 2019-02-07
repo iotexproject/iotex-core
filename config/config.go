@@ -479,11 +479,11 @@ func ValidateKeyPair(cfg Config) error {
 	// Validate producer pubkey and prikey by signing a dummy message and verify it
 	validationMsg := "connecting the physical world block by block"
 	msgHash := hash.Hash256b([]byte(validationMsg))
-	sig, err := crypto.Sign(msgHash, priKey)
+	sig, err := crypto.Sign(msgHash[:], priKey)
 	if err != nil {
 		return err
 	}
-	if !crypto.VerifySignature(pkBytes, msgHash, sig[:64]) {
+	if !crypto.VerifySignature(pkBytes, msgHash[:], sig[:64]) {
 		return errors.Wrap(ErrInvalidCfg, "block producer has unmatched pubkey and prikey")
 	}
 	return nil
