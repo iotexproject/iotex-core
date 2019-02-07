@@ -35,7 +35,8 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	addrv1 := testaddress.Addrinfo["producer"]
 	s, err := LoadAccount(ws, byteutil.BytesTo20B(addrv1.Bytes()))
 	require.NoError(err)
-	require.Equal(s, state.EmptyAccount)
+	require.Equal(s.Balance, state.EmptyAccount().Balance)
+	require.Equal(s.VotingWeight, state.EmptyAccount().VotingWeight)
 	s, err = LoadOrCreateAccount(ws, addrv1.String(), big.NewInt(5))
 	require.NoError(err)
 	s, err = LoadAccount(ws, byteutil.BytesTo20B(addrv1.Bytes()))
