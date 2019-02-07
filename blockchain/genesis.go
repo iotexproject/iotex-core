@@ -35,7 +35,7 @@ const (
 type Genesis struct {
 	TotalSupply         *big.Int
 	Timestamp           int64
-	ParentHash          hash.Hash32B
+	ParentHash          hash.Hash256
 	GenesisCoinbaseData string
 	CreatorPubKey       string
 	CreatorPrivKey      string
@@ -80,7 +80,7 @@ type SubChain struct {
 var Gen = &Genesis{
 	TotalSupply:         ConvertIotxToRau(10000000000),
 	Timestamp:           1524676419,
-	ParentHash:          hash.Hash32B{},
+	ParentHash:          hash.Hash256{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",
 }
 
@@ -91,7 +91,7 @@ func (g *Genesis) CreatorAddr() string {
 }
 
 // CreatorPKHash returns the creator public key hash
-func (g *Genesis) CreatorPKHash() hash.PKHash {
+func (g *Genesis) CreatorPKHash() hash.Hash160 {
 	pk, _ := decodeKey(g.CreatorPubKey, "")
 	return keypair.HashPubKey(pk)
 }
@@ -188,7 +188,8 @@ func decodeKey(pubK string, priK string) (pk keypair.PublicKey, sk keypair.Priva
 // generateAddr returns the string address according to public key
 func generateAddr(pk keypair.PublicKey) string {
 	pkHash := keypair.HashPubKey(pk)
-	return address.New(pkHash[:]).Bech32()
+	addr, _ := address.FromBytes(pkHash[:])
+	return addr.String()
 }
 
 // loadGenesisData loads data of creator and actions contained in genesis block

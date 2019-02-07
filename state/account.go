@@ -35,7 +35,7 @@ type Account struct {
 	// other actions' nonces start from 1
 	Nonce        uint64
 	Balance      *big.Int
-	Root         hash.Hash32B // storage trie root for contract account
+	Root         hash.Hash256 // storage trie root for contract account
 	CodeHash     []byte       // hash of the smart contract byte-code for contract account
 	IsCandidate  bool
 	VotingWeight *big.Int
@@ -49,7 +49,7 @@ func (st *Account) ToProto() *iproto.AccountPb {
 	if st.Balance != nil {
 		acPb.Balance = st.Balance.Bytes()
 	}
-	acPb.Root = make([]byte, hash.HashSize)
+	acPb.Root = make([]byte, len(st.Root))
 	copy(acPb.Root, st.Root[:])
 	acPb.CodeHash = make([]byte, len(st.CodeHash))
 	copy(acPb.CodeHash, st.CodeHash)

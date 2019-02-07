@@ -56,13 +56,12 @@ func TestSnapshot(t *testing.T) {
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	addr := testaddress.Addrinfo["alfa"].Bech32()
+	addr := testaddress.Addrinfo["alfa"].String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	_, err = account.LoadOrCreateAccount(ws, addr, big.NewInt(5))
 	require.NoError(err)
-	sHash, err := address.Bech32ToPKHash(addr)
-	require.NoError(err)
+	sHash := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
 
 	s, err := account.LoadAccount(ws, sHash)
 	require.NoError(err)
@@ -78,11 +77,11 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(big.NewInt(15), s.Balance)
 	require.NoError(ws.PutState(sHash, s))
 	// add another account
-	addr = testaddress.Addrinfo["bravo"].Bech32()
+	addr = testaddress.Addrinfo["bravo"].String()
 	_, err = account.LoadOrCreateAccount(ws, addr, big.NewInt(7))
 	require.NoError(err)
-	tHash, err := address.Bech32ToPKHash(addr)
-	require.NoError(err)
+	tHash := byteutil.BytesTo20B(testaddress.Addrinfo["bravo"].Bytes())
+
 	s, err = account.LoadAccount(ws, tHash)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
@@ -103,6 +102,7 @@ func TestSnapshot(t *testing.T) {
 	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
 	require.NoError(ws.Revert(s0))
 	require.NoError(ws.State(sHash, s))
+
 	require.Equal(big.NewInt(5), s.Balance)
 	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
 }
@@ -212,17 +212,17 @@ func TestSnapshot(t *testing.T) {
 
 func TestCandidates(t *testing.T) {
 	// Create three dummy iotex addresses
-	a := testaddress.Addrinfo["alfa"].Bech32()
+	a := testaddress.Addrinfo["alfa"].String()
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	b := testaddress.Addrinfo["bravo"].Bech32()
+	b := testaddress.Addrinfo["bravo"].String()
 	priKeyB := testaddress.Keyinfo["bravo"].PriKey
-	c := testaddress.Addrinfo["charlie"].Bech32()
+	c := testaddress.Addrinfo["charlie"].String()
 	priKeyC := testaddress.Keyinfo["charlie"].PriKey
-	d := testaddress.Addrinfo["delta"].Bech32()
+	d := testaddress.Addrinfo["delta"].String()
 	priKeyD := testaddress.Keyinfo["delta"].PriKey
-	e := testaddress.Addrinfo["echo"].Bech32()
+	e := testaddress.Addrinfo["echo"].String()
 	priKeyE := testaddress.Keyinfo["echo"].PriKey
-	f := testaddress.Addrinfo["foxtrot"].Bech32()
+	f := testaddress.Addrinfo["foxtrot"].String()
 	priKeyF := testaddress.Keyinfo["foxtrot"].PriKey
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -275,7 +275,7 @@ func TestCandidates(t *testing.T) {
 	newRoot, _, err := ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2})
 	require.Nil(t, err)
 	root := newRoot
-	require.NotEqual(t, hash.ZeroHash32B, root)
+	require.NotEqual(t, hash.ZeroHash256, root)
 	require.Nil(t, sf.Commit(ws))
 	balanceB, err := sf.Balance(b)
 	require.Nil(t, err)
@@ -899,9 +899,9 @@ func TestCandidates(t *testing.T) {
 
 func TestUnvote(t *testing.T) {
 	// Create three dummy iotex addresses
-	a := testaddress.Addrinfo["alfa"].Bech32()
+	a := testaddress.Addrinfo["alfa"].String()
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	b := testaddress.Addrinfo["bravo"].Bech32()
+	b := testaddress.Addrinfo["bravo"].String()
 	priKeyB := testaddress.Keyinfo["bravo"].PriKey
 
 	testutil.CleanupPath(t, testTriePath)
@@ -1079,7 +1079,7 @@ func TestFactory_RootHashByHeight(t *testing.T) {
 
 	rootHash, err := sf.RootHashByHeight(1)
 	require.NoError(t, err)
-	require.NotEqual(t, hash.ZeroHash32B, rootHash)
+	require.NotEqual(t, hash.ZeroHash256, rootHash)
 }
 
 func compareStrings(actual []string, expected []string) bool {
@@ -1121,12 +1121,12 @@ func BenchmarkDBRunAction(b *testing.B) {
 func benchRunAction(db db.KVStore, b *testing.B) {
 	// set up
 	accounts := []string{
-		testaddress.Addrinfo["alfa"].Bech32(),
-		testaddress.Addrinfo["bravo"].Bech32(),
-		testaddress.Addrinfo["charlie"].Bech32(),
-		testaddress.Addrinfo["delta"].Bech32(),
-		testaddress.Addrinfo["echo"].Bech32(),
-		testaddress.Addrinfo["foxtrot"].Bech32(),
+		testaddress.Addrinfo["alfa"].String(),
+		testaddress.Addrinfo["bravo"].String(),
+		testaddress.Addrinfo["charlie"].String(),
+		testaddress.Addrinfo["delta"].String(),
+		testaddress.Addrinfo["echo"].String(),
+		testaddress.Addrinfo["foxtrot"].String(),
 	}
 	pubKeys := []keypair.PublicKey{
 		testaddress.Keyinfo["alfa"].PubKey,
@@ -1178,11 +1178,11 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 			var chainIDBytes [4]byte
 			enc.MachineEndian.PutUint32(chainIDBytes[:], 1)
 			payload := []byte(randStringRunes(20))
-			receiverAddr, err := address.BytesToAddress(payload)
+			receiverAddr, err := address.FromBytes(payload)
 			if err != nil {
 				b.Fatal(err)
 			}
-			receiver := receiverAddr.Bech32()
+			receiver := receiverAddr.String()
 			nonces[senderIdx] += nonces[senderIdx]
 			tx, err := action.NewTransfer(nonces[senderIdx], big.NewInt(1), accounts[senderIdx], receiver, nil, uint64(0), big.NewInt(0))
 			if err != nil {

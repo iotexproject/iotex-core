@@ -35,7 +35,7 @@ func TestGenesis(t *testing.T) {
 		SetHeight(0).
 		SetTimeStamp(Gen.Timestamp).
 		AddActions(acts...).
-		Build(testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PubKey)
+		Build(testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PubKey)
 
 	genesisBlk, err := block.NewBuilder(racts).
 		SetChainID(cfg.Chain.ID).
@@ -54,7 +54,7 @@ func TestGenesis(t *testing.T) {
 	assert.Equal(cfg.Chain.ID, genesisBlk.ChainID())
 	assert.Equal(uint64(0), genesisBlk.Height())
 	assert.Equal(int64(1524676419), genesisBlk.Timestamp())
-	assert.Equal(hash.ZeroHash32B, genesisBlk.PrevHash())
+	assert.Equal(hash.ZeroHash256, genesisBlk.PrevHash())
 	genesisHash, _ := hex.DecodeString("dc1190b5b57329584af76a98558c3fcd3b21c0e74134c350d94fba1222c6e7de")
 	h := genesisBlk.HashBlock()
 	assert.Equal(genesisHash, h[:])

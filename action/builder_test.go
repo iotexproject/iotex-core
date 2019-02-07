@@ -23,18 +23,18 @@ func TestActionBuilder(t *testing.T) {
 	bd := &Builder{}
 	act := bd.SetVersion(version.ProtocolVersion).
 		SetNonce(2).
-		SetSourceAddress(srcAddr.Bech32()).
+		SetSourceAddress(srcAddr.String()).
 		SetSourcePublicKey(srcPubKey).
-		SetDestinationAddress(dstAddr.Bech32()).
+		SetDestinationAddress(dstAddr.String()).
 		SetGasLimit(10003).
 		SetGasPrice(big.NewInt(10004)).
 		Build()
 
 	assert.Equal(t, uint32(version.ProtocolVersion), act.Version())
 	assert.Equal(t, uint64(2), act.Nonce())
-	assert.Equal(t, srcAddr.Bech32(), act.SrcAddr())
+	assert.Equal(t, srcAddr.String(), act.SrcAddr())
 	assert.Equal(t, srcPubKey, act.SrcPubkey())
-	assert.Equal(t, dstAddr.Bech32(), act.DstAddr())
+	assert.Equal(t, dstAddr.String(), act.DstAddr())
 	assert.Equal(t, uint64(10003), act.GasLimit())
 	assert.Equal(t, big.NewInt(10004), act.GasPrice())
 }

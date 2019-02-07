@@ -43,7 +43,7 @@ type ChainManager interface {
 	// GetChainID returns the chain ID
 	ChainID() uint32
 	// GetHashByHeight returns Block's hash by height
-	GetHashByHeight(height uint64) (hash.Hash32B, error)
+	GetHashByHeight(height uint64) (hash.Hash256, error)
 	// StateByAddr returns account of a given address
 	StateByAddr(address string) (*state.Account, error)
 	// Nonce returns the nonce if the account exists
@@ -57,9 +57,9 @@ type StateManager interface {
 	Snapshot() int
 	Revert(int) error
 	// General state
-	State(hash.PKHash, interface{}) error
-	PutState(hash.PKHash, interface{}) error
-	DelState(pkHash hash.PKHash) error
+	State(hash.Hash160, interface{}) error
+	PutState(hash.Hash160, interface{}) error
+	DelState(pkHash hash.Hash160) error
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch
 }

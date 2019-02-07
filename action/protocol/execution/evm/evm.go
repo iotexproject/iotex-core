@@ -66,21 +66,21 @@ func NewParams(blkHeight uint64, producerAddr address.Address, blkTimeStamp int6
 			beneficiary = *author
 		}
 	*/
-	executor, err := address.Bech32ToAddress(execution.Executor())
+	executor, err := address.FromString(execution.Executor())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert encoded executor address to address")
 	}
-	executorAddr := common.BytesToAddress(executor.Payload())
+	executorAddr := common.BytesToAddress(executor.Bytes())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
-		contract, err := address.Bech32ToAddress(execution.Contract())
+		contract, err := address.FromString(execution.Contract())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert encoded contract address to address")
 		}
-		contractAddr := common.BytesToAddress(contract.Payload())
+		contractAddr := common.BytesToAddress(contract.Bytes())
 		contractAddrPointer = &contractAddr
 	}
-	producer := common.BytesToAddress(producerAddr.Payload())
+	producer := common.BytesToAddress(producerAddr.Bytes())
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
@@ -139,7 +139,7 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 // ExecuteContract processes a transfer which contains a contract
 func ExecuteContract(
 	blkHeight uint64,
-	blkHash hash.Hash32B,
+	blkHash hash.Hash256,
 	producer address.Address,
 	blkTimeStamp int64,
 	sm protocol.StateManager,
@@ -223,8 +223,11 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-		contractAddress := address.New(evmContractAddress.Bytes())
-		contractRawAddress = contractAddress.Bech32()
+		contractAddress, err := address.FromBytes(evmContractAddress.Bytes())
+		if err != nil {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
+		}
+		contractRawAddress = contractAddress.String()
 	} else {
 		stateDB.SetNonce(evmParams.context.Origin, stateDB.GetNonce(evmParams.context.Origin)+1)
 		// process contract

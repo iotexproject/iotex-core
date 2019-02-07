@@ -6,13 +6,14 @@ package mock_chainmanager
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	db "github.com/iotexproject/iotex-core/db"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
-	reflect "reflect"
 )
 
 // MockProtocol is a mock of Protocol interface
@@ -205,9 +206,9 @@ func (mr *MockChainManagerMockRecorder) ChainID() *gomock.Call {
 }
 
 // GetHashByHeight mocks base method
-func (m *MockChainManager) GetHashByHeight(height uint64) (hash.Hash32B, error) {
+func (m *MockChainManager) GetHashByHeight(height uint64) (hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetHashByHeight", height)
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -303,7 +304,7 @@ func (mr *MockStateManagerMockRecorder) Revert(arg0 interface{}) *gomock.Call {
 }
 
 // State mocks base method
-func (m *MockStateManager) State(arg0 hash.PKHash, arg1 interface{}) error {
+func (m *MockStateManager) State(arg0 hash.Hash160, arg1 interface{}) error {
 	ret := m.ctrl.Call(m, "State", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -315,7 +316,7 @@ func (mr *MockStateManagerMockRecorder) State(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // PutState mocks base method
-func (m *MockStateManager) PutState(arg0 hash.PKHash, arg1 interface{}) error {
+func (m *MockStateManager) PutState(arg0 hash.Hash160, arg1 interface{}) error {
 	ret := m.ctrl.Call(m, "PutState", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -327,7 +328,7 @@ func (mr *MockStateManagerMockRecorder) PutState(arg0, arg1 interface{}) *gomock
 }
 
 // DelState mocks base method
-func (m *MockStateManager) DelState(pkHash hash.PKHash) error {
+func (m *MockStateManager) DelState(pkHash hash.Hash160) error {
 	ret := m.ctrl.Call(m, "DelState", pkHash)
 	ret0, _ := ret[0].(error)
 	return ret0

@@ -36,7 +36,7 @@ func TestHandleStopSubChain(t *testing.T) {
 	ws := mock_factory.NewMockWorkingSet(ctrl)
 	ws.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).Times(6)
 	ws.EXPECT().State(gomock.Any(), gomock.Any()).
-		Do(func(_ hash.PKHash, s interface{}) error {
+		Do(func(_ hash.Hash160, s interface{}) error {
 			out := &state.Account{Nonce: 2, Balance: big.NewInt(400000000)}
 			data, err := state.Serialize(out)
 			if err != nil {
@@ -45,7 +45,7 @@ func TestHandleStopSubChain(t *testing.T) {
 			return state.Deserialize(s, data)
 		}).Times(2)
 	ws.EXPECT().State(gomock.Any(), gomock.Any()).
-		Do(func(_ hash.PKHash, s interface{}) error {
+		Do(func(_ hash.Hash160, s interface{}) error {
 			out := SubChainsInOperation{InOperation{ID: uint32(2)}}
 			data, err := state.Serialize(out)
 			if err != nil {
@@ -54,7 +54,7 @@ func TestHandleStopSubChain(t *testing.T) {
 			return state.Deserialize(s, data)
 		}).Times(1)
 	ws.EXPECT().State(gomock.Any(), gomock.Any()).
-		Do(func(_ hash.PKHash, s interface{}) error {
+		Do(func(_ hash.Hash160, s interface{}) error {
 			out := &state.Account{Nonce: 2, Balance: big.NewInt(400000000)}
 			data, err := state.Serialize(out)
 			if err != nil {
@@ -63,7 +63,7 @@ func TestHandleStopSubChain(t *testing.T) {
 			return state.Deserialize(s, data)
 		}).Times(1)
 	ws.EXPECT().Height().Return(uint64(2)).Times(5)
-	subChainPKHash, err := createSubChainAddress(sender.Bech32(), 2)
+	subChainPKHash, err := createSubChainAddress(sender.String(), 2)
 	require.NoError(err)
 	subChain := &SubChain{
 		ChainID:            2,
@@ -77,20 +77,21 @@ func TestHandleStopSubChain(t *testing.T) {
 	}
 	factory.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Do(func(_ hash.PKHash, s interface{}) error {
+		Do(func(_ hash.Hash160, s interface{}) error {
 			data, err := state.Serialize(subChain)
 			if err != nil {
 				return err
 			}
 			return state.Deserialize(s, data)
 		}).Times(3)
-	subChainAddr := address.New(subChainPKHash[:])
+	subChainAddr, err := address.FromBytes(subChainPKHash[:])
+	require.NoError(err)
 
 	p := NewProtocol(chain)
 	stop := action.NewStopSubChain(
-		testaddress.Addrinfo["alfa"].Bech32(),
+		testaddress.Addrinfo["alfa"].String(),
 		uint64(5),
-		subChainAddr.Bech32(),
+		subChainAddr.String(),
 		uint64(10),
 		uint64(100000),
 		big.NewInt(0),
@@ -98,9 +99,9 @@ func TestHandleStopSubChain(t *testing.T) {
 	// wrong owner
 	require.Error(p.handleStopSubChain(stop, ws))
 	stop = action.NewStopSubChain(
-		sender.Bech32(),
+		sender.String(),
 		uint64(5),
-		subChainAddr.Bech32(),
+		subChainAddr.String(),
 		uint64(1),
 		uint64(100000),
 		big.NewInt(0),
@@ -108,9 +109,9 @@ func TestHandleStopSubChain(t *testing.T) {
 	// wrong stop height
 	require.Error(p.handleStopSubChain(stop, ws))
 	stop = action.NewStopSubChain(
-		sender.Bech32(),
+		sender.String(),
 		uint64(5),
-		subChainAddr.Bech32(),
+		subChainAddr.String(),
 		uint64(10),
 		uint64(100000),
 		big.NewInt(0),

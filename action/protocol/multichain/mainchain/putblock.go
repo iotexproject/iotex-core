@@ -29,10 +29,11 @@ func (p *Protocol) handlePutBlock(pb *action.PutBlock, sm protocol.StateManager)
 		return err
 	}
 	// Update the block producer's nonce
-	addrHash, err := address.Bech32ToPKHash(pb.ProducerAddress())
+	addr, err := address.FromString(pb.ProducerAddress())
 	if err != nil {
 		return err
 	}
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
 	acct, err := account.LoadAccount(sm, addrHash)
 	if err != nil {
 		return err
@@ -60,7 +61,7 @@ func (p *Protocol) getBlockProof(addr string, height uint64) (BlockProof, bool) 
 	return bp, true
 }
 
-func blockProofKey(addr string, height uint64) hash.PKHash {
+func blockProofKey(addr string, height uint64) hash.Hash160 {
 	stream := []byte{}
 	stream = append(stream, addr...)
 	temp := make([]byte, 8)

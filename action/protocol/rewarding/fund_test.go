@@ -38,7 +38,7 @@ func TestProtocol_Fund(t *testing.T) {
 		availableBalance, err := p.AvailableBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), availableBalance)
-		acc, err := account.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Caller.Payload()))
+		acc, err := account.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 

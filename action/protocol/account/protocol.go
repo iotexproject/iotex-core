@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -53,10 +54,11 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 
 // LoadOrCreateAccount either loads an account state or creates an account state
 func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) (*state.Account, error) {
-	addrHash, err := address.Bech32ToPKHash(encodedAddr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
 	account, err := LoadAccount(sm, addrHash)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get account of %x from account trie", addrHash)
@@ -74,7 +76,7 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big
 }
 
 // LoadAccount loads an account state
-func LoadAccount(sm protocol.StateManager, addrHash hash.PKHash) (*state.Account, error) {
+func LoadAccount(sm protocol.StateManager, addrHash hash.Hash160) (*state.Account, error) {
 	var s state.Account
 	if err := sm.State(addrHash, &s); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
@@ -87,9 +89,10 @@ func LoadAccount(sm protocol.StateManager, addrHash hash.PKHash) (*state.Account
 
 // StoreAccount puts updated account state to trie
 func StoreAccount(sm protocol.StateManager, encodedAddr string, acct *state.Account) error {
-	addrHash, err := address.Bech32ToPKHash(encodedAddr)
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
 	return sm.PutState(addrHash, acct)
 }

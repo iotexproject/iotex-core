@@ -19,3 +19,11 @@ message AccountPb {
     bytes votingWeight  = 6;
     string votee = 7;
 }
+
+// Account Metadata
+message AccountMeta {
+    string address = 1;
+    string balance = 2;
+    uint64 nonce = 3;
+    uint64 pendingNonce = 4;
+}

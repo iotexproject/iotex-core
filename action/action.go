@@ -110,7 +110,7 @@ func (act *Envelope) ByteStream() []byte {
 }
 
 // Hash returns the hash value of SealedEnvelope.
-func (sealed *SealedEnvelope) Hash() hash.Hash32B {
+func (sealed *SealedEnvelope) Hash() hash.Hash256 {
 	stream := sealed.Envelope.ByteStream()
 	stream = append(stream, sealed.srcAddr...)
 	stream = append(stream, keypair.PublicKeyToBytes(sealed.srcPubkey)...)

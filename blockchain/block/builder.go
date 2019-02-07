@@ -47,19 +47,19 @@ func (b *Builder) SetChainID(c uint32) *Builder {
 }
 
 // SetPrevBlockHash sets the previous block hash for block which is building.
-func (b *Builder) SetPrevBlockHash(h hash.Hash32B) *Builder {
+func (b *Builder) SetPrevBlockHash(h hash.Hash256) *Builder {
 	b.blk.Header.prevBlockHash = h
 	return b
 }
 
 // SetStateRoot sets the new state root after running actions included in this building block.
-func (b *Builder) SetStateRoot(h hash.Hash32B) *Builder {
+func (b *Builder) SetStateRoot(h hash.Hash256) *Builder {
 	b.blk.Header.stateRoot = h
 	return b
 }
 
 // SetDeltaStateDigest sets the new delta state digest after running actions included in this building block
-func (b *Builder) SetDeltaStateDigest(h hash.Hash32B) *Builder {
+func (b *Builder) SetDeltaStateDigest(h hash.Hash256) *Builder {
 	b.blk.Header.deltaStateDigest = h
 	return b
 }
@@ -71,7 +71,7 @@ func (b *Builder) SetReceipts(receipts []*action.Receipt) *Builder {
 }
 
 // SetReceiptRoot sets the receipt root after running actions included in this building block.
-func (b *Builder) SetReceiptRoot(h hash.Hash32B) *Builder {
+func (b *Builder) SetReceiptRoot(h hash.Hash256) *Builder {
 	b.blk.Header.receiptRoot = h
 	return b
 }

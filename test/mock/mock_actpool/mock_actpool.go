@@ -5,11 +5,12 @@
 package mock_actpool
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
-	reflect "reflect"
 )
 
 // MockActPool is a mock of ActPool interface
@@ -107,7 +108,7 @@ func (mr *MockActPoolMockRecorder) GetUnconfirmedActs(addr interface{}) *gomock.
 }
 
 // GetActionByHash mocks base method
-func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (action.SealedEnvelope, error) {
+func (m *MockActPool) GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error) {
 	ret := m.ctrl.Call(m, "GetActionByHash", hash)
 	ret0, _ := ret[0].(action.SealedEnvelope)
 	ret1, _ := ret[1].(error)

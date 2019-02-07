@@ -40,9 +40,9 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCt
 
 	if raCtx.EnableGasCharge {
 		// Load or create account for producer
-		producer, err := LoadOrCreateAccount(sm, raCtx.Producer.Bech32(), big.NewInt(0))
+		producer, err := LoadOrCreateAccount(sm, raCtx.Producer.String(), big.NewInt(0))
 		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the account of block producer %s", raCtx.Producer.Bech32())
+			return errors.Wrapf(err, "failed to load or create the account of block producer %s", raCtx.Producer.String())
 		}
 		gas, err := tsf.IntrinsicGas()
 		if err != nil {
@@ -66,7 +66,7 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCt
 			return errors.Wrapf(err, "failed to compensate gas to producer")
 		}
 		// Put updated producer's state to trie
-		if err := StoreAccount(sm, raCtx.Producer.Bech32(), producer); err != nil {
+		if err := StoreAccount(sm, raCtx.Producer.String(), producer); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		*raCtx.GasLimit -= gas
@@ -153,7 +153,7 @@ func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) erro
 		return errors.Wrap(action.ErrBalance, "negative value")
 	}
 	// check if recipient's address is valid
-	if _, err := address.Bech32ToAddress(tsf.Recipient()); err != nil {
+	if _, err := address.FromString(tsf.Recipient()); err != nil {
 		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
 	}
 	return nil

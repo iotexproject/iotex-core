@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	addr1   = testaddress.Addrinfo["producer"].Bech32()
+	addr1   = testaddress.Addrinfo["producer"].String()
 	priKey1 = testaddress.Keyinfo["producer"].PriKey
-	addr2   = testaddress.Addrinfo["alfa"].Bech32()
+	addr2   = testaddress.Addrinfo["alfa"].String()
 )
 
 func TestSignedTransfer(t *testing.T) {

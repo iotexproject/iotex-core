@@ -44,7 +44,7 @@ func (a *admin) Deserialize(data []byte) error {
 		return err
 	}
 	var err error
-	if a.admin, err = address.BytesToAddress(gen.Admin); err != nil {
+	if a.admin, err = address.FromBytes(gen.Admin); err != nil {
 		return err
 	}
 	a.BlockReward = big.NewInt(0).SetBytes(gen.BlockReward)
@@ -187,7 +187,7 @@ func (p *Protocol) assertAdminPermission(raCtx protocol.RunActionsCtx, sm protoc
 	if bytes.Equal(a.admin.Bytes(), raCtx.Caller.Bytes()) {
 		return nil
 	}
-	return errors.Errorf("%s is not the rewarding protocol admin", raCtx.Caller.Bech32())
+	return errors.Errorf("%s is not the rewarding protocol admin", raCtx.Caller.String())
 }
 
 func (p *Protocol) setReward(

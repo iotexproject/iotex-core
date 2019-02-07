@@ -25,29 +25,25 @@ func TestAddress(t *testing.T) {
 
 		pkHash := keypair.HashPubKey(&sk.PublicKey)
 
-		assertAddr := func(t *testing.T, addr *AddrV1) {
-			assert.Equal(t, pkHash[:], addr.Payload())
-			assert.Equal(t, pkHash, addr.PublicKeyHash())
-		}
+		addr1, err := _v1.FromBytes(pkHash[:])
+		require.NoError(t, err)
+		assert.Equal(t, pkHash[:], addr1.Bytes())
 
-		addr1 := V1.New(pkHash)
-		assertAddr(t, addr1)
-
-		encodedAddr := addr1.Bech32()
+		encodedAddr := addr1.String()
 		if isTestNet {
 			require.True(t, strings.HasPrefix(encodedAddr, TestnetPrefix))
 		} else {
 			require.True(t, strings.HasPrefix(encodedAddr, MainnetPrefix))
 		}
-		addr2, err := V1.Bech32ToAddress(encodedAddr)
+		addr2, err := _v1.FromString(encodedAddr)
 		require.NoError(t, err)
-		assertAddr(t, addr2)
+		assert.Equal(t, pkHash[:], addr2.Bytes())
 
 		addrBytes := addr1.Bytes()
-		require.Equal(t, V1.AddressLength, len(addrBytes))
-		addr3, err := V1.BytesToAddress(addrBytes)
+		require.Equal(t, _v1.AddressLength, len(addrBytes))
+		addr3, err := _v1.FromBytes(addrBytes)
 		require.NoError(t, err)
-		assertAddr(t, addr3)
+		assert.Equal(t, pkHash[:], addr3.Bytes())
 	}
 	t.Run("testnet", func(t *testing.T) {
 		require.NoError(t, os.Setenv("IOTEX_NETWORK_TYPE", "testnet"))
@@ -66,13 +62,13 @@ func TestAddressError(t *testing.T) {
 	require.NoError(t, err)
 
 	pkHash := keypair.HashPubKey(&sk.PublicKey)
-	addr1 := V1.New(pkHash)
+	addr1, err := _v1.FromBytes(pkHash[:])
 	require.NoError(t, err)
 
-	encodedAddr := addr1.Bech32()
+	encodedAddr := addr1.String()
 	encodedAddrBytes := []byte(encodedAddr)
 	encodedAddrBytes[len(encodedAddrBytes)-1] = 'o'
-	addr2, err := V1.Bech32ToAddress(string(encodedAddrBytes))
+	addr2, err := _v1.FromString(string(encodedAddrBytes))
 	assert.Nil(t, addr2)
 	assert.Error(t, err)
 }
