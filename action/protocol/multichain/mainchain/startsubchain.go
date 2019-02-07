@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -104,5 +103,5 @@ func createSubChainAddress(ownerAddr string, nonce uint64) (hash.Hash160, error)
 	}
 	bytes := make([]byte, 8)
 	enc.MachineEndian.PutUint64(bytes, nonce)
-	return byteutil.BytesTo20B(hash.Hash160b(append(addr.Bytes(), bytes...))), nil
+	return hash.Hash160b(append(addr.Bytes(), bytes...)), nil
 }
