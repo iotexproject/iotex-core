@@ -55,15 +55,15 @@ const (
 	// NOOPScheme means that the node does not create only block
 	NOOPScheme = "NOOP"
 	// IndexTransfer is table identifier for transfer index in indexer
-	IndexTransfer  = "transfer"
+	IndexTransfer = "transfer"
 	// IndexVote is table identifier for vote index in indexer
-	IndexVote      = "vote"
+	IndexVote = "vote"
 	// IndexExecution is table identifier for execution index in indexer
 	IndexExecution = "execution"
 	// IndexAction is table identifier for action index in indexer
-	IndexAction    = "action"
+	IndexAction = "action"
 	// IndexReceipt is table identifier for receipt index in indexer
-	IndexReceipt   = "receipt"
+	IndexReceipt = "receipt"
 )
 
 var (
