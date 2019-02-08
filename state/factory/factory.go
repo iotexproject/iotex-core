@@ -335,6 +335,7 @@ func (sf *factory) state(addr hash.Hash160, s interface{}) error {
 }
 
 func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
+	// TODO: state db shouldn't serve this function
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
@@ -343,7 +344,8 @@ func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
 	var account state.Account
 	if err := sf.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
-			return state.EmptyAccount, nil
+			account = state.EmptyAccount()
+			return &account, nil
 		}
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}

@@ -21,12 +21,6 @@ var (
 	ErrNotEnoughBalance = errors.New("not enough balance")
 	// ErrAccountCollision is the error that the account already exists
 	ErrAccountCollision = errors.New("account already exists")
-	// EmptyAccount indicates an empty account
-	// This is a read-only variable for comparison purpose. Caller should not modify it.
-	EmptyAccount = &Account{
-		Balance:      big.NewInt(0),
-		VotingWeight: big.NewInt(0),
-	}
 )
 
 // Account is the canonical representation of an account.
@@ -126,4 +120,12 @@ func (st *Account) Clone() *Account {
 		copy(s.CodeHash, st.CodeHash)
 	}
 	return &s
+}
+
+// EmptyAccount returns an empty account
+func EmptyAccount() Account {
+	return Account{
+		Balance:      big.NewInt(0),
+		VotingWeight: big.NewInt(0),
+	}
 }
