@@ -37,7 +37,7 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.Error(Verify(w))
 
 	// sign the Execution
-	selp, err := Sign(elp, executorAddr.String(), executorKey.PriKey)
+	selp, err := Sign(elp, executorKey.PriKey)
 	require.NoError(err)
 	require.NotNil(selp)
 

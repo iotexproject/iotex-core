@@ -25,8 +25,7 @@ var (
 
 func TestSignedTransfer(t *testing.T) {
 	require := require.New(t)
-	selp, err := SignedTransfer(addr1, addr2, priKey1, uint64(1), big.NewInt(2),
-		[]byte{}, uint64(100000), big.NewInt(10))
+	selp, err := SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(2), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	tsf := selp.Action().(*action.Transfer)
@@ -41,7 +40,7 @@ func TestSignedTransfer(t *testing.T) {
 
 func TestSignedVote(t *testing.T) {
 	require := require.New(t)
-	selp, err := SignedVote(addr1, addr1, priKey1, uint64(1), uint64(100000), big.NewInt(10))
+	selp, err := SignedVote(addr1, priKey1, uint64(1), uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	vote := selp.Action().(*action.Vote)
@@ -54,8 +53,7 @@ func TestSignedVote(t *testing.T) {
 
 func TestSignedExecution(t *testing.T) {
 	require := require.New(t)
-	selp, err := SignedExecution(addr1, action.EmptyAddress, priKey1, uint64(1), big.NewInt(0),
-		uint64(100000), big.NewInt(10), []byte{})
+	selp, err := SignedExecution(action.EmptyAddress, priKey1, uint64(1), big.NewInt(0), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(err)
 
 	exec := selp.Action().(*action.Execution)

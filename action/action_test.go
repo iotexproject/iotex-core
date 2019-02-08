@@ -29,7 +29,7 @@ func TestActionProto(t *testing.T) {
 		SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 
-	selp, err := Sign(elp, testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey)
+	selp, err := Sign(elp, testaddress.Keyinfo["alfa"].PriKey)
 	require.NoError(err)
 
 	require.NoError(Verify(selp))

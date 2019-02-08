@@ -33,7 +33,7 @@ func TestActionIterator(t *testing.T) {
 		SetGasPrice(big.NewInt(13)).
 		SetAction(vote1).
 		SetDestinationAddress(b.String()).Build()
-	selp1, err := action.Sign(elp, a.String(), priKeyA)
+	selp1, err := action.Sign(elp, priKeyA)
 	require.Nil(err)
 
 	vote2, err := action.NewVote(2, "2", 0, big.NewInt(30))
@@ -43,7 +43,7 @@ func TestActionIterator(t *testing.T) {
 		SetGasPrice(big.NewInt(30)).
 		SetAction(vote2).
 		SetDestinationAddress(b.String()).Build()
-	selp2, err := action.Sign(elp, a.String(), priKeyA)
+	selp2, err := action.Sign(elp, priKeyA)
 	require.Nil(err)
 
 	accMap[a.String()] = []action.SealedEnvelope{selp1, selp2}
@@ -55,7 +55,7 @@ func TestActionIterator(t *testing.T) {
 		SetGasPrice(big.NewInt(15)).
 		SetAction(tsf1).
 		SetDestinationAddress(c.String()).Build()
-	selp3, err := action.Sign(elp, b.String(), priKeyB)
+	selp3, err := action.Sign(elp, priKeyB)
 	require.Nil(err)
 
 	tsf2, err := action.NewTransfer(uint64(2), big.NewInt(100), "3", nil, uint64(0), big.NewInt(10))
@@ -65,7 +65,7 @@ func TestActionIterator(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf2).
 		SetDestinationAddress(c.String()).Build()
-	selp4, err := action.Sign(elp, b.String(), priKeyB)
+	selp4, err := action.Sign(elp, priKeyB)
 	require.Nil(err)
 
 	vote3, err := action.NewVote(3, "3", 0, big.NewInt(20))
@@ -75,7 +75,7 @@ func TestActionIterator(t *testing.T) {
 		SetGasPrice(big.NewInt(20)).
 		SetAction(vote3).
 		SetDestinationAddress(c.String()).Build()
-	selp5, err := action.Sign(elp, b.String(), priKeyB)
+	selp5, err := action.Sign(elp, priKeyB)
 	require.Nil(err)
 
 	accMap[b.String()] = []action.SealedEnvelope{selp3, selp4, selp5}
@@ -87,7 +87,7 @@ func TestActionIterator(t *testing.T) {
 		SetGasPrice(big.NewInt(5)).
 		SetAction(tsf3).
 		SetDestinationAddress(a.String()).Build()
-	selp6, err := action.Sign(elp, c.String(), priKeyC)
+	selp6, err := action.Sign(elp, priKeyC)
 	require.Nil(err)
 
 	accMap[c.String()] = []action.SealedEnvelope{selp6}

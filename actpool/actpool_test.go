@@ -65,14 +65,14 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	validator := ap.actionEnvelopeValidators[0]
 	// Case I: Over-gassed transfer
-	tsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, 1, big.NewInt(1), nil, genesis.ActionGasLimit+1, big.NewInt(0))
+	tsf, err := testutil.SignedTransfer(addr1, priKey1, 1, big.NewInt(1), nil, genesis.ActionGasLimit+1, big.NewInt(0))
 	require.NoError(err)
 
 	ctx := protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{})
 	err = validator.Validate(ctx, tsf)
 	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
 	// Case II: Insufficient gas
-	tsf, err = testutil.SignedTransfer(addr1, addr1, priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
+	tsf, err = testutil.SignedTransfer(addr1, priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
 	require.NoError(err)
 	err = validator.Validate(ctx, tsf)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
@@ -85,12 +85,11 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		SetAction(unsignedTsf).
 		SetGasLimit(100000).
 		SetDestinationAddress(addr1).Build()
-	selp := action.FakeSeal(elp, addr1, pubKey1)
+	selp := action.FakeSeal(elp, pubKey1)
 	err = validator.Validate(ctx, selp)
 	require.True(strings.Contains(err.Error(), "incorrect length of signature"))
 	// Case IV: Nonce is too low
-	prevTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(50),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	prevTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(prevTsf)
 	require.NoError(err)
@@ -109,8 +108,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
-	nTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(60),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	nTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	ctx = protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{
 		Caller: testaddress.Addrinfo["alfa"],
@@ -139,28 +137,21 @@ func TestActPool_AddActs(t *testing.T) {
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(5), big.NewInt(50),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf5, err := testutil.SignedTransfer(addr1, priKey1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf6, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(1), big.NewInt(5),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf6, err := testutil.SignedTransfer(addr2, priKey2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf7, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(3), big.NewInt(1),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf7, err := testutil.SignedTransfer(addr2, priKey2, uint64(3), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf8, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(4), big.NewInt(5),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf8, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap.Add(tsf1)
@@ -190,8 +181,7 @@ func TestActPool_AddActs(t *testing.T) {
 	pNonce2, _ := ap.getPendingNonce(addr2)
 	require.Equal(uint64(2), pNonce2)
 
-	tsf9, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(2), big.NewInt(3),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf9, err := testutil.SignedTransfer(addr2, priKey2, uint64(2), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(tsf9)
 	require.NoError(err)
@@ -212,7 +202,7 @@ func TestActPool_AddActs(t *testing.T) {
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	for i := uint64(0); i < ap2.cfg.MaxNumActsPerPool; i++ {
-		nTsf, err := testutil.SignedTransfer(addr1, addr2, priKey2, i, big.NewInt(50), nil, uint64(0), big.NewInt(0))
+		nTsf, err := testutil.SignedTransfer(addr2, priKey2, i, big.NewInt(50), nil, uint64(0), big.NewInt(0))
 		require.NoError(err)
 
 		ap2.allActions[nTsf.Hash()] = nTsf
@@ -222,8 +212,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap2.Add(vote4)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	// Case III: Nonce already exists
-	replaceTsf, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(1), big.NewInt(1),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	replaceTsf, err := testutil.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(replaceTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
@@ -235,21 +224,19 @@ func TestActPool_AddActs(t *testing.T) {
 		SetAction(replaceVote).
 		SetGasLimit(100000).
 		SetDestinationAddress("").Build()
-	selp, err := action.Sign(elp, addr1, priKey1)
+	selp, err := action.Sign(elp, priKey1)
 
 	require.NoError(err)
 
 	err = ap.Add(selp)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 	// Case IV: Nonce is too large
-	outOfBoundsTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	outOfBoundsTsf, err := testutil.SignedTransfer(addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(outOfBoundsTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 	// Case V: Insufficient balance
-	overBalTsf, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(4), big.NewInt(20),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	overBalTsf, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(overBalTsf)
 	require.Equal(action.ErrBalance, errors.Cause(err))
@@ -270,7 +257,7 @@ func TestActPool_AddActs(t *testing.T) {
 		SetGasLimit(genesis.ActionGasLimit + 1).
 		SetAction(creationExecution).
 		SetDestinationAddress(action.EmptyAddress).Build()
-	selp, err = action.Sign(elp, addr1, priKey1)
+	selp, err = action.Sign(elp, priKey1)
 	require.NoError(err)
 
 	err = ap.Add(selp)
@@ -293,7 +280,7 @@ func TestActPool_AddActs(t *testing.T) {
 		SetGasLimit(10).
 		SetAction(creationExecution).
 		SetDestinationAddress(action.EmptyAddress).Build()
-	selp, err = action.Sign(elp, addr1, priKey1)
+	selp, err = action.Sign(elp, priKey1)
 	require.NoError(err)
 
 	err = ap.Add(selp)
@@ -317,33 +304,25 @@ func TestActPool_PickActs(t *testing.T) {
 		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-		tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
-			[]byte{}, uint64(100000), big.NewInt(0))
+		tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
-			[]byte{}, uint64(100000), big.NewInt(0))
+		tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
-			[]byte{}, uint64(100000), big.NewInt(0))
+		tsf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf4, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(4), big.NewInt(40),
-			[]byte{}, uint64(100000), big.NewInt(0))
+		tsf4, err := testutil.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(40), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf5, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(5), big.NewInt(50),
-			[]byte{}, uint64(100000), big.NewInt(0))
+		tsf5, err := testutil.SignedTransfer(addr1, priKey1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		vote6, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(6), uint64(100000), big.NewInt(0))
+		vote6, err := testutil.SignedVote(addr1, priKey1, uint64(6), uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		vote7, err := testutil.SignedVote(addr2, addr2, priKey2, uint64(1), uint64(100000), big.NewInt(0))
+		vote7, err := testutil.SignedVote(addr2, priKey2, uint64(1), uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf8, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(3), big.NewInt(5),
-			[]byte{}, uint64(100000), big.NewInt(0))
+		tsf8, err := testutil.SignedTransfer(addr2, priKey2, uint64(3), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf9, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(4), big.NewInt(1),
-			[]byte{}, uint64(100000), big.NewInt(0))
+		tsf9, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
-		tsf10, err := testutil.SignedTransfer(addr2, addr2, priKey2, uint64(5), big.NewInt(5),
-			[]byte{}, uint64(100000), big.NewInt(0))
+		tsf10, err := testutil.SignedTransfer(addr2, priKey2, uint64(5), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 
 		err = ap.Add(tsf1)
@@ -407,16 +386,13 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap.Add(tsf1)
@@ -479,32 +455,23 @@ func TestActPool_Reset(t *testing.T) {
 		execution.NewProtocol(bc))
 
 	// Tsfs to be added to ap1
-	tsf1, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(1), big.NewInt(50),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr3, priKey1, uint64(2), big.NewInt(30),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf2, err := testutil.SignedTransfer(addr3, priKey1, uint64(2), big.NewInt(30), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(3), big.NewInt(60),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr2, priKey1, uint64(3), big.NewInt(60), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf4, err := testutil.SignedTransfer(addr2, addr1, priKey2, uint64(1), big.NewInt(100),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf4, err := testutil.SignedTransfer(addr1, priKey2, uint64(1), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := testutil.SignedTransfer(addr2, addr3, priKey2, uint64(2), big.NewInt(50),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf5, err := testutil.SignedTransfer(addr3, priKey2, uint64(2), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf6, err := testutil.SignedTransfer(addr2, addr1, priKey2, uint64(3), big.NewInt(60),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf6, err := testutil.SignedTransfer(addr1, priKey2, uint64(3), big.NewInt(60), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf7, err := testutil.SignedTransfer(addr3, addr1, priKey3, uint64(1), big.NewInt(100),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf7, err := testutil.SignedTransfer(addr1, priKey3, uint64(1), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf8, err := testutil.SignedTransfer(addr3, addr2, priKey3, uint64(2), big.NewInt(100),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf8, err := testutil.SignedTransfer(addr2, priKey3, uint64(2), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf9, err := testutil.SignedTransfer(addr3, addr1, priKey3, uint64(4), big.NewInt(100),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf9, err := testutil.SignedTransfer(addr1, priKey3, uint64(4), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap1.Add(tsf1)
@@ -526,20 +493,15 @@ func TestActPool_Reset(t *testing.T) {
 	err = ap1.Add(tsf9)
 	require.NoError(err)
 	// Tsfs to be added to ap2 only
-	tsf10, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(3), big.NewInt(20),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf10, err := testutil.SignedTransfer(addr2, priKey1, uint64(3), big.NewInt(20), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf11, err := testutil.SignedTransfer(addr1, addr3, priKey1, uint64(4), big.NewInt(10),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf11, err := testutil.SignedTransfer(addr3, priKey1, uint64(4), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf12, err := testutil.SignedTransfer(addr2, addr3, priKey2, uint64(2), big.NewInt(70),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf12, err := testutil.SignedTransfer(addr3, priKey2, uint64(2), big.NewInt(70), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf13, err := testutil.SignedTransfer(addr3, addr1, priKey3, uint64(1), big.NewInt(200),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf13, err := testutil.SignedTransfer(addr1, priKey3, uint64(1), big.NewInt(200), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf14, err := testutil.SignedTransfer(addr3, addr2, priKey3, uint64(2), big.NewInt(50),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf14, err := testutil.SignedTransfer(addr2, priKey3, uint64(2), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap2.Add(tsf1)
@@ -648,24 +610,18 @@ func TestActPool_Reset(t *testing.T) {
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Add more Tsfs after resetting
 	// Tsfs To be added to ap1 only
-	tsf15, err := testutil.SignedTransfer(addr3, addr2, priKey3, uint64(3), big.NewInt(80),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf15, err := testutil.SignedTransfer(addr2, priKey3, uint64(3), big.NewInt(80), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 	// Tsfs To be added to ap2 only
-	tsf16, err := testutil.SignedTransfer(addr1, addr2, priKey1, uint64(4), big.NewInt(150),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf16, err := testutil.SignedTransfer(addr2, priKey1, uint64(4), big.NewInt(150), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf17, err := testutil.SignedTransfer(addr2, addr1, priKey2, uint64(3), big.NewInt(90),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf17, err := testutil.SignedTransfer(addr1, priKey2, uint64(3), big.NewInt(90), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf18, err := testutil.SignedTransfer(addr2, addr3, priKey2, uint64(4), big.NewInt(100),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf18, err := testutil.SignedTransfer(addr3, priKey2, uint64(4), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf19, err := testutil.SignedTransfer(addr2, addr1, priKey2, uint64(5), big.NewInt(50),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf19, err := testutil.SignedTransfer(addr1, priKey2, uint64(5), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf20, err := testutil.SignedTransfer(addr3, addr2, priKey3, uint64(3), big.NewInt(200),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf20, err := testutil.SignedTransfer(addr2, priKey3, uint64(3), big.NewInt(200), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap1.Add(tsf15)
@@ -769,10 +725,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	_, err = bc.CreateState(addr5, big.NewInt(20))
 	require.NoError(err)
-	tsf21, err := testutil.SignedTransfer(addr4, addr5, priKey4, uint64(1), big.NewInt(10),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf21, err := testutil.SignedTransfer(addr5, priKey4, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	vote22, err := testutil.SignedVote(addr4, addr4, priKey4, uint64(2), uint64(20000), big.NewInt(0))
+	vote22, err := testutil.SignedVote(addr4, priKey4, uint64(2), uint64(20000), big.NewInt(0))
 	require.NoError(err)
 	vote23, err := action.NewVote(3, "", uint64(20000), big.NewInt(0))
 	require.NoError(err)
@@ -782,13 +737,12 @@ func TestActPool_Reset(t *testing.T) {
 		SetGasLimit(20000).
 		SetAction(vote23).
 		SetDestinationAddress("").Build()
-	selp23, err := action.Sign(elp, addr4, priKey4)
+	selp23, err := action.Sign(elp, priKey4)
 	require.NoError(err)
 
-	vote24, err := testutil.SignedVote(addr5, addr5, priKey5, uint64(1), uint64(20000), big.NewInt(0))
+	vote24, err := testutil.SignedVote(addr5, priKey5, uint64(1), uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf25, err := testutil.SignedTransfer(addr5, addr4, priKey5, uint64(2), big.NewInt(10),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf25, err := testutil.SignedTransfer(addr4, priKey5, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 	vote26, err := action.NewVote(3, "", uint64(20000), big.NewInt(0))
 	require.NoError(err)
@@ -798,7 +752,7 @@ func TestActPool_Reset(t *testing.T) {
 		SetGasLimit(20000).
 		SetAction(vote26).
 		SetDestinationAddress("").Build()
-	selp26, err := action.Sign(elp, addr5, priKey5)
+	selp26, err := action.Sign(elp, priKey5)
 	require.NoError(err)
 
 	err = ap1.Add(tsf21)
@@ -871,16 +825,13 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap.Add(tsf1)
@@ -919,13 +870,11 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap.Add(tsf1)
@@ -961,13 +910,11 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	err = ap.Add(tsf1)
@@ -999,11 +946,10 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
-		[]byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	hash1 := tsf1.Hash()
-	vote2, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(2), uint64(100000), big.NewInt(0))
+	vote2, err := testutil.SignedVote(addr1, priKey1, uint64(2), uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	hash2 := vote2.Hash()
 
@@ -1050,16 +996,13 @@ func TestActPool_GetSize(t *testing.T) {
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.Zero(ap.GetSize())
 
-	tsf1, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(10),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(2), big.NewInt(20),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(3), big.NewInt(30),
-		[]byte{}, uint64(20000), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, addr1, priKey1, uint64(4), uint64(20000), big.NewInt(0))
+	vote4, err := testutil.SignedVote(addr1, priKey1, uint64(4), uint64(20000), big.NewInt(0))
 	require.NoError(err)
 	require.NoError(ap.Add(tsf1))
 	require.NoError(ap.Add(tsf2))

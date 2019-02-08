@@ -17,7 +17,6 @@ import (
 
 func TestVoteSignVerify(t *testing.T) {
 	require := require.New(t)
-	senderAddr := testaddress.Addrinfo["producer"]
 	recipientAddr := testaddress.Addrinfo["alfa"]
 	senderKey := testaddress.Keyinfo["producer"]
 
@@ -30,7 +29,7 @@ func TestVoteSignVerify(t *testing.T) {
 		SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 
-	selp, err := Sign(elp, senderAddr.String(), senderKey.PriKey)
+	selp, err := Sign(elp, senderKey.PriKey)
 	require.NoError(err)
 	require.NoError(Verify(selp))
 }

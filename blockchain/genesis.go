@@ -138,7 +138,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 		bd := action.EnvelopeBuilder{}
 		elp := bd.SetDestinationAddress(address).
 			SetAction(vote).Build()
-		selp := action.FakeSeal(elp, address, pk)
+		selp := action.FakeSeal(elp, pk)
 		acts = append(acts, selp)
 	}
 
@@ -158,7 +158,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 			bd := action.EnvelopeBuilder{}
 			elp := bd.SetAction(start).Build()
 			pk, _ := decodeKey(Gen.CreatorPubKey, "")
-			selp := action.FakeSeal(elp, creatorAddr, pk)
+			selp := action.FakeSeal(elp, pk)
 			acts = append(acts, selp)
 		}
 	}

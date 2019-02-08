@@ -36,7 +36,7 @@ func TestTransferSignVerify(t *testing.T) {
 	require.Error(Verify(w))
 
 	// sign the transfer
-	selp, err := Sign(elp, senderAddr.String(), senderKey.PriKey)
+	selp, err := Sign(elp, senderKey.PriKey)
 	require.NoError(err)
 	require.NotNil(selp)
 
