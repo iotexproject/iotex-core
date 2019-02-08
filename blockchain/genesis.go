@@ -43,20 +43,13 @@ type Genesis struct {
 
 // GenesisAction is the root action struct, each package's action should be put as its sub struct
 type GenesisAction struct {
-	Creation       Creator     `yaml:"creator"`
-	SelfNominators []Nominator `yaml:"selfNominators"`
-	Transfers      []Transfer  `yaml:"transfers"`
-	SubChains      []SubChain  `yaml:"subChains"`
+	Creation  Creator    `yaml:"creator"`
+	Transfers []Transfer `yaml:"transfers"`
+	SubChains []SubChain `yaml:"subChains"`
 }
 
 // Creator is the Creator of the genesis block
 type Creator struct {
-	PubKey string `yaml:"pubKey"`
-	PriKey string `yaml:"priKey"`
-}
-
-// Nominator is the Nominator struct for vote struct
-type Nominator struct {
 	PubKey string `yaml:"pubKey"`
 	PriKey string `yaml:"priKey"`
 }
@@ -119,28 +112,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 		log.L().Panic("Failed to add creator.", zap.Error(err))
 	}
 
-	// TODO: convert vote to state operation as well
 	acts := make([]action.SealedEnvelope, 0)
-	for _, nominator := range actions.SelfNominators {
-		pk, _ := decodeKey(nominator.PubKey, "")
-		address := generateAddr(pk)
-		vote, err := action.NewVote(
-			0,
-			address,
-			address,
-			0,
-			big.NewInt(0),
-		)
-		if err != nil {
-			log.L().Panic("Fail to create the new vote action.", zap.Error(err))
-		}
-		bd := action.EnvelopeBuilder{}
-		elp := bd.SetDestinationAddress(address).
-			SetAction(vote).Build()
-		selp := action.FakeSeal(elp, address, pk)
-		acts = append(acts, selp)
-	}
-
 	// TODO: decouple start sub-chain from genesis block
 	if chainCfg.EnableSubChainStartInGenesis {
 		for _, sc := range actions.SubChains {

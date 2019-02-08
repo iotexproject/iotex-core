@@ -119,10 +119,6 @@ func main() {
 		transferGasPrice := 10
 		// transfer payload. Default is ""
 		transferPayload := ""
-		// vote gas limit. Default is 1000000
-		voteGasLimit := 1000000
-		// vote gas price. Default is 10
-		voteGasPrice := 10
 		// execution amount. Default is 0
 		executionAmount := 0
 		// execution gas limit. Default is 1200000
@@ -154,7 +150,7 @@ func main() {
 		contract := receipt.ContractAddress
 
 		wg := &sync.WaitGroup{}
-		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
+		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload,
 			contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, client, admins, delegates, d,
 			retryNum, retryInterval, resetInterval)
 		wg.Wait()

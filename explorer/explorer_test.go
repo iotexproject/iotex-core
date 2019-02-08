@@ -105,18 +105,14 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(addr3, addr3, priKey3, 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	if err != nil {
-		return err
-	}
-	execution1, err := testutil.SignedExecution(addr3, addr4, priKey3, 6,
+	execution1, err := testutil.SignedExecution(addr3, addr4, priKey3, 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	if err != nil {
 		return err
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}
+	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, execution1}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -151,28 +147,20 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	vote1, err = testutil.SignedVote(addr3, addr3, priKey3, 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	if err != nil {
-		return err
-	}
-	vote2, err := testutil.SignedVote(addr1, addr1, priKey1, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	if err != nil {
-		return err
-	}
-	execution1, err = testutil.SignedExecution(addr3, addr4, priKey3, 8,
+	execution1, err = testutil.SignedExecution(addr3, addr4, priKey3, 6,
 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	if err != nil {
 		return err
 	}
-	execution2, err := testutil.SignedExecution(addr1, addr4, priKey1, 2,
+	execution2, err := testutil.SignedExecution(addr1, addr4, priKey1, 1,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
 	if err != nil {
 		return err
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1, execution1}
-	actionMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2, execution2}
+	actionMap[execution1.SrcAddr()] = []action.SealedEnvelope{execution1}
+	actionMap[execution2.SrcAddr()] = []action.SealedEnvelope{execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -273,15 +261,15 @@ func TestExplorerApi(t *testing.T) {
 
 	votes, err := svc.GetVotesByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
 	require.Nil(err)
-	require.Equal(4, len(votes))
+	require.Equal(0, len(votes))
 
 	votes, err = svc.GetVotesByAddress(ta.Addrinfo["charlie"].String(), 0, 2)
 	require.Nil(err)
-	require.Equal(2, len(votes))
+	require.Equal(0, len(votes))
 
 	votes, err = svc.GetVotesByAddress(ta.Addrinfo["alfa"].String(), 0, 10)
 	require.Nil(err)
-	require.Equal(2, len(votes))
+	require.Equal(0, len(votes))
 
 	votes, err = svc.GetVotesByAddress(ta.Addrinfo["delta"].String(), 0, 10)
 	require.Nil(err)
@@ -319,13 +307,13 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 
 	votes, err = svc.GetLastVotesByRange(4, 0, 10)
-	require.Equal(10, len(votes))
+	require.Equal(0, len(votes))
 	require.Nil(err)
 	for i := 0; i < len(votes)-1; i++ {
 		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
 	}
 	votes, err = svc.GetLastVotesByRange(3, 0, 50)
-	require.Equal(22, len(votes))
+	require.Equal(0, len(votes))
 	require.Nil(err)
 	for i := 0; i < len(votes)-1; i++ {
 		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
@@ -359,7 +347,7 @@ func TestExplorerApi(t *testing.T) {
 
 	votes, err = svc.GetVotesByBlockID(blks[1].ID, 0, 10)
 	require.Nil(err)
-	require.Equal(1, len(votes))
+	require.Equal(0, len(votes))
 
 	// fail
 	_, err = svc.GetVotesByBlockID("", 0, 10)
@@ -382,15 +370,6 @@ func TestExplorerApi(t *testing.T) {
 	// error
 	_, err = svc.GetTransferByID("")
 	require.Error(err)
-
-	vote, err := svc.GetVoteByID(votes[0].ID)
-	require.Nil(err)
-	require.Equal(votes[0].Nonce, vote.Nonce)
-	require.Equal(votes[0].BlockID, vote.BlockID)
-	require.Equal(votes[0].Timestamp, vote.Timestamp)
-	require.Equal(votes[0].ID, vote.ID)
-	require.Equal(votes[0].Votee, vote.Votee)
-	require.Equal(votes[0].Voter, vote.Voter)
 
 	// fail
 	_, err = svc.GetVoteByID("")
@@ -426,9 +405,9 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
 	require.Equal(int64(5), stats.Transfers)
-	require.Equal(int64(24), stats.Votes)
+	require.Equal(int64(0), stats.Votes)
 	require.Equal(int64(3), stats.Executions)
-	require.Equal(int64(11), stats.Aps)
+	require.Equal(int64(8), stats.Aps)
 
 	// success
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].String())
@@ -443,8 +422,8 @@ func TestExplorerApi(t *testing.T) {
 	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].String())
 	require.Nil(err)
 	require.Equal("3", addressDetails.TotalBalance)
-	require.Equal(int64(8), addressDetails.Nonce)
-	require.Equal(int64(9), addressDetails.PendingNonce)
+	require.Equal(int64(6), addressDetails.Nonce)
+	require.Equal(int64(7), addressDetails.PendingNonce)
 	require.Equal(ta.Addrinfo["charlie"].String(), addressDetails.Address)
 
 	// error
@@ -512,15 +491,6 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Vote)
 	require.Nil(res.Execution)
 	require.Equal(&transfers[0], res.Transfer)
-
-	votes, err = svc.GetLastVotesByRange(3, 0, 50)
-	require.NoError(err)
-	res, err = svc.GetBlockOrActionByHash(votes[0].ID)
-	require.NoError(err)
-	require.Nil(res.Block)
-	require.Nil(res.Transfer)
-	require.Nil(res.Execution)
-	require.Equal(&votes[0], res.Vote)
 
 	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
 	require.NoError(err)

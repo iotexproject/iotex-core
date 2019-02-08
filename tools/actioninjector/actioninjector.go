@@ -114,13 +114,13 @@ func main() {
 	if aps > 0 {
 		d := time.Duration(duration) * time.Second
 		wg := &sync.WaitGroup{}
-		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
-			contract, executionAmount, executionGasLimit, executionGasPrice, executionData, proxy, admins, delegates, d,
+		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, contract,
+			executionAmount, executionGasLimit, executionGasPrice, executionData, proxy, admins, delegates, d,
 			retryNum, retryInterval, resetInterval)
 		wg.Wait()
 	} else {
-		util.InjectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, voteNum, voteGasLimit,
-			voteGasPrice, executionNum, contract, executionAmount, executionGasLimit, executionGasPrice, executionData,
+		util.InjectByInterval(transferNum, transferGasLimit, transferGasPrice, transferPayload, executionNum, contract,
+			executionAmount, executionGasLimit, executionGasPrice, executionData,
 			interval, counter, proxy, admins, delegates, retryNum, retryInterval)
 	}
 }

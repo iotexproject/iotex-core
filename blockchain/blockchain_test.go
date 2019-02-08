@@ -77,7 +77,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	addr0 := ta.Addrinfo["producer"].String()
 	priKey0 := ta.Keyinfo["producer"].PriKey
 	addr1 := ta.Addrinfo["alfa"].String()
-	priKey1 := ta.Keyinfo["alfa"].PriKey
 	addr2 := ta.Addrinfo["bravo"].String()
 	addr3 := ta.Addrinfo["charlie"].String()
 	priKey3 := ta.Keyinfo["charlie"].PriKey
@@ -239,18 +238,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(addr3, addr3, priKey3, 6, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	if err != nil {
-		return err
-	}
-	vote2, err := testutil.SignedVote(addr1, addr1, priKey1, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
-	if err != nil {
-		return err
-	}
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
-	accMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1}
-	accMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2}
 
 	blk, err = bc.MintNewBlock(
 		accMap,
@@ -301,9 +290,8 @@ func TestCreateBlockchain(t *testing.T) {
 	data, err := genesis.Serialize()
 	require.Nil(err)
 
-	transfers, votes, _ := action.ClassifyActions(genesis.Actions)
+	transfers, _, _ := action.ClassifyActions(genesis.Actions)
 	require.Equal(0, len(transfers))
-	require.Equal(21, len(votes))
 
 	fmt.Printf("Block size match pass\n")
 	fmt.Printf("Marshaling Block pass\n")
@@ -589,7 +577,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(5)
 	require.Nil(err)
 	require.Equal(hash5, blk.HashBlock())
-	tsfs, votes, _ := action.ClassifyActions(blk.Actions)
+	tsfs, _, _ := action.ClassifyActions(blk.Actions)
 	for _, transfer := range tsfs {
 		transferHash := transfer.Hash()
 		blkhash, err := bc.GetBlockHashByTransferHash(transferHash)
@@ -600,16 +588,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.Equal(transfer1.Hash(), transferHash)
 	}
 
-	for _, vote := range votes {
-		voteHash := vote.Hash()
-		blkhash, err := bc.GetBlockHashByVoteHash(voteHash)
-		require.Nil(err)
-		require.Equal(blkhash, hash5)
-		vote1, err := bc.GetVoteByVoteHash(voteHash)
-		require.Nil(err)
-		require.Equal(vote1.Hash(), voteHash)
-	}
-
 	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].String())
 	require.Nil(err)
 	require.Equal(len(fromTransfers), 5)
@@ -618,29 +596,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Nil(err)
 	require.Equal(len(toTransfers), 2)
 
-	fromVotes, err := bc.GetVotesFromAddress(ta.Addrinfo["charlie"].String())
-	require.Nil(err)
-	require.Equal(len(fromVotes), 1)
-
-	fromVotes, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].String())
-	require.Nil(err)
-	require.Equal(len(fromVotes), 1)
-
-	toVotes, err := bc.GetVotesToAddress(ta.Addrinfo["charlie"].String())
-	require.Nil(err)
-	require.Equal(len(toVotes), 1)
-
-	toVotes, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].String())
-	require.Nil(err)
-	require.Equal(len(toVotes), 1)
-
 	totalTransfers, err := bc.GetTotalTransfers()
 	require.Nil(err)
 	require.Equal(totalTransfers, uint64(22))
-
-	totalVotes, err := bc.GetTotalVotes()
-	require.Nil(err)
-	require.Equal(totalVotes, uint64(23))
 
 	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
 	require.NotNil(err)
@@ -874,36 +832,6 @@ func TestBlockchain_Validator(t *testing.T) {
 	require.NotNil(t, bc)
 	bc.SetValidator(val)
 	require.NotNil(t, bc.Validator())
-}
-
-func TestBlockchainInitialCandidate(t *testing.T) {
-	require := require.New(t)
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
-	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.NumCandidates = 2
-
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.Nil(err)
-	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
-	require.NoError(bc.Start(context.Background()))
-	defer func() {
-		require.NoError(bc.Stop(context.Background()))
-	}()
-	// TODO: change the value when Candidates size is changed
-	height, err := sf.Height()
-	require.NoError(err)
-	require.Equal(uint64(0), height)
-	candidate, err := sf.CandidatesByHeight(height)
-	require.NoError(err)
-	require.True(len(candidate) == 2)
 }
 
 func TestBlockchain_StateByAddr(t *testing.T) {
