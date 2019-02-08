@@ -163,13 +163,12 @@ func (v *validator) validateActions(
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {
-		appendActionIndex(accountNonceMap, selp.SrcAddr(), selp.Nonce())
-
 		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
 		caller, err := address.FromBytes(callerPKHash[:])
 		if err != nil {
 			return err
 		}
+		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
 		ctx := protocol.WithValidateActionsCtx(
 			context.Background(),
 			protocol.ValidateActionsCtx{

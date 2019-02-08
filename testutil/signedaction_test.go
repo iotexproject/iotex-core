@@ -30,7 +30,6 @@ func TestSignedTransfer(t *testing.T) {
 	require.NoError(err)
 
 	tsf := selp.Action().(*action.Transfer)
-	require.Equal(addr1, tsf.Sender())
 	require.Equal(addr2, tsf.Recipient())
 	require.Equal(uint64(1), tsf.Nonce())
 	require.Equal(big.NewInt(2), tsf.Amount())
@@ -46,7 +45,6 @@ func TestSignedVote(t *testing.T) {
 	require.NoError(err)
 
 	vote := selp.Action().(*action.Vote)
-	require.Equal(addr1, vote.Voter())
 	require.Equal(addr1, vote.Votee())
 	require.Equal(uint64(1), vote.Nonce())
 	require.Equal(uint64(100000), vote.GasLimit())
@@ -61,7 +59,6 @@ func TestSignedExecution(t *testing.T) {
 	require.NoError(err)
 
 	exec := selp.Action().(*action.Execution)
-	require.Equal(addr1, exec.Executor())
 	require.Equal(action.EmptyAddress, exec.Contract())
 	require.Equal(uint64(1), exec.Nonce())
 	require.Equal(big.NewInt(0), exec.Amount())

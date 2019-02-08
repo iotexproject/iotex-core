@@ -29,25 +29,16 @@ type Vote struct {
 }
 
 // NewVote returns a Vote instance
-func NewVote(nonce uint64, voterAddress string, voteeAddress string, gasLimit uint64, gasPrice *big.Int) (*Vote, error) {
-	if voterAddress == "" {
-		return nil, errors.Wrap(ErrAddress, "address of the voter is empty")
-	}
+func NewVote(nonce uint64, voteeAddress string, gasLimit uint64, gasPrice *big.Int) (*Vote, error) {
 	return &Vote{
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			srcAddr:  voterAddress,
 			dstAddr:  voteeAddress,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
 	}, nil
-}
-
-// Voter returns the voter's address
-func (v *Vote) Voter() string {
-	return v.SrcAddr()
 }
 
 // VoterPublicKey returns the voter's public key

@@ -8,6 +8,9 @@ package mainchain
 
 import (
 	"bytes"
+	"context"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 
 	"github.com/pkg/errors"
 
@@ -47,7 +50,12 @@ func (p *Protocol) validateSubChainOwnership(
 	return account, nil
 }
 
-func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.StateManager) error {
+func (p *Protocol) handleStopSubChain(ctx context.Context, stop *action.StopSubChain, sm protocol.StateManager) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss run action context")
+	}
+
 	stopHeight := stop.StopHeight()
 	if stopHeight <= sm.Height() {
 		return errors.Errorf("stop height %d should not be lower than chain height %d", stopHeight, sm.Height())
@@ -67,15 +75,15 @@ func (p *Protocol) handleStopSubChain(stop *action.StopSubChain, sm protocol.Sta
 	}
 	acct, err := p.validateSubChainOwnership(
 		keypair.HashPubKey(subChain.OwnerPublicKey),
-		stop.SrcAddr(),
+		raCtx.Caller.String(),
 		sm,
 	)
 	if err != nil {
-		return errors.Wrapf(err, "error when getting the account of sender %s", stop.SrcAddr())
+		return errors.Wrapf(err, "error when getting the account of sender %s", raCtx.Caller.String())
 	}
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
 	account.SetNonce(stop, acct)
-	if err := account.StoreAccount(sm, stop.SrcAddr(), acct); err != nil {
+	if err := account.StoreAccount(sm, raCtx.Caller.String(), acct); err != nil {
 		return err
 	}
 	// check that subchain is in register

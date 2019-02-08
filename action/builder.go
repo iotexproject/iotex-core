@@ -30,12 +30,6 @@ func (b *Builder) SetNonce(n uint64) *Builder {
 	return b
 }
 
-// SetSourceAddress sets action's source address.
-func (b *Builder) SetSourceAddress(addr string) *Builder {
-	b.act.srcAddr = addr
-	return b
-}
-
 // SetDestinationAddress sets action's destination address.
 func (b *Builder) SetDestinationAddress(addr string) *Builder {
 	b.act.dstAddr = addr

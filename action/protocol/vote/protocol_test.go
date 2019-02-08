@@ -12,11 +12,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -69,13 +70,14 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal("100", account.VotingWeight.String())
 	}
 
+	vote1, err := testutil.SignedVote(addr1, addr1, k1.PriKey, 1, uint64(100000), big.NewInt(0))
+	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			EnableGasCharge: false,
-		})
-
-	vote1, err := testutil.SignedVote(addr1, addr1, k1.PriKey, 1, uint64(100000), big.NewInt(0))
-	require.NoError(err)
+			Caller:          testaddress.Addrinfo["alfa"],
+		},
+	)
 	_, err = p.Handle(ctx, vote1.Action(), ws)
 	require.NoError(err)
 	account1, _ := account.LoadAccount(ws, pkHash1)
@@ -83,6 +85,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 	vote2, err := testutil.SignedVote(addr2, addr2, k2.PriKey, 1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			EnableGasCharge: false,
+			Caller:          testaddress.Addrinfo["bravo"],
+		},
+	)
 	_, err = p.Handle(ctx, vote2.Action(), ws)
 	require.NoError(err)
 	account2, _ := account.LoadAccount(ws, pkHash2)
@@ -90,6 +98,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 	vote3, err := testutil.SignedVote(addr3, addr3, k3.PriKey, 1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			EnableGasCharge: false,
+			Caller:          testaddress.Addrinfo["charlie"],
+		},
+	)
 	_, err = p.Handle(ctx, vote3.Action(), ws)
 	require.NoError(err)
 	account3, _ := account.LoadAccount(ws, pkHash3)
@@ -97,6 +111,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 	unvote1, err := testutil.SignedVote(addr1, "", k1.PriKey, 2, uint64(100000), big.NewInt(0))
 	require.NoError(err)
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			EnableGasCharge: false,
+			Caller:          testaddress.Addrinfo["alfa"],
+		},
+	)
 	_, err = p.Handle(ctx, unvote1.Action(), ws)
 	require.NoError(err)
 	account1, _ = account.LoadAccount(ws, pkHash1)
@@ -107,6 +127,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 	vote4, err := testutil.SignedVote(addr2, addr3, k2.PriKey, 2, uint64(100000), big.NewInt(0))
 	require.NoError(err)
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			EnableGasCharge: false,
+			Caller:          testaddress.Addrinfo["bravo"],
+		},
+	)
 	_, err = p.Handle(ctx, vote4.Action(), ws)
 	require.NoError(err)
 	account2, _ = account.LoadAccount(ws, pkHash2)
@@ -119,6 +145,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 	unvote2, err := testutil.SignedVote(addr2, "", k2.PriKey, 3, uint64(100000), big.NewInt(0))
 	require.NoError(err)
+	ctx = protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			EnableGasCharge: false,
+			Caller:          testaddress.Addrinfo["bravo"],
+		},
+	)
 	_, err = p.Handle(ctx, unvote2.Action(), ws)
 	require.NoError(err)
 	account2, _ = account.LoadAccount(ws, pkHash2)
@@ -147,28 +179,30 @@ func TestProtocol_Validate(t *testing.T) {
 		big.NewInt(0),
 	)
 	require.NoError(err)
-	protocol := NewProtocol(bc)
+	p := NewProtocol(bc)
 
 	// Caes I: Oversized data
 	var dst string
 	for i := 0; i < 10000; i++ {
 		dst += "a"
 	}
-	vote, err := action.NewVote(1, "src", dst, uint64(100000), big.NewInt(0))
+	vote, err := action.NewVote(1, dst, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = protocol.Validate(context.Background(), vote)
+	ctx := protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{
+		Caller: testaddress.Addrinfo["producer"],
+	})
+	err = p.Validate(ctx, vote)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	// Case II: Invalid votee address
-	vote, err = action.NewVote(1, testaddress.Addrinfo["producer"].String(), "123", uint64(100000),
+	vote, err = action.NewVote(1, "123", uint64(100000),
 		big.NewInt(0))
 	require.NoError(err)
-	err = protocol.Validate(context.Background(), vote)
+	err = p.Validate(ctx, vote)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating votee's address"))
 	// Case III: Votee is not a candidate
-	vote2, err := action.NewVote(1, testaddress.Addrinfo["producer"].String(),
-		testaddress.Addrinfo["alfa"].String(), uint64(100000), big.NewInt(0))
+	vote2, err := action.NewVote(1, testaddress.Addrinfo["alfa"].String(), uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = protocol.Validate(context.Background(), vote2)
+	err = p.Validate(ctx, vote2)
 	require.Equal(action.ErrVotee, errors.Cause(err))
 }

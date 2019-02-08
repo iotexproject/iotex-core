@@ -37,7 +37,6 @@ func NewCreateDeposit(
 	nonce uint64,
 	chainID uint32,
 	amount *big.Int,
-	sender string,
 	recipient string,
 	gasLimit uint64,
 	gasPrice *big.Int,
@@ -46,7 +45,6 @@ func NewCreateDeposit(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			srcAddr:  sender,
 			dstAddr:  recipient,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
@@ -61,9 +59,6 @@ func (d *CreateDeposit) ChainID() uint32 { return d.chainID }
 
 // Amount returns the amount
 func (d *CreateDeposit) Amount() *big.Int { return d.amount }
-
-// Sender returns the sender address. It's the wrapper of Action.SrcAddr
-func (d *CreateDeposit) Sender() string { return d.SrcAddr() }
 
 // SenderPublicKey returns the sender public key. It's the wrapper of Action.SrcPubkey
 func (d *CreateDeposit) SenderPublicKey() keypair.PublicKey { return d.SrcPubkey() }

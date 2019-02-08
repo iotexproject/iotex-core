@@ -18,7 +18,7 @@ import (
 
 func TestActionProto(t *testing.T) {
 	require := require.New(t)
-	v, err := NewVote(0, testaddress.Addrinfo["alfa"].String(), testaddress.Addrinfo["bravo"].String(),
+	v, err := NewVote(0, testaddress.Addrinfo["bravo"].String(),
 		uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	fmt.Println(v)

@@ -24,7 +24,7 @@ import (
 const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
-func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCtx, sm protocol.StateManager) error {
+func (p *Protocol) handleTransfer(raCtx protocol.RunActionsCtx, act action.Action, sm protocol.StateManager) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil
@@ -33,9 +33,9 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCt
 		return nil
 	}
 	// check sender
-	sender, err := LoadOrCreateAccount(sm, tsf.Sender(), big.NewInt(0))
+	sender, err := LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
-		return errors.Wrapf(err, "failed to load or create the account of sender %s", tsf.Sender())
+		return errors.Wrapf(err, "failed to load or create the account of sender %s", raCtx.Caller.String())
 	}
 
 	if raCtx.EnableGasCharge {
@@ -54,12 +54,16 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCt
 
 		gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(gas))
 		if big.NewInt(0).Add(tsf.Amount(), gasFee).Cmp(sender.Balance) == 1 {
-			return errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tsf.Sender())
+			return errors.Wrapf(
+				state.ErrNotEnoughBalance,
+				"failed to verify the Balance of sender %s",
+				raCtx.Caller.String(),
+			)
 		}
 
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
-			return errors.Wrapf(err, "failed to charge the gas for sender %s", tsf.Sender())
+			return errors.Wrapf(err, "failed to charge the gas for sender %s", raCtx.Caller.String())
 		}
 		// compensate block producer gas
 		if err := producer.AddBalance(gasFee); err != nil {
@@ -72,16 +76,20 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCt
 		*raCtx.GasLimit -= gas
 	}
 	if tsf.Amount().Cmp(sender.Balance) == 1 {
-		return errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance of sender %s", tsf.Sender())
+		return errors.Wrapf(
+			state.ErrNotEnoughBalance,
+			"failed to verify the Balance of sender %s",
+			raCtx.Caller.String(),
+		)
 	}
 	// update sender Balance
 	if err := sender.SubBalance(tsf.Amount()); err != nil {
-		return errors.Wrapf(err, "failed to update the Balance of sender %s", tsf.Sender())
+		return errors.Wrapf(err, "failed to update the Balance of sender %s", raCtx.Caller.String())
 	}
 	// update sender Nonce
 	SetNonce(tsf, sender)
 	// put updated sender's state to trie
-	if err := StoreAccount(sm, tsf.Sender(), sender); err != nil {
+	if err := StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
 		return errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// Update sender votes
@@ -139,7 +147,7 @@ func (p *Protocol) handleTransfer(act action.Action, raCtx protocol.RunActionsCt
 }
 
 // validateTransfer validates a transfer
-func (p *Protocol) validateTransfer(ctx context.Context, act action.Action) error {
+func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error {
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil

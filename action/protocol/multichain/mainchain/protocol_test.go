@@ -46,7 +46,6 @@ func TestAddSubChainActions(t *testing.T) {
 	startSubChain := action.NewStartSubChain(
 		1,
 		2,
-		testaddress.Addrinfo["producer"].String(),
 		MinSecurityDeposit,
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -64,7 +63,6 @@ func TestAddSubChainActions(t *testing.T) {
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	putBlock := action.NewPutBlock(
 		2,
-		testaddress.Addrinfo["alfa"].String(),
 		testaddress.Addrinfo["producer"].String(),
 		10001,
 		roots,
@@ -82,7 +80,6 @@ func TestAddSubChainActions(t *testing.T) {
 	require.NoError(t, ap.Add(pbselp))
 
 	stopSubChain := action.NewStopSubChain(
-		testaddress.Addrinfo["producer"].String(),
 		3,
 		testaddress.Addrinfo["alfa"].String(),
 		10003,

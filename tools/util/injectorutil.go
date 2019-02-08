@@ -354,7 +354,6 @@ func injectTransfer(
 	request := explorer.SendTransferRequest{
 		Version:      int64(selp.Version()),
 		Nonce:        int64(selp.Nonce()),
-		Sender:       selp.SrcAddr(),
 		Recipient:    selp.DstAddr(),
 		SenderPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
 		GasLimit:     int64(selp.GasLimit()),
@@ -402,7 +401,6 @@ func injectVote(
 	request := explorer.SendVoteRequest{
 		Version:     int64(selp.Version()),
 		Nonce:       int64(selp.Nonce()),
-		Voter:       selp.SrcAddr(),
 		Votee:       selp.DstAddr(),
 		VoterPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
 		GasLimit:    int64(selp.GasLimit()),
@@ -502,7 +500,7 @@ func createSignedTransfer(
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
 	transfer, err := action.NewTransfer(
-		nonce, amount, sender.EncodedAddr, recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
+		nonce, amount, recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw transfer")
 	}
@@ -527,7 +525,7 @@ func createSignedVote(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (action.SealedEnvelope, *action.Vote, error) {
-	vote, err := action.NewVote(nonce, voter.EncodedAddr, votee.EncodedAddr, gasLimit, gasPrice)
+	vote, err := action.NewVote(nonce, votee.EncodedAddr, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw vote")
 	}
@@ -558,8 +556,7 @@ func createSignedExecution(
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
-	execution, err := action.NewExecution(executor.EncodedAddr, contract, nonce, amount,
-		gasLimit, gasPrice, executionData)
+	execution, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPrice, executionData)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw execution")
 	}
@@ -586,7 +583,6 @@ func injectExecution(
 	request := explorer.Execution{
 		Version:        int64(selp.Version()),
 		Nonce:          int64(selp.Nonce()),
-		Executor:       selp.SrcAddr(),
 		Contract:       selp.DstAddr(),
 		ExecutorPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
 		GasLimit:       int64(selp.GasLimit()),

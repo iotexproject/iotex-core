@@ -68,15 +68,16 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	tsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, 1, big.NewInt(1), nil, genesis.ActionGasLimit+1, big.NewInt(0))
 	require.NoError(err)
 
-	err = validator.Validate(context.Background(), tsf)
+	ctx := protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{})
+	err = validator.Validate(ctx, tsf)
 	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
 	// Case II: Insufficient gas
 	tsf, err = testutil.SignedTransfer(addr1, addr1, priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(context.Background(), tsf)
+	err = validator.Validate(ctx, tsf)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
 	// Case III: Signature verification fails
-	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1, addr1, []byte{}, uint64(100000), big.NewInt(0))
+	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	bd := &action.EnvelopeBuilder{}
@@ -85,7 +86,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		SetGasLimit(100000).
 		SetDestinationAddress(addr1).Build()
 	selp := action.FakeSeal(elp, addr1, pubKey1)
-	err = validator.Validate(context.Background(), selp)
+	err = validator.Validate(ctx, selp)
 	require.True(strings.Contains(err.Error(), "incorrect length of signature"))
 	// Case IV: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(50),
@@ -98,7 +99,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := protocol.WithRunActionsCtx(context.Background(),
+	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer:        testaddress.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
@@ -111,7 +112,10 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	nTsf, err := testutil.SignedTransfer(addr1, addr1, priKey1, uint64(1), big.NewInt(60),
 		[]byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(context.Background(), nTsf)
+	ctx = protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{
+		Caller: testaddress.Addrinfo["alfa"],
+	})
+	err = validator.Validate(ctx, nTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 }
 
@@ -223,7 +227,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	err = ap.Add(replaceTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
-	replaceVote, err := action.NewVote(4, addr1, "", uint64(100000), big.NewInt(0))
+	replaceVote, err := action.NewVote(4, "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	bd := &action.EnvelopeBuilder{}
@@ -251,7 +255,6 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Equal(action.ErrBalance, errors.Cause(err))
 	// Case VI: over gas limit
 	creationExecution, err := action.NewExecution(
-		addr1,
 		action.EmptyAddress,
 		uint64(5),
 		big.NewInt(int64(0)),
@@ -275,7 +278,6 @@ func TestActPool_AddActs(t *testing.T) {
 	// Case VII: insufficient gas
 	tmpData := [1234]byte{}
 	creationExecution, err = action.NewExecution(
-		addr1,
 		action.EmptyAddress,
 		uint64(5),
 		big.NewInt(int64(0)),
@@ -772,8 +774,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	vote22, err := testutil.SignedVote(addr4, addr4, priKey4, uint64(2), uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	vote23, err := action.NewVote(3, addr4, "",
-		uint64(20000), big.NewInt(0))
+	vote23, err := action.NewVote(3, "", uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
 	bd := &action.EnvelopeBuilder{}
@@ -789,7 +790,7 @@ func TestActPool_Reset(t *testing.T) {
 	tsf25, err := testutil.SignedTransfer(addr5, addr4, priKey5, uint64(2), big.NewInt(10),
 		[]byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	vote26, err := action.NewVote(3, addr5, "", uint64(20000), big.NewInt(0))
+	vote26, err := action.NewVote(3, "", uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
 	bd = &action.EnvelopeBuilder{}

@@ -9,6 +9,9 @@ package blockchain
 import (
 	"context"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -488,7 +491,13 @@ func deleteTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) err
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
 	for _, transfer := range transfers {
-		senderCount[transfer.Sender()]++
+		callerPKHash := keypair.HashPubKey(transfer.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddrStr := callerAddr.String()
+		if err != nil {
+			return err
+		}
+		senderCount[callerAddrStr]++
 		recipientCount[transfer.Recipient()]++
 	}
 	// Roll back the status of address -> transferCount mapping to the previous block
@@ -519,19 +528,24 @@ func deleteTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) err
 
 	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
-
-		if delta, ok := senderDelta[transfer.Sender()]; ok {
-			senderCount[transfer.Sender()] += delta
-			senderDelta[transfer.Sender()] = senderDelta[transfer.Sender()] + 1
+		callerPKHash := keypair.HashPubKey(transfer.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddrStr := callerAddr.String()
+		if err != nil {
+			return err
+		}
+		if delta, ok := senderDelta[callerAddrStr]; ok {
+			senderCount[callerAddrStr] += delta
+			senderDelta[callerAddrStr]++
 		} else {
-			senderDelta[transfer.Sender()] = 1
+			senderDelta[callerAddrStr] = 1
 		}
 
 		// Delete new transfer from sender
-		senderKey := append(transferFromPrefix, transfer.Sender()...)
-		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[transfer.Sender()])...)
+		senderKey := append(transferFromPrefix, callerAddrStr...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[callerAddrStr])...)
 		batch.Delete(blockAddressTransferMappingNS, senderKey, "failed to delete transfer hash %x for sender %x",
-			transfer.Hash(), transfer.Sender())
+			transfer.Hash(), callerAddrStr)
 
 		if delta, ok := recipientDelta[transfer.Recipient()]; ok {
 			recipientCount[transfer.Recipient()] += delta
@@ -558,9 +572,14 @@ func deleteVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
 	for _, vote := range votes {
-		sender := vote.Voter()
+		callerPKHash := keypair.HashPubKey(vote.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddrStr := callerAddr.String()
+		if err != nil {
+			return err
+		}
 		recipient := vote.Votee()
-		senderCount[sender]++
+		senderCount[callerAddrStr]++
 		recipientCount[recipient]++
 	}
 	// Roll back the status of address -> voteCount mapping to the previous block
@@ -590,21 +609,26 @@ func deleteVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 
 	for _, vote := range votes {
 		voteHash := vote.Hash()
-		Sender := vote.Voter()
+		callerPKHash := keypair.HashPubKey(vote.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddrStr := callerAddr.String()
+		if err != nil {
+			return err
+		}
 		Recipient := vote.Votee()
 
-		if delta, ok := senderDelta[Sender]; ok {
-			senderCount[Sender] += delta
-			senderDelta[Sender]++
+		if delta, ok := senderDelta[callerAddrStr]; ok {
+			senderCount[callerAddrStr] += delta
+			senderDelta[callerAddrStr]++
 		} else {
-			senderDelta[Sender] = 1
+			senderDelta[callerAddrStr] = 1
 		}
 
 		// Delete new vote from sender
-		senderKey := append(voteFromPrefix, Sender...)
-		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[Sender])...)
+		senderKey := append(voteFromPrefix, callerAddrStr...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[callerAddrStr])...)
 		batch.Delete(blockAddressVoteMappingNS, senderKey, "failed to delete vote hash %x for sender %x",
-			voteHash, Sender)
+			voteHash, callerAddrStr)
 
 		if delta, ok := recipientDelta[Recipient]; ok {
 			recipientCount[Recipient] += delta
@@ -631,7 +655,13 @@ func deleteExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) er
 	executorCount := make(map[string]uint64)
 	contractCount := make(map[string]uint64)
 	for _, execution := range executions {
-		executorCount[execution.Executor()]++
+		callerPKHash := keypair.HashPubKey(execution.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddrStr := callerAddr.String()
+		if err != nil {
+			return err
+		}
+		executorCount[callerAddrStr]++
 		contractCount[execution.Contract()]++
 	}
 	// Roll back the status of address -> executionCount mapping to the previous block
@@ -663,18 +693,25 @@ func deleteExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) er
 	for _, execution := range executions {
 		executionHash := execution.Hash()
 
-		if delta, ok := executorDelta[execution.Executor()]; ok {
-			executorCount[execution.Executor()] += delta
-			executorDelta[execution.Executor()] = executorDelta[execution.Executor()] + 1
+		callerPKHash := keypair.HashPubKey(execution.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddrStr := callerAddr.String()
+		if err != nil {
+			return err
+		}
+
+		if delta, ok := executorDelta[callerAddrStr]; ok {
+			executorCount[callerAddrStr] += delta
+			executorDelta[callerAddrStr]++
 		} else {
-			executorDelta[execution.Executor()] = 1
+			executorDelta[callerAddrStr] = 1
 		}
 
 		// Delete new execution from executor
-		executorKey := append(executionFromPrefix, execution.Executor()...)
-		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorCount[execution.Executor()])...)
+		executorKey := append(executionFromPrefix, callerAddrStr...)
+		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorCount[callerAddrStr])...)
 		batch.Delete(blockAddressExecutionMappingNS, executorKey, "failed to delete execution hash %x for executor %x",
-			execution.Hash(), execution.Executor())
+			execution.Hash(), callerAddrStr)
 
 		if delta, ok := contractDelta[execution.Contract()]; ok {
 			contractCount[execution.Contract()] += delta
@@ -707,7 +744,12 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
 	for _, selp := range blk.Actions {
-		senderCount[selp.SrcAddr()]++
+		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return err
+		}
+		senderCount[callerAddr.String()]++
 		recipientCount[selp.DstAddr()]++
 	}
 	// Roll back the status of address -> actionCount mapping to the preivous block
@@ -739,19 +781,25 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
+		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddrStr := callerAddr.String()
+		if err != nil {
+			return err
+		}
 
-		if delta, ok := senderDelta[selp.SrcAddr()]; ok {
-			senderCount[selp.SrcAddr()] += delta
-			senderDelta[selp.SrcAddr()] = senderDelta[selp.SrcAddr()] + 1
+		if delta, ok := senderDelta[callerAddrStr]; ok {
+			senderCount[callerAddrStr] += delta
+			senderDelta[callerAddrStr]++
 		} else {
-			senderDelta[selp.SrcAddr()] = 1
+			senderDelta[callerAddrStr] = 1
 		}
 
 		// Delete new action from sender
-		senderKey := append(actionFromPrefix, selp.SrcAddr()...)
-		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[selp.SrcAddr()])...)
+		senderKey := append(actionFromPrefix, callerAddrStr...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[callerAddrStr])...)
 		batch.Delete(blockAddressActionMappingNS, senderKey, "failed to delete action hash %x for sender %x",
-			actHash, selp.SrcAddr())
+			actHash, callerAddrStr)
 
 		if delta, ok := recipientDelta[selp.DstAddr()]; ok {
 			recipientCount[selp.DstAddr()] += delta

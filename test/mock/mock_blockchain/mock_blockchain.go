@@ -6,17 +6,17 @@ package mock_blockchain
 
 import (
 	context "context"
-	big "math/big"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
+	address "github.com/iotexproject/iotex-core/address"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	keypair "github.com/iotexproject/iotex-core/pkg/keypair"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
+	big "math/big"
+	reflect "reflect"
 )
 
 // MockBlockchain is a mock of Blockchain interface
@@ -576,16 +576,16 @@ func (mr *MockBlockchainMockRecorder) SetValidator(val interface{}) *gomock.Call
 }
 
 // ExecuteContractRead mocks base method
-func (m *MockBlockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt, error) {
-	ret := m.ctrl.Call(m, "ExecuteContractRead", ex)
+func (m *MockBlockchain) ExecuteContractRead(caller address.Address, ex *action.Execution) (*action.Receipt, error) {
+	ret := m.ctrl.Call(m, "ExecuteContractRead", caller, ex)
 	ret0, _ := ret[0].(*action.Receipt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExecuteContractRead indicates an expected call of ExecuteContractRead
-func (mr *MockBlockchainMockRecorder) ExecuteContractRead(ex interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockBlockchain)(nil).ExecuteContractRead), ex)
+func (mr *MockBlockchainMockRecorder) ExecuteContractRead(caller, ex interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockBlockchain)(nil).ExecuteContractRead), caller, ex)
 }
 
 // AddSubscriber mocks base method

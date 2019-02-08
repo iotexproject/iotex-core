@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,12 +34,11 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, bc.Start(ctx))
 	exp := mock_explorer.NewMockExplorer(ctrl)
 
-	protocol := NewProtocol(bc, exp)
+	p := NewProtocol(bc, exp)
 	deposit := action.NewSettleDeposit(
 		1,
 		big.NewInt(1000),
 		10000,
-		testaddress.Addrinfo["producer"].String(),
 		testaddress.Addrinfo["alfa"].String(),
 		testutil.TestGasLimit,
 		big.NewInt(0),
@@ -49,7 +50,7 @@ func TestValidateDeposit(t *testing.T) {
 	}()
 
 	exp.EXPECT().GetDeposits(gomock.Any(), gomock.Any(), gomock.Any()).Return([]explorer.Deposit{}, nil).Times(1)
-	err := protocol.validateDeposit(deposit, nil)
+	err := p.validateDeposit(deposit, nil)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "deposits found instead of"))
 
@@ -61,7 +62,7 @@ func TestValidateDeposit(t *testing.T) {
 		},
 	}, nil).Times(2)
 
-	err = protocol.validateDeposit(deposit, nil)
+	err = p.validateDeposit(deposit, nil)
 	assert.NoError(t, err)
 
 	ws, err := bc.GetFactory().NewWorkingSet()
@@ -69,7 +70,7 @@ func TestValidateDeposit(t *testing.T) {
 	var depositIndex DepositIndex
 	require.NoError(t, ws.PutState(depositAddress(10000), &depositIndex))
 	bc.GetFactory().Commit(ws)
-	err = protocol.validateDeposit(deposit, nil)
+	err = p.validateDeposit(deposit, nil)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "is already settled"))
 
@@ -80,7 +81,7 @@ func TestValidateDeposit(t *testing.T) {
 			Confirmed: true,
 		},
 	}, nil).Times(1)
-	err = protocol.validateDeposit(deposit, nil)
+	err = p.validateDeposit(deposit, nil)
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "is already confirmed"))
 
@@ -93,12 +94,11 @@ func TestMutateDeposit(t *testing.T) {
 	require.NoError(t, bc.Start(ctx))
 	exp := mock_explorer.NewMockExplorer(ctrl)
 
-	protocol := NewProtocol(bc, exp)
+	p := NewProtocol(bc, exp)
 	deposit := action.NewSettleDeposit(
 		1,
 		big.NewInt(1000),
 		10000,
-		testaddress.Addrinfo["producer"].String(),
 		testaddress.Addrinfo["alfa"].String(),
 		testutil.TestGasLimit,
 		big.NewInt(0),
@@ -109,9 +109,12 @@ func TestMutateDeposit(t *testing.T) {
 		ctrl.Finish()
 	}()
 
+	ctx = protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		Caller: testaddress.Addrinfo["producer"],
+	})
 	ws, err := bc.GetFactory().NewWorkingSet()
 	require.NoError(t, err)
-	require.NoError(t, protocol.mutateDeposit(deposit, ws))
+	require.NoError(t, p.mutateDeposit(ctx, deposit, ws))
 	require.NoError(t, bc.GetFactory().Commit(ws))
 
 	account1, err := bc.GetFactory().AccountState(testaddress.Addrinfo["producer"].String())

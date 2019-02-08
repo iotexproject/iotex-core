@@ -62,7 +62,6 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 				Action: &iproto.ActionPb_Transfer{
 					Transfer: &iproto.TransferPb{Recipient: addr2},
 				},
-				Sender:       addr1,
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 				Version:      version.ProtocolVersion,
 				Nonce:        101,
@@ -71,7 +70,6 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 				Action: &iproto.ActionPb_Vote{
 					Vote: &iproto.VotePb{VoteeAddress: addr2},
 				},
-				Sender:       addr1,
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 				Version:      version.ProtocolVersion,
 				Nonce:        103,
@@ -80,7 +78,6 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 				Action: &iproto.ActionPb_Execution{
 					Execution: &iproto.ExecutionPb{Contract: addr2},
 				},
-				Sender:       addr1,
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 				Version:      version.ProtocolVersion,
 				Nonce:        104,

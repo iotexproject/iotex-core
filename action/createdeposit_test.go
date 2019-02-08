@@ -19,14 +19,12 @@ import (
 func TestCreateDeposit(t *testing.T) {
 	t.Parallel()
 
-	addr1 := testaddress.Addrinfo["producer"].String()
 	addr2 := testaddress.Addrinfo["alfa"].String()
 
 	assertDeposit := func(deposit *CreateDeposit) {
 		require.NotNil(t, deposit)
 		assert.Equal(t, uint64(1), deposit.Nonce())
 		assert.Equal(t, big.NewInt(1000), deposit.Amount())
-		assert.Equal(t, addr1, deposit.Sender())
 		assert.Equal(t, addr2, deposit.Recipient())
 		assert.Equal(t, uint64(10), deposit.GasLimit())
 		assert.Equal(t, big.NewInt(100), deposit.GasPrice())
@@ -36,7 +34,6 @@ func TestCreateDeposit(t *testing.T) {
 		1,
 		1,
 		big.NewInt(1000),
-		addr1,
 		addr2,
 		10,
 		big.NewInt(100),
@@ -47,7 +44,6 @@ func TestCreateDeposit(t *testing.T) {
 func TestCreateDepositProto(t *testing.T) {
 	t.Parallel()
 
-	addr1 := testaddress.Addrinfo["producer"].String()
 	addr2 := testaddress.Addrinfo["alfa"].String()
 
 	assertDeposit := func(deposit *CreateDeposit) {
@@ -59,7 +55,6 @@ func TestCreateDepositProto(t *testing.T) {
 		1,
 		1,
 		big.NewInt(1000),
-		addr1,
 		addr2,
 		10,
 		big.NewInt(100),

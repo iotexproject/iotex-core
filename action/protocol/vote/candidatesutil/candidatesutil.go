@@ -10,6 +10,8 @@ import (
 	"math/big"
 	"sort"
 
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -94,14 +96,14 @@ func ConstructKey(height uint64) hash.Hash160 {
 // addCandidate adds a new candidate to candidateMap
 func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, vote *action.Vote, height uint64) error {
 	votePubkey := vote.VoterPublicKey()
-	voterAddr, err := address.FromString(vote.Voter())
+	callerPKHash := keypair.HashPubKey(votePubkey)
+	addr, err := address.FromBytes(callerPKHash[:])
 	if err != nil {
-		return errors.Wrap(err, "failed to get public key hash from account address")
+		return err
 	}
-	voterPKHash := byteutil.BytesTo20B(voterAddr.Bytes())
-	if _, ok := candidateMap[voterPKHash]; !ok {
-		candidateMap[voterPKHash] = &state.Candidate{
-			Address:        vote.Voter(),
+	if _, ok := candidateMap[callerPKHash]; !ok {
+		candidateMap[callerPKHash] = &state.Candidate{
+			Address:        addr.String(),
 			PublicKey:      votePubkey,
 			Votes:          big.NewInt(0),
 			CreationHeight: height,

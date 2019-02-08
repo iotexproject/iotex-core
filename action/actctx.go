@@ -17,7 +17,6 @@ import (
 type AbstractAction struct {
 	version   uint32
 	nonce     uint64
-	srcAddr   string
 	srcPubkey keypair.PublicKey
 	dstAddr   string
 	gasLimit  uint64
@@ -30,9 +29,6 @@ func (act *AbstractAction) Version() uint32 { return act.version }
 
 // Nonce returns the nonce
 func (act *AbstractAction) Nonce() uint64 { return act.nonce }
-
-// SrcAddr returns the source address
-func (act *AbstractAction) SrcAddr() string { return act.srcAddr }
 
 // SrcPubkey returns the source public key
 func (act *AbstractAction) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
@@ -59,7 +55,7 @@ func (act *AbstractAction) Hash() hash.Hash256 { return act.hash }
 func (act *AbstractAction) BasicActionSize() uint32 {
 	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
 	size := 4 + 8 + 8
-	size += len(act.srcAddr) + len(act.dstAddr) + len(keypair.PublicKeyToBytes(act.srcPubkey))
+	size += len(act.dstAddr) + len(keypair.PublicKeyToBytes(act.srcPubkey))
 	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
 		size += len(act.gasPrice.Bytes())
 	}
@@ -75,7 +71,6 @@ func (act *AbstractAction) SetEnvelopeContext(selp SealedEnvelope) {
 	ab := &Builder{}
 	*act = ab.SetVersion(selp.Version()).
 		SetNonce(selp.Nonce()).
-		SetSourceAddress(selp.SrcAddr()).
 		SetSourcePublicKey(selp.SrcPubkey()).
 		SetGasLimit(selp.GasLimit()).
 		SetGasPrice(selp.GasPrice()).

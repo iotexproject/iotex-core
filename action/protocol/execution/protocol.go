@@ -9,6 +9,8 @@ package execution
 import (
 	"context"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -37,10 +39,9 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
-		return nil, errors.New("failed to get RunActionsCtx")
+		log.S().Panic("Miss run action context")
 	}
-	receipt, err := evm.ExecuteContract(raCtx.BlockHeight, raCtx.BlockHash, raCtx.Producer, raCtx.BlockTimeStamp,
-		sm, exec, p.cm, raCtx.GasLimit, raCtx.EnableGasCharge)
+	receipt, err := evm.ExecuteContract(raCtx, sm, exec, p.cm, raCtx.GasLimit)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")

@@ -26,7 +26,7 @@ func TestActionIterator(t *testing.T) {
 	c := testaddress.Addrinfo["charlie"]
 	priKeyC := testaddress.Keyinfo["charlie"].PriKey
 	accMap := make(map[string][]action.SealedEnvelope)
-	vote1, err := action.NewVote(1, a.String(), b.String(), 0, big.NewInt(13))
+	vote1, err := action.NewVote(1, b.String(), 0, big.NewInt(13))
 	require.Nil(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
@@ -36,7 +36,7 @@ func TestActionIterator(t *testing.T) {
 	selp1, err := action.Sign(elp, a.String(), priKeyA)
 	require.Nil(err)
 
-	vote2, err := action.NewVote(2, "1", "2", 0, big.NewInt(30))
+	vote2, err := action.NewVote(2, "2", 0, big.NewInt(30))
 	require.Nil(err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(2).
@@ -46,9 +46,9 @@ func TestActionIterator(t *testing.T) {
 	selp2, err := action.Sign(elp, a.String(), priKeyA)
 	require.Nil(err)
 
-	accMap[vote1.SrcAddr()] = []action.SealedEnvelope{selp1, selp2}
+	accMap[a.String()] = []action.SealedEnvelope{selp1, selp2}
 
-	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(100), "2", "3", nil, uint64(0), big.NewInt(15))
+	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(100), "3", nil, uint64(0), big.NewInt(15))
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
@@ -58,7 +58,7 @@ func TestActionIterator(t *testing.T) {
 	selp3, err := action.Sign(elp, b.String(), priKeyB)
 	require.Nil(err)
 
-	tsf2, err := action.NewTransfer(uint64(2), big.NewInt(100), "2", "3", nil, uint64(0), big.NewInt(10))
+	tsf2, err := action.NewTransfer(uint64(2), big.NewInt(100), "3", nil, uint64(0), big.NewInt(10))
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(2).
@@ -68,7 +68,7 @@ func TestActionIterator(t *testing.T) {
 	selp4, err := action.Sign(elp, b.String(), priKeyB)
 	require.Nil(err)
 
-	vote3, err := action.NewVote(3, "2", "3", 0, big.NewInt(20))
+	vote3, err := action.NewVote(3, "3", 0, big.NewInt(20))
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(3).
@@ -78,9 +78,9 @@ func TestActionIterator(t *testing.T) {
 	selp5, err := action.Sign(elp, b.String(), priKeyB)
 	require.Nil(err)
 
-	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{selp3, selp4, selp5}
+	accMap[b.String()] = []action.SealedEnvelope{selp3, selp4, selp5}
 
-	tsf3, err := action.NewTransfer(uint64(1), big.NewInt(100), "3", "1", nil, uint64(0), big.NewInt(5))
+	tsf3, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", nil, uint64(0), big.NewInt(5))
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
@@ -90,7 +90,7 @@ func TestActionIterator(t *testing.T) {
 	selp6, err := action.Sign(elp, c.String(), priKeyC)
 	require.Nil(err)
 
-	accMap[tsf3.SrcAddr()] = []action.SealedEnvelope{selp6}
+	accMap[c.String()] = []action.SealedEnvelope{selp6}
 
 	ai := NewActionIterator(accMap)
 	appliedActionList := make([]action.SealedEnvelope, 0)

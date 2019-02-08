@@ -89,7 +89,6 @@ func constructPutSubChainBlockRequest(
 	pb := action.NewPutBlock(
 		uint64(senderPCAddrDetails.PendingNonce),
 		subChainAddr,
-		encodedSenderPCAddr,
 		b.Height(),
 		rootm,
 		1000000,        // gas limit
@@ -112,7 +111,6 @@ func constructPutSubChainBlockRequest(
 	req := explorerapi.PutSubChainBlockRequest{
 		Version:         int64(selp.Version()),
 		Nonce:           int64(selp.Nonce()),
-		SenderAddress:   selp.SrcAddr(),
 		SenderPubKey:    keypair.EncodePublicKey(senderPubKey),
 		GasLimit:        int64(selp.GasLimit()),
 		GasPrice:        selp.GasPrice().String(),

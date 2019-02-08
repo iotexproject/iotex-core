@@ -197,7 +197,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[tsf2.SrcAddr()] = []action.SealedEnvelope{tsf2}
+	actionMap[ta.Addrinfo["foxtrot"].String()] = []action.SealedEnvelope{tsf2}
 	blk2, err := chain.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -226,7 +226,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[tsf3.SrcAddr()] = []action.SealedEnvelope{tsf3}
+	actionMap[ta.Addrinfo["bravo"].String()] = []action.SealedEnvelope{tsf3}
 	blk3, err := chain.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -255,7 +255,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[tsf4.SrcAddr()] = []action.SealedEnvelope{tsf4}
+	actionMap[ta.Addrinfo["producer"].String()] = []action.SealedEnvelope{tsf4}
 	blk4, err := chain.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -623,8 +623,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Nil(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[vote4.SrcAddr()] = []action.SealedEnvelope{vote4}
-	actionMap[vote5.SrcAddr()] = []action.SealedEnvelope{vote5}
+	actionMap[ta.Addrinfo["alfa"].String()] = []action.SealedEnvelope{vote4}
+	actionMap[ta.Addrinfo["charlie"].String()] = []action.SealedEnvelope{vote5}
 	blk2, err := chain.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -677,7 +677,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[vote6.SrcAddr()] = []action.SealedEnvelope{vote6}
+	actionMap[ta.Addrinfo["delta"].String()] = []action.SealedEnvelope{vote6}
 	blk3, err := chain.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -724,7 +724,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 4
 	// Unvote B
-	vote7, err := action.NewVote(uint64(2), ta.Addrinfo["bravo"].String(), "", uint64(100000), big.NewInt(0))
+	vote7, err := action.NewVote(uint64(2), "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(vote7).SetNonce(2).SetDestinationAddress("").SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
@@ -732,7 +732,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+	actionMap[ta.Addrinfo["bravo"].String()] = []action.SealedEnvelope{selp}
 	blk4, err := chain.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
