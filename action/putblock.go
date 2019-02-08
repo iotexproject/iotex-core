@@ -35,7 +35,6 @@ type PutBlock struct {
 func NewPutBlock(
 	nonce uint64,
 	subChainAddress string,
-	producerAddress string,
 	height uint64,
 	roots map[string]hash.Hash256,
 	gasLimit uint64,
@@ -45,7 +44,6 @@ func NewPutBlock(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			srcAddr:  producerAddress,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
@@ -111,9 +109,6 @@ func (pb *PutBlock) Height() uint64 { return pb.height }
 
 // Roots return merkel roots put in.
 func (pb *PutBlock) Roots() map[string]hash.Hash256 { return pb.roots }
-
-// ProducerAddress return producer address.
-func (pb *PutBlock) ProducerAddress() string { return pb.srcAddr }
 
 // ProducerPublicKey return producer public key.
 func (pb *PutBlock) ProducerPublicKey() keypair.PublicKey { return pb.SrcPubkey() }

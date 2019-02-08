@@ -36,16 +36,18 @@ type Execution struct {
 }
 
 // NewExecution returns a Execution instance
-func NewExecution(executorAddress string, contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*Execution, error) {
-	if executorAddress == "" {
-		return nil, errors.Wrap(ErrAddress, "address of the executor is empty")
-	}
-
+func NewExecution(
+	contractAddress string,
+	nonce uint64,
+	amount *big.Int,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	data []byte,
+) (*Execution, error) {
 	return &Execution{
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			srcAddr:  executorAddress,
 			dstAddr:  contractAddress,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
@@ -53,11 +55,6 @@ func NewExecution(executorAddress string, contractAddress string, nonce uint64, 
 		amount: amount,
 		data:   data,
 	}, nil
-}
-
-// Executor returns an executor address
-func (ex *Execution) Executor() string {
-	return ex.SrcAddr()
 }
 
 // ExecutorPublicKey returns the executor's public key

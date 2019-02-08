@@ -56,6 +56,7 @@ func TestHandlePutBlock(t *testing.T) {
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
 			Producer:        testaddress.Addrinfo["producer"],
+			Caller:          testaddress.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -77,7 +78,6 @@ func TestHandlePutBlock(t *testing.T) {
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := action.NewPutBlock(
 		1,
-		addr2.String(),
 		addr.String(),
 		10001,
 		roots,
@@ -114,7 +114,6 @@ func TestHandlePutBlock(t *testing.T) {
 	roots["10002"] = byteutil.BytesTo32B([]byte("10003"))
 	pb2 := action.NewPutBlock(
 		1,
-		addr2.String(),
 		addr.String(),
 		10002,
 		roots,

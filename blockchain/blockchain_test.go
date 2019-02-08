@@ -8,7 +8,6 @@ package blockchain
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync"
@@ -40,23 +39,26 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf0, _ := action.NewTransfer(
 		1,
 		big.NewInt(3000000000),
-		Gen.CreatorAddr(),
 		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
 	)
-	pubk, _ := keypair.DecodePublicKey(Gen.CreatorPubKey)
-	sig, _ := hex.DecodeString("c05c3ff8c9820038c03881c97f544593619ca4d1617c7c6d695aaf828339da9616877649d70948094a05a86b171320d1aae9afa4432606be3b263f808e11816e00")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
 		SetDestinationAddress(ta.Addrinfo["producer"].String()).
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
-
-	selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(), pubk, sig)
+	genSK, err := keypair.DecodePrivateKey(GenesisProducerPrivateKey)
+	if err != nil {
+		return err
+	}
+	selp, err := action.Sign(elp, Gen.CreatorAddr(), genSK)
+	if err != nil {
+		return err
+	}
 	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+	actionMap[Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -113,7 +115,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 	accMap := make(map[string][]action.SealedEnvelope)
-	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+	accMap[addr0] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 
 	blk, err = bc.MintNewBlock(
 		accMap,
@@ -155,7 +157,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 	accMap = make(map[string][]action.SealedEnvelope)
-	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
+	accMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	blk, err = bc.MintNewBlock(
 		accMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -194,7 +196,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	}
 
 	accMap = make(map[string][]action.SealedEnvelope)
-	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
+	accMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	blk, err = bc.MintNewBlock(
 		accMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -248,9 +250,9 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 	accMap = make(map[string][]action.SealedEnvelope)
-	accMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
-	accMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1}
-	accMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2}
+	accMap[addr5] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+	accMap[addr3] = []action.SealedEnvelope{vote1}
+	accMap[addr1] = []action.SealedEnvelope{vote2}
 
 	blk, err = bc.MintNewBlock(
 		accMap,
@@ -323,7 +325,7 @@ func TestCreateBlockchain(t *testing.T) {
 	fmt.Printf("Serialize/Deserialize Block merkle = %x match\n", blkhash)
 
 	// add 4 sample blocks
-	require.Nil(addTestingTsfBlocks(bc))
+	require.NoError(addTestingTsfBlocks(bc))
 	height = bc.TipHeight()
 	require.Equal(5, int(height))
 }
@@ -338,48 +340,34 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
 
-	pk, _ := keypair.DecodePublicKey(Gen.CreatorPubKey)
-	// The signature should only matches the transfer amount 3000000000
-	sig, err := hex.DecodeString("c05c3ff8c9820038c03881c97f544593619ca4d1617c7c6d695aaf828339da9616877649d70948094a05a86b171320d1aae9afa4432606be3b263f808e11816e00")
+	tsf, err := action.NewTransfer(
+		1,
+		big.NewInt(3000000000),
+		ta.Addrinfo["producer"].String(),
+		[]byte{}, uint64(100000),
+		big.NewInt(10),
+	)
 	require.NoError(t, err)
-
-	cases := make(map[int64]bool)
-	cases[0] = true
-	cases[1] = false
-	for k, v := range cases {
-		tsf, err := action.NewTransfer(
-			1,
-			big.NewInt(3000000000+k),
-			Gen.CreatorAddr(),
-			ta.Addrinfo["producer"].String(),
-			[]byte{}, uint64(100000),
-			big.NewInt(10),
-		)
-		require.NoError(t, err)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetAction(tsf).
-			SetDestinationAddress(ta.Addrinfo["producer"].String()).
-			SetNonce(1).
-			SetGasLimit(100000).
-			SetGasPrice(big.NewInt(10)).Build()
-
-		selp := action.AssembleSealedEnvelope(elp, Gen.CreatorAddr(), pk, sig)
-		actionMap := make(map[string][]action.SealedEnvelope)
-		actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
-		_, err = bc.MintNewBlock(
-			actionMap,
-			ta.Keyinfo["producer"].PubKey,
-			ta.Keyinfo["producer"].PriKey,
-			ta.Addrinfo["producer"].String(),
-			0,
-		)
-		if v {
-			require.NoError(t, err)
-		} else {
-			require.Error(t, err)
-		}
-	}
-
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(tsf).
+		SetDestinationAddress(ta.Addrinfo["producer"].String()).
+		SetNonce(1).
+		SetGasLimit(100000).
+		SetGasPrice(big.NewInt(10)).Build()
+	genSK, err := keypair.DecodePrivateKey(GenesisProducerPrivateKey)
+	require.NoError(t, err)
+	selp, err := action.Sign(elp, Gen.CreatorAddr(), genSK)
+	require.NoError(t, err)
+	actionMap := make(map[string][]action.SealedEnvelope)
+	actionMap[Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
+	_, err = bc.MintNewBlock(
+		actionMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].String(),
+		0,
+	)
+	require.NoError(t, err)
 }
 
 type MockSubscriber struct {

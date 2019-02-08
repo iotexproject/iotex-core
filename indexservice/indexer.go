@@ -11,6 +11,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -64,8 +67,13 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		transfers, votes, executions := action.ClassifyActions(blk.Actions)
 		// log transfer index
 		for _, transfer := range transfers {
+			callerPKHash := keypair.HashPubKey(transfer.SrcPubkey())
+			callerAddr, err := address.FromBytes(callerPKHash[:])
+			if err != nil {
+				return err
+			}
 			// put new transfer for sender
-			if err := idx.UpdateIndexHistory(blk, tx, config.IndexTransfer, transfer.Sender(), transfer.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexTransfer, callerAddr.String(), transfer.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update transfer to transfer history table")
 			}
 			// put new transfer for recipient
@@ -80,8 +88,13 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 
 		// log vote index
 		for _, vote := range votes {
+			callerPKHash := keypair.HashPubKey(vote.SrcPubkey())
+			callerAddr, err := address.FromBytes(callerPKHash[:])
+			if err != nil {
+				return err
+			}
 			// put new vote for sender
-			if err := idx.UpdateIndexHistory(blk, tx, config.IndexVote, vote.Voter(), vote.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexVote, callerAddr.String(), vote.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update vote to vote history table")
 			}
 			// put new vote for recipient
@@ -96,8 +109,13 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 
 		// log execution index
 		for _, execution := range executions {
+			callerPKHash := keypair.HashPubKey(execution.SrcPubkey())
+			callerAddr, err := address.FromBytes(callerPKHash[:])
+			if err != nil {
+				return err
+			}
 			// put new execution for executor
-			if err := idx.UpdateIndexHistory(blk, tx, config.IndexExecution, execution.Executor(), execution.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexExecution, callerAddr.String(), execution.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update execution to execution history table")
 			}
 			// put new execution for contract
@@ -112,8 +130,13 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 
 		// log action index
 		for _, selp := range blk.Actions {
+			callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+			callerAddr, err := address.FromBytes(callerPKHash[:])
+			if err != nil {
+				return err
+			}
 			// put new action for sender
-			if err := idx.UpdateIndexHistory(blk, tx, config.IndexAction, selp.SrcAddr(), selp.Hash()); err != nil {
+			if err := idx.UpdateIndexHistory(blk, tx, config.IndexAction, callerAddr.String(), selp.Hash()); err != nil {
 				return errors.Wrapf(err, "failed to update action to action history table")
 			}
 			// put new transfer for recipient

@@ -7,15 +7,15 @@
 package e2etest
 
 import (
-	"encoding/hex"
 	"io/ioutil"
 	"math/big"
+
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -25,24 +25,26 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	tsf0, _ := action.NewTransfer(
 		1,
 		blockchain.ConvertIotxToRau(3000000000),
-		blockchain.Gen.CreatorAddr(),
 		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(0),
 	)
-	pubk, _ := keypair.DecodePublicKey(blockchain.Gen.CreatorPubKey)
-	sig, _ := hex.DecodeString("da334834c0169a28d9e85035ca7b51df17ec03310bde7902be32d311d7233fe259f49af86330697a4d2d68b74a1d3219a0db003a31c6416b4c86b5fcbebfd8c800")
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
 		SetDestinationAddress(ta.Addrinfo["producer"].String()).
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
-
-	selp := action.AssembleSealedEnvelope(elp, blockchain.Gen.CreatorAddr(), pubk, sig)
-
+	genSK, err := keypair.DecodePrivateKey(blockchain.GenesisProducerPrivateKey)
+	if err != nil {
+		return err
+	}
+	selp, err := action.Sign(elp, blockchain.Gen.CreatorAddr(), genSK)
+	if err != nil {
+		return err
+	}
 	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[selp.SrcAddr()] = []action.SealedEnvelope{selp}
+	actionMap[blockchain.Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -99,7 +101,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+	actionMap[addr0] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 	blk, err = bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -141,7 +143,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
+	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	blk, err = bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -179,7 +181,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
+	actionMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	blk, err = bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -225,7 +227,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+	actionMap[addr5] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 	blk, err = bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,

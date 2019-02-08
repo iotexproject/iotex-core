@@ -15,10 +15,12 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -216,29 +218,36 @@ func putTransfers(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) err
 	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
 
-		// get transfers count for sender
-		senderTransferCount, err := getTransferCountBySenderAddress(store, transfer.Sender())
+		callerPKHash := keypair.HashPubKey(transfer.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
 		if err != nil {
-			return errors.Wrapf(err, "for sender %x", transfer.Sender())
+			return err
 		}
-		if delta, ok := senderDelta[transfer.Sender()]; ok {
+		callerAddrStr := callerAddr.String()
+
+		// get transfers count for sender
+		senderTransferCount, err := getTransferCountBySenderAddress(store, callerAddrStr)
+		if err != nil {
+			return errors.Wrapf(err, "for sender %x", callerAddrStr)
+		}
+		if delta, ok := senderDelta[callerAddrStr]; ok {
 			senderTransferCount += delta
-			senderDelta[transfer.Sender()] = senderDelta[transfer.Sender()] + 1
+			senderDelta[callerAddrStr]++
 		} else {
-			senderDelta[transfer.Sender()] = 1
+			senderDelta[callerAddrStr] = 1
 		}
 
 		// put new transfer to sender
-		senderKey := append(transferFromPrefix, transfer.Sender()...)
+		senderKey := append(transferFromPrefix, callerAddrStr...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderTransferCount)...)
 		batch.Put(blockAddressTransferMappingNS, senderKey, transferHash[:],
-			"failed to put transfer hash %x for sender %x", transfer.Hash(), transfer.Sender())
+			"failed to put transfer hash %x for sender %x", transfer.Hash(), callerAddrStr)
 
 		// update sender transfers count
-		senderTransferCountKey := append(transferFromPrefix, transfer.Sender()...)
+		senderTransferCountKey := append(transferFromPrefix, callerAddrStr...)
 		batch.Put(blockAddressTransferCountMappingNS, senderTransferCountKey,
 			byteutil.Uint64ToBytes(senderTransferCount+1), "failed to bump transfer count %x for sender %x",
-			transfer.Hash(), transfer.Sender())
+			transfer.Hash(), callerAddrStr)
 
 		// get transfers count for recipient
 		recipientTransferCount, err := getTransferCountByRecipientAddress(store, transfer.Recipient())
@@ -247,7 +256,7 @@ func putTransfers(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) err
 		}
 		if delta, ok := recipientDelta[transfer.Recipient()]; ok {
 			recipientTransferCount += delta
-			recipientDelta[transfer.Recipient()] = recipientDelta[transfer.Recipient()] + 1
+			recipientDelta[transfer.Recipient()]++
 		} else {
 			recipientDelta[transfer.Recipient()] = 1
 		}
@@ -281,32 +290,37 @@ func putVotes(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 			continue
 		}
 		voteHash := selp.Hash()
-		Sender := vote.Voter()
+		callerPKHash := keypair.HashPubKey(vote.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return err
+		}
+		callerAddrStr := callerAddr.String()
 		Recipient := vote.Votee()
 
 		// get votes count for sender
-		senderVoteCount, err := getVoteCountBySenderAddress(store, Sender)
+		senderVoteCount, err := getVoteCountBySenderAddress(store, callerAddrStr)
 		if err != nil {
-			return errors.Wrapf(err, "for sender %x", Sender)
+			return errors.Wrapf(err, "for sender %x", callerAddrStr)
 		}
-		if delta, ok := senderDelta[Sender]; ok {
+		if delta, ok := senderDelta[callerAddrStr]; ok {
 			senderVoteCount += delta
-			senderDelta[Sender]++
+			senderDelta[callerAddrStr]++
 		} else {
-			senderDelta[Sender] = 1
+			senderDelta[callerAddrStr] = 1
 		}
 
 		// put new vote to sender
-		senderKey := append(voteFromPrefix, Sender...)
+		senderKey := append(voteFromPrefix, callerAddrStr...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderVoteCount)...)
 		batch.Put(blockAddressVoteMappingNS, senderKey, voteHash[:],
-			"failed to put vote hash %x for sender %x", voteHash, Sender)
+			"failed to put vote hash %x for sender %x", voteHash, callerAddrStr)
 
 		// update sender votes count
-		senderVoteCountKey := append(voteFromPrefix, Sender...)
+		senderVoteCountKey := append(voteFromPrefix, callerAddrStr...)
 		batch.Put(blockAddressVoteCountMappingNS, senderVoteCountKey,
 			byteutil.Uint64ToBytes(senderVoteCount+1), "failed to bump vote count %x for sender %x",
-			voteHash, Sender)
+			voteHash, callerAddrStr)
 
 		// get votes count for recipient
 		recipientVoteCount, err := getVoteCountByRecipientAddress(store, Recipient)
@@ -345,30 +359,36 @@ func putExecutions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) er
 	_, _, executions := action.ClassifyActions(blk.Actions)
 	for _, execution := range executions {
 		executionHash := execution.Hash()
+		callerPKHash := keypair.HashPubKey(execution.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return err
+		}
+		callerAddrStr := callerAddr.String()
 
 		// get execution count for executor
-		executorExecutionCount, err := getExecutionCountByExecutorAddress(store, execution.Executor())
+		executorExecutionCount, err := getExecutionCountByExecutorAddress(store, callerAddrStr)
 		if err != nil {
-			return errors.Wrapf(err, "for executor %x", execution.Executor())
+			return errors.Wrapf(err, "for executor %x", callerAddrStr)
 		}
-		if delta, ok := executorDelta[execution.Executor()]; ok {
+		if delta, ok := executorDelta[callerAddrStr]; ok {
 			executorExecutionCount += delta
-			executorDelta[execution.Executor()] = executorDelta[execution.Executor()] + 1
+			executorDelta[callerAddrStr]++
 		} else {
-			executorDelta[execution.Executor()] = 1
+			executorDelta[callerAddrStr] = 1
 		}
 
 		// put new execution to executor
-		executorKey := append(executionFromPrefix, execution.Executor()...)
+		executorKey := append(executionFromPrefix, callerAddrStr...)
 		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorExecutionCount)...)
 		batch.Put(blockAddressExecutionMappingNS, executorKey, executionHash[:],
-			"failed to put execution hash %x for executor %x", execution.Hash(), execution.Executor())
+			"failed to put execution hash %x for executor %x", execution.Hash(), callerAddrStr)
 
 		// update executor executions count
-		executorExecutionCountKey := append(executionFromPrefix, execution.Executor()...)
+		executorExecutionCountKey := append(executionFromPrefix, callerAddrStr...)
 		batch.Put(blockAddressExecutionCountMappingNS, executorExecutionCountKey,
 			byteutil.Uint64ToBytes(executorExecutionCount+1),
-			"failed to bump execution count %x for executor %x", execution.Hash(), execution.Executor())
+			"failed to bump execution count %x for executor %x", execution.Hash(), callerAddrStr)
 
 		// get execution count for contract
 		contractExecutionCount, err := getExecutionCountByContractAddress(store, execution.Contract())
@@ -377,7 +397,7 @@ func putExecutions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) er
 		}
 		if delta, ok := contractDelta[execution.Contract()]; ok {
 			contractExecutionCount += delta
-			contractDelta[execution.Contract()] = contractDelta[execution.Contract()] + 1
+			contractDelta[execution.Contract()]++
 		} else {
 			contractDelta[execution.Contract()] = 1
 		}
@@ -413,30 +433,36 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 			continue
 		}
 		actHash := selp.Hash()
+		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return err
+		}
+		callerAddrStr := callerAddr.String()
 
 		// get action count for sender
-		senderActionCount, err := getActionCountBySenderAddress(store, selp.SrcAddr())
+		senderActionCount, err := getActionCountBySenderAddress(store, callerAddrStr)
 		if err != nil {
-			return errors.Wrapf(err, "for sender %s", selp.SrcAddr())
+			return errors.Wrapf(err, "for sender %s", callerAddrStr)
 		}
-		if delta, ok := senderDelta[selp.SrcAddr()]; ok {
+		if delta, ok := senderDelta[callerAddrStr]; ok {
 			senderActionCount += delta
-			senderDelta[selp.SrcAddr()]++
+			senderDelta[callerAddrStr]++
 		} else {
-			senderDelta[selp.SrcAddr()] = 1
+			senderDelta[callerAddrStr] = 1
 		}
 
 		// put new action to sender
-		senderKey := append(actionFromPrefix, selp.SrcAddr()...)
+		senderKey := append(actionFromPrefix, callerAddrStr...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderActionCount)...)
 		batch.Put(blockAddressActionMappingNS, senderKey, actHash[:],
-			"failed to put action hash %x for sender %s", actHash, selp.SrcAddr())
+			"failed to put action hash %x for sender %s", actHash, callerAddrStr)
 
 		// update sender action count
-		senderActionCountKey := append(actionFromPrefix, selp.SrcAddr()...)
+		senderActionCountKey := append(actionFromPrefix, callerAddrStr...)
 		batch.Put(blockAddressActionCountMappingNS, senderActionCountKey,
 			byteutil.Uint64ToBytes(senderActionCount+1),
-			"failed to bump action count %x for sender %s", actHash, selp.SrcAddr())
+			"failed to bump action count %x for sender %s", actHash, callerAddrStr)
 
 		// get action count for recipient
 		recipientActionCount, err := getActionCountByRecipientAddress(store, selp.DstAddr())

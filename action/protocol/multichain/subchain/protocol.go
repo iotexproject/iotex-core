@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -42,13 +44,13 @@ func NewProtocol(chain blockchain.Blockchain, mainChainAPI explorer.Explorer) *P
 }
 
 // Handle handles how to mutate the state db given the multi-chain action on sub-chain
-func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.SettleDeposit:
 		if err := p.validateDeposit(act, sm); err != nil {
 			return nil, errors.Wrapf(err, "error when handling deposit settlement action")
 		}
-		if err := p.mutateDeposit(act, sm); err != nil {
+		if err := p.mutateDeposit(ctx, act, sm); err != nil {
 			return nil, errors.Wrapf(err, "error when handling deposit settlement action")
 		}
 	}
@@ -99,7 +101,12 @@ func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, sm protocol.St
 	}
 }
 
-func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.StateManager) error {
+func (p *Protocol) mutateDeposit(ctx context.Context, deposit *action.SettleDeposit, sm protocol.StateManager) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss run action context")
+	}
+
 	// Update the deposit index
 	depositAddr := depositAddress(deposit.Index())
 	var depositIndex DepositIndex
@@ -108,12 +115,12 @@ func (p *Protocol) mutateDeposit(deposit *action.SettleDeposit, sm protocol.Stat
 	}
 
 	// Update the action owner
-	owner, err := account.LoadOrCreateAccount(sm, deposit.Sender(), big.NewInt(0))
+	owner, err := account.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
 	account.SetNonce(deposit, owner)
-	if err := account.StoreAccount(sm, deposit.Sender(), owner); err != nil {
+	if err := account.StoreAccount(sm, raCtx.Caller.String(), owner); err != nil {
 		return err
 	}
 

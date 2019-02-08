@@ -1115,7 +1115,6 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 			},
 		},
 		Version:      uint32(voteJSON.Version),
-		Sender:       voteJSON.Voter,
 		SenderPubKey: selfPubKey,
 		Nonce:        uint64(voteJSON.Nonce),
 		GasLimit:     uint64(voteJSON.GasLimit),
@@ -1182,7 +1181,6 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 			},
 		},
 		Version:      uint32(putBlockJSON.Version),
-		Sender:       putBlockJSON.SenderAddress,
 		SenderPubKey: senderPubKey,
 		Nonce:        uint64(putBlockJSON.Nonce),
 		GasLimit:     uint64(putBlockJSON.GasLimit),
@@ -1292,7 +1290,6 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 			},
 		},
 		Version:      uint32(execution.Version),
-		Sender:       execution.Executor,
 		SenderPubKey: executorPubKey,
 		Nonce:        uint64(execution.Nonce),
 		GasLimit:     uint64(execution.GasLimit),
@@ -1331,7 +1328,12 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 		return "", errors.New("not execution")
 	}
 
-	res, err := exp.bc.ExecuteContractRead(sc)
+	callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+	callerAddr, err := address.FromBytes(callerPKHash[:])
+	if err != nil {
+		return "", err
+	}
+	res, err := exp.bc.ExecuteContractRead(callerAddr, sc)
 	if err != nil {
 		return "", err
 	}
@@ -1394,7 +1396,6 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 			},
 		},
 		Version:      uint32(req.Version),
-		Sender:       req.Sender,
 		SenderPubKey: senderPubKey,
 		Nonce:        uint64(req.Nonce),
 		GasLimit:     uint64(req.GasLimit),
@@ -1504,7 +1505,6 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 			},
 		},
 		Version:      uint32(req.Version),
-		Sender:       req.Sender,
 		SenderPubKey: senderPubKey,
 		Nonce:        uint64(req.Nonce),
 		GasLimit:     uint64(req.GasLimit),
@@ -1731,7 +1731,6 @@ func castActionToCreateDeposit(selp action.SealedEnvelope, pending bool) (explor
 	createDeposit := explorer.CreateDeposit{
 		Nonce:     int64(selp.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
-		Sender:    cd.Sender(),
 		Recipient: cd.Recipient(),
 		Fee:       "", // TODO: we need to get the actual fee.
 		GasLimit:  int64(selp.GasLimit()),
@@ -1793,7 +1792,6 @@ func castActionToSettleDeposit(selp action.SealedEnvelope, pending bool) (explor
 	settleDeposit := explorer.SettleDeposit{
 		Nonce:     int64(selp.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
-		Sender:    sd.Sender(),
 		Recipient: sd.Recipient(),
 		Index:     int64(sd.Index()),
 		Fee:       "", // TODO: we need to get the actual fee.
@@ -1822,7 +1820,6 @@ func convertTsfToExplorerTsf(selp action.SealedEnvelope, isPending bool) (explor
 	explorerTransfer := explorer.Transfer{
 		Nonce:      int64(selp.Nonce()),
 		ID:         hex.EncodeToString(hash[:]),
-		Sender:     transfer.Sender(),
 		Recipient:  transfer.Recipient(),
 		Fee:        "", // TODO: we need to get the actual fee.
 		Payload:    hex.EncodeToString(transfer.Payload()),
@@ -1852,7 +1849,6 @@ func convertVoteToExplorerVote(selp action.SealedEnvelope, isPending bool) (expl
 	explorerVote := explorer.Vote{
 		ID:          hex.EncodeToString(hash[:]),
 		Nonce:       int64(selp.Nonce()),
-		Voter:       vote.Voter(),
 		VoterPubKey: keypair.EncodePublicKey(voterPubkey),
 		Votee:       vote.Votee(),
 		GasLimit:    int64(selp.GasLimit()),
@@ -1874,7 +1870,6 @@ func convertExecutionToExplorerExecution(selp action.SealedEnvelope, isPending b
 	explorerExecution := explorer.Execution{
 		Nonce:     int64(selp.Nonce()),
 		ID:        hex.EncodeToString(hash[:]),
-		Executor:  execution.Executor(),
 		Contract:  execution.Contract(),
 		GasLimit:  int64(selp.GasLimit()),
 		Data:      hex.EncodeToString(execution.Data()),
@@ -1950,7 +1945,6 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iproto.
 			},
 		},
 		Version:      uint32(execution.Version),
-		Sender:       execution.Executor,
 		SenderPubKey: executorPubKey,
 		Nonce:        uint64(execution.Nonce),
 		GasLimit:     uint64(execution.GasLimit),
@@ -1999,7 +1993,6 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
 			},
 		},
 		Version:      uint32(tsfJSON.Version),
-		Sender:       tsfJSON.Sender,
 		SenderPubKey: senderPubKey,
 		Nonce:        uint64(tsfJSON.Nonce),
 		GasLimit:     uint64(tsfJSON.GasLimit),

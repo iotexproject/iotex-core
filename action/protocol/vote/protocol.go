@@ -10,6 +10,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/iotexproject/go-ethereum/core/vm"
 	"github.com/pkg/errors"
 
@@ -36,19 +38,19 @@ func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} 
 
 // Handle handles a vote
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss run action context")
+	}
+
 	vote, ok := act.(*action.Vote)
 	if !ok {
 		return nil, nil
 	}
 
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		return nil, errors.New("failed to get action context")
-	}
-
-	voteFrom, err := account.LoadOrCreateAccount(sm, vote.Voter(), big.NewInt(0))
+	voteFrom, err := account.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", vote.Voter())
+		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", raCtx.Caller.String())
 	}
 	if raCtx.EnableGasCharge {
 		// Load or create account for producer
@@ -70,12 +72,18 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		gasFee := big.NewInt(0).Mul(vote.GasPrice(), big.NewInt(0).SetUint64(gas))
 
 		if gasFee.Cmp(voteFrom.Balance) == 1 {
-			return nil, errors.Wrapf(state.ErrNotEnoughBalance, "failed to verify the Balance for gas of voter %s, %d, %d", vote.Voter(), gas, voteFrom.Balance)
+			return nil, errors.Wrapf(
+				state.ErrNotEnoughBalance,
+				"failed to verify the Balance for gas of voter %s, %d, %d",
+				raCtx.Caller.String(),
+				gas,
+				voteFrom.Balance,
+			)
 		}
 
 		// charge voter Gas
 		if err := voteFrom.SubBalance(gasFee); err != nil {
-			return nil, errors.Wrapf(err, "failed to charge the gas for voter %s", vote.Voter())
+			return nil, errors.Wrapf(err, "failed to charge the gas for voter %s", raCtx.Caller.String())
 		}
 		// compensate block producer gas
 		if err := producer.AddBalance(gasFee); err != nil {
@@ -95,10 +103,10 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		// unvote operation
 		voteFrom.IsCandidate = false
 		// Remove the candidate from candidateMap if the person is not a candidate anymore
-		if err := candidatesutil.LoadAndDeleteCandidates(sm, vote.Voter()); err != nil {
+		if err := candidatesutil.LoadAndDeleteCandidates(sm, raCtx.Caller.String()); err != nil {
 			return nil, errors.Wrap(err, "failed to load and delete candidates")
 		}
-	} else if vote.Voter() == vote.Votee() {
+	} else if raCtx.Caller.String() == vote.Votee() {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
 		if err := candidatesutil.LoadAndAddCandidates(sm, vote); err != nil {
@@ -106,7 +114,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		}
 	}
 	// Put updated voter's state to trie
-	if err := account.StoreAccount(sm, vote.Voter(), voteFrom); err != nil {
+	if err := account.StoreAccount(sm, raCtx.Caller.String(), voteFrom); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
@@ -154,7 +162,12 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 }
 
 // Validate validates a vote
-func (p *Protocol) Validate(_ context.Context, act action.Action) error {
+func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
+	vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss validate action context")
+	}
+
 	vote, ok := act.(*action.Vote)
 	if !ok {
 		return nil
@@ -175,7 +188,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 		if err != nil {
 			return errors.Wrapf(err, "cannot find votee's state: %s", vote.Votee())
 		}
-		if vote.Voter() != vote.Votee() && !voteeState.IsCandidate {
+		if vaCtx.Caller.String() != vote.Votee() && !voteeState.IsCandidate {
 			return errors.Wrapf(action.ErrVotee, "votee has not self-nominated: %s", vote.Votee())
 		}
 	}

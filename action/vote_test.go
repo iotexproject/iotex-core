@@ -21,7 +21,7 @@ func TestVoteSignVerify(t *testing.T) {
 	recipientAddr := testaddress.Addrinfo["alfa"]
 	senderKey := testaddress.Keyinfo["producer"]
 
-	v, err := NewVote(0, senderAddr.String(), recipientAddr.String(), uint64(100000), big.NewInt(10))
+	v, err := NewVote(0, recipientAddr.String(), uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}

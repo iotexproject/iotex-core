@@ -7,7 +7,10 @@
 package mainchain
 
 import (
+	"context"
 	"math/big"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 
 	"github.com/pkg/errors"
 
@@ -20,18 +23,24 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-func (p *Protocol) handleStartSubChain(start *action.StartSubChain, sm protocol.StateManager) error {
-	account, subChainsInOp, err := p.validateStartSubChain(start, sm)
+func (p *Protocol) handleStartSubChain(ctx context.Context, start *action.StartSubChain, sm protocol.StateManager) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss run action context")
+	}
+	account, subChainsInOp, err := p.validateStartSubChain(raCtx.Caller, start, sm)
 	if err != nil {
 		return err
 	}
-	return p.mutateSubChainState(start, account, subChainsInOp, sm)
+	return p.mutateSubChainState(raCtx.Caller, start, account, subChainsInOp, sm)
 }
 
 func (p *Protocol) validateStartSubChain(
+	caller address.Address,
 	start *action.StartSubChain,
 	sm protocol.StateManager,
 ) (*state.Account, SubChainsInOperation, error) {
+
 	if start.ChainID() == p.rootChain.ChainID() {
 		return nil, nil, errors.Errorf("%d is used by main chain", start.ChainID())
 	}
@@ -49,7 +58,7 @@ func (p *Protocol) validateStartSubChain(
 		)
 	}
 	account, err := p.accountWithEnoughBalance(
-		start.OwnerAddress(),
+		caller.String(),
 		big.NewInt(0).Add(start.SecurityDeposit(), start.OperationDeposit()),
 		sm,
 	)
@@ -60,12 +69,13 @@ func (p *Protocol) validateStartSubChain(
 }
 
 func (p *Protocol) mutateSubChainState(
+	caller address.Address,
 	start *action.StartSubChain,
 	acct *state.Account,
 	subChainsInOp SubChainsInOperation,
 	sm protocol.StateManager,
 ) error {
-	addr, err := createSubChainAddress(start.OwnerAddress(), start.Nonce())
+	addr, err := createSubChainAddress(caller.String(), start.Nonce())
 	if err != nil {
 		return err
 	}
@@ -86,7 +96,7 @@ func (p *Protocol) mutateSubChainState(
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, start.OperationDeposit())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
 	account.SetNonce(start, acct)
-	if err := account.StoreAccount(sm, start.OwnerAddress(), acct); err != nil {
+	if err := account.StoreAccount(sm, caller.String(), acct); err != nil {
 		return err
 	}
 	subChainsInOp = subChainsInOp.Append(InOperation{

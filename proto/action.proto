@@ -133,8 +133,6 @@ message PlumTransferPb {
 
 message ActionPb {
     uint32 version = 1;
-    // TODO: we should remove sender address later
-    string sender = 2;
     bytes senderPubKey = 3;
     uint64 nonce = 4;
     uint64 gasLimit = 5;

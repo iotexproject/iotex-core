@@ -10,6 +10,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -163,19 +166,36 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 		return errors.Errorf("reject existed action: %x", hash)
 	}
 
+	callerPKHash := keypair.HashPubKey(act.SrcPubkey())
+	caller, err := address.FromBytes(callerPKHash[:])
+	if err != nil {
+		return err
+	}
 	// envelope validation
 	for _, validator := range ap.actionEnvelopeValidators {
-		if err := validator.Validate(context.Background(), act); err != nil {
+		ctx := protocol.WithValidateActionsCtx(
+			context.Background(),
+			protocol.ValidateActionsCtx{
+				Caller: caller,
+			},
+		)
+		if err := validator.Validate(ctx, act); err != nil {
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
 	}
 	// Reject action if it's invalid
 	for _, validator := range ap.validators {
-		if err := validator.Validate(context.Background(), act.Action()); err != nil {
+		ctx := protocol.WithValidateActionsCtx(
+			context.Background(),
+			protocol.ValidateActionsCtx{
+				Caller: caller,
+			},
+		)
+		if err := validator.Validate(ctx, act.Action()); err != nil {
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
 	}
-	return ap.enqueueAction(act.SrcAddr(), act, hash, act.Nonce())
+	return ap.enqueueAction(caller.String(), act, hash, act.Nonce())
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address

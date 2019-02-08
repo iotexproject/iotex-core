@@ -6,12 +6,11 @@ package mock_factory
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	db "github.com/iotexproject/iotex-core/db"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
+	reflect "reflect"
 )
 
 // MockWorkingSet is a mock of WorkingSet interface

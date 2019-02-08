@@ -59,12 +59,13 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.NoError(ws.PutState(pubKeyHash2, &account2))
 	require.NoError(ws.PutState(pubKeyHash3, &account3))
 
-	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2), testaddress.Addrinfo["alfa"].String(),
+	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2),
 		testaddress.Addrinfo["bravo"].String(), []byte{}, uint64(10000), big.NewInt(0))
 	require.NoError(err)
 
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
+			Caller:          testaddress.Addrinfo["alfa"],
 			EnableGasCharge: false,
 		})
 	_, err = p.Handle(ctx, transfer, ws)
@@ -97,13 +98,13 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]
-	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", payload, uint64(0),
+	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0),
 		big.NewInt(0))
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), tsf)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	// Case II: Negative amount
-	tsf, err = action.NewTransfer(uint64(1), big.NewInt(-100), "1", "2", nil,
+	tsf, err = action.NewTransfer(uint64(1), big.NewInt(-100), "2", nil,
 		uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), tsf)
@@ -112,7 +113,6 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	tsf, err = action.NewTransfer(
 		1,
 		big.NewInt(1),
-		testaddress.Addrinfo["producer"].String(),
 		testaddress.Addrinfo["alfa"].String()+"aaa",
 		nil,
 		uint64(100000),

@@ -10,10 +10,11 @@ import (
 	"context"
 	"sync"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
@@ -27,7 +28,11 @@ type GenericValidator struct {
 func NewGenericValidator(cm ChainManager) *GenericValidator { return &GenericValidator{cm: cm} }
 
 // Validate validates a generic action
-func (v *GenericValidator) Validate(_ context.Context, act action.SealedEnvelope) error {
+func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelope) error {
+	vaCtx, ok := GetValidateActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss validate action context")
+	}
 	// Reject over-gassed action
 	if act.GasLimit() > genesis.ActionGasLimit {
 		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")
@@ -37,18 +42,14 @@ func (v *GenericValidator) Validate(_ context.Context, act action.SealedEnvelope
 	if intrinsicGas > act.GasLimit() || err != nil {
 		return errors.Wrap(action.ErrInsufficientBalanceForGas, "insufficient gas")
 	}
-	// Check if action source address is valid
-	if _, err := address.FromString(act.SrcAddr()); err != nil {
-		return errors.Wrapf(err, "error when validating source address %s", act.SrcAddr())
-	}
 	// Verify action using action sender's public key
 	if err := action.Verify(act); err != nil {
 		return errors.Wrap(err, "failed to verify action signature")
 	}
 	// Reject action if nonce is too low
-	confirmedNonce, err := v.cm.Nonce(act.SrcAddr())
+	confirmedNonce, err := v.cm.Nonce(vaCtx.Caller.String())
 	if err != nil {
-		return errors.Wrapf(err, "invalid nonce value of account %s", act.SrcAddr())
+		return errors.Wrapf(err, "invalid nonce value of account %s", vaCtx.Caller.String())
 	}
 	pendingNonce := confirmedNonce + 1
 	if pendingNonce > act.Nonce() {
