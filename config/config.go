@@ -94,6 +94,7 @@ var (
 			EnableTrielessStateDB:        true,
 			EnableIndex:                  false,
 			EnableAsyncIndexWrite:        false,
+			RecoveryHeight:               0,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -213,6 +214,8 @@ type (
 		EnableIndex bool `yaml:"enableIndex"`
 		// enable writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
+		// the height chain recover to
+		RecoveryHeight uint64 `yaml:"recoveryHeight"`
 	}
 
 	// Consensus is the config struct for consensus package
