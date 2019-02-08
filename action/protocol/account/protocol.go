@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -28,13 +29,13 @@ func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an account
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		return nil, errors.New("failed to get action context")
-	}
 	switch act := act.(type) {
 	case *action.Transfer:
-		if err := p.handleTransfer(act, raCtx, sm); err != nil {
+		raCtx, ok := protocol.GetRunActionsCtx(ctx)
+		if !ok {
+			log.S().Panic("Miss run action context")
+		}
+		if err := p.handleTransfer(raCtx, act, sm); err != nil {
 			return nil, errors.Wrap(err, "error when handling transfer action")
 		}
 	}

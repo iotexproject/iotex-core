@@ -19,7 +19,6 @@ import (
 func TestSettleDeposit(t *testing.T) {
 	t.Parallel()
 
-	addr1 := testaddress.Addrinfo["producer"].String()
 	addr2 := testaddress.Addrinfo["alfa"].String()
 
 	assertDeposit := func(deposit *SettleDeposit) {
@@ -27,7 +26,6 @@ func TestSettleDeposit(t *testing.T) {
 		assert.Equal(t, uint64(1), deposit.Nonce())
 		assert.Equal(t, big.NewInt(1000), deposit.Amount())
 		assert.Equal(t, uint64(10000), deposit.Index())
-		assert.Equal(t, addr1, deposit.Sender())
 		assert.Equal(t, addr2, deposit.Recipient())
 		assert.Equal(t, uint64(10), deposit.GasLimit())
 		assert.Equal(t, big.NewInt(100), deposit.GasPrice())
@@ -37,7 +35,6 @@ func TestSettleDeposit(t *testing.T) {
 		1,
 		big.NewInt(1000),
 		10000,
-		addr1,
 		addr2,
 		10,
 		big.NewInt(100),
@@ -48,7 +45,6 @@ func TestSettleDeposit(t *testing.T) {
 func TestSettleDepositProto(t *testing.T) {
 	t.Parallel()
 
-	addr1 := testaddress.Addrinfo["producer"].String()
 	addr2 := testaddress.Addrinfo["alfa"].String()
 
 	assertDeposit := func(deposit *SettleDeposit) {
@@ -61,7 +57,6 @@ func TestSettleDepositProto(t *testing.T) {
 		1,
 		big.NewInt(1000),
 		10000,
-		addr1,
 		addr2,
 		10,
 		big.NewInt(100),

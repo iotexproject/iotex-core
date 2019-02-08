@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -56,7 +55,7 @@ type Params struct {
 }
 
 // NewParams creates a new context for use in the EVM.
-func NewParams(blkHeight uint64, producerAddr address.Address, blkTimeStamp int64, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
+func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	/*
 		var beneficiary common.Address
@@ -66,11 +65,7 @@ func NewParams(blkHeight uint64, producerAddr address.Address, blkTimeStamp int6
 			beneficiary = *author
 		}
 	*/
-	executor, err := address.FromString(execution.Executor())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert encoded executor address to address")
-	}
-	executorAddr := common.BytesToAddress(executor.Bytes())
+	executorAddr := common.BytesToAddress(raCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
 		contract, err := address.FromString(execution.Contract())
@@ -80,15 +75,15 @@ func NewParams(blkHeight uint64, producerAddr address.Address, blkTimeStamp int6
 		contractAddr := common.BytesToAddress(contract.Bytes())
 		contractAddrPointer = &contractAddr
 	}
-	producer := common.BytesToAddress(producerAddr.Bytes())
+	producer := common.BytesToAddress(raCtx.Producer.Bytes())
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
 		GetHash:     GetHashFn(stateDB),
 		Origin:      executorAddr,
 		Coinbase:    producer,
-		BlockNumber: new(big.Int).SetUint64(blkHeight),
-		Time:        new(big.Int).SetInt64(blkTimeStamp),
+		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
+		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    genesis.ActionGasLimit,
 		GasPrice:    execution.GasPrice(),
@@ -97,7 +92,7 @@ func NewParams(blkHeight uint64, producerAddr address.Address, blkTimeStamp int6
 	return &Params{
 		context,
 		execution.Nonce(),
-		execution.Executor(),
+		raCtx.Caller.String(),
 		execution.Amount(),
 		contractAddrPointer,
 		execution.GasLimit(),
@@ -138,23 +133,19 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 
 // ExecuteContract processes a transfer which contains a contract
 func ExecuteContract(
-	blkHeight uint64,
-	blkHash hash.Hash256,
-	producer address.Address,
-	blkTimeStamp int64,
+	raCtx protocol.RunActionsCtx,
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
 	gasLimit *uint64,
-	enableGasCharge bool,
 ) (*action.Receipt, error) {
-	stateDB := NewStateDBAdapter(cm, sm, blkHeight, blkHash, execution.Hash())
-	ps, err := NewParams(blkHeight, producer, blkTimeStamp, execution, stateDB)
+	stateDB := NewStateDBAdapter(cm, sm, raCtx.BlockHeight, raCtx.BlockHash, execution.Hash())
+	ps, err := NewParams(raCtx, execution, stateDB)
 	if err != nil {
 		return nil, err
 	}
 	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
-	if !enableGasCharge {
+	if !raCtx.EnableGasCharge {
 		remainingGas = depositGas
 	}
 

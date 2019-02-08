@@ -90,7 +90,7 @@ func (stx *stateTX) RunActions(
 					"error when action %x (nonce: %d) from %s mutates states",
 					elp.Hash(),
 					elp.Nonce(),
-					elp.SrcAddr(),
+					callerAddr.String(),
 				)
 			}
 			if receipt != nil {

@@ -69,7 +69,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[tsf.SrcAddr()] = []action.SealedEnvelope{tsf}
+	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -116,7 +116,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[tsf1.SrcAddr()] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}
+	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -171,8 +171,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[vote1.SrcAddr()] = []action.SealedEnvelope{vote1, execution1}
-	actionMap[vote2.SrcAddr()] = []action.SealedEnvelope{vote2, execution2}
+	actionMap[addr3] = []action.SealedEnvelope{vote1, execution1}
+	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -193,7 +193,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Addrinfo["producer"].String(), ta.Keyinfo["alfa"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	if err != nil {
 		return err
 	}
@@ -456,7 +456,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(4, int(tip))
 
 	err = addActsToActPool(ap)
-	require.Nil(err)
+	require.NoError(err)
 
 	// success
 	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].String(), 0, 3)
@@ -713,7 +713,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	exe := execution.Action().(*action.Execution)
 	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(exe.ExecutorPublicKey())
 	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
-	chain.EXPECT().ExecuteContractRead(gomock.Any()).Return(&action.Receipt{GasConsumed: 1000}, nil)
+	chain.EXPECT().ExecuteContractRead(gomock.Any(), gomock.Any()).Return(&action.Receipt{GasConsumed: 1000}, nil)
 
 	gas, err := svc.EstimateGasForSmartContract(explorerExecution)
 	require.Nil(err)
@@ -798,7 +798,6 @@ func TestServiceSendAction(t *testing.T) {
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := action.NewPutBlock(
 		1,
-		"",
 		ta.Addrinfo["producer"].String(),
 		100,
 		roots,
@@ -953,7 +952,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	require.NoError(err)
 
 	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[execution.SrcAddr()] = []action.SealedEnvelope{execution}
+	actionMap[ta.Addrinfo["producer"].String()] = []action.SealedEnvelope{execution}
 	blk, err := bc.MintNewBlock(
 		actionMap,
 		ta.Keyinfo["producer"].PubKey,
@@ -1001,7 +1000,6 @@ func TestService_CreateDeposit(t *testing.T) {
 		10,
 		2,
 		big.NewInt(10000),
-		ta.Addrinfo["producer"].String(),
 		// Test explorer only, so that it doesn't matter the address is not on sub-chain
 		ta.Addrinfo["alfa"].String(),
 		1000,
@@ -1019,7 +1017,6 @@ func TestService_CreateDeposit(t *testing.T) {
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
 		ChainID:      int64(deposit.ChainID()),
-		Sender:       deposit.Sender(),
 		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
 		Recipient:    deposit.Recipient(),
 		Amount:       deposit.Amount().String(),
@@ -1062,7 +1059,6 @@ func TestService_SettleDeposit(t *testing.T) {
 		10,
 		big.NewInt(10000),
 		100000,
-		ta.Addrinfo["producer"].String(),
 		// Test explorer only, so that it doesn't matter the address is not on sub-chain
 		ta.Addrinfo["alfa"].String(),
 		1000,
@@ -1079,7 +1075,6 @@ func TestService_SettleDeposit(t *testing.T) {
 	res, error := svc.SettleDeposit(explorer.SettleDepositRequest{
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
-		Sender:       deposit.Sender(),
 		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
 		Recipient:    deposit.Recipient(),
 		Amount:       deposit.Amount().String(),

@@ -10,6 +10,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -46,24 +48,24 @@ func NewProtocol(rootChain blockchain.Blockchain) *Protocol {
 }
 
 // Handle handles how to mutate the state db given the multi-chain action on main-chain
-func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.StartSubChain:
-		if err := p.handleStartSubChain(act, sm); err != nil {
+		if err := p.handleStartSubChain(ctx, act, sm); err != nil {
 			return nil, errors.Wrapf(err, "error when handling start sub-chain action")
 		}
 	case *action.PutBlock:
-		if err := p.handlePutBlock(act, sm); err != nil {
+		if err := p.handlePutBlock(ctx, act, sm); err != nil {
 			return nil, errors.Wrapf(err, "error when handling put sub-chain block action")
 		}
 	case *action.CreateDeposit:
-		deposit, err := p.handleDeposit(act, sm)
+		deposit, err := p.handleDeposit(ctx, act, sm)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error when handling deposit creation action")
 		}
 		return deposit, nil
 	case *action.StopSubChain:
-		if err := p.handleStopSubChain(act, sm); err != nil {
+		if err := p.handleStopSubChain(ctx, act, sm); err != nil {
 			return nil, errors.Wrapf(err, "error when handling stop sub-chain action")
 		}
 	}
@@ -72,10 +74,14 @@ func (p *Protocol) Handle(_ context.Context, act action.Action, sm protocol.Stat
 }
 
 // Validate validates the multi-chain action on main-chain
-func (p *Protocol) Validate(_ context.Context, act action.Action) error {
+func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 	switch act := act.(type) {
 	case *action.StartSubChain:
-		if _, _, err := p.validateStartSubChain(act, nil); err != nil {
+		vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
+		if !ok {
+			log.S().Panic("Miss validate action context")
+		}
+		if _, _, err := p.validateStartSubChain(vaCtx.Caller, act, nil); err != nil {
 			return errors.Wrapf(err, "error when validating start sub-chain action")
 		}
 	case *action.PutBlock:
@@ -83,7 +89,11 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 			return errors.Wrapf(err, "error when validating put sub-chain block action")
 		}
 	case *action.CreateDeposit:
-		if _, _, err := p.validateDeposit(act, nil); err != nil {
+		vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
+		if !ok {
+			log.S().Panic("Miss validate action context")
+		}
+		if _, _, err := p.validateDeposit(vaCtx.Caller, act, nil); err != nil {
 			return errors.Wrapf(err, "error when validating deposit creation action")
 		}
 	}

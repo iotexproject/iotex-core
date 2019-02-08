@@ -20,12 +20,10 @@ import (
 )
 
 func TestPutBlock(t *testing.T) {
-	addr := testaddress.Addrinfo["producer"]
 	addr2 := testaddress.Addrinfo["echo"]
 	assertPB := func(pb *PutBlock) {
 		assert.Equal(t, uint32(version.ProtocolVersion), pb.version)
 		assert.Equal(t, uint64(1), pb.Nonce())
-		assert.Equal(t, addr.String(), pb.ProducerAddress())
 		assert.Equal(t, addr2.String(), pb.SubChainAddress())
 		assert.Equal(t, uint64(10001), pb.Height())
 		assert.Equal(t, byteutil.BytesTo32B([]byte("10002")), pb.Roots()["10002"])
@@ -37,7 +35,6 @@ func TestPutBlock(t *testing.T) {
 	pb := NewPutBlock(
 		1,
 		addr2.String(),
-		addr.String(),
 		10001,
 		roots,
 		10003,
@@ -71,7 +68,6 @@ func TestPutBlockProto(t *testing.T) {
 
 func TestPutBlockByteStream(t *testing.T) {
 	addr := testaddress.Addrinfo["producer"]
-	addr2 := testaddress.Addrinfo["echo"]
 	roots := make(map[string]hash.Hash256)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	roots["10003"] = byteutil.BytesTo32B([]byte("10003"))
@@ -79,7 +75,6 @@ func TestPutBlockByteStream(t *testing.T) {
 	roots["10005"] = byteutil.BytesTo32B([]byte("10005"))
 	pb := NewPutBlock(
 		1,
-		addr2.String(),
 		addr.String(),
 		10001,
 		roots,

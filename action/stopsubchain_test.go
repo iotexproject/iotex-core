@@ -14,22 +14,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestStopSubChain(t *testing.T) {
-	addr := testaddress.Addrinfo["producer"]
 	assertStop := func(stop *StopSubChain) {
 		assert.Equal(t, uint32(version.ProtocolVersion), stop.version)
 		assert.Equal(t, uint64(1), stop.Nonce())
 		assert.Equal(t, "aaaa", stop.ChainAddress())
-		assert.Equal(t, addr.String(), stop.SrcAddr())
 		assert.Equal(t, uint64(10003), stop.StopHeight())
 		assert.Equal(t, uint64(10005), stop.GasLimit())
 		assert.Equal(t, big.NewInt(10006), stop.GasPrice())
 	}
 	stop := NewStopSubChain(
-		addr.String(),
 		1,
 		"aaaa",
 		10003,
@@ -41,13 +37,11 @@ func TestStopSubChain(t *testing.T) {
 }
 
 func TestStopSubChainProto(t *testing.T) {
-	addr := testaddress.Addrinfo["producer"]
 	assertStop := func(stop *StopSubChain) {
 		assert.Equal(t, uint64(10003), stop.StopHeight())
 	}
 
 	stop := NewStopSubChain(
-		addr.String(),
 		1,
 		"aaaa",
 		10003,

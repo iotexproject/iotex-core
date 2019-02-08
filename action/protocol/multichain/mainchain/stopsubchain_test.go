@@ -7,8 +7,11 @@
 package mainchain
 
 import (
+	"context"
 	"math/big"
 	"testing"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -89,39 +92,42 @@ func TestHandleStopSubChain(t *testing.T) {
 
 	p := NewProtocol(chain)
 	stop := action.NewStopSubChain(
-		testaddress.Addrinfo["alfa"].String(),
 		uint64(5),
 		subChainAddr.String(),
 		uint64(10),
 		uint64(100000),
 		big.NewInt(0),
 	)
+	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		Caller: testaddress.Addrinfo["alfa"],
+	})
 	// wrong owner
-	require.Error(p.handleStopSubChain(stop, ws))
+	require.Error(p.handleStopSubChain(ctx, stop, ws))
 	stop = action.NewStopSubChain(
-		sender.String(),
 		uint64(5),
 		subChainAddr.String(),
 		uint64(1),
 		uint64(100000),
 		big.NewInt(0),
 	)
+	ctx = protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		Caller: sender,
+	})
 	// wrong stop height
-	require.Error(p.handleStopSubChain(stop, ws))
+	require.Error(p.handleStopSubChain(ctx, stop, ws))
 	stop = action.NewStopSubChain(
-		sender.String(),
 		uint64(5),
 		subChainAddr.String(),
 		uint64(10),
 		uint64(100000),
 		big.NewInt(0),
 	)
-	require.NoError(p.handleStopSubChain(stop, ws))
+	require.NoError(p.handleStopSubChain(ctx, stop, ws))
 
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
 		Return(nil).
 		Times(1)
 	// not sub-chain in operation
-	require.Error(p.handleStopSubChain(stop, ws))
+	require.Error(p.handleStopSubChain(ctx, stop, ws))
 }

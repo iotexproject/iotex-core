@@ -252,7 +252,7 @@ func TestWrongAddress(t *testing.T) {
 		execution.NewProtocol(bc))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
-	tsf, err := action.NewTransfer(1, big.NewInt(1), ta.Addrinfo["producer"].String(), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(100000).
@@ -278,7 +278,7 @@ func TestWrongAddress(t *testing.T) {
 	require.True(t, strings.Contains(err.Error(), "error when validating recipient's address"))
 
 	invalidVotee := "ioaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	vote, err := action.NewVote(1, ta.Addrinfo["producer"].String(), invalidVotee, uint64(100000), big.NewInt(10))
+	vote, err := action.NewVote(1, invalidVotee, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote).SetGasLimit(100000).
@@ -305,7 +305,7 @@ func TestWrongAddress(t *testing.T) {
 	require.True(t, strings.Contains(err.Error(), "error when validating votee's address"))
 
 	invalidContract := "123"
-	execution, err := action.NewExecution(ta.Addrinfo["producer"].String(), invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
+	execution, err := action.NewExecution(invalidContract, 1, big.NewInt(1), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(execution).SetGasLimit(100000).

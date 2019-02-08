@@ -159,7 +159,7 @@ func (ws *workingSet) RunActions(
 					"error when action %x (nonce: %d) from %s mutates states",
 					elp.Hash(),
 					elp.Nonce(),
-					elp.SrcAddr(),
+					caller.String(),
 				)
 			}
 			if receipt != nil {

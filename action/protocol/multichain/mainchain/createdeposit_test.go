@@ -52,8 +52,8 @@ func TestValidateDeposit(t *testing.T) {
 
 	addr := testaddress.Addrinfo["producer"]
 
-	deposit := action.NewCreateDeposit(1, 2, big.NewInt(1000), addr.String(), addr.String(), testutil.TestGasLimit, big.NewInt(0))
-	_, _, err = p.validateDeposit(deposit, nil)
+	deposit := action.NewCreateDeposit(1, 2, big.NewInt(1000), addr.String(), testutil.TestGasLimit, big.NewInt(0))
+	_, _, err = p.validateDeposit(addr, deposit, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
 	ws, err := sf.NewWorkingSet()
@@ -75,11 +75,11 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
-	deposit1 := action.NewCreateDeposit(1, 2, big.NewInt(2000), addr.String(), addr.String(), testutil.TestGasLimit, big.NewInt(0))
-	_, _, err = p.validateDeposit(deposit1, nil)
+	deposit1 := action.NewCreateDeposit(1, 2, big.NewInt(2000), addr.String(), testutil.TestGasLimit, big.NewInt(0))
+	_, _, err = p.validateDeposit(addr, deposit1, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
-	_, _, err = p.validateDeposit(deposit, nil)
+	_, _, err = p.validateDeposit(addr, deposit, nil)
 	assert.True(t, strings.Contains(err.Error(), "is not on a sub-chain in operation"))
 
 	subChainAddr, err := createSubChainAddress(addr.String(), 0)
@@ -95,7 +95,7 @@ func TestValidateDeposit(t *testing.T) {
 	))
 	require.NoError(t, sf.Commit(ws))
 
-	_, _, err = p.validateDeposit(deposit, nil)
+	_, _, err = p.validateDeposit(addr, deposit, nil)
 	assert.NoError(t, err)
 }
 
@@ -142,8 +142,9 @@ func TestMutateDeposit(t *testing.T) {
 	require.NoError(t, sf.Commit(ws))
 
 	p := NewProtocol(chain)
-	act := action.NewCreateDeposit(2, 2, big.NewInt(1000), addr.String(), addr.String(), testutil.TestGasLimit, big.NewInt(0))
+	act := action.NewCreateDeposit(2, 2, big.NewInt(1000), addr.String(), testutil.TestGasLimit, big.NewInt(0))
 	receipt, err := p.mutateDeposit(
+		addr,
 		act,
 		&state.Account{
 			Nonce:   1,

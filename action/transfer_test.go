@@ -23,7 +23,7 @@ func TestTransferSignVerify(t *testing.T) {
 	recipientAddr := testaddress.Addrinfo["alfa"]
 	senderKey := testaddress.Keyinfo["producer"]
 
-	tsf, err := NewTransfer(0, big.NewInt(10), senderAddr.String(), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}

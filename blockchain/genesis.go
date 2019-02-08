@@ -26,9 +26,11 @@ import (
 
 const (
 	testnetActionPath = "testnet_actions.yaml"
+	// GenesisProducerPublicKey is only used for test
+	GenesisProducerPublicKey = "0444b7ac782c60e90b1aa263fe4d61dbe73bf8260d3e773ce9f4f0dbc181e8e5f2e3b6f6d4cf47f1d53af95cf24b88b92037125c7bf6f63b55bebbb8579b3a9b24"
+	// GenesisProducerPrivateKey is only used for test
+	GenesisProducerPrivateKey = "bace9b2435db45b119e1570b4ea9c57993b2311e0c408d743d87cd22838ae892"
 	// TODO: Gensis block producer's keypair should be a config. Note genesis block producer is not the creator
-	genesisProducerPublicKey  = "0444b7ac782c60e90b1aa263fe4d61dbe73bf8260d3e773ce9f4f0dbc181e8e5f2e3b6f6d4cf47f1d53af95cf24b88b92037125c7bf6f63b55bebbb8579b3a9b24"
-	genesisProducerPrivateKey = "bace9b2435db45b119e1570b4ea9c57993b2311e0c408d743d87cd22838ae892"
 )
 
 // Genesis defines the Genesis default settings
@@ -127,7 +129,6 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 		vote, err := action.NewVote(
 			0,
 			address,
-			address,
 			0,
 			big.NewInt(0),
 		)
@@ -147,7 +148,6 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 			start := action.NewStartSubChain(
 				0,
 				sc.ChainID,
-				creatorAddr,
 				ConvertIotxToRau(sc.SecurityDeposit),
 				ConvertIotxToRau(sc.OperationDeposit),
 				sc.StartHeight,
