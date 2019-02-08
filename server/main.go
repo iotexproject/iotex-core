@@ -25,7 +25,6 @@ import (
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -36,10 +35,9 @@ import (
 var recoveryHeight int
 
 func init() {
-	flag.IntVar(&recoveryHeight, "recovery-height", 0, "Recovery height")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
-			"usage: server -config-path=[string] -recovery-height=[int]\n")
+			"usage: server -config-path=[string]\n")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
@@ -51,7 +49,6 @@ func main() {
 	signal.Notify(stop, os.Interrupt)
 	signal.Notify(stop, syscall.SIGTERM)
 	ctx, cancel := context.WithCancel(context.Background())
-	ctxWithValue := context.WithValue(ctx, blockchain.RecoveryHeightKey, uint64(recoveryHeight))
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 
@@ -95,7 +92,7 @@ func main() {
 		}
 	}
 
-	itx.StartServer(ctxWithValue, svr, probeSvr, cfg)
+	itx.StartServer(ctx, svr, probeSvr, cfg)
 	close(stopped)
 	<-livenessCtx.Done()
 }
