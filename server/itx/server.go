@@ -86,10 +86,21 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		)
 	// Install protocols
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
+	if err := cs.RegisterProtocol(mainchain.ProtocolID, mainChainProtocol); err != nil {
+		return nil, err
+	}
 	accountProtocol := account.NewProtocol()
+	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
+		return nil, err
+	}
 	voteProtocol := vote.NewProtocol(cs.Blockchain())
+	if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
+		return nil, err
+	}
 	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	cs.AddProtocols(mainChainProtocol, accountProtocol, voteProtocol, executionProtocol)
+	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
+		return nil, err
+	}
 	if cs.Explorer() != nil {
 		cs.Explorer().SetMainChainProtocol(mainChainProtocol)
 	}
@@ -153,48 +164,17 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // NewSubChainService creates a new chain service in this server.
-func (s *Server) NewSubChainService(cfg config.Config) error {
+func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.newSubChainService(cfg)
+	return s.newSubChainService(cfg, opts...)
 }
 
-func (s *Server) newSubChainService(cfg config.Config) error {
+func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	var mainChainAPI explorer.Explorer
 	if s.rootChainService.Explorer() != nil {
 		mainChainAPI = s.rootChainService.Explorer().Explorer()
-	}
-	opts := []chainservice.Option{chainservice.WithRootChainAPI(mainChainAPI)}
-	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
-	if err != nil {
-		return err
-	}
-	cs.ActionPool().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
-		)
-	cs.Blockchain().Validator().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
-		)
-	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
-	accountProtocol := account.NewProtocol()
-	voteProtocol := vote.NewProtocol(cs.Blockchain())
-	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	cs.AddProtocols(subChainProtocol, accountProtocol, voteProtocol, executionProtocol)
-	s.chainservices[cs.ChainID()] = cs
-	return nil
-}
-
-// NewTestingChainService creates a new testing chain service in this server.
-func (s *Server) NewTestingChainService(cfg config.Config) error {
-	var mainChainAPI explorer.Explorer
-	if s.rootChainService.Explorer() != nil {
-		mainChainAPI = s.rootChainService.Explorer().Explorer()
-	}
-	opts := []chainservice.Option{
-		chainservice.WithTesting(),
-		chainservice.WithRootChainAPI(mainChainAPI),
+		opts = append(opts, chainservice.WithRootChainAPI(mainChainAPI))
 	}
 	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
@@ -209,10 +189,21 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
+	if err := cs.RegisterProtocol(subchain.ProtocolID, subChainProtocol); err != nil {
+		return err
+	}
 	accountProtocol := account.NewProtocol()
+	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
+		return err
+	}
 	voteProtocol := vote.NewProtocol(cs.Blockchain())
+	if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
+		return err
+	}
 	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	cs.AddProtocols(subChainProtocol, accountProtocol, voteProtocol, executionProtocol)
+	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
+		return err
+	}
 	s.chainservices[cs.ChainID()] = cs
 	return nil
 }

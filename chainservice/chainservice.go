@@ -44,7 +44,7 @@ type ChainService struct {
 	explorer     *explorer.Server
 	indexBuilder *blockchain.IndexBuilder
 	indexservice *indexservice.Server
-	protocols    []protocol.Protocol
+	registry     protocol.Registry
 }
 
 type optionParams struct {
@@ -328,17 +328,16 @@ func (cs *ChainService) Explorer() *explorer.Server {
 	return cs.explorer
 }
 
-// Protocols returns the protocols
-func (cs *ChainService) Protocols() []protocol.Protocol {
-	return cs.protocols
+// RegisterProtocol register a protocol
+func (cs *ChainService) RegisterProtocol(id string, p protocol.Protocol) error {
+	if err := cs.registry.Register(id, p); err != nil {
+		return err
+	}
+	cs.chain.GetFactory().AddActionHandlers(p)
+	cs.actpool.AddActionValidators(p)
+	cs.chain.Validator().AddActionValidators(p)
+	return nil
 }
 
-// AddProtocols add the protocols
-func (cs *ChainService) AddProtocols(protocols ...protocol.Protocol) {
-	cs.protocols = append(cs.protocols, protocols...)
-	for _, protocol := range protocols {
-		cs.chain.GetFactory().AddActionHandlers(protocol)
-		cs.actpool.AddActionValidators(protocol)
-		cs.chain.Validator().AddActionValidators(protocol)
-	}
-}
+// Registry returns a pointer to the registry
+func (cs *ChainService) Registry() *protocol.Registry { return &cs.registry }

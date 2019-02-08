@@ -24,6 +24,9 @@ const (
 	BlockReward = iota
 	// EpochReward indicates that the action is to grant epoch reward
 	EpochReward
+	// ProtocolID is the protocol ID
+	// TODO: it works only for one instance per protocol definition now
+	ProtocolID = "rewarding"
 )
 
 var (
