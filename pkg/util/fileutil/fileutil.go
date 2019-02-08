@@ -28,7 +28,7 @@ func FileExists(path string) bool {
 func GetFileAbsPath(filename string) string {
 	pwd, err := os.Getwd()
 	if err != nil {
-		log.L().Fatal("Fail to get absolute path of genesis actions yaml file.", zap.Error(err))
+		log.L().Panic("Fail to get absolute path of genesis actions yaml file.", zap.Error(err))
 	}
 	firstIndex := strings.LastIndex(pwd, "iotex-core")
 	index := strings.Index(pwd[firstIndex:], "/")

@@ -138,11 +138,3 @@ func (p *Protocol) mutateDeposit(ctx context.Context, deposit *action.SettleDepo
 func depositAddress(index uint64) hash.Hash160 {
 	return hash.Hash160b([]byte(fmt.Sprintf("depositToSubChain.%d", index)))
 }
-
-func srcAddressPKHash(srcAddr string) (hash.Hash160, error) {
-	addr, err := address.FromString(srcAddr)
-	if err != nil {
-		return hash.ZeroHash160, err
-	}
-	return byteutil.BytesTo20B(addr.Bytes()), nil
-}

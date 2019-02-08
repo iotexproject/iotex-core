@@ -333,7 +333,7 @@ func (cs *ChainService) Protocols() []protocol.Protocol {
 	return cs.protocols
 }
 
-// AddProtocols add the protocols
+// AddProtocols adds the protocols
 func (cs *ChainService) AddProtocols(protocols ...protocol.Protocol) {
 	cs.protocols = append(cs.protocols, protocols...)
 	for _, protocol := range protocols {

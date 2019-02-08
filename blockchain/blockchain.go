@@ -1128,7 +1128,7 @@ func (bc *blockchain) runActions(
 			EpochNumber:     0, // TODO: need to get the actual epoch number from RollDPoS
 			BlockHeight:     acts.BlockHeight(),
 			BlockHash:       acts.TxHash(),
-			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
+			BlockTimeStamp:  acts.BlockTimeStamp(),
 			Producer:        producer,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
@@ -1149,8 +1149,6 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 		}(s, blk)
 	}
 }
-
-func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
 
 func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, string, error) {
 	pk, err := keypair.DecodePublicKey(GenesisProducerPublicKey)

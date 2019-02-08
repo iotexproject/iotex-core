@@ -125,10 +125,10 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 	acts := make([]action.SealedEnvelope, 0)
 	for _, nominator := range actions.SelfNominators {
 		pk, _ := decodeKey(nominator.PubKey, "")
-		address := generateAddr(pk)
+		addr := generateAddr(pk)
 		vote, err := action.NewVote(
 			0,
-			address,
+			addr,
 			0,
 			big.NewInt(0),
 		)
@@ -136,10 +136,9 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 			log.L().Panic("Fail to create the new vote action.", zap.Error(err))
 		}
 		bd := action.EnvelopeBuilder{}
-		elp := bd.SetDestinationAddress(address).
+		elp := bd.SetDestinationAddress(addr).
 			SetAction(vote).Build()
-		selp := action.FakeSeal(elp, pk)
-		acts = append(acts, selp)
+		acts = append(acts, action.FakeSeal(elp, addr, pk))
 	}
 
 	// TODO: decouple start sub-chain from genesis block
@@ -194,10 +193,8 @@ func generateAddr(pk keypair.PublicKey) string {
 
 // loadGenesisData loads data of creator and actions contained in genesis block
 func loadGenesisData(chainCfg config.Chain) GenesisAction {
-	var filePath string
-	if chainCfg.GenesisActionsPath != "" {
-		filePath = chainCfg.GenesisActionsPath
-	} else {
+	filePath := chainCfg.GenesisActionsPath
+	if filePath == "" {
 		filePath = fileutil.GetFileAbsPath(testnetActionPath)
 	}
 
