@@ -367,6 +367,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		ta.Addrinfo["producer"].String(),
 		0,
 	)
+	require.NoError(t, err)
 }
 
 type MockSubscriber struct {

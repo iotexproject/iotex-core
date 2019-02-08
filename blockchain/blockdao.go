@@ -536,7 +536,7 @@ func deleteTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) err
 		}
 		if delta, ok := senderDelta[callerAddrStr]; ok {
 			senderCount[callerAddrStr] += delta
-			senderDelta[callerAddrStr] = senderDelta[callerAddrStr] + 1
+			senderDelta[callerAddrStr]++
 		} else {
 			senderDelta[callerAddrStr] = 1
 		}
@@ -702,7 +702,7 @@ func deleteExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) er
 
 		if delta, ok := executorDelta[callerAddrStr]; ok {
 			executorCount[callerAddrStr] += delta
-			executorDelta[callerAddrStr] = executorDelta[callerAddrStr] + 1
+			executorDelta[callerAddrStr]++
 		} else {
 			executorDelta[callerAddrStr] = 1
 		}

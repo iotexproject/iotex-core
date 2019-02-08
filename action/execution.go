@@ -36,7 +36,14 @@ type Execution struct {
 }
 
 // NewExecution returns a Execution instance
-func NewExecution(contractAddress string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (*Execution, error) {
+func NewExecution(
+	contractAddress string,
+	nonce uint64,
+	amount *big.Int,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	data []byte,
+) (*Execution, error) {
 	return &Execution{
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
