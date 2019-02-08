@@ -53,7 +53,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	selp, err := action.Sign(elp, Gen.CreatorAddr(), genSK)
+	selp, err := action.Sign(elp, genSK)
 	if err != nil {
 		return err
 	}
@@ -356,7 +356,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).Build()
 	genSK, err := keypair.DecodePrivateKey(GenesisProducerPrivateKey)
 	require.NoError(t, err)
-	selp, err := action.Sign(elp, Gen.CreatorAddr(), genSK)
+	selp, err := action.Sign(elp, genSK)
 	require.NoError(t, err)
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[Gen.CreatorAddr()] = []action.SealedEnvelope{selp}

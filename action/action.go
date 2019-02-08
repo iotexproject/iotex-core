@@ -250,7 +250,7 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
 }
 
 // Sign signs the action using sender's private key
-func Sign(act Envelope, addr string, sk keypair.PrivateKey) (SealedEnvelope, error) {
+func Sign(act Envelope, sk keypair.PrivateKey) (SealedEnvelope, error) {
 	sealed := SealedEnvelope{Envelope: act}
 
 	sealed.srcPubkey = &sk.PublicKey
@@ -268,7 +268,7 @@ func Sign(act Envelope, addr string, sk keypair.PrivateKey) (SealedEnvelope, err
 
 // FakeSeal creates a SealedActionEnvelope without signature.
 // This method should be only used in tests.
-func FakeSeal(act Envelope, addr string, pubk keypair.PublicKey) SealedEnvelope {
+func FakeSeal(act Envelope, pubk keypair.PublicKey) SealedEnvelope {
 	sealed := SealedEnvelope{
 		Envelope:  act,
 		srcPubkey: pubk,

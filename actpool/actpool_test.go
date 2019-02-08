@@ -85,7 +85,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		SetAction(unsignedTsf).
 		SetGasLimit(100000).
 		SetDestinationAddress(addr1).Build()
-	selp := action.FakeSeal(elp, addr1, pubKey1)
+	selp := action.FakeSeal(elp, pubKey1)
 	err = validator.Validate(ctx, selp)
 	require.True(strings.Contains(err.Error(), "incorrect length of signature"))
 	// Case IV: Nonce is too low
@@ -235,7 +235,7 @@ func TestActPool_AddActs(t *testing.T) {
 		SetAction(replaceVote).
 		SetGasLimit(100000).
 		SetDestinationAddress("").Build()
-	selp, err := action.Sign(elp, addr1, priKey1)
+	selp, err := action.Sign(elp, priKey1)
 
 	require.NoError(err)
 
@@ -270,7 +270,7 @@ func TestActPool_AddActs(t *testing.T) {
 		SetGasLimit(genesis.ActionGasLimit + 1).
 		SetAction(creationExecution).
 		SetDestinationAddress(action.EmptyAddress).Build()
-	selp, err = action.Sign(elp, addr1, priKey1)
+	selp, err = action.Sign(elp, priKey1)
 	require.NoError(err)
 
 	err = ap.Add(selp)
@@ -293,7 +293,7 @@ func TestActPool_AddActs(t *testing.T) {
 		SetGasLimit(10).
 		SetAction(creationExecution).
 		SetDestinationAddress(action.EmptyAddress).Build()
-	selp, err = action.Sign(elp, addr1, priKey1)
+	selp, err = action.Sign(elp, priKey1)
 	require.NoError(err)
 
 	err = ap.Add(selp)
@@ -782,7 +782,7 @@ func TestActPool_Reset(t *testing.T) {
 		SetGasLimit(20000).
 		SetAction(vote23).
 		SetDestinationAddress("").Build()
-	selp23, err := action.Sign(elp, addr4, priKey4)
+	selp23, err := action.Sign(elp, priKey4)
 	require.NoError(err)
 
 	vote24, err := testutil.SignedVote(addr5, addr5, priKey5, uint64(1), uint64(20000), big.NewInt(0))
@@ -798,7 +798,7 @@ func TestActPool_Reset(t *testing.T) {
 		SetGasLimit(20000).
 		SetAction(vote26).
 		SetDestinationAddress("").Build()
-	selp26, err := action.Sign(elp, addr5, priKey5)
+	selp26, err := action.Sign(elp, priKey5)
 	require.NoError(err)
 
 	err = ap1.Add(tsf21)

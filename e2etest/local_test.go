@@ -728,7 +728,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(vote7).SetNonce(2).SetDestinationAddress("").SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
-	selp, err := action.Sign(elp, ta.Addrinfo["bravo"].String(), ta.Keyinfo["bravo"].PriKey)
+	selp, err := action.Sign(elp, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)

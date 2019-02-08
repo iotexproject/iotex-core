@@ -39,7 +39,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	selp, err := action.Sign(elp, blockchain.Gen.CreatorAddr(), genSK)
+	selp, err := action.Sign(elp, genSK)
 	if err != nil {
 		return err
 	}

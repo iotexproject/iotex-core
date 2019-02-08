@@ -254,7 +254,7 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetDestinationAddress(b).SetAction(tx1).Build()
-	selp1, err := action.Sign(elp, a, priKeyA)
+	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
 	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), c, nil, uint64(0), big.NewInt(0))
@@ -262,7 +262,7 @@ func TestCandidates(t *testing.T) {
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(2).SetDestinationAddress(c).SetAction(tx2).Build()
-	selp2, err := action.Sign(elp, a, priKeyA)
+	selp2, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
 	gasLimit := uint64(1000000)
@@ -293,7 +293,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote).
 		SetDestinationAddress(a).SetGasLimit(20000).Build()
-	selp, err := action.Sign(elp, a, priKeyA)
+	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	zeroGasLimit := uint64(0)
 	zctx := protocol.WithRunActionsCtx(context.Background(),
@@ -320,7 +320,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote2).
 		SetDestinationAddress(b).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, b, priKeyB)
+	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp})
@@ -341,7 +341,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote3).SetNonce(1).
 		SetDestinationAddress(b).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, a, priKeyA)
+	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 2, []action.SealedEnvelope{selp})
@@ -362,7 +362,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx3).SetNonce(2).
 		SetDestinationAddress(a).Build()
-	selp, err = action.Sign(elp, b, priKeyB)
+	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 3, []action.SealedEnvelope{selp})
@@ -383,7 +383,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx4).SetNonce(2).
 		SetDestinationAddress(b).Build()
-	selp, err = action.Sign(elp, a, priKeyA)
+	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 4, []action.SealedEnvelope{selp})
@@ -404,7 +404,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote4).SetNonce(1).
 		SetDestinationAddress(a).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, b, priKeyB)
+	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 5, []action.SealedEnvelope{selp})
@@ -425,7 +425,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote5).SetNonce(2).
 		SetDestinationAddress(b).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, b, priKeyB)
+	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 6, []action.SealedEnvelope{selp})
@@ -446,7 +446,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote6).SetNonce(3).
 		SetDestinationAddress(b).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, b, priKeyB)
+	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 7, []action.SealedEnvelope{selp})
@@ -467,7 +467,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx5).SetNonce(2).
 		SetDestinationAddress(a).Build()
-	selp, err = action.Sign(elp, c, priKeyC)
+	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 8, []action.SealedEnvelope{selp})
@@ -488,7 +488,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote7).SetNonce(0).
 		SetDestinationAddress(a).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c, priKeyC)
+	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 9, []action.SealedEnvelope{selp})
@@ -509,7 +509,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote8).SetNonce(4).
 		SetDestinationAddress(c).Build()
-	selp, err = action.Sign(elp, b, priKeyB)
+	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 10, []action.SealedEnvelope{selp})
@@ -530,7 +530,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote9).SetNonce(1).
 		SetDestinationAddress(c).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c, priKeyC)
+	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 11, []action.SealedEnvelope{selp})
@@ -551,7 +551,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote10).SetNonce(0).
 		SetDestinationAddress(e).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, d, priKeyD)
+	selp, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 12, []action.SealedEnvelope{selp})
@@ -572,7 +572,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote11).SetNonce(1).
 		SetDestinationAddress(d).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, d, priKeyD)
+	selp, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 13, []action.SealedEnvelope{selp})
@@ -593,7 +593,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote12).SetNonce(2).
 		SetDestinationAddress(a).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, d, priKeyD)
+	selp, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 14, []action.SealedEnvelope{selp})
@@ -614,7 +614,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote13).SetNonce(2).
 		SetDestinationAddress(d).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c, priKeyC)
+	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 15, []action.SealedEnvelope{selp})
@@ -635,7 +635,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote14).SetNonce(3).
 		SetDestinationAddress(c).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c, priKeyC)
+	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 16, []action.SealedEnvelope{selp})
@@ -656,7 +656,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx6).SetNonce(1).
 		SetDestinationAddress(e).Build()
-	selp1, err = action.Sign(elp, c, priKeyC)
+	selp1, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
 	tx7, err := action.NewTransfer(uint64(2), big.NewInt(200), e, nil, uint64(0), big.NewInt(0))
@@ -665,7 +665,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx7).SetNonce(2).
 		SetDestinationAddress(e).Build()
-	selp2, err = action.Sign(elp, b, priKeyB)
+	selp2, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 17, []action.SealedEnvelope{selp1, selp2})
@@ -686,7 +686,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote15).SetNonce(0).
 		SetDestinationAddress(e).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, e, priKeyE)
+	selp, err = action.Sign(elp, priKeyE)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 18, []action.SealedEnvelope{selp})
@@ -707,7 +707,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote16).SetNonce(0).
 		SetDestinationAddress(f).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, f, priKeyF)
+	selp, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 19, []action.SealedEnvelope{selp})
@@ -728,7 +728,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote17).SetNonce(0).
 		SetDestinationAddress(d).SetGasLimit(100000).Build()
-	selp1, err = action.Sign(elp, f, priKeyF)
+	selp1, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
 	vote18, err := action.NewVote(1, d, uint64(100000), big.NewInt(0))
@@ -737,7 +737,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote18).SetNonce(1).
 		SetDestinationAddress(d).SetGasLimit(100000).Build()
-	selp2, err = action.Sign(elp, f, priKeyF)
+	selp2, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 20, []action.SealedEnvelope{selp1, selp2})
@@ -758,7 +758,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx8).SetNonce(1).
 		SetDestinationAddress(b).Build()
-	selp, err = action.Sign(elp, f, priKeyF)
+	selp, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 21, []action.SealedEnvelope{selp})
@@ -780,7 +780,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx9).SetNonce(1).
 		SetDestinationAddress(a).Build()
-	selp, err = action.Sign(elp, b, priKeyB)
+	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 22, []action.SealedEnvelope{selp})
@@ -801,7 +801,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(tx10).SetNonce(1).
 		SetDestinationAddress(d).Build()
-	selp, err = action.Sign(elp, e, priKeyE)
+	selp, err = action.Sign(elp, priKeyE)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 23, []action.SealedEnvelope{selp})
@@ -824,7 +824,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote19).SetNonce(0).
 		SetDestinationAddress(a).SetGasLimit(100000).Build()
-	selp1, err = action.Sign(elp, d, priKeyD)
+	selp1, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
 	vote20, err := action.NewVote(3, b, uint64(100000), big.NewInt(0))
@@ -833,7 +833,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote20).SetNonce(3).
 		SetDestinationAddress(b).SetGasLimit(100000).Build()
-	selp2, err = action.Sign(elp, d, priKeyD)
+	selp2, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 24, []action.SealedEnvelope{selp1, selp2})
@@ -856,7 +856,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote21).SetNonce(4).
 		SetDestinationAddress("").SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, c, priKeyC)
+	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 25, []action.SealedEnvelope{selp})
@@ -879,7 +879,7 @@ func TestCandidates(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote22).SetNonce(4).
 		SetDestinationAddress("").SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, f, priKeyF)
+	selp, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 26, []action.SealedEnvelope{selp})
@@ -930,7 +930,7 @@ func TestUnvote(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(vote1).SetNonce(0).
 		SetDestinationAddress("").SetGasLimit(100000).Build()
-	selp, err := action.Sign(elp, a, priKeyA)
+	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
 	gasLimit := uint64(10000000)
@@ -953,7 +953,7 @@ func TestUnvote(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote2).SetNonce(0).
 		SetDestinationAddress(a).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, a, priKeyA)
+	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
@@ -969,7 +969,7 @@ func TestUnvote(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote3).SetNonce(0).
 		SetDestinationAddress("").SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, a, priKeyA)
+	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
@@ -985,7 +985,7 @@ func TestUnvote(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote4).SetNonce(0).
 		SetDestinationAddress(b).SetGasLimit(20000).Build()
-	selp1, err := action.Sign(elp, b, priKeyB)
+	selp1, err := action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
 	vote5, err := action.NewVote(0, b, uint64(20000), big.NewInt(0))
@@ -994,7 +994,7 @@ func TestUnvote(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote5).SetNonce(0).
 		SetDestinationAddress(b).SetGasLimit(20000).Build()
-	selp2, err := action.Sign(elp, a, priKeyA)
+	selp2, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
 	vote6, err := action.NewVote(0, "", uint64(20000), big.NewInt(0))
@@ -1003,7 +1003,7 @@ func TestUnvote(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote6).SetNonce(0).
 		SetDestinationAddress("").SetGasLimit(20000).Build()
-	selp3, err := action.Sign(elp, a, priKeyA)
+	selp3, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2, selp3})
@@ -1190,7 +1190,7 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 			}
 			bd := &action.EnvelopeBuilder{}
 			elp := bd.SetNonce(nonces[senderIdx]).SetDestinationAddress(receiver).SetAction(tx).Build()
-			selp := action.FakeSeal(elp, accounts[senderIdx], pubKeys[senderIdx])
+			selp := action.FakeSeal(elp, pubKeys[senderIdx])
 			acts = append(acts, selp)
 		}
 		b.StartTimer()
