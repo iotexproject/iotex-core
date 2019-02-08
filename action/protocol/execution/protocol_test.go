@@ -89,7 +89,7 @@ func runExecution(
 		SetNonce(exec.Nonce()).
 		SetGasLimit(exec.GasLimit()).
 		Build()
-	selp, err := action.Sign(elp, ecfg.executor, ecfg.privateKey)
+	selp, err := action.Sign(elp, ecfg.privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(1).
 			SetGasLimit(100000).Build()
-		selp, err := action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 
 		actionMap := make(map[string][]action.SealedEnvelope)
@@ -310,7 +310,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(contractAddr).
 			SetNonce(2).
 			SetGasLimit(120000).Build()
-		selp, err = action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
@@ -351,7 +351,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(contractAddr).
 			SetNonce(3).
 			SetGasLimit(120000).Build()
-		selp, err = action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
@@ -382,7 +382,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(4).
 			SetGasLimit(100000).SetGasPrice(big.NewInt(10)).Build()
-		selp, err = action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 
 		actionMap = make(map[string][]action.SealedEnvelope)
@@ -457,7 +457,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(1).
 			SetGasLimit(1000000).Build()
-		selp, err := action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 
 		actionMap := make(map[string][]action.SealedEnvelope)
@@ -487,7 +487,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(contractAddr).
 			SetNonce(2).
 			SetGasLimit(120000).Build()
-		selp, err = action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 		log.S().Infof("execution %+v", execution)
 
@@ -518,7 +518,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(contractAddr).
 			SetNonce(3).
 			SetGasLimit(120000).Build()
-		selp, err = action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 		log.S().Infof("execution %+v\n", execution)
 
@@ -556,7 +556,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(contractAddr).
 			SetNonce(1).
 			SetGasLimit(120000).SetGasPrice(big.NewInt(10)).Build()
-		selp, err = action.Sign(elp, testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey)
+		selp, err = action.Sign(elp, testaddress.Keyinfo["bravo"].PriKey)
 		require.NoError(err)
 		log.S().Infof("execution %+v\n", execution)
 
@@ -630,7 +630,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(1).
 			SetGasLimit(5000000).Build()
-		selp, err := action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 
 		actionMap := make(map[string][]action.SealedEnvelope)
@@ -685,7 +685,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(contract).
 			SetNonce(2).
 			SetGasLimit(1000000).Build()
-		selp, err = action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 
 		// send 20000 token to bravo
@@ -708,7 +708,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(contract).
 			SetNonce(3).
 			SetGasLimit(1000000).Build()
-		selp2, err := action.Sign(elp2, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp2, err := action.Sign(elp2, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 
 		actionMap = make(map[string][]action.SealedEnvelope)
@@ -741,7 +741,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(contract).
 			SetNonce(1).
 			SetGasLimit(1000000).Build()
-		selp3, err := action.Sign(elp, testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey)
+		selp3, err := action.Sign(elp, testaddress.Keyinfo["alfa"].PriKey)
 		require.NoError(err)
 
 		actionMap = make(map[string][]action.SealedEnvelope)
@@ -768,7 +768,7 @@ func TestProtocol_Handle(t *testing.T) {
 			SetDestinationAddress(contract).
 			SetNonce(4).
 			SetGasLimit(1000000).Build()
-		selp, err = action.Sign(elp, testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(err)
 
 		actionMap = make(map[string][]action.SealedEnvelope)

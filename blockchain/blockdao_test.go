@@ -30,56 +30,29 @@ import (
 func TestBlockDAO(t *testing.T) {
 	getBlocks := func() []*block.Block {
 		amount := uint64(50 << 22)
-		tsf1, err := testutil.SignedTransfer(
-			testaddress.Addrinfo["alfa"].String(),
-			testaddress.Addrinfo["alfa"].String(),
-			testaddress.Keyinfo["alfa"].PriKey,
-			1,
-			big.NewInt(int64(amount)),
-			nil,
-			genesis.ActionGasLimit,
-			big.NewInt(0),
-		)
+		tsf1, err := testutil.SignedTransfer(testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, big.NewInt(int64(amount)), nil, genesis.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		tsf2, err := testutil.SignedTransfer(
-			testaddress.Addrinfo["bravo"].String(),
-			testaddress.Addrinfo["bravo"].String(),
-			testaddress.Keyinfo["bravo"].PriKey,
-			2,
-			big.NewInt(int64(amount)),
-			nil,
-			genesis.ActionGasLimit,
-			big.NewInt(0),
-		)
+		tsf2, err := testutil.SignedTransfer(testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey, 2, big.NewInt(int64(amount)), nil, genesis.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		tsf3, err := testutil.SignedTransfer(
-			testaddress.Addrinfo["charlie"].String(),
-			testaddress.Addrinfo["charlie"].String(),
-			testaddress.Keyinfo["charlie"].PriKey,
-			3,
-			big.NewInt(int64(amount)),
-			nil,
-			genesis.ActionGasLimit,
-			big.NewInt(0),
-		)
+		tsf3, err := testutil.SignedTransfer(testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 3, big.NewInt(int64(amount)), nil, genesis.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
 		// create testing votes
-		vote1, err := testutil.SignedVote(testaddress.Addrinfo["alfa"].String(), testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, 100000, big.NewInt(10))
+		vote1, err := testutil.SignedVote(testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
-		vote2, err := testutil.SignedVote(testaddress.Addrinfo["bravo"].String(), testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey, 1, 100000, big.NewInt(10))
+		vote2, err := testutil.SignedVote(testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey, 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
-		vote3, err := testutil.SignedVote(testaddress.Addrinfo["charlie"].String(), testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 1, 100000, big.NewInt(10))
+		vote3, err := testutil.SignedVote(testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 1, 100000, big.NewInt(10))
 		require.NoError(t, err)
 
 		// create testing executions
-		execution1, err := testutil.SignedExecution(testaddress.Addrinfo["alfa"].String(), testaddress.Addrinfo["delta"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, big.NewInt(1), 0, big.NewInt(0), nil)
+		execution1, err := testutil.SignedExecution(testaddress.Addrinfo["delta"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, big.NewInt(1), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution2, err := testutil.SignedExecution(testaddress.Addrinfo["bravo"].String(), testaddress.Addrinfo["delta"].String(), testaddress.Keyinfo["bravo"].PriKey, 2, big.NewInt(0), 0, big.NewInt(0), nil)
+		execution2, err := testutil.SignedExecution(testaddress.Addrinfo["delta"].String(), testaddress.Keyinfo["bravo"].PriKey, 2, big.NewInt(0), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
-		execution3, err := testutil.SignedExecution(testaddress.Addrinfo["charlie"].String(), testaddress.Addrinfo["delta"].String(), testaddress.Keyinfo["charlie"].PriKey, 3, big.NewInt(2), 0, big.NewInt(0), nil)
+		execution3, err := testutil.SignedExecution(testaddress.Addrinfo["delta"].String(), testaddress.Keyinfo["charlie"].PriKey, 3, big.NewInt(2), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
 
 		// create testing create deposit actions
@@ -96,7 +69,7 @@ func TestBlockDAO(t *testing.T) {
 			SetDestinationAddress(testaddress.Addrinfo["delta"].String()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit1).Build()
-		sdeposit1, err := action.Sign(elp, testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey)
+		sdeposit1, err := action.Sign(elp, testaddress.Keyinfo["alfa"].PriKey)
 		require.NoError(t, err)
 
 		deposit2 := action.NewCreateDeposit(
@@ -112,7 +85,7 @@ func TestBlockDAO(t *testing.T) {
 			SetDestinationAddress(testaddress.Addrinfo["delta"].String()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit2).Build()
-		sdeposit2, err := action.Sign(elp, testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey)
+		sdeposit2, err := action.Sign(elp, testaddress.Keyinfo["bravo"].PriKey)
 		require.NoError(t, err)
 
 		deposit3 := action.NewCreateDeposit(
@@ -128,7 +101,7 @@ func TestBlockDAO(t *testing.T) {
 			SetDestinationAddress(testaddress.Addrinfo["delta"].String()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit3).Build()
-		sdeposit3, err := action.Sign(elp, testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey)
+		sdeposit3, err := action.Sign(elp, testaddress.Keyinfo["charlie"].PriKey)
 		require.NoError(t, err)
 
 		hash1 := hash.Hash256{}

@@ -50,64 +50,19 @@ func TestMerkle(t *testing.T) {
 	producerPriKey := ta.Keyinfo["producer"].PriKey
 	amount := uint64(50 << 22)
 	// create testing transactions
-	selp0, err := testutil.SignedTransfer(
-		producerAddr,
-		producerAddr,
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp0, err := testutil.SignedTransfer(producerAddr, producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp1, err := testutil.SignedTransfer(
-		producerAddr,
-		ta.Addrinfo["alfa"].String(),
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp2, err := testutil.SignedTransfer(
-		producerAddr,
-		ta.Addrinfo["bravo"].String(),
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp3, err := testutil.SignedTransfer(
-		producerAddr,
-		ta.Addrinfo["charlie"].String(),
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp3, err := testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp4, err := testutil.SignedTransfer(
-		producerAddr,
-		ta.Addrinfo["echo"].String(),
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp4, err := testutil.SignedTransfer(ta.Addrinfo["echo"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
 	// create block using above 5 tx and verify merkle

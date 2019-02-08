@@ -510,7 +510,7 @@ func createSignedTransfer(
 		SetDestinationAddress(recipient.EncodedAddr).
 		SetGasLimit(gasLimit).
 		SetAction(transfer).Build()
-	selp, err := action.Sign(elp, sender.EncodedAddr, sender.PriKey)
+	selp, err := action.Sign(elp, sender.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
@@ -535,7 +535,7 @@ func createSignedVote(
 		SetDestinationAddress(votee.EncodedAddr).
 		SetGasLimit(gasLimit).
 		SetAction(vote).Build()
-	selp, err := action.Sign(elp, voter.EncodedAddr, voter.PriKey)
+	selp, err := action.Sign(elp, voter.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign vote %v", elp)
 	}
@@ -566,7 +566,7 @@ func createSignedExecution(
 		SetDestinationAddress(contract).
 		SetGasLimit(gasLimit).
 		SetAction(execution).Build()
-	selp, err := action.Sign(elp, executor.EncodedAddr, executor.PriKey)
+	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}

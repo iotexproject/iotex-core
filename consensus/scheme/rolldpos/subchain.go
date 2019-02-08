@@ -103,7 +103,7 @@ func constructPutSubChainBlockRequest(
 		SetAction(pb).Build()
 
 	// sign action
-	selp, err := action.Sign(elp, encodedSenderPCAddr, senderPriKey)
+	selp, err := action.Sign(elp, senderPriKey)
 	if err != nil {
 		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to sign put block action")
 	}

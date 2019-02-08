@@ -126,7 +126,7 @@ func TestTwoChains(t *testing.T) {
 		SetNonce(uint64(details.Nonce) + 1).
 		SetDestinationAddress(addr2.String()).
 		SetGasLimit(testutil.TestGasLimit).Build()
-	selp, err := action.Sign(elp, addr1.String(), sk1)
+	selp, err := action.Sign(elp, sk1)
 	require.NoError(t, err)
 
 	createRes, err := mainChainClient.CreateDeposit(explorer.CreateDepositRequest{
@@ -184,7 +184,7 @@ func TestTwoChains(t *testing.T) {
 		SetNonce(nonce).
 		SetDestinationAddress(addr2.String()).
 		SetGasLimit(testutil.TestGasLimit).Build()
-	selp, err = action.Sign(elp, addr1.String(), sk1)
+	selp, err = action.Sign(elp, sk1)
 	require.NoError(t, err)
 
 	settleRes, err := subChainClient.SettleDeposit(explorer.SettleDepositRequest{
