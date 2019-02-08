@@ -245,6 +245,7 @@ func (sdb *stateDB) state(addr hash.Hash160, s interface{}) error {
 }
 
 func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
+	// TODO: state db shouldn't serve this function
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return nil, err
@@ -256,7 +257,8 @@ func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
 	var account state.Account
 	if err := sdb.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
-			return state.EmptyAccount, nil
+			account = state.EmptyAccount()
+			return &account, nil
 		}
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}

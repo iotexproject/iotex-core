@@ -241,9 +241,13 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 		log.L().Error("Failed to convert evm address.", zap.Error(err))
 		return false
 	}
-	s, err := stateDB.AccountState(addr.String())
-	if err != nil || s == state.EmptyAccount {
+	if !stateDB.Exist(evmAddr) {
 		log.L().Debug("Account does not exist.", zap.String("address", addr.String()))
+		return false
+	}
+	s, err := stateDB.AccountState(addr.String())
+	if err != nil {
+		log.L().Debug("Failed to get account.", zap.String("address", addr.String()))
 		return false
 	}
 	// clears the account balance
@@ -274,7 +278,12 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 		return false
 	}
 	log.L().Debug("Check existence.", zap.String("address", addr.String()), log.Hex("addrHash", evmAddr[:]))
-	if s, err := stateDB.AccountState(addr.String()); err != nil || s == state.EmptyAccount {
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	if _, ok := stateDB.cachedContract[addrHash]; ok {
+		return true
+	}
+	recorded, err := account.Recorded(stateDB.sm, addr)
+	if !recorded || err != nil {
 		log.L().Debug("Account does not exist.", zap.String("address", addr.String()))
 		return false
 	}
@@ -290,7 +299,7 @@ func (stateDB *StateDBAdapter) Empty(evmAddr common.Address) bool {
 	}
 	log.L().Debug("Check whether the contract is empty.")
 	s, err := stateDB.AccountState(addr.String())
-	if err != nil || s == state.EmptyAccount {
+	if err != nil {
 		return true
 	}
 	// TODO: delete hash.ZeroHash256
@@ -601,13 +610,6 @@ func (stateDB *StateDBAdapter) getContract(addr hash.Hash160) (Contract, error) 
 	account, err := account.LoadAccount(stateDB.sm, addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
-	}
-	if account == state.EmptyAccount {
-		// emptyAccount is read-only, instantiate a new empty account for contract creation
-		account = &state.Account{
-			Balance:      big.NewInt(0),
-			VotingWeight: big.NewInt(0),
-		}
 	}
 	contract, err := newContract(addr, account, stateDB.dao, stateDB.cb)
 	if err != nil {
