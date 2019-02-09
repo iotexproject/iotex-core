@@ -493,6 +493,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Block)
 	require.Nil(res.Transfer)
 	require.Nil(res.Vote)
+	require.Nil(res.Address)
 	require.Nil(res.Execution)
 
 	res, err = svc.GetBlockOrActionByHash(blks[0].ID)
@@ -500,6 +501,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Transfer)
 	require.Nil(res.Vote)
 	require.Nil(res.Execution)
+	require.Nil(res.Address)
 	require.Equal(&blks[0], res.Block)
 
 	res, err = svc.GetBlockOrActionByHash(transfers[0].ID)
@@ -507,6 +509,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Block)
 	require.Nil(res.Vote)
 	require.Nil(res.Execution)
+	require.Nil(res.Address)
 	require.Equal(&transfers[0], res.Transfer)
 
 	votes, err = svc.GetLastVotesByRange(3, 0, 50)
@@ -516,6 +519,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Block)
 	require.Nil(res.Transfer)
 	require.Nil(res.Execution)
+	require.Nil(res.Address)
 	require.Equal(&votes[0], res.Vote)
 
 	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
@@ -525,8 +529,17 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Block)
 	require.Nil(res.Transfer)
 	require.Nil(res.Vote)
+	require.Nil(res.Address)
 	require.Equal(&executions[0], res.Execution)
 	require.Equal(len(executions), 2)
+
+	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, true)
+	require.NoError(err)
+	require.Nil(res.Block)
+	require.Nil(res.Transfer)
+	require.Nil(res.Execution)
+	require.Nil(res.Vote)
+	require.Equal(&transfers[0], res.Address)
 
 	svc.gs.cfg.GasStation.DefaultGas = 1
 	gasPrice, err := svc.SuggestGasPrice()
