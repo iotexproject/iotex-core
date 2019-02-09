@@ -18,19 +18,17 @@ import (
 )
 
 var (
-	addr1   = testaddress.Addrinfo["producer"].Bech32()
+	addr1   = testaddress.Addrinfo["producer"].String()
 	priKey1 = testaddress.Keyinfo["producer"].PriKey
-	addr2   = testaddress.Addrinfo["alfa"].Bech32()
+	addr2   = testaddress.Addrinfo["alfa"].String()
 )
 
 func TestSignedTransfer(t *testing.T) {
 	require := require.New(t)
-	selp, err := SignedTransfer(addr1, addr2, priKey1, uint64(1), big.NewInt(2),
-		[]byte{}, uint64(100000), big.NewInt(10))
+	selp, err := SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(2), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	tsf := selp.Action().(*action.Transfer)
-	require.Equal(addr1, tsf.Sender())
 	require.Equal(addr2, tsf.Recipient())
 	require.Equal(uint64(1), tsf.Nonce())
 	require.Equal(big.NewInt(2), tsf.Amount())
@@ -42,11 +40,10 @@ func TestSignedTransfer(t *testing.T) {
 
 func TestSignedVote(t *testing.T) {
 	require := require.New(t)
-	selp, err := SignedVote(addr1, addr1, priKey1, uint64(1), uint64(100000), big.NewInt(10))
+	selp, err := SignedVote(addr1, priKey1, uint64(1), uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	vote := selp.Action().(*action.Vote)
-	require.Equal(addr1, vote.Voter())
 	require.Equal(addr1, vote.Votee())
 	require.Equal(uint64(1), vote.Nonce())
 	require.Equal(uint64(100000), vote.GasLimit())
@@ -56,12 +53,10 @@ func TestSignedVote(t *testing.T) {
 
 func TestSignedExecution(t *testing.T) {
 	require := require.New(t)
-	selp, err := SignedExecution(addr1, action.EmptyAddress, priKey1, uint64(1), big.NewInt(0),
-		uint64(100000), big.NewInt(10), []byte{})
+	selp, err := SignedExecution(action.EmptyAddress, priKey1, uint64(1), big.NewInt(0), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(err)
 
 	exec := selp.Action().(*action.Execution)
-	require.Equal(addr1, exec.Executor())
 	require.Equal(action.EmptyAddress, exec.Contract())
 	require.Equal(uint64(1), exec.Nonce())
 	require.Equal(big.NewInt(0), exec.Amount())

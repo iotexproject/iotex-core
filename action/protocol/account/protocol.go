@@ -16,6 +16,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -27,13 +29,13 @@ func NewProtocol() *Protocol { return &Protocol{} }
 
 // Handle handles an account
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		return nil, errors.New("failed to get action context")
-	}
 	switch act := act.(type) {
 	case *action.Transfer:
-		if err := p.handleTransfer(act, raCtx, sm); err != nil {
+		raCtx, ok := protocol.GetRunActionsCtx(ctx)
+		if !ok {
+			log.S().Panic("Miss run action context")
+		}
+		if err := p.handleTransfer(raCtx, act, sm); err != nil {
 			return nil, errors.Wrap(err, "error when handling transfer action")
 		}
 	}
@@ -53,43 +55,60 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 
 // LoadOrCreateAccount either loads an account state or creates an account state
 func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) (*state.Account, error) {
-	addrHash, err := address.Bech32ToPKHash(encodedAddr)
+	var account state.Account
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get address public key hash from encoded address")
+		account = state.EmptyAccount()
+		return &account, errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
-	account, err := LoadAccount(sm, addrHash)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get account of %x from account trie", addrHash)
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	err = sm.State(addrHash, &account)
+	if err == nil {
+		return &account, nil
 	}
-	if account == state.EmptyAccount {
-		account = &state.Account{
-			Balance:      init,
-			VotingWeight: big.NewInt(0),
-		}
+	if errors.Cause(err) == state.ErrStateNotExist {
+		account.Balance = init
+		account.VotingWeight = big.NewInt(0)
 		if err := sm.PutState(addrHash, account); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
+		return &account, nil
 	}
-	return account, nil
+	return nil, err
 }
 
 // LoadAccount loads an account state
-func LoadAccount(sm protocol.StateManager, addrHash hash.PKHash) (*state.Account, error) {
-	var s state.Account
-	if err := sm.State(addrHash, &s); err != nil {
+func LoadAccount(sm protocol.StateManager, addrHash hash.Hash160) (*state.Account, error) {
+	var account state.Account
+	if err := sm.State(addrHash, &account); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
-			return state.EmptyAccount, nil
+			account = state.EmptyAccount()
+			return &account, nil
 		}
 		return nil, err
 	}
-	return &s, nil
+	return &account, nil
 }
 
 // StoreAccount puts updated account state to trie
-func StoreAccount(sm protocol.StateManager, encodedAddr string, acct *state.Account) error {
-	addrHash, err := address.Bech32ToPKHash(encodedAddr)
+func StoreAccount(sm protocol.StateManager, encodedAddr string, account *state.Account) error {
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
-	return sm.PutState(addrHash, acct)
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	return sm.PutState(addrHash, account)
+}
+
+// Recorded tests if an account has been actually stored
+func Recorded(sm protocol.StateManager, addr address.Address) (bool, error) {
+	var account state.Account
+	err := sm.State(byteutil.BytesTo20B(addr.Bytes()), &account)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return false, nil
+	}
+	return false, err
 }

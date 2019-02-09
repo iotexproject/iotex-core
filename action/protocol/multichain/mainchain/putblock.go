@@ -7,44 +7,48 @@
 package mainchain
 
 import (
+	"context"
 	"sort"
+
+	"github.com/iotexproject/iotex-core/address"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-func (p *Protocol) handlePutBlock(pb *action.PutBlock, sm protocol.StateManager) error {
+func (p *Protocol) handlePutBlock(ctx context.Context, pb *action.PutBlock, sm protocol.StateManager) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss run action context")
+	}
+
 	if err := p.validatePutBlock(pb, sm); err != nil {
 		return err
 	}
-	proof := putBlockToBlockProof(pb)
+	proof := putBlockToBlockProof(raCtx.Caller, pb)
 	if err := sm.PutState(blockProofKey(proof.SubChainAddress, proof.Height), &proof); err != nil {
 		return err
 	}
 	// Update the block producer's nonce
-	addrHash, err := address.Bech32ToPKHash(pb.ProducerAddress())
-	if err != nil {
-		return err
-	}
+	addrHash := byteutil.BytesTo20B(raCtx.Caller.Bytes())
 	acct, err := account.LoadAccount(sm, addrHash)
 	if err != nil {
 		return err
 	}
-
 	account.SetNonce(pb, acct)
-	return account.StoreAccount(sm, pb.ProducerAddress(), acct)
+	return account.StoreAccount(sm, raCtx.Caller.String(), acct)
 }
 
 func (p *Protocol) validatePutBlock(pb *action.PutBlock, sm protocol.StateManager) error {
 	// use owner address TODO
-
 	// can only emit on one height
 	if _, exist := p.getBlockProof(pb.SubChainAddress(), pb.Height()); exist {
 		return errors.Errorf("block %d already exists", pb.Height())
@@ -60,16 +64,16 @@ func (p *Protocol) getBlockProof(addr string, height uint64) (BlockProof, bool) 
 	return bp, true
 }
 
-func blockProofKey(addr string, height uint64) hash.PKHash {
+func blockProofKey(addr string, height uint64) hash.Hash160 {
 	stream := []byte{}
 	stream = append(stream, addr...)
 	temp := make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, height)
 	stream = append(stream, temp...)
-	return byteutil.BytesTo20B(hash.Hash160b(stream))
+	return hash.Hash160b(stream)
 }
 
-func putBlockToBlockProof(pb *action.PutBlock) BlockProof {
+func putBlockToBlockProof(caller address.Address, pb *action.PutBlock) BlockProof {
 	roots := pb.Roots()
 	keys := make([]string, 0, len(roots))
 	for k := range roots {
@@ -92,6 +96,6 @@ func putBlockToBlockProof(pb *action.PutBlock) BlockProof {
 		Roots:             bpRoots,
 		Height:            pb.Height(),
 		ProducerPublicKey: pb.ProducerPublicKey(),
-		ProducerAddress:   pb.ProducerAddress(),
+		ProducerAddress:   caller.String(),
 	}
 }

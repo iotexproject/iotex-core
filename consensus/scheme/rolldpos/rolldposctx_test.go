@@ -89,7 +89,7 @@ func TestRollDPoSCtx(t *testing.T) {
 
 		blockHeight := uint64(8)
 		clock := clock.NewMock()
-		var prevHash hash.Hash32B
+		var prevHash hash.Hash256
 		blk := block.NewBlockDeprecated(
 			1,
 			blockHeight,

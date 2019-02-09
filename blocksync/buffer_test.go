@@ -68,7 +68,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -79,7 +79,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
-		hash.Hash32B{},
+		hash.Hash256{},
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -91,7 +91,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(5),
-		hash.Hash32B{},
+		hash.Hash256{},
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -103,7 +103,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(5),
-		hash.Hash32B{},
+		hash.Hash256{},
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -115,7 +115,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(500),
-		hash.Hash32B{},
+		hash.Hash256{},
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -172,7 +172,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(2),
-		hash.Hash32B{},
+		hash.Hash256{},
 		testutil.TimestampNow(),
 		ta.Keyinfo["producer"].PubKey,
 		nil,
@@ -255,7 +255,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		nil,
 		ta.Keyinfo["producer"].PubKey,
 		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].Bech32(),
+		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)

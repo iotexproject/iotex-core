@@ -32,13 +32,13 @@ const (
 type (
 	// Contract is a special type of account with code and storage trie.
 	Contract interface {
-		GetState(hash.Hash32B) ([]byte, error)
-		SetState(hash.Hash32B, []byte) error
+		GetState(hash.Hash256) ([]byte, error)
+		SetState(hash.Hash256, []byte) error
 		GetCode() ([]byte, error)
-		SetCode(hash.Hash32B, []byte)
+		SetCode(hash.Hash256, []byte)
 		SelfState() *state.Account
 		Commit() error
-		RootHash() hash.Hash32B
+		RootHash() hash.Hash256
 		LoadRoot() error
 		Iterator() (trie.Iterator, error)
 		Snapshot() Contract
@@ -49,7 +49,7 @@ type (
 		dirtyCode  bool   // contract's code has been set
 		dirtyState bool   // contract's account state has changed
 		code       []byte // contract byte-code
-		root       hash.Hash32B
+		root       hash.Hash256
 		dao        db.KVStore
 		trie       trie.Trie // storage trie of the contract
 	}
@@ -60,7 +60,7 @@ func (c *contract) Iterator() (trie.Iterator, error) {
 }
 
 // GetState get the value from contract storage
-func (c *contract) GetState(key hash.Hash32B) ([]byte, error) {
+func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
 	v, err := c.trie.Get(key[:])
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func (c *contract) GetState(key hash.Hash32B) ([]byte, error) {
 }
 
 // SetState set the value into contract storage
-func (c *contract) SetState(key hash.Hash32B, value []byte) error {
+func (c *contract) SetState(key hash.Hash256, value []byte) error {
 	c.dirtyState = true
 	err := c.trie.Upsert(key[:], value)
 	c.Account.Root = byteutil.BytesTo32B(c.trie.RootHash())
@@ -85,7 +85,7 @@ func (c *contract) GetCode() ([]byte, error) {
 }
 
 // SetCode sets the contract's byte-code
-func (c *contract) SetCode(hash hash.Hash32B, code []byte) {
+func (c *contract) SetCode(hash hash.Hash256, code []byte) {
 	c.Account.CodeHash = hash[:]
 	c.code = code
 	c.dirtyCode = true
@@ -114,7 +114,7 @@ func (c *contract) Commit() error {
 }
 
 // RootHash returns storage trie's root hash
-func (c *contract) RootHash() hash.Hash32B {
+func (c *contract) RootHash() hash.Hash256 {
 	return c.Account.Root
 }
 
@@ -139,19 +139,19 @@ func (c *contract) Snapshot() Contract {
 }
 
 // NewContract returns a Contract instance
-func newContract(addr hash.PKHash, state *state.Account, dao db.KVStore, batch db.CachedBatch) (Contract, error) {
+func newContract(addr hash.Hash160, state *state.Account, dao db.KVStore, batch db.CachedBatch) (Contract, error) {
 	dbForTrie, err := db.NewKVStoreForTrie(ContractKVNameSpace, dao, db.CachedBatchOption(batch))
 	if err != nil {
 		return nil, err
 	}
 	options := []trie.Option{
 		trie.KVStoreOption(dbForTrie),
-		trie.KeyLengthOption(hash.HashSize),
+		trie.KeyLengthOption(len(hash.Hash256{})),
 		trie.HashFuncOption(func(data []byte) []byte {
 			return trie.DefaultHashFunc(append(addr[:], data...))
 		}),
 	}
-	if state.Root != hash.ZeroHash32B {
+	if state.Root != hash.ZeroHash256 {
 		options = append(options, trie.RootHashOption(state.Root[:]))
 	}
 

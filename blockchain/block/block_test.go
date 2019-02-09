@@ -12,8 +12,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
@@ -47,145 +45,43 @@ func TestBasicHash(t *testing.T) {
 func TestMerkle(t *testing.T) {
 	require := require.New(t)
 
-	producerAddr := ta.Addrinfo["producer"].Bech32()
+	producerAddr := ta.Addrinfo["producer"].String()
 	producerPubKey := ta.Keyinfo["producer"].PubKey
 	producerPriKey := ta.Keyinfo["producer"].PriKey
 	amount := uint64(50 << 22)
 	// create testing transactions
-	selp0, err := testutil.SignedTransfer(
-		producerAddr,
-		producerAddr,
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp0, err := testutil.SignedTransfer(producerAddr, producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp1, err := testutil.SignedTransfer(
-		producerAddr,
-		ta.Addrinfo["alfa"].Bech32(),
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp2, err := testutil.SignedTransfer(
-		producerAddr,
-		ta.Addrinfo["bravo"].Bech32(),
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp3, err := testutil.SignedTransfer(
-		producerAddr,
-		ta.Addrinfo["charlie"].Bech32(),
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp3, err := testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp4, err := testutil.SignedTransfer(
-		producerAddr,
-		ta.Addrinfo["echo"].Bech32(),
-		producerPriKey,
-		1,
-		big.NewInt(int64(amount)),
-		nil,
-		100,
-		big.NewInt(0),
-	)
+	selp4, err := testutil.SignedTransfer(ta.Addrinfo["echo"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
-
-	// verify tx hash
-	hash0, e := hex.DecodeString("9e534580106ad77be0e69c8a747839d53a68f0f1151e258261f5ea2fc88c8cb8")
-	require.NoError(e)
-	actual := selp0.Hash()
-	t.Logf("actual hash = %x", actual[:])
-	require.Equal(hash0, actual[:])
-
-	hash1, e := hex.DecodeString("3a3c0eaae34ecd274e5a4e984674bd5ebecfc2aecbfb249badc1443b6f5121b2")
-	require.NoError(e)
-	actual = selp1.Hash()
-	t.Logf("actual hash = %x", actual[:])
-	require.Equal(hash1, actual[:])
-
-	hash2, e := hex.DecodeString("f3d19dd04f8a04ff91103ba7fb5f3b5b2f68d60d000510ac54c3108c12776af0")
-	require.NoError(e)
-	actual = selp2.Hash()
-	t.Logf("actual hash = %x", actual[:])
-	require.Equal(hash2, actual[:])
-
-	hash3, e := hex.DecodeString("87ebe8368331cb99c6b6498512eca388d082e83cc317b5f24a9e5754411c5880")
-	require.NoError(e)
-	actual = selp3.Hash()
-	t.Logf("actual hash = %x", actual[:])
-	require.Equal(hash3, actual[:])
-
-	hash4, e := hex.DecodeString("c40e737391cba49df33b2ca2f9a2428e49a14c1cae2456505bac99d4f3e569ba")
-	require.NoError(e)
-	actual = selp4.Hash()
-	t.Logf("actual hash = %x", actual[:])
-	require.Equal(hash4, actual[:])
-
-	// manually compute merkle root
-	cat := append(hash0, hash1...)
-	hash01 := blake2b.Sum256(cat)
-	t.Logf("hash01 = %x", hash01)
-
-	cat = append(hash2, hash3...)
-	hash23 := blake2b.Sum256(cat)
-	t.Logf("hash23 = %x", hash23)
-
-	cat = append(hash4, hash4...)
-	hash45 := blake2b.Sum256(cat)
-	t.Logf("hash45 = %x", hash45)
-
-	cat = append(hash01[:], hash23[:]...)
-	hash03 := blake2b.Sum256(cat)
-	t.Logf("hash03 = %x", hash03)
-
-	cat = append(hash45[:], hash45[:]...)
-	hash47 := blake2b.Sum256(cat)
-	t.Logf("hash47 = %x", hash47)
-
-	cat = append(hash03[:], hash47[:]...)
-	hash07 := blake2b.Sum256(cat)
-	t.Logf("hash07 = %x", hash07)
 
 	// create block using above 5 tx and verify merkle
 	block := NewBlockDeprecated(
 		0,
 		0,
-		hash.ZeroHash32B,
+		hash.ZeroHash256,
 		testutil.TimestampNow(),
 		producerPubKey,
 		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
 	)
 	hash := block.CalculateTxRoot()
-	require.Equal(hash07[:], hash[:])
+	require.Equal("9a32d3e0cd1a1ac754af41443ae13b20013542762345d73c3a2a14c8ac208d6b", hex.EncodeToString(hash[:]))
 
 	t.Log("Merkle root match pass\n")
 }
 
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
-	senderAddr := ta.Addrinfo["producer"].Bech32()
 	senderPubKey := ta.Keyinfo["producer"].PubKey
 	require.NoError(t, blk.ConvertFromBlockPb(&iproto.BlockPb{
 		Header: &iproto.BlockHeaderPb{
@@ -198,7 +94,6 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Action: &iproto.ActionPb_Transfer{
 					Transfer: &iproto.TransferPb{},
 				},
-				Sender:       senderAddr,
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        101,
@@ -207,7 +102,6 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Action: &iproto.ActionPb_Transfer{
 					Transfer: &iproto.TransferPb{},
 				},
-				Sender:       senderAddr,
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        102,
@@ -216,7 +110,6 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Action: &iproto.ActionPb_Vote{
 					Vote: &iproto.VotePb{},
 				},
-				Sender:       senderAddr,
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        103,
@@ -225,7 +118,6 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Action: &iproto.ActionPb_Vote{
 					Vote: &iproto.VotePb{},
 				},
-				Sender:       senderAddr,
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 				Version:      version.ProtocolVersion,
 				Nonce:        104,
@@ -234,7 +126,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 	}))
 
 	blk.Header.txRoot = blk.CalculateTxRoot()
-	blk.Header.receiptRoot = byteutil.BytesTo32B(hash.Hash256b(([]byte)("test")))
+	blk.Header.receiptRoot = hash.Hash256b(([]byte)("test"))
 
 	raw, err := blk.Serialize()
 	require.Nil(t, err)

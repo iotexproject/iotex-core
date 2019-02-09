@@ -9,6 +9,7 @@ package blockchain
 import (
 	"context"
 	"math/big"
+	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -51,13 +52,13 @@ type Blockchain interface {
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
-	GetHeightByHash(h hash.Hash32B) (uint64, error)
+	GetHeightByHash(h hash.Hash256) (uint64, error)
 	// GetHashByHeight returns Block's hash by height
-	GetHashByHeight(height uint64) (hash.Hash32B, error)
+	GetHashByHeight(height uint64) (hash.Hash256, error)
 	// GetBlockByHeight returns Block by height
 	GetBlockByHeight(height uint64) (*block.Block, error)
 	// GetBlockByHash returns Block by hash
-	GetBlockByHash(h hash.Hash32B) (*block.Block, error)
+	GetBlockByHash(h hash.Hash256) (*block.Block, error)
 	// GetTotalTransfers returns the total number of transfers
 	GetTotalTransfers() (uint64, error)
 	// GetTotalVotes returns the total number of votes
@@ -67,39 +68,39 @@ type Blockchain interface {
 	// GetTotalActions returns the total number of actions
 	GetTotalActions() (uint64, error)
 	// GetTransfersFromAddress returns transaction from address
-	GetTransfersFromAddress(address string) ([]hash.Hash32B, error)
+	GetTransfersFromAddress(address string) ([]hash.Hash256, error)
 	// GetTransfersToAddress returns transaction to address
-	GetTransfersToAddress(address string) ([]hash.Hash32B, error)
+	GetTransfersToAddress(address string) ([]hash.Hash256, error)
 	// GetTransfersByTransferHash returns transfer by transfer hash
-	GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error)
+	GetTransferByTransferHash(h hash.Hash256) (*action.Transfer, error)
 	// GetBlockHashByTransferHash returns Block hash by transfer hash
-	GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error)
+	GetBlockHashByTransferHash(h hash.Hash256) (hash.Hash256, error)
 	// GetVoteFromAddress returns vote from address
-	GetVotesFromAddress(address string) ([]hash.Hash32B, error)
+	GetVotesFromAddress(address string) ([]hash.Hash256, error)
 	// GetVoteToAddress returns vote to address
-	GetVotesToAddress(address string) ([]hash.Hash32B, error)
+	GetVotesToAddress(address string) ([]hash.Hash256, error)
 	// GetVotesByVoteHash returns vote by vote hash
-	GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error)
+	GetVoteByVoteHash(h hash.Hash256) (*action.Vote, error)
 	// GetBlockHashByVoteHash returns Block hash by vote hash
-	GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error)
+	GetBlockHashByVoteHash(h hash.Hash256) (hash.Hash256, error)
 	// GetExecutionsFromAddress returns executions from address
-	GetExecutionsFromAddress(address string) ([]hash.Hash32B, error)
+	GetExecutionsFromAddress(address string) ([]hash.Hash256, error)
 	// GetExecutionsToAddress returns executions to address
-	GetExecutionsToAddress(address string) ([]hash.Hash32B, error)
+	GetExecutionsToAddress(address string) ([]hash.Hash256, error)
 	// GetExecutionByExecutionHash returns execution by execution hash
-	GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error)
+	GetExecutionByExecutionHash(h hash.Hash256) (*action.Execution, error)
 	// GetBlockHashByExecutionHash returns Block hash by execution hash
-	GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error)
+	GetBlockHashByExecutionHash(h hash.Hash256) (hash.Hash256, error)
 	// GetReceiptByActionHash returns the receipt by action hash
-	GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error)
+	GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error)
 	// GetActionsFromAddress returns actions from address
-	GetActionsFromAddress(address string) ([]hash.Hash32B, error)
+	GetActionsFromAddress(address string) ([]hash.Hash256, error)
 	// GetActionsToAddress returns actions to address
-	GetActionsToAddress(address string) ([]hash.Hash32B, error)
+	GetActionsToAddress(address string) ([]hash.Hash256, error)
 	// GetActionByActionHash returns action by action hash
-	GetActionByActionHash(h hash.Hash32B) (action.SealedEnvelope, error)
+	GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
 	// GetBlockHashByActionHash returns Block hash by action hash
-	GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error)
+	GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
 	// GetFactory returns the state factory
 	GetFactory() factory.Factory
 	// GetChainID returns the chain ID
@@ -107,7 +108,7 @@ type Blockchain interface {
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
 	ChainAddress() string
 	// TipHash returns tip block's hash
-	TipHash() hash.Hash32B
+	TipHash() hash.Hash256
 	// TipHeight returns tip block's height
 	TipHeight() uint64
 	// StateByAddr returns account of a given address
@@ -137,7 +138,7 @@ type Blockchain interface {
 	// For smart contract operations
 	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 	// cause any state change
-	ExecuteContractRead(ex *action.Execution) (*action.Receipt, error)
+	ExecuteContractRead(caller address.Address, ex *action.Execution) (*action.Receipt, error)
 
 	// AddSubscriber make you listen to every single produced block
 	AddSubscriber(BlockCreationSubscriber) error
@@ -153,7 +154,7 @@ type blockchain struct {
 	config        config.Config
 	genesis       *Genesis
 	tipHeight     uint64
-	tipHash       hash.Hash32B
+	tipHash       hash.Hash256
 	validator     Validator
 	lifecycle     lifecycle.Lifecycle
 	clk           clock.Clock
@@ -169,9 +170,6 @@ type Option func(*blockchain, config.Config) error
 
 // key specifies the type of recovery height key used by context
 type key string
-
-// RecoveryHeightKey indicates the recovery height key used by context
-const RecoveryHeightKey key = "recoveryHeight"
 
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
@@ -277,12 +275,12 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		return nil
 	}
 	pkHash := keypair.HashPubKey(pubKey)
-	address := address.New(pkHash[:])
+	address, err := address.FromBytes(pkHash[:])
 	if err != nil {
 		log.L().Error("Failed to get producer's address by public key.", zap.Error(err))
 		return nil
 	}
-	chain.validator = &validator{sf: chain.sf, validatorAddr: address.Bech32()}
+	chain.validator = &validator{sf: chain.sf, validatorAddr: address.String()}
 
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
@@ -325,8 +323,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
 		return err
 	}
-	recoveryHeight, _ := ctx.Value(RecoveryHeightKey).(uint64)
-	return bc.startExistingBlockchain(recoveryHeight)
+	return bc.startExistingBlockchain(bc.config.Chain.RecoveryHeight)
 }
 
 // Stop stops the blockchain.
@@ -353,12 +350,12 @@ func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, err
 }
 
 // GetHeightByHash returns block's height by hash
-func (bc *blockchain) GetHeightByHash(h hash.Hash32B) (uint64, error) {
+func (bc *blockchain) GetHeightByHash(h hash.Hash256) (uint64, error) {
 	return bc.dao.getBlockHeight(h)
 }
 
 // GetHashByHeight returns block's hash by height
-func (bc *blockchain) GetHashByHeight(height uint64) (hash.Hash32B, error) {
+func (bc *blockchain) GetHashByHeight(height uint64) (hash.Hash256, error) {
 	return bc.dao.getBlockHash(height)
 }
 
@@ -373,7 +370,7 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
 }
 
 // GetBlockByHash returns block from the blockchain hash by hash
-func (bc *blockchain) GetBlockByHash(h hash.Hash32B) (*block.Block, error) {
+func (bc *blockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
 	return bc.dao.getBlock(h)
 }
 
@@ -414,7 +411,7 @@ func (bc *blockchain) GetTotalActions() (uint64, error) {
 
 // TODO: To be deprecated
 // GetTransfersFromAddress returns transfers from address
-func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, error) {
+func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -423,7 +420,7 @@ func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash32B, e
 
 // TODO: To be deprecated
 // GetTransfersToAddress returns transfers to address
-func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, error) {
+func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -432,7 +429,7 @@ func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash32B, err
 
 // TODO: To be deprecated
 // GetTransferByTransferHash returns transfer by transfer hash
-func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfer, error) {
+func (bc *blockchain) GetTransferByTransferHash(h hash.Hash256) (*action.Transfer, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -455,16 +452,16 @@ func (bc *blockchain) GetTransferByTransferHash(h hash.Hash32B) (*action.Transfe
 
 // TODO: To be deprecated
 // GetBlockHashByTxHash returns Block hash by transfer hash
-func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash32B) (hash.Hash32B, error) {
+func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash256) (hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
-		return hash.ZeroHash32B, errors.New("index not enabled")
+		return hash.ZeroHash256, errors.New("index not enabled")
 	}
 	return getBlockHashByTransferHash(bc.dao.kvstore, h)
 }
 
 // TODO: To be deprecated
 // GetVoteFromAddress returns votes from address
-func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error) {
+func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -473,7 +470,7 @@ func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash32B, error
 
 // TODO: To be deprecated
 // GetVoteToAddress returns votes to address
-func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) {
+func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -482,7 +479,7 @@ func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash32B, error) 
 
 // TODO: To be deprecated
 // GetVotesByVoteHash returns vote by vote hash
-func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
+func (bc *blockchain) GetVoteByVoteHash(h hash.Hash256) (*action.Vote, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -507,16 +504,16 @@ func (bc *blockchain) GetVoteByVoteHash(h hash.Hash32B) (*action.Vote, error) {
 
 // TODO: To be deprecated
 // GetBlockHashByVoteHash returns Block hash by vote hash
-func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash32B) (hash.Hash32B, error) {
+func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash256) (hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
-		return hash.ZeroHash32B, errors.New("index not enabled")
+		return hash.ZeroHash256, errors.New("index not enabled")
 	}
 	return getBlockHashByVoteHash(bc.dao.kvstore, h)
 }
 
 // TODO: To be deprecated
 // GetExecutionsFromAddress returns executions from address
-func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, error) {
+func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -525,7 +522,7 @@ func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash32B, 
 
 // TODO: To be deprecated
 // GetExecutionsToAddress returns executions to address
-func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, error) {
+func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -534,7 +531,7 @@ func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash32B, er
 
 // TODO: To be deprecated
 // GetExecutionByExecutionHash returns execution by execution hash
-func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execution, error) {
+func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash256) (*action.Execution, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -557,15 +554,15 @@ func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash32B) (*action.Execu
 
 // TODO: To be deprecated
 // GetBlockHashByExecutionHash returns Block hash by execution hash
-func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash32B) (hash.Hash32B, error) {
+func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash256) (hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
-		return hash.ZeroHash32B, errors.New("index not enabled")
+		return hash.ZeroHash256, errors.New("index not enabled")
 	}
 	return getBlockHashByExecutionHash(bc.dao.kvstore, h)
 }
 
 // GetReceiptByActionHash returns the receipt by action hash
-func (bc *blockchain) GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, error) {
+func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -573,7 +570,7 @@ func (bc *blockchain) GetReceiptByActionHash(h hash.Hash32B) (*action.Receipt, e
 }
 
 // GetActionsFromAddress returns actions from address
-func (bc *blockchain) GetActionsFromAddress(address string) ([]hash.Hash32B, error) {
+func (bc *blockchain) GetActionsFromAddress(address string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
@@ -581,14 +578,14 @@ func (bc *blockchain) GetActionsFromAddress(address string) ([]hash.Hash32B, err
 }
 
 // GetActionToAddress returns action to address
-func (bc *blockchain) GetActionsToAddress(address string) ([]hash.Hash32B, error) {
+func (bc *blockchain) GetActionsToAddress(address string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
 	return getActionsByRecipientAddress(bc.dao.kvstore, address)
 }
 
-func (bc *blockchain) getActionByActionHashHelper(h hash.Hash32B) (hash.Hash32B, error) {
+func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256, error) {
 	blkHash, err := getBlockHashByTransferHash(bc.dao.kvstore, h)
 	if err == nil {
 		return blkHash, nil
@@ -605,7 +602,7 @@ func (bc *blockchain) getActionByActionHashHelper(h hash.Hash32B) (hash.Hash32B,
 }
 
 // GetActionByActionHash returns action by action hash
-func (bc *blockchain) GetActionByActionHash(h hash.Hash32B) (action.SealedEnvelope, error) {
+func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
 	if !bc.config.Chain.EnableIndex {
 		return action.SealedEnvelope{}, errors.New("index not enabled")
 	}
@@ -628,9 +625,9 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash32B) (action.SealedEnvelo
 }
 
 // GetBlockHashByActionHash returns Block hash by action hash
-func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash32B) (hash.Hash32B, error) {
+func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
-		return hash.ZeroHash32B, errors.New("index not enabled")
+		return hash.ZeroHash256, errors.New("index not enabled")
 	}
 	return getBlockHashByActionHash(bc.dao.kvstore, h)
 }
@@ -641,7 +638,7 @@ func (bc *blockchain) GetFactory() factory.Factory {
 }
 
 // TipHash returns tip block's hash
-func (bc *blockchain) TipHash() hash.Hash32B {
+func (bc *blockchain) TipHash() hash.Hash256 {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	return bc.tipHash
@@ -679,15 +676,18 @@ func (bc *blockchain) MintNewBlock(
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
+	producer, err := address.FromString(producerAddr)
+	if err != nil {
+		return nil, err
+	}
 
 	gasLimitForContext := genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight:     newblockHeight,
-			BlockHash:       hash.ZeroHash32B,
-			ProducerPubKey:  producerPubKey,
+			BlockHash:       hash.ZeroHash256,
 			BlockTimeStamp:  bc.now(),
-			ProducerAddr:    producerAddr,
+			Producer:        producer,
 			GasLimit:        &gasLimitForContext,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
@@ -798,7 +798,7 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 
 // ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 // cause any state change
-func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt, error) {
+func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Execution) (*action.Receipt, error) {
 	// use latest block as carrier to run the offline execution
 	// the block itself is not used
 	h := bc.TipHeight()
@@ -810,17 +810,25 @@ func (bc *blockchain) ExecuteContractRead(ex *action.Execution) (*action.Receipt
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
+	producer, err := address.FromString(blk.ProducerAddress())
+	if err != nil {
+		return nil, err
+	}
 	gasLimit := genesis.BlockGasLimit
+	raCtx := protocol.RunActionsCtx{
+		BlockHeight:     blk.Height(),
+		BlockHash:       blk.HashBlock(),
+		BlockTimeStamp:  blk.Timestamp(),
+		Producer:        producer,
+		Caller:          caller,
+		EnableGasCharge: bc.config.Chain.EnableGasCharge,
+	}
 	return evm.ExecuteContract(
-		blk.Height(),
-		blk.HashBlock(),
-		blk.PublicKey(),
-		blk.Timestamp(),
+		raCtx,
 		ws,
 		ex,
 		bc,
 		&gasLimit,
-		bc.config.Chain.EnableGasCharge,
 	)
 }
 
@@ -842,11 +850,23 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
 	gasLimit := genesis.BlockGasLimit
+	callerAddr, err := address.FromString(addr)
+	if err != nil {
+		return nil, err
+	}
+	producer, err := address.FromString(genesisBlk.ProducerAddress())
+	if err != nil {
+		return nil, err
+	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			ProducerAddr:    genesisBlk.ProducerAddress(),
+			EpochNumber:     0,
+			Producer:        producer,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+			Caller:          callerAddr,
+			ActionHash:      hash.ZeroHash256,
+			Nonce:           0,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
@@ -917,7 +937,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			Build(addr, pk)
 		genesis, err = block.NewBuilder(racts).
 			SetChainID(bc.ChainID()).
-			SetPrevBlockHash(hash.ZeroHash32B).
+			SetPrevBlockHash(hash.ZeroHash256).
 			SignAndBuild(pk, sk)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
@@ -967,12 +987,25 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		}
 		startHeight = 1
 	}
-	if recoveryHeight > 0 && startHeight <= recoveryHeight {
+	if recoveryHeight > 0 {
 		for bc.tipHeight > recoveryHeight {
 			if err := bc.dao.deleteTipBlock(); err != nil {
 				return err
 			}
 			bc.tipHeight--
+		}
+		if startHeight > bc.tipHeight {
+			startHeight = 0
+			// Delete existing state DB and reinitialize it
+			if err := os.Remove(bc.config.Chain.TrieDBPath); err != nil {
+				return errors.Wrap(err, "failed to delete existing state DB")
+			}
+			if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
+				return errors.Wrap(err, "failed to reinitialize state DB")
+			}
+			if err := bc.sf.Start(context.Background()); err != nil {
+				return errors.Wrap(err, "failed to start state factory")
+			}
 		}
 	}
 	for i := startHeight; i <= bc.tipHeight; i++ {
@@ -1041,7 +1074,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 func (bc *blockchain) commitBlock(blk *block.Block) error {
 	// Check if it is already exists, and return earlier
 	blkHash, err := bc.dao.getBlockHash(blk.Height())
-	if blkHash != hash.ZeroHash32B {
+	if blkHash != hash.ZeroHash256 {
 		log.L().Debug("Block already exists.", zap.Uint64("height", blk.Height()))
 		return nil
 	}
@@ -1089,20 +1122,23 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 func (bc *blockchain) runActions(
 	acts block.RunnableActions,
 	ws factory.WorkingSet,
-) (hash.Hash32B, []*action.Receipt, error) {
+) (hash.Hash256, []*action.Receipt, error) {
 	if bc.sf == nil {
-		return hash.ZeroHash32B, nil, errors.New("statefactory cannot be nil")
+		return hash.ZeroHash256, nil, errors.New("statefactory cannot be nil")
 	}
 	gasLimit := genesis.BlockGasLimit
 	// update state factory
+	producer, err := address.FromString(acts.BlockProducerAddr())
+	if err != nil {
+		return hash.ZeroHash256, nil, err
+	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			BlockHeight: acts.BlockHeight(),
-			//BlockHash:       acts.TxHash(),
-			BlockHash:       hash.ZeroHash32B,
-			ProducerPubKey:  acts.BlockProducerPubKey(),
+			EpochNumber:     0, // TODO: need to get the actual epoch number from RollDPoS
+			BlockHeight:     acts.BlockHeight(),
+			BlockHash:       acts.TxHash(),
 			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
-			ProducerAddr:    acts.BlockProducerAddr(),
+			Producer:        producer,
 			GasLimit:        &gasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
@@ -1111,26 +1147,16 @@ func (bc *blockchain) runActions(
 }
 
 func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[string][]action.SealedEnvelope,
-	ws factory.WorkingSet) (hash.Hash32B, []*action.Receipt, []action.SealedEnvelope, error) {
+	ws factory.WorkingSet) (hash.Hash256, []*action.Receipt, []action.SealedEnvelope, error) {
 	if bc.sf == nil {
-		return hash.ZeroHash32B, nil, nil, errors.New("statefactory cannot be nil")
+		return hash.ZeroHash256, nil, nil, errors.New("statefactory cannot be nil")
 	}
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
 
-	// handle coinbase transfer
-	/*receipt, err := ws.RunAction(ctx, coinBaseSelp)
-	if err != nil {
-		return hash.ZeroHash32B, nil, nil, errors.Wrapf(err, "Failed to update state changes for coinbase selp %s", coinBaseSelp.Hash())
-	}
-	if receipt != nil {
-		receipts[coinBaseSelp.Hash()] = receipt
-	}
-	executedActions = append(executedActions, coinBaseSelp)*/
-
 	raCtx, ok := protocol.GetRunActionsCtx(ctx)
 	if !ok {
-		return hash.ZeroHash32B, nil, nil, errors.New("failed to get action context")
+		return hash.ZeroHash256, nil, nil, errors.New("failed to get action context")
 	}
 	// initial action iterator
 	actionIterator := actioniterator.NewActionIterator(actionMap)
@@ -1145,7 +1171,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			if err == action.ErrHitGasLimit {
 				continue
 			}
-			return hash.ZeroHash32B, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %s", nextAction.Hash())
+			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %s", nextAction.Hash())
 		}
 		if receipt != nil {
 			// will this ever happen?
@@ -1177,25 +1203,29 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
 
 func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, string, error) {
-	pk, err := keypair.DecodePublicKey(genesisProducerPublicKey)
+	pk, err := keypair.DecodePublicKey(GenesisProducerPublicKey)
 	if err != nil {
 		return nil, nil, "", errors.Wrap(err, "failed to decode public key")
 	}
-	sk, err := keypair.DecodePrivateKey(genesisProducerPrivateKey)
+	sk, err := keypair.DecodePrivateKey(GenesisProducerPrivateKey)
 	if err != nil {
 		return nil, nil, "", errors.Wrap(err, "failed to decode private key")
 	}
 	pkHash := keypair.HashPubKey(pk)
-	return pk, sk, address.New(pkHash[:]).Bech32(), nil
+	addr, err := address.FromBytes(pkHash[:])
+	if err != nil {
+		return nil, nil, "", errors.Wrap(err, "failed to create address")
+	}
+	return pk, sk, addr.String(), nil
 }
 
-func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash32B {
-	var h []hash.Hash32B
+func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
+	var h []hash.Hash256
 	for _, receipt := range receipts {
 		h = append(h, receipt.Hash())
 	}
 	if len(h) == 0 {
-		return hash.ZeroHash32B
+		return hash.ZeroHash256
 	}
 	res := crypto.NewMerkleTree(h).HashTree()
 	return res

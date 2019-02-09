@@ -37,9 +37,9 @@ func (m *MockWorkingSet) EXPECT() *MockWorkingSetMockRecorder {
 }
 
 // RunActions mocks base method
-func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.SealedEnvelope) (hash.Hash32B, []*action.Receipt, error) {
+func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.SealedEnvelope) (hash.Hash256, []*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2)
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	ret1, _ := ret[1].([]*action.Receipt)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -87,9 +87,9 @@ func (mr *MockWorkingSetMockRecorder) Commit() *gomock.Call {
 }
 
 // RootHash mocks base method
-func (m *MockWorkingSet) RootHash() hash.Hash32B {
+func (m *MockWorkingSet) RootHash() hash.Hash256 {
 	ret := m.ctrl.Call(m, "RootHash")
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	return ret0
 }
 
@@ -99,9 +99,9 @@ func (mr *MockWorkingSetMockRecorder) RootHash() *gomock.Call {
 }
 
 // Digest mocks base method
-func (m *MockWorkingSet) Digest() hash.Hash32B {
+func (m *MockWorkingSet) Digest() hash.Hash256 {
 	ret := m.ctrl.Call(m, "Digest")
-	ret0, _ := ret[0].(hash.Hash32B)
+	ret0, _ := ret[0].(hash.Hash256)
 	return ret0
 }
 
@@ -135,7 +135,7 @@ func (mr *MockWorkingSetMockRecorder) Height() *gomock.Call {
 }
 
 // State mocks base method
-func (m *MockWorkingSet) State(arg0 hash.PKHash, arg1 interface{}) error {
+func (m *MockWorkingSet) State(arg0 hash.Hash160, arg1 interface{}) error {
 	ret := m.ctrl.Call(m, "State", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -147,7 +147,7 @@ func (mr *MockWorkingSetMockRecorder) State(arg0, arg1 interface{}) *gomock.Call
 }
 
 // PutState mocks base method
-func (m *MockWorkingSet) PutState(arg0 hash.PKHash, arg1 interface{}) error {
+func (m *MockWorkingSet) PutState(arg0 hash.Hash160, arg1 interface{}) error {
 	ret := m.ctrl.Call(m, "PutState", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -159,7 +159,7 @@ func (mr *MockWorkingSetMockRecorder) PutState(arg0, arg1 interface{}) *gomock.C
 }
 
 // DelState mocks base method
-func (m *MockWorkingSet) DelState(pkHash hash.PKHash) error {
+func (m *MockWorkingSet) DelState(pkHash hash.Hash160) error {
 	ret := m.ctrl.Call(m, "DelState", pkHash)
 	ret0, _ := ret[0].(error)
 	return ret0

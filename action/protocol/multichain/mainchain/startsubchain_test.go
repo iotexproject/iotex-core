@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"fmt"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -43,7 +44,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	).AnyTimes()
 	factory.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Do(func(_ hash.PKHash, s interface{}) error {
+		Do(func(_ hash.Hash160, s interface{}) error {
 			out := &SubChainsInOperation{InOperation{ID: uint32(3)}}
 			data, err := state.Serialize(out)
 			if err != nil {
@@ -63,7 +64,6 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start := action.NewStartSubChain(
 		1,
 		2,
-		testaddress.Addrinfo["producer"].Bech32(),
 		MinSecurityDeposit,
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -71,7 +71,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, subChainsInOp, err := p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err := p.validateStartSubChain(testaddress.Addrinfo["producer"], start, nil)
 	assert.NotNil(t, account)
 	assert.NoError(t, err)
 	require.NotNil(t, subChainsInOp)
@@ -80,7 +80,6 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start = action.NewStartSubChain(
 		1,
 		1,
-		testaddress.Addrinfo["producer"].Bech32(),
 		MinSecurityDeposit,
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -88,7 +87,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err = p.validateStartSubChain(testaddress.Addrinfo["producer"], start, nil)
 	assert.Nil(t, subChainsInOp)
 	assert.Nil(t, account)
 	require.Error(t, err)
@@ -98,7 +97,6 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start = action.NewStartSubChain(
 		1,
 		3,
-		testaddress.Addrinfo["producer"].Bech32(),
 		MinSecurityDeposit,
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -106,7 +104,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err = p.validateStartSubChain(testaddress.Addrinfo["producer"], start, nil)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
@@ -116,7 +114,6 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start = action.NewStartSubChain(
 		1,
 		2,
-		testaddress.Addrinfo["producer"].Bech32(),
 		big.NewInt(0).Mul(big.NewInt(500000000), big.NewInt(blockchain.Iotx)),
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -124,7 +121,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err = p.validateStartSubChain(testaddress.Addrinfo["producer"], start, nil)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
@@ -134,7 +131,6 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start = action.NewStartSubChain(
 		1,
 		2,
-		testaddress.Addrinfo["producer"].Bech32(),
 		big.NewInt(0).Mul(big.NewInt(2100000000), big.NewInt(blockchain.Iotx)),
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -142,7 +138,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err = p.validateStartSubChain(testaddress.Addrinfo["producer"], start, nil)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
@@ -152,7 +148,6 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start = action.NewStartSubChain(
 		1,
 		2,
-		testaddress.Addrinfo["producer"].Bech32(),
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		big.NewInt(0).Mul(big.NewInt(1100000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -160,7 +155,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, subChainsInOp, err = p.validateStartSubChain(start, nil)
+	account, subChainsInOp, err = p.validateStartSubChain(testaddress.Addrinfo["producer"], start, nil)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
@@ -170,7 +165,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	ws := mock_factory.NewMockWorkingSet(ctrl)
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Do(func(_ hash.PKHash, s interface{}) error {
+		Do(func(_ hash.Hash160, s interface{}) error {
 			out := SubChainsInOperation{InOperation{ID: uint32(3)}}
 			data, err := state.Serialize(out)
 			if err != nil {
@@ -180,7 +175,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		}).Times(1)
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Do(func(_ hash.PKHash, s interface{}) error {
+		Do(func(_ hash.Hash160, s interface{}) error {
 			out := &state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(blockchain.Iotx))}
 			data, err := state.Serialize(out)
 			if err != nil {
@@ -191,7 +186,6 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start = action.NewStartSubChain(
 		1,
 		2,
-		testaddress.Addrinfo["producer"].Bech32(),
 		MinSecurityDeposit,
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -199,7 +193,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		0,
 		big.NewInt(0),
 	)
-	account, subChainsInOp, err = p.validateStartSubChain(start, ws)
+	account, subChainsInOp, err = p.validateStartSubChain(testaddress.Addrinfo["producer"], start, ws)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
@@ -208,7 +202,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	// chain ID is used in the working set
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
-		Do(func(_ hash.PKHash, s interface{}) error {
+		Do(func(_ hash.Hash160, s interface{}) error {
 			out := SubChainsInOperation{InOperation{ID: uint32(2)}, InOperation{ID: uint32(3)}}
 			data, err := state.Serialize(out)
 			if err != nil {
@@ -216,7 +210,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 			}
 			return state.Deserialize(s, data)
 		}).Times(1)
-	account, subChainsInOp, err = p.validateStartSubChain(start, ws)
+	account, subChainsInOp, err = p.validateStartSubChain(testaddress.Addrinfo["producer"], start, ws)
 	assert.Nil(t, account)
 	assert.Nil(t, subChainsInOp)
 	require.Error(t, err)
@@ -226,13 +220,13 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 func TestCreateSubChainAddress(t *testing.T) {
 	t.Parallel()
 
-	addr1, err := createSubChainAddress(testaddress.Addrinfo["producer"].Bech32(), 1)
+	addr1, err := createSubChainAddress(testaddress.Addrinfo["producer"].String(), 1)
 	assert.NoError(t, err)
-	addr2, err := createSubChainAddress(testaddress.Addrinfo["producer"].Bech32(), 2)
+	addr2, err := createSubChainAddress(testaddress.Addrinfo["producer"].String(), 2)
 	assert.NoError(t, err)
 	// Same owner address but different nonce
 	assert.NotEqual(t, addr1, addr2)
-	addr3, err := createSubChainAddress(testaddress.Addrinfo["alfa"].Bech32(), 1)
+	addr3, err := createSubChainAddress(testaddress.Addrinfo["alfa"].String(), 1)
 	assert.NoError(t, err)
 	// Same nonce but different owner address
 	assert.NotEqual(t, addr1, addr3)
@@ -262,14 +256,15 @@ func TestHandleStartSubChain(t *testing.T) {
 	require.NoError(t, err)
 	_, err = account.LoadOrCreateAccount(
 		ws,
-		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["producer"].String(),
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx)),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+			Producer:        testaddress.Addrinfo["producer"],
+			Caller:          testaddress.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -284,7 +279,6 @@ func TestHandleStartSubChain(t *testing.T) {
 	start := action.NewStartSubChain(
 		1,
 		2,
-		testaddress.Addrinfo["producer"].Bech32(),
 		MinSecurityDeposit,
 		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
 		110,
@@ -294,22 +288,22 @@ func TestHandleStartSubChain(t *testing.T) {
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetGasLimit(10).SetAction(start).Build()
-	_, err = action.Sign(elp, testaddress.Addrinfo["producer"].Bech32(), testaddress.Keyinfo["producer"].PriKey)
+	_, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 
 	// Handle the action
 	protocol := NewProtocol(chain)
-	require.NoError(t, protocol.handleStartSubChain(start, ws))
+	require.NoError(t, protocol.handleStartSubChain(ctx, start, ws))
 	require.NoError(t, sf.Commit(ws))
 
 	// Check the owner state
-	account, err := sf.AccountState(testaddress.Addrinfo["producer"].Bech32())
+	account, err := sf.AccountState(testaddress.Addrinfo["producer"].String())
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), account.Nonce)
 	assert.Equal(t, big.NewInt(0), account.Balance)
 
 	// Check the sub-chain state
-	addr, err := createSubChainAddress(testaddress.Addrinfo["producer"].Bech32(), 1)
+	addr, err := createSubChainAddress(testaddress.Addrinfo["producer"].String(), 1)
 	require.NoError(t, err)
 	var sc SubChain
 	err = sf.State(addr, &sc)
@@ -351,7 +345,8 @@ func TestStartSubChainInGenesis(t *testing.T) {
 
 	scAddr, err := createSubChainAddress(blockchain.Gen.CreatorAddr(), 0)
 	require.NoError(t, err)
-	addr := address.New(scAddr[:])
+	addr, err := address.FromBytes(scAddr[:])
+	require.NoError(t, err)
 	sc, err := p.SubChain(addr)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(2), sc.ChainID)

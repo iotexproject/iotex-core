@@ -35,10 +35,9 @@ import (
 var recoveryHeight int
 
 func init() {
-	flag.IntVar(&recoveryHeight, "recovery-height", 0, "Recovery height")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
-			"usage: server -config-path=[string] -recovery-height=[int]\n")
+			"usage: server -config-path=[string]\n")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
@@ -105,7 +104,7 @@ func initLogger(cfg config.Config) {
 		return
 	}
 	if err := log.InitGlobal(cfg.Log, zap.Fields(
-		zap.String("addr", addr.Bech32()),
+		zap.String("addr", addr.String()),
 		zap.String("networkAddress", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
 		zap.String("nodeType", cfg.NodeType),
 	)); err != nil {

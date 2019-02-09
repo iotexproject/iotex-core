@@ -71,21 +71,24 @@ func constructPutSubChainBlockRequest(
 	b *block.Block,
 ) (explorerapi.PutSubChainBlockRequest, error) {
 	senderPKHash := keypair.HashPubKey(senderPubKey)
-	senderPCAddr := address.New(senderPKHash[:]).Bech32()
+	senderPCAddr, err := address.FromBytes(senderPKHash[:])
+	if err != nil {
+		return explorerapi.PutSubChainBlockRequest{}, err
+	}
+	encodedSenderPCAddr := senderPCAddr.String()
 
 	// get sender current pending nonce on parent chain
-	senderPCAddrDetails, err := rootChainAPI.GetAddressDetails(senderPCAddr)
+	senderPCAddrDetails, err := rootChainAPI.GetAddressDetails(encodedSenderPCAddr)
 	if err != nil {
 		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to get address details")
 	}
 
-	rootm := make(map[string]hash.Hash32B)
+	rootm := make(map[string]hash.Hash256)
 	rootm["state"] = b.StateRoot()
 	rootm["tx"] = b.TxRoot()
 	pb := action.NewPutBlock(
 		uint64(senderPCAddrDetails.PendingNonce),
 		subChainAddr,
-		senderPCAddr,
 		b.Height(),
 		rootm,
 		1000000,        // gas limit
@@ -100,7 +103,7 @@ func constructPutSubChainBlockRequest(
 		SetAction(pb).Build()
 
 	// sign action
-	selp, err := action.Sign(elp, senderPCAddr, senderPriKey)
+	selp, err := action.Sign(elp, senderPriKey)
 	if err != nil {
 		return explorerapi.PutSubChainBlockRequest{}, errors.Wrap(err, "fail to sign put block action")
 	}
@@ -108,7 +111,6 @@ func constructPutSubChainBlockRequest(
 	req := explorerapi.PutSubChainBlockRequest{
 		Version:         int64(selp.Version()),
 		Nonce:           int64(selp.Nonce()),
-		SenderAddress:   selp.SrcAddr(),
 		SenderPubKey:    keypair.EncodePublicKey(senderPubKey),
 		GasLimit:        int64(selp.GasLimit()),
 		GasPrice:        selp.GasPrice().String(),

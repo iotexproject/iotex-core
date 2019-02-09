@@ -107,7 +107,7 @@ func (mr *MockActPoolMockRecorder) GetUnconfirmedActs(addr interface{}) *gomock.
 }
 
 // GetActionByHash mocks base method
-func (m *MockActPool) GetActionByHash(hash hash.Hash32B) (action.SealedEnvelope, error) {
+func (m *MockActPool) GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error) {
 	ret := m.ctrl.Call(m, "GetActionByHash", hash)
 	ret0, _ := ret[0].(action.SealedEnvelope)
 	ret1, _ := ret[1].(error)

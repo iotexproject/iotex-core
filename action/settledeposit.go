@@ -35,7 +35,6 @@ func NewSettleDeposit(
 	nonce uint64,
 	amount *big.Int,
 	index uint64,
-	sender string,
 	recipient string,
 	gasLimit uint64,
 	gasPrice *big.Int,
@@ -44,7 +43,6 @@ func NewSettleDeposit(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			srcAddr:  sender,
 			dstAddr:  recipient,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
@@ -59,9 +57,6 @@ func (sd *SettleDeposit) Amount() *big.Int { return sd.amount }
 
 // Index returns the index of the deposit on main-chain's sub-chain account
 func (sd *SettleDeposit) Index() uint64 { return sd.index }
-
-// Sender returns the sender address. It's the wrapper of Action.SrcAddr
-func (sd *SettleDeposit) Sender() string { return sd.SrcAddr() }
 
 // SenderPublicKey returns the sender public key. It's the wrapper of Action.SrcPubkey
 func (sd *SettleDeposit) SenderPublicKey() keypair.PublicKey { return sd.SrcPubkey() }

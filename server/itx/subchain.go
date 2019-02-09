@@ -30,7 +30,7 @@ func (s *Server) runSubChain(addr address.Address, subChain *mainchain.SubChain)
 	// TODO: get rid of the hack config modification
 	cfg := s.cfg
 	cfg.Chain.ID = subChain.ChainID
-	cfg.Chain.Address = addr.Bech32()
+	cfg.Chain.Address = addr.String()
 	cfg.Chain.ChainDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.ChainDBPath)
 	cfg.Chain.TrieDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.TrieDBPath)
 	cfg.Chain.GenesisActionsPath = ""
@@ -70,7 +70,7 @@ func (s *Server) HandleBlock(blk *block.Block) error {
 		if s.isSubChainRunning(runnableSubChain.ID) {
 			continue
 		}
-		addr, err := address.BytesToAddress(runnableSubChain.Addr)
+		addr, err := address.FromBytes(runnableSubChain.Addr)
 		if err != nil {
 			log.L().Error("Error when getting the sub-chain address",
 				zap.Error(err),

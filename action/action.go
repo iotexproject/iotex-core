@@ -55,8 +55,6 @@ type Envelope struct {
 // SealedEnvelope is a signed action envelope.
 type SealedEnvelope struct {
 	Envelope
-
-	srcAddr   string
 	srcPubkey keypair.PublicKey
 	signature []byte
 }
@@ -110,15 +108,11 @@ func (act *Envelope) ByteStream() []byte {
 }
 
 // Hash returns the hash value of SealedEnvelope.
-func (sealed *SealedEnvelope) Hash() hash.Hash32B {
+func (sealed *SealedEnvelope) Hash() hash.Hash256 {
 	stream := sealed.Envelope.ByteStream()
-	stream = append(stream, sealed.srcAddr...)
 	stream = append(stream, keypair.PublicKeyToBytes(sealed.srcPubkey)...)
 	return blake2b.Sum256(stream)
 }
-
-// SrcAddr returns the source address
-func (sealed *SealedEnvelope) SrcAddr() string { return sealed.srcAddr }
 
 // SrcPubkey returns the source public key
 func (sealed *SealedEnvelope) SrcPubkey() keypair.PublicKey { return sealed.srcPubkey }
@@ -137,7 +131,6 @@ func (sealed SealedEnvelope) Proto() *iproto.ActionPb {
 		Version:      elp.version,
 		Nonce:        elp.nonce,
 		GasLimit:     elp.gasLimit,
-		Sender:       sealed.srcAddr,
 		SenderPubKey: keypair.PublicKeyToBytes(sealed.srcPubkey),
 		Signature:    sealed.signature,
 	}
@@ -184,7 +177,6 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
 	}
 	*sealed = SealedEnvelope{}
 
-	sealed.srcAddr = pbAct.Sender
 	sealed.srcPubkey = srcPub
 	sealed.signature = make([]byte, len(pbAct.Signature))
 	copy(sealed.signature, pbAct.Signature)
@@ -258,10 +250,9 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
 }
 
 // Sign signs the action using sender's private key
-func Sign(act Envelope, addr string, sk keypair.PrivateKey) (SealedEnvelope, error) {
+func Sign(act Envelope, sk keypair.PrivateKey) (SealedEnvelope, error) {
 	sealed := SealedEnvelope{Envelope: act}
 
-	sealed.srcAddr = addr
 	sealed.srcPubkey = &sk.PublicKey
 	// the reason to set context here is because some actions use envelope information in their proto define. for example transfer use des addr as Receipt. This will change hash value.
 	sealed.payload.SetEnvelopeContext(sealed)
@@ -277,10 +268,9 @@ func Sign(act Envelope, addr string, sk keypair.PrivateKey) (SealedEnvelope, err
 
 // FakeSeal creates a SealedActionEnvelope without signature.
 // This method should be only used in tests.
-func FakeSeal(act Envelope, addr string, pubk keypair.PublicKey) SealedEnvelope {
+func FakeSeal(act Envelope, pubk keypair.PublicKey) SealedEnvelope {
 	sealed := SealedEnvelope{
 		Envelope:  act,
-		srcAddr:   addr,
 		srcPubkey: pubk,
 	}
 	sealed.payload.SetEnvelopeContext(sealed)
@@ -292,7 +282,6 @@ func FakeSeal(act Envelope, addr string, pubk keypair.PublicKey) SealedEnvelope 
 func AssembleSealedEnvelope(act Envelope, addr string, pk keypair.PublicKey, sig []byte) SealedEnvelope {
 	sealed := SealedEnvelope{
 		Envelope:  act,
-		srcAddr:   addr,
 		srcPubkey: pk,
 		signature: sig,
 	}

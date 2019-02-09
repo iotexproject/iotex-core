@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
@@ -121,7 +122,7 @@ func pbToCandidate(candPb *iproto.Candidate) (*Candidate, error) {
 }
 
 // MapToCandidates converts a map of cachedCandidates to candidate list
-func MapToCandidates(candidateMap map[hash.PKHash]*Candidate) (CandidateList, error) {
+func MapToCandidates(candidateMap map[hash.Hash160]*Candidate) (CandidateList, error) {
 	candidates := make(CandidateList, 0, len(candidateMap))
 	for _, cand := range candidateMap {
 		candidates = append(candidates, cand)
@@ -130,16 +131,17 @@ func MapToCandidates(candidateMap map[hash.PKHash]*Candidate) (CandidateList, er
 }
 
 // CandidatesToMap converts a candidate list to map of cachedCandidates
-func CandidatesToMap(candidates CandidateList) (map[hash.PKHash]*Candidate, error) {
-	candidateMap := make(map[hash.PKHash]*Candidate)
+func CandidatesToMap(candidates CandidateList) (map[hash.Hash160]*Candidate, error) {
+	candidateMap := make(map[hash.Hash160]*Candidate)
 	for _, candidate := range candidates {
 		if candidate == nil {
 			return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")
 		}
-		pkHash, err := address.Bech32ToPKHash(candidate.Address)
+		addr, err := address.FromString(candidate.Address)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get the hash of the address")
 		}
+		pkHash := byteutil.BytesTo20B(addr.Bytes())
 		candidateMap[pkHash] = candidate
 	}
 	return candidateMap, nil

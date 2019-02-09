@@ -38,21 +38,15 @@ type Transfer struct {
 func NewTransfer(
 	nonce uint64,
 	amount *big.Int,
-	sender string,
 	recipient string,
 	payload []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*Transfer, error) {
-	if len(sender) == 0 || len(recipient) == 0 {
-		return nil, errors.Wrap(ErrAddress, "address of sender or recipient is empty")
-	}
-
 	return &Transfer{
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			srcAddr:  sender,
 			dstAddr:  recipient,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
@@ -68,9 +62,6 @@ func (tsf *Transfer) Amount() *big.Int { return tsf.amount }
 
 // Payload returns the payload bytes
 func (tsf *Transfer) Payload() []byte { return tsf.payload }
-
-// Sender returns the sender address. It's the wrapper of Action.SrcAddr
-func (tsf *Transfer) Sender() string { return tsf.SrcAddr() }
 
 // SenderPublicKey returns the sender public key. It's the wrapper of Action.SrcPubkey
 func (tsf *Transfer) SenderPublicKey() keypair.PublicKey { return tsf.SrcPubkey() }

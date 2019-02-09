@@ -16,8 +16,8 @@ import (
 )
 
 // SignedTransfer return a signed transfer
-func SignedTransfer(senderAddr string, recipientAddr string, senderPriKey keypair.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
-	transfer, err := action.NewTransfer(nonce, amount, senderAddr, recipientAddr, payload, gasLimit, gasPrice)
+func SignedTransfer(recipientAddr string, senderPriKey keypair.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
+	transfer, err := action.NewTransfer(nonce, amount, recipientAddr, payload, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, err
 	}
@@ -27,7 +27,7 @@ func SignedTransfer(senderAddr string, recipientAddr string, senderPriKey keypai
 		SetDestinationAddress(recipientAddr).
 		SetGasLimit(gasLimit).
 		SetAction(transfer).Build()
-	selp, err := action.Sign(elp, senderAddr, senderPriKey)
+	selp, err := action.Sign(elp, senderPriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
@@ -35,8 +35,8 @@ func SignedTransfer(senderAddr string, recipientAddr string, senderPriKey keypai
 }
 
 // SignedVote return a signed vote
-func SignedVote(voterAddr string, voteeAddr string, voterPriKey keypair.PrivateKey, nonce uint64, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
-	vote, err := action.NewVote(nonce, voterAddr, voteeAddr, gasLimit, gasPrice)
+func SignedVote(voteeAddr string, voterPriKey keypair.PrivateKey, nonce uint64, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
+	vote, err := action.NewVote(nonce, voteeAddr, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, err
 	}
@@ -46,7 +46,7 @@ func SignedVote(voterAddr string, voteeAddr string, voterPriKey keypair.PrivateK
 		SetDestinationAddress(voteeAddr).
 		SetGasLimit(gasLimit).
 		SetAction(vote).Build()
-	selp, err := action.Sign(elp, voterAddr, voterPriKey)
+	selp, err := action.Sign(elp, voterPriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign vote %v", elp)
 	}
@@ -54,8 +54,8 @@ func SignedVote(voterAddr string, voteeAddr string, voterPriKey keypair.PrivateK
 }
 
 // SignedExecution return a signed execution
-func SignedExecution(executorAddr string, contractAddr string, executorPriKey keypair.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (action.SealedEnvelope, error) {
-	execution, err := action.NewExecution(executorAddr, contractAddr, nonce, amount, gasLimit, gasPrice, data)
+func SignedExecution(contractAddr string, executorPriKey keypair.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (action.SealedEnvelope, error) {
+	execution, err := action.NewExecution(contractAddr, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
 		return action.SealedEnvelope{}, err
 	}
@@ -65,7 +65,7 @@ func SignedExecution(executorAddr string, contractAddr string, executorPriKey ke
 		SetDestinationAddress(contractAddr).
 		SetGasLimit(gasLimit).
 		SetAction(execution).Build()
-	selp, err := action.Sign(elp, executorAddr, executorPriKey)
+	selp, err := action.Sign(elp, executorPriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}

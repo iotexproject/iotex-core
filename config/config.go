@@ -54,6 +54,16 @@ const (
 	StandaloneScheme = "STANDALONE"
 	// NOOPScheme means that the node does not create only block
 	NOOPScheme = "NOOP"
+	// IndexTransfer is table identifier for transfer index in indexer
+	IndexTransfer = "transfer"
+	// IndexVote is table identifier for vote index in indexer
+	IndexVote = "vote"
+	// IndexExecution is table identifier for execution index in indexer
+	IndexExecution = "execution"
+	// IndexAction is table identifier for action index in indexer
+	IndexAction = "action"
+	// IndexReceipt is table identifier for receipt index in indexer
+	IndexReceipt = "receipt"
 )
 
 var (
@@ -84,6 +94,7 @@ var (
 			EnableTrielessStateDB:        true,
 			EnableIndex:                  false,
 			EnableAsyncIndexWrite:        false,
+			RecoveryHeight:               0,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -119,10 +130,10 @@ var (
 			EventChanSize: 10000,
 		},
 		Explorer: Explorer{
-			Enabled:   false,
-			UseRDS:    false,
-			Port:      14004,
-			TpsWindow: 10,
+			Enabled:    false,
+			UseIndexer: false,
+			Port:       14004,
+			TpsWindow:  10,
 			GasStation: GasStation{
 				SuggestBlockWindow: 20,
 				DefaultGas:         1,
@@ -134,6 +145,8 @@ var (
 			Enabled:           false,
 			NodeAddr:          "",
 			WhetherLocalStore: true,
+			BlockByIndexList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction, IndexReceipt},
+			IndexHistoryList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction},
 		},
 		System: System{
 			HeartbeatInterval:     10 * time.Second,
@@ -201,6 +214,8 @@ type (
 		EnableIndex bool `yaml:"enableIndex"`
 		// enable writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
+		// the height chain recover to
+		RecoveryHeight uint64 `yaml:"recoveryHeight"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -237,7 +252,7 @@ type (
 	Explorer struct {
 		Enabled    bool       `yaml:"enabled"`
 		IsTest     bool       `yaml:"isTest"`
-		UseRDS     bool       `yaml:"useRDS"`
+		UseIndexer bool       `yaml:"useIndexer"`
 		Port       int        `yaml:"port"`
 		TpsWindow  int        `yaml:"tpsWindow"`
 		GasStation GasStation `yaml:"gasStation"`
@@ -257,6 +272,10 @@ type (
 		Enabled           bool   `yaml:"enabled"`
 		NodeAddr          string `yaml:"nodeAddr"`
 		WhetherLocalStore bool   `yaml:"whetherLocalStore"`
+		// BlockByIndexList store list of BlockByIndex tables
+		BlockByIndexList []string `yaml:"blockByIndexList"`
+		// IndexHistoryList store list of IndexHistory tables
+		IndexHistoryList []string `yaml:"indexHistoryList"`
 	}
 
 	// System is the system config
@@ -434,7 +453,7 @@ func (cfg Config) BlockchainAddress() (address.Address, error) {
 		return nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
 	}
 	pkHash := keypair.HashPubKey(pk)
-	return address.New(pkHash[:]), nil
+	return address.FromBytes(pkHash[:])
 }
 
 // KeyPair returns the decoded public and private key pair
@@ -463,11 +482,11 @@ func ValidateKeyPair(cfg Config) error {
 	// Validate producer pubkey and prikey by signing a dummy message and verify it
 	validationMsg := "connecting the physical world block by block"
 	msgHash := hash.Hash256b([]byte(validationMsg))
-	sig, err := crypto.Sign(msgHash, priKey)
+	sig, err := crypto.Sign(msgHash[:], priKey)
 	if err != nil {
 		return err
 	}
-	if !crypto.VerifySignature(pkBytes, msgHash, sig[:64]) {
+	if !crypto.VerifySignature(pkBytes, msgHash[:], sig[:64]) {
 		return errors.Wrap(ErrInvalidCfg, "block producer has unmatched pubkey and prikey")
 	}
 	return nil

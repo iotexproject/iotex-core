@@ -7,7 +7,10 @@
 package mainchain
 
 import (
+	"context"
 	"math/big"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 
 	"github.com/pkg/errors"
 
@@ -22,14 +25,14 @@ import (
 )
 
 // DepositAddress returns the deposit address (20-byte)
-func DepositAddress(subChainAddr []byte, depositIndex uint64) hash.PKHash {
+func DepositAddress(subChainAddr []byte, depositIndex uint64) hash.Hash160 {
 	var stream []byte
 	stream = append(stream, subChainAddr...)
 	stream = append(stream, []byte(".deposit.")...)
 	temp := make([]byte, 8)
 	enc.MachineEndian.PutUint64(temp, depositIndex)
 	stream = append(stream, temp...)
-	return byteutil.BytesTo20B(hash.Hash160b(stream))
+	return hash.Hash160b(stream)
 }
 
 // Deposit returns the deposit record
@@ -42,20 +45,32 @@ func (p *Protocol) Deposit(subChainAddr address.Address, depositIndex uint64) (*
 	return &deposit, nil
 }
 
-func (p *Protocol) handleDeposit(deposit *action.CreateDeposit, sm protocol.StateManager) (*action.Receipt, error) {
-	account, subChainInOp, err := p.validateDeposit(deposit, sm)
+func (p *Protocol) handleDeposit(
+	ctx context.Context,
+	deposit *action.CreateDeposit,
+	sm protocol.StateManager,
+) (*action.Receipt, error) {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss run action context")
+	}
+	account, subChainInOp, err := p.validateDeposit(raCtx.Caller, deposit, sm)
 	if err != nil {
 		return nil, err
 	}
-	return p.mutateDeposit(deposit, account, subChainInOp, sm)
+	return p.mutateDeposit(raCtx.Caller, deposit, account, subChainInOp, sm)
 }
 
-func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.StateManager) (*state.Account, InOperation, error) {
+func (p *Protocol) validateDeposit(
+	caller address.Address,
+	deposit *action.CreateDeposit,
+	sm protocol.StateManager,
+) (*state.Account, InOperation, error) {
 	cost, err := deposit.Cost()
 	if err != nil {
 		return nil, InOperation{}, errors.Wrap(err, "error when getting deposit's cost")
 	}
-	account, err := p.accountWithEnoughBalance(deposit.Sender(), cost, sm)
+	account, err := p.accountWithEnoughBalance(caller.String(), cost, sm)
 	if err != nil {
 		return nil, InOperation{}, err
 	}
@@ -71,6 +86,7 @@ func (p *Protocol) validateDeposit(deposit *action.CreateDeposit, sm protocol.St
 }
 
 func (p *Protocol) mutateDeposit(
+	caller address.Address,
 	deposit *action.CreateDeposit,
 	acct *state.Account,
 	subChainInOp InOperation,
@@ -80,12 +96,12 @@ func (p *Protocol) mutateDeposit(
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, deposit.Amount())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
 	account.SetNonce(deposit, acct)
-	if err := account.StoreAccount(sm, deposit.Sender(), acct); err != nil {
+	if err := account.StoreAccount(sm, caller.String(), acct); err != nil {
 		return nil, err
 	}
 
 	// Update sub-chain state
-	addr, err := address.BytesToAddress(subChainInOp.Addr)
+	addr, err := address.FromBytes(subChainInOp.Addr)
 	if err != nil {
 		return nil, err
 	}
@@ -95,12 +111,12 @@ func (p *Protocol) mutateDeposit(
 	}
 	depositIndex := subChain.DepositCount
 	subChain.DepositCount++
-	if err := sm.PutState(byteutil.BytesTo20B(addr.Payload()), subChain); err != nil {
+	if err := sm.PutState(byteutil.BytesTo20B(addr.Bytes()), subChain); err != nil {
 		return nil, err
 	}
 
 	// Insert deposit state
-	recipient, err := address.Bech32ToAddress(deposit.Recipient())
+	recipient, err := address.FromString(deposit.Recipient())
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +142,7 @@ func (p *Protocol) mutateDeposit(
 		Status:          0,
 		ActHash:         deposit.Hash(),
 		GasConsumed:     gas,
-		ContractAddress: addr.Bech32(),
+		ContractAddress: addr.String(),
 	}
 	return &receipt, nil
 }

@@ -19,8 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -57,7 +55,7 @@ type Params struct {
 }
 
 // NewParams creates a new context for use in the EVM.
-func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp int64, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
+func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	/*
 		var beneficiary common.Address
@@ -67,30 +65,25 @@ func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp 
 			beneficiary = *author
 		}
 	*/
-	executor, err := address.Bech32ToAddress(execution.Executor())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert encoded executor address to address")
-	}
-	executorAddr := common.BytesToAddress(executor.Payload())
+	executorAddr := common.BytesToAddress(raCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
-		contract, err := address.Bech32ToAddress(execution.Contract())
+		contract, err := address.FromString(execution.Contract())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert encoded contract address to address")
 		}
-		contractAddr := common.BytesToAddress(contract.Payload())
+		contractAddr := common.BytesToAddress(contract.Bytes())
 		contractAddrPointer = &contractAddr
 	}
-	producerHash := keypair.HashPubKey(producerPubKey)
-	producer := common.BytesToAddress(producerHash[:])
+	producer := common.BytesToAddress(raCtx.Producer.Bytes())
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
 		GetHash:     GetHashFn(stateDB),
 		Origin:      executorAddr,
 		Coinbase:    producer,
-		BlockNumber: new(big.Int).SetUint64(blkHeight),
-		Time:        new(big.Int).SetInt64(blkTimeStamp),
+		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
+		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    genesis.ActionGasLimit,
 		GasPrice:    execution.GasPrice(),
@@ -99,7 +92,7 @@ func NewParams(blkHeight uint64, producerPubKey keypair.PublicKey, blkTimeStamp 
 	return &Params{
 		context,
 		execution.Nonce(),
-		execution.Executor(),
+		raCtx.Caller.String(),
 		execution.Amount(),
 		contractAddrPointer,
 		execution.GasLimit(),
@@ -140,23 +133,19 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 
 // ExecuteContract processes a transfer which contains a contract
 func ExecuteContract(
-	blkHeight uint64,
-	blkHash hash.Hash32B,
-	producerPubKey keypair.PublicKey,
-	blkTimeStamp int64,
+	raCtx protocol.RunActionsCtx,
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
 	gasLimit *uint64,
-	enableGasCharge bool,
 ) (*action.Receipt, error) {
-	stateDB := NewStateDBAdapter(cm, sm, blkHeight, blkHash, execution.Hash())
-	ps, err := NewParams(blkHeight, producerPubKey, blkTimeStamp, execution, stateDB)
+	stateDB := NewStateDBAdapter(cm, sm, raCtx.BlockHeight, raCtx.BlockHash, execution.Hash())
+	ps, err := NewParams(raCtx, execution, stateDB)
 	if err != nil {
 		return nil, err
 	}
 	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
-	if !enableGasCharge {
+	if !raCtx.EnableGasCharge {
 		remainingGas = depositGas
 	}
 
@@ -225,8 +214,11 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) 
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}
-		contractAddress := address.New(evmContractAddress.Bytes())
-		contractRawAddress = contractAddress.Bech32()
+		contractAddress, err := address.FromBytes(evmContractAddress.Bytes())
+		if err != nil {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
+		}
+		contractRawAddress = contractAddress.String()
 	} else {
 		stateDB.SetNonce(evmParams.context.Origin, stateDB.GetNonce(evmParams.context.Origin)+1)
 		// process contract

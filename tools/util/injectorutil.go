@@ -69,7 +69,11 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 			return nil, errors.Wrap(err, "failed to decode private key")
 		}
 		pkHash := keypair.HashPubKey(pk)
-		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: address.New(pkHash[:]).Bech32(), PriKey: sk})
+		addr, err := address.FromBytes(pkHash[:])
+		if err != nil {
+			return nil, err
+		}
+		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 	return addrKeys, nil
 }
@@ -309,12 +313,12 @@ func DeployContract(
 	executionData string,
 	retryNum int,
 	retryInterval int,
-) (hash.Hash32B, error) {
+) (hash.Hash256, error) {
 	executor, nonce := createExecutionInjection(counter, delegates)
 	selp, execution, err := createSignedExecution(executor, action.EmptyAddress, nonce, big.NewInt(0),
 		uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData)
 	if err != nil {
-		return hash.ZeroHash32B, errors.Wrap(err, "failed to create signed execution")
+		return hash.ZeroHash256, errors.Wrap(err, "failed to create signed execution")
 	}
 	log.L().Info("Created signed execution")
 
@@ -350,7 +354,6 @@ func injectTransfer(
 	request := explorer.SendTransferRequest{
 		Version:      int64(selp.Version()),
 		Nonce:        int64(selp.Nonce()),
-		Sender:       selp.SrcAddr(),
 		Recipient:    selp.DstAddr(),
 		SenderPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
 		GasLimit:     int64(selp.GasLimit()),
@@ -398,7 +401,6 @@ func injectVote(
 	request := explorer.SendVoteRequest{
 		Version:     int64(selp.Version()),
 		Nonce:       int64(selp.Nonce()),
-		Voter:       selp.SrcAddr(),
 		Votee:       selp.DstAddr(),
 		VoterPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
 		GasLimit:    int64(selp.GasLimit()),
@@ -498,7 +500,7 @@ func createSignedTransfer(
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
 	transfer, err := action.NewTransfer(
-		nonce, amount, sender.EncodedAddr, recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
+		nonce, amount, recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw transfer")
 	}
@@ -508,7 +510,7 @@ func createSignedTransfer(
 		SetDestinationAddress(recipient.EncodedAddr).
 		SetGasLimit(gasLimit).
 		SetAction(transfer).Build()
-	selp, err := action.Sign(elp, sender.EncodedAddr, sender.PriKey)
+	selp, err := action.Sign(elp, sender.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
@@ -523,7 +525,7 @@ func createSignedVote(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (action.SealedEnvelope, *action.Vote, error) {
-	vote, err := action.NewVote(nonce, voter.EncodedAddr, votee.EncodedAddr, gasLimit, gasPrice)
+	vote, err := action.NewVote(nonce, votee.EncodedAddr, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw vote")
 	}
@@ -533,7 +535,7 @@ func createSignedVote(
 		SetDestinationAddress(votee.EncodedAddr).
 		SetGasLimit(gasLimit).
 		SetAction(vote).Build()
-	selp, err := action.Sign(elp, voter.EncodedAddr, voter.PriKey)
+	selp, err := action.Sign(elp, voter.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign vote %v", elp)
 	}
@@ -554,8 +556,7 @@ func createSignedExecution(
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
-	execution, err := action.NewExecution(executor.EncodedAddr, contract, nonce, amount,
-		gasLimit, gasPrice, executionData)
+	execution, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPrice, executionData)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw execution")
 	}
@@ -565,7 +566,7 @@ func createSignedExecution(
 		SetDestinationAddress(contract).
 		SetGasLimit(gasLimit).
 		SetAction(execution).Build()
-	selp, err := action.Sign(elp, executor.EncodedAddr, executor.PriKey)
+	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}
@@ -582,7 +583,6 @@ func injectExecution(
 	request := explorer.Execution{
 		Version:        int64(selp.Version()),
 		Nonce:          int64(selp.Nonce()),
-		Executor:       selp.SrcAddr(),
 		Contract:       selp.DstAddr(),
 		ExecutorPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
 		GasLimit:       int64(selp.GasLimit()),

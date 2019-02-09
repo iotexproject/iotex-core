@@ -15,10 +15,12 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -216,29 +218,36 @@ func putTransfers(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) err
 	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
 
-		// get transfers count for sender
-		senderTransferCount, err := getTransferCountBySenderAddress(store, transfer.Sender())
+		callerPKHash := keypair.HashPubKey(transfer.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
 		if err != nil {
-			return errors.Wrapf(err, "for sender %x", transfer.Sender())
+			return err
 		}
-		if delta, ok := senderDelta[transfer.Sender()]; ok {
+		callerAddrStr := callerAddr.String()
+
+		// get transfers count for sender
+		senderTransferCount, err := getTransferCountBySenderAddress(store, callerAddrStr)
+		if err != nil {
+			return errors.Wrapf(err, "for sender %x", callerAddrStr)
+		}
+		if delta, ok := senderDelta[callerAddrStr]; ok {
 			senderTransferCount += delta
-			senderDelta[transfer.Sender()] = senderDelta[transfer.Sender()] + 1
+			senderDelta[callerAddrStr]++
 		} else {
-			senderDelta[transfer.Sender()] = 1
+			senderDelta[callerAddrStr] = 1
 		}
 
 		// put new transfer to sender
-		senderKey := append(transferFromPrefix, transfer.Sender()...)
+		senderKey := append(transferFromPrefix, callerAddrStr...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderTransferCount)...)
 		batch.Put(blockAddressTransferMappingNS, senderKey, transferHash[:],
-			"failed to put transfer hash %x for sender %x", transfer.Hash(), transfer.Sender())
+			"failed to put transfer hash %x for sender %x", transfer.Hash(), callerAddrStr)
 
 		// update sender transfers count
-		senderTransferCountKey := append(transferFromPrefix, transfer.Sender()...)
+		senderTransferCountKey := append(transferFromPrefix, callerAddrStr...)
 		batch.Put(blockAddressTransferCountMappingNS, senderTransferCountKey,
 			byteutil.Uint64ToBytes(senderTransferCount+1), "failed to bump transfer count %x for sender %x",
-			transfer.Hash(), transfer.Sender())
+			transfer.Hash(), callerAddrStr)
 
 		// get transfers count for recipient
 		recipientTransferCount, err := getTransferCountByRecipientAddress(store, transfer.Recipient())
@@ -247,7 +256,7 @@ func putTransfers(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) err
 		}
 		if delta, ok := recipientDelta[transfer.Recipient()]; ok {
 			recipientTransferCount += delta
-			recipientDelta[transfer.Recipient()] = recipientDelta[transfer.Recipient()] + 1
+			recipientDelta[transfer.Recipient()]++
 		} else {
 			recipientDelta[transfer.Recipient()] = 1
 		}
@@ -281,32 +290,37 @@ func putVotes(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 			continue
 		}
 		voteHash := selp.Hash()
-		Sender := vote.Voter()
+		callerPKHash := keypair.HashPubKey(vote.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return err
+		}
+		callerAddrStr := callerAddr.String()
 		Recipient := vote.Votee()
 
 		// get votes count for sender
-		senderVoteCount, err := getVoteCountBySenderAddress(store, Sender)
+		senderVoteCount, err := getVoteCountBySenderAddress(store, callerAddrStr)
 		if err != nil {
-			return errors.Wrapf(err, "for sender %x", Sender)
+			return errors.Wrapf(err, "for sender %x", callerAddrStr)
 		}
-		if delta, ok := senderDelta[Sender]; ok {
+		if delta, ok := senderDelta[callerAddrStr]; ok {
 			senderVoteCount += delta
-			senderDelta[Sender]++
+			senderDelta[callerAddrStr]++
 		} else {
-			senderDelta[Sender] = 1
+			senderDelta[callerAddrStr] = 1
 		}
 
 		// put new vote to sender
-		senderKey := append(voteFromPrefix, Sender...)
+		senderKey := append(voteFromPrefix, callerAddrStr...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderVoteCount)...)
 		batch.Put(blockAddressVoteMappingNS, senderKey, voteHash[:],
-			"failed to put vote hash %x for sender %x", voteHash, Sender)
+			"failed to put vote hash %x for sender %x", voteHash, callerAddrStr)
 
 		// update sender votes count
-		senderVoteCountKey := append(voteFromPrefix, Sender...)
+		senderVoteCountKey := append(voteFromPrefix, callerAddrStr...)
 		batch.Put(blockAddressVoteCountMappingNS, senderVoteCountKey,
 			byteutil.Uint64ToBytes(senderVoteCount+1), "failed to bump vote count %x for sender %x",
-			voteHash, Sender)
+			voteHash, callerAddrStr)
 
 		// get votes count for recipient
 		recipientVoteCount, err := getVoteCountByRecipientAddress(store, Recipient)
@@ -345,30 +359,36 @@ func putExecutions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) er
 	_, _, executions := action.ClassifyActions(blk.Actions)
 	for _, execution := range executions {
 		executionHash := execution.Hash()
+		callerPKHash := keypair.HashPubKey(execution.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return err
+		}
+		callerAddrStr := callerAddr.String()
 
 		// get execution count for executor
-		executorExecutionCount, err := getExecutionCountByExecutorAddress(store, execution.Executor())
+		executorExecutionCount, err := getExecutionCountByExecutorAddress(store, callerAddrStr)
 		if err != nil {
-			return errors.Wrapf(err, "for executor %x", execution.Executor())
+			return errors.Wrapf(err, "for executor %x", callerAddrStr)
 		}
-		if delta, ok := executorDelta[execution.Executor()]; ok {
+		if delta, ok := executorDelta[callerAddrStr]; ok {
 			executorExecutionCount += delta
-			executorDelta[execution.Executor()] = executorDelta[execution.Executor()] + 1
+			executorDelta[callerAddrStr]++
 		} else {
-			executorDelta[execution.Executor()] = 1
+			executorDelta[callerAddrStr] = 1
 		}
 
 		// put new execution to executor
-		executorKey := append(executionFromPrefix, execution.Executor()...)
+		executorKey := append(executionFromPrefix, callerAddrStr...)
 		executorKey = append(executorKey, byteutil.Uint64ToBytes(executorExecutionCount)...)
 		batch.Put(blockAddressExecutionMappingNS, executorKey, executionHash[:],
-			"failed to put execution hash %x for executor %x", execution.Hash(), execution.Executor())
+			"failed to put execution hash %x for executor %x", execution.Hash(), callerAddrStr)
 
 		// update executor executions count
-		executorExecutionCountKey := append(executionFromPrefix, execution.Executor()...)
+		executorExecutionCountKey := append(executionFromPrefix, callerAddrStr...)
 		batch.Put(blockAddressExecutionCountMappingNS, executorExecutionCountKey,
 			byteutil.Uint64ToBytes(executorExecutionCount+1),
-			"failed to bump execution count %x for executor %x", execution.Hash(), execution.Executor())
+			"failed to bump execution count %x for executor %x", execution.Hash(), callerAddrStr)
 
 		// get execution count for contract
 		contractExecutionCount, err := getExecutionCountByContractAddress(store, execution.Contract())
@@ -377,7 +397,7 @@ func putExecutions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) er
 		}
 		if delta, ok := contractDelta[execution.Contract()]; ok {
 			contractExecutionCount += delta
-			contractDelta[execution.Contract()] = contractDelta[execution.Contract()] + 1
+			contractDelta[execution.Contract()]++
 		} else {
 			contractDelta[execution.Contract()] = 1
 		}
@@ -413,30 +433,36 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 			continue
 		}
 		actHash := selp.Hash()
+		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+		callerAddr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return err
+		}
+		callerAddrStr := callerAddr.String()
 
 		// get action count for sender
-		senderActionCount, err := getActionCountBySenderAddress(store, selp.SrcAddr())
+		senderActionCount, err := getActionCountBySenderAddress(store, callerAddrStr)
 		if err != nil {
-			return errors.Wrapf(err, "for sender %s", selp.SrcAddr())
+			return errors.Wrapf(err, "for sender %s", callerAddrStr)
 		}
-		if delta, ok := senderDelta[selp.SrcAddr()]; ok {
+		if delta, ok := senderDelta[callerAddrStr]; ok {
 			senderActionCount += delta
-			senderDelta[selp.SrcAddr()]++
+			senderDelta[callerAddrStr]++
 		} else {
-			senderDelta[selp.SrcAddr()] = 1
+			senderDelta[callerAddrStr] = 1
 		}
 
 		// put new action to sender
-		senderKey := append(actionFromPrefix, selp.SrcAddr()...)
+		senderKey := append(actionFromPrefix, callerAddrStr...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderActionCount)...)
 		batch.Put(blockAddressActionMappingNS, senderKey, actHash[:],
-			"failed to put action hash %x for sender %s", actHash, selp.SrcAddr())
+			"failed to put action hash %x for sender %s", actHash, callerAddrStr)
 
 		// update sender action count
-		senderActionCountKey := append(actionFromPrefix, selp.SrcAddr()...)
+		senderActionCountKey := append(actionFromPrefix, callerAddrStr...)
 		batch.Put(blockAddressActionCountMappingNS, senderActionCountKey,
 			byteutil.Uint64ToBytes(senderActionCount+1),
-			"failed to bump action count %x for sender %s", actHash, selp.SrcAddr())
+			"failed to bump action count %x for sender %s", actHash, callerAddrStr)
 
 		// get action count for recipient
 		recipientActionCount, err := getActionCountByRecipientAddress(store, selp.DstAddr())
@@ -485,8 +511,8 @@ func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVSto
 }
 
 // TODO: To be deprecated
-func getBlockHashByVoteHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash := hash.ZeroHash32B
+func getBlockHashByVoteHash(store db.KVStore, h hash.Hash256) (hash.Hash256, error) {
+	blkHash := hash.ZeroHash256
 	key := append(votePrefix, h[:]...)
 	value, err := store.Get(blockVoteBlockMappingNS, key)
 	if err != nil {
@@ -500,8 +526,8 @@ func getBlockHashByVoteHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, err
 }
 
 // TODO: To be deprecated
-func getBlockHashByTransferHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash := hash.ZeroHash32B
+func getBlockHashByTransferHash(store db.KVStore, h hash.Hash256) (hash.Hash256, error) {
+	blkHash := hash.ZeroHash256
 	key := append(transferPrefix, h[:]...)
 	value, err := store.Get(blockTransferBlockMappingNS, key)
 	if err != nil {
@@ -515,8 +541,8 @@ func getBlockHashByTransferHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B,
 }
 
 // TODO: To be deprecated
-func getBlockHashByExecutionHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash := hash.ZeroHash32B
+func getBlockHashByExecutionHash(store db.KVStore, h hash.Hash256) (hash.Hash256, error) {
+	blkHash := hash.ZeroHash256
 	key := append(executionPrefix, h[:]...)
 	value, err := store.Get(blockExecutionBlockMappingNS, key)
 	if err != nil {
@@ -529,8 +555,8 @@ func getBlockHashByExecutionHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B
 	return blkHash, nil
 }
 
-func getBlockHashByActionHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, error) {
-	blkHash := hash.ZeroHash32B
+func getBlockHashByActionHash(store db.KVStore, h hash.Hash256) (hash.Hash256, error) {
+	blkHash := hash.ZeroHash256
 	key := append(actionPrefix, h[:]...)
 	value, err := store.Get(blockActionBlockMappingNS, key)
 	if err != nil {
@@ -545,7 +571,7 @@ func getBlockHashByActionHash(store db.KVStore, h hash.Hash32B) (hash.Hash32B, e
 
 // TODO: To be deprecated
 // getTransfersBySenderAddress returns transfers for sender
-func getTransfersBySenderAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+func getTransfersBySenderAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
 	// get transfers count for sender
 	senderTransferCount, err := getTransferCountBySenderAddress(store, address)
 	if err != nil {
@@ -576,7 +602,7 @@ func getTransferCountBySenderAddress(store db.KVStore, address string) (uint64, 
 
 // TODO: To be deprecated
 // getTransfersByRecipientAddress returns transfers for recipient
-func getTransfersByRecipientAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+func getTransfersByRecipientAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
 	// get transfers count for recipient
 	recipientTransferCount, getCountErr := getTransferCountByRecipientAddress(store, address)
 	if getCountErr != nil {
@@ -593,8 +619,8 @@ func getTransfersByRecipientAddress(store db.KVStore, address string) ([]hash.Ha
 
 // TODO: To be deprecated
 // getTransfersByAddress returns transfers by address
-func getTransfersByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
-	var res []hash.Hash32B
+func getTransfersByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash256, error) {
+	var res []hash.Hash256
 
 	for i := uint64(0); i < count; i++ {
 		// put new transfer to recipient
@@ -607,7 +633,7 @@ func getTransfersByAddress(store db.KVStore, address string, count uint64, keyPr
 		if len(value) == 0 {
 			return res, errors.Wrapf(db.ErrNotExist, "transfer for index %x missing", i)
 		}
-		transferHash := hash.ZeroHash32B
+		transferHash := hash.ZeroHash256
 		copy(transferHash[:], value)
 		res = append(res, transferHash)
 	}
@@ -631,7 +657,7 @@ func getTransferCountByRecipientAddress(store db.KVStore, address string) (uint6
 
 // TODO: To be deprecated
 // getVotesBySenderAddress returns votes for sender
-func getVotesBySenderAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+func getVotesBySenderAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
 	senderVoteCount, err := getVoteCountBySenderAddress(store, address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "to get votecount for sender %x", address)
@@ -661,7 +687,7 @@ func getVoteCountBySenderAddress(store db.KVStore, address string) (uint64, erro
 
 // TODO: To be deprecated
 // getVotesByRecipientAddress returns votes by recipient address
-func getVotesByRecipientAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+func getVotesByRecipientAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
 	recipientVoteCount, err := getVoteCountByRecipientAddress(store, address)
 	if err != nil {
 		return nil, errors.Wrapf(err, "to get votecount for recipient %x", address)
@@ -677,8 +703,8 @@ func getVotesByRecipientAddress(store db.KVStore, address string) ([]hash.Hash32
 
 // TODO: To be deprecated
 // getVotesByAddress returns votes by address
-func getVotesByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
-	var res []hash.Hash32B
+func getVotesByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash256, error) {
+	var res []hash.Hash256
 
 	for i := uint64(0); i < count; i++ {
 		// put new vote to recipient
@@ -691,7 +717,7 @@ func getVotesByAddress(store db.KVStore, address string, count uint64, keyPrefix
 		if len(value) == 0 {
 			return res, errors.Wrapf(db.ErrNotExist, "vote for index %x missing", i)
 		}
-		voteHash := hash.ZeroHash32B
+		voteHash := hash.ZeroHash256
 		copy(voteHash[:], value)
 		res = append(res, voteHash)
 	}
@@ -715,7 +741,7 @@ func getVoteCountByRecipientAddress(store db.KVStore, address string) (uint64, e
 
 // TODO: To be deprecated
 // getExecutionsByExecutorAddress returns executions for executor
-func getExecutionsByExecutorAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+func getExecutionsByExecutorAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
 	// get executions count for sender
 	executorExecutionCount, err := getExecutionCountByExecutorAddress(store, address)
 	if err != nil {
@@ -746,7 +772,7 @@ func getExecutionCountByExecutorAddress(store db.KVStore, address string) (uint6
 
 // TODO: To be deprecated
 // getExecutionsByContractAddress returns executions for contract
-func getExecutionsByContractAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+func getExecutionsByContractAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
 	// get execution count for contract
 	contractExecutionCount, getCountErr := getExecutionCountByContractAddress(store, address)
 	if getCountErr != nil {
@@ -763,8 +789,8 @@ func getExecutionsByContractAddress(store db.KVStore, address string) ([]hash.Ha
 
 // TODO: To be deprecated
 // getExecutionsByAddress returns executions by address
-func getExecutionsByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
-	var res []hash.Hash32B
+func getExecutionsByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash256, error) {
+	var res []hash.Hash256
 
 	for i := uint64(0); i < count; i++ {
 		// put new execution to recipient
@@ -777,7 +803,7 @@ func getExecutionsByAddress(store db.KVStore, address string, count uint64, keyP
 		if len(value) == 0 {
 			return res, errors.Wrapf(db.ErrNotExist, "execution for index %x missing", i)
 		}
-		executionHash := hash.ZeroHash32B
+		executionHash := hash.ZeroHash256
 		copy(executionHash[:], value)
 		res = append(res, executionHash)
 	}
@@ -813,7 +839,7 @@ func getActionCountBySenderAddress(store db.KVStore, address string) (uint64, er
 }
 
 // getActionsBySenderAddress returns actions for sender
-func getActionsBySenderAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+func getActionsBySenderAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
 	// get action count for sender
 	senderActionCount, err := getActionCountBySenderAddress(store, address)
 	if err != nil {
@@ -829,7 +855,7 @@ func getActionsBySenderAddress(store db.KVStore, address string) ([]hash.Hash32B
 }
 
 // getActionsByRecipientAddress returns actions for recipient
-func getActionsByRecipientAddress(store db.KVStore, address string) ([]hash.Hash32B, error) {
+func getActionsByRecipientAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
 	// get action count for recipient
 	recipientActionCount, getCountErr := getActionCountByRecipientAddress(store, address)
 	if getCountErr != nil {
@@ -858,8 +884,8 @@ func getActionCountByRecipientAddress(store db.KVStore, address string) (uint64,
 }
 
 // getActionsByAddress returns actions by address
-func getActionsByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash32B, error) {
-	var res []hash.Hash32B
+func getActionsByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash256, error) {
+	var res []hash.Hash256
 
 	for i := uint64(0); i < count; i++ {
 		key := append(keyPrefix, address...)
@@ -871,7 +897,7 @@ func getActionsByAddress(store db.KVStore, address string, count uint64, keyPref
 		if len(value) == 0 {
 			return res, errors.Wrapf(db.ErrNotExist, "action for index %d missing", i)
 		}
-		actHash := hash.ZeroHash32B
+		actHash := hash.ZeroHash256
 		copy(actHash[:], value)
 		res = append(res, actHash)
 	}

@@ -30,7 +30,6 @@ type StopSubChain struct {
 
 // NewStopSubChain returns a StopSubChain instance
 func NewStopSubChain(
-	senderAddress string,
 	nonce uint64,
 	chainAddress string,
 	stopHeight uint64,
@@ -41,7 +40,6 @@ func NewStopSubChain(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			srcAddr:  senderAddress,
 			dstAddr:  chainAddress,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,

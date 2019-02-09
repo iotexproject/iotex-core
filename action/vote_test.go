@@ -17,20 +17,19 @@ import (
 
 func TestVoteSignVerify(t *testing.T) {
 	require := require.New(t)
-	senderAddr := testaddress.Addrinfo["producer"]
 	recipientAddr := testaddress.Addrinfo["alfa"]
 	senderKey := testaddress.Keyinfo["producer"]
 
-	v, err := NewVote(0, senderAddr.Bech32(), recipientAddr.Bech32(), uint64(100000), big.NewInt(10))
+	v, err := NewVote(0, recipientAddr.String(), uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetDestinationAddress(recipientAddr.Bech32()).
+	elp := bd.SetDestinationAddress(recipientAddr.String()).
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 
-	selp, err := Sign(elp, senderAddr.Bech32(), senderKey.PriKey)
+	selp, err := Sign(elp, senderKey.PriKey)
 	require.NoError(err)
 	require.NoError(Verify(selp))
 }

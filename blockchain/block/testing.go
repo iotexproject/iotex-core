@@ -55,7 +55,7 @@ func (b *TestingBuilder) SetTimeStamp(ts int64) *TestingBuilder {
 }
 
 // SetPrevBlockHash sets the previous block hash for block which is building.
-func (b *TestingBuilder) SetPrevBlockHash(h hash.Hash32B) *TestingBuilder {
+func (b *TestingBuilder) SetPrevBlockHash(h hash.Hash256) *TestingBuilder {
 	b.blk.Header.prevBlockHash = h
 	return b
 }
@@ -70,7 +70,7 @@ func (b *TestingBuilder) AddActions(acts ...action.SealedEnvelope) *TestingBuild
 }
 
 // SetStateRoot sets the new state root after running actions included in this building block.
-func (b *TestingBuilder) SetStateRoot(h hash.Hash32B) *TestingBuilder {
+func (b *TestingBuilder) SetStateRoot(h hash.Hash256) *TestingBuilder {
 	b.blk.Header.stateRoot = h
 	return b
 }
@@ -99,7 +99,7 @@ func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriK
 func NewBlockDeprecated(
 	chainID uint32,
 	height uint64,
-	prevBlockHash hash.Hash32B,
+	prevBlockHash hash.Hash256,
 	timestamp int64,
 	producer keypair.PublicKey,
 	actions []action.SealedEnvelope,
@@ -112,9 +112,9 @@ func NewBlockDeprecated(
 			timestamp:     timestamp,
 			prevBlockHash: prevBlockHash,
 			pubkey:        producer,
-			txRoot:        hash.ZeroHash32B,
-			stateRoot:     hash.ZeroHash32B,
-			receiptRoot:   hash.ZeroHash32B,
+			txRoot:        hash.ZeroHash256,
+			stateRoot:     hash.ZeroHash256,
+			receiptRoot:   hash.ZeroHash256,
 		},
 		Actions: actions,
 	}

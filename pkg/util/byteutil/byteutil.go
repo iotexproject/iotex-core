@@ -31,22 +31,15 @@ func BytesToUint64(value []byte) uint64 {
 }
 
 // BytesTo20B converts a byte slice to 20-Byte array
-func BytesTo20B(b []byte) hash.PKHash {
-	var h hash.PKHash
-	copy(h[:], b)
-	return h
-}
-
-// BytesToCacheHash converts a byte slice to CacheHash
-func BytesToCacheHash(b []byte) hash.CacheHash {
-	var h hash.CacheHash
+func BytesTo20B(b []byte) hash.Hash160 {
+	var h hash.Hash160
 	copy(h[:], b)
 	return h
 }
 
 // BytesTo32B converts a byte slice to 32-Byte array
-func BytesTo32B(b []byte) hash.Hash32B {
-	var h hash.Hash32B
+func BytesTo32B(b []byte) hash.Hash256 {
+	var h hash.Hash256
 	copy(h[:], b)
 	return h
 }

@@ -10,6 +10,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -50,19 +54,19 @@ type (
 		// states and actions
 		//RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
 		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
-		UpdateBlockLevelInfo(blockHeight uint64) hash.Hash32B
-		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, []*action.Receipt, error)
+		UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256
+		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash256, []*action.Receipt, error)
 		Snapshot() int
 		Revert(int) error
 		Commit() error
-		RootHash() hash.Hash32B
-		Digest() hash.Hash32B
+		RootHash() hash.Hash256
+		Digest() hash.Hash256
 		Version() uint64
 		Height() uint64
 		// General state
-		State(hash.PKHash, interface{}) error
-		PutState(hash.PKHash, interface{}) error
-		DelState(pkHash hash.PKHash) error
+		State(hash.Hash160, interface{}) error
+		PutState(hash.Hash160, interface{}) error
+		DelState(pkHash hash.Hash160) error
 		GetDB() db.KVStore
 		GetCachedBatch() db.CachedBatch
 	}
@@ -72,7 +76,7 @@ type (
 		ver            uint64
 		blkHeight      uint64
 		accountTrie    trie.Trie            // global account state trie
-		trieRoots      map[int]hash.Hash32B // root of trie at time of snapshot
+		trieRoots      map[int]hash.Hash256 // root of trie at time of snapshot
 		cb             db.CachedBatch       // cached batch for pending writes
 		dao            db.KVStore           // the underlying DB for account/contract storage
 		actionHandlers []protocol.ActionHandler
@@ -83,12 +87,12 @@ type (
 func NewWorkingSet(
 	version uint64,
 	kv db.KVStore,
-	root hash.Hash32B,
+	root hash.Hash256,
 	actionHandlers []protocol.ActionHandler,
 ) (WorkingSet, error) {
 	ws := &workingSet{
 		ver:            version,
-		trieRoots:      make(map[int]hash.Hash32B),
+		trieRoots:      make(map[int]hash.Hash256),
 		cb:             db.NewCachedBatch(),
 		dao:            kv,
 		actionHandlers: actionHandlers,
@@ -109,12 +113,12 @@ func NewWorkingSet(
 }
 
 // RootHash returns the hash of the root node of the accountTrie
-func (ws *workingSet) RootHash() hash.Hash32B {
+func (ws *workingSet) RootHash() hash.Hash256 {
 	return byteutil.BytesTo32B(ws.accountTrie.RootHash())
 }
 
 // Digest returns the delta state digest
-func (ws *workingSet) Digest() hash.Hash32B { return hash.ZeroHash32B }
+func (ws *workingSet) Digest() hash.Hash256 { return hash.ZeroHash256 }
 
 // Version returns the Version of this working set
 func (ws *workingSet) Version() uint64 {
@@ -131,13 +135,13 @@ func (ws *workingSet) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
-) (hash.Hash32B, []*action.Receipt, error) {
+) (hash.Hash256, []*action.Receipt, error) {
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
 		receipt, err := ws.RunAction(ctx, elp)
 		if err != nil {
-			return hash.ZeroHash32B, nil, errors.Wrap(err, "error when run action")
+			return hash.ZeroHash256, nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
@@ -152,6 +156,21 @@ func (ws *workingSet) RunAction(
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	// Handle action
+	// Add caller address into the run action context
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss context to run action")
+	}
+	callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
+	caller, err := address.FromBytes(callerPKHash[:])
+	if err != nil {
+		return nil, err
+	}
+	raCtx.Caller = caller
+	raCtx.ActionHash = elp.Hash()
+	raCtx.Nonce = elp.Nonce()
+	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
+
 	for _, actionHandler := range ws.actionHandlers {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
@@ -160,7 +179,7 @@ func (ws *workingSet) RunAction(
 				"error when action %x (nonce: %d) from %s mutates states",
 				elp.Hash(),
 				elp.Nonce(),
-				elp.SrcAddr(),
+				caller.String(),
 			)
 		}
 		if receipt != nil {
@@ -171,7 +190,7 @@ func (ws *workingSet) RunAction(
 }
 
 // UpdateBlockLevelInfo runs action in the block and track pending changes in working set
-func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash32B {
+func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
 	ws.blkHeight = blockHeight
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
@@ -229,7 +248,7 @@ func (ws *workingSet) GetCachedBatch() db.CachedBatch {
 }
 
 // State pulls a state from DB
-func (ws *workingSet) State(hash hash.PKHash, s interface{}) error {
+func (ws *workingSet) State(hash hash.Hash160, s interface{}) error {
 	stateDBMtc.WithLabelValues("get").Inc()
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
@@ -242,7 +261,7 @@ func (ws *workingSet) State(hash hash.PKHash, s interface{}) error {
 }
 
 // PutState puts a state into DB
-func (ws *workingSet) PutState(pkHash hash.PKHash, s interface{}) error {
+func (ws *workingSet) PutState(pkHash hash.Hash160, s interface{}) error {
 	stateDBMtc.WithLabelValues("put").Inc()
 	ss, err := state.Serialize(s)
 	if err != nil {
@@ -252,12 +271,12 @@ func (ws *workingSet) PutState(pkHash hash.PKHash, s interface{}) error {
 }
 
 // DelState deletes a state from DB
-func (ws *workingSet) DelState(pkHash hash.PKHash) error {
+func (ws *workingSet) DelState(pkHash hash.Hash160) error {
 	return ws.accountTrie.Delete(pkHash[:])
 }
 
 // clearCache removes all local changes after committing to trie
 func (ws *workingSet) clear() {
 	ws.trieRoots = nil
-	ws.trieRoots = make(map[int]hash.Hash32B)
+	ws.trieRoots = make(map[int]hash.Hash256)
 }

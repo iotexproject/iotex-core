@@ -9,6 +9,10 @@ package factory
 import (
 	"context"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -43,10 +47,10 @@ func newStateTX(
 }
 
 // RootHash returns the hash of the root node of the accountTrie
-func (stx *stateTX) RootHash() hash.Hash32B { return hash.ZeroHash32B }
+func (stx *stateTX) RootHash() hash.Hash256 { return hash.ZeroHash256 }
 
 // Digest returns the delta state digest
-func (stx *stateTX) Digest() hash.Hash32B { return stx.GetCachedBatch().Digest() }
+func (stx *stateTX) Digest() hash.Hash256 { return stx.GetCachedBatch().Digest() }
 
 // Version returns the Version of this working set
 func (stx *stateTX) Version() uint64 { return stx.ver }
@@ -59,14 +63,14 @@ func (stx *stateTX) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
-) (hash.Hash32B, []*action.Receipt, error) {
+) (hash.Hash256, []*action.Receipt, error) {
 	stx.blkHeight = blockHeight
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
 		receipt, err := stx.RunAction(ctx, elp)
 		if err != nil {
-			return hash.ZeroHash32B, nil, errors.Wrap(err, "error when run action")
+			return hash.ZeroHash256, nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
@@ -81,6 +85,20 @@ func (stx *stateTX) RunAction(
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	// Handle action
+	// Add caller address into the run action context
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss context to run action")
+	}
+	callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
+	callerAddr, err := address.FromBytes(callerPKHash[:])
+	if err != nil {
+		return nil, err
+	}
+	raCtx.Caller = callerAddr
+	raCtx.ActionHash = elp.Hash()
+	raCtx.Nonce = elp.Nonce()
+	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
 	for _, actionHandler := range stx.actionHandlers {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
 		if err != nil {
@@ -89,7 +107,7 @@ func (stx *stateTX) RunAction(
 				"error when action %x (nonce: %d) from %s mutates states",
 				elp.Hash(),
 				elp.Nonce(),
-				elp.SrcAddr(),
+				callerAddr.String(),
 			)
 		}
 		if receipt != nil {
@@ -100,12 +118,12 @@ func (stx *stateTX) RunAction(
 }
 
 // UpdateBlockLevelInfo runs action in the block and track pending changes in working set
-func (stx *stateTX) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash32B {
+func (stx *stateTX) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
 	stx.blkHeight = blockHeight
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	stx.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
-	return hash.ZeroHash32B
+	return hash.ZeroHash256
 }
 
 func (stx *stateTX) Snapshot() int { return stx.cb.Snapshot() }
@@ -133,7 +151,7 @@ func (stx *stateTX) GetCachedBatch() db.CachedBatch {
 }
 
 // State pulls a state from DB
-func (stx *stateTX) State(hash hash.PKHash, s interface{}) error {
+func (stx *stateTX) State(hash hash.Hash160, s interface{}) error {
 	stateDBMtc.WithLabelValues("get").Inc()
 	mstate, err := stx.cb.Get(AccountKVNameSpace, hash[:])
 	if errors.Cause(err) == db.ErrNotExist {
@@ -148,7 +166,7 @@ func (stx *stateTX) State(hash hash.PKHash, s interface{}) error {
 }
 
 // PutState puts a state into DB
-func (stx *stateTX) PutState(pkHash hash.PKHash, s interface{}) error {
+func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 	stateDBMtc.WithLabelValues("put").Inc()
 	ss, err := state.Serialize(s)
 	if err != nil {
@@ -159,7 +177,7 @@ func (stx *stateTX) PutState(pkHash hash.PKHash, s interface{}) error {
 }
 
 // DelState deletes a state from DB
-func (stx *stateTX) DelState(pkHash hash.PKHash) error {
+func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 	stx.cb.Delete(AccountKVNameSpace, pkHash[:], "error when deleting k = %x", pkHash)
 	return nil
 }

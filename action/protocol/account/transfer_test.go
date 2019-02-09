@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -41,29 +42,30 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	account1 := state.Account{
 		Balance: big.NewInt(5),
-		Votee:   testaddress.Addrinfo["charlie"].Bech32(),
+		Votee:   testaddress.Addrinfo["charlie"].String(),
 	}
 	account2 := state.Account{
-		Votee: testaddress.Addrinfo["delta"].Bech32(),
+		Votee: testaddress.Addrinfo["delta"].String(),
 	}
 	account3 := state.Account{
 		VotingWeight: big.NewInt(5),
 	}
-	pubKeyHash1 := testaddress.Addrinfo["alfa"].PublicKeyHash()
-	pubKeyHash2 := testaddress.Addrinfo["bravo"].PublicKeyHash()
-	pubKeyHash3 := testaddress.Addrinfo["charlie"].PublicKeyHash()
-	pubKeyHash4 := testaddress.Addrinfo["delta"].PublicKeyHash()
+	pubKeyHash1 := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
+	pubKeyHash2 := byteutil.BytesTo20B(testaddress.Addrinfo["bravo"].Bytes())
+	pubKeyHash3 := byteutil.BytesTo20B(testaddress.Addrinfo["charlie"].Bytes())
+	pubKeyHash4 := byteutil.BytesTo20B(testaddress.Addrinfo["delta"].Bytes())
 
 	require.NoError(ws.PutState(pubKeyHash1, &account1))
 	require.NoError(ws.PutState(pubKeyHash2, &account2))
 	require.NoError(ws.PutState(pubKeyHash3, &account3))
 
-	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2), testaddress.Addrinfo["alfa"].Bech32(),
-		testaddress.Addrinfo["bravo"].Bech32(), []byte{}, uint64(10000), big.NewInt(0))
+	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2),
+		testaddress.Addrinfo["bravo"].String(), []byte{}, uint64(10000), big.NewInt(0))
 	require.NoError(err)
 
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
+			Caller:          testaddress.Addrinfo["alfa"],
 			EnableGasCharge: false,
 		})
 	_, err = p.Handle(ctx, transfer, ws)
@@ -96,13 +98,13 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]
-	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "1", "2", payload, uint64(0),
+	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0),
 		big.NewInt(0))
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), tsf)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	// Case II: Negative amount
-	tsf, err = action.NewTransfer(uint64(1), big.NewInt(-100), "1", "2", nil,
+	tsf, err = action.NewTransfer(uint64(1), big.NewInt(-100), "2", nil,
 		uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), tsf)
@@ -111,8 +113,7 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	tsf, err = action.NewTransfer(
 		1,
 		big.NewInt(1),
-		testaddress.Addrinfo["producer"].Bech32(),
-		testaddress.Addrinfo["alfa"].Bech32()+"aaa",
+		testaddress.Addrinfo["alfa"].String()+"aaa",
 		nil,
 		uint64(100000),
 		big.NewInt(0),

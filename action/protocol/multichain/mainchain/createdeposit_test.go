@@ -51,25 +51,23 @@ func TestValidateDeposit(t *testing.T) {
 	p := NewProtocol(chain)
 
 	addr := testaddress.Addrinfo["producer"]
-	addr1 := addr.Bech32()
-	addr2 := address.New(addr.Payload()).Bech32()
 
-	deposit := action.NewCreateDeposit(1, 2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
-	_, _, err = p.validateDeposit(deposit, nil)
+	deposit := action.NewCreateDeposit(1, 2, big.NewInt(1000), addr.String(), testutil.TestGasLimit, big.NewInt(0))
+	_, _, err = p.validateDeposit(addr, deposit, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 	_, err = account.LoadOrCreateAccount(
 		ws,
-		testaddress.Addrinfo["producer"].Bech32(),
+		testaddress.Addrinfo["producer"].String(),
 		big.NewInt(1000),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+			Producer:        testaddress.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -77,27 +75,27 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
-	deposit1 := action.NewCreateDeposit(1, 2, big.NewInt(2000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
-	_, _, err = p.validateDeposit(deposit1, nil)
+	deposit1 := action.NewCreateDeposit(1, 2, big.NewInt(2000), addr.String(), testutil.TestGasLimit, big.NewInt(0))
+	_, _, err = p.validateDeposit(addr, deposit1, nil)
 	assert.True(t, strings.Contains(err.Error(), "doesn't have at least required balance"))
 
-	_, _, err = p.validateDeposit(deposit, nil)
+	_, _, err = p.validateDeposit(addr, deposit, nil)
 	assert.True(t, strings.Contains(err.Error(), "is not on a sub-chain in operation"))
 
-	subChainAddr, err := createSubChainAddress(addr1, 0)
+	subChainAddr, err := createSubChainAddress(addr.String(), 0)
 	require.NoError(t, err)
 	require.NoError(t, ws.PutState(
 		SubChainsInOperationKey,
 		SubChainsInOperation{
 			InOperation{
 				ID:   2,
-				Addr: address.New(subChainAddr[:]).Bytes(),
+				Addr: subChainAddr[:],
 			},
 		},
 	))
 	require.NoError(t, sf.Commit(ws))
 
-	_, _, err = p.validateDeposit(deposit, nil)
+	_, _, err = p.validateDeposit(addr, deposit, nil)
 	assert.NoError(t, err)
 }
 
@@ -121,9 +119,9 @@ func TestMutateDeposit(t *testing.T) {
 	}()
 
 	addr := testaddress.Addrinfo["producer"]
-	addr1 := addr.Bech32()
-	addr2 := address.New(addr.Payload()).Bech32()
-	subChainAddr, err := createSubChainAddress(addr1, 0)
+	subChainAddr, err := createSubChainAddress(addr.String(), 0)
+	require.NoError(t, err)
+	addrSubChain, err := address.FromBytes(subChainAddr[:])
 	require.NoError(t, err)
 
 	ws, err := sf.NewWorkingSet()
@@ -144,8 +142,9 @@ func TestMutateDeposit(t *testing.T) {
 	require.NoError(t, sf.Commit(ws))
 
 	p := NewProtocol(chain)
-	act := action.NewCreateDeposit(2, 2, big.NewInt(1000), addr1, addr2, testutil.TestGasLimit, big.NewInt(0))
+	act := action.NewCreateDeposit(2, 2, big.NewInt(1000), addr.String(), testutil.TestGasLimit, big.NewInt(0))
 	receipt, err := p.mutateDeposit(
+		addr,
 		act,
 		&state.Account{
 			Nonce:   1,
@@ -153,25 +152,25 @@ func TestMutateDeposit(t *testing.T) {
 		},
 		InOperation{
 			ID:   2,
-			Addr: address.New(subChainAddr[:]).Bytes(),
+			Addr: subChainAddr[:],
 		},
 		ws,
 	)
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ws))
 
-	account, err := sf.AccountState(addr1)
+	account, err := sf.AccountState(addr.String())
 	require.NoError(t, err)
 	assert.Equal(t, uint64(2), account.Nonce)
 	assert.Equal(t, big.NewInt(1000), account.Balance)
 
-	subChain, err := p.SubChain(address.New(subChainAddr[:]))
+	subChain, err := p.SubChain(addrSubChain)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(301), subChain.DepositCount)
 
-	deposit, err := p.Deposit(address.New(subChainAddr[:]), 300)
+	deposit, err := p.Deposit(addrSubChain, 300)
 	require.NoError(t, err)
-	assert.Equal(t, address.New(addr.Payload()).Bytes(), deposit.Addr)
+	assert.Equal(t, addr.Bytes(), deposit.Addr)
 	assert.Equal(t, big.NewInt(1000), deposit.Amount)
 	assert.False(t, deposit.Confirmed)
 
@@ -182,5 +181,5 @@ func TestMutateDeposit(t *testing.T) {
 	gas, err := act.IntrinsicGas()
 	assert.NoError(t, err)
 	assert.Equal(t, gas, receipt.GasConsumed)
-	assert.Equal(t, address.New(subChainAddr[:]).Bech32(), receipt.ContractAddress)
+	assert.Equal(t, addrSubChain.String(), receipt.ContractAddress)
 }

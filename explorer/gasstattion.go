@@ -10,6 +10,9 @@ import (
 	"math/big"
 	"sort"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -106,7 +109,12 @@ func (gs *GasStation) estimateGasForSmartContract(execution explorer.Execution) 
 		return 0, errors.New("not execution")
 	}
 
-	receipt, err := gs.bc.ExecuteContractRead(sc)
+	callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+	callerAddr, err := address.FromBytes(callerPKHash[:])
+	if err != nil {
+		return 0, err
+	}
+	receipt, err := gs.bc.ExecuteContractRead(callerAddr, sc)
 	if err != nil {
 		return 0, err
 	}

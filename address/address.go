@@ -10,8 +10,6 @@ import (
 	"errors"
 	"os"
 	"strings"
-
-	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // init reads IOTEX_NETWORK_TYPE environment variable. If it exists and the value is equal to "testnet" with case
@@ -34,30 +32,18 @@ var isTestNet bool
 
 // Address defines the interface of the blockchain address
 type Address interface {
-	// Payload returns the payload
-	Payload() []byte
-	// Bech32 encodes the whole address into an address string encoded in Bech32 format
-	Bech32() string
-	// Bytes serializes the whole address struct into a byte slice, which is composed of the payload to
-	// identify an address within one blockchain:
+	// String encodes the whole address into an address string encoded in string format
+	String() string
+	// Bytes serializes the whole address struct into a byte slice, which is composed of the payload to identify an
+	// address within one blockchain
 	Bytes() []byte
 }
 
-// New constructs an address instance
-func New(payload []byte) Address {
-	var pkHash hash.PKHash
-	copy(pkHash[:], payload)
-	return V1.New(pkHash)
-}
+// FromString decodes an encoded address string into an address struct
+func FromString(encodedAddr string) (Address, error) { return _v1.FromString(encodedAddr) }
 
-// Bech32ToAddress decodes an encoded address string into an address struct
-func Bech32ToAddress(encodedAddr string) (Address, error) { return V1.Bech32ToAddress(encodedAddr) }
-
-// BytesToAddress converts a byte array into an address struct
-func BytesToAddress(bytes []byte) (Address, error) { return V1.BytesToAddress(bytes) }
-
-// Bech32ToPKHash returns the public key hash from an encoded address
-func Bech32ToPKHash(encodedAddr string) (hash.PKHash, error) { return V1.Bech32ToPKHash(encodedAddr) }
+// FromBytes converts a byte array into an address struct
+func FromBytes(bytes []byte) (Address, error) { return _v1.FromBytes(bytes) }
 
 // prefix returns the current prefix
 func prefix() string {

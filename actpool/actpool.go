@@ -10,6 +10,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -36,7 +39,7 @@ type ActPool interface {
 	// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
 	GetUnconfirmedActs(addr string) []action.SealedEnvelope
 	// GetActionByHash returns the pending action in pool given action's hash
-	GetActionByHash(hash hash.Hash32B) (action.SealedEnvelope, error)
+	GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error)
 	// GetSize returns the act pool size
 	GetSize() uint64
 	// GetCapacity returns the act pool capacity
@@ -53,7 +56,7 @@ type actPool struct {
 	cfg                      config.ActPool
 	bc                       blockchain.Blockchain
 	accountActs              map[string]ActQueue
-	allActions               map[hash.Hash32B]action.SealedEnvelope
+	allActions               map[hash.Hash256]action.SealedEnvelope
 	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
 	validators               []protocol.ActionValidator
 }
@@ -67,7 +70,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		cfg:         cfg,
 		bc:          bc,
 		accountActs: make(map[string]ActQueue),
-		allActions:  make(map[hash.Hash32B]action.SealedEnvelope),
+		allActions:  make(map[hash.Hash256]action.SealedEnvelope),
 	}
 	return ap, nil
 }
@@ -163,19 +166,36 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 		return errors.Errorf("reject existed action: %x", hash)
 	}
 
+	callerPKHash := keypair.HashPubKey(act.SrcPubkey())
+	caller, err := address.FromBytes(callerPKHash[:])
+	if err != nil {
+		return err
+	}
 	// envelope validation
 	for _, validator := range ap.actionEnvelopeValidators {
-		if err := validator.Validate(context.Background(), act); err != nil {
+		ctx := protocol.WithValidateActionsCtx(
+			context.Background(),
+			protocol.ValidateActionsCtx{
+				Caller: caller,
+			},
+		)
+		if err := validator.Validate(ctx, act); err != nil {
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
 	}
 	// Reject action if it's invalid
 	for _, validator := range ap.validators {
-		if err := validator.Validate(context.Background(), act.Action()); err != nil {
+		ctx := protocol.WithValidateActionsCtx(
+			context.Background(),
+			protocol.ValidateActionsCtx{
+				Caller: caller,
+			},
+		)
+		if err := validator.Validate(ctx, act.Action()); err != nil {
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
 	}
-	return ap.enqueueAction(act.SrcAddr(), act, hash, act.Nonce())
+	return ap.enqueueAction(caller.String(), act, hash, act.Nonce())
 }
 
 // GetPendingNonce returns pending nonce in pool or confirmed nonce given an account address
@@ -203,7 +223,7 @@ func (ap *actPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 }
 
 // GetActionByHash returns the pending action in pool given action's hash
-func (ap *actPool) GetActionByHash(hash hash.Hash32B) (action.SealedEnvelope, error) {
+func (ap *actPool) GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error) {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
 
@@ -233,7 +253,7 @@ func (ap *actPool) GetCapacity() uint64 {
 //======================================
 // private functions
 //======================================
-func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash hash.Hash32B, actNonce uint64) error {
+func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash hash.Hash256, actNonce uint64) error {
 	queue := ap.accountActs[sender]
 	if queue == nil {
 		queue = NewActQueue(WithTimeOut(ap.cfg.ActionExpiry))

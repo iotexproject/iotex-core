@@ -41,21 +41,21 @@ func TestHandlePutBlock(t *testing.T) {
 	chain.EXPECT().GetFactory().Return(sf).AnyTimes()
 
 	addr := testaddress.Addrinfo["producer"]
-	addr2 := testaddress.Addrinfo["echo"]
 	key2 := testaddress.Keyinfo["echo"]
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 	_, err = account.LoadOrCreateAccount(
 		ws,
-		addr.Bech32(),
+		addr.String(),
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx)),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			ProducerAddr:    testaddress.Addrinfo["producer"].Bech32(),
+			Producer:        testaddress.Addrinfo["producer"],
+			Caller:          testaddress.Addrinfo["producer"],
 			GasLimit:        &gasLimit,
 			EnableGasCharge: testutil.EnableGasCharge,
 		})
@@ -73,12 +73,11 @@ func TestHandlePutBlock(t *testing.T) {
 
 	p := NewProtocol(chain)
 
-	roots := make(map[string]hash.Hash32B)
+	roots := make(map[string]hash.Hash256)
 	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
 	pb := action.NewPutBlock(
 		1,
-		addr2.Bech32(),
-		addr.Bech32(),
+		addr.String(),
 		10001,
 		roots,
 		10003,
@@ -87,10 +86,10 @@ func TestHandlePutBlock(t *testing.T) {
 
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
-		SetDestinationAddress(addr.Bech32()).
+		SetDestinationAddress(addr.String()).
 		SetGasLimit(10003).
 		SetAction(pb).Build()
-	selp, err := action.Sign(elp, addr2.Bech32(), key2.PriKey)
+	selp, err := action.Sign(elp, key2.PriKey)
 	require.NoError(t, err)
 
 	// first put
@@ -114,8 +113,7 @@ func TestHandlePutBlock(t *testing.T) {
 	roots["10002"] = byteutil.BytesTo32B([]byte("10003"))
 	pb2 := action.NewPutBlock(
 		1,
-		addr2.Bech32(),
-		addr.Bech32(),
+		addr.String(),
 		10002,
 		roots,
 		10003,
@@ -123,10 +121,10 @@ func TestHandlePutBlock(t *testing.T) {
 	)
 
 	elp = bd.SetNonce(1).
-		SetDestinationAddress(addr.Bech32()).
+		SetDestinationAddress(addr.String()).
 		SetGasLimit(10003).
 		SetAction(pb2).Build()
-	selp, err = action.Sign(elp, addr2.Bech32(), key2.PriKey)
+	selp, err = action.Sign(elp, key2.PriKey)
 	require.NoError(t, err)
 
 	_, err = p.Handle(ctx, elp.Action(), ws)

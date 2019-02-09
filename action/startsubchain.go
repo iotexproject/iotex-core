@@ -38,7 +38,6 @@ type StartSubChain struct {
 func NewStartSubChain(
 	nonce uint64,
 	chainID uint32,
-	ownerAddr string,
 	securityDeposit *big.Int,
 	operationDeposit *big.Int,
 	startHeight uint64,
@@ -50,7 +49,6 @@ func NewStartSubChain(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			srcAddr:  ownerAddr,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
@@ -96,9 +94,6 @@ func (start *StartSubChain) StartHeight() uint64 { return start.startHeight }
 
 // ParentHeightOffset returns parent height offset
 func (start *StartSubChain) ParentHeightOffset() uint64 { return start.parentHeightOffset }
-
-// OwnerAddress returns the owner address, which is the wrapper of SrcAddr
-func (start *StartSubChain) OwnerAddress() string { return start.SrcAddr() }
 
 // OwnerPublicKey returns the owner public key, which is the wrapper of SrcPubkey
 func (start *StartSubChain) OwnerPublicKey() keypair.PublicKey { return start.SrcPubkey() }
