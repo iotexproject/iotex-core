@@ -6,13 +6,11 @@
 
 package genesis
 
-import "github.com/iotexproject/iotex-core/action"
-
 const (
 	// BlockGasLimit is the total gas limit could be consumed in a block
 	BlockGasLimit = uint64(20000000)
 	// ActionGasLimit is the per action gas limit cap
 	ActionGasLimit = BlockGasLimit / 4
 	// MinimumBlockGasRemaining is the threshold we should stop handle any further actions
-	MinimumBlockGasRemaining = action.TransferBaseIntrinsicGas
+	MinimumBlockGasRemaining = 10000
 )

@@ -684,7 +684,8 @@ func (bc *blockchain) MintNewBlock(
 	gasLimitForContext := genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			BlockHeight:     newblockHeight,
+			BlockHeight: newblockHeight,
+			// this field should be removed
 			BlockHash:       hash.ZeroHash256,
 			BlockTimeStamp:  bc.now(),
 			Producer:        producer,
@@ -1134,9 +1135,10 @@ func (bc *blockchain) runActions(
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EpochNumber:     0, // TODO: need to get the actual epoch number from RollDPoS
-			BlockHeight:     acts.BlockHeight(),
-			BlockHash:       acts.TxHash(),
+			EpochNumber: 0, // TODO: need to get the actual epoch number from RollDPoS
+			BlockHeight: acts.BlockHeight(),
+			// this field should be removed
+			BlockHash:       hash.ZeroHash256,
 			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
 			Producer:        producer,
 			GasLimit:        &gasLimit,
@@ -1168,14 +1170,13 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 		receipt, err := ws.RunAction(ctx, nextAction)
 		if err != nil {
-			if err == action.ErrHitGasLimit {
+			if errors.Cause(err) == action.ErrHitGasLimit {
+				actionIterator.PopAccount()
 				continue
 			}
 			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %s", nextAction.Hash())
 		}
 		if receipt != nil {
-			// will this ever happen?
-			// revert the over limit one
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, nextAction)

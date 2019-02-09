@@ -51,6 +51,7 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 	if err != nil {
 		return errors.Wrapf(err, "invalid nonce value of account %s", vaCtx.Caller.String())
 	}
+
 	pendingNonce := confirmedNonce + 1
 	if pendingNonce > act.Nonce() {
 		return errors.Wrap(action.ErrNonce, "nonce is too low")

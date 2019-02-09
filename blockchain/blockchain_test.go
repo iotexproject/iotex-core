@@ -370,6 +370,113 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Chain.EnableGasCharge = true
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	require.NoError(t, bc.Start(ctx))
+	defer require.NoError(t, bc.Stop(ctx))
+
+	// Add block 0
+	tsf0, _ := action.NewTransfer(
+		1,
+		big.NewInt(3000000000),
+		ta.Addrinfo["producer"].String(),
+		[]byte{}, uint64(100000),
+		big.NewInt(10),
+	)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(tsf0).
+		SetDestinationAddress(ta.Addrinfo["producer"].String()).
+		SetNonce(1).
+		SetGasLimit(100000).
+		SetGasPrice(big.NewInt(10)).Build()
+	genSK, err := keypair.DecodePrivateKey(GenesisProducerPrivateKey)
+	require.NoError(t, err)
+	selp, err := action.Sign(elp, genSK)
+	require.NoError(t, err)
+	actionMap := make(map[string][]action.SealedEnvelope)
+	actionMap[Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
+	blk, err := bc.MintNewBlock(
+		actionMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].String(),
+		0,
+	)
+	require.NoError(t, err)
+	err = bc.ValidateBlock(blk)
+	require.NoError(t, err)
+	err = bc.CommitBlock(blk)
+	require.NoError(t, err)
+
+	addr0 := ta.Addrinfo["producer"].String()
+	priKey0 := ta.Keyinfo["producer"].PriKey
+	addr1 := ta.Addrinfo["alfa"].String()
+	addr3 := ta.Addrinfo["charlie"].String()
+	priKey3 := ta.Keyinfo["charlie"].PriKey
+
+	// add second block
+	tsf1, err := testutil.SignedTransfer(addr1, priKey0, 1, big.NewInt(2000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	require.NoError(t, err)
+	tsf3, err := testutil.SignedTransfer(addr3, priKey0, 2, big.NewInt(5000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	require.NoError(t, err)
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[addr0] = []action.SealedEnvelope{tsf1, tsf3}
+
+	blk, err = bc.MintNewBlock(
+		accMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].String(),
+		0,
+	)
+	require.NoError(t, err)
+	err = bc.ValidateBlock(blk)
+	require.NoError(t, err)
+	err = bc.CommitBlock(blk)
+	require.NoError(t, err)
+
+	// test third block
+	bytes := []byte{}
+	for i := 0; i < 1000; i++ {
+		bytes = append(bytes, 1)
+	}
+	actionMap = make(map[string][]action.SealedEnvelope)
+	actions := make([]action.SealedEnvelope, 0)
+	for i := uint64(0); i < 300; i++ {
+		tsf, err := testutil.SignedTransfer(addr1, priKey0, i+3, big.NewInt(2), bytes, 1000000, big.NewInt(testutil.TestGasPrice))
+		require.NoError(t, err)
+		actions = append(actions, tsf)
+	}
+	actionMap[addr0] = actions
+	transfer1, err := testutil.SignedTransfer(addr1, priKey3, 1, big.NewInt(2), []byte{}, 100000, big.NewInt(testutil.TestGasPrice))
+	require.NoError(t, err)
+	actionMap[addr3] = []action.SealedEnvelope{transfer1}
+
+	blk, err = bc.MintNewBlock(
+		actionMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].String(),
+		0,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, blk)
+	require.Equal(t, 182, len(blk.Actions))
+	whetherInclude := false
+	for _, action := range blk.Actions {
+		if transfer1.Hash() == action.Hash() {
+			whetherInclude = true
+		}
+	}
+	require.True(t, whetherInclude)
+}
+
 type MockSubscriber struct {
 	counter int
 	mu      sync.RWMutex

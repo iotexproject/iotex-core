@@ -50,14 +50,6 @@ func (ra RunnableActions) Actions() []action.SealedEnvelope {
 	return ra.actions
 }
 
-// AddAction adds actions for block which is building.
-func (ra *RunnableActions) AddAction(act action.SealedEnvelope) {
-	if ra.actions == nil {
-		ra.actions = make([]action.SealedEnvelope, 0)
-	}
-	ra.actions = append(ra.actions, act)
-}
-
 // RunnableActionsBuilder is used to construct RunnableActions.
 type RunnableActionsBuilder struct{ ra RunnableActions }
 
