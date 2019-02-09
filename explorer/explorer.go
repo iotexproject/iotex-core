@@ -1358,7 +1358,7 @@ func (exp *Service) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOrAct
 		return explorer.GetBlkOrActResponse{Execution: &exe}, nil
 	}
 
-	if exe, err := exp.getAddressDetails(hashStr); err == nil {
+	if exe, err := exp.GetAddressDetails(hashStr); err == nil {
 		return explorer.GetBlkOrActResponse{Address: &exe}, nil
 	}
 
