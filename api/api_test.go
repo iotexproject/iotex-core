@@ -1,3 +1,9 @@
+// Copyright (c) 2019 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package api
 
 import (
@@ -283,7 +289,7 @@ var (
 
 func TestService_GetAccount(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -311,7 +317,7 @@ func TestService_GetAccount(t *testing.T) {
 
 func TestService_GetActions(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -330,7 +336,7 @@ func TestService_GetActions(t *testing.T) {
 
 func TestService_GetAction(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -352,7 +358,7 @@ func TestService_GetAction(t *testing.T) {
 
 func TestService_GetActionsByAddress(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -371,7 +377,7 @@ func TestService_GetActionsByAddress(t *testing.T) {
 
 func TestService_GetUnconfirmedActionsByAddress(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -390,7 +396,7 @@ func TestService_GetUnconfirmedActionsByAddress(t *testing.T) {
 
 func TestService_GetActionsByBlock(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -412,7 +418,7 @@ func TestService_GetActionsByBlock(t *testing.T) {
 
 func TestService_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -441,7 +447,7 @@ func TestService_GetBlockMetas(t *testing.T) {
 
 func TestService_GetBlockMeta(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -456,6 +462,7 @@ func TestService_GetBlockMeta(t *testing.T) {
 		require.NoError(err)
 		blkHash := blk.HashBlock()
 		res, err := svc.GetBlockMeta(hex.EncodeToString(blkHash[:]))
+		require.NoError(err)
 		var blkPb iproto.BlockMeta
 		require.NoError(jsonpb.UnmarshalString(res, &blkPb))
 		require.Equal(test.numActions, blkPb.NumActions)
@@ -465,7 +472,7 @@ func TestService_GetBlockMeta(t *testing.T) {
 
 func TestService_GetChainMeta(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -513,7 +520,7 @@ func TestService_SendAction(t *testing.T) {
 
 func TestService_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -534,7 +541,7 @@ func TestService_GetReceiptByAction(t *testing.T) {
 
 func TestService_ReadContract(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -560,7 +567,7 @@ func TestService_ReadContract(t *testing.T) {
 
 func TestService_SuggestGasPrice(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -580,7 +587,7 @@ func TestService_SuggestGasPrice(t *testing.T) {
 
 func TestService_EstimateGasForAction(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig(testTriePath, testDBPath)
+	cfg := newConfig()
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -829,10 +836,10 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 	return ap, nil
 }
 
-func newConfig(trieDBPath string, chainDBPath string) config.Config {
+func newConfig() config.Config {
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = trieDBPath
-	cfg.Chain.ChainDBPath = chainDBPath
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
 	return cfg
 }
