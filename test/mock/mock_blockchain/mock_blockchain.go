@@ -516,6 +516,30 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateByAddr", reflect.TypeOf((*MockBlockchain)(nil).StateByAddr), address)
 }
 
+// RecoverToHeight mocks base method
+func (m *MockBlockchain) RecoverToHeight(targetHeight uint64) error {
+	ret := m.ctrl.Call(m, "RecoverToHeight", targetHeight)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecoverToHeight indicates an expected call of RecoverToHeight
+func (mr *MockBlockchainMockRecorder) RecoverToHeight(targetHeight interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverToHeight", reflect.TypeOf((*MockBlockchain)(nil).RecoverToHeight), targetHeight)
+}
+
+// RefreshStateDB mocks base method
+func (m *MockBlockchain) RefreshStateDB() error {
+	ret := m.ctrl.Call(m, "RefreshStateDB")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RefreshStateDB indicates an expected call of RefreshStateDB
+func (mr *MockBlockchainMockRecorder) RefreshStateDB() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshStateDB", reflect.TypeOf((*MockBlockchain)(nil).RefreshStateDB))
+}
+
 // MintNewBlock mocks base method
 func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, producerPubKey keypair.PublicKey, producerPriKey keypair.PrivateKey, producerAddr string, timestamp int64) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, producerPubKey, producerPriKey, producerAddr, timestamp)

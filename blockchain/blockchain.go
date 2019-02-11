@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -34,6 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -113,6 +115,10 @@ type Blockchain interface {
 	TipHeight() uint64
 	// StateByAddr returns account of a given address
 	StateByAddr(address string) (*state.Account, error)
+	// RecoverToHeight recovers the blockchain to target height
+	RecoverToHeight(targetHeight uint64) error
+	// RefreshStateDB deletes the existing state DB and creates a new one with state changes from genesis block
+	RefreshStateDB() error
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions
@@ -868,6 +874,42 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	return account, nil
 }
 
+// RecoverToHeight recovers the blockchain to target height
+func (bc *blockchain) RecoverToHeight(targetHeight uint64) error {
+	for bc.tipHeight > targetHeight {
+		if err := bc.dao.deleteTipBlock(); err != nil {
+			return err
+		}
+		bc.tipHeight--
+	}
+	return nil
+}
+
+// RefreshStateDB deletes the existing state DB and creates a new one with state changes from genesis block
+func (bc *blockchain) RefreshStateDB() error {
+	// Delete existing state DB and reinitialize it
+	if fileutil.FileExists(bc.config.Chain.TrieDBPath) && os.Remove(bc.config.Chain.TrieDBPath) != nil {
+		return errors.New("failed to delete existing state DB")
+	}
+	if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
+		return errors.Wrap(err, "failed to reinitialize state DB")
+	}
+	// Install vote protocol
+	voteProtocol := vote.NewProtocol(bc)
+	bc.sf.AddActionHandlers(voteProtocol)
+
+	if err := bc.sf.Start(context.Background()); err != nil {
+		return errors.Wrap(err, "failed to start state factory")
+	}
+	if err := bc.buildStateInGenesis(); err != nil {
+		return errors.Wrap(err, "failed to build state for genesis block")
+	}
+	if err := bc.sf.Stop(context.Background()); err != nil {
+		return errors.Wrap(err, "failed to stop state factory")
+	}
+	return nil
+}
+
 //======================================
 // private functions
 //=====================================
@@ -953,52 +995,32 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 		}
 		startHeight = factoryHeight + 1
 	}
+	var buildStateFromScratch bool
+	// If restarting factory from fresh db, first update state changes in Genesis block
+	if startHeight == 0 {
+		buildStateFromScratch = true
+	}
+	if recoveryHeight > 0 {
+		if err := bc.RecoverToHeight(recoveryHeight); err != nil {
+			return errors.Wrapf(err, "failed to recover blockchain to target height %d", recoveryHeight)
+		}
+		if startHeight > bc.tipHeight {
+			buildStateFromScratch = true
+		}
+	}
+
+	if buildStateFromScratch {
+		if err := bc.RefreshStateDB(); err != nil {
+			return errors.Wrap(err, "failed to create a new state DB")
+		}
+		os.Exit(0)
+	}
+
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	// If restarting factory from fresh db, first update state changes in Genesis block
-	if startHeight == 0 {
-		pk, _, addr, err := bc.genesisProducer()
-		if err != nil {
-			return errors.Wrap(err, "failed to get the key and address of producer")
-		}
-		acts := NewGenesisActions(bc.config.Chain, ws)
-		racts := block.NewRunnableActionsBuilder().
-			SetHeight(0).
-			SetTimeStamp(Gen.Timestamp).
-			AddActions(acts...).
-			Build(addr, pk)
-		// run execution and update state trie root hash
-		if _, _, err := bc.runActions(racts, ws); err != nil {
-			return errors.Wrap(err, "failed to update state changes in Genesis block")
-		}
-		if err := bc.sf.Commit(ws); err != nil {
-			return errors.Wrap(err, "failed to update state changes in Genesis block")
-		}
-		startHeight = 1
-	}
-	if recoveryHeight > 0 {
-		for bc.tipHeight > recoveryHeight {
-			if err := bc.dao.deleteTipBlock(); err != nil {
-				return err
-			}
-			bc.tipHeight--
-		}
-		if startHeight > bc.tipHeight {
-			startHeight = 0
-			// Delete existing state DB and reinitialize it
-			if err := os.Remove(bc.config.Chain.TrieDBPath); err != nil {
-				return errors.Wrap(err, "failed to delete existing state DB")
-			}
-			if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
-				return errors.Wrap(err, "failed to reinitialize state DB")
-			}
-			if err := bc.sf.Start(context.Background()); err != nil {
-				return errors.Wrap(err, "failed to start state factory")
-			}
-		}
-	}
+
 	for i := startHeight; i <= bc.tipHeight; i++ {
 		blk, err := bc.getBlockByHeight(i)
 		if err != nil {
@@ -1167,6 +1189,31 @@ func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, 
 		return nil, nil, "", errors.Wrap(err, "failed to create address")
 	}
 	return pk, sk, addr.String(), nil
+}
+
+func (bc *blockchain) buildStateInGenesis() error {
+	pk, _, addr, err := bc.genesisProducer()
+	if err != nil {
+		return errors.Wrap(err, "failed to get the key and address of producer")
+	}
+	ws, err := bc.sf.NewWorkingSet()
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	acts := NewGenesisActions(bc.config.Chain, ws)
+	racts := block.NewRunnableActionsBuilder().
+		SetHeight(0).
+		SetTimeStamp(Gen.Timestamp).
+		AddActions(acts...).
+		Build(addr, pk)
+	// run execution and update state trie root hash
+	if _, _, err := bc.runActions(racts, ws); err != nil {
+		return errors.Wrap(err, "failed to update state changes in Genesis block")
+	}
+	if err := bc.sf.Commit(ws); err != nil {
+		return errors.Wrap(err, "failed to commit state changes in Genesis block")
+	}
+	return nil
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
