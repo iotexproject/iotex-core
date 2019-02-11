@@ -138,7 +138,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 		bd := action.EnvelopeBuilder{}
 		elp := bd.SetDestinationAddress(addr).
 			SetAction(vote).Build()
-		acts = append(acts, action.FakeSeal(elp, addr, pk))
+		acts = append(acts, action.FakeSeal(elp, pk))
 	}
 
 	// TODO: decouple start sub-chain from genesis block
