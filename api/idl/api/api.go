@@ -8,15 +8,15 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "613b2250d445a285d7d1346d9b59b581"
-const BarristerDateGenerated int64 = 1549492195775000000
+const BarristerChecksum string = "5a6ee9564dd4ba4ff94fe4550bd38d7e"
+const BarristerDateGenerated int64 = 1549568917084000000
 
 type API interface {
 	GetAccount(address string) (string, error)
 	GetActions(start int64, count int64) ([]string, error)
-	GetAction(actionHash string) (string, error)
+	GetAction(actionHash string, checkPending bool) (string, error)
 	GetActionsByAddress(address string, start int64, count int64) ([]string, error)
-	GetUnconfirmedActionsByAddress(address string, offset int64, limit int64) ([]string, error)
+	GetUnconfirmedActionsByAddress(address string, start int64, count int64) ([]string, error)
 	GetActionsByBlock(blkHash string, start int64, count int64) ([]string, error)
 	GetBlockMetas(start int64, number int64) ([]string, error)
 	GetBlockMeta(blkHash string) (string, error)
@@ -73,8 +73,8 @@ func (_p APIProxy) GetActions(start int64, count int64) ([]string, error) {
 	return []string{}, _err
 }
 
-func (_p APIProxy) GetAction(actionHash string) (string, error) {
-	_res, _err := _p.client.Call("API.getAction", actionHash)
+func (_p APIProxy) GetAction(actionHash string, checkPending bool) (string, error) {
+	_res, _err := _p.client.Call("API.getAction", actionHash, checkPending)
 	if _err == nil {
 		_retType := _p.idl.Method("API.getAction").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(""), _res, "")
@@ -109,8 +109,8 @@ func (_p APIProxy) GetActionsByAddress(address string, start int64, count int64)
 	return []string{}, _err
 }
 
-func (_p APIProxy) GetUnconfirmedActionsByAddress(address string, offset int64, limit int64) ([]string, error) {
-	_res, _err := _p.client.Call("API.getUnconfirmedActionsByAddress", address, offset, limit)
+func (_p APIProxy) GetUnconfirmedActionsByAddress(address string, start int64, count int64) ([]string, error) {
+	_res, _err := _p.client.Call("API.getUnconfirmedActionsByAddress", address, start, count)
 	if _err == nil {
 		_retType := _p.idl.Method("API.getUnconfirmedActionsByAddress").Returns
 		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf([]string{}), _res, "")
@@ -418,6 +418,13 @@ var IdlJsonRaw = `[
                         "optional": false,
                         "is_array": false,
                         "comment": ""
+                    },
+                    {
+                        "name": "checkPending",
+                        "type": "bool",
+                        "optional": false,
+                        "is_array": false,
+                        "comment": ""
                     }
                 ],
                 "returns": {
@@ -474,14 +481,14 @@ var IdlJsonRaw = `[
                         "comment": ""
                     },
                     {
-                        "name": "offset",
+                        "name": "start",
                         "type": "int",
                         "optional": false,
                         "is_array": false,
                         "comment": ""
                     },
                     {
-                        "name": "limit",
+                        "name": "count",
                         "type": "int",
                         "optional": false,
                         "is_array": false,
@@ -696,7 +703,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1549492195775,
-        "checksum": "613b2250d445a285d7d1346d9b59b581"
+        "date_generated": 1549568917084,
+        "checksum": "5a6ee9564dd4ba4ff94fe4550bd38d7e"
     }
 ]`

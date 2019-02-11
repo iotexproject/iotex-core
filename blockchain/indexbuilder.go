@@ -159,7 +159,7 @@ func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 		return errors.Wrap(err, "failed to get total actions")
 	}
 	totalActions := enc.MachineEndian.Uint64(value)
-	totalActions += uint64(len(blk.Actions) - len(transfers) - len(votes) - len(executions))
+	totalActions += uint64(len(blk.Actions))
 	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
 	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
 
@@ -422,16 +422,6 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 	recipientDelta := make(map[string]uint64)
 
 	for _, selp := range blk.Actions {
-		// TODO: before we deprecate separate index handling for transfer/vote/execution, we should avoid index it again
-		// in the general way
-		switch selp.Action().(type) {
-		case *action.Transfer:
-			continue
-		case *action.Vote:
-			continue
-		case *action.Execution:
-			continue
-		}
 		actHash := selp.Hash()
 		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
 		callerAddr, err := address.FromBytes(callerPKHash[:])
