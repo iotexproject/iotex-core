@@ -26,7 +26,7 @@ interface API {
 
     // get action by action hash
     // response is a JSON string of ActionPb
-    getAction(actionHash string) string
+    getAction(actionHash string, checkPending bool) string
 
     // get list of actions belonging to an address by start index and action count
     // response is a list of JSON strings of ActionPb
@@ -34,7 +34,7 @@ interface API {
 
     // get list of unconfirmed actions in actpool belonging to an address
     // response is a list of JSON strings of ActionPb
-    getUnconfirmedActionsByAddress(address string, offset int, limit int) []string
+    getUnconfirmedActionsByAddress(address string, start int, count int) []string
 
     // get all actions in a block
     // response is a list of JSON strings of ActionPb

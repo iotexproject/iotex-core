@@ -108,10 +108,9 @@ message BlockMeta {
     int64 numActions = 4;
     string producerAddress = 5;
     string transferAmount = 6;
-    int64 size = 7;
-    string txRoot = 8;
-    string receiptRoot = 9;
-    string deltaStateDigest = 10;
+    string txRoot = 7;
+    string receiptRoot = 8;
+    string deltaStateDigest = 9;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
