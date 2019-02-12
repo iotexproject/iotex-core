@@ -115,10 +115,8 @@ type Blockchain interface {
 	TipHeight() uint64
 	// StateByAddr returns account of a given address
 	StateByAddr(address string) (*state.Account, error)
-	// RecoverToHeight recovers the blockchain to target height
-	RecoverToHeight(targetHeight uint64) error
-	// RefreshStateDB deletes the existing state DB and creates a new one with state changes from genesis block
-	RefreshStateDB() error
+	// RecoverChainAndState recovers the chain to target height and refresh state db if necessary
+	RecoverChainAndState(targetHeight uint64) error
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions
@@ -329,7 +327,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
 		return err
 	}
-	return bc.startExistingBlockchain(bc.config.Chain.RecoveryHeight)
+	return bc.startExistingBlockchain()
 }
 
 // Stop stops the blockchain.
@@ -874,38 +872,24 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	return account, nil
 }
 
-// RecoverToHeight recovers the blockchain to target height
-func (bc *blockchain) RecoverToHeight(targetHeight uint64) error {
-	for bc.tipHeight > targetHeight {
-		if err := bc.dao.deleteTipBlock(); err != nil {
-			return err
+// RecoverChainAndState recovers the chain to target height and refresh state db if necessary
+func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
+	var buildStateFromScratch bool
+	stateHeight, err := bc.sf.Height()
+	if err != nil {
+		buildStateFromScratch = true
+	}
+	if targetHeight > 0 {
+		if err := bc.recoverToHeight(targetHeight); err != nil {
+			return errors.Wrapf(err, "failed to recover blockchain to target height %d", targetHeight)
 		}
-		bc.tipHeight--
+		if stateHeight > bc.tipHeight {
+			buildStateFromScratch = true
+		}
 	}
-	return nil
-}
 
-// RefreshStateDB deletes the existing state DB and creates a new one with state changes from genesis block
-func (bc *blockchain) RefreshStateDB() error {
-	// Delete existing state DB and reinitialize it
-	if fileutil.FileExists(bc.config.Chain.TrieDBPath) && os.Remove(bc.config.Chain.TrieDBPath) != nil {
-		return errors.New("failed to delete existing state DB")
-	}
-	if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
-		return errors.Wrap(err, "failed to reinitialize state DB")
-	}
-	// Install vote protocol
-	voteProtocol := vote.NewProtocol(bc)
-	bc.sf.AddActionHandlers(voteProtocol)
-
-	if err := bc.sf.Start(context.Background()); err != nil {
-		return errors.Wrap(err, "failed to start state factory")
-	}
-	if err := bc.buildStateInGenesis(); err != nil {
-		return errors.Wrap(err, "failed to build state for genesis block")
-	}
-	if err := bc.sf.Stop(context.Background()); err != nil {
-		return errors.Wrap(err, "failed to stop state factory")
+	if buildStateFromScratch {
+		return bc.refreshStateDB()
 	}
 	return nil
 }
@@ -984,49 +968,26 @@ func (bc *blockchain) startEmptyBlockchain() error {
 	return nil
 }
 
-func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
+func (bc *blockchain) startExistingBlockchain() error {
 	if bc.sf == nil {
 		return errors.New("statefactory cannot be nil")
 	}
-	var startHeight uint64
-	if factoryHeight, err := bc.sf.Height(); err == nil {
-		if factoryHeight > bc.tipHeight {
-			return errors.New("factory is higher than blockchain")
-		}
-		startHeight = factoryHeight + 1
-	}
-	var buildStateFromScratch bool
-	// If restarting factory from fresh db, first update state changes in Genesis block
-	if startHeight == 0 {
-		buildStateFromScratch = true
-	}
-	if recoveryHeight > 0 {
-		if err := bc.RecoverToHeight(recoveryHeight); err != nil {
-			return errors.Wrapf(err, "failed to recover blockchain to target height %d", recoveryHeight)
-		}
-		if startHeight > bc.tipHeight {
-			buildStateFromScratch = true
-		}
-	}
 
-	if buildStateFromScratch {
-		if err := bc.RefreshStateDB(); err != nil {
-			return errors.Wrap(err, "failed to create a new state DB")
-		}
-		os.Exit(0)
-	}
-
-	ws, err := bc.sf.NewWorkingSet()
+	stateHeight, err := bc.sf.Height()
 	if err != nil {
-		return errors.Wrap(err, "failed to obtain working set from state factory")
+		return errors.New("invalid state DB")
+	}
+	if stateHeight > bc.tipHeight {
+		return errors.New("factory is higher than blockchain")
 	}
 
-	for i := startHeight; i <= bc.tipHeight; i++ {
+	for i := stateHeight + 1; i <= bc.tipHeight; i++ {
 		blk, err := bc.getBlockByHeight(i)
 		if err != nil {
 			return err
 		}
-		if ws, err = bc.sf.NewWorkingSet(); err != nil {
+		ws, err := bc.sf.NewWorkingSet()
+		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
 		if _, _, err := bc.runActions(blk.RunnableActions(), ws); err != nil {
@@ -1036,14 +997,14 @@ func (bc *blockchain) startExistingBlockchain(recoveryHeight uint64) error {
 			return err
 		}
 	}
-	factoryHeight, err := bc.sf.Height()
+	stateHeight, err = bc.sf.Height()
 	if err != nil {
 		return errors.Wrap(err, "failed to get factory's height")
 	}
 	log.L().Info("Restarting blockchain.",
 		zap.Uint64("chainHeight",
 			bc.tipHeight),
-		zap.Uint64("factoryHeight", factoryHeight))
+		zap.Uint64("factoryHeight", stateHeight))
 	return nil
 }
 
@@ -1189,6 +1150,42 @@ func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, 
 		return nil, nil, "", errors.Wrap(err, "failed to create address")
 	}
 	return pk, sk, addr.String(), nil
+}
+
+// RecoverToHeight recovers the blockchain to target height
+func (bc *blockchain) recoverToHeight(targetHeight uint64) error {
+	for bc.tipHeight > targetHeight {
+		if err := bc.dao.deleteTipBlock(); err != nil {
+			return err
+		}
+		bc.tipHeight--
+	}
+	return nil
+}
+
+// RefreshStateDB deletes the existing state DB and creates a new one with state changes from genesis block
+func (bc *blockchain) refreshStateDB() error {
+	// Delete existing state DB and reinitialize it
+	if fileutil.FileExists(bc.config.Chain.TrieDBPath) && os.Remove(bc.config.Chain.TrieDBPath) != nil {
+		return errors.New("failed to delete existing state DB")
+	}
+	if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
+		return errors.Wrap(err, "failed to reinitialize state DB")
+	}
+	// Install vote protocol
+	voteProtocol := vote.NewProtocol(bc)
+	bc.sf.AddActionHandlers(voteProtocol)
+
+	if err := bc.sf.Start(context.Background()); err != nil {
+		return errors.Wrap(err, "failed to start state factory")
+	}
+	if err := bc.buildStateInGenesis(); err != nil {
+		return errors.Wrap(err, "failed to build state for genesis block")
+	}
+	if err := bc.sf.Stop(context.Background()); err != nil {
+		return errors.Wrap(err, "failed to stop state factory")
+	}
+	return nil
 }
 
 func (bc *blockchain) buildStateInGenesis() error {

@@ -12,6 +12,7 @@ import (
 	"sort"
 	"testing"
 	"time"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-ethereum/crypto"
@@ -810,8 +811,11 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Delete state db and recover to tip
 	testutil.CleanupPath(t, testTriePath)
+	require.NoError(svr.Stop(ctx))
+	err = svr.Start(ctx)
+	require.True(strings.Contains(err.Error(), "invalid state DB"))
 	// Refresh state DB
-	require.NoError(bc.RefreshStateDB())
+	require.NoError(bc.RecoverChainAndState(0))
 	require.NoError(svr.Stop(ctx))
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
@@ -826,9 +830,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Recover to height 3 from empty state DB
 	testutil.CleanupPath(t, testTriePath)
-	require.NoError(bc.RefreshStateDB())
+	require.NoError(bc.RecoverChainAndState(3))
 	require.NoError(svr.Stop(ctx))
-	cfg.Chain.RecoveryHeight = uint64(3)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	// Build states from height 1 to 3
@@ -842,9 +845,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.Equal(21, len(candidates))
 
 	// Recover to height 2 from an existing state DB with Height 3
-	cfg.Chain.RecoveryHeight = uint64(2)
-	require.NoError(bc.RecoverToHeight(uint64(2)))
-	require.NoError(bc.RefreshStateDB())
+	require.NoError(bc.RecoverChainAndState(2))
 	require.NoError(svr.Stop(ctx))
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
