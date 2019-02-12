@@ -1,0 +1,155 @@
+
+// protoc -I . -I ../../proto/ --go_out=plugins=grpc:. api.proto
+syntax = "proto3";
+
+package apipb;
+
+import "action.proto";
+import "blockchain.proto";
+import "state.proto";
+
+service APIService {
+	rpc GetAccount(GetAccountRequest) returns (GetAccountResponse) {}
+
+	rpc GetActions(GetActionsRequest) returns (GetActionsResponse) {}
+
+	rpc GetAction(GetActionsRequest) returns (GetActionResponse) {}
+
+	rpc GetActionByAddress(GetActionByAddressRequest) returns (GetActionByAddressResponse) {}
+
+	rpc GetUnconfirmedActionsByAddress(GetUnconfirmedActionsByAddressRequest) returns (GetUnconfirmedActionsByAddressResponse){}
+
+	rpc GetActionsByBlock(GetActionsByBlockRequest) returns (GetActionsByBlockResponse) {}
+
+	rpc GetBlockMetas(GetBlockMetasRequest) returns (GetBlockMetasResponse) {}
+
+	rpc GetBlockMeta(GetBlockMetaRequest) returns (GetBlockMetaResponse) {}
+
+	rpc GetChainMeta(GetChainMetaRequest) returns (GetChainMetaResponse) {}
+
+	rpc SendAction(SendActionRequest) returns (SendActionResponse) {}
+
+	rpc GetReceiptByAction(GetReceiptByActionRequest) returns (GetReceiptByActionResponse) {}
+
+	rpc ReadContract(ReadContractRequest) returns (ReadContractResponse) {}
+
+	rpc SuggestGasPrice(SuggestGasPriceRequest) returns (SuggestGasPriceResponse) {}
+
+	rpc EstimateGasForAction(EstimateGasForActionRequest) returns (EstimateGasForActionResponse) {}
+}
+
+message GetAccountRequest {
+	string address = 1;
+}
+
+message GetAccountResponse {
+	iproto.AccountMeta accountMeta = 1;
+}
+
+message GetActionsRequest {
+	uint64 start = 1;
+	uint64 count = 2;
+}
+
+message GetActionsResponse {
+	repeated iproto.ActionPb actions = 1;
+}
+
+message GetActionRequest {
+	string actionHash = 1;
+	bool checkPending = 2;
+}
+
+message GetActionResponse {
+	iproto.ActionPb action = 1;
+}
+
+message GetActionByAddressRequest {
+	string address = 1;
+	uint64 start = 2;
+	uint64 count = 3;
+}
+
+message GetActionByAddressResponse {
+	repeated iproto.ActionPb actions = 1;
+}
+
+message GetUnconfirmedActionsByAddressRequest {
+	string address = 1;
+	uint64 start = 2;
+	uint64 count = 3;
+}
+
+message GetUnconfirmedActionsByAddressResponse {
+	repeated iproto.ActionPb actions = 1;
+}
+
+message GetActionsByBlockRequest {
+	string blkHash = 1;
+	uint64 start = 2;
+	uint64 count = 3;
+}
+
+message GetActionsByBlockResponse {
+	repeated iproto.ActionPb actions = 1;
+}
+
+message GetBlockMetasRequest {
+	uint64 start = 1;
+	uint64 count = 2;
+}
+
+message GetBlockMetasResponse {
+}
+
+message GetBlockMetaRequest {
+	string blkHash = 1;
+}
+
+message GetBlockMetaResponse {
+	iproto.BlockMeta blkMeta = 1;
+}
+
+message GetChainMetaRequest {}
+
+message GetChainMetaResponse {
+	iproto.ChainMeta chainMeta = 1;
+}
+
+message SendActionRequest {
+	iproto.ActionPb action = 1;
+}
+
+message SendActionResponse {
+	string actionHash = 1;
+}
+
+message GetReceiptByActionRequest {
+	string actionHash = 1;
+}
+
+message GetReceiptByActionResponse {
+	iproto.ReceiptPb receipt = 1;
+}
+
+message ReadContractRequest {
+	iproto.ActionPb action = 1;
+}
+
+message ReadContractResponse {
+	string hash = 1;
+}
+
+message SuggestGasPriceRequest {}
+
+message SuggestGasPriceResponse {
+	uint64 gasPrice = 1;
+}
+
+message EstimateGasForActionRequest {
+	iproto.ActionPb action = 1;
+}
+
+message EstimateGasForActionResponse {
+	uint64 gasPrice = 1;
+}
