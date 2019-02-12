@@ -1,7 +1,12 @@
+// Copyright (c) 2019 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
 
-// protoc -I . -I ../../proto/ --go_out=plugins=grpc:. api.proto
+// To compile the proto, run:
+//      protoc -I . -I ../../proto/ --go_out=plugins=grpc:. api.proto
 syntax = "proto3";
-
 package apipb;
 
 import "action.proto";
@@ -9,32 +14,38 @@ import "blockchain.proto";
 import "state.proto";
 
 service APIService {
+    // get the address detail of an address
 	rpc GetAccount(GetAccountRequest) returns (GetAccountResponse) {}
 
+    // get action(s) by:
+	// 1. start index and action count
+	// 2. action hash
+	// 3. address with start index and action count
+	// 4. get unconfirmed actions by address with start index and action count
+	// 5. block hash with start index and action count
 	rpc GetActions(GetActionsRequest) returns (GetActionsResponse) {}
 
-	rpc GetAction(GetActionsRequest) returns (GetActionResponse) {}
-
-	rpc GetActionByAddress(GetActionByAddressRequest) returns (GetActionByAddressResponse) {}
-
-	rpc GetUnconfirmedActionsByAddress(GetUnconfirmedActionsByAddressRequest) returns (GetUnconfirmedActionsByAddressResponse){}
-
-	rpc GetActionsByBlock(GetActionsByBlockRequest) returns (GetActionsByBlockResponse) {}
-
+    // get block metadata(s) by:
+	// 1. start index and block count
+	// 2. block hash
 	rpc GetBlockMetas(GetBlockMetasRequest) returns (GetBlockMetasResponse) {}
 
-	rpc GetBlockMeta(GetBlockMetaRequest) returns (GetBlockMetaResponse) {}
-
+    // get chain metadata
 	rpc GetChainMeta(GetChainMetaRequest) returns (GetChainMetaResponse) {}
 
+    // sendAction
 	rpc SendAction(SendActionRequest) returns (SendActionResponse) {}
 
+    // get receipt by action Hash
 	rpc GetReceiptByAction(GetReceiptByActionRequest) returns (GetReceiptByActionResponse) {}
 
+    // TODO: read contract
 	rpc ReadContract(ReadContractRequest) returns (ReadContractResponse) {}
 
+    // suggest gas price
 	rpc SuggestGasPrice(SuggestGasPriceRequest) returns (SuggestGasPriceResponse) {}
 
+    // estimate gas for action
 	rpc EstimateGasForAction(EstimateGasForActionRequest) returns (EstimateGasForActionResponse) {}
 }
 
@@ -47,21 +58,23 @@ message GetAccountResponse {
 }
 
 message GetActionsRequest {
+	oneof request {
+		GetActionsByIndexRequest byIndex = 1;
+		GetActionByHashRequest byHash = 2;
+		GetActionByHashRequest byAddr = 3;
+		GetUnconfirmedActionsByAddressRequest unconfirmedByAddr = 4;
+		GetActionsByBlockRequest byBlk = 5;
+	}
+}
+
+message GetActionsByIndexRequest {
 	uint64 start = 1;
 	uint64 count = 2;
 }
 
-message GetActionsResponse {
-	repeated iproto.ActionPb actions = 1;
-}
-
-message GetActionRequest {
+message GetActionByHashRequest {
 	string actionHash = 1;
 	bool checkPending = 2;
-}
-
-message GetActionResponse {
-	iproto.ActionPb action = 1;
 }
 
 message GetActionByAddressRequest {
@@ -70,18 +83,10 @@ message GetActionByAddressRequest {
 	uint64 count = 3;
 }
 
-message GetActionByAddressResponse {
-	repeated iproto.ActionPb actions = 1;
-}
-
 message GetUnconfirmedActionsByAddressRequest {
 	string address = 1;
 	uint64 start = 2;
 	uint64 count = 3;
-}
-
-message GetUnconfirmedActionsByAddressResponse {
-	repeated iproto.ActionPb actions = 1;
 }
 
 message GetActionsByBlockRequest {
@@ -90,24 +95,28 @@ message GetActionsByBlockRequest {
 	uint64 count = 3;
 }
 
-message GetActionsByBlockResponse {
+message GetActionsResponse {
 	repeated iproto.ActionPb actions = 1;
 }
 
 message GetBlockMetasRequest {
+	oneof request {
+		GetBlockMetasByIndexRequest byIndex = 1;
+		GetBlockMetaByHashRequest byHash = 2;
+	}
+}
+
+message GetBlockMetasByIndexRequest {
 	uint64 start = 1;
 	uint64 count = 2;
 }
 
-message GetBlockMetasResponse {
-}
-
-message GetBlockMetaRequest {
+message GetBlockMetaByHashRequest {
 	string blkHash = 1;
 }
 
-message GetBlockMetaResponse {
-	iproto.BlockMeta blkMeta = 1;
+message GetBlockMetasResponse {
+	repeated iproto.BlockMeta blkMetas = 1;
 }
 
 message GetChainMetaRequest {}
