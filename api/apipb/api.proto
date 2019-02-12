@@ -58,7 +58,7 @@ message GetAccountResponse {
 }
 
 message GetActionsRequest {
-	oneof request {
+	oneof lookup {
 		GetActionsByIndexRequest byIndex = 1;
 		GetActionByHashRequest byHash = 2;
 		GetActionByHashRequest byAddr = 3;
@@ -100,7 +100,7 @@ message GetActionsResponse {
 }
 
 message GetBlockMetasRequest {
-	oneof request {
+	oneof lookup {
 		GetBlockMetasByIndexRequest byIndex = 1;
 		GetBlockMetaByHashRequest byHash = 2;
 	}
@@ -129,9 +129,7 @@ message SendActionRequest {
 	iproto.ActionPb action = 1;
 }
 
-message SendActionResponse {
-	string actionHash = 1;
-}
+message SendActionResponse {}
 
 message GetReceiptByActionRequest {
 	string actionHash = 1;
@@ -146,7 +144,7 @@ message ReadContractRequest {
 }
 
 message ReadContractResponse {
-	string hash = 1;
+	string data = 1;
 }
 
 message SuggestGasPriceRequest {}
