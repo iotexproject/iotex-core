@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -47,6 +48,7 @@ func TestLocalCommit(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
+	genesisCfg := genesis.Default
 
 	// create server
 	ctx := context.Background()
@@ -149,8 +151,13 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
-	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain := blockchain.NewBlockchain(
+		cfg,
+		blockchain.DefaultStateFactoryOption(),
+		blockchain.BoltDBDaoOption(),
+		blockchain.GenesisOption(genesisCfg.Blockchain),
+	)
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NotNil(chain)
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
@@ -484,6 +491,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg, err := newTestConfig()
 	cfg.Chain.NumCandidates = 2
 	require.Nil(err)
+	genesisCfg := genesis.Default
 
 	// create node
 	ctx := context.Background()
@@ -523,8 +531,13 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
-	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain := blockchain.NewBlockchain(
+		cfg,
+		blockchain.DefaultStateFactoryOption(),
+		blockchain.BoltDBDaoOption(),
+		blockchain.GenesisOption(genesisCfg.Blockchain),
+	)
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol(),
 		vote.NewProtocol(chain))
 	require.NotNil(chain)

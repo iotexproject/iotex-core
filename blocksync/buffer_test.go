@@ -35,7 +35,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
 	chain := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)

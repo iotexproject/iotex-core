@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
@@ -66,9 +67,17 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	p2pAgent := p2p.NewAgent(cfg.Network, dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	chains := make(map[uint32]*chainservice.ChainService)
 	var cs *chainservice.ChainService
-	var opts []chainservice.Option
+	genesisConfig, err := genesis.New()
+	if err != nil {
+		return nil, err
+	}
+	opts := []chainservice.Option{
+		chainservice.WithGenesis(genesisConfig),
+	}
 	if testing {
-		opts = []chainservice.Option{chainservice.WithTesting()}
+		opts = []chainservice.Option{
+			chainservice.WithTesting(),
+		}
 	}
 	cs, err = chainservice.New(cfg, p2pAgent, dispatcher, opts...)
 	if err != nil {
@@ -78,11 +87,11 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// Add action validators
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
 	// Install protocols
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
@@ -171,6 +180,11 @@ func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Opti
 }
 
 func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
+	genesisConfig, err := genesis.New()
+	if err != nil {
+		return err
+	}
+	opts = append(opts, chainservice.WithGenesis(genesisConfig))
 	var mainChainAPI explorer.Explorer
 	if s.rootChainService.Explorer() != nil {
 		mainChainAPI = s.rootChainService.Explorer().Explorer()
@@ -182,11 +196,11 @@ func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Opti
 	}
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
 	if err := cs.RegisterProtocol(subchain.ProtocolID, subChainProtocol); err != nil {

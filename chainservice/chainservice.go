@@ -10,9 +10,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
@@ -21,8 +18,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -31,6 +30,7 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	iproto "github.com/iotexproject/iotex-core/proto"
 )
@@ -48,8 +48,9 @@ type ChainService struct {
 }
 
 type optionParams struct {
-	rootChainAPI explorerapi.Explorer
-	isTesting    bool
+	rootChainAPI  explorerapi.Explorer
+	isTesting     bool
+	genesisConfig genesis.Genesis
 }
 
 // Option sets ChainService construction parameter.
@@ -71,6 +72,14 @@ func WithTesting() Option {
 	}
 }
 
+// WithGenesis is an option to set genesis config
+func WithGenesis(genesisConfig genesis.Genesis) Option {
+	return func(ops *optionParams) error {
+		ops.genesisConfig = genesisConfig
+		return nil
+	}
+}
+
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(
 	cfg config.Config,
@@ -87,9 +96,17 @@ func New(
 
 	var chainOpts []blockchain.Option
 	if ops.isTesting {
-		chainOpts = []blockchain.Option{blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption()}
+		chainOpts = []blockchain.Option{
+			blockchain.InMemStateFactoryOption(),
+			blockchain.InMemDaoOption(),
+			blockchain.GenesisOption(ops.genesisConfig.Blockchain),
+		}
 	} else {
-		chainOpts = []blockchain.Option{blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption()}
+		chainOpts = []blockchain.Option{
+			blockchain.DefaultStateFactoryOption(),
+			blockchain.BoltDBDaoOption(),
+			blockchain.GenesisOption(ops.genesisConfig.Blockchain),
+		}
 	}
 
 	// create Blockchain

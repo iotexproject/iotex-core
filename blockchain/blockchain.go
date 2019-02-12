@@ -167,6 +167,8 @@ type blockchain struct {
 
 	// used by account-based model
 	sf factory.Factory
+
+	genesisConfig genesis.Blockchain
 }
 
 // Option sets blockchain construction parameter
@@ -244,6 +246,14 @@ func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain, conf config.Config) error {
 		bc.clk = clk
 
+		return nil
+	}
+}
+
+// GenesisOption sets the blockchain with the genesis configs
+func GenesisOption(genesisConfig genesis.Blockchain) Option {
+	return func(bc *blockchain, conf config.Config) error {
+		bc.genesisConfig = genesisConfig
 		return nil
 	}
 }
@@ -685,15 +695,17 @@ func (bc *blockchain) MintNewBlock(
 		return nil, err
 	}
 
-	gasLimitForContext := genesis.BlockGasLimit
+	gasLimitForContext := bc.genesisConfig.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
+			EpochNumber: 0, // TODO: need to get the actual epoch number from RollDPoS
 			BlockHeight: newblockHeight,
 			// this field should be removed
 			BlockHash:       hash.ZeroHash256,
 			BlockTimeStamp:  bc.now(),
 			Producer:        producer,
 			GasLimit:        &gasLimitForContext,
+			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
 	root, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
@@ -819,7 +831,7 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 	if err != nil {
 		return nil, err
 	}
-	gasLimit := genesis.BlockGasLimit
+	gasLimit := bc.genesisConfig.BlockGasLimit
 	raCtx := protocol.RunActionsCtx{
 		BlockHeight:     blk.Height(),
 		BlockHash:       blk.HashBlock(),
@@ -854,7 +866,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
-	gasLimit := genesis.BlockGasLimit
+	gasLimit := bc.genesisConfig.BlockGasLimit
 	callerAddr, err := address.FromString(addr)
 	if err != nil {
 		return nil, err
@@ -868,6 +880,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 			EpochNumber:     0,
 			Producer:        producer,
 			GasLimit:        &gasLimit,
+			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 			Caller:          callerAddr,
 			ActionHash:      hash.ZeroHash256,
@@ -1110,7 +1123,7 @@ func (bc *blockchain) runActions(
 	if bc.sf == nil {
 		return hash.ZeroHash256, nil, errors.New("statefactory cannot be nil")
 	}
-	gasLimit := genesis.BlockGasLimit
+	gasLimit := bc.genesisConfig.BlockGasLimit
 	// update state factory
 	producer, err := address.FromString(acts.BlockProducerAddr())
 	if err != nil {
@@ -1125,6 +1138,7 @@ func (bc *blockchain) runActions(
 			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
 			Producer:        producer,
 			GasLimit:        &gasLimit,
+			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
 
@@ -1169,7 +1183,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 		// than certain threshold
-		if *raCtx.GasLimit < genesis.MinimumBlockGasRemaining {
+		if *raCtx.GasLimit < bc.config.Chain.AllowedBlockGasResidue {
 			break
 		}
 	}
