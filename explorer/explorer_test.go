@@ -534,10 +534,12 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(len(executions), 2)
 
 	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, true)
-	res, err = svc.GetBlockOrActionByHash(transfers[0].sender)
-	addr, err = svc.GetAddressDetails(transfers[0].sender)
-
 	require.NoError(err)
+	res, err = svc.GetBlockOrActionByHash(transfers[0].sender)
+	require.NoError(err)
+	addr, err = svc.GetAddressDetails(transfers[0].sender)
+	require.NoError(err)
+
 	require.Nil(res.Block)
 	require.Nil(res.Transfer)
 	require.Nil(res.Execution)
