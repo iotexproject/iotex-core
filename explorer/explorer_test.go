@@ -537,7 +537,7 @@ func TestExplorerApi(t *testing.T) {
 	require.NoError(err)
 	res, err = svc.GetBlockOrActionByHash(transfers[0].Sender)
 	require.NoError(err)
-	addr, err = svc.GetAddressDetails(transfers[0].Sender)
+	addr, err := svc.GetAddressDetails(transfers[0].Sender)
 	require.NoError(err)
 
 	require.Nil(res.Block)
