@@ -370,6 +370,63 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Chain.EnableGasCharge = true
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	require.NoError(t, bc.Start(ctx))
+	defer require.NoError(t, bc.Stop(ctx))
+
+	addr0 := ta.Addrinfo["producer"].String()
+	priKey0 := ta.Keyinfo["producer"].PriKey
+	addr1 := ta.Addrinfo["alfa"].String()
+	addr3 := ta.Addrinfo["charlie"].String()
+	priKey3 := ta.Keyinfo["charlie"].PriKey
+	addTestingTsfBlocks(bc)
+
+	// test third block
+	bytes := []byte{}
+	for i := 0; i < 1000; i++ {
+		bytes = append(bytes, 1)
+	}
+	actionMap := make(map[string][]action.SealedEnvelope)
+	actions := make([]action.SealedEnvelope, 0)
+	for i := uint64(0); i < 300; i++ {
+		tsf, err := testutil.SignedTransfer(addr1, priKey0, i+7, big.NewInt(2), bytes,
+			1000000, big.NewInt(testutil.TestGasPrice))
+		require.NoError(t, err)
+		actions = append(actions, tsf)
+	}
+	actionMap[addr0] = actions
+	transfer1, err := testutil.SignedTransfer(addr1, priKey3, 7, big.NewInt(2),
+		[]byte{}, 100000, big.NewInt(testutil.TestGasPrice))
+	require.NoError(t, err)
+	actionMap[addr3] = []action.SealedEnvelope{transfer1}
+
+	blk, err := bc.MintNewBlock(
+		actionMap,
+		ta.Keyinfo["producer"].PubKey,
+		ta.Keyinfo["producer"].PriKey,
+		ta.Addrinfo["producer"].String(),
+		0,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, blk)
+	require.Equal(t, 182, len(blk.Actions))
+	whetherInclude := false
+	for _, action := range blk.Actions {
+		if transfer1.Hash() == action.Hash() {
+			whetherInclude = true
+			break
+		}
+	}
+	require.True(t, whetherInclude)
+}
+
 type MockSubscriber struct {
 	counter int
 	mu      sync.RWMutex

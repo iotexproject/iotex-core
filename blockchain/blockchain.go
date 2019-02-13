@@ -674,40 +674,50 @@ func (bc *blockchain) MintNewBlock(
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
 
-	// initial action iterator
-	actionIterator := actioniterator.NewActionIterator(actionMap)
-	actions, err := PickAction(genesis.BlockGasLimit, actionIterator)
+	newblockHeight := bc.tipHeight + 1
+	// run execution and update state trie root hash
+	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to pick actions")
+		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
+	producer, err := address.FromString(producerAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	gasLimitForContext := genesis.BlockGasLimit
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			BlockHeight: newblockHeight,
+			// this field should be removed
+			BlockHash:       hash.ZeroHash256,
+			BlockTimeStamp:  bc.now(),
+			Producer:        producer,
+			GasLimit:        &gasLimitForContext,
+			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+		})
+	root, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
+	}
+
+	ra := block.NewRunnableActionsBuilder().
+		SetHeight(newblockHeight).
+		SetTimeStamp(timestamp).
+		AddActions(actions...).
+		Build(producerAddr, producerPubKey)
 
 	validateActionsOnlyTimer := bc.timerFactory.NewTimer("ValidateActionsOnly")
 	if err := bc.validator.ValidateActionsOnly(
 		actions,
 		producerPubKey,
 		bc.ChainID(),
-		bc.tipHeight+1,
+		newblockHeight,
 	); err != nil {
 		validateActionsOnlyTimer.End()
 		return nil, err
 	}
 	validateActionsOnlyTimer.End()
-
-	ra := block.NewRunnableActionsBuilder().
-		SetHeight(bc.tipHeight+1).
-		SetTimeStamp(timestamp).
-		AddActions(actions...).
-		Build(producerAddr, producerPubKey)
-
-	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	root, rc, err := bc.runActions(ra, ws)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to update state changes in new block %d", bc.tipHeight+1)
-	}
 
 	blk, err := block.NewBuilder(ra).
 		SetChainID(bc.config.Chain.ID).
@@ -1108,9 +1118,10 @@ func (bc *blockchain) runActions(
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EpochNumber:     0, // TODO: need to get the actual epoch number from RollDPoS
-			BlockHeight:     acts.BlockHeight(),
-			BlockHash:       acts.TxHash(),
+			EpochNumber: 0, // TODO: need to get the actual epoch number from RollDPoS
+			BlockHeight: acts.BlockHeight(),
+			// this field should be removed
+			BlockHash:       hash.ZeroHash256,
 			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
 			Producer:        producer,
 			GasLimit:        &gasLimit,
@@ -1118,6 +1129,51 @@ func (bc *blockchain) runActions(
 		})
 
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
+}
+
+func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[string][]action.SealedEnvelope,
+	ws factory.WorkingSet) (hash.Hash256, []*action.Receipt, []action.SealedEnvelope, error) {
+	if bc.sf == nil {
+		return hash.ZeroHash256, nil, nil, errors.New("statefactory cannot be nil")
+	}
+	receipts := make([]*action.Receipt, 0)
+	executedActions := make([]action.SealedEnvelope, 0)
+
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		return hash.ZeroHash256, nil, nil, errors.New("failed to get action context")
+	}
+	// initial action iterator
+	actionIterator := actioniterator.NewActionIterator(actionMap)
+	for {
+		nextAction, ok := actionIterator.Next()
+		if !ok {
+			break
+		}
+
+		receipt, err := ws.RunAction(ctx, nextAction)
+		if err != nil {
+			if errors.Cause(err) == action.ErrHitGasLimit {
+				// hit block gas limit, we should not process actions belong to this user anymore since we
+				// need monotonically increasing nounce. But we can continue processing other actions
+				// that belong other users
+				actionIterator.PopAccount()
+				continue
+			}
+			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %s", nextAction.Hash())
+		}
+		if receipt != nil {
+			receipts = append(receipts, receipt)
+		}
+		executedActions = append(executedActions, nextAction)
+
+		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
+		// than certain threshold
+		if *raCtx.GasLimit < genesis.MinimumBlockGasRemaining {
+			break
+		}
+	}
+	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {
