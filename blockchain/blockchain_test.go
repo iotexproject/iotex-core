@@ -396,12 +396,14 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actions := make([]action.SealedEnvelope, 0)
 	for i := uint64(0); i < 300; i++ {
-		tsf, err := testutil.SignedTransfer(addr1, priKey0, i+7, big.NewInt(2), bytes, 1000000, big.NewInt(testutil.TestGasPrice))
+		tsf, err := testutil.SignedTransfer(addr1, priKey0, i+7, big.NewInt(2), bytes,
+			1000000, big.NewInt(testutil.TestGasPrice))
 		require.NoError(t, err)
 		actions = append(actions, tsf)
 	}
 	actionMap[addr0] = actions
-	transfer1, err := testutil.SignedTransfer(addr1, priKey3, 7, big.NewInt(2), []byte{}, 100000, big.NewInt(testutil.TestGasPrice))
+	transfer1, err := testutil.SignedTransfer(addr1, priKey3, 7, big.NewInt(2),
+		[]byte{}, 100000, big.NewInt(testutil.TestGasPrice))
 	require.NoError(t, err)
 	actionMap[addr3] = []action.SealedEnvelope{transfer1}
 
