@@ -10,9 +10,9 @@ import (
 	"context"
 	"math/big"
 	"sort"
+	"strings"
 	"testing"
 	"time"
-	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-ethereum/crypto"

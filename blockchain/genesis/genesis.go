@@ -11,4 +11,6 @@ const (
 	BlockGasLimit = uint64(20000000)
 	// ActionGasLimit is the per action gas limit cap
 	ActionGasLimit = BlockGasLimit / 4
+	// MinimumBlockGasRemaining is the threshold we should stop handle any further actions
+	MinimumBlockGasRemaining = 10000
 )

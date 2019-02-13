@@ -41,6 +41,7 @@ func (s *actionByPrice) Pop() interface{} {
 // ActionIterator define the interface of action iterator
 type ActionIterator interface {
 	Next() (action.SealedEnvelope, bool)
+	PopAccount()
 }
 
 type actionIterator struct {
@@ -93,4 +94,11 @@ func (ai *actionIterator) Next() (action.SealedEnvelope, bool) {
 	headAction := ai.heads[0]
 	ai.loadNextActionForTopAccount()
 	return headAction, true
+}
+
+// PopAccount will remove all actions related to this account
+func (ai *actionIterator) PopAccount() {
+	if len(ai.heads) != 0 {
+		heap.Pop(&ai.heads)
+	}
 }

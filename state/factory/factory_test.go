@@ -304,8 +304,9 @@ func TestCandidates(t *testing.T) {
 		})
 	_, _, err = ws.RunActions(zctx, 0, []action.SealedEnvelope{selp})
 	require.NotNil(t, err)
-	newRoot, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
+	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
+	newRoot = ws.UpdateBlockLevelInfo(0)
 	require.NotEqual(t, newRoot, root)
 	root = newRoot
 	require.Nil(t, sf.Commit(ws))
@@ -322,10 +323,11 @@ func TestCandidates(t *testing.T) {
 		SetDestinationAddress(b).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
-
-	newRoot, _, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp})
+	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
+	newRoot = ws.UpdateBlockLevelInfo(1)
 	require.NotEqual(t, newRoot, root)
+
 	root = newRoot
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
@@ -344,9 +346,11 @@ func TestCandidates(t *testing.T) {
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
-	newRoot, _, err = ws.RunActions(ctx, 2, []action.SealedEnvelope{selp})
+	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
+	newRoot = ws.UpdateBlockLevelInfo(2)
 	require.NotEqual(t, newRoot, root)
+
 	root = newRoot
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
@@ -365,9 +369,11 @@ func TestCandidates(t *testing.T) {
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
-	newRoot, _, err = ws.RunActions(ctx, 3, []action.SealedEnvelope{selp})
+	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
+	newRoot = ws.UpdateBlockLevelInfo(3)
 	require.NotEqual(t, newRoot, root)
+
 	root = newRoot
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
@@ -386,9 +392,11 @@ func TestCandidates(t *testing.T) {
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
-	newRoot, _, err = ws.RunActions(ctx, 4, []action.SealedEnvelope{selp})
+	_, err = ws.RunAction(ctx, selp)
 	require.Nil(t, err)
+	newRoot = ws.UpdateBlockLevelInfo(4)
 	require.NotEqual(t, newRoot, root)
+
 	root = newRoot
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
@@ -740,9 +748,13 @@ func TestCandidates(t *testing.T) {
 	selp2, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
-	newRoot, _, err = ws.RunActions(ctx, 20, []action.SealedEnvelope{selp1, selp2})
+	_, err = ws.RunAction(ctx, selp1)
 	require.Nil(t, err)
+	_, err = ws.RunAction(ctx, selp2)
+	require.Nil(t, err)
+	newRoot = ws.UpdateBlockLevelInfo(20)
 	require.NotEqual(t, newRoot, root)
+
 	root = newRoot
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
