@@ -7,6 +7,7 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
+option go_package = "github.com/iotexproject/iotex-core/proto";
 package iproto;
 
 import "action.proto";
@@ -108,10 +109,9 @@ message BlockMeta {
     int64 numActions = 4;
     string producerAddress = 5;
     string transferAmount = 6;
-    int64 size = 7;
-    string txRoot = 8;
-    string receiptRoot = 9;
-    string deltaStateDigest = 10;
+    string txRoot = 7;
+    string receiptRoot = 8;
+    string deltaStateDigest = 9;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -168,18 +167,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(
-		testaddress.Addrinfo["producer"].String(),
-		big.NewInt(0),
-	)
-	_, err = bc.CreateState(
-		testaddress.Addrinfo["alfa"].String(),
-		big.NewInt(0),
-	)
-	require.NoError(err)
-	p := NewProtocol(bc)
+	p := NewProtocol(nil)
 
 	// Caes I: Oversized data
 	var dst string
@@ -200,9 +188,4 @@ func TestProtocol_Validate(t *testing.T) {
 	err = p.Validate(ctx, vote)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating votee's address"))
-	// Case III: Votee is not a candidate
-	vote2, err := action.NewVote(1, testaddress.Addrinfo["alfa"].String(), uint64(100000), big.NewInt(0))
-	require.NoError(err)
-	err = p.Validate(ctx, vote2)
-	require.Equal(action.ErrVotee, errors.Cause(err))
 }
