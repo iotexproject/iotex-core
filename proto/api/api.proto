@@ -61,7 +61,7 @@ message GetActionsRequest {
 	oneof lookup {
 		GetActionsByIndexRequest byIndex = 1;
 		GetActionByHashRequest byHash = 2;
-		GetActionByHashRequest byAddr = 3;
+		GetActionsByAddressRequest byAddr = 3;
 		GetUnconfirmedActionsByAddressRequest unconfirmedByAddr = 4;
 		GetActionsByBlockRequest byBlk = 5;
 	}
@@ -77,7 +77,7 @@ message GetActionByHashRequest {
 	bool checkPending = 2;
 }
 
-message GetActionByAddressRequest {
+message GetActionsByAddressRequest {
 	string address = 1;
 	uint64 start = 2;
 	uint64 count = 3;
@@ -158,5 +158,5 @@ message EstimateGasForActionRequest {
 }
 
 message EstimateGasForActionResponse {
-	uint64 gasPrice = 1;
+	uint64 gas = 1;
 }
