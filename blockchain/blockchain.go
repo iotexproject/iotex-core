@@ -1154,6 +1154,9 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		receipt, err := ws.RunAction(ctx, nextAction)
 		if err != nil {
 			if errors.Cause(err) == action.ErrHitGasLimit {
+				// hit block gas limit, we should not process actions belong to this user anymore since we
+				// need monotonically increasing nounce. But we can continue processing other actions
+				// that belong other users
 				actionIterator.PopAccount()
 				continue
 			}
@@ -1164,6 +1167,8 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		}
 		executedActions = append(executedActions, nextAction)
 
+		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
+		// than certain threshold
 		if *raCtx.GasLimit < genesis.MinimumBlockGasRemaining {
 			break
 		}
