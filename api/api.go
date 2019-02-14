@@ -10,13 +10,15 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"net"
+	"strconv"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -25,11 +27,13 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/proto/api"
 )
 
 var (
@@ -58,51 +62,284 @@ func init() {
 type (
 	// BroadcastOutbound sends a broadcast message to the whole network
 	BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
-	// Neighbors returns the neighbors' addresses
-	Neighbors func(context.Context) ([]peerstore.PeerInfo, error)
-	// NetworkInfo returns the self network information
-	NetworkInfo func() peerstore.PeerInfo
 )
 
-// Service provide api for user to query blockchain data
-type Service struct {
-	bc                 blockchain.Blockchain
-	dp                 dispatcher.Dispatcher
-	ap                 actpool.ActPool
-	gs                 GasStation
-	broadcastHandler   BroadcastOutbound
-	neighborsHandler   Neighbors
-	networkInfoHandler NetworkInfo
-	cfg                config.API
-	idx                *indexservice.Server
+// Config represents the config to setup api
+type Config struct {
+	broadcastHandler BroadcastOutbound
+}
+
+// Option is the option to override the api config
+type Option func(cfg *Config) error
+
+// WithBroadcastOutbound is the option to broadcast msg outbound
+func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
+	return func(cfg *Config) error {
+		cfg.broadcastHandler = broadcastHandler
+		return nil
+	}
+}
+
+// Server provides api for user to query blockchain data
+type Server struct {
+	bc               blockchain.Blockchain
+	dp               dispatcher.Dispatcher
+	ap               actpool.ActPool
+	gs               *gasstation.GasStation
+	broadcastHandler BroadcastOutbound
+	cfg              config.API
+	idx              *indexservice.Server
+	grpcserver       *grpc.Server
+}
+
+// NewServer creates a new server
+func NewServer(
+	cfg config.API,
+	chain blockchain.Blockchain,
+	dispatcher dispatcher.Dispatcher,
+	actPool actpool.ActPool,
+	idx *indexservice.Server,
+	opts ...Option,
+) (*Server, error) {
+	apiCfg := Config{}
+	for _, opt := range opts {
+		if err := opt(&apiCfg); err != nil {
+			return nil, err
+		}
+	}
+
+	if cfg == (config.API{}) {
+		log.L().Warn("API server is not configured.")
+		cfg = config.Default.API
+	}
+
+	svr := &Server{
+		bc:               chain,
+		dp:               dispatcher,
+		ap:               actPool,
+		broadcastHandler: apiCfg.broadcastHandler,
+		cfg:              cfg,
+		idx:              idx,
+		gs:               gasstation.NewGasStation(chain, cfg),
+	}
+
+	svr.grpcserver = grpc.NewServer()
+	iotexapi.RegisterAPIServiceServer(svr.grpcserver, svr)
+	reflection.Register(svr.grpcserver)
+
+	return svr, nil
 }
 
 // GetAccount returns the metadata of an account
-func (api *Service) GetAccount(address string) (string, error) {
-	state, err := api.bc.StateByAddr(address)
+func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
+	state, err := api.bc.StateByAddr(in.Address)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	pendingNonce, err := api.ap.GetPendingNonce(address)
+	pendingNonce, err := api.ap.GetPendingNonce(in.Address)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	accountMeta := &iproto.AccountMeta{
-		Address:      address,
+		Address:      in.Address,
 		Balance:      state.Balance.String(),
 		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
 	}
+	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta}, nil
+}
 
-	var marshaler jsonpb.Marshaler
-	return marshaler.MarshalToString(accountMeta)
+// GetActions returns actions
+func (api *Server) GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error) {
+	switch {
+	case in.GetByIndex() != nil:
+		request := in.GetByIndex()
+		return api.getActions(request.Start, request.Count)
+	case in.GetByHash() != nil:
+		request := in.GetByHash()
+		return api.getAction(request.ActionHash, request.CheckPending)
+	case in.GetByAddr() != nil:
+		request := in.GetByAddr()
+		return api.getActionsByAddress(request.Address, request.Start, request.Count)
+	case in.GetUnconfirmedByAddr() != nil:
+		request := in.GetUnconfirmedByAddr()
+		return api.getUnconfirmedActionsByAddress(request.Address, request.Start, request.Count)
+	case in.GetByBlk() != nil:
+		request := in.GetByBlk()
+		return api.getActionsByBlock(request.BlkHash, request.Start, request.Count)
+	default:
+		return nil, nil
+	}
+}
+
+// GetBlockMetas returns block metadata
+func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetasRequest) (*iotexapi.GetBlockMetasResponse, error) {
+	switch {
+	case in.GetByIndex() != nil:
+		request := in.GetByIndex()
+		return api.getBlockMetas(request.Start, request.Count)
+	case in.GetByHash() != nil:
+		request := in.GetByHash()
+		return api.getBlockMeta(request.BlkHash)
+	default:
+		return nil, nil
+	}
+}
+
+// GetChainMeta returns blockchain metadata
+func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRequest) (*iotexapi.GetChainMetaResponse, error) {
+	tipHeight := api.bc.TipHeight()
+	totalActions, err := api.bc.GetTotalActions()
+	if err != nil {
+		return nil, err
+	}
+
+	blockLimit := int64(api.cfg.TpsWindow)
+	if blockLimit <= 0 {
+		return nil, errors.Wrapf(ErrInternalServer, "block limit is %d", blockLimit)
+	}
+
+	// avoid genesis block
+	if int64(tipHeight) < blockLimit {
+		blockLimit = int64(tipHeight)
+	}
+	r, err := api.getBlockMetas(tipHeight, uint64(blockLimit))
+	if err != nil {
+		return nil, err
+	}
+	blks := r.BlkMetas
+
+	if len(blks) == 0 {
+		return nil, errors.New("get 0 blocks! not able to calculate aps")
+	}
+
+	timeDuration := blks[0].Timestamp - blks[len(blks)-1].Timestamp
+	// if time duration is less than 1 second, we set it to be 1 second
+	if timeDuration == 0 {
+		timeDuration = 1
+	}
+
+	tps := int64(totalActions) / timeDuration
+
+	chainMeta := &iproto.ChainMeta{
+		Height:     tipHeight,
+		Supply:     blockchain.Gen.TotalSupply.String(),
+		NumActions: int64(totalActions),
+		Tps:        tps,
+	}
+
+	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta}, nil
+}
+
+// SendAction is the API to send an action to blockchain.
+func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (res *iotexapi.SendActionResponse, err error) {
+	log.L().Debug("receive send action request")
+
+	defer func() {
+		succeed := "true"
+		if err != nil {
+			succeed = "false"
+		}
+		requestMtc.WithLabelValues("SendAction", succeed).Inc()
+	}()
+
+	// broadcast to the network
+	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
+		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
+	}
+	// send to actpool via dispatcher
+	api.dp.HandleBroadcast(context.Background(), api.bc.ChainID(), in.Action)
+
+	return &iotexapi.SendActionResponse{}, nil
+}
+
+// GetReceiptByAction gets receipt with corresponding action hash
+func (api *Server) GetReceiptByAction(ctx context.Context, in *iotexapi.GetReceiptByActionRequest) (*iotexapi.GetReceiptByActionResponse, error) {
+	actHash, err := toHash256(in.ActionHash)
+	if err != nil {
+		return nil, err
+	}
+	receipt, err := api.bc.GetReceiptByActionHash(actHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return &iotexapi.GetReceiptByActionResponse{Receipt: receipt.ConvertToReceiptPb()}, nil
+}
+
+// ReadContract reads the state in a contract address specified by the slot
+func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRequest) (*iotexapi.ReadContractResponse, error) {
+	log.L().Debug("receive read smart contract request")
+
+	selp := &action.SealedEnvelope{}
+	if err := selp.LoadProto(in.Action); err != nil {
+		return nil, err
+	}
+	sc, ok := selp.Action().(*action.Execution)
+	if !ok {
+		return nil, errors.New("not execution")
+	}
+
+	callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
+	callerAddr, err := address.FromBytes(callerPKHash[:])
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := api.bc.ExecuteContractRead(callerAddr, sc)
+	if err != nil {
+		return nil, err
+	}
+	return &iotexapi.ReadContractResponse{Data: hex.EncodeToString(res.ReturnValue)}, nil
+}
+
+// SuggestGasPrice suggests gas price
+func (api *Server) SuggestGasPrice(ctx context.Context, in *iotexapi.SuggestGasPriceRequest) (*iotexapi.SuggestGasPriceResponse, error) {
+	suggestPrice, err := api.gs.SuggestGasPrice()
+	if err != nil {
+		return nil, err
+	}
+	return &iotexapi.SuggestGasPriceResponse{GasPrice: suggestPrice}, nil
+}
+
+// EstimateGasForAction estimates gas for action
+func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.EstimateGasForActionRequest) (*iotexapi.EstimateGasForActionResponse, error) {
+	estimateGas, err := api.gs.EstimateGasForAction(in.Action)
+	if err != nil {
+		return nil, err
+	}
+	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
+}
+
+// Start starts the API server
+func (api *Server) Start() error {
+	portStr := strconv.Itoa(api.cfg.Port)
+	lis, err := net.Listen("tcp", portStr)
+	if err != nil {
+		log.L().Error("API server failed to listen.", zap.Error(err))
+		return errors.Wrap(err, "API server failed to listen")
+	}
+	log.L().Info("API server is listening.", zap.String("addr", lis.Addr().String()))
+
+	go func() {
+		if err := api.grpcserver.Serve(lis); err != nil {
+			log.L().Fatal("Node failed to serve.", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+// Stop stops the API server
+func (api *Server) Stop() error {
+	api.grpcserver.Stop()
+	log.L().Info("API server stops.")
+	return nil
 }
 
 // GetActions returns actions within the range
-func (api *Service) GetActions(start int64, count int64) ([]string, error) {
-	var marshaler jsonpb.Marshaler
-	var res []string
-	var actionCount int64
+func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	var res []*iproto.ActionPb
+	var actionCount uint64
 
 	tipHeight := api.bc.TipHeight()
 	for height := int64(tipHeight); height >= 0; height-- {
@@ -118,32 +355,32 @@ func (api *Service) GetActions(start int64, count int64) ([]string, error) {
 				continue
 			}
 
-			if int64(len(res)) >= count {
-				return res, nil
+			if uint64(len(res)) >= count {
+				return &iotexapi.GetActionsResponse{Actions: res}, nil
 			}
-			actString, err := marshaler.MarshalToString(selps[i].Proto())
-			if err != nil {
-				return nil, err
-			}
-			res = append(res, actString)
+			res = append(res, selps[i].Proto())
 		}
 	}
 
-	return res, nil
+	return &iotexapi.GetActionsResponse{Actions: res}, nil
 }
 
-// GetAction returns action by action hash
-func (api *Service) GetAction(actionHash string, checkPending bool) (string, error) {
+// getAction returns action by action hash
+func (api *Server) getAction(actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
 	actHash, err := toHash256(actionHash)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return getAction(api.bc, api.ap, actHash, checkPending)
+	actPb, err := getAction(api.bc, api.ap, actHash, checkPending)
+	if err != nil {
+		return nil, err
+	}
+	return &iotexapi.GetActionsResponse{Actions: []*iproto.ActionPb{actPb}}, nil
 }
 
-// GetActionsByAddress returns all actions associated with an address
-func (api *Service) GetActionsByAddress(address string, start int64, count int64) ([]string, error) {
-	var res []string
+// getActionsByAddress returns all actions associated with an address
+func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	var res []*iproto.ActionPb
 	var actions []hash.Hash256
 	if api.cfg.UseRDS {
 		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
@@ -166,7 +403,7 @@ func (api *Service) GetActionsByAddress(address string, start int64, count int64
 		actions = append(actions, actionsFromAddress...)
 	}
 
-	var actionCount int64
+	var actionCount uint64
 	for i := len(actions) - 1; i >= 0; i-- {
 		actionCount++
 
@@ -174,26 +411,25 @@ func (api *Service) GetActionsByAddress(address string, start int64, count int64
 			continue
 		}
 
-		if int64(len(res)) >= count {
+		if uint64(len(res)) >= count {
 			break
 		}
 
-		actString, err := getAction(api.bc, api.ap, actions[i], false)
+		actPb, err := getAction(api.bc, api.ap, actions[i], false)
 		if err != nil {
 			return nil, err
 		}
 
-		res = append(res, actString)
+		res = append(res, actPb)
 	}
 
-	return res, nil
+	return &iotexapi.GetActionsResponse{Actions: res}, nil
 }
 
-// GetUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
-func (api *Service) GetUnconfirmedActionsByAddress(address string, start int64, count int64) ([]string, error) {
-	var marshaler jsonpb.Marshaler
-	var res []string
-	var actionCount int64
+// getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
+func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	var res []*iproto.ActionPb
+	var actionCount uint64
 
 	selps := api.ap.GetUnconfirmedActs(address)
 	for i := len(selps) - 1; i >= 0; i-- {
@@ -203,24 +439,19 @@ func (api *Service) GetUnconfirmedActionsByAddress(address string, start int64, 
 			continue
 		}
 
-		if int64(len(res)) >= count {
+		if uint64(len(res)) >= count {
 			break
 		}
 
-		actString, err := marshaler.MarshalToString(selps[i].Proto())
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, actString)
+		res = append(res, selps[i].Proto())
 	}
 
-	return res, nil
+	return &iotexapi.GetActionsResponse{Actions: res}, nil
 }
 
-// GetActionsByBlock returns all actions in a block
-func (api *Service) GetActionsByBlock(blkHash string, start int64, count int64) ([]string, error) {
-	var marshaler jsonpb.Marshaler
-	var res []string
+// getActionsByBlock returns all actions in a block
+func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	var res []*iproto.ActionPb
 	hash, err := toHash256(blkHash)
 	if err != nil {
 		return nil, err
@@ -232,7 +463,7 @@ func (api *Service) GetActionsByBlock(blkHash string, start int64, count int64) 
 	}
 
 	selps := blk.Actions
-	var actionCount int64
+	var actionCount uint64
 	for i := len(selps) - 1; i >= 0; i-- {
 		actionCount++
 
@@ -240,26 +471,21 @@ func (api *Service) GetActionsByBlock(blkHash string, start int64, count int64) 
 			continue
 		}
 
-		if int64(len(res)) >= count {
+		if uint64(len(res)) >= count {
 			break
 		}
 
-		actString, err := marshaler.MarshalToString(selps[i].Proto())
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, actString)
+		res = append(res, selps[i].Proto())
 	}
-	return res, nil
+	return &iotexapi.GetActionsResponse{Actions: res}, nil
 }
 
-// GetBlockMetas gets block within the height range
-func (api *Service) GetBlockMetas(start int64, number int64) ([]string, error) {
-	var marshaler jsonpb.Marshaler
-	var res []string
+// getBlockMetas gets block within the height range
+func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
+	var res []*iproto.BlockMeta
 
 	startHeight := api.bc.TipHeight()
-	var blkCount int64
+	var blkCount uint64
 	for height := int(startHeight); height >= 0; height-- {
 		blkCount++
 
@@ -267,7 +493,7 @@ func (api *Service) GetBlockMetas(start int64, number int64) ([]string, error) {
 			continue
 		}
 
-		if int64(len(res)) >= number {
+		if uint64(len(res)) >= number {
 			break
 		}
 
@@ -295,27 +521,22 @@ func (api *Service) GetBlockMetas(start int64, number int64) ([]string, error) {
 			DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 		}
 
-		blkMetaString, err := marshaler.MarshalToString(blockMeta)
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, blkMetaString)
+		res = append(res, blockMeta)
 	}
 
-	return res, nil
+	return &iotexapi.GetBlockMetasResponse{BlkMetas: res}, nil
 }
 
-// GetBlockMeta returns block by block hash
-func (api *Service) GetBlockMeta(blkHash string) (string, error) {
+// getBlockMeta returns block by block hash
+func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse, error) {
 	hash, err := toHash256(blkHash)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	blk, err := api.bc.GetBlockByHash(hash)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	blkHeaderPb := blk.ConvertToBlockHeaderPb()
@@ -336,150 +557,7 @@ func (api *Service) GetBlockMeta(blkHash string) (string, error) {
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 	}
 
-	var marshaler jsonpb.Marshaler
-	return marshaler.MarshalToString(blockMeta)
-}
-
-// GetChainMeta returns blockchain metadata
-func (api *Service) GetChainMeta() (string, error) {
-	tipHeight := api.bc.TipHeight()
-	totalActions, err := api.bc.GetTotalActions()
-	if err != nil {
-		return "", err
-	}
-
-	blockLimit := int64(api.cfg.TpsWindow)
-	if blockLimit <= 0 {
-		return "", errors.Wrapf(ErrInternalServer, "block limit is %d", blockLimit)
-	}
-
-	// avoid genesis block
-	if int64(tipHeight) < blockLimit {
-		blockLimit = int64(tipHeight)
-	}
-	blkStrs, err := api.GetBlockMetas(int64(tipHeight), blockLimit)
-	if err != nil {
-		return "", err
-	}
-
-	if len(blkStrs) == 0 {
-		return "", errors.New("get 0 blocks! not able to calculate aps")
-	}
-
-	var lastBlk iproto.BlockMeta
-	if err := jsonpb.UnmarshalString(blkStrs[0], &lastBlk); err != nil {
-		return "", err
-	}
-	var firstBlk iproto.BlockMeta
-	if err := jsonpb.UnmarshalString(blkStrs[len(blkStrs)-1], &firstBlk); err != nil {
-		return "", err
-	}
-
-	timeDuration := lastBlk.Timestamp - firstBlk.Timestamp
-	// if time duration is less than 1 second, we set it to be 1 second
-	if timeDuration == 0 {
-		timeDuration = 1
-	}
-
-	tps := int64(totalActions) / timeDuration
-
-	chainMeta := &iproto.ChainMeta{
-		Height:     tipHeight,
-		Supply:     blockchain.Gen.TotalSupply.String(),
-		NumActions: int64(totalActions),
-		Tps:        tps,
-	}
-
-	var marshaler jsonpb.Marshaler
-	return marshaler.MarshalToString(chainMeta)
-}
-
-// SendAction is the API to send an action to blockchain.
-func (api *Service) SendAction(req string) (res string, err error) {
-	log.L().Debug("receive send action request")
-
-	defer func() {
-		succeed := "true"
-		if err != nil {
-			succeed = "false"
-		}
-		requestMtc.WithLabelValues("SendAction", succeed).Inc()
-	}()
-	var act iproto.ActionPb
-
-	if err := jsonpb.UnmarshalString(req, &act); err != nil {
-		return "", err
-	}
-
-	// broadcast to the network
-	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), &act); err != nil {
-		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
-	}
-	// send to actpool via dispatcher
-	api.dp.HandleBroadcast(context.Background(), api.bc.ChainID(), &act)
-
-	var selp action.SealedEnvelope
-	if err := selp.LoadProto(&act); err != nil {
-		return "", err
-	}
-
-	hash := selp.Hash()
-	return hex.EncodeToString(hash[:]), nil
-}
-
-// GetReceiptByAction gets receipt with corresponding action hash
-func (api *Service) GetReceiptByAction(hash string) (string, error) {
-	actHash, err := toHash256(hash)
-	if err != nil {
-		return "", err
-	}
-	receipt, err := api.bc.GetReceiptByActionHash(actHash)
-	if err != nil {
-		return "", err
-	}
-
-	var marshaler jsonpb.Marshaler
-	return marshaler.MarshalToString(receipt.ConvertToReceiptPb())
-}
-
-// ReadContract reads the state in a contract address specified by the slot
-func (api *Service) ReadContract(request string) (string, error) {
-	log.L().Debug("receive read smart contract request")
-
-	var actPb iproto.ActionPb
-	if err := jsonpb.UnmarshalString(request, &actPb); err != nil {
-		return "", err
-	}
-	selp := &action.SealedEnvelope{}
-	if err := selp.LoadProto(&actPb); err != nil {
-		return "", err
-	}
-	sc, ok := selp.Action().(*action.Execution)
-	if !ok {
-		return "", errors.New("not execution")
-	}
-
-	callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-	callerAddr, err := address.FromBytes(callerPKHash[:])
-	if err != nil {
-		return "", err
-	}
-
-	res, err := api.bc.ExecuteContractRead(callerAddr, sc)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(res.ReturnValue), nil
-}
-
-// SuggestGasPrice suggests gas price
-func (api *Service) SuggestGasPrice() (int64, error) {
-	return api.gs.suggestGasPrice()
-}
-
-// EstimateGasForAction estimates gas for action
-func (api *Service) EstimateGasForAction(request string) (int64, error) {
-	return api.gs.estimateGasForAction(request)
+	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iproto.BlockMeta{blockMeta}}, nil
 }
 
 func toHash256(hashString string) (hash.Hash256, error) {
@@ -492,8 +570,7 @@ func toHash256(hashString string) (hash.Hash256, error) {
 	return hash, nil
 }
 
-func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash256, checkPending bool) (string, error) {
-	var marshaler jsonpb.Marshaler
+func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash256, checkPending bool) (*iproto.ActionPb, error) {
 	var selp action.SealedEnvelope
 	var err error
 	if selp, err = bc.GetActionByActionHash(actHash); err != nil {
@@ -503,9 +580,9 @@ func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash25
 		}
 	}
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return marshaler.MarshalToString(selp.Proto())
+	return selp.Proto(), nil
 }
 
 func getTranferAmountInBlock(blk *block.Block) *big.Int {
