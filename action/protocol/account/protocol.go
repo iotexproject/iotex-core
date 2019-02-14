@@ -21,6 +21,10 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
+// ProtocolID is the protocol ID
+// TODO: it works only for one instance per protocol definition now
+const ProtocolID = "account"
+
 // Protocol defines the protocol of handling account
 type Protocol struct{}
 

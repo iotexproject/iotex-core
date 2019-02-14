@@ -10,20 +10,20 @@ import (
 	"context"
 	"math/big"
 
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 const (
-	// BlockReward indicates that the action is to grant block reward
-	BlockReward = iota
-	// EpochReward indicates that the action is to grant epoch reward
-	EpochReward
+	// ProtocolID is the protocol ID
+	// TODO: it works only for one instance per protocol definition now
+	ProtocolID = "rewarding"
 )
 
 var (
@@ -38,20 +38,20 @@ var (
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
-	addr      address.Address
 	keyPrefix []byte
+	addr      address.Address
 }
 
-// NewProtocol instantiates a rewarding protocol instance. The address of the protocol is defined by the creator's
-// address and the nonce of creating it
-func NewProtocol(caller address.Address, nonce uint64) *Protocol {
-	var nonceBytes [8]byte
-	enc.MachineEndian.PutUint64(nonceBytes[:], nonce)
-	h := hash.Hash160b(append(caller.Bytes(), nonceBytes[:]...))
-	addr, _ := address.FromBytes(h[:])
+// NewProtocol instantiates a rewarding protocol instance.
+func NewProtocol() *Protocol {
+	h := hash.Hash160b([]byte(ProtocolID))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
+	}
 	return &Protocol{
-		addr:      addr,
 		keyPrefix: h[:],
+		addr:      addr,
 	}
 }
 
@@ -63,9 +63,9 @@ func (p *Protocol) Handle(
 ) (*action.Receipt, error) {
 	// TODO: simplify the boilerplate
 	switch act := act.(type) {
-	case *SetReward:
+	case *action.SetReward:
 		switch act.RewardType() {
-		case BlockReward:
+		case action.BlockReward:
 			gasConsumed, err := act.IntrinsicGas()
 			if err != nil {
 				return p.settleAction(ctx, sm, 1, 0), nil
@@ -74,7 +74,7 @@ func (p *Protocol) Handle(
 				return p.settleAction(ctx, sm, 1, gasConsumed), nil
 			}
 			return p.settleAction(ctx, sm, 0, gasConsumed), nil
-		case EpochReward:
+		case action.EpochReward:
 			gasConsumed, err := act.IntrinsicGas()
 			if err != nil {
 				return p.settleAction(ctx, sm, 1, 0), nil
@@ -84,16 +84,16 @@ func (p *Protocol) Handle(
 			}
 			return p.settleAction(ctx, sm, 0, gasConsumed), nil
 		}
-	case *DonateToRewardingFund:
+	case *action.DepositToRewardingFund:
 		gasConsumed, err := act.IntrinsicGas()
 		if err != nil {
 			return p.settleAction(ctx, sm, 1, 0), nil
 		}
-		if err := p.Donate(ctx, sm, act.Amount()); err != nil {
+		if err := p.Deposit(ctx, sm, act.Amount()); err != nil {
 			return p.settleAction(ctx, sm, 1, gasConsumed), nil
 		}
 		return p.settleAction(ctx, sm, 0, gasConsumed), nil
-	case *ClaimFromRewardingFund:
+	case *action.ClaimFromRewardingFund:
 		gasConsumed, err := act.IntrinsicGas()
 		if err != nil {
 			return p.settleAction(ctx, sm, 1, 0), nil
@@ -102,9 +102,9 @@ func (p *Protocol) Handle(
 			return p.settleAction(ctx, sm, 1, gasConsumed), nil
 		}
 		return p.settleAction(ctx, sm, 0, gasConsumed), nil
-	case *GrantReward:
+	case *action.GrantReward:
 		switch act.RewardType() {
-		case BlockReward:
+		case action.BlockReward:
 			gasConsumed, err := act.IntrinsicGas()
 			if err != nil {
 				return p.settleAction(ctx, sm, 1, 0), nil
@@ -113,7 +113,7 @@ func (p *Protocol) Handle(
 				return p.settleAction(ctx, sm, 1, gasConsumed), nil
 			}
 			return p.settleAction(ctx, sm, 0, gasConsumed), nil
-		case EpochReward:
+		case action.EpochReward:
 			gasConsumed, err := act.IntrinsicGas()
 			if err != nil {
 				return p.settleAction(ctx, sm, 1, 0), nil

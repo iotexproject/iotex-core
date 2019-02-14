@@ -19,8 +19,13 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 )
 
-// ExecutionSizeLimit is the maximum size of execution allowed
-const ExecutionSizeLimit = 32 * 1024
+const (
+	// ExecutionSizeLimit is the maximum size of execution allowed
+	ExecutionSizeLimit = 32 * 1024
+	// ProtocolID is the protocol ID
+	// TODO: it works only for one instance per protocol definition now
+	ProtocolID = "smart_contract"
+)
 
 // Protocol defines the protocol of handling executions
 type Protocol struct {

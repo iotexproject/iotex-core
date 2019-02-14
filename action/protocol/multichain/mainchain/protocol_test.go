@@ -18,8 +18,10 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -29,25 +31,31 @@ func TestAddSubChainActions(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := config.Default
-	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	genesisCfg := genesis.Default
+	bc := blockchain.NewBlockchain(
+		config.Default,
+		blockchain.InMemStateFactoryOption(),
+		blockchain.InMemDaoOption(),
+		blockchain.GenesisOption(genesisCfg),
+	)
 	require.NoError(t, bc.Start(ctx))
 	_, err := bc.CreateState(
 		testaddress.Addrinfo["producer"].String(),
-		big.NewInt(0).Mul(big.NewInt(10000000000), big.NewInt(blockchain.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(10000000000), big.NewInt(unit.Iotx)),
 	)
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.NoError(t, err)
 	p := NewProtocol(bc)
 	ap.AddActionValidators(p)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
 	defer require.NoError(t, bc.Stop(ctx))
 
 	startSubChain := action.NewStartSubChain(
 		1,
 		2,
 		MinSecurityDeposit,
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		uint64(1000),

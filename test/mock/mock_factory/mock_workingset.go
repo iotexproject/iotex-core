@@ -36,6 +36,31 @@ func (m *MockWorkingSet) EXPECT() *MockWorkingSetMockRecorder {
 	return m.recorder
 }
 
+// RunAction mocks base method
+func (m *MockWorkingSet) RunAction(arg0 context.Context, arg1 action.SealedEnvelope) (*action.Receipt, error) {
+	ret := m.ctrl.Call(m, "RunAction", arg0, arg1)
+	ret0, _ := ret[0].(*action.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunAction indicates an expected call of RunAction
+func (mr *MockWorkingSetMockRecorder) RunAction(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAction", reflect.TypeOf((*MockWorkingSet)(nil).RunAction), arg0, arg1)
+}
+
+// UpdateBlockLevelInfo mocks base method
+func (m *MockWorkingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
+	ret := m.ctrl.Call(m, "UpdateBlockLevelInfo", blockHeight)
+	ret0, _ := ret[0].(hash.Hash256)
+	return ret0
+}
+
+// UpdateBlockLevelInfo indicates an expected call of UpdateBlockLevelInfo
+func (mr *MockWorkingSetMockRecorder) UpdateBlockLevelInfo(blockHeight interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBlockLevelInfo", reflect.TypeOf((*MockWorkingSet)(nil).UpdateBlockLevelInfo), blockHeight)
+}
+
 // RunActions mocks base method
 func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.SealedEnvelope) (hash.Hash256, []*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2)

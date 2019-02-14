@@ -10,9 +10,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
@@ -21,8 +18,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -31,6 +30,7 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	iproto "github.com/iotexproject/iotex-core/proto"
 )
@@ -44,12 +44,13 @@ type ChainService struct {
 	explorer     *explorer.Server
 	indexBuilder *blockchain.IndexBuilder
 	indexservice *indexservice.Server
-	protocols    []protocol.Protocol
+	registry     *protocol.Registry
 }
 
 type optionParams struct {
-	rootChainAPI explorerapi.Explorer
-	isTesting    bool
+	rootChainAPI  explorerapi.Explorer
+	isTesting     bool
+	genesisConfig genesis.Genesis
 }
 
 // Option sets ChainService construction parameter.
@@ -71,6 +72,14 @@ func WithTesting() Option {
 	}
 }
 
+// WithGenesis is an option to set genesis config
+func WithGenesis(genesisConfig genesis.Genesis) Option {
+	return func(ops *optionParams) error {
+		ops.genesisConfig = genesisConfig
+		return nil
+	}
+}
+
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(
 	cfg config.Config,
@@ -87,10 +96,18 @@ func New(
 
 	var chainOpts []blockchain.Option
 	if ops.isTesting {
-		chainOpts = []blockchain.Option{blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption()}
+		chainOpts = []blockchain.Option{
+			blockchain.InMemStateFactoryOption(),
+			blockchain.InMemDaoOption(),
+		}
 	} else {
-		chainOpts = []blockchain.Option{blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption()}
+		chainOpts = []blockchain.Option{
+			blockchain.DefaultStateFactoryOption(),
+			blockchain.BoltDBDaoOption(),
+		}
 	}
+	registry := protocol.Registry{}
+	chainOpts = append(chainOpts, blockchain.GenesisOption(ops.genesisConfig), blockchain.RegistryOption(&registry))
 
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
@@ -185,6 +202,7 @@ func New(
 		indexservice: idx,
 		indexBuilder: indexBuilder,
 		explorer:     exp,
+		registry:     &registry,
 	}, nil
 }
 
@@ -328,17 +346,16 @@ func (cs *ChainService) Explorer() *explorer.Server {
 	return cs.explorer
 }
 
-// Protocols returns the protocols
-func (cs *ChainService) Protocols() []protocol.Protocol {
-	return cs.protocols
+// RegisterProtocol register a protocol
+func (cs *ChainService) RegisterProtocol(id string, p protocol.Protocol) error {
+	if err := cs.registry.Register(id, p); err != nil {
+		return err
+	}
+	cs.chain.GetFactory().AddActionHandlers(p)
+	cs.actpool.AddActionValidators(p)
+	cs.chain.Validator().AddActionValidators(p)
+	return nil
 }
 
-// AddProtocols add the protocols
-func (cs *ChainService) AddProtocols(protocols ...protocol.Protocol) {
-	cs.protocols = append(cs.protocols, protocols...)
-	for _, protocol := range protocols {
-		cs.chain.GetFactory().AddActionHandlers(protocol)
-		cs.actpool.AddActionValidators(protocol)
-		cs.chain.Validator().AddActionValidators(protocol)
-	}
-}
+// Registry returns a pointer to the registry
+func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }

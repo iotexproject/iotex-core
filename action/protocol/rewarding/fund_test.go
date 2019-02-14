@@ -25,10 +25,10 @@ func TestProtocol_Fund(t *testing.T) {
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
 
-		// Donate 5 token
+		// Deposit 5 token
 		ws, err := stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.NoError(t, p.Donate(ctx, ws, big.NewInt(5)))
+		require.NoError(t, p.Deposit(ctx, ws, big.NewInt(5)))
 		require.NoError(t, stateDB.Commit(ws))
 
 		ws, err = stateDB.NewWorkingSet()
@@ -42,10 +42,10 @@ func TestProtocol_Fund(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 
-		// Donate another 6 token will fail because
+		// Deposit another 6 token will fail because
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.Error(t, p.Donate(ctx, ws, big.NewInt(996)))
+		require.Error(t, p.Deposit(ctx, ws, big.NewInt(996)))
 	})
 
 }

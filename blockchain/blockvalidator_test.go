@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -78,6 +79,7 @@ func TestSignBlock(t *testing.T) {
 
 func TestWrongNonce(t *testing.T) {
 	cfg := config.Default
+	genesisCfg := genesis.Default
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
@@ -88,7 +90,7 @@ func TestWrongNonce(t *testing.T) {
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisCfg))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -97,7 +99,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(addCreatorToFactory(sf))
 
 	val := &validator{sf: sf, validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
 	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	// correct nonce
@@ -238,7 +240,8 @@ func TestWrongNonce(t *testing.T) {
 func TestWrongAddress(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	genesisCfg := genesis.Default
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), GenesisOption(genesisCfg))
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
@@ -247,7 +250,7 @@ func TestWrongAddress(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	val := &validator{sf: bc.GetFactory(), validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
 	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 

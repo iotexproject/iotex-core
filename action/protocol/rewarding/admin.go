@@ -56,13 +56,11 @@ func (a *admin) Deserialize(data []byte) error {
 func (p *Protocol) Initialize(
 	ctx context.Context,
 	sm protocol.StateManager,
+	adminAddr address.Address,
+	initBalance *big.Int,
 	blockReward *big.Int,
 	epochReward *big.Int,
 ) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
 	if err := p.assertAmount(blockReward); err != nil {
 		return err
 	}
@@ -73,7 +71,7 @@ func (p *Protocol) Initialize(
 		sm,
 		adminKey,
 		&admin{
-			admin:       raCtx.Caller,
+			admin:       adminAddr,
 			BlockReward: blockReward,
 			EpochReward: epochReward,
 		},
@@ -84,8 +82,8 @@ func (p *Protocol) Initialize(
 		sm,
 		fundKey,
 		&fund{
-			totalBalance:     big.NewInt(0),
-			unclaimedBalance: big.NewInt(0),
+			totalBalance:     initBalance,
+			unclaimedBalance: initBalance,
 		},
 	); err != nil {
 		return err
