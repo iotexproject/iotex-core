@@ -237,7 +237,7 @@ func TestExplorerApi(t *testing.T) {
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NotNil(bc)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
@@ -934,7 +934,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(bc.Start(ctx))
 	defer func() {

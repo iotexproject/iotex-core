@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
@@ -94,26 +95,16 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
 	// Install protocols
+	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+		return nil, err
+	}
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
 	if err := cs.RegisterProtocol(mainchain.ProtocolID, mainChainProtocol); err != nil {
-		return nil, err
-	}
-	accountProtocol := account.NewProtocol()
-	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
-		return nil, err
-	}
-	voteProtocol := vote.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
-		return nil, err
-	}
-	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
 		return nil, err
 	}
 	if cs.Explorer() != nil {
 		cs.Explorer().SetMainChainProtocol(mainChainProtocol)
 	}
-
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
@@ -202,20 +193,11 @@ func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Opti
 		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
+	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+		return err
+	}
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
 	if err := cs.RegisterProtocol(subchain.ProtocolID, subChainProtocol); err != nil {
-		return err
-	}
-	accountProtocol := account.NewProtocol()
-	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
-		return err
-	}
-	voteProtocol := vote.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
-		return err
-	}
-	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
 		return err
 	}
 	s.chainservices[cs.ChainID()] = cs
@@ -308,4 +290,24 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	if err := svr.Stop(ctx); err != nil {
 		log.L().Panic("Failed to stop server.", zap.Error(err))
 	}
+}
+
+func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) error {
+	accountProtocol := account.NewProtocol()
+	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
+		return err
+	}
+	voteProtocol := vote.NewProtocol(cs.Blockchain())
+	if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
+		return err
+	}
+	executionProtocol := execution.NewProtocol(cs.Blockchain())
+	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
+		return err
+	}
+	rewardingProtocol := rewarding.NewProtocol()
+	if err := cs.RegisterProtocol(rewarding.ProtocolID, rewardingProtocol); err != nil {
+		return err
+	}
+	return nil
 }

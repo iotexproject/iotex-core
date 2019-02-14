@@ -90,7 +90,7 @@ func TestWrongNonce(t *testing.T) {
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisCfg.Blockchain))
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisCfg))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -241,7 +241,7 @@ func TestWrongAddress(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	genesisCfg := genesis.Default
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), GenesisOption(genesisCfg.Blockchain))
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), GenesisOption(genesisCfg))
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)

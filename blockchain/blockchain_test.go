@@ -281,9 +281,11 @@ func TestCreateBlockchain(t *testing.T) {
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 
+	genesisCfg := genesis.Default
+
 	// create chain
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), GenesisOption(genesisCfg))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
@@ -333,8 +335,9 @@ func TestCreateBlockchain(t *testing.T) {
 func TestBlockchain_MintNewBlock(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
+	genesisCfg := genesis.Default
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), GenesisOption(genesisCfg))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(t, bc.Start(ctx))
@@ -374,8 +377,9 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Chain.EnableGasCharge = true
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	genesisCfg := genesis.Default
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), GenesisOption(genesisCfg))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(t, bc.Start(ctx))
@@ -416,7 +420,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, blk)
-	require.Equal(t, 182, len(blk.Actions))
+	require.Equal(t, 183, len(blk.Actions))
 	whetherInclude := false
 	for _, action := range blk.Actions {
 		if transfer1.Hash() == action.Hash() {
@@ -470,7 +474,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		cfg,
 		PrecreatedStateFactoryOption(sf),
 		BoltDBDaoOption(),
-		GenesisOption(genesisConfig.Blockchain),
+		GenesisOption(genesisConfig),
 	)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
@@ -495,7 +499,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol())
 
-	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisConfig.Blockchain))
+	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisConfig))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
@@ -704,7 +708,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		cfg,
 		PrecreatedStateFactoryOption(sf),
 		BoltDBDaoOption(),
-		GenesisOption(genesisConfig.Blockchain),
+		GenesisOption(genesisConfig),
 	)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
@@ -732,7 +736,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol())
 
-	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisConfig.Blockchain))
+	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisConfig))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
@@ -882,9 +886,10 @@ func TestBlockchain_Validator(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
+	genesisCfg := genesis.Default
 
 	ctx := context.Background()
-	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
+	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption(), GenesisOption(genesisCfg))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -911,10 +916,12 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.NumCandidates = 2
 
+	genesisCfg := genesis.Default
+
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisCfg))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -932,9 +939,10 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	require := require.New(t)
 
 	cfg := config.Default
+	genesisCfg := genesis.Default
 	// disable account-based testing
 	// create chain
-	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
+	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption(), GenesisOption(genesisCfg))
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 

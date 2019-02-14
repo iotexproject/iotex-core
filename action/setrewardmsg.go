@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rewarding
+package action
 
 import (
 	"math"
@@ -13,7 +13,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -25,7 +24,7 @@ var (
 
 // SetReward is the action to update the reward amount
 type SetReward struct {
-	action.AbstractAction
+	AbstractAction
 	amount *big.Int
 	data   []byte
 	t      int
@@ -78,7 +77,7 @@ func (s *SetReward) LoadProto(sProto *iproto.SetReward) error {
 func (s *SetReward) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(s.Data()))
 	if (math.MaxUint64-setBlockRewardBaseGas)/setBlockRewardGasPerByte < dataLen {
-		return 0, action.ErrOutOfGas
+		return 0, ErrOutOfGas
 	}
 	return setBlockRewardBaseGas + setBlockRewardGasPerByte*dataLen, nil
 }
@@ -94,7 +93,7 @@ func (s *SetReward) Cost() (*big.Int, error) {
 
 // SetRewardBuilder is the struct to build SetReward
 type SetRewardBuilder struct {
-	action.Builder
+	Builder
 	setReward SetReward
 }
 

@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disset epoch rewarded. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rewarding
+package action
 
 import (
 	"math/big"
@@ -19,7 +19,7 @@ func TestDonateToRewardingFund(t *testing.T) {
 		SetData([]byte{2}).
 		Build()
 	proto := s1.Proto()
-	s2 := DonateToRewardingFund{}
+	s2 := DepositToRewardingFund{}
 	s2.LoadProto(proto)
 	assert.Equal(t, s1.Amount(), s2.Amount())
 	assert.Equal(t, s2.Data(), s2.Data())

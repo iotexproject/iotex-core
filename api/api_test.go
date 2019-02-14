@@ -169,13 +169,13 @@ var (
 			uint64(2),
 			0,
 			7,
-			6,
+			7,
 		},
 		{
 			uint64(4),
 			0,
-			4,
-			4,
+			5,
+			5,
 		},
 	}
 
@@ -203,12 +203,12 @@ var (
 	}{
 		{
 			uint64(2),
-			6,
+			7,
 			"4",
 		},
 		{
 			uint64(4),
-			4,
+			5,
 			"0",
 		},
 	}
@@ -220,8 +220,8 @@ var (
 	}{
 		{
 			4,
-			32,
-			32,
+			36,
+			36,
 		},
 	}
 
@@ -818,7 +818,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, error) {
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisConfig.Blockchain),
+		blockchain.GenesisOption(genesisConfig),
 	)
 	if bc == nil {
 		return nil, errors.New("failed to create blockchain")

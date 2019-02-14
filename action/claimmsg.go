@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rewarding
+package action
 
 import (
 	"math"
@@ -13,7 +13,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
@@ -25,7 +24,7 @@ var (
 
 // ClaimFromRewardingFund is the action to claim reward from the rewarding fund
 type ClaimFromRewardingFund struct {
-	action.AbstractAction
+	AbstractAction
 	amount *big.Int
 	data   []byte
 }
@@ -61,7 +60,7 @@ func (c *ClaimFromRewardingFund) LoadProto(claim *iproto.ClaimFromRewardingFund)
 func (c *ClaimFromRewardingFund) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(c.Data()))
 	if (math.MaxUint64-claimFromRewardingFundBaseGas)/claimFromRewardingFundGasPerByte < dataLen {
-		return 0, action.ErrOutOfGas
+		return 0, ErrOutOfGas
 	}
 	return claimFromRewardingFundBaseGas + claimFromRewardingFundGasPerByte*dataLen, nil
 }
@@ -77,7 +76,7 @@ func (c *ClaimFromRewardingFund) Cost() (*big.Int, error) {
 
 // ClaimFromRewardingFundBuilder is the struct to build ClaimFromRewardingFund
 type ClaimFromRewardingFundBuilder struct {
-	action.Builder
+	Builder
 	claim ClaimFromRewardingFund
 }
 

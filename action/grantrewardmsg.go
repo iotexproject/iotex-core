@@ -4,21 +4,27 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rewarding
+package action
 
 import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/proto"
 )
 
+const (
+	// BlockReward indicates that the action is to grant block reward
+	BlockReward = iota
+	// EpochReward indicates that the action is to grant epoch reward
+	EpochReward
+)
+
 // GrantReward is the action to grant either block or epoch reward
 type GrantReward struct {
-	action.AbstractAction
+	AbstractAction
 	t int
 }
 
@@ -66,7 +72,7 @@ func (*GrantReward) Cost() (*big.Int, error) {
 
 // GrantRewardBuilder is the struct to build GrantReward
 type GrantRewardBuilder struct {
-	action.Builder
+	Builder
 	grantReward GrantReward
 }
 

@@ -53,7 +53,12 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require := require.New(t)
 	genesisCfg := genesis.Default
 
-	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(
+		config.Default,
+		blockchain.InMemStateFactoryOption(),
+		blockchain.InMemDaoOption(),
+		blockchain.GenesisOption(genesisCfg),
+	)
 	bc.GetFactory().AddActionHandlers(account.NewProtocol())
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1, big.NewInt(100))
@@ -128,7 +133,7 @@ func TestActPool_AddActs(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1, big.NewInt(100))
@@ -303,7 +308,7 @@ func TestActPool_PickActs(t *testing.T) {
 			config.Default,
 			blockchain.InMemStateFactoryOption(),
 			blockchain.InMemDaoOption(),
-			blockchain.GenesisOption(genesisCfg.Blockchain),
+			blockchain.GenesisOption(genesisCfg),
 		)
 		require.NoError(bc.Start(context.Background()))
 		_, err := bc.CreateState(addr1, big.NewInt(100))
@@ -391,7 +396,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
@@ -452,7 +457,7 @@ func TestActPool_Reset(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))
@@ -842,7 +847,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1, big.NewInt(100))
@@ -891,7 +896,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1, big.NewInt(100))
@@ -937,7 +942,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1, big.NewInt(100))
@@ -976,7 +981,13 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 
 func TestActPool_GetActionByHash(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	genesisCfg := genesis.Default
+	bc := blockchain.NewBlockchain(
+		config.Default,
+		blockchain.InMemStateFactoryOption(),
+		blockchain.InMemDaoOption(),
+		blockchain.GenesisOption(genesisCfg),
+	)
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
@@ -1029,7 +1040,7 @@ func TestActPool_GetSize(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(context.Background()))

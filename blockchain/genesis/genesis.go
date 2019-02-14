@@ -8,6 +8,7 @@ package genesis
 
 import (
 	"flag"
+	"math/big"
 
 	"github.com/pkg/errors"
 	"go.uber.org/config"
@@ -16,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 // DefaultAdminPrivateKey is used to create the default genesis config. It could facilitate quick setup of the
@@ -48,11 +50,17 @@ func init() {
 func initDefaultConfig() {
 	Default = Genesis{
 		Blockchain: Blockchain{
+			Timestamp:      1546329600,
 			BlockGasLimit:  20000000,
 			ActionGasLimit: 5000000,
+			NumSubEpochs:   1,
+			NumDelegates:   21,
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr: defaultAdminAddr.String(),
+			InitBalanceStr:   unit.ConvertIotxToRau(1200000000).String(),
+			BlockRewardStr:   unit.ConvertIotxToRau(36).String(),
+			EpochRewardStr:   unit.ConvertIotxToRau(400000).String(),
 		},
 	}
 }
@@ -66,15 +74,27 @@ type (
 	}
 	// Blockchain contains blockchain level configs
 	Blockchain struct {
+		// Timestamp is the timestamp of the genesis block
+		Timestamp int64
 		// BlockGasLimit is the total gas limit could be consumed in a block
 		BlockGasLimit uint64 `yaml:"blockGasLimit"`
 		// ActionGasLimit is the per action gas limit cap
 		ActionGasLimit uint64 `yaml:"actionGasLimit"`
+		// NumSubEpochs is the number of sub epochs in one epoch of block production
+		NumSubEpochs uint64 `yaml:"numSubEpochs"`
+		// NumDelegates is the number of delegates that participate into one epoch of block production
+		NumDelegates uint64 `yaml:"numDelegates"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
 		// InitAdminAddrStr is the address of the initial rewarding protocol admin in encoded string format
 		InitAdminAddrStr string `yaml:"initAdminAddr"`
+		// InitBalanceStr is the initial balance of the rewarding protocol in decimal string format
+		InitBalanceStr string `yaml:"initBalance"`
+		// BlockReward is the block reward amount in decimal string format
+		BlockRewardStr string `yaml:"blockReward"`
+		// EpochReward is the epoch reward amount in decimal string format
+		EpochRewardStr string `yaml:"epochReward"`
 	}
 )
 
@@ -105,4 +125,31 @@ func (r *Rewarding) InitAdminAddr() address.Address {
 		log.L().Panic("Error when decoding the rewarding protocol init admin address from string.", zap.Error(err))
 	}
 	return addr
+}
+
+// InitBalance returns the init balance of the rewarding fund
+func (r *Rewarding) InitBalance() *big.Int {
+	val, ok := big.NewInt(0).SetString(r.InitBalanceStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting init balance string %s into big int", r.InitBalanceStr)
+	}
+	return val
+}
+
+// BlockReward returns the block reward amount
+func (r *Rewarding) BlockReward() *big.Int {
+	val, ok := big.NewInt(0).SetString(r.BlockRewardStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting block reward string %s into big int", r.BlockRewardStr)
+	}
+	return val
+}
+
+// EpochReward returns the epoch reward amount
+func (r *Rewarding) EpochReward() *big.Int {
+	val, ok := big.NewInt(0).SetString(r.EpochRewardStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
+	}
+	return val
 }

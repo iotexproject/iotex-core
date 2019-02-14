@@ -44,7 +44,7 @@ type ChainService struct {
 	explorer     *explorer.Server
 	indexBuilder *blockchain.IndexBuilder
 	indexservice *indexservice.Server
-	registry     protocol.Registry
+	registry     *protocol.Registry
 }
 
 type optionParams struct {
@@ -99,15 +99,15 @@ func New(
 		chainOpts = []blockchain.Option{
 			blockchain.InMemStateFactoryOption(),
 			blockchain.InMemDaoOption(),
-			blockchain.GenesisOption(ops.genesisConfig.Blockchain),
 		}
 	} else {
 		chainOpts = []blockchain.Option{
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
-			blockchain.GenesisOption(ops.genesisConfig.Blockchain),
 		}
 	}
+	registry := protocol.Registry{}
+	chainOpts = append(chainOpts, blockchain.GenesisOption(ops.genesisConfig), blockchain.RegistryOption(&registry))
 
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
@@ -202,6 +202,7 @@ func New(
 		indexservice: idx,
 		indexBuilder: indexBuilder,
 		explorer:     exp,
+		registry:     &registry,
 	}, nil
 }
 
@@ -357,4 +358,4 @@ func (cs *ChainService) RegisterProtocol(id string, p protocol.Protocol) error {
 }
 
 // Registry returns a pointer to the registry
-func (cs *ChainService) Registry() *protocol.Registry { return &cs.registry }
+func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }

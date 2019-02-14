@@ -17,7 +17,13 @@ func TestDefaultConfig(t *testing.T) {
 	// construct a config without overriding
 	cfg, err := New()
 	require.NoError(t, err)
+	// Validate blockchain
 	assert.Equal(t, Default.BlockGasLimit, cfg.BlockGasLimit)
 	assert.Equal(t, Default.ActionGasLimit, cfg.ActionGasLimit)
+	assert.Equal(t, Default.NumSubEpochs, cfg.NumSubEpochs)
+	assert.Equal(t, Default.NumDelegates, cfg.NumDelegates)
+	// Validate rewarding protocol
 	assert.Equal(t, Default.InitAdminAddr().String(), cfg.InitAdminAddr().String())
+	assert.Equal(t, Default.BlockReward(), cfg.BlockReward())
+	assert.Equal(t, Default.EpochReward(), cfg.EpochReward())
 }

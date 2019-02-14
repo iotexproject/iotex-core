@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -35,12 +36,12 @@ func TestAddSubChainActions(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg.Blockchain),
+		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(t, bc.Start(ctx))
 	_, err := bc.CreateState(
 		testaddress.Addrinfo["producer"].String(),
-		big.NewInt(0).Mul(big.NewInt(10000000000), big.NewInt(blockchain.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(10000000000), big.NewInt(unit.Iotx)),
 	)
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
@@ -54,7 +55,7 @@ func TestAddSubChainActions(t *testing.T) {
 		1,
 		2,
 		MinSecurityDeposit,
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(blockchain.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		uint64(1000),

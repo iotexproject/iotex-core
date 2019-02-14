@@ -251,9 +251,10 @@ type (
 		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
 		DelegateInterval  time.Duration       `yaml:"delegateInterval"`
 		Delay             time.Duration       `yaml:"delay"`
-		NumSubEpochs      uint                `yaml:"numSubEpochs"`
-		NumDelegates      uint                `yaml:"numDelegates"`
-		TimeBasedRotation bool                `yaml:"timeBasedRotation"`
+		// TODO: remove the following two fields from config
+		NumSubEpochs      uint `yaml:"numSubEpochs"`
+		NumDelegates      uint `yaml:"numDelegates"`
+		TimeBasedRotation bool `yaml:"timeBasedRotation"`
 	}
 
 	// Dispatcher is the dispatcher config
