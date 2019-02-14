@@ -809,7 +809,7 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 		}
 		if delta, ok := recipientDelta[dst]; ok {
 			recipientCount[dst] += delta
-			recipientDelta[dst] += 1
+			recipientDelta[dst]++
 		} else {
 			recipientDelta[dst] = 1
 		}
