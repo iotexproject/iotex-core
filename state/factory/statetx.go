@@ -64,45 +64,65 @@ func (stx *stateTX) RunActions(
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
 ) (hash.Hash256, []*action.Receipt, error) {
-	stx.blkHeight = blockHeight
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
-		// Add caller address into the run action context
-		raCtx, ok := protocol.GetRunActionsCtx(ctx)
-		if !ok {
-			log.S().Panic("Miss context to run action")
-		}
-		callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		receipt, err := stx.RunAction(ctx, elp)
 		if err != nil {
-			return hash.ZeroHash256, nil, err
+			return hash.ZeroHash256, nil, errors.Wrap(err, "error when run action")
 		}
-		raCtx.Caller = callerAddr
-		raCtx.ActionHash = elp.Hash()
-		raCtx.Nonce = elp.Nonce()
-		ctx = protocol.WithRunActionsCtx(ctx, raCtx)
-		for _, actionHandler := range stx.actionHandlers {
-			receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
-			if err != nil {
-				return hash.ZeroHash256, nil, errors.Wrapf(
-					err,
-					"error when action %x (nonce: %d) from %s mutates states",
-					elp.Hash(),
-					elp.Nonce(),
-					callerAddr.String(),
-				)
-			}
-			if receipt != nil {
-				receipts = append(receipts, receipt)
-			}
+		if receipt != nil {
+			receipts = append(receipts, receipt)
 		}
 	}
+	return stx.UpdateBlockLevelInfo(blockHeight), receipts, nil
+}
 
+// RunAction runs action in the block and track pending changes in working set
+func (stx *stateTX) RunAction(
+	ctx context.Context,
+	elp action.SealedEnvelope,
+) (*action.Receipt, error) {
+	// Handle action
+	// Add caller address into the run action context
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss context to run action")
+	}
+	callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
+	callerAddr, err := address.FromBytes(callerPKHash[:])
+	if err != nil {
+		return nil, err
+	}
+	raCtx.Caller = callerAddr
+	raCtx.ActionHash = elp.Hash()
+	raCtx.Nonce = elp.Nonce()
+	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
+	for _, actionHandler := range stx.actionHandlers {
+		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
+		if err != nil {
+			return nil, errors.Wrapf(
+				err,
+				"error when action %x (nonce: %d) from %s mutates states",
+				elp.Hash(),
+				elp.Nonce(),
+				callerAddr.String(),
+			)
+		}
+		if receipt != nil {
+			return receipt, nil
+		}
+	}
+	return nil, nil
+}
+
+// UpdateBlockLevelInfo runs action in the block and track pending changes in working set
+func (stx *stateTX) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
+	stx.blkHeight = blockHeight
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	stx.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
-	return hash.ZeroHash256, receipts, nil
+	return hash.ZeroHash256
 }
 
 func (stx *stateTX) Snapshot() int { return stx.cb.Snapshot() }

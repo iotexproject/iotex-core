@@ -516,6 +516,18 @@ func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateByAddr", reflect.TypeOf((*MockBlockchain)(nil).StateByAddr), address)
 }
 
+// RecoverChainAndState mocks base method
+func (m *MockBlockchain) RecoverChainAndState(targetHeight uint64) error {
+	ret := m.ctrl.Call(m, "RecoverChainAndState", targetHeight)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RecoverChainAndState indicates an expected call of RecoverChainAndState
+func (mr *MockBlockchainMockRecorder) RecoverChainAndState(targetHeight interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverChainAndState", reflect.TypeOf((*MockBlockchain)(nil).RecoverChainAndState), targetHeight)
+}
+
 // MintNewBlock mocks base method
 func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, producerPubKey keypair.PublicKey, producerPriKey keypair.PrivateKey, producerAddr string, timestamp int64) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, producerPubKey, producerPriKey, producerAddr, timestamp)

@@ -10,7 +10,6 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/iotexproject/go-ethereum/core/vm"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -49,7 +48,7 @@ func (p *Protocol) handleTransfer(raCtx protocol.RunActionsCtx, act action.Actio
 			return errors.Wrapf(err, "failed to get intrinsic gas for transfer hash %s", tsf.Hash())
 		}
 		if *raCtx.GasLimit < gas {
-			return vm.ErrOutOfGas
+			return action.ErrHitGasLimit
 		}
 
 		gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(gas))
@@ -120,6 +119,7 @@ func (p *Protocol) handleTransfer(raCtx protocol.RunActionsCtx, act action.Actio
 	if err := recipient.AddBalance(tsf.Amount()); err != nil {
 		return errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
 	}
+
 	// put updated recipient's state to trie
 	if err := StoreAccount(sm, tsf.Recipient(), recipient); err != nil {
 		return errors.Wrap(err, "failed to update pending account changes to trie")

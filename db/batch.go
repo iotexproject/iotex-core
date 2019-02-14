@@ -305,7 +305,6 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 func (cb *cachedBatch) Digest() hash.Hash256 {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-
 	// 1. This could be improved by being processed in parallel
 	// 2. Digest could be replaced by merkle root if we need proof
 	bytes := make([]byte, 0)

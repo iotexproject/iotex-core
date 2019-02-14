@@ -52,6 +52,9 @@ type (
 	// WorkingSet defines an interface for working set of states changes
 	WorkingSet interface {
 		// states and actions
+		//RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
+		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
+		UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256
 		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash256, []*action.Receipt, error)
 		Snapshot() int
 		Revert(int) error
@@ -133,56 +136,76 @@ func (ws *workingSet) RunActions(
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
 ) (hash.Hash256, []*action.Receipt, error) {
-	ws.blkHeight = blockHeight
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
-		// Add caller address into the run action context
-		raCtx, ok := protocol.GetRunActionsCtx(ctx)
-		if !ok {
-			log.S().Panic("Miss context to run action")
-		}
-		callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
-		caller, err := address.FromBytes(callerPKHash[:])
+		receipt, err := ws.RunAction(ctx, elp)
 		if err != nil {
-			return hash.ZeroHash256, nil, err
+			return hash.ZeroHash256, nil, errors.Wrap(err, "error when run action")
 		}
-		raCtx.Caller = caller
-		raCtx.ActionHash = elp.Hash()
-		raCtx.Nonce = elp.Nonce()
-		ctx = protocol.WithRunActionsCtx(ctx, raCtx)
-		for _, actionHandler := range ws.actionHandlers {
-			receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
-			if err != nil {
-				return hash.ZeroHash256, nil, errors.Wrapf(
-					err,
-					"error when action %x (nonce: %d) from %s mutates states",
-					elp.Hash(),
-					elp.Nonce(),
-					caller.String(),
-				)
-			}
-			if receipt != nil {
-				receipts = append(receipts, receipt)
-			}
+		if receipt != nil {
+			receipts = append(receipts, receipt)
 		}
 	}
+	return ws.UpdateBlockLevelInfo(blockHeight), receipts, nil
+}
 
+// RunAction runs action in the block and track pending changes in working set
+func (ws *workingSet) RunAction(
+	ctx context.Context,
+	elp action.SealedEnvelope,
+) (*action.Receipt, error) {
+	// Handle action
+	// Add caller address into the run action context
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok {
+		log.S().Panic("Miss context to run action")
+	}
+	callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
+	caller, err := address.FromBytes(callerPKHash[:])
+	if err != nil {
+		return nil, err
+	}
+	raCtx.Caller = caller
+	raCtx.ActionHash = elp.Hash()
+	raCtx.Nonce = elp.Nonce()
+	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
+
+	for _, actionHandler := range ws.actionHandlers {
+		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
+		if err != nil {
+			return nil, errors.Wrapf(
+				err,
+				"error when action %x (nonce: %d) from %s mutates states",
+				elp.Hash(),
+				elp.Nonce(),
+				caller.String(),
+			)
+		}
+		if receipt != nil {
+			return receipt, nil
+		}
+	}
+	return nil, nil
+}
+
+// UpdateBlockLevelInfo runs action in the block and track pending changes in working set
+func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
+	ws.blkHeight = blockHeight
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
 	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash, "failed to store accountTrie's root hash")
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
 	ws.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
-	// Persis the historical accountTrie's root hash
+	// Persist the historical accountTrie's root hash
 	ws.cb.Put(
 		AccountKVNameSpace,
 		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)),
 		rootHash,
 		"failed to store accountTrie's root hash",
 	)
-
-	return ws.RootHash(), receipts, nil
+	return ws.RootHash()
 }
 
 func (ws *workingSet) Snapshot() int {

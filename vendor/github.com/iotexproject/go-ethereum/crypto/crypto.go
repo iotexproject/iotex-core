@@ -21,12 +21,12 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"os"
-
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-ethereum/common"
 	"github.com/iotexproject/go-ethereum/common/math"
@@ -102,17 +102,17 @@ func toECDSA(d []byte, strict bool) (*ecdsa.PrivateKey, error) {
 	priv := new(ecdsa.PrivateKey)
 	priv.PublicKey.Curve = S256()
 	if strict && 8*len(d) != priv.Params().BitSize {
-		return nil, errors.Errorf("invalid length, need %d bits", priv.Params().BitSize)
+		return nil, fmt.Errorf("invalid length, need %d bits", priv.Params().BitSize)
 	}
 	priv.D = new(big.Int).SetBytes(d)
 
 	// The priv.D must < N
 	if priv.D.Cmp(secp256k1N) >= 0 {
-		return nil, errors.New("invalid private key, >=N")
+		return nil, fmt.Errorf("invalid private key, >=N")
 	}
 	// The priv.D must not be zero or negative.
 	if priv.D.Sign() <= 0 {
-		return nil, errors.New("invalid private key, zero or negative")
+		return nil, fmt.Errorf("invalid private key, zero or negative")
 	}
 
 	priv.PublicKey.X, priv.PublicKey.Y = priv.PublicKey.Curve.ScalarBaseMult(d)
