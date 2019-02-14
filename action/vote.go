@@ -10,12 +10,13 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -23,9 +24,14 @@ const (
 	VoteIntrinsicGas = uint64(10000)
 )
 
+var _ hasDestination = (*Vote)(nil)
+
 // Vote defines the struct of account-based vote
 type Vote struct {
 	AbstractAction
+
+	timestamp *timestamp.Timestamp
+	votee     string
 }
 
 // NewVote returns a Vote instance
@@ -34,10 +40,10 @@ func NewVote(nonce uint64, voteeAddress string, gasLimit uint64, gasPrice *big.I
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			dstAddr:  voteeAddress,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
+		votee: voteeAddress,
 	}, nil
 }
 
@@ -47,9 +53,10 @@ func (v *Vote) VoterPublicKey() keypair.PublicKey {
 }
 
 // Votee returns the votee's address
-func (v *Vote) Votee() string {
-	return v.DstAddr()
-}
+func (v *Vote) Votee() string { return v.votee }
+
+// Destination returns the votee's address
+func (v *Vote) Destination() string { return v.Votee() }
 
 // TotalSize returns the total size of this Vote
 func (v *Vote) TotalSize() uint32 {
@@ -65,12 +72,24 @@ func (v *Vote) ByteStream() []byte {
 // Proto converts Vote to protobuf's ActionPb
 func (v *Vote) Proto() *iproto.VotePb {
 	return &iproto.VotePb{
-		VoteeAddress: v.dstAddr,
+		VoteeAddress: v.votee,
+		Timestamp:    v.timestamp,
 	}
 }
 
 // LoadProto converts a protobuf's ActionPb to Vote
-func (v *Vote) LoadProto(pbAct *iproto.VotePb) error { return nil }
+func (v *Vote) LoadProto(pbAct *iproto.VotePb) error {
+	if pbAct == nil {
+		return errors.New("empty action proto to load")
+	}
+	if v == nil {
+		return errors.New("nil action to load proto")
+	}
+	*v = Vote{}
+	v.votee = pbAct.GetVoteeAddress()
+	v.timestamp = pbAct.GetTimestamp()
+	return nil
+}
 
 // IntrinsicGas returns the intrinsic gas of a vote
 func (v *Vote) IntrinsicGas() (uint64, error) {

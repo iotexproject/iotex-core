@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -75,7 +75,7 @@ func TestMerkle(t *testing.T) {
 		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
 	)
 	hash := block.CalculateTxRoot()
-	require.Equal("9a32d3e0cd1a1ac754af41443ae13b20013542762345d73c3a2a14c8ac208d6b", hex.EncodeToString(hash[:]))
+	require.Equal("9eacfe53302a280fded08608fac9dd89c30fe42a2a066a218c60c03d050f60d7", hex.EncodeToString(hash[:]))
 
 	t.Log("Merkle root match pass\n")
 }

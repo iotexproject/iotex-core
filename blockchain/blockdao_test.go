@@ -160,7 +160,7 @@ func TestBlockDAO(t *testing.T) {
 		assert.Nil(t, err)
 		blk, err := dao.getBlock(blks[0].HashBlock())
 		assert.Nil(t, err)
-		assert.NotNil(t, blk)
+		require.NotNil(t, blk)
 		assert.Equal(t, blks[0].Actions[0].Hash(), blk.Actions[0].Hash())
 		height, err = dao.getBlockchainHeight()
 		assert.Nil(t, err)

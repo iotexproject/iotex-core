@@ -30,12 +30,6 @@ func (b *Builder) SetNonce(n uint64) *Builder {
 	return b
 }
 
-// SetDestinationAddress sets action's destination address.
-func (b *Builder) SetDestinationAddress(addr string) *Builder {
-	b.act.dstAddr = addr
-	return b
-}
-
 // SetSourcePublicKey sets action's source's public key.
 func (b *Builder) SetSourcePublicKey(key keypair.PublicKey) *Builder {
 	b.act.srcPubkey = key
@@ -96,9 +90,9 @@ func (b *EnvelopeBuilder) SetNonce(n uint64) *EnvelopeBuilder {
 	return b
 }
 
+// To Be Depercated
 // SetDestinationAddress sets action's destination address.
 func (b *EnvelopeBuilder) SetDestinationAddress(addr string) *EnvelopeBuilder {
-	b.elp.dstAddr = addr
 	return b
 }
 

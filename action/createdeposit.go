@@ -23,13 +23,16 @@ const (
 	CreateDepositIntrinsicGas = uint64(10000)
 )
 
+var _ hasDestination = (*CreateDeposit)(nil)
+
 // CreateDeposit represents the action to deposit the token from main-chain to sub-chain. The recipient address must be a
 // sub-chain address, but it doesn't need to be owned by the sender.
 type CreateDeposit struct {
 	AbstractAction
 
-	chainID uint32
-	amount  *big.Int
+	chainID   uint32
+	amount    *big.Int
+	recipient string
 }
 
 // NewCreateDeposit instantiates a deposit creation to sub-chain action struct
@@ -45,12 +48,12 @@ func NewCreateDeposit(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			dstAddr:  recipient,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		chainID: chainID,
-		amount:  amount,
+		chainID:   chainID,
+		amount:    amount,
+		recipient: recipient,
 	}
 }
 
@@ -63,9 +66,11 @@ func (d *CreateDeposit) Amount() *big.Int { return d.amount }
 // SenderPublicKey returns the sender public key. It's the wrapper of Action.SrcPubkey
 func (d *CreateDeposit) SenderPublicKey() keypair.PublicKey { return d.SrcPubkey() }
 
-// Recipient returns the recipient address. It's the wrapper of Action.DstAddr. The recipient should be an address on
-// the sub-chain
-func (d *CreateDeposit) Recipient() string { return d.DstAddr() }
+// Recipient returns the recipient address. The recipient should be an address on the sub-chain
+func (d *CreateDeposit) Recipient() string { return d.recipient }
+
+// Destination returns the recipient address. The recipient should be an address on the sub-chain
+func (d *CreateDeposit) Destination() string { return d.Recipient() }
 
 // ByteStream returns a raw byte stream of the deposit action
 func (d *CreateDeposit) ByteStream() []byte {
@@ -76,7 +81,7 @@ func (d *CreateDeposit) ByteStream() []byte {
 func (d *CreateDeposit) Proto() *iproto.CreateDepositPb {
 	act := &iproto.CreateDepositPb{
 		ChainID:   d.chainID,
-		Recipient: d.dstAddr,
+		Recipient: d.recipient,
 	}
 	if d.amount != nil && len(d.amount.Bytes()) > 0 {
 		act.Amount = d.amount.Bytes()
@@ -95,9 +100,10 @@ func (d *CreateDeposit) LoadProto(pbDpst *iproto.CreateDepositPb) error {
 		return errors.New("empty action proto to load")
 	}
 
-	d.chainID = pbDpst.ChainID
+	d.chainID = pbDpst.GetChainID()
 	d.amount = big.NewInt(0)
 	d.amount.SetBytes(pbDpst.GetAmount())
+	d.recipient = pbDpst.GetRecipient()
 	return nil
 }
 
