@@ -47,25 +47,25 @@ type AddressKey struct {
 	PriKey      keypair.PrivateKey
 }
 
-type processor struct {
+type injectProcessor struct {
 	c        *client.Client
 	nonces   *sync.Map
 	accounts []*AddressKey
 }
 
-func newInjectionProcessor() (*processor, error) {
+func newInjectionProcessor() (*injectProcessor, error) {
 	c, err := client.New(injectCfg.serverAddr)
 	if err != nil {
 		return nil, err
 	}
-	p := &processor{
+	p := &injectProcessor{
 		c:      c,
 		nonces: &sync.Map{},
 	}
 	return p, p.loadAccounts(injectCfg.configPath)
 }
 
-func (p *processor) loadAccounts(keypairsPath string) error {
+func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 	keyPairBytes, err := ioutil.ReadFile(keypairsPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to read key pairs file")
@@ -97,7 +97,7 @@ func (p *processor) loadAccounts(keypairsPath string) error {
 	return nil
 }
 
-func (p *processor) resetProcess(ctx context.Context) {
+func (p *injectProcessor) resetNoncesProcess(ctx context.Context) {
 	reset := time.Tick(injectCfg.resetInterval)
 	for {
 		select {
@@ -125,7 +125,7 @@ func (p *processor) resetProcess(ctx context.Context) {
 	}
 }
 
-func (p *processor) injectProcess(ctx context.Context) {
+func (p *injectProcessor) injectProcess(ctx context.Context) {
 	var workers sync.WaitGroup
 	ticks := make(chan uint64)
 	for i := uint64(0); i < injectCfg.workers; i++ {
@@ -152,7 +152,7 @@ func (p *processor) injectProcess(ctx context.Context) {
 	}
 }
 
-func (p *processor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
+func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 	defer workers.Done()
 	for range ticks {
 		selp, err := p.pickAction()
@@ -169,7 +169,7 @@ func (p *processor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 	}
 }
 
-func (p *processor) pickAction() (action.SealedEnvelope, error) {
+func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 	sender := p.accounts[rand.Intn(len(p.accounts))]
 	val, _ := p.nonces.Load(sender.EncodedAddr)
 	nonce := val.(uint64)
@@ -268,7 +268,7 @@ func inject(args []string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), injectCfg.duration)
 	defer cancel()
 	go p.injectProcess(ctx)
-	go p.resetProcess(ctx)
+	go p.resetNoncesProcess(ctx)
 	<-ctx.Done()
 	return ""
 }
