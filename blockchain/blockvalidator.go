@@ -254,6 +254,9 @@ func verifySigAndRoot(blk *block.Block) error {
 }
 
 func appendActionIndex(accountNonceMap map[string][]uint64, srcAddr string, nonce uint64) {
+	if nonce == 0 {
+		return
+	}
 	if _, ok := accountNonceMap[srcAddr]; !ok {
 		accountNonceMap[srcAddr] = make([]uint64, 0)
 	}

@@ -94,6 +94,7 @@ var (
 			EnableTrielessStateDB:        true,
 			EnableIndex:                  false,
 			EnableAsyncIndexWrite:        false,
+			AllowedBlockGasResidue:       10000,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -226,6 +227,8 @@ type (
 		EnableIndex bool `yaml:"enableIndex"`
 		// enable writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
+		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
+		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -248,9 +251,10 @@ type (
 		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
 		DelegateInterval  time.Duration       `yaml:"delegateInterval"`
 		Delay             time.Duration       `yaml:"delay"`
-		NumSubEpochs      uint                `yaml:"numSubEpochs"`
-		NumDelegates      uint                `yaml:"numDelegates"`
-		TimeBasedRotation bool                `yaml:"timeBasedRotation"`
+		// TODO: remove the following two fields from config
+		NumSubEpochs      uint `yaml:"numSubEpochs"`
+		NumDelegates      uint `yaml:"numDelegates"`
+		TimeBasedRotation bool `yaml:"timeBasedRotation"`
 	}
 
 	// Dispatcher is the dispatcher config

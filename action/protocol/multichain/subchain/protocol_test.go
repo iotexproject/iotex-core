@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 
 	"github.com/golang/mock/gomock"
@@ -30,7 +32,13 @@ import (
 func TestValidateDeposit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	gensisCfg := genesis.Default
+	bc := blockchain.NewBlockchain(
+		config.Default,
+		blockchain.InMemStateFactoryOption(),
+		blockchain.InMemDaoOption(),
+		blockchain.GenesisOption(gensisCfg),
+	)
 	require.NoError(t, bc.Start(ctx))
 	exp := mock_explorer.NewMockExplorer(ctrl)
 
@@ -90,7 +98,13 @@ func TestValidateDeposit(t *testing.T) {
 func TestMutateDeposit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
-	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	genesisCfg := genesis.Default
+	bc := blockchain.NewBlockchain(
+		config.Default,
+		blockchain.InMemStateFactoryOption(),
+		blockchain.InMemDaoOption(),
+		blockchain.GenesisOption(genesisCfg),
+	)
 	require.NoError(t, bc.Start(ctx))
 	exp := mock_explorer.NewMockExplorer(ctrl)
 

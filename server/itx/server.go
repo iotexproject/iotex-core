@@ -22,7 +22,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
@@ -66,9 +68,17 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	p2pAgent := p2p.NewAgent(cfg.Network, dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	chains := make(map[uint32]*chainservice.ChainService)
 	var cs *chainservice.ChainService
-	var opts []chainservice.Option
+	genesisConfig, err := genesis.New()
+	if err != nil {
+		return nil, err
+	}
+	opts := []chainservice.Option{
+		chainservice.WithGenesis(genesisConfig),
+	}
 	if testing {
-		opts = []chainservice.Option{chainservice.WithTesting()}
+		opts = []chainservice.Option{
+			chainservice.WithTesting(),
+		}
 	}
 	cs, err = chainservice.New(cfg, p2pAgent, dispatcher, opts...)
 	if err != nil {
@@ -78,22 +88,23 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// Add action validators
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
 	// Install protocols
+	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+		return nil, err
+	}
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
-	accountProtocol := account.NewProtocol()
-	voteProtocol := vote.NewProtocol(cs.Blockchain())
-	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	cs.AddProtocols(mainChainProtocol, accountProtocol, voteProtocol, executionProtocol)
+	if err := cs.RegisterProtocol(mainchain.ProtocolID, mainChainProtocol); err != nil {
+		return nil, err
+	}
 	if cs.Explorer() != nil {
 		cs.Explorer().SetMainChainProtocol(mainChainProtocol)
 	}
-
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
@@ -153,48 +164,22 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // NewSubChainService creates a new chain service in this server.
-func (s *Server) NewSubChainService(cfg config.Config) error {
+func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.newSubChainService(cfg)
+	return s.newSubChainService(cfg, opts...)
 }
 
-func (s *Server) newSubChainService(cfg config.Config) error {
-	var mainChainAPI explorer.Explorer
-	if s.rootChainService.Explorer() != nil {
-		mainChainAPI = s.rootChainService.Explorer().Explorer()
-	}
-	opts := []chainservice.Option{chainservice.WithRootChainAPI(mainChainAPI)}
-	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
+func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
+	genesisConfig, err := genesis.New()
 	if err != nil {
 		return err
 	}
-	cs.ActionPool().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
-		)
-	cs.Blockchain().Validator().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
-		)
-	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
-	accountProtocol := account.NewProtocol()
-	voteProtocol := vote.NewProtocol(cs.Blockchain())
-	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	cs.AddProtocols(subChainProtocol, accountProtocol, voteProtocol, executionProtocol)
-	s.chainservices[cs.ChainID()] = cs
-	return nil
-}
-
-// NewTestingChainService creates a new testing chain service in this server.
-func (s *Server) NewTestingChainService(cfg config.Config) error {
+	opts = append(opts, chainservice.WithGenesis(genesisConfig))
 	var mainChainAPI explorer.Explorer
 	if s.rootChainService.Explorer() != nil {
 		mainChainAPI = s.rootChainService.Explorer().Explorer()
-	}
-	opts := []chainservice.Option{
-		chainservice.WithTesting(),
-		chainservice.WithRootChainAPI(mainChainAPI),
+		opts = append(opts, chainservice.WithRootChainAPI(mainChainAPI))
 	}
 	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
@@ -202,17 +187,19 @@ func (s *Server) NewTestingChainService(cfg config.Config) error {
 	}
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
+			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
+	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+		return err
+	}
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
-	accountProtocol := account.NewProtocol()
-	voteProtocol := vote.NewProtocol(cs.Blockchain())
-	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	cs.AddProtocols(subChainProtocol, accountProtocol, voteProtocol, executionProtocol)
+	if err := cs.RegisterProtocol(subchain.ProtocolID, subChainProtocol); err != nil {
+		return err
+	}
 	s.chainservices[cs.ChainID()] = cs
 	return nil
 }
@@ -303,4 +290,24 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	if err := svr.Stop(ctx); err != nil {
 		log.L().Panic("Failed to stop server.", zap.Error(err))
 	}
+}
+
+func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) error {
+	accountProtocol := account.NewProtocol()
+	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
+		return err
+	}
+	voteProtocol := vote.NewProtocol(cs.Blockchain())
+	if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
+		return err
+	}
+	executionProtocol := execution.NewProtocol(cs.Blockchain())
+	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
+		return err
+	}
+	rewardingProtocol := rewarding.NewProtocol()
+	if err := cs.RegisterProtocol(rewarding.ProtocolID, rewardingProtocol); err != nil {
+		return err
+	}
+	return nil
 }

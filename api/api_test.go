@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -168,13 +169,13 @@ var (
 			uint64(2),
 			0,
 			7,
-			6,
+			7,
 		},
 		{
 			uint64(4),
 			0,
-			4,
-			4,
+			5,
+			5,
 		},
 	}
 
@@ -202,12 +203,12 @@ var (
 	}{
 		{
 			uint64(2),
-			6,
+			7,
 			"4",
 		},
 		{
 			uint64(4),
-			4,
+			5,
 			"0",
 		},
 	}
@@ -219,8 +220,8 @@ var (
 	}{
 		{
 			4,
-			32,
-			32,
+			36,
+			36,
 		},
 	}
 
@@ -812,12 +813,18 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, error) {
 	}
 
 	// create chain
-	bc := blockchain.NewBlockchain(cfg, blockchain.PrecreatedStateFactoryOption(sf), blockchain.InMemDaoOption())
+	genesisConfig := genesis.Default
+	bc := blockchain.NewBlockchain(
+		cfg,
+		blockchain.PrecreatedStateFactoryOption(sf),
+		blockchain.InMemDaoOption(),
+		blockchain.GenesisOption(genesisConfig),
+	)
 	if bc == nil {
 		return nil, errors.New("failed to create blockchain")
 	}
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 
@@ -829,7 +836,8 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 	if err != nil {
 		return nil, err
 	}
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	genesisConfig := genesis.Default
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
 	ap.AddActionValidators(vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 

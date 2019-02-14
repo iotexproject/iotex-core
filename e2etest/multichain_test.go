@@ -23,13 +23,13 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	exp "github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -99,7 +99,7 @@ func TestTwoChains(t *testing.T) {
 		if !ok {
 			return false, errors.New("error when converting balance string to big int")
 		}
-		if balance.Cmp(big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx))) < 0 {
+		if balance.Cmp(big.NewInt(0).Mul(big.NewInt(1), big.NewInt(unit.Iotx))) < 0 {
 			log.L().Info("Balance is not enough yet.", zap.String("balance", balance.String()))
 			return false, nil
 		}
@@ -116,7 +116,7 @@ func TestTwoChains(t *testing.T) {
 	createDeposit := action.NewCreateDeposit(
 		uint64(details.Nonce)+1,
 		2,
-		big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1), big.NewInt(unit.Iotx)),
 		addr2.String(),
 		testutil.TestGasLimit,
 		big.NewInt(0),
@@ -173,7 +173,7 @@ func TestTwoChains(t *testing.T) {
 	}
 	settleDeposit := action.NewSettleDeposit(
 		nonce,
-		big.NewInt(0).Mul(big.NewInt(1), big.NewInt(blockchain.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1), big.NewInt(unit.Iotx)),
 		index,
 		addr2.String(),
 		testutil.TestGasLimit,

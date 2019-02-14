@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/proto"
@@ -232,12 +233,18 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
+	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain := bc.NewBlockchain(
+		cfg,
+		bc.InMemStateFactoryOption(),
+		bc.InMemDaoOption(),
+		bc.GenesisOption(genesisCfg),
+	)
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
@@ -291,12 +298,18 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
+	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	chain1 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
+	chain1 := bc.NewBlockchain(
+		cfg,
+		bc.InMemStateFactoryOption(),
+		bc.InMemDaoOption(),
+		bc.GenesisOption(genesisCfg),
+	)
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesisCfg.ActionGasLimit))
 	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
@@ -309,8 +322,13 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
-	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
+	chain2 := bc.NewBlockchain(
+		cfg,
+		bc.InMemStateFactoryOption(),
+		bc.InMemDaoOption(),
+		bc.GenesisOption(genesisCfg),
+	)
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesisCfg.ActionGasLimit))
 	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
@@ -379,12 +397,18 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
+	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	chain1 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
+	chain1 := bc.NewBlockchain(
+		cfg,
+		bc.InMemStateFactoryOption(),
+		bc.InMemDaoOption(),
+		bc.GenesisOption(genesisCfg),
+	)
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesisCfg.ActionGasLimit))
 	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
@@ -396,8 +420,13 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
-	chain2 := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
+	chain2 := bc.NewBlockchain(
+		cfg,
+		bc.InMemStateFactoryOption(),
+		bc.InMemDaoOption(),
+		bc.GenesisOption(genesisCfg),
+	)
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesisCfg.ActionGasLimit))
 	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
@@ -465,11 +494,12 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
+	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.GenesisOption(genesisCfg))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
@@ -537,9 +567,10 @@ func TestBlockSyncerChaser(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
+	genesisCfg := genesis.Default
 	require.NoError(err)
 
-	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.GenesisOption(genesisCfg))
 	require.NoError(chain.Start(ctx))
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NoError(err)

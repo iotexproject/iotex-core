@@ -15,17 +15,22 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 // GenericValidator is the validator for generic action verification
 type GenericValidator struct {
-	mu sync.RWMutex
-	cm ChainManager
+	mu             sync.RWMutex
+	cm             ChainManager
+	actionGasLimit uint64
 }
 
 // NewGenericValidator constructs a new genericValidator
-func NewGenericValidator(cm ChainManager) *GenericValidator { return &GenericValidator{cm: cm} }
+func NewGenericValidator(cm ChainManager, actionGasLimit uint64) *GenericValidator {
+	return &GenericValidator{
+		cm:             cm,
+		actionGasLimit: actionGasLimit,
+	}
+}
 
 // Validate validates a generic action
 func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelope) error {
@@ -34,7 +39,7 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 		log.S().Panic("Miss validate action context")
 	}
 	// Reject over-gassed action
-	if act.GasLimit() > genesis.ActionGasLimit {
+	if act.GasLimit() > v.actionGasLimit {
 		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")
 	}
 	// Reject action with insufficient gas limit
@@ -53,7 +58,7 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 	}
 
 	pendingNonce := confirmedNonce + 1
-	if pendingNonce > act.Nonce() {
+	if act.Nonce() > 0 && pendingNonce > act.Nonce() {
 		return errors.Wrap(action.ErrNonce, "nonce is too low")
 	}
 	return nil

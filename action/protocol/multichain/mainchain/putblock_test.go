@@ -18,9 +18,9 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -48,7 +48,7 @@ func TestHandlePutBlock(t *testing.T) {
 	_, err = account.LoadOrCreateAccount(
 		ws,
 		addr.String(),
-		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(blockchain.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(unit.Iotx)),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit

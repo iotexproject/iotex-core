@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
@@ -312,6 +314,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 		cfg.Consensus.RollDPoS.NumSubEpochs = 1
 
+		genesisCfg := genesis.Default
+
 		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
@@ -362,8 +366,13 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
-			chain := blockchain.NewBlockchain(cfg, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
-			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+			chain := blockchain.NewBlockchain(
+				cfg,
+				blockchain.InMemDaoOption(),
+				blockchain.PrecreatedStateFactoryOption(sf),
+				blockchain.GenesisOption(genesisCfg),
+			)
+			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
 
