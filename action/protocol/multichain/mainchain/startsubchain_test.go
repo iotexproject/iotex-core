@@ -264,10 +264,9 @@ func TestHandleStartSubChain(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			Caller:          testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			Caller:   testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(t, err)

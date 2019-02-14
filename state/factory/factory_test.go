@@ -268,9 +268,8 @@ func TestCandidates(t *testing.T) {
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	newRoot, _, err := ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2})
 	require.Nil(t, err)
@@ -298,9 +297,8 @@ func TestCandidates(t *testing.T) {
 	zeroGasLimit := uint64(0)
 	zctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &zeroGasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &zeroGasLimit,
 		})
 	_, _, err = ws.RunActions(zctx, 0, []action.SealedEnvelope{selp})
 	require.NotNil(t, err)
@@ -948,9 +946,8 @@ func TestUnvote(t *testing.T) {
 	gasLimit := uint64(10000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
 	require.Nil(t, err)
@@ -1208,9 +1205,8 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 		b.StartTimer()
 		zctx := protocol.WithRunActionsCtx(context.Background(),
 			protocol.RunActionsCtx{
-				Producer:        testaddress.Addrinfo["producer"],
-				GasLimit:        &gasLimit,
-				EnableGasCharge: false,
+				Producer: testaddress.Addrinfo["producer"],
+				GasLimit: &gasLimit,
 			})
 		_, _, err = ws.RunActions(zctx, uint64(n), acts)
 		if err != nil {

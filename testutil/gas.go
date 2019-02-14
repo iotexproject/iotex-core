@@ -11,6 +11,3 @@ const TestGasLimit uint64 = 20000
 
 // TestGasPrice represents the gas price for test actions
 const TestGasPrice int64 = 0
-
-// EnableGasCharge represents whether we enable gas charge in unit test
-const EnableGasCharge bool = true

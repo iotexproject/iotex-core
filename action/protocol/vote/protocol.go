@@ -54,49 +54,47 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", raCtx.Caller.String())
 	}
-	if raCtx.EnableGasCharge {
-		// Load or create account for producer
-		producer, err := account.LoadOrCreateAccount(sm, raCtx.Producer.String(), big.NewInt(0))
-		if err != nil {
-			return nil, errors.Wrapf(
-				err,
-				"failed to load or create the account of block producer %s",
-				raCtx.Producer.String(),
-			)
-		}
-		gas, err := vote.IntrinsicGas()
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get intrinsic gas for vote hash %s", vote.Hash())
-		}
-		if *raCtx.GasLimit < gas {
-			return nil, action.ErrHitGasLimit
-		}
-		gasFee := big.NewInt(0).Mul(vote.GasPrice(), big.NewInt(0).SetUint64(gas))
-
-		if gasFee.Cmp(voteFrom.Balance) == 1 {
-			return nil, errors.Wrapf(
-				state.ErrNotEnoughBalance,
-				"failed to verify the Balance for gas of voter %s, %d, %d",
-				raCtx.Caller.String(),
-				gas,
-				voteFrom.Balance,
-			)
-		}
-
-		// charge voter Gas
-		if err := voteFrom.SubBalance(gasFee); err != nil {
-			return nil, errors.Wrapf(err, "failed to charge the gas for voter %s", raCtx.Caller.String())
-		}
-		// compensate block producer gas
-		if err := producer.AddBalance(gasFee); err != nil {
-			return nil, errors.Wrapf(err, "failed to compensate gas to producer")
-		}
-		// Put updated producer's state to trie
-		if err := account.StoreAccount(sm, raCtx.Producer.String(), producer); err != nil {
-			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
-		}
-		*raCtx.GasLimit -= gas
+	// Load or create account for producer
+	producer, err := account.LoadOrCreateAccount(sm, raCtx.Producer.String(), big.NewInt(0))
+	if err != nil {
+		return nil, errors.Wrapf(
+			err,
+			"failed to load or create the account of block producer %s",
+			raCtx.Producer.String(),
+		)
 	}
+	gas, err := vote.IntrinsicGas()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get intrinsic gas for vote hash %s", vote.Hash())
+	}
+	if *raCtx.GasLimit < gas {
+		return nil, action.ErrHitGasLimit
+	}
+	gasFee := big.NewInt(0).Mul(vote.GasPrice(), big.NewInt(0).SetUint64(gas))
+
+	if gasFee.Cmp(voteFrom.Balance) == 1 {
+		return nil, errors.Wrapf(
+			state.ErrNotEnoughBalance,
+			"failed to verify the Balance for gas of voter %s, %d, %d",
+			raCtx.Caller.String(),
+			gas,
+			voteFrom.Balance,
+		)
+	}
+
+	// charge voter Gas
+	if err := voteFrom.SubBalance(gasFee); err != nil {
+		return nil, errors.Wrapf(err, "failed to charge the gas for voter %s", raCtx.Caller.String())
+	}
+	// compensate block producer gas
+	if err := producer.AddBalance(gasFee); err != nil {
+		return nil, errors.Wrapf(err, "failed to compensate gas to producer")
+	}
+	// Put updated producer's state to trie
+	if err := account.StoreAccount(sm, raCtx.Producer.String(), producer); err != nil {
+		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
+	}
+	*raCtx.GasLimit -= gas
 	// Update voteFrom Nonce
 	account.SetNonce(vote, voteFrom)
 	prevVotee := voteFrom.Votee

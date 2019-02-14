@@ -70,10 +70,12 @@ func TestProtocol_Handle(t *testing.T) {
 
 	vote1, err := testutil.SignedVote(addr1, k1.PriKey, 1, uint64(100000), big.NewInt(0))
 	require.NoError(err)
+	gasLimit := uint64(1000000)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EnableGasCharge: false,
-			Caller:          testaddress.Addrinfo["alfa"],
+			Producer: testaddress.Addrinfo["producer"],
+			Caller:   testaddress.Addrinfo["alfa"],
+			GasLimit: &gasLimit,
 		},
 	)
 	_, err = p.Handle(ctx, vote1.Action(), ws)
@@ -85,8 +87,9 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EnableGasCharge: false,
-			Caller:          testaddress.Addrinfo["bravo"],
+			Producer: testaddress.Addrinfo["producer"],
+			Caller:   testaddress.Addrinfo["bravo"],
+			GasLimit: &gasLimit,
 		},
 	)
 	_, err = p.Handle(ctx, vote2.Action(), ws)
@@ -98,8 +101,9 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EnableGasCharge: false,
-			Caller:          testaddress.Addrinfo["charlie"],
+			Producer: testaddress.Addrinfo["producer"],
+			Caller:   testaddress.Addrinfo["charlie"],
+			GasLimit: &gasLimit,
 		},
 	)
 	_, err = p.Handle(ctx, vote3.Action(), ws)
@@ -111,8 +115,9 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EnableGasCharge: false,
-			Caller:          testaddress.Addrinfo["alfa"],
+			Producer: testaddress.Addrinfo["producer"],
+			Caller:   testaddress.Addrinfo["alfa"],
+			GasLimit: &gasLimit,
 		},
 	)
 	_, err = p.Handle(ctx, unvote1.Action(), ws)
@@ -127,8 +132,9 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EnableGasCharge: false,
-			Caller:          testaddress.Addrinfo["bravo"],
+			Producer: testaddress.Addrinfo["producer"],
+			Caller:   testaddress.Addrinfo["bravo"],
+			GasLimit: &gasLimit,
 		},
 	)
 	_, err = p.Handle(ctx, vote4.Action(), ws)
@@ -145,8 +151,9 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EnableGasCharge: false,
-			Caller:          testaddress.Addrinfo["bravo"],
+			Producer: testaddress.Addrinfo["producer"],
+			Caller:   testaddress.Addrinfo["bravo"],
+			GasLimit: &gasLimit,
 		},
 	)
 	_, err = p.Handle(ctx, unvote2.Action(), ws)

@@ -144,10 +144,6 @@ func ExecuteContract(
 		return nil, err
 	}
 	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
-	if !raCtx.EnableGasCharge {
-		remainingGas = depositGas
-	}
-
 	receipt := &action.Receipt{
 		ReturnValue:     retval,
 		GasConsumed:     ps.gas - remainingGas,

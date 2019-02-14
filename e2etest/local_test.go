@@ -136,7 +136,7 @@ func TestLocalCommit(t *testing.T) {
 	change.Add(change, test)
 
 	require.Equal(
-		unit.ConvertIotxToRau(3000000000),
+		big.NewInt(0).Add(unit.ConvertIotxToRau(3000000000), big.NewInt(100000)),
 		change,
 	)
 	t.Log("Total balance match")
@@ -354,7 +354,7 @@ func TestLocalCommit(t *testing.T) {
 	change.Add(change, test)
 
 	require.Equal(
-		unit.ConvertIotxToRau(3000000000),
+		big.NewInt(0).Add(unit.ConvertIotxToRau(3000000000), big.NewInt(100000)),
 		change,
 	)
 	t.Log("Total balance match")

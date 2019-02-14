@@ -706,12 +706,11 @@ func (bc *blockchain) MintNewBlock(
 			),
 			BlockHeight: newblockHeight,
 			// this field should be removed
-			BlockHash:       hash.ZeroHash256,
-			BlockTimeStamp:  bc.now(),
-			Producer:        producer,
-			GasLimit:        &gasLimitForContext,
-			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
-			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+			BlockHash:      hash.ZeroHash256,
+			BlockTimeStamp: bc.now(),
+			Producer:       producer,
+			GasLimit:       &gasLimitForContext,
+			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
 		})
 	root, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
@@ -838,12 +837,11 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 	}
 	gasLimit := bc.genesisConfig.BlockGasLimit
 	raCtx := protocol.RunActionsCtx{
-		BlockHeight:     blk.Height(),
-		BlockHash:       blk.HashBlock(),
-		BlockTimeStamp:  blk.Timestamp(),
-		Producer:        producer,
-		Caller:          caller,
-		EnableGasCharge: bc.config.Chain.EnableGasCharge,
+		BlockHeight:    blk.Height(),
+		BlockHash:      blk.HashBlock(),
+		BlockTimeStamp: blk.Timestamp(),
+		Producer:       producer,
+		Caller:         caller,
 	}
 	return evm.ExecuteContract(
 		raCtx,
@@ -882,14 +880,13 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EpochNumber:     0,
-			Producer:        producer,
-			GasLimit:        &gasLimit,
-			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
-			EnableGasCharge: bc.config.Chain.EnableGasCharge,
-			Caller:          callerAddr,
-			ActionHash:      hash.ZeroHash256,
-			Nonce:           0,
+			EpochNumber:    0,
+			Producer:       producer,
+			GasLimit:       &gasLimit,
+			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+			Caller:         callerAddr,
+			ActionHash:     hash.ZeroHash256,
+			Nonce:          0,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
@@ -1149,12 +1146,11 @@ func (bc *blockchain) runActions(
 			),
 			BlockHeight: acts.BlockHeight(),
 			// this field should be removed
-			BlockHash:       hash.ZeroHash256,
-			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
-			Producer:        producer,
-			GasLimit:        &gasLimit,
-			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
-			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+			BlockHash:      hash.ZeroHash256,
+			BlockTimeStamp: int64(acts.BlockTimeStamp()),
+			Producer:       producer,
+			GasLimit:       &gasLimit,
+			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
 		})
 
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
@@ -1332,17 +1328,16 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		return nil
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		EpochNumber:     0,
-		BlockHeight:     0,
-		BlockHash:       hash.ZeroHash256,
-		BlockTimeStamp:  bc.genesisConfig.Timestamp,
-		GasLimit:        nil,
-		ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
-		EnableGasCharge: true,
-		Producer:        nil,
-		Caller:          nil,
-		ActionHash:      hash.ZeroHash256,
-		Nonce:           0,
+		EpochNumber:    0,
+		BlockHeight:    0,
+		BlockHash:      hash.ZeroHash256,
+		BlockTimeStamp: bc.genesisConfig.Timestamp,
+		GasLimit:       nil,
+		ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+		Producer:       nil,
+		Caller:         nil,
+		ActionHash:     hash.ZeroHash256,
+		Nonce:          0,
 	})
 	p, ok := bc.registry.Find(rewarding.ProtocolID)
 	if !ok {

@@ -121,7 +121,6 @@ func (sct *smartContractTest) prepareBlockchain(
 	r *require.Assertions,
 ) blockchain.Blockchain {
 	cfg := config.Default
-	cfg.Chain.EnableGasCharge = true
 	cfg.Chain.EnableIndex = true
 	genesisCfg := genesis.Default
 	bc := blockchain.NewBlockchain(
@@ -147,9 +146,8 @@ func (sct *smartContractTest) prepareBlockchain(
 	gasLimit := uint64(10000000)
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
@@ -218,7 +216,6 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg := config.Default
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableGasCharge = true
 		cfg.Chain.EnableIndex = true
 		genesisCfg := genesis.Default
 		bc := blockchain.NewBlockchain(
@@ -246,9 +243,8 @@ func TestProtocol_Handle(t *testing.T) {
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				Producer:        testaddress.Addrinfo["producer"],
-				GasLimit:        &gasLimit,
-				EnableGasCharge: testutil.EnableGasCharge,
+				Producer: testaddress.Addrinfo["producer"],
+				GasLimit: &gasLimit,
 			})
 		_, _, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -424,7 +420,6 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg := config.Default
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableGasCharge = true
 		cfg.Chain.EnableIndex = true
 		genesisCfg := genesis.Default
 		bc := blockchain.NewBlockchain(
@@ -455,9 +450,8 @@ func TestProtocol_Handle(t *testing.T) {
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				Producer:        testaddress.Addrinfo["producer"],
-				GasLimit:        &gasLimit,
-				EnableGasCharge: testutil.EnableGasCharge,
+				Producer: testaddress.Addrinfo["producer"],
+				GasLimit: &gasLimit,
 			})
 		_, _, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -634,9 +628,8 @@ func TestProtocol_Handle(t *testing.T) {
 		gasLimit := uint64(10000000)
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				Producer:        testaddress.Addrinfo["producer"],
-				GasLimit:        &gasLimit,
-				EnableGasCharge: testutil.EnableGasCharge,
+				Producer: testaddress.Addrinfo["producer"],
+				GasLimit: &gasLimit,
 			})
 		_, _, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)

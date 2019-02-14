@@ -358,9 +358,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 				gasLimit := testutil.TestGasLimit
 				wsctx := protocol.WithRunActionsCtx(ctx,
 					protocol.RunActionsCtx{
-						Producer:        testaddress.Addrinfo["producer"],
-						GasLimit:        &gasLimit,
-						EnableGasCharge: testutil.EnableGasCharge,
+						Producer: testaddress.Addrinfo["producer"],
+						GasLimit: &gasLimit,
 					})
 				_, _, err = ws.RunActions(wsctx, 0, nil)
 				require.NoError(t, err)

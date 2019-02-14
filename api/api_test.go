@@ -687,9 +687,8 @@ func addProducerToFactory(sf factory.Factory) error {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        ta.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: ta.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err
