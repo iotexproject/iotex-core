@@ -4,13 +4,11 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package api
+package gasstation
 
 import (
 	"math/big"
 	"sort"
-
-	"github.com/golang/protobuf/jsonpb"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
@@ -26,8 +24,16 @@ type GasStation struct {
 	cfg config.API
 }
 
+// NewGasStation creates a new gas station
+func NewGasStation(bc blockchain.Blockchain, cfg config.API) *GasStation {
+	return &GasStation{
+		bc:  bc,
+		cfg: cfg,
+	}
+}
+
 // SuggestGasPrice suggest gas price
-func (gs *GasStation) suggestGasPrice() (int64, error) {
+func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 	var smallestPrices []*big.Int
 	tip := gs.bc.TipHeight()
 
@@ -39,7 +45,7 @@ func (gs *GasStation) suggestGasPrice() (int64, error) {
 	for height := tip; height > endBlockHeight; height-- {
 		blk, err := gs.bc.GetBlockByHeight(height)
 		if err != nil {
-			return int64(gs.cfg.GasStation.DefaultGas), err
+			return gs.cfg.GasStation.DefaultGas, err
 		}
 		if len(blk.Actions) == 0 {
 			continue
@@ -56,24 +62,20 @@ func (gs *GasStation) suggestGasPrice() (int64, error) {
 
 	if len(smallestPrices) == 0 {
 		// return default price
-		return int64(gs.cfg.GasStation.DefaultGas), nil
+		return gs.cfg.GasStation.DefaultGas, nil
 	}
 	sort.Sort(bigIntArray(smallestPrices))
-	gasPrice := smallestPrices[(len(smallestPrices)-1)*gs.cfg.GasStation.Percentile/100].Int64()
-	if gasPrice < int64(gs.cfg.GasStation.DefaultGas) {
-		gasPrice = int64(gs.cfg.GasStation.DefaultGas)
+	gasPrice := smallestPrices[(len(smallestPrices)-1)*gs.cfg.GasStation.Percentile/100].Uint64()
+	if gasPrice < gs.cfg.GasStation.DefaultGas {
+		gasPrice = gs.cfg.GasStation.DefaultGas
 	}
 	return gasPrice, nil
 }
 
-// EstimateGasForTransfer estimate gas for transfer
-func (gs *GasStation) estimateGasForAction(request string) (int64, error) {
-	var actPb iproto.ActionPb
-	if err := jsonpb.UnmarshalString(request, &actPb); err != nil {
-		return 0, err
-	}
+// EstimateGasForAction estimate gas for action
+func (gs *GasStation) EstimateGasForAction(actPb *iproto.ActionPb) (uint64, error) {
 	var selp action.SealedEnvelope
-	if err := selp.LoadProto(&actPb); err != nil {
+	if err := selp.LoadProto(actPb); err != nil {
 		return 0, err
 	}
 	// Special handling for executions
@@ -87,13 +89,13 @@ func (gs *GasStation) estimateGasForAction(request string) (int64, error) {
 		if err != nil {
 			return 0, err
 		}
-		return int64(receipt.GasConsumed), nil
+		return receipt.GasConsumed, nil
 	}
 	gas, err := selp.IntrinsicGas()
 	if err != nil {
 		return 0, err
 	}
-	return int64(gas), nil
+	return gas, nil
 }
 
 type bigIntArray []*big.Int
