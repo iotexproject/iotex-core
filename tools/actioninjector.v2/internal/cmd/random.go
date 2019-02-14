@@ -215,9 +215,9 @@ func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 
 // injectCmd represents the inject command
 var injectCmd = &cobra.Command{
-	Use:   " [# number]",
-	Short: "",
-	Long:  ``,
+	Use:   "random",
+	Short: "inject random actions",
+	Long:  `inject random actions.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(inject(args))
 	},
