@@ -520,7 +520,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}()
 
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 15*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 30*time.Second, func() (bool, error) {
 			for i, chain := range chains {
 				if i == 1 {
 					continue
