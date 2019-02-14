@@ -90,8 +90,8 @@ func (b *EnvelopeBuilder) SetNonce(n uint64) *EnvelopeBuilder {
 	return b
 }
 
-// To Be Depercated
 // SetDestinationAddress sets action's destination address.
+// To Be Depercated
 func (b *EnvelopeBuilder) SetDestinationAddress(addr string) *EnvelopeBuilder {
 	return b
 }

@@ -69,7 +69,7 @@ func (act *Envelope) Version() uint32 { return act.version }
 // Nonce returns the nonce
 func (act *Envelope) Nonce() uint64 { return act.nonce }
 
-// DstAddr returns the destination address
+// Destination returns the destination address
 func (act *Envelope) Destination() (string, bool) {
 	r, ok := act.payload.(hasDestination)
 	if !ok {
