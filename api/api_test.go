@@ -379,7 +379,7 @@ func TestServer_GetAction(t *testing.T) {
 		require.NoError(err)
 		require.Equal(1, len(res.Actions))
 		actPb := res.Actions[0]
-		require.Equal(test.nonce, actPb.Nonce)
+		require.Equal(test.nonce, actPb.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(actPb.SenderPubKey))
 	}
 }

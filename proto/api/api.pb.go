@@ -25,7 +25,7 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type GetAccountRequest struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -63,7 +63,7 @@ func (m *GetAccountRequest) GetAddress() string {
 }
 
 type GetAccountResponse struct {
-	AccountMeta          *proto1.AccountMeta `protobuf:"bytes,1,opt,name=accountMeta" json:"accountMeta,omitempty"`
+	AccountMeta          *proto1.AccountMeta `protobuf:"bytes,1,opt,name=accountMeta,proto3" json:"accountMeta,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -142,26 +142,34 @@ type isGetActionsRequest_Lookup interface {
 }
 
 type GetActionsRequest_ByIndex struct {
-	ByIndex *GetActionsByIndexRequest `protobuf:"bytes,1,opt,name=byIndex,oneof"`
-}
-type GetActionsRequest_ByHash struct {
-	ByHash *GetActionByHashRequest `protobuf:"bytes,2,opt,name=byHash,oneof"`
-}
-type GetActionsRequest_ByAddr struct {
-	ByAddr *GetActionsByAddressRequest `protobuf:"bytes,3,opt,name=byAddr,oneof"`
-}
-type GetActionsRequest_UnconfirmedByAddr struct {
-	UnconfirmedByAddr *GetUnconfirmedActionsByAddressRequest `protobuf:"bytes,4,opt,name=unconfirmedByAddr,oneof"`
-}
-type GetActionsRequest_ByBlk struct {
-	ByBlk *GetActionsByBlockRequest `protobuf:"bytes,5,opt,name=byBlk,oneof"`
+	ByIndex *GetActionsByIndexRequest `protobuf:"bytes,1,opt,name=byIndex,proto3,oneof"`
 }
 
-func (*GetActionsRequest_ByIndex) isGetActionsRequest_Lookup()           {}
-func (*GetActionsRequest_ByHash) isGetActionsRequest_Lookup()            {}
-func (*GetActionsRequest_ByAddr) isGetActionsRequest_Lookup()            {}
+type GetActionsRequest_ByHash struct {
+	ByHash *GetActionByHashRequest `protobuf:"bytes,2,opt,name=byHash,proto3,oneof"`
+}
+
+type GetActionsRequest_ByAddr struct {
+	ByAddr *GetActionsByAddressRequest `protobuf:"bytes,3,opt,name=byAddr,proto3,oneof"`
+}
+
+type GetActionsRequest_UnconfirmedByAddr struct {
+	UnconfirmedByAddr *GetUnconfirmedActionsByAddressRequest `protobuf:"bytes,4,opt,name=unconfirmedByAddr,proto3,oneof"`
+}
+
+type GetActionsRequest_ByBlk struct {
+	ByBlk *GetActionsByBlockRequest `protobuf:"bytes,5,opt,name=byBlk,proto3,oneof"`
+}
+
+func (*GetActionsRequest_ByIndex) isGetActionsRequest_Lookup() {}
+
+func (*GetActionsRequest_ByHash) isGetActionsRequest_Lookup() {}
+
+func (*GetActionsRequest_ByAddr) isGetActionsRequest_Lookup() {}
+
 func (*GetActionsRequest_UnconfirmedByAddr) isGetActionsRequest_Lookup() {}
-func (*GetActionsRequest_ByBlk) isGetActionsRequest_Lookup()             {}
+
+func (*GetActionsRequest_ByBlk) isGetActionsRequest_Lookup() {}
 
 func (m *GetActionsRequest) GetLookup() isGetActionsRequest_Lookup {
 	if m != nil {
@@ -337,8 +345,8 @@ func _GetActionsRequest_OneofSizer(msg proto.Message) (n int) {
 }
 
 type GetActionsByIndexRequest struct {
-	Start                uint64   `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,2,opt,name=count" json:"count,omitempty"`
+	Start                uint64   `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -383,8 +391,8 @@ func (m *GetActionsByIndexRequest) GetCount() uint64 {
 }
 
 type GetActionByHashRequest struct {
-	ActionHash           string   `protobuf:"bytes,1,opt,name=actionHash" json:"actionHash,omitempty"`
-	CheckPending         bool     `protobuf:"varint,2,opt,name=checkPending" json:"checkPending,omitempty"`
+	ActionHash           string   `protobuf:"bytes,1,opt,name=actionHash,proto3" json:"actionHash,omitempty"`
+	CheckPending         bool     `protobuf:"varint,2,opt,name=checkPending,proto3" json:"checkPending,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -429,9 +437,9 @@ func (m *GetActionByHashRequest) GetCheckPending() bool {
 }
 
 type GetActionsByAddressRequest struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
-	Start                uint64   `protobuf:"varint,2,opt,name=start" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,3,opt,name=count" json:"count,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Start                uint64   `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -483,9 +491,9 @@ func (m *GetActionsByAddressRequest) GetCount() uint64 {
 }
 
 type GetUnconfirmedActionsByAddressRequest struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
-	Start                uint64   `protobuf:"varint,2,opt,name=start" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,3,opt,name=count" json:"count,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Start                uint64   `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -537,9 +545,9 @@ func (m *GetUnconfirmedActionsByAddressRequest) GetCount() uint64 {
 }
 
 type GetActionsByBlockRequest struct {
-	BlkHash              string   `protobuf:"bytes,1,opt,name=blkHash" json:"blkHash,omitempty"`
-	Start                uint64   `protobuf:"varint,2,opt,name=start" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,3,opt,name=count" json:"count,omitempty"`
+	BlkHash              string   `protobuf:"bytes,1,opt,name=blkHash,proto3" json:"blkHash,omitempty"`
+	Start                uint64   `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -591,7 +599,7 @@ func (m *GetActionsByBlockRequest) GetCount() uint64 {
 }
 
 type GetActionsResponse struct {
-	Actions              []*proto1.ActionPb `protobuf:"bytes,1,rep,name=actions" json:"actions,omitempty"`
+	Actions              []*proto1.ActionPb `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -667,14 +675,16 @@ type isGetBlockMetasRequest_Lookup interface {
 }
 
 type GetBlockMetasRequest_ByIndex struct {
-	ByIndex *GetBlockMetasByIndexRequest `protobuf:"bytes,1,opt,name=byIndex,oneof"`
+	ByIndex *GetBlockMetasByIndexRequest `protobuf:"bytes,1,opt,name=byIndex,proto3,oneof"`
 }
+
 type GetBlockMetasRequest_ByHash struct {
-	ByHash *GetBlockMetaByHashRequest `protobuf:"bytes,2,opt,name=byHash,oneof"`
+	ByHash *GetBlockMetaByHashRequest `protobuf:"bytes,2,opt,name=byHash,proto3,oneof"`
 }
 
 func (*GetBlockMetasRequest_ByIndex) isGetBlockMetasRequest_Lookup() {}
-func (*GetBlockMetasRequest_ByHash) isGetBlockMetasRequest_Lookup()  {}
+
+func (*GetBlockMetasRequest_ByHash) isGetBlockMetasRequest_Lookup() {}
 
 func (m *GetBlockMetasRequest) GetLookup() isGetBlockMetasRequest_Lookup {
 	if m != nil {
@@ -772,8 +782,8 @@ func _GetBlockMetasRequest_OneofSizer(msg proto.Message) (n int) {
 }
 
 type GetBlockMetasByIndexRequest struct {
-	Start                uint64   `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,2,opt,name=count" json:"count,omitempty"`
+	Start                uint64   `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -818,7 +828,7 @@ func (m *GetBlockMetasByIndexRequest) GetCount() uint64 {
 }
 
 type GetBlockMetaByHashRequest struct {
-	BlkHash              string   `protobuf:"bytes,1,opt,name=blkHash" json:"blkHash,omitempty"`
+	BlkHash              string   `protobuf:"bytes,1,opt,name=blkHash,proto3" json:"blkHash,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -856,7 +866,7 @@ func (m *GetBlockMetaByHashRequest) GetBlkHash() string {
 }
 
 type GetBlockMetasResponse struct {
-	BlkMetas             []*proto1.BlockMeta `protobuf:"bytes,1,rep,name=blkMetas" json:"blkMetas,omitempty"`
+	BlkMetas             []*proto1.BlockMeta `protobuf:"bytes,1,rep,name=blkMetas,proto3" json:"blkMetas,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -924,7 +934,7 @@ func (m *GetChainMetaRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetChainMetaRequest proto.InternalMessageInfo
 
 type GetChainMetaResponse struct {
-	ChainMeta            *proto1.ChainMeta `protobuf:"bytes,1,opt,name=chainMeta" json:"chainMeta,omitempty"`
+	ChainMeta            *proto1.ChainMeta `protobuf:"bytes,1,opt,name=chainMeta,proto3" json:"chainMeta,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -962,7 +972,7 @@ func (m *GetChainMetaResponse) GetChainMeta() *proto1.ChainMeta {
 }
 
 type SendActionRequest struct {
-	Action               *proto1.ActionPb `protobuf:"bytes,1,opt,name=action" json:"action,omitempty"`
+	Action               *proto1.ActionPb `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -1030,7 +1040,7 @@ func (m *SendActionResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_SendActionResponse proto.InternalMessageInfo
 
 type GetReceiptByActionRequest struct {
-	ActionHash           string   `protobuf:"bytes,1,opt,name=actionHash" json:"actionHash,omitempty"`
+	ActionHash           string   `protobuf:"bytes,1,opt,name=actionHash,proto3" json:"actionHash,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1068,7 +1078,7 @@ func (m *GetReceiptByActionRequest) GetActionHash() string {
 }
 
 type GetReceiptByActionResponse struct {
-	Receipt              *proto1.ReceiptPb `protobuf:"bytes,1,opt,name=receipt" json:"receipt,omitempty"`
+	Receipt              *proto1.ReceiptPb `protobuf:"bytes,1,opt,name=receipt,proto3" json:"receipt,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -1106,7 +1116,7 @@ func (m *GetReceiptByActionResponse) GetReceipt() *proto1.ReceiptPb {
 }
 
 type ReadContractRequest struct {
-	Action               *proto1.ActionPb `protobuf:"bytes,1,opt,name=action" json:"action,omitempty"`
+	Action               *proto1.ActionPb `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -1144,7 +1154,7 @@ func (m *ReadContractRequest) GetAction() *proto1.ActionPb {
 }
 
 type ReadContractResponse struct {
-	Data                 string   `protobuf:"bytes,1,opt,name=data" json:"data,omitempty"`
+	Data                 string   `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1212,7 +1222,7 @@ func (m *SuggestGasPriceRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_SuggestGasPriceRequest proto.InternalMessageInfo
 
 type SuggestGasPriceResponse struct {
-	GasPrice             uint64   `protobuf:"varint,1,opt,name=gasPrice" json:"gasPrice,omitempty"`
+	GasPrice             uint64   `protobuf:"varint,1,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1250,7 +1260,7 @@ func (m *SuggestGasPriceResponse) GetGasPrice() uint64 {
 }
 
 type EstimateGasForActionRequest struct {
-	Action               *proto1.ActionPb `protobuf:"bytes,1,opt,name=action" json:"action,omitempty"`
+	Action               *proto1.ActionPb `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -1288,7 +1298,7 @@ func (m *EstimateGasForActionRequest) GetAction() *proto1.ActionPb {
 }
 
 type EstimateGasForActionResponse struct {
-	Gas                  uint64   `protobuf:"varint,1,opt,name=gas" json:"gas,omitempty"`
+	Gas                  uint64   `protobuf:"varint,1,opt,name=gas,proto3" json:"gas,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1361,8 +1371,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for APIService service
-
+// APIServiceClient is the client API for APIService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type APIServiceClient interface {
 	// get the address detail of an address
 	GetAccount(ctx context.Context, in *GetAccountRequest, opts ...grpc.CallOption) (*GetAccountResponse, error)
@@ -1401,7 +1412,7 @@ func NewAPIServiceClient(cc *grpc.ClientConn) APIServiceClient {
 
 func (c *aPIServiceClient) GetAccount(ctx context.Context, in *GetAccountRequest, opts ...grpc.CallOption) (*GetAccountResponse, error) {
 	out := new(GetAccountResponse)
-	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetAccount", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetAccount", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1410,7 +1421,7 @@ func (c *aPIServiceClient) GetAccount(ctx context.Context, in *GetAccountRequest
 
 func (c *aPIServiceClient) GetActions(ctx context.Context, in *GetActionsRequest, opts ...grpc.CallOption) (*GetActionsResponse, error) {
 	out := new(GetActionsResponse)
-	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetActions", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetActions", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1419,7 +1430,7 @@ func (c *aPIServiceClient) GetActions(ctx context.Context, in *GetActionsRequest
 
 func (c *aPIServiceClient) GetBlockMetas(ctx context.Context, in *GetBlockMetasRequest, opts ...grpc.CallOption) (*GetBlockMetasResponse, error) {
 	out := new(GetBlockMetasResponse)
-	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetBlockMetas", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetBlockMetas", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1428,7 +1439,7 @@ func (c *aPIServiceClient) GetBlockMetas(ctx context.Context, in *GetBlockMetasR
 
 func (c *aPIServiceClient) GetChainMeta(ctx context.Context, in *GetChainMetaRequest, opts ...grpc.CallOption) (*GetChainMetaResponse, error) {
 	out := new(GetChainMetaResponse)
-	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetChainMeta", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetChainMeta", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1437,7 +1448,7 @@ func (c *aPIServiceClient) GetChainMeta(ctx context.Context, in *GetChainMetaReq
 
 func (c *aPIServiceClient) SendAction(ctx context.Context, in *SendActionRequest, opts ...grpc.CallOption) (*SendActionResponse, error) {
 	out := new(SendActionResponse)
-	err := grpc.Invoke(ctx, "/iotexapi.APIService/SendAction", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/iotexapi.APIService/SendAction", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1446,7 +1457,7 @@ func (c *aPIServiceClient) SendAction(ctx context.Context, in *SendActionRequest
 
 func (c *aPIServiceClient) GetReceiptByAction(ctx context.Context, in *GetReceiptByActionRequest, opts ...grpc.CallOption) (*GetReceiptByActionResponse, error) {
 	out := new(GetReceiptByActionResponse)
-	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetReceiptByAction", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetReceiptByAction", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1455,7 +1466,7 @@ func (c *aPIServiceClient) GetReceiptByAction(ctx context.Context, in *GetReceip
 
 func (c *aPIServiceClient) ReadContract(ctx context.Context, in *ReadContractRequest, opts ...grpc.CallOption) (*ReadContractResponse, error) {
 	out := new(ReadContractResponse)
-	err := grpc.Invoke(ctx, "/iotexapi.APIService/ReadContract", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/iotexapi.APIService/ReadContract", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1464,7 +1475,7 @@ func (c *aPIServiceClient) ReadContract(ctx context.Context, in *ReadContractReq
 
 func (c *aPIServiceClient) SuggestGasPrice(ctx context.Context, in *SuggestGasPriceRequest, opts ...grpc.CallOption) (*SuggestGasPriceResponse, error) {
 	out := new(SuggestGasPriceResponse)
-	err := grpc.Invoke(ctx, "/iotexapi.APIService/SuggestGasPrice", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/iotexapi.APIService/SuggestGasPrice", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1473,15 +1484,14 @@ func (c *aPIServiceClient) SuggestGasPrice(ctx context.Context, in *SuggestGasPr
 
 func (c *aPIServiceClient) EstimateGasForAction(ctx context.Context, in *EstimateGasForActionRequest, opts ...grpc.CallOption) (*EstimateGasForActionResponse, error) {
 	out := new(EstimateGasForActionResponse)
-	err := grpc.Invoke(ctx, "/iotexapi.APIService/EstimateGasForAction", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/iotexapi.APIService/EstimateGasForAction", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for APIService service
-
+// APIServiceServer is the server API for APIService service.
 type APIServiceServer interface {
 	// get the address detail of an address
 	GetAccount(context.Context, *GetAccountRequest) (*GetAccountResponse, error)

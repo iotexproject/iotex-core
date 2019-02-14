@@ -75,7 +75,7 @@ func TestMerkle(t *testing.T) {
 		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
 	)
 	hash := block.CalculateTxRoot()
-	require.Equal("9eacfe53302a280fded08608fac9dd89c30fe42a2a066a218c60c03d050f60d7", hex.EncodeToString(hash[:]))
+	require.Equal("27708bd46b8ea8026db2eb764d19ae5c4213d20b035290f1e799d2298717887d", hex.EncodeToString(hash[:]))
 
 	t.Log("Merkle root match pass\n")
 }
@@ -91,36 +91,44 @@ func TestConvertFromBlockPb(t *testing.T) {
 		},
 		Actions: []*iproto.ActionPb{
 			{
-				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{},
+				Core: &iproto.ActionCore{
+					Action: &iproto.ActionCore_Transfer{
+						Transfer: &iproto.TransferPb{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   101,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        101,
 			},
 			{
-				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{},
+				Core: &iproto.ActionCore{
+					Action: &iproto.ActionCore_Transfer{
+						Transfer: &iproto.TransferPb{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   102,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        102,
 			},
 			{
-				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{},
+				Core: &iproto.ActionCore{
+					Action: &iproto.ActionCore_Vote{
+						Vote: &iproto.VotePb{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   103,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        103,
 			},
 			{
-				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{},
+				Core: &iproto.ActionCore{
+					Action: &iproto.ActionCore_Vote{
+						Vote: &iproto.VotePb{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   104,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        104,
 			},
 		},
 	}))

@@ -1109,16 +1109,18 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 		return explorer.SendVoteResponse{}, errors.New("failed to set vote gas price")
 	}
 	actPb := &iproto.ActionPb{
-		Action: &iproto.ActionPb_Vote{
-			Vote: &iproto.VotePb{
-				VoteeAddress: voteJSON.Votee,
+		Core: &iproto.ActionCore{
+			Action: &iproto.ActionCore_Vote{
+				Vote: &iproto.VotePb{
+					VoteeAddress: voteJSON.Votee,
+				},
 			},
+			Version:  uint32(voteJSON.Version),
+			Nonce:    uint64(voteJSON.Nonce),
+			GasLimit: uint64(voteJSON.GasLimit),
+			GasPrice: gasPrice.Bytes(),
 		},
-		Version:      uint32(voteJSON.Version),
 		SenderPubKey: selfPubKey,
-		Nonce:        uint64(voteJSON.Nonce),
-		GasLimit:     uint64(voteJSON.GasLimit),
-		GasPrice:     gasPrice.Bytes(),
 		Signature:    signature,
 	}
 	// broadcast to the network
@@ -1173,18 +1175,20 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		})
 	}
 	actPb := &iproto.ActionPb{
-		Action: &iproto.ActionPb_PutBlock{
-			PutBlock: &iproto.PutBlockPb{
-				SubChainAddress: putBlockJSON.SubChainAddress,
-				Height:          uint64(putBlockJSON.Height),
-				Roots:           roots,
+		Core: &iproto.ActionCore{
+			Action: &iproto.ActionCore_PutBlock{
+				PutBlock: &iproto.PutBlockPb{
+					SubChainAddress: putBlockJSON.SubChainAddress,
+					Height:          uint64(putBlockJSON.Height),
+					Roots:           roots,
+				},
 			},
+			Version:  uint32(putBlockJSON.Version),
+			Nonce:    uint64(putBlockJSON.Nonce),
+			GasLimit: uint64(putBlockJSON.GasLimit),
+			GasPrice: gasPrice.Bytes(),
 		},
-		Version:      uint32(putBlockJSON.Version),
 		SenderPubKey: senderPubKey,
-		Nonce:        uint64(putBlockJSON.Nonce),
-		GasLimit:     uint64(putBlockJSON.GasLimit),
-		GasPrice:     gasPrice.Bytes(),
 		Signature:    signature,
 	}
 	// broadcast to the network
@@ -1282,18 +1286,20 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		return explorer.SendSmartContractResponse{}, errors.New("failed to set execution gas price")
 	}
 	actPb := &iproto.ActionPb{
-		Action: &iproto.ActionPb_Execution{
-			Execution: &iproto.ExecutionPb{
-				Amount:   amount.Bytes(),
-				Contract: execution.Contract,
-				Data:     data,
+		Core: &iproto.ActionCore{
+			Action: &iproto.ActionCore_Execution{
+				Execution: &iproto.ExecutionPb{
+					Amount:   amount.Bytes(),
+					Contract: execution.Contract,
+					Data:     data,
+				},
 			},
+			Version:  uint32(execution.Version),
+			Nonce:    uint64(execution.Nonce),
+			GasLimit: uint64(execution.GasLimit),
+			GasPrice: gasPrice.Bytes(),
 		},
-		Version:      uint32(execution.Version),
 		SenderPubKey: executorPubKey,
-		Nonce:        uint64(execution.Nonce),
-		GasLimit:     uint64(execution.GasLimit),
-		GasPrice:     gasPrice.Bytes(),
 		Signature:    signature,
 	}
 	// broadcast to the network
@@ -1388,18 +1394,20 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 		return res, errors.New("error when converting gas price string into big int type")
 	}
 	actPb := &iproto.ActionPb{
-		Action: &iproto.ActionPb_CreateDeposit{
-			CreateDeposit: &iproto.CreateDepositPb{
-				ChainID:   uint32(req.ChainID),
-				Amount:    amount.Bytes(),
-				Recipient: req.Recipient,
+		Core: &iproto.ActionCore{
+			Action: &iproto.ActionCore_CreateDeposit{
+				CreateDeposit: &iproto.CreateDepositPb{
+					ChainID:   uint32(req.ChainID),
+					Amount:    amount.Bytes(),
+					Recipient: req.Recipient,
+				},
 			},
+			Version:  uint32(req.Version),
+			Nonce:    uint64(req.Nonce),
+			GasLimit: uint64(req.GasLimit),
+			GasPrice: gasPrice.Bytes(),
 		},
-		Version:      uint32(req.Version),
 		SenderPubKey: senderPubKey,
-		Nonce:        uint64(req.Nonce),
-		GasLimit:     uint64(req.GasLimit),
-		GasPrice:     gasPrice.Bytes(),
 		Signature:    signature,
 	}
 
@@ -1497,18 +1505,20 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 		return res, errors.New("error when converting gas price string into big int type")
 	}
 	actPb := &iproto.ActionPb{
-		Action: &iproto.ActionPb_SettleDeposit{
-			SettleDeposit: &iproto.SettleDepositPb{
-				Amount:    amount.Bytes(),
-				Index:     uint64(req.Index),
-				Recipient: req.Recipient,
+		Core: &iproto.ActionCore{
+			Action: &iproto.ActionCore_SettleDeposit{
+				SettleDeposit: &iproto.SettleDepositPb{
+					Amount:    amount.Bytes(),
+					Index:     uint64(req.Index),
+					Recipient: req.Recipient,
+				},
 			},
+			Version:  uint32(req.Version),
+			Nonce:    uint64(req.Nonce),
+			GasLimit: uint64(req.GasLimit),
+			GasPrice: gasPrice.Bytes(),
 		},
-		Version:      uint32(req.Version),
 		SenderPubKey: senderPubKey,
-		Nonce:        uint64(req.Nonce),
-		GasLimit:     uint64(req.GasLimit),
-		GasPrice:     gasPrice.Bytes(),
 		Signature:    signature,
 	}
 	// broadcast to the network
@@ -1937,18 +1947,20 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iproto.
 		return nil, errors.New("failed to set execution gas price")
 	}
 	actPb := &iproto.ActionPb{
-		Action: &iproto.ActionPb_Execution{
-			Execution: &iproto.ExecutionPb{
-				Amount:   amount.Bytes(),
-				Contract: execution.Contract,
-				Data:     data,
+		Core: &iproto.ActionCore{
+			Action: &iproto.ActionCore_Execution{
+				Execution: &iproto.ExecutionPb{
+					Amount:   amount.Bytes(),
+					Contract: execution.Contract,
+					Data:     data,
+				},
 			},
+			Version:  uint32(execution.Version),
+			Nonce:    uint64(execution.Nonce),
+			GasLimit: uint64(execution.GasLimit),
+			GasPrice: gasPrice.Bytes(),
 		},
-		Version:      uint32(execution.Version),
 		SenderPubKey: executorPubKey,
-		Nonce:        uint64(execution.Nonce),
-		GasLimit:     uint64(execution.GasLimit),
-		GasPrice:     gasPrice.Bytes(),
 		Signature:    signature,
 	}
 	return actPb, nil
@@ -1985,18 +1997,20 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
 		return nil, errors.New("failed to set transfer gas price")
 	}
 	actPb := &iproto.ActionPb{
-		Action: &iproto.ActionPb_Transfer{
-			Transfer: &iproto.TransferPb{
-				Amount:    amount.Bytes(),
-				Recipient: tsfJSON.Recipient,
-				Payload:   payload,
+		Core: &iproto.ActionCore{
+			Action: &iproto.ActionCore_Transfer{
+				Transfer: &iproto.TransferPb{
+					Amount:    amount.Bytes(),
+					Recipient: tsfJSON.Recipient,
+					Payload:   payload,
+				},
 			},
+			Version:  uint32(tsfJSON.Version),
+			Nonce:    uint64(tsfJSON.Nonce),
+			GasLimit: uint64(tsfJSON.GasLimit),
+			GasPrice: gasPrice.Bytes(),
 		},
-		Version:      uint32(tsfJSON.Version),
 		SenderPubKey: senderPubKey,
-		Nonce:        uint64(tsfJSON.Nonce),
-		GasLimit:     uint64(tsfJSON.GasLimit),
-		GasPrice:     gasPrice.Bytes(),
 		Signature:    signature,
 	}
 	return actPb, nil
