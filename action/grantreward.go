@@ -12,7 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -25,6 +25,7 @@ const (
 // GrantReward is the action to grant either block or epoch reward
 type GrantReward struct {
 	AbstractAction
+
 	t int
 }
 

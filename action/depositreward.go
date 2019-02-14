@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -25,6 +25,7 @@ var (
 // DepositToRewardingFund is the action to deposit to the rewarding fund
 type DepositToRewardingFund struct {
 	AbstractAction
+
 	amount *big.Int
 	data   []byte
 }
