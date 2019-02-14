@@ -105,6 +105,7 @@ func (elp *Envelope) IntrinsicGas() (uint64, error) {
 // Action returns the action payload.
 func (elp *Envelope) Action() Action { return elp.payload }
 
+// Proto convert Envelope to protobuf format.
 func (elp *Envelope) Proto() *iproto.ActionCore {
 	actCore := &iproto.ActionCore{
 		Version:  elp.version,
@@ -148,6 +149,7 @@ func (elp *Envelope) Proto() *iproto.ActionCore {
 	return actCore
 }
 
+// LoadProto loads fields from protobuf format.
 func (elp *Envelope) LoadProto(pbAct *iproto.ActionCore) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
@@ -291,7 +293,9 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
 	sealed.srcPubkey = srcPub
 	sealed.signature = make([]byte, len(pbAct.GetSignature()))
 	copy(sealed.signature, pbAct.GetSignature())
-	sealed.Envelope.LoadProto(pbAct.GetCore())
+	if err := sealed.Envelope.LoadProto(pbAct.GetCore()); err != nil {
+		return err
+	}
 
 	sealed.payload.SetEnvelopeContext(*sealed)
 	return nil
