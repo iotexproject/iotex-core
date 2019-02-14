@@ -86,7 +86,7 @@ func runExecution(
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
-		SetDestinationAddress(exec.DstAddr()).
+		SetDestinationAddress(exec.Contract()).
 		SetNonce(exec.Nonce()).
 		SetGasLimit(exec.GasLimit()).
 		Build()

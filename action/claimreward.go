@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -25,6 +25,7 @@ var (
 // ClaimFromRewardingFund is the action to claim reward from the rewarding fund
 type ClaimFromRewardingFund struct {
 	AbstractAction
+
 	amount *big.Int
 	data   []byte
 }
