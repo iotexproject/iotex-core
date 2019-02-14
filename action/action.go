@@ -42,11 +42,14 @@ type actionPayload interface {
 	SetEnvelopeContext(SealedEnvelope)
 }
 
+type hasDestination interface {
+	Destination() string
+}
+
 // Envelope defines an envelope wrapped on action with some envelope metadata.
 type Envelope struct {
 	version  uint32
 	nonce    uint64
-	dstAddr  string
 	gasLimit uint64
 	payload  actionPayload
 	gasPrice *big.Int
@@ -55,6 +58,7 @@ type Envelope struct {
 // SealedEnvelope is a signed action envelope.
 type SealedEnvelope struct {
 	Envelope
+
 	srcPubkey keypair.PublicKey
 	signature []byte
 }
@@ -65,8 +69,15 @@ func (act *Envelope) Version() uint32 { return act.version }
 // Nonce returns the nonce
 func (act *Envelope) Nonce() uint64 { return act.nonce }
 
-// DstAddr returns the destination address
-func (act *Envelope) DstAddr() string { return act.dstAddr }
+// Destination returns the destination address
+func (act *Envelope) Destination() (string, bool) {
+	r, ok := act.payload.(hasDestination)
+	if !ok {
+		return "", false
+	}
+
+	return r.Destination(), true
+}
 
 // GasLimit returns the gas limit
 func (act *Envelope) GasLimit() uint64 { return act.gasLimit }
@@ -97,7 +108,6 @@ func (act *Envelope) Action() Action { return act.payload }
 func (act *Envelope) ByteStream() []byte {
 	stream := byteutil.Uint32ToBytes(act.version)
 	stream = append(stream, byteutil.Uint64ToBytes(act.nonce)...)
-	stream = append(stream, act.dstAddr...)
 	stream = append(stream, byteutil.Uint64ToBytes(act.gasLimit)...)
 	if act.gasPrice != nil {
 		stream = append(stream, act.gasPrice.Bytes()...)
@@ -196,28 +206,24 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
 
 	switch {
 	case pbAct.GetTransfer() != nil:
-		sealed.dstAddr = pbAct.GetTransfer().Recipient
 		act := &Transfer{}
 		if err := act.LoadProto(pbAct.GetTransfer()); err != nil {
 			return err
 		}
 		sealed.payload = act
 	case pbAct.GetVote() != nil:
-		sealed.dstAddr = pbAct.GetVote().VoteeAddress
 		act := &Vote{}
 		if err := act.LoadProto(pbAct.GetVote()); err != nil {
 			return err
 		}
 		sealed.payload = act
 	case pbAct.GetExecution() != nil:
-		sealed.dstAddr = pbAct.GetExecution().Contract
 		act := &Execution{}
 		if err := act.LoadProto(pbAct.GetExecution()); err != nil {
 			return err
 		}
 		sealed.payload = act
 	case pbAct.GetPutBlock() != nil:
-		sealed.dstAddr = pbAct.GetPutBlock().SubChainAddress
 		act := &PutBlock{}
 		if err := act.LoadProto(pbAct.GetPutBlock()); err != nil {
 			return err
@@ -230,21 +236,18 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iproto.ActionPb) error {
 		}
 		sealed.payload = act
 	case pbAct.GetStopSubChain() != nil:
-		sealed.dstAddr = pbAct.GetStopSubChain().SubChainAddress
 		act := &StopSubChain{}
 		if err := act.LoadProto(pbAct.GetStopSubChain()); err != nil {
 			return err
 		}
 		sealed.payload = act
 	case pbAct.GetCreateDeposit() != nil:
-		sealed.dstAddr = pbAct.GetCreateDeposit().Recipient
 		act := &CreateDeposit{}
 		if err := act.LoadProto(pbAct.GetCreateDeposit()); err != nil {
 			return err
 		}
 		sealed.payload = act
 	case pbAct.GetSettleDeposit() != nil:
-		sealed.dstAddr = pbAct.GetSettleDeposit().Recipient
 		act := &SettleDeposit{}
 		if err := act.LoadProto(pbAct.GetSettleDeposit()); err != nil {
 			return err

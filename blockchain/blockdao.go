@@ -750,7 +750,9 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 			return err
 		}
 		senderCount[callerAddr.String()]++
-		recipientCount[selp.DstAddr()]++
+		if dst, ok := selp.Destination(); ok {
+			recipientCount[dst]++
+		}
 	}
 	// Roll back the status of address -> actionCount mapping to the preivous block
 	for sender, count := range senderCount {
@@ -801,18 +803,22 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 		batch.Delete(blockAddressActionMappingNS, senderKey, "failed to delete action hash %x for sender %x",
 			actHash, callerAddrStr)
 
-		if delta, ok := recipientDelta[selp.DstAddr()]; ok {
-			recipientCount[selp.DstAddr()] += delta
-			recipientDelta[selp.DstAddr()] = recipientDelta[selp.DstAddr()] + 1
+		dst, ok := selp.Destination()
+		if !ok {
+			continue
+		}
+		if delta, ok := recipientDelta[dst]; ok {
+			recipientCount[dst] += delta
+			recipientDelta[dst]++
 		} else {
-			recipientDelta[selp.DstAddr()] = 1
+			recipientDelta[dst] = 1
 		}
 
 		// Delete new action to recipient
-		recipientKey := append(actionToPrefix, selp.DstAddr()...)
-		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[selp.DstAddr()])...)
+		recipientKey := append(actionToPrefix, dst...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[dst])...)
 		batch.Delete(blockAddressActionMappingNS, recipientKey, "failed to delete action hash %x for recipient %x",
-			actHash, selp.DstAddr())
+			actHash, dst)
 	}
 
 	return nil

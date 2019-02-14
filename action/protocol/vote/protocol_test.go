@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -180,7 +179,7 @@ func TestProtocol_Validate(t *testing.T) {
 		Caller: testaddress.Addrinfo["producer"],
 	})
 	err = p.Validate(ctx, vote)
-	require.Equal(action.ErrActPool, errors.Cause(err))
+	require.Error(err)
 	// Case II: Invalid votee address
 	vote, err = action.NewVote(1, "123", uint64(100000),
 		big.NewInt(0))

@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -25,6 +25,7 @@ var (
 // SetReward is the action to update the reward amount
 type SetReward struct {
 	AbstractAction
+
 	amount *big.Int
 	data   []byte
 	t      int
