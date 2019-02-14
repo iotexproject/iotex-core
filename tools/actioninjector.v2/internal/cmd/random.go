@@ -24,9 +24,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/tools/actioninjector.v2/internal/client"
 )
 
@@ -185,7 +185,7 @@ func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 		}
 		recipient := p.accounts[rand.Intn(len(p.accounts))]
 		transfer, err := action.NewTransfer(
-			nonce, blockchain.ConvertIotxToRau(amount), recipient.EncodedAddr, injectCfg.transferPayload, injectCfg.transferGasLimit, injectCfg.transferGasPrice)
+			nonce, unit.ConvertIotxToRau(amount), recipient.EncodedAddr, injectCfg.transferPayload, injectCfg.transferGasLimit, injectCfg.transferGasPrice)
 		if err != nil {
 			return action.SealedEnvelope{}, errors.Wrap(err, "failed to create raw transfer")
 		}
