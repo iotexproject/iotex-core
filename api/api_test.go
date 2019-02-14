@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -28,7 +27,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/gasstation"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	iproto "github.com/iotexproject/iotex-core/proto"
+	iotexapi "github.com/iotexproject/iotex-core/proto/api"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
@@ -42,21 +44,33 @@ const (
 )
 
 var (
-	marshaler jsonpb.Marshaler
-
 	testTransfer, _ = testutil.SignedTransfer(ta.Addrinfo["alfa"].String(),
 		ta.Keyinfo["alfa"].PriKey, 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPrice))
-	testTransferHash = testTransfer.Hash()
 
-	testTransferStr, _ = marshaler.MarshalToString(testTransfer.Proto())
+	testTransferPb = testTransfer.Proto()
 
 	testExecution, _ = testutil.SignedExecution(ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["bravo"].PriKey, 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPrice), []byte{})
-	testExecutionHash = testExecution.Hash()
 
-	testExecutionStr, _ = marshaler.MarshalToString(testExecution.Proto())
+	testExecutionPb = testExecution.Proto()
+
+	testTransfer1, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 1,
+		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	transferHash1 = testTransfer1.Hash()
+	testVote1, _  = testutil.SignedVote(ta.Addrinfo["charlie"].String(), ta.Keyinfo["charlie"].PriKey, 5,
+		testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	voteHash1         = testVote1.Hash()
+	testExecution1, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 5,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
+	executionHash1    = testExecution1.Hash()
+	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 6,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+	executionHash2    = testExecution2.Hash()
+	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 2,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+	executionHash3 = testExecution3.Hash()
 )
 
 var (
@@ -70,31 +84,31 @@ var (
 		{ta.Addrinfo["charlie"].String(),
 			"io1hw79kmqxlp33h7t83wrf9gkduy58th4vmkkue4",
 			"3",
-			uint64(8),
-			uint64(9),
+			8,
+			9,
 		},
 		{
 			ta.Addrinfo["producer"].String(),
 			"io14485vn8markfupgy86at5a0re78jll0pmq8fjv",
 			"9999999999999999999999999991",
-			uint64(1),
-			uint64(6),
+			1,
+			6,
 		},
 	}
 
 	getActionsTests = []struct {
-		start      int64
-		count      int64
+		start      uint64
+		count      uint64
 		numActions int
 	}{
 		{
-			int64(0),
-			int64(11),
+			0,
+			11,
 			11,
 		},
 		{
-			int64(11),
-			int64(21),
+			11,
+			21,
 			21,
 		},
 	}
@@ -107,28 +121,28 @@ var (
 	}{
 		{
 			false,
-			"be60e55d583093162cfafa1967bed3454942faae83b956cb60f9936b508bdea3",
-			uint64(1),
-			"04755ce6d8903f6b3793bddb4ea5d3589d637de2d209ae0ea930815c82db564ee8cc448886f639e8a0c7e94e99a5c1335b583c0bc76ef30dd6a1038ed9da8daf33",
+			hex.EncodeToString(transferHash1[:]),
+			1,
+			keypair.EncodePublicKey(testTransfer1.SrcPubkey()),
 		},
 		{
 			false,
-			"786177f72c5a0196487b34343daaa1852afd16eece9222cee22df615b7594ef1",
-			uint64(5),
-			"043489f788326de4844ebc745f782bc4fc4c67d420cd9913282598999af32f832a3dd980f2b6667cbcb7844d7f557933e917858d4e6a6f58b870bebd2a6c496bd6",
+			hex.EncodeToString(voteHash1[:]),
+			5,
+			keypair.EncodePublicKey(testVote1.SrcPubkey()),
 		},
 		{
 			true,
-			"b3583c3bfe08d96dec46401397c0aa648135b2892dca24bb8b9cf05fb52773eb",
-			uint64(5),
-			"04755ce6d8903f6b3793bddb4ea5d3589d637de2d209ae0ea930815c82db564ee8cc448886f639e8a0c7e94e99a5c1335b583c0bc76ef30dd6a1038ed9da8daf33",
+			hex.EncodeToString(executionHash1[:]),
+			5,
+			keypair.EncodePublicKey(testExecution1.SrcPubkey()),
 		},
 	}
 
 	getActionsByAddressTests = []struct {
 		address    string
-		start      int64
-		count      int64
+		start      uint64
+		count      uint64
 		numActions int
 	}{
 		{
@@ -147,8 +161,8 @@ var (
 
 	getUnconfirmedActionsByAddressTests = []struct {
 		address    string
-		start      int64
-		count      int64
+		start      uint64
+		count      uint64
 		numActions int
 	}{
 		{
@@ -161,18 +175,18 @@ var (
 
 	getActionsByBlockTests = []struct {
 		blkHeight  uint64
-		start      int64
-		count      int64
+		start      uint64
+		count      uint64
 		numActions int
 	}{
 		{
-			uint64(2),
+			2,
 			0,
 			7,
 			7,
 		},
 		{
-			uint64(4),
+			4,
 			0,
 			5,
 			5,
@@ -180,8 +194,8 @@ var (
 	}
 
 	getBlockMetasTests = []struct {
-		start   int64
-		count   int64
+		start   uint64
+		count   uint64
 		numBlks int
 	}{
 		{
@@ -202,12 +216,12 @@ var (
 		transferAmount string
 	}{
 		{
-			uint64(2),
+			2,
 			7,
 			"4",
 		},
 		{
-			uint64(4),
+			4,
 			5,
 			"0",
 		},
@@ -226,16 +240,13 @@ var (
 	}
 
 	sendActionTests = []struct {
-		action string
-		hash   string
+		actionPb *iproto.ActionPb
 	}{
 		{
-			testTransferStr,
-			hex.EncodeToString(testTransferHash[:]),
+			testTransferPb,
 		},
 		{
-			testExecutionStr,
-			hex.EncodeToString(testExecutionHash[:]),
+			testExecutionPb,
 		},
 	}
 
@@ -244,12 +255,12 @@ var (
 		status uint64
 	}{
 		{
-			"3d7f6918447cda452bc8d32ca70f4aa06618aed530dafc9d547bd83454d1ffd2",
-			uint64(1),
+			hex.EncodeToString(executionHash2[:]),
+			1,
 		},
 		{
-			"80c933e709b5534f1e3324ae7ce35f13dd5f0850ffdeaf01209674e1ab353ad8",
-			uint64(1),
+			hex.EncodeToString(executionHash3[:]),
+			1,
 		},
 	}
 
@@ -258,14 +269,14 @@ var (
 		retValue string
 	}{
 		{
-			"3d7f6918447cda452bc8d32ca70f4aa06618aed530dafc9d547bd83454d1ffd2",
+			hex.EncodeToString(executionHash2[:]),
 			"",
 		},
 	}
 
 	suggestGasPriceTests = []struct {
-		defaultGasPrice   int
-		suggestedGasPrice int64
+		defaultGasPrice   uint64
+		suggestedGasPrice uint64
 	}{
 		{
 			1,
@@ -275,20 +286,20 @@ var (
 
 	estimateGasForActionTests = []struct {
 		actionHash   string
-		estimatedGas int64
+		estimatedGas uint64
 	}{
 		{
-			"be60e55d583093162cfafa1967bed3454942faae83b956cb60f9936b508bdea3",
+			hex.EncodeToString(transferHash1[:]),
 			10000,
 		},
 		{
-			"786177f72c5a0196487b34343daaa1852afd16eece9222cee22df615b7594ef1",
+			hex.EncodeToString(voteHash1[:]),
 			10000,
 		},
 	}
 )
 
-func TestService_GetAccount(t *testing.T) {
+func TestServer_GetAccount(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -297,26 +308,26 @@ func TestService_GetAccount(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, true)
+	svr, err := createServer(cfg, true)
 	require.NoError(err)
 
 	// success
 	for _, test := range getAccountTests {
-		res, err := svc.GetAccount(test.in)
+		request := &iotexapi.GetAccountRequest{Address: test.in}
+		res, err := svr.GetAccount(context.Background(), request)
 		require.NoError(err)
-		var accountMeta iproto.AccountMeta
-		require.NoError(jsonpb.UnmarshalString(res, &accountMeta))
+		accountMeta := res.AccountMeta
 		require.Equal(test.address, accountMeta.Address)
 		require.Equal(test.balance, accountMeta.Balance)
 		require.Equal(test.nonce, accountMeta.Nonce)
 		require.Equal(test.pendingNonce, accountMeta.PendingNonce)
 	}
 	// failure
-	_, err = svc.GetAccount("")
+	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
 	require.Error(err)
 }
 
-func TestService_GetActions(t *testing.T) {
+func TestServer_GetActions(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -325,19 +336,25 @@ func TestService_GetActions(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, false)
+	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
 	for _, test := range getActionsTests {
-		res, err := svc.GetActions(test.start, test.count)
+		request := &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByIndex{
+				ByIndex: &iotexapi.GetActionsByIndexRequest{
+					Start: test.start,
+					Count: test.count,
+				},
+			},
+		}
+		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res))
+		require.Equal(test.numActions, len(res.Actions))
 	}
 }
 
-func TestService_GetAction(t *testing.T) {
-	// TODO this test hard coded action hash skip for now
-	t.Skip()
+func TestServer_GetAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -346,20 +363,28 @@ func TestService_GetAction(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, true)
+	svr, err := createServer(cfg, true)
 	require.NoError(err)
 
 	for _, test := range getActionTests {
-		res, err := svc.GetAction(test.in, test.checkPending)
+		request := &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByHash{
+				ByHash: &iotexapi.GetActionByHashRequest{
+					ActionHash:   test.in,
+					CheckPending: test.checkPending,
+				},
+			},
+		}
+		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		var actPb iproto.ActionPb
-		require.NoError(jsonpb.UnmarshalString(res, &actPb))
+		require.Equal(1, len(res.Actions))
+		actPb := res.Actions[0]
 		require.Equal(test.nonce, actPb.Nonce)
 		require.Equal(test.senderPubKey, hex.EncodeToString(actPb.SenderPubKey))
 	}
 }
 
-func TestService_GetActionsByAddress(t *testing.T) {
+func TestServer_GetActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -368,17 +393,26 @@ func TestService_GetActionsByAddress(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, false)
+	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
 	for _, test := range getActionsByAddressTests {
-		res, err := svc.GetActionsByAddress(test.address, test.start, test.count)
+		request := &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByAddr{
+				ByAddr: &iotexapi.GetActionsByAddressRequest{
+					Address: test.address,
+					Start:   test.start,
+					Count:   test.count,
+				},
+			},
+		}
+		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res))
+		require.Equal(test.numActions, len(res.Actions))
 	}
 }
 
-func TestService_GetUnconfirmedActionsByAddress(t *testing.T) {
+func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -387,17 +421,26 @@ func TestService_GetUnconfirmedActionsByAddress(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, true)
+	svr, err := createServer(cfg, true)
 	require.NoError(err)
 
 	for _, test := range getUnconfirmedActionsByAddressTests {
-		res, err := svc.GetUnconfirmedActionsByAddress(test.address, test.start, test.count)
+		request := &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_UnconfirmedByAddr{
+				UnconfirmedByAddr: &iotexapi.GetUnconfirmedActionsByAddressRequest{
+					Address: test.address,
+					Start:   test.start,
+					Count:   test.count,
+				},
+			},
+		}
+		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res))
+		require.Equal(test.numActions, len(res.Actions))
 	}
 }
 
-func TestService_GetActionsByBlock(t *testing.T) {
+func TestServer_GetActionsByBlock(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -406,20 +449,29 @@ func TestService_GetActionsByBlock(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, false)
+	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
 	for _, test := range getActionsByBlockTests {
-		blk, err := svc.bc.GetBlockByHeight(test.blkHeight)
+		blk, err := svr.bc.GetBlockByHeight(test.blkHeight)
 		require.NoError(err)
 		blkHash := blk.HashBlock()
-		res, err := svc.GetActionsByBlock(hex.EncodeToString(blkHash[:]), test.start, test.count)
+		request := &iotexapi.GetActionsRequest{
+			Lookup: &iotexapi.GetActionsRequest_ByBlk{
+				ByBlk: &iotexapi.GetActionsByBlockRequest{
+					BlkHash: hex.EncodeToString(blkHash[:]),
+					Start:   test.start,
+					Count:   test.count,
+				},
+			},
+		}
+		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res))
+		require.Equal(test.numActions, len(res.Actions))
 	}
 }
 
-func TestService_GetBlockMetas(t *testing.T) {
+func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -428,27 +480,33 @@ func TestService_GetBlockMetas(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, false)
+	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
 	for _, test := range getBlockMetasTests {
-		res, err := svc.GetBlockMetas(test.start, test.count)
+		request := &iotexapi.GetBlockMetasRequest{
+			Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+				ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
+					Start: test.start,
+					Count: test.count,
+				},
+			},
+		}
+		res, err := svr.GetBlockMetas(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numBlks, len(res))
+		require.Equal(test.numBlks, len(res.BlkMetas))
 		var prevBlkPb *iproto.BlockMeta
-		for _, blkStr := range res {
-			var blkPb iproto.BlockMeta
-			require.NoError(jsonpb.UnmarshalString(blkStr, &blkPb))
+		for _, blkPb := range res.BlkMetas {
 			if prevBlkPb != nil {
 				require.True(blkPb.Timestamp < prevBlkPb.Timestamp)
 				require.True(blkPb.Height < prevBlkPb.Height)
-				prevBlkPb = &blkPb
+				prevBlkPb = blkPb
 			}
 		}
 	}
 }
 
-func TestService_GetBlockMeta(t *testing.T) {
+func TestServer_GetBlockMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -457,23 +515,30 @@ func TestService_GetBlockMeta(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, false)
+	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
 	for _, test := range getBlockMetaTests {
-		blk, err := svc.bc.GetBlockByHeight(test.blkHeight)
+		blk, err := svr.bc.GetBlockByHeight(test.blkHeight)
 		require.NoError(err)
 		blkHash := blk.HashBlock()
-		res, err := svc.GetBlockMeta(hex.EncodeToString(blkHash[:]))
+		request := &iotexapi.GetBlockMetasRequest{
+			Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+				ByHash: &iotexapi.GetBlockMetaByHashRequest{
+					BlkHash: hex.EncodeToString(blkHash[:]),
+				},
+			},
+		}
+		res, err := svr.GetBlockMetas(context.Background(), request)
 		require.NoError(err)
-		var blkPb iproto.BlockMeta
-		require.NoError(jsonpb.UnmarshalString(res, &blkPb))
+		require.Equal(1, len(res.BlkMetas))
+		blkPb := res.BlkMetas[0]
 		require.Equal(test.numActions, blkPb.NumActions)
 		require.Equal(test.transferAmount, blkPb.TransferAmount)
 	}
 }
 
-func TestService_GetChainMeta(t *testing.T) {
+func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -482,21 +547,20 @@ func TestService_GetChainMeta(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, false)
+	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
 	for _, test := range getChainMetaTests {
-		res, err := svc.GetChainMeta()
+		res, err := svr.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
 		require.NoError(err)
-		var chainMetaPb iproto.ChainMeta
-		require.NoError(jsonpb.UnmarshalString(res, &chainMetaPb))
+		chainMetaPb := res.ChainMeta
 		require.Equal(test.height, chainMetaPb.Height)
 		require.Equal(test.numActions, chainMetaPb.NumActions)
 		require.Equal(test.tps, chainMetaPb.Tps)
 	}
 }
 
-func TestService_SendAction(t *testing.T) {
+func TestServer_SendAction(t *testing.T) {
 	require := require.New(t)
 
 	ctrl := gomock.NewController(t)
@@ -505,7 +569,7 @@ func TestService_SendAction(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
 	broadcastHandlerCount := 0
-	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
+	svr := Server{bc: chain, dp: mDp, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
 		broadcastHandlerCount++
 		return nil
 	}}
@@ -514,16 +578,14 @@ func TestService_SendAction(t *testing.T) {
 	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
 
 	for i, test := range sendActionTests {
-		res, err := svc.SendAction(test.action)
+		request := &iotexapi.SendActionRequest{Action: test.actionPb}
+		_, err := svr.SendAction(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.hash, res)
 		require.Equal(i+1, broadcastHandlerCount)
 	}
 }
 
-func TestService_GetReceiptByAction(t *testing.T) {
-	// TODO this test hard coded action hash skip for now
-	t.Skip()
+func TestServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -532,21 +594,19 @@ func TestService_GetReceiptByAction(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, false)
+	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
 	for _, test := range getReceiptByActionTests {
-		res, err := svc.GetReceiptByAction(test.in)
+		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
+		res, err := svr.GetReceiptByAction(context.Background(), request)
 		require.NoError(err)
-		var receiptPb iproto.ReceiptPb
-		require.NoError(jsonpb.UnmarshalString(res, &receiptPb))
+		receiptPb := res.Receipt
 		require.Equal(test.status, receiptPb.Status)
 	}
 }
 
-func TestService_ReadContract(t *testing.T) {
-	// TODO this test hard coded action hash skip for now
-	t.Skip()
+func TestServer_ReadContract(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -555,24 +615,23 @@ func TestService_ReadContract(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, false)
+	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
 	for _, test := range readContractTests {
 		hash, err := toHash256(test.execHash)
 		require.NoError(err)
-		exec, err := svc.bc.GetActionByActionHash(hash)
+		exec, err := svr.bc.GetActionByActionHash(hash)
 		require.NoError(err)
-		execStr, err := marshaler.MarshalToString(exec.Proto())
-		require.NoError(err)
+		request := &iotexapi.ReadContractRequest{Action: exec.Proto()}
 
-		res, err := svc.ReadContract(execStr)
+		res, err := svr.ReadContract(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.retValue, res)
+		require.Equal(test.retValue, res.Data)
 	}
 }
 
-func TestService_SuggestGasPrice(t *testing.T) {
+func TestServer_SuggestGasPrice(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -580,21 +639,18 @@ func TestService_SuggestGasPrice(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
-
-	svc, err := createService(cfg, false)
-	require.NoError(err)
 
 	for _, test := range suggestGasPriceTests {
-		svc.gs.cfg.GasStation.DefaultGas = test.defaultGasPrice
-		res, err := svc.SuggestGasPrice()
+		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
+		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.Equal(test.suggestedGasPrice, res)
+		res, err := svr.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
+		require.NoError(err)
+		require.Equal(test.suggestedGasPrice, res.GasPrice)
 	}
 }
 
-func TestService_EstimateGasForAction(t *testing.T) {
-	// TODO this test hard coded action hash skip for now
-	t.Skip()
+func TestServer_EstimateGasForAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -603,20 +659,19 @@ func TestService_EstimateGasForAction(t *testing.T) {
 	testutil.CleanupPath(t, testDBPath)
 	defer testutil.CleanupPath(t, testDBPath)
 
-	svc, err := createService(cfg, false)
+	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
 	for _, test := range estimateGasForActionTests {
 		hash, err := toHash256(test.actionHash)
 		require.NoError(err)
-		act, err := svc.bc.GetActionByActionHash(hash)
+		act, err := svr.bc.GetActionByActionHash(hash)
 		require.NoError(err)
-		actStr, err := marshaler.MarshalToString(act.Proto())
-		require.NoError(err)
+		request := &iotexapi.EstimateGasForActionRequest{Action: act.Proto()}
 
-		res, err := svc.EstimateGasForAction(actStr)
+		res, err := svr.EstimateGasForAction(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.estimatedGas, res)
+		require.Equal(test.estimatedGas, res.Gas)
 	}
 }
 
@@ -860,7 +915,7 @@ func newConfig() config.Config {
 	return cfg
 }
 
-func createService(cfg config.Config, needActPool bool) (*Service, error) {
+func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	bc, err := setupChain(cfg)
 	if err != nil {
 		return nil, err
@@ -894,14 +949,14 @@ func createService(cfg config.Config, needActPool bool) (*Service, error) {
 		}
 	}
 
-	apiCfg := config.API{TpsWindow: 10, MaxTransferPayloadBytes: 1024}
+	apiCfg := config.API{TpsWindow: 10, MaxTransferPayloadBytes: 1024, GasStation: cfg.API.GasStation}
 
-	svc := &Service{
+	svr := &Server{
 		bc:  bc,
 		ap:  ap,
 		cfg: apiCfg,
-		gs:  GasStation{bc, apiCfg},
+		gs:  gasstation.NewGasStation(bc, apiCfg),
 	}
 
-	return svc, nil
+	return svr, nil
 }

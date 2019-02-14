@@ -288,9 +288,9 @@ type (
 
 	// GasStation is the gas station config
 	GasStation struct {
-		SuggestBlockWindow int `yaml:"suggestBlockWindow"`
-		DefaultGas         int `yaml:"defaultGas"`
-		Percentile         int `yaml:"Percentile"`
+		SuggestBlockWindow int    `yaml:"suggestBlockWindow"`
+		DefaultGas         uint64 `yaml:"defaultGas"`
+		Percentile         int    `yaml:"Percentile"`
 	}
 
 	// Indexer is the index service config
