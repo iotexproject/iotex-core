@@ -31,9 +31,7 @@ type Log struct {
 	Data        []byte
 	BlockNumber uint64
 	TxnHash     hash.Hash256
-	// TODO: in our case, BlockHash is actually txRoot, we need to revisit this field later
-	BlockHash hash.Hash256
-	Index     uint
+	Index       uint
 }
 
 // ConvertToReceiptPb converts a Receipt to protobuf's ReceiptPb
@@ -101,7 +99,6 @@ func (log *Log) ConvertToLogPb() *iproto.LogPb {
 	l.Data = log.Data
 	l.BlockNumber = log.BlockNumber
 	l.TxnHash = log.TxnHash[:]
-	l.BlockHash = log.BlockHash[:]
 	l.Index = uint32(log.Index)
 	return l
 }
@@ -117,7 +114,6 @@ func (log *Log) ConvertFromLogPb(pbLog *iproto.LogPb) {
 	log.Data = pbLog.GetData()
 	log.BlockNumber = pbLog.GetBlockNumber()
 	copy(log.TxnHash[:], pbLog.GetTxnHash())
-	copy(log.BlockHash[:], pbLog.GetBlockHash())
 	log.Index = uint(pbLog.GetIndex())
 }
 
