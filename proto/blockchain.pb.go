@@ -44,10 +44,10 @@ func (ConsensusPb_ConsensusMessageType) EnumDescriptor() ([]byte, []int) {
 
 // header of a block
 type BlockHeaderPb struct {
-	Version              uint32               `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
-	ChainID              uint32               `protobuf:"varint,2,opt,name=chainID" json:"chainID,omitempty"`
-	Height               uint64               `protobuf:"varint,3,opt,name=height" json:"height,omitempty"`
-	Timestamp            *timestamp.Timestamp `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
+	Version              uint32               `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	ChainID              uint32               `protobuf:"varint,2,opt,name=chainID,proto3" json:"chainID,omitempty"`
+	Height               uint64               `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
+	Timestamp            *timestamp.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	PrevBlockHash        []byte               `protobuf:"bytes,5,opt,name=prevBlockHash,proto3" json:"prevBlockHash,omitempty"`
 	TxRoot               []byte               `protobuf:"bytes,6,opt,name=txRoot,proto3" json:"txRoot,omitempty"`
 	StateRoot            []byte               `protobuf:"bytes,7,opt,name=stateRoot,proto3" json:"stateRoot,omitempty"`
@@ -171,8 +171,8 @@ func (m *BlockHeaderPb) GetPubkey() []byte {
 
 // footer of a block
 type BlockFooterPb struct {
-	CommitTimestamp      int64           `protobuf:"varint,1,opt,name=CommitTimestamp" json:"CommitTimestamp,omitempty"`
-	Endorsements         *EndorsementSet `protobuf:"bytes,2,opt,name=endorsements" json:"endorsements,omitempty"`
+	CommitTimestamp      int64           `protobuf:"varint,1,opt,name=CommitTimestamp,proto3" json:"CommitTimestamp,omitempty"`
+	Endorsements         *EndorsementSet `protobuf:"bytes,2,opt,name=endorsements,proto3" json:"endorsements,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -219,9 +219,9 @@ func (m *BlockFooterPb) GetEndorsements() *EndorsementSet {
 // block consists of header followed by transactions
 // hash of current block can be computed from header hence not stored
 type BlockPb struct {
-	Header               *BlockHeaderPb `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
-	Actions              []*ActionPb    `protobuf:"bytes,2,rep,name=actions" json:"actions,omitempty"`
-	Footer               *BlockFooterPb `protobuf:"bytes,3,opt,name=footer" json:"footer,omitempty"`
+	Header               *BlockHeaderPb `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
+	Actions              []*ActionPb    `protobuf:"bytes,2,rep,name=actions,proto3" json:"actions,omitempty"`
+	Footer               *BlockFooterPb `protobuf:"bytes,3,opt,name=footer,proto3" json:"footer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -274,7 +274,7 @@ func (m *BlockPb) GetFooter() *BlockFooterPb {
 
 // Receipts consists of a collection of recepit
 type Receipts struct {
-	Receipts             []*ReceiptPb `protobuf:"bytes,1,rep,name=receipts" json:"receipts,omitempty"`
+	Receipts             []*ReceiptPb `protobuf:"bytes,1,rep,name=receipts,proto3" json:"receipts,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -313,9 +313,9 @@ func (m *Receipts) GetReceipts() []*ReceiptPb {
 
 // index of block raw data file
 type BlockIndex struct {
-	Start                uint64   `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
-	End                  uint64   `protobuf:"varint,2,opt,name=end" json:"end,omitempty"`
-	Offset               []uint32 `protobuf:"varint,3,rep,packed,name=offset" json:"offset,omitempty"`
+	Start                uint64   `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
+	End                  uint64   `protobuf:"varint,2,opt,name=end,proto3" json:"end,omitempty"`
+	Offset               []uint32 `protobuf:"varint,3,rep,packed,name=offset,proto3" json:"offset,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -367,8 +367,8 @@ func (m *BlockIndex) GetOffset() []uint32 {
 }
 
 type BlockSync struct {
-	Start                uint64   `protobuf:"varint,2,opt,name=start" json:"start,omitempty"`
-	End                  uint64   `protobuf:"varint,3,opt,name=end" json:"end,omitempty"`
+	Start                uint64   `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
+	End                  uint64   `protobuf:"varint,3,opt,name=end,proto3" json:"end,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -415,7 +415,7 @@ func (m *BlockSync) GetEnd() uint64 {
 // block container
 // used to send old/existing blocks in block sync
 type BlockContainer struct {
-	Block                *BlockPb `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	Block                *BlockPb `protobuf:"bytes,1,opt,name=block,proto3" json:"block,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -453,10 +453,10 @@ func (m *BlockContainer) GetBlock() *BlockPb {
 }
 
 type ConsensusPb struct {
-	Height               uint64                           `protobuf:"varint,1,opt,name=height" json:"height,omitempty"`
-	Round                uint32                           `protobuf:"varint,2,opt,name=round" json:"round,omitempty"`
-	Type                 ConsensusPb_ConsensusMessageType `protobuf:"varint,3,opt,name=type,enum=iproto.ConsensusPb_ConsensusMessageType" json:"type,omitempty"`
-	Timestamp            *timestamp.Timestamp             `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
+	Height               uint64                           `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	Round                uint32                           `protobuf:"varint,2,opt,name=round,proto3" json:"round,omitempty"`
+	Type                 ConsensusPb_ConsensusMessageType `protobuf:"varint,3,opt,name=type,proto3,enum=iproto.ConsensusPb_ConsensusMessageType" json:"type,omitempty"`
+	Timestamp            *timestamp.Timestamp             `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	Data                 []byte                           `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
 	XXX_unrecognized     []byte                           `json:"-"`
@@ -524,11 +524,11 @@ func (m *ConsensusPb) GetData() []byte {
 
 // Candidates and list of candidates
 type Candidate struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	Votes                []byte   `protobuf:"bytes,2,opt,name=votes,proto3" json:"votes,omitempty"`
 	PubKey               []byte   `protobuf:"bytes,3,opt,name=pubKey,proto3" json:"pubKey,omitempty"`
-	CreationHeight       uint64   `protobuf:"varint,4,opt,name=creationHeight" json:"creationHeight,omitempty"`
-	LastUpdateHeight     uint64   `protobuf:"varint,5,opt,name=lastUpdateHeight" json:"lastUpdateHeight,omitempty"`
+	CreationHeight       uint64   `protobuf:"varint,4,opt,name=creationHeight,proto3" json:"creationHeight,omitempty"`
+	LastUpdateHeight     uint64   `protobuf:"varint,5,opt,name=lastUpdateHeight,proto3" json:"lastUpdateHeight,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -594,7 +594,7 @@ func (m *Candidate) GetLastUpdateHeight() uint64 {
 }
 
 type CandidateList struct {
-	Candidates           []*Candidate `protobuf:"bytes,1,rep,name=candidates" json:"candidates,omitempty"`
+	Candidates           []*Candidate `protobuf:"bytes,1,rep,name=candidates,proto3" json:"candidates,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -633,10 +633,10 @@ func (m *CandidateList) GetCandidates() []*Candidate {
 
 // Blockchain Metadata
 type ChainMeta struct {
-	Height               uint64   `protobuf:"varint,1,opt,name=height" json:"height,omitempty"`
-	Supply               string   `protobuf:"bytes,2,opt,name=supply" json:"supply,omitempty"`
-	NumActions           int64    `protobuf:"varint,3,opt,name=numActions" json:"numActions,omitempty"`
-	Tps                  int64    `protobuf:"varint,4,opt,name=tps" json:"tps,omitempty"`
+	Height               uint64   `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	Supply               string   `protobuf:"bytes,2,opt,name=supply,proto3" json:"supply,omitempty"`
+	NumActions           int64    `protobuf:"varint,3,opt,name=numActions,proto3" json:"numActions,omitempty"`
+	Tps                  int64    `protobuf:"varint,4,opt,name=tps,proto3" json:"tps,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -696,15 +696,15 @@ func (m *ChainMeta) GetTps() int64 {
 
 // Block Metadata
 type BlockMeta struct {
-	Hash                 string   `protobuf:"bytes,1,opt,name=hash" json:"hash,omitempty"`
-	Height               uint64   `protobuf:"varint,2,opt,name=height" json:"height,omitempty"`
-	Timestamp            int64    `protobuf:"varint,3,opt,name=timestamp" json:"timestamp,omitempty"`
-	NumActions           int64    `protobuf:"varint,4,opt,name=numActions" json:"numActions,omitempty"`
-	ProducerAddress      string   `protobuf:"bytes,5,opt,name=producerAddress" json:"producerAddress,omitempty"`
-	TransferAmount       string   `protobuf:"bytes,6,opt,name=transferAmount" json:"transferAmount,omitempty"`
-	TxRoot               string   `protobuf:"bytes,7,opt,name=txRoot" json:"txRoot,omitempty"`
-	ReceiptRoot          string   `protobuf:"bytes,8,opt,name=receiptRoot" json:"receiptRoot,omitempty"`
-	DeltaStateDigest     string   `protobuf:"bytes,9,opt,name=deltaStateDigest" json:"deltaStateDigest,omitempty"`
+	Hash                 string   `protobuf:"bytes,1,opt,name=hash,proto3" json:"hash,omitempty"`
+	Height               uint64   `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	Timestamp            int64    `protobuf:"varint,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	NumActions           int64    `protobuf:"varint,4,opt,name=numActions,proto3" json:"numActions,omitempty"`
+	ProducerAddress      string   `protobuf:"bytes,5,opt,name=producerAddress,proto3" json:"producerAddress,omitempty"`
+	TransferAmount       string   `protobuf:"bytes,6,opt,name=transferAmount,proto3" json:"transferAmount,omitempty"`
+	TxRoot               string   `protobuf:"bytes,7,opt,name=txRoot,proto3" json:"txRoot,omitempty"`
+	ReceiptRoot          string   `protobuf:"bytes,8,opt,name=receiptRoot,proto3" json:"receiptRoot,omitempty"`
+	DeltaStateDigest     string   `protobuf:"bytes,9,opt,name=deltaStateDigest,proto3" json:"deltaStateDigest,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

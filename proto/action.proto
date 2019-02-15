@@ -134,13 +134,11 @@ message PlumTransferPb {
     string recipient = 4;
 }
 
-message ActionPb {
+message ActionCore {
     uint32 version = 1;
-    bytes senderPubKey = 3;
-    uint64 nonce = 4;
-    uint64 gasLimit = 5;
-    bytes gasPrice = 6;
-    bytes signature = 7;
+    uint64 nonce = 2;
+    uint64 gasLimit = 3;
+    bytes gasPrice = 4;
     oneof action {
         TransferPb transfer = 10;
         VotePb vote = 11;
@@ -170,6 +168,12 @@ message ActionPb {
         SetReward setReward = 32;
         GrantReward grantReward = 33;
     }
+}
+
+message ActionPb {
+    ActionCore core = 1;
+    bytes senderPubKey = 2;
+    bytes signature = 3;
 }
 
 message ReceiptPb {
