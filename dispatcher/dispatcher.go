@@ -28,11 +28,11 @@ import (
 
 // Subscriber is the dispatcher subscriber interface
 type Subscriber interface {
-	HandleAction(context.Context, *iotextypes.ActionPb) error
-	HandleBlock(context.Context, *iotextypes.BlockPb) error
-	HandleBlockSync(context.Context, *iotextypes.BlockPb) error
+	HandleAction(context.Context, *iotextypes.Action) error
+	HandleBlock(context.Context, *iotextypes.Block) error
+	HandleBlockSync(context.Context, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error
-	HandleConsensusMsg(*iotexrpc.ConsensusPb) error
+	HandleConsensusMsg(*iotexrpc.Consensus) error
 }
 
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
@@ -65,7 +65,7 @@ func init() {
 type blockMsg struct {
 	ctx     context.Context
 	chainID uint32
-	block   *iotextypes.BlockPb
+	block   *iotextypes.Block
 	blkType uint32
 }
 
@@ -89,7 +89,7 @@ func (m blockSyncMsg) ChainID() uint32 {
 type actionMsg struct {
 	ctx     context.Context
 	chainID uint32
-	action  *iotextypes.ActionPb
+	action  *iotextypes.Action
 }
 
 func (m actionMsg) ChainID() uint32 {
@@ -257,7 +257,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 	d.enqueueEvent(&actionMsg{
 		ctx:     ctx,
 		chainID: chainID,
-		action:  (msg).(*iotextypes.ActionPb),
+		action:  (msg).(*iotextypes.Action),
 	})
 }
 
@@ -269,7 +269,7 @@ func (d *IotxDispatcher) dispatchBlockCommit(ctx context.Context, chainID uint32
 	d.enqueueEvent(&blockMsg{
 		ctx:     ctx,
 		chainID: chainID,
-		block:   (msg).(*iotextypes.BlockPb),
+		block:   (msg).(*iotextypes.Block),
 		blkType: protogen.MsgBlockProtoMsgType,
 	})
 }
@@ -318,7 +318,7 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 
 	switch msgType {
 	case protogen.MsgConsensusType:
-		err := subscriber.HandleConsensusMsg(message.(*iotexrpc.ConsensusPb))
+		err := subscriber.HandleConsensusMsg(message.(*iotexrpc.Consensus))
 		if err != nil {
 			log.L().Error("Failed to handle block propose.", zap.Error(err))
 		}

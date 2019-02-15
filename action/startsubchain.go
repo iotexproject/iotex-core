@@ -61,7 +61,7 @@ func NewStartSubChain(
 }
 
 // LoadProto converts a proto message into start sub-chain action
-func (start *StartSubChain) LoadProto(startPb *iotextypes.StartSubChainPb) error {
+func (start *StartSubChain) LoadProto(startPb *iotextypes.StartSubChain) error {
 	if startPb == nil {
 		return errors.New("empty action proto to load")
 	}
@@ -104,9 +104,9 @@ func (start *StartSubChain) ByteStream() []byte {
 }
 
 // Proto converts start sub-chain action into a proto message
-func (start *StartSubChain) Proto() *iotextypes.StartSubChainPb {
+func (start *StartSubChain) Proto() *iotextypes.StartSubChain {
 	// used by account-based model
-	act := &iotextypes.StartSubChainPb{
+	act := &iotextypes.StartSubChain{
 		ChainID:            start.chainID,
 		StartHeight:        start.startHeight,
 		ParentHeightOffset: start.parentHeightOffset,

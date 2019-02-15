@@ -1108,10 +1108,10 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	if !ok {
 		return explorer.SendVoteResponse{}, errors.New("failed to set vote gas price")
 	}
-	actPb := &iotextypes.ActionPb{
+	actPb := &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_Vote{
-				Vote: &iotextypes.VotePb{
+				Vote: &iotextypes.Vote{
 					VoteeAddress: voteJSON.Votee,
 				},
 			},
@@ -1174,10 +1174,10 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 			Value: v,
 		})
 	}
-	actPb := &iotextypes.ActionPb{
+	actPb := &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_PutBlock{
-				PutBlock: &iotextypes.PutBlockPb{
+				PutBlock: &iotextypes.PutBlock{
 					SubChainAddress: putBlockJSON.SubChainAddress,
 					Height:          uint64(putBlockJSON.Height),
 					Roots:           roots,
@@ -1217,7 +1217,7 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 		}
 		requestMtc.WithLabelValues("SendAction", succeed).Inc()
 	}()
-	var action iotextypes.ActionPb
+	var action iotextypes.Action
 
 	if err := jsonpb.UnmarshalString(req.Payload, &action); err != nil {
 		return explorer.SendActionResponse{}, err
@@ -1285,10 +1285,10 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	if !ok {
 		return explorer.SendSmartContractResponse{}, errors.New("failed to set execution gas price")
 	}
-	actPb := &iotextypes.ActionPb{
+	actPb := &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_Execution{
-				Execution: &iotextypes.ExecutionPb{
+				Execution: &iotextypes.Execution{
 					Amount:   amount.Bytes(),
 					Contract: execution.Contract,
 					Data:     data,
@@ -1393,10 +1393,10 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	if !ok {
 		return res, errors.New("error when converting gas price string into big int type")
 	}
-	actPb := &iotextypes.ActionPb{
+	actPb := &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_CreateDeposit{
-				CreateDeposit: &iotextypes.CreateDepositPb{
+				CreateDeposit: &iotextypes.CreateDeposit{
 					ChainID:   uint32(req.ChainID),
 					Amount:    amount.Bytes(),
 					Recipient: req.Recipient,
@@ -1504,10 +1504,10 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 	if !ok {
 		return res, errors.New("error when converting gas price string into big int type")
 	}
-	actPb := &iotextypes.ActionPb{
+	actPb := &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_SettleDeposit{
-				SettleDeposit: &iotextypes.SettleDepositPb{
+				SettleDeposit: &iotextypes.SettleDeposit{
 					Amount:    amount.Bytes(),
 					Index:     uint64(req.Index),
 					Recipient: req.Recipient,
@@ -1924,7 +1924,7 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 	}, nil
 }
 
-func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iotextypes.ActionPb, error) {
+func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iotextypes.Action, error) {
 	executorPubKey, err := keypair.StringToPubKeyBytes(execution.ExecutorPubKey)
 	if err != nil {
 		return nil, err
@@ -1945,10 +1945,10 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iotexty
 	if !ok {
 		return nil, errors.New("failed to set execution gas price")
 	}
-	actPb := &iotextypes.ActionPb{
+	actPb := &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_Execution{
-				Execution: &iotextypes.ExecutionPb{
+				Execution: &iotextypes.Execution{
 					Amount:   amount.Bytes(),
 					Contract: execution.Contract,
 					Data:     data,
@@ -1966,7 +1966,7 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iotexty
 }
 
 func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
-	maxTransferPayloadBytes uint64) (*iotextypes.ActionPb, error) {
+	maxTransferPayloadBytes uint64) (*iotextypes.Action, error) {
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return nil, err
@@ -1995,10 +1995,10 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
 	if !ok {
 		return nil, errors.New("failed to set transfer gas price")
 	}
-	actPb := &iotextypes.ActionPb{
+	actPb := &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_Transfer{
-				Transfer: &iotextypes.TransferPb{
+				Transfer: &iotextypes.Transfer{
 					Amount:    amount.Bytes(),
 					Recipient: tsfJSON.Recipient,
 					Payload:   payload,

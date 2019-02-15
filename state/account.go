@@ -36,9 +36,9 @@ type Account struct {
 	Votee        string
 }
 
-// ToProto converts to protobuf's AccountPb
-func (st *Account) ToProto() *iotextypes.AccountPb {
-	acPb := &iotextypes.AccountPb{}
+// ToProto converts to protobuf's Account
+func (st *Account) ToProto() *iotextypes.Account {
+	acPb := &iotextypes.Account{}
 	acPb.Nonce = st.Nonce
 	if st.Balance != nil {
 		acPb.Balance = st.Balance.Bytes()
@@ -60,8 +60,8 @@ func (st Account) Serialize() ([]byte, error) {
 	return proto.Marshal(st.ToProto())
 }
 
-// FromProto converts from protobuf's AccountPb
-func (st *Account) FromProto(acPb *iotextypes.AccountPb) {
+// FromProto converts from protobuf's Account
+func (st *Account) FromProto(acPb *iotextypes.Account) {
 	st.Nonce = acPb.Nonce
 	st.Balance = big.NewInt(0)
 	if acPb.Balance != nil {
@@ -83,7 +83,7 @@ func (st *Account) FromProto(acPb *iotextypes.AccountPb) {
 
 // Deserialize deserializes bytes into account state
 func (st *Account) Deserialize(buf []byte) error {
-	acPb := &iotextypes.AccountPb{}
+	acPb := &iotextypes.Account{}
 	if err := proto.Unmarshal(buf, acPb); err != nil {
 		return err
 	}

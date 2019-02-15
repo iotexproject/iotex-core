@@ -33,7 +33,7 @@ type Broadcast func(msg proto.Message) error
 type Scheme interface {
 	lifecycle.StartStopper
 
-	HandleConsensusMsg(msg *iotexrpc.ConsensusPb) error
+	HandleConsensusMsg(msg *iotexrpc.Consensus) error
 	Calibrate(uint64)
 	ValidateBlockFooter(*block.Block) error
 	Metrics() (ConsensusMetrics, error)

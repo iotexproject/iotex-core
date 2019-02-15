@@ -297,7 +297,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 }
 
 // HandleAction handles incoming action request.
-func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.ActionPb) error {
+func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action) error {
 	var act action.SealedEnvelope
 	if err := act.LoadProto(actPb); err != nil {
 		return err
@@ -318,7 +318,7 @@ func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action
 }
 
 // HandleBlock handles incoming block request.
-func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.BlockPb) error {
+func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Block) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -327,7 +327,7 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Blo
 }
 
 // HandleBlockSync handles incoming block sync request.
-func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iotextypes.BlockPb) error {
+func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iotextypes.Block) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -341,7 +341,7 @@ func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.Pe
 }
 
 // HandleConsensusMsg handles incoming consensus message.
-func (cs *ChainService) HandleConsensusMsg(msg *iotexrpc.ConsensusPb) error {
+func (cs *ChainService) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
 	return cs.consensus.HandleConsensusMsg(msg)
 }
 

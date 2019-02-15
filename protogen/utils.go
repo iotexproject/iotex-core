@@ -43,15 +43,15 @@ const (
 // GetTypeFromProtoMsg retrieves the proto message type
 func GetTypeFromProtoMsg(msg proto.Message) (uint32, error) {
 	switch msg.(type) {
-	case *iotextypes.BlockPb:
+	case *iotextypes.Block:
 		return MsgBlockProtoMsgType, nil
 	case *iotexrpc.BlockSync:
 		return MsgBlockSyncReqType, nil
 	case *iotexrpc.BlockContainer:
 		return MsgBlockSyncDataType, nil
-	case *iotextypes.ActionPb:
+	case *iotextypes.Action:
 		return MsgActionType, nil
-	case *iotexrpc.ConsensusPb:
+	case *iotexrpc.Consensus:
 		return MsgConsensusType, nil
 	case *testingpb.TestPayload:
 		return TestPayloadType, nil
@@ -65,15 +65,15 @@ func TypifyProtoMsg(tp uint32, msg []byte) (proto.Message, error) {
 	var m proto.Message
 	switch tp {
 	case MsgBlockProtoMsgType:
-		m = &iotextypes.BlockPb{}
+		m = &iotextypes.Block{}
 	case MsgConsensusType:
-		m = &iotexrpc.ConsensusPb{}
+		m = &iotexrpc.Consensus{}
 	case MsgBlockSyncReqType:
 		m = &iotexrpc.BlockSync{}
 	case MsgBlockSyncDataType:
 		m = &iotexrpc.BlockContainer{}
 	case MsgActionType:
-		m = &iotextypes.ActionPb{}
+		m = &iotextypes.Action{}
 	case TestPayloadType:
 		m = &testingpb.TestPayload{}
 	default:

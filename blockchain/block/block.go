@@ -52,9 +52,9 @@ func (b *Block) ByteStream() []byte {
 	return stream
 }
 
-// ConvertToBlockHeaderPb converts BlockHeader to BlockHeaderPb
-func (b *Block) ConvertToBlockHeaderPb() *iotextypes.BlockHeaderPb {
-	pbHeader := iotextypes.BlockHeaderPb{}
+// ConvertToBlockHeaderPb converts BlockHeader to BlockHeader
+func (b *Block) ConvertToBlockHeaderPb() *iotextypes.BlockHeader {
+	pbHeader := iotextypes.BlockHeader{}
 
 	pbHeader.Version = b.Header.version
 	pbHeader.ChainID = b.Header.chainID
@@ -72,13 +72,13 @@ func (b *Block) ConvertToBlockHeaderPb() *iotextypes.BlockHeaderPb {
 	return &pbHeader
 }
 
-// ConvertToBlockPb converts Block to BlockPb
-func (b *Block) ConvertToBlockPb() *iotextypes.BlockPb {
-	actions := []*iotextypes.ActionPb{}
+// ConvertToBlockPb converts Block to Block
+func (b *Block) ConvertToBlockPb() *iotextypes.Block {
+	actions := []*iotextypes.Action{}
 	for _, act := range b.Actions {
 		actions = append(actions, act.Proto())
 	}
-	return &iotextypes.BlockPb{
+	return &iotextypes.Block{
 		Header:  b.ConvertToBlockHeaderPb(),
 		Actions: actions,
 		Footer:  b.ConvertToBlockFooterPb(),
@@ -90,8 +90,8 @@ func (b *Block) Serialize() ([]byte, error) {
 	return proto.Marshal(b.ConvertToBlockPb())
 }
 
-// ConvertFromBlockHeaderPb converts BlockHeaderPb to BlockHeader
-func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iotextypes.BlockPb) {
+// ConvertFromBlockHeaderPb converts BlockHeader to BlockHeader
+func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iotextypes.Block) {
 	b.Header = Header{}
 
 	b.Header.version = pbBlock.GetHeader().GetVersion()
@@ -112,8 +112,8 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iotextypes.BlockPb) {
 	b.Header.pubkey = pubKey
 }
 
-// ConvertFromBlockPb converts BlockPb to Block
-func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.BlockPb) error {
+// ConvertFromBlockPb converts Block to Block
+func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block) error {
 	b.ConvertFromBlockHeaderPb(pbBlock)
 
 	b.Actions = []action.SealedEnvelope{}
@@ -131,7 +131,7 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.BlockPb) error {
 
 // Deserialize parses the byte stream into a Block
 func (b *Block) Deserialize(buf []byte) error {
-	pbBlock := iotextypes.BlockPb{}
+	pbBlock := iotextypes.Block{}
 	if err := proto.Unmarshal(buf, &pbBlock); err != nil {
 		return err
 	}

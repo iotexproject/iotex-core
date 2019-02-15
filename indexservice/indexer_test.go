@@ -51,17 +51,17 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 	blk := block.Block{}
 
-	err = blk.ConvertFromBlockPb(&iotextypes.BlockPb{
-		Header: &iotextypes.BlockHeaderPb{
+	err = blk.ConvertFromBlockPb(&iotextypes.Block{
+		Header: &iotextypes.BlockHeader{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 			Pubkey:  keypair.PublicKeyToBytes(pubKey1),
 		},
-		Actions: []*iotextypes.ActionPb{
+		Actions: []*iotextypes.Action{
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Transfer{
-						Transfer: &iotextypes.TransferPb{Recipient: addr2},
+						Transfer: &iotextypes.Transfer{Recipient: addr2},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   101,
@@ -71,7 +71,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Vote{
-						Vote: &iotextypes.VotePb{VoteeAddress: addr2},
+						Vote: &iotextypes.Vote{VoteeAddress: addr2},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   103,
@@ -81,7 +81,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Execution{
-						Execution: &iotextypes.ExecutionPb{Contract: addr2},
+						Execution: &iotextypes.Execution{Contract: addr2},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   104,

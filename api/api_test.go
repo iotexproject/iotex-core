@@ -240,7 +240,7 @@ var (
 	}
 
 	sendActionTests = []struct {
-		actionPb *iotextypes.ActionPb
+		actionPb *iotextypes.Action
 	}{
 		{
 			testTransferPb,

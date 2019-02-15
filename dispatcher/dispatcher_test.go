@@ -48,12 +48,12 @@ func stopDispatcher(ctx context.Context, d Dispatcher, t *testing.T) {
 
 func setTestCase() []proto.Message {
 	return []proto.Message{
-		&iotextypes.ActionPb{},
-		&iotexrpc.ConsensusPb{},
-		&iotextypes.BlockPb{},
+		&iotextypes.Action{},
+		&iotexrpc.Consensus{},
+		&iotextypes.Block{},
 		&iotexrpc.BlockSync{},
 		&iotexrpc.BlockContainer{},
-		&iotexrpc.BlockContainer{Block: &iotextypes.BlockPb{}},
+		&iotexrpc.BlockContainer{Block: &iotextypes.Block{}},
 		&testingpb.TestPayload{},
 	}
 }
@@ -90,14 +90,14 @@ func TestHandleTell(t *testing.T) {
 
 type DummySubscriber struct{}
 
-func (s *DummySubscriber) HandleBlock(context.Context, *iotextypes.BlockPb) error { return nil }
+func (s *DummySubscriber) HandleBlock(context.Context, *iotextypes.Block) error { return nil }
 
-func (s *DummySubscriber) HandleBlockSync(context.Context, *iotextypes.BlockPb) error { return nil }
+func (s *DummySubscriber) HandleBlockSync(context.Context, *iotextypes.Block) error { return nil }
 
 func (s *DummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error {
 	return nil
 }
 
-func (s *DummySubscriber) HandleAction(context.Context, *iotextypes.ActionPb) error { return nil }
+func (s *DummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
 
-func (s *DummySubscriber) HandleConsensusMsg(*iotexrpc.ConsensusPb) error { return nil }
+func (s *DummySubscriber) HandleConsensusMsg(*iotexrpc.Consensus) error { return nil }

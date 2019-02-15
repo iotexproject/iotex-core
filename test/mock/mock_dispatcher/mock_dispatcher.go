@@ -39,7 +39,7 @@ func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
 }
 
 // HandleAction mocks base method
-func (m *MockSubscriber) HandleAction(arg0 context.Context, arg1 *iotextypes.ActionPb) error {
+func (m *MockSubscriber) HandleAction(arg0 context.Context, arg1 *iotextypes.Action) error {
 	ret := m.ctrl.Call(m, "HandleAction", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -51,7 +51,7 @@ func (mr *MockSubscriberMockRecorder) HandleAction(arg0, arg1 interface{}) *gomo
 }
 
 // HandleBlock mocks base method
-func (m *MockSubscriber) HandleBlock(arg0 context.Context, arg1 *iotextypes.BlockPb) error {
+func (m *MockSubscriber) HandleBlock(arg0 context.Context, arg1 *iotextypes.Block) error {
 	ret := m.ctrl.Call(m, "HandleBlock", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -63,7 +63,7 @@ func (mr *MockSubscriberMockRecorder) HandleBlock(arg0, arg1 interface{}) *gomoc
 }
 
 // HandleBlockSync mocks base method
-func (m *MockSubscriber) HandleBlockSync(arg0 context.Context, arg1 *iotextypes.BlockPb) error {
+func (m *MockSubscriber) HandleBlockSync(arg0 context.Context, arg1 *iotextypes.Block) error {
 	ret := m.ctrl.Call(m, "HandleBlockSync", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -87,7 +87,7 @@ func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1, arg2 interfa
 }
 
 // HandleConsensusMsg mocks base method
-func (m *MockSubscriber) HandleConsensusMsg(arg0 *iotexrpc.ConsensusPb) error {
+func (m *MockSubscriber) HandleConsensusMsg(arg0 *iotexrpc.Consensus) error {
 	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

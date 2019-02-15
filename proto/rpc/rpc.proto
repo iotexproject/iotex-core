@@ -21,10 +21,10 @@ message BlockSync {
 // block container
 // used to send old/existing blocks in block sync
 message BlockContainer {
-  iotextypes.BlockPb block = 1;
+  iotextypes.Block block = 1;
 }
 
-message ConsensusPb {
+message Consensus {
   enum ConsensusMessageType {
     PROPOSAL = 0;
     ENDORSEMENT = 1;

@@ -268,8 +268,8 @@ func (sealed *SealedEnvelope) Signature() []byte {
 }
 
 // Proto converts it to it's proto scheme.
-func (sealed SealedEnvelope) Proto() *iotextypes.ActionPb {
-	return &iotextypes.ActionPb{
+func (sealed SealedEnvelope) Proto() *iotextypes.Action {
+	return &iotextypes.Action{
 		Core:         sealed.Envelope.Proto(),
 		SenderPubKey: keypair.PublicKeyToBytes(sealed.srcPubkey),
 		Signature:    sealed.signature,
@@ -277,7 +277,7 @@ func (sealed SealedEnvelope) Proto() *iotextypes.ActionPb {
 }
 
 // LoadProto loads from proto scheme.
-func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.ActionPb) error {
+func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}

@@ -33,7 +33,7 @@ import (
 type Consensus interface {
 	lifecycle.StartStopper
 
-	HandleConsensusMsg(*iotexrpc.ConsensusPb) error
+	HandleConsensusMsg(*iotexrpc.Consensus) error
 	Calibrate(uint64)
 	ValidateBlockFooter(*block.Block) error
 	Metrics() (scheme.ConsensusMetrics, error)
@@ -214,7 +214,7 @@ func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 }
 
 // HandleConsensusMsg handles consensus messages
-func (c *IotxConsensus) HandleConsensusMsg(propose *iotexrpc.ConsensusPb) error {
+func (c *IotxConsensus) HandleConsensusMsg(propose *iotexrpc.Consensus) error {
 	return c.scheme.HandleConsensusMsg(propose)
 }
 

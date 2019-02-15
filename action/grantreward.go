@@ -42,9 +42,9 @@ func (g *GrantReward) Proto() *iotextypes.GrantReward {
 	gProto := iotextypes.GrantReward{}
 	switch g.t {
 	case BlockReward:
-		gProto.Type = iotextypes.RewardType_Block
+		gProto.Type = iotextypes.RewardType_BlockReward
 	case EpochReward:
-		gProto.Type = iotextypes.RewardType_Epoch
+		gProto.Type = iotextypes.RewardType_EpochReward
 	}
 	return &gProto
 }
@@ -53,9 +53,9 @@ func (g *GrantReward) Proto() *iotextypes.GrantReward {
 func (g *GrantReward) LoadProto(gProto *iotextypes.GrantReward) error {
 	*g = GrantReward{}
 	switch gProto.Type {
-	case iotextypes.RewardType_Block:
+	case iotextypes.RewardType_BlockReward:
 		g.t = BlockReward
-	case iotextypes.RewardType_Epoch:
+	case iotextypes.RewardType_EpochReward:
 		g.t = EpochReward
 	}
 	return nil
