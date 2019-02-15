@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -42,6 +43,7 @@ type ChainService struct {
 	consensus    consensus.Consensus
 	chain        blockchain.Blockchain
 	explorer     *explorer.Server
+	api          *api.Server
 	indexBuilder *blockchain.IndexBuilder
 	indexservice *indexservice.Server
 	registry     *protocol.Registry
@@ -194,6 +196,24 @@ func New(
 		}
 	}
 
+	var apiSvr *api.Server
+	if cfg.API.Enabled {
+		apiSvr, err = api.NewServer(
+			cfg.API,
+			chain,
+			dispatcher,
+			actPool,
+			idx,
+			api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+				ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
+				return p2pAgent.BroadcastOutbound(ctx, msg)
+			}),
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &ChainService{
 		actpool:      actPool,
 		chain:        chain,
@@ -202,6 +222,7 @@ func New(
 		indexservice: idx,
 		indexBuilder: indexBuilder,
 		explorer:     exp,
+		api:          apiSvr,
 		registry:     &registry,
 	}, nil
 }
@@ -227,6 +248,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			return errors.Wrap(err, "error when starting explorer")
 		}
 	}
+	if cs.api != nil {
+		if err := cs.api.Start(); err != nil {
+			return errors.Wrap(err, "err when starting API server")
+		}
+	}
 	if cs.indexBuilder != nil {
 		if err := cs.indexBuilder.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when starting index builder")
@@ -245,6 +271,11 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	if cs.explorer != nil {
 		if err := cs.explorer.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping explorer")
+		}
+	}
+	if cs.api != nil {
+		if err := cs.api.Stop(); err != nil {
+			return errors.Wrap(err, "error when stopping API server")
 		}
 	}
 	if cs.indexservice != nil {
