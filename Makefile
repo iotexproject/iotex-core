@@ -16,6 +16,7 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJ=actioninjector
+BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOTC=iotc
 BUILD_TARGET_MINICLUSTER=minicluster
@@ -48,6 +49,7 @@ all: clean build test
 build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOTC) -v ./cli/iotc
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
