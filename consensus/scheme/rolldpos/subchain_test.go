@@ -18,7 +18,7 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -34,17 +34,17 @@ func TestPutBlockToParentChain(t *testing.T) {
 	priKey := testaddress.Keyinfo["producer"].PriKey
 	subAddr := testaddress.Addrinfo["echo"].String()
 	blk := block.Block{}
-	blkpb := &iproto.BlockPb{
-		Header: &iproto.BlockHeaderPb{
+	blkpb := &iotextypes.BlockPb{
+		Header: &iotextypes.BlockHeaderPb{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 			Pubkey:  keypair.PublicKeyToBytes(pubKey),
 		},
-		Actions: []*iproto.ActionPb{
+		Actions: []*iotextypes.ActionPb{
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Transfer{
-						Transfer: &iproto.TransferPb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.TransferPb{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   101,
@@ -52,9 +52,9 @@ func TestPutBlockToParentChain(t *testing.T) {
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
 			},
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Transfer{
-						Transfer: &iproto.TransferPb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.TransferPb{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   102,
@@ -62,9 +62,9 @@ func TestPutBlockToParentChain(t *testing.T) {
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
 			},
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Vote{
-						Vote: &iproto.VotePb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.VotePb{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   103,
@@ -72,9 +72,9 @@ func TestPutBlockToParentChain(t *testing.T) {
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
 			},
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Vote{
-						Vote: &iproto.VotePb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.VotePb{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   104,

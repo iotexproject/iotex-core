@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -70,15 +70,15 @@ func (v *Vote) ByteStream() []byte {
 }
 
 // Proto converts Vote to protobuf's ActionPb
-func (v *Vote) Proto() *iproto.VotePb {
-	return &iproto.VotePb{
+func (v *Vote) Proto() *iotextypes.VotePb {
+	return &iotextypes.VotePb{
 		VoteeAddress: v.votee,
 		Timestamp:    v.timestamp,
 	}
 }
 
 // LoadProto converts a protobuf's ActionPb to Vote
-func (v *Vote) LoadProto(pbAct *iproto.VotePb) error {
+func (v *Vote) LoadProto(pbAct *iotextypes.VotePb) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}

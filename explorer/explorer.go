@@ -32,7 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -1108,10 +1108,10 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	if !ok {
 		return explorer.SendVoteResponse{}, errors.New("failed to set vote gas price")
 	}
-	actPb := &iproto.ActionPb{
-		Core: &iproto.ActionCore{
-			Action: &iproto.ActionCore_Vote{
-				Vote: &iproto.VotePb{
+	actPb := &iotextypes.ActionPb{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_Vote{
+				Vote: &iotextypes.VotePb{
 					VoteeAddress: voteJSON.Votee,
 				},
 			},
@@ -1163,21 +1163,21 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 		return explorer.PutSubChainBlockResponse{}, errors.New("failed to set vote gas price")
 	}
 
-	roots := make([]*iproto.MerkleRoot, 0)
+	roots := make([]*iotextypes.MerkleRoot, 0)
 	for _, mr := range putBlockJSON.Roots {
 		v, err := hex.DecodeString(mr.Value)
 		if err != nil {
 			return explorer.PutSubChainBlockResponse{}, err
 		}
-		roots = append(roots, &iproto.MerkleRoot{
+		roots = append(roots, &iotextypes.MerkleRoot{
 			Name:  mr.Name,
 			Value: v,
 		})
 	}
-	actPb := &iproto.ActionPb{
-		Core: &iproto.ActionCore{
-			Action: &iproto.ActionCore_PutBlock{
-				PutBlock: &iproto.PutBlockPb{
+	actPb := &iotextypes.ActionPb{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_PutBlock{
+				PutBlock: &iotextypes.PutBlockPb{
 					SubChainAddress: putBlockJSON.SubChainAddress,
 					Height:          uint64(putBlockJSON.Height),
 					Roots:           roots,
@@ -1217,7 +1217,7 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 		}
 		requestMtc.WithLabelValues("SendAction", succeed).Inc()
 	}()
-	var action iproto.ActionPb
+	var action iotextypes.ActionPb
 
 	if err := jsonpb.UnmarshalString(req.Payload, &action); err != nil {
 		return explorer.SendActionResponse{}, err
@@ -1285,10 +1285,10 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	if !ok {
 		return explorer.SendSmartContractResponse{}, errors.New("failed to set execution gas price")
 	}
-	actPb := &iproto.ActionPb{
-		Core: &iproto.ActionCore{
-			Action: &iproto.ActionCore_Execution{
-				Execution: &iproto.ExecutionPb{
+	actPb := &iotextypes.ActionPb{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_Execution{
+				Execution: &iotextypes.ExecutionPb{
 					Amount:   amount.Bytes(),
 					Contract: execution.Contract,
 					Data:     data,
@@ -1393,10 +1393,10 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 	if !ok {
 		return res, errors.New("error when converting gas price string into big int type")
 	}
-	actPb := &iproto.ActionPb{
-		Core: &iproto.ActionCore{
-			Action: &iproto.ActionCore_CreateDeposit{
-				CreateDeposit: &iproto.CreateDepositPb{
+	actPb := &iotextypes.ActionPb{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_CreateDeposit{
+				CreateDeposit: &iotextypes.CreateDepositPb{
 					ChainID:   uint32(req.ChainID),
 					Amount:    amount.Bytes(),
 					Recipient: req.Recipient,
@@ -1504,10 +1504,10 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 	if !ok {
 		return res, errors.New("error when converting gas price string into big int type")
 	}
-	actPb := &iproto.ActionPb{
-		Core: &iproto.ActionCore{
-			Action: &iproto.ActionCore_SettleDeposit{
-				SettleDeposit: &iproto.SettleDepositPb{
+	actPb := &iotextypes.ActionPb{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_SettleDeposit{
+				SettleDeposit: &iotextypes.SettleDepositPb{
 					Amount:    amount.Bytes(),
 					Index:     uint64(req.Index),
 					Recipient: req.Recipient,
@@ -1924,7 +1924,7 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 	}, nil
 }
 
-func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iproto.ActionPb, error) {
+func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iotextypes.ActionPb, error) {
 	executorPubKey, err := keypair.StringToPubKeyBytes(execution.ExecutorPubKey)
 	if err != nil {
 		return nil, err
@@ -1945,10 +1945,10 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iproto.
 	if !ok {
 		return nil, errors.New("failed to set execution gas price")
 	}
-	actPb := &iproto.ActionPb{
-		Core: &iproto.ActionCore{
-			Action: &iproto.ActionCore_Execution{
-				Execution: &iproto.ExecutionPb{
+	actPb := &iotextypes.ActionPb{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_Execution{
+				Execution: &iotextypes.ExecutionPb{
 					Amount:   amount.Bytes(),
 					Contract: execution.Contract,
 					Data:     data,
@@ -1966,7 +1966,7 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iproto.
 }
 
 func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
-	maxTransferPayloadBytes uint64) (*iproto.ActionPb, error) {
+	maxTransferPayloadBytes uint64) (*iotextypes.ActionPb, error) {
 	payload, err := hex.DecodeString(tsfJSON.Payload)
 	if err != nil {
 		return nil, err
@@ -1995,10 +1995,10 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
 	if !ok {
 		return nil, errors.New("failed to set transfer gas price")
 	}
-	actPb := &iproto.ActionPb{
-		Core: &iproto.ActionCore{
-			Action: &iproto.ActionCore_Transfer{
-				Transfer: &iproto.TransferPb{
+	actPb := &iotextypes.ActionPb{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_Transfer{
+				Transfer: &iotextypes.TransferPb{
 					Amount:    amount.Bytes(),
 					Recipient: tsfJSON.Recipient,
 					Payload:   payload,

@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -73,8 +73,8 @@ func (ssc *StopSubChain) ByteStream() []byte {
 }
 
 // Proto converts StopSubChain to protobuf's ActionPb
-func (ssc *StopSubChain) Proto() *iproto.StopSubChainPb {
-	return &iproto.StopSubChainPb{
+func (ssc *StopSubChain) Proto() *iotextypes.StopSubChainPb {
+	return &iotextypes.StopSubChainPb{
 		ChainID:         ssc.chainID,
 		StopHeight:      ssc.stopHeight,
 		SubChainAddress: ssc.chainAddress,
@@ -82,7 +82,7 @@ func (ssc *StopSubChain) Proto() *iproto.StopSubChainPb {
 }
 
 // LoadProto converts a protobuf's ActionPb to StopSubChain
-func (ssc *StopSubChain) LoadProto(pbSSC *iproto.StopSubChainPb) error {
+func (ssc *StopSubChain) LoadProto(pbSSC *iotextypes.StopSubChainPb) error {
 	if ssc == nil {
 		return errors.New("nil action to load proto")
 	}

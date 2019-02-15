@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // GasStation provide gas related api
@@ -73,7 +73,7 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 }
 
 // EstimateGasForAction estimate gas for action
-func (gs *GasStation) EstimateGasForAction(actPb *iproto.ActionPb) (uint64, error) {
+func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.ActionPb) (uint64, error) {
 	var selp action.SealedEnvelope
 	if err := selp.LoadProto(actPb); err != nil {
 		return 0, err

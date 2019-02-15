@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
@@ -186,7 +186,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, cs, opts...)
 	assert.Nil(err)
 
-	pbBs := &iproto.BlockSync{
+	pbBs := &iotexrpc.BlockSync{
 		Start: 1,
 		End:   1,
 	}
@@ -218,7 +218,7 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 
 	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
 	require.Nil(err)
-	pbBs := &iproto.BlockSync{
+	pbBs := &iotexrpc.BlockSync{
 		Start: 1,
 		End:   5,
 	}

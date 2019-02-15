@@ -25,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -33,7 +33,7 @@ import (
 type Consensus interface {
 	lifecycle.StartStopper
 
-	HandleConsensusMsg(*iproto.ConsensusPb) error
+	HandleConsensusMsg(*iotexrpc.ConsensusPb) error
 	Calibrate(uint64)
 	ValidateBlockFooter(*block.Block) error
 	Metrics() (scheme.ConsensusMetrics, error)
@@ -214,7 +214,7 @@ func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 }
 
 // HandleConsensusMsg handles consensus messages
-func (c *IotxConsensus) HandleConsensusMsg(propose *iproto.ConsensusPb) error {
+func (c *IotxConsensus) HandleConsensusMsg(propose *iotexrpc.ConsensusPb) error {
 	return c.scheme.HandleConsensusMsg(propose)
 }
 

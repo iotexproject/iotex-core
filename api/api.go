@@ -32,8 +32,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/proto/api"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -140,7 +140,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	if err != nil {
 		return nil, err
 	}
-	accountMeta := &iproto.AccountMeta{
+	accountMeta := &iotextypes.AccountMeta{
 		Address:      in.Address,
 		Balance:      state.Balance.String(),
 		Nonce:        state.Nonce,
@@ -221,7 +221,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 
 	tps := int64(totalActions) / timeDuration
 
-	chainMeta := &iproto.ChainMeta{
+	chainMeta := &iotextypes.ChainMeta{
 		Height:     tipHeight,
 		Supply:     blockchain.Gen.TotalSupply.String(),
 		NumActions: int64(totalActions),
@@ -338,7 +338,7 @@ func (api *Server) Stop() error {
 
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iproto.ActionPb
+	var res []*iotextypes.ActionPb
 	var actionCount uint64
 
 	tipHeight := api.bc.TipHeight()
@@ -375,12 +375,12 @@ func (api *Server) getAction(actionHash string, checkPending bool) (*iotexapi.Ge
 	if err != nil {
 		return nil, err
 	}
-	return &iotexapi.GetActionsResponse{Actions: []*iproto.ActionPb{actPb}}, nil
+	return &iotexapi.GetActionsResponse{Actions: []*iotextypes.ActionPb{actPb}}, nil
 }
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iproto.ActionPb
+	var res []*iotextypes.ActionPb
 	var actions []hash.Hash256
 	if api.cfg.UseRDS {
 		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
@@ -428,7 +428,7 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iproto.ActionPb
+	var res []*iotextypes.ActionPb
 	var actionCount uint64
 
 	selps := api.ap.GetUnconfirmedActs(address)
@@ -451,7 +451,7 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iproto.ActionPb
+	var res []*iotextypes.ActionPb
 	hash, err := toHash256(blkHash)
 	if err != nil {
 		return nil, err
@@ -482,7 +482,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 // getBlockMetas gets block within the height range
 func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
-	var res []*iproto.BlockMeta
+	var res []*iotextypes.BlockMeta
 
 	startHeight := api.bc.TipHeight()
 	var blkCount uint64
@@ -509,7 +509,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		deltaStateDigest := blk.DeltaStateDigest()
 		transferAmount := getTranferAmountInBlock(blk)
 
-		blockMeta := &iproto.BlockMeta{
+		blockMeta := &iotextypes.BlockMeta{
 			Hash:             hex.EncodeToString(hash[:]),
 			Height:           blk.Height(),
 			Timestamp:        blockHeaderPb.GetTimestamp().GetSeconds(),
@@ -545,7 +545,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	deltaStateDigest := blk.DeltaStateDigest()
 	transferAmount := getTranferAmountInBlock(blk)
 
-	blockMeta := &iproto.BlockMeta{
+	blockMeta := &iotextypes.BlockMeta{
 		Hash:             blkHash,
 		Height:           blk.Height(),
 		Timestamp:        blkHeaderPb.GetTimestamp().GetSeconds(),
@@ -557,7 +557,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 	}
 
-	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iproto.BlockMeta{blockMeta}}, nil
+	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iotextypes.BlockMeta{blockMeta}}, nil
 }
 
 func toHash256(hashString string) (hash.Hash256, error) {
@@ -570,7 +570,7 @@ func toHash256(hashString string) (hash.Hash256, error) {
 	return hash, nil
 }
 
-func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash256, checkPending bool) (*iproto.ActionPb, error) {
+func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash256, checkPending bool) (*iotextypes.ActionPb, error) {
 	var selp action.SealedEnvelope
 	var err error
 	if selp, err = bc.GetActionByActionHash(actHash); err != nil {

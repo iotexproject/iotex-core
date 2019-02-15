@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -83,17 +83,17 @@ func TestMerkle(t *testing.T) {
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
 	senderPubKey := ta.Keyinfo["producer"].PubKey
-	require.NoError(t, blk.ConvertFromBlockPb(&iproto.BlockPb{
-		Header: &iproto.BlockHeaderPb{
+	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.BlockPb{
+		Header: &iotextypes.BlockHeaderPb{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 			Pubkey:  keypair.PublicKeyToBytes(senderPubKey),
 		},
-		Actions: []*iproto.ActionPb{
+		Actions: []*iotextypes.ActionPb{
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Transfer{
-						Transfer: &iproto.TransferPb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.TransferPb{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   101,
@@ -101,9 +101,9 @@ func TestConvertFromBlockPb(t *testing.T) {
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 			},
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Transfer{
-						Transfer: &iproto.TransferPb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.TransferPb{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   102,
@@ -111,9 +111,9 @@ func TestConvertFromBlockPb(t *testing.T) {
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 			},
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Vote{
-						Vote: &iproto.VotePb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.VotePb{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   103,
@@ -121,9 +121,9 @@ func TestConvertFromBlockPb(t *testing.T) {
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
 			},
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Vote{
-						Vote: &iproto.VotePb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.VotePb{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   104,

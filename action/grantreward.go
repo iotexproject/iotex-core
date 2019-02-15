@@ -12,7 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -38,24 +38,24 @@ func (g *GrantReward) ByteStream() []byte {
 }
 
 // Proto converts a grant reward action struct to a grant reward action protobuf
-func (g *GrantReward) Proto() *iproto.GrantReward {
-	gProto := iproto.GrantReward{}
+func (g *GrantReward) Proto() *iotextypes.GrantReward {
+	gProto := iotextypes.GrantReward{}
 	switch g.t {
 	case BlockReward:
-		gProto.Type = iproto.RewardType_Block
+		gProto.Type = iotextypes.RewardType_Block
 	case EpochReward:
-		gProto.Type = iproto.RewardType_Epoch
+		gProto.Type = iotextypes.RewardType_Epoch
 	}
 	return &gProto
 }
 
 // LoadProto converts a grant reward action protobuf to a grant reward action struct
-func (g *GrantReward) LoadProto(gProto *iproto.GrantReward) error {
+func (g *GrantReward) LoadProto(gProto *iotextypes.GrantReward) error {
 	*g = GrantReward{}
 	switch gProto.Type {
-	case iproto.RewardType_Block:
+	case iotextypes.RewardType_Block:
 		g.t = BlockReward
-	case iproto.RewardType_Epoch:
+	case iotextypes.RewardType_Epoch:
 		g.t = EpochReward
 	}
 	return nil

@@ -5,13 +5,13 @@
 // License 2.0 that can be found in the LICENSE file.
 
 // To compile the proto, run:
-//      protoc -I.  -I .. --go_out=plugins=grpc:. api.proto
+//      protoc -I.  -I ../types --go_out=plugins=grpc:. api.proto
 syntax = "proto3";
 package iotexapi;
+option go_package = "github.com/iotexproject/iotex-core/protogen/iotexapi";
 
 import "action.proto";
 import "blockchain.proto";
-import "state.proto";
 
 service APIService {
   // get the address detail of an address
@@ -54,7 +54,7 @@ message GetAccountRequest {
 }
 
 message GetAccountResponse {
-  iproto.AccountMeta accountMeta = 1;
+  iotextypes.AccountMeta accountMeta = 1;
 }
 
 message GetActionsRequest {
@@ -96,7 +96,7 @@ message GetActionsByBlockRequest {
 }
 
 message GetActionsResponse {
-  repeated iproto.ActionPb actions = 1;
+  repeated iotextypes.ActionPb actions = 1;
 }
 
 message GetBlockMetasRequest {
@@ -116,17 +116,17 @@ message GetBlockMetaByHashRequest {
 }
 
 message GetBlockMetasResponse {
-  repeated iproto.BlockMeta blkMetas = 1;
+  repeated iotextypes.BlockMeta blkMetas = 1;
 }
 
 message GetChainMetaRequest {}
 
 message GetChainMetaResponse {
-  iproto.ChainMeta chainMeta = 1;
+  iotextypes.ChainMeta chainMeta = 1;
 }
 
 message SendActionRequest {
-  iproto.ActionPb action = 1;
+  iotextypes.ActionPb action = 1;
 }
 
 message SendActionResponse {}
@@ -136,11 +136,11 @@ message GetReceiptByActionRequest {
 }
 
 message GetReceiptByActionResponse {
-  iproto.ReceiptPb receipt = 1;
+  iotextypes.ReceiptPb receipt = 1;
 }
 
 message ReadContractRequest {
-  iproto.ActionPb action = 1;
+  iotextypes.ActionPb action = 1;
 }
 
 message ReadContractResponse {
@@ -154,7 +154,7 @@ message SuggestGasPriceResponse {
 }
 
 message EstimateGasForActionRequest {
-  iproto.ActionPb action = 1;
+  iotextypes.ActionPb action = 1;
 }
 
 message EstimateGasForActionResponse {

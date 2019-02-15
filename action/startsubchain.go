@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -61,7 +61,7 @@ func NewStartSubChain(
 }
 
 // LoadProto converts a proto message into start sub-chain action
-func (start *StartSubChain) LoadProto(startPb *iproto.StartSubChainPb) error {
+func (start *StartSubChain) LoadProto(startPb *iotextypes.StartSubChainPb) error {
 	if startPb == nil {
 		return errors.New("empty action proto to load")
 	}
@@ -104,9 +104,9 @@ func (start *StartSubChain) ByteStream() []byte {
 }
 
 // Proto converts start sub-chain action into a proto message
-func (start *StartSubChain) Proto() *iproto.StartSubChainPb {
+func (start *StartSubChain) Proto() *iotextypes.StartSubChainPb {
 	// used by account-based model
-	act := &iproto.StartSubChainPb{
+	act := &iotextypes.StartSubChainPb{
 		ChainID:            start.chainID,
 		StartHeight:        start.startHeight,
 		ParentHeightOffset: start.parentHeightOffset,

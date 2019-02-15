@@ -1,0 +1,38 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc -I. -I ./../types --go_out=plugins=grpc:$GOPATH/src *.proto
+syntax = "proto3";
+package iotexrpc;
+option go_package = "github.com/iotexproject/iotex-core/protogen/iotexrpc";
+
+import "blockchain.proto";
+import "google/protobuf/timestamp.proto";
+
+message BlockSync {
+  uint64 start = 2;
+  uint64 end = 3;
+}
+
+// block container
+// used to send old/existing blocks in block sync
+message BlockContainer {
+  iotextypes.BlockPb block = 1;
+}
+
+message ConsensusPb {
+  enum ConsensusMessageType {
+    PROPOSAL = 0;
+    ENDORSEMENT = 1;
+    // TODO: Unify ConsensusVoteTopic and ConsensusMessageType
+  }
+  uint64 height = 1;
+  uint32 round = 2;
+  ConsensusMessageType type = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  bytes data = 5;
+}
