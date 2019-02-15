@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -46,29 +46,29 @@ func (s *SetReward) ByteStream() []byte {
 }
 
 // Proto converts a set reward action struct to a set reward action protobuf
-func (s *SetReward) Proto() *iproto.SetReward {
-	sProto := iproto.SetReward{
+func (s *SetReward) Proto() *iotextypes.SetReward {
+	sProto := iotextypes.SetReward{
 		Amount: s.amount.Bytes(),
 		Data:   s.data,
 	}
 	switch s.t {
 	case BlockReward:
-		sProto.Type = iproto.RewardType_Block
+		sProto.Type = iotextypes.RewardType_Block
 	case EpochReward:
-		sProto.Type = iproto.RewardType_Epoch
+		sProto.Type = iotextypes.RewardType_Epoch
 	}
 	return &sProto
 }
 
 // LoadProto converts a set block rewarding reward action protobuf to a set reward action struct
-func (s *SetReward) LoadProto(sProto *iproto.SetReward) error {
+func (s *SetReward) LoadProto(sProto *iotextypes.SetReward) error {
 	*s = SetReward{}
 	s.amount = big.NewInt(0).SetBytes(sProto.Amount)
 	s.data = sProto.Data
 	switch sProto.Type {
-	case iproto.RewardType_Block:
+	case iotextypes.RewardType_Block:
 		s.t = BlockReward
-	case iproto.RewardType_Epoch:
+	case iotextypes.RewardType_Epoch:
 		s.t = EpochReward
 	}
 	return nil

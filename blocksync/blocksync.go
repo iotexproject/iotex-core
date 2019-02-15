@@ -21,7 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 )
 
 type (
@@ -61,7 +61,7 @@ type BlockSync interface {
 	lifecycle.StartStopper
 
 	TargetHeight() uint64
-	ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iproto.BlockSync) error
+	ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error
 	ProcessBlock(ctx context.Context, blk *block.Block) error
 	ProcessBlockSync(ctx context.Context, blk *block.Block) error
 }
@@ -186,7 +186,7 @@ func (bs *blockSyncer) ProcessBlockSync(_ context.Context, blk *block.Block) err
 }
 
 // ProcessSyncRequest processes a block sync request
-func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iproto.BlockSync) error {
+func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
 	if !bs.ackSyncReq {
 		// node is not meant to handle sync request, simply exit
 		return nil
@@ -212,7 +212,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		}
 		// TODO: send back multiple blocks in one shot
 		if err := bs.unicastHandler(context.Background(), peer,
-			&iproto.BlockContainer{Block: blk.ConvertToBlockPb()},
+			&iotexrpc.BlockContainer{Block: blk.ConvertToBlockPb()},
 		); err != nil {
 			log.L().Warn("Failed to response to ProcessSyncRequest.", zap.Error(err))
 		}

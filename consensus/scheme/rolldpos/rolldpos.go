@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 )
 
 var (
@@ -128,7 +128,7 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 }
 
 // HandleConsensusMsg handles incoming consensus message
-func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
+func (r *RollDPoS) HandleConsensusMsg(msg *iotexrpc.ConsensusPb) error {
 	consensusHeight := r.ctx.Height()
 	if consensusHeight != 0 && msg.Height < consensusHeight {
 		log.L().Debug(
@@ -140,7 +140,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 	}
 	data := msg.Data
 	switch msg.Type {
-	case iproto.ConsensusPb_PROPOSAL:
+	case iotexrpc.ConsensusPb_PROPOSAL:
 		block := &block.Block{}
 		if err := block.Deserialize(data); err != nil {
 			return errors.Wrap(err, "failed to deserialize block")
@@ -157,7 +157,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
 			return errors.Errorf("invalid block signature")
 		}
 		r.cfsm.ProduceReceiveBlockEvent(&blockWrapper{block, msg.Round})
-	case iproto.ConsensusPb_ENDORSEMENT:
+	case iotexrpc.ConsensusPb_ENDORSEMENT:
 		en := &endorsement.Endorsement{}
 		if err := en.Deserialize(data); err != nil {
 			return errors.Wrap(err, "error when deserializing a msg to endorsement")

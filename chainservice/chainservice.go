@@ -33,7 +33,8 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -296,7 +297,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 }
 
 // HandleAction handles incoming action request.
-func (cs *ChainService) HandleAction(_ context.Context, actPb *iproto.ActionPb) error {
+func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.ActionPb) error {
 	var act action.SealedEnvelope
 	if err := act.LoadProto(actPb); err != nil {
 		return err
@@ -317,7 +318,7 @@ func (cs *ChainService) HandleAction(_ context.Context, actPb *iproto.ActionPb) 
 }
 
 // HandleBlock handles incoming block request.
-func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iproto.BlockPb) error {
+func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.BlockPb) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -326,7 +327,7 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iproto.BlockPb
 }
 
 // HandleBlockSync handles incoming block sync request.
-func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iproto.BlockPb) error {
+func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iotextypes.BlockPb) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -335,12 +336,12 @@ func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iproto.Blo
 }
 
 // HandleSyncRequest handles incoming sync request.
-func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iproto.BlockSync) error {
+func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
 	return cs.blocksync.ProcessSyncRequest(ctx, peer, sync)
 }
 
 // HandleConsensusMsg handles incoming consensus message.
-func (cs *ChainService) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
+func (cs *ChainService) HandleConsensusMsg(msg *iotexrpc.ConsensusPb) error {
 	return cs.consensus.HandleConsensusMsg(msg)
 }
 

@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -75,8 +75,8 @@ func (sd *SettleDeposit) ByteStream() []byte {
 }
 
 // Proto converts SettleDeposit to protobuf's ActionPb
-func (sd *SettleDeposit) Proto() *iproto.SettleDepositPb {
-	act := &iproto.SettleDepositPb{
+func (sd *SettleDeposit) Proto() *iotextypes.SettleDepositPb {
+	act := &iotextypes.SettleDepositPb{
 		Recipient: sd.recipient,
 		Index:     sd.index,
 	}
@@ -87,7 +87,7 @@ func (sd *SettleDeposit) Proto() *iproto.SettleDepositPb {
 }
 
 // LoadProto converts a protobuf's ActionPb to SettleDeposit
-func (sd *SettleDeposit) LoadProto(pbDpst *iproto.SettleDepositPb) error {
+func (sd *SettleDeposit) LoadProto(pbDpst *iotextypes.SettleDepositPb) error {
 	if pbDpst == nil {
 		return errors.New("empty action proto to load")
 	}

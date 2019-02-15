@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -22,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -260,7 +260,7 @@ func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, er
 		height := enc.MachineEndian.Uint64(heightBytes)
 		return nil, errors.Wrapf(err, "failed to get receipts of block %d", height)
 	}
-	receipts := iproto.Receipts{}
+	receipts := iotextypes.Receipts{}
 	if err := proto.Unmarshal(receiptsBytes, &receipts); err != nil {
 		return nil, err
 	}
@@ -316,7 +316,7 @@ func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 	if blkReceipts == nil {
 		return nil
 	}
-	receipts := iproto.Receipts{}
+	receipts := iotextypes.Receipts{}
 	batch := db.NewBatch()
 	var heightBytes [8]byte
 	enc.MachineEndian.PutUint64(heightBytes[:], blkHeight)

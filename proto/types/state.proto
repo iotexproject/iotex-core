@@ -1,0 +1,22 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:$GOPATH/src *.proto
+syntax = "proto3";
+package iotextypes;
+option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
+
+message AccountPb {
+  // used by state-based model
+  uint64 nonce  = 1;
+  bytes balance  = 2;
+  bytes root  = 3;
+  bytes codeHash  = 4;
+  bool isCandidate = 5;
+  bytes votingWeight  = 6;
+  string votee = 7;
+}

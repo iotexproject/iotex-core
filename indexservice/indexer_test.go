@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -51,17 +51,17 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 	blk := block.Block{}
 
-	err = blk.ConvertFromBlockPb(&iproto.BlockPb{
-		Header: &iproto.BlockHeaderPb{
+	err = blk.ConvertFromBlockPb(&iotextypes.BlockPb{
+		Header: &iotextypes.BlockHeaderPb{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 			Pubkey:  keypair.PublicKeyToBytes(pubKey1),
 		},
-		Actions: []*iproto.ActionPb{
+		Actions: []*iotextypes.ActionPb{
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Transfer{
-						Transfer: &iproto.TransferPb{Recipient: addr2},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.TransferPb{Recipient: addr2},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   101,
@@ -69,9 +69,9 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 			},
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Vote{
-						Vote: &iproto.VotePb{VoteeAddress: addr2},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.VotePb{VoteeAddress: addr2},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   103,
@@ -79,9 +79,9 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
 			},
 			{
-				Core: &iproto.ActionCore{
-					Action: &iproto.ActionCore_Execution{
-						Execution: &iproto.ExecutionPb{Contract: addr2},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Execution{
+						Execution: &iotextypes.ExecutionPb{Contract: addr2},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   104,

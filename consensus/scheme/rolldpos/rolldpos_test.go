@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
@@ -39,7 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -276,7 +276,7 @@ func (o *directOverlay) Stop(_ context.Context) error { return nil }
 
 func (o *directOverlay) Broadcast(msg proto.Message) error {
 	// Only broadcast consensus message
-	if cMsg, ok := msg.(*iproto.ConsensusPb); ok {
+	if cMsg, ok := msg.(*iotexrpc.ConsensusPb); ok {
 		for _, r := range o.peers {
 			if err := r.HandleConsensusMsg(cMsg); err != nil {
 				return errors.Wrap(err, "error when handling consensus message directly")

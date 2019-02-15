@@ -9,7 +9,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	scheme "github.com/iotexproject/iotex-core/consensus/scheme"
-	proto "github.com/iotexproject/iotex-core/proto"
+	iotexrpc "github.com/iotexproject/iotex-core/protogen/iotexrpc"
 	reflect "reflect"
 )
 
@@ -61,7 +61,7 @@ func (mr *MockConsensusMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 }
 
 // HandleConsensusMsg mocks base method
-func (m *MockConsensus) HandleConsensusMsg(arg0 *proto.ConsensusPb) error {
+func (m *MockConsensus) HandleConsensusMsg(arg0 *iotexrpc.ConsensusPb) error {
 	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

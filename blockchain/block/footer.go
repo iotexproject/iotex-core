@@ -8,7 +8,7 @@ package block
 
 import (
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Footer defines a set of proof of this block
@@ -19,8 +19,8 @@ type Footer struct {
 }
 
 // ConvertToBlockFooterPb converts BlockFooterPb
-func (f *Footer) ConvertToBlockFooterPb() *iproto.BlockFooterPb {
-	pb := iproto.BlockFooterPb{}
+func (f *Footer) ConvertToBlockFooterPb() *iotextypes.BlockFooterPb {
+	pb := iotextypes.BlockFooterPb{}
 	pb.CommitTimestamp = f.commitTimestamp
 	if f.endorsements != nil {
 		pb.Endorsements = f.endorsements.ToProto()
@@ -30,7 +30,7 @@ func (f *Footer) ConvertToBlockFooterPb() *iproto.BlockFooterPb {
 }
 
 // ConvertFromBlockFooterPb converts BlockFooterPb to BlockFooter
-func (f *Footer) ConvertFromBlockFooterPb(pb *iproto.BlockFooterPb) error {
+func (f *Footer) ConvertFromBlockFooterPb(pb *iotextypes.BlockFooterPb) error {
 	f.commitTimestamp = pb.GetCommitTimestamp()
 	pbEndorsements := pb.GetEndorsements()
 	if pbEndorsements == nil {
