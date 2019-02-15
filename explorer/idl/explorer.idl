@@ -87,7 +87,6 @@ struct Log {
     data string
     blockNumber int
     txnHash string
-    blockHash string
     index int
 }
 
