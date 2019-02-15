@@ -28,13 +28,6 @@ import (
 type Validator interface {
 	// Validate validates the given block's content
 	Validate(block *block.Block, tipHeight uint64, tipHash hash.Hash256) error
-	// ValidateActionsOnly validates the actions only
-	ValidateActionsOnly(
-		actions []action.SealedEnvelope,
-		pk keypair.PublicKey,
-		chainID uint32,
-		height uint64,
-	) error
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
@@ -72,7 +65,7 @@ func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Ha
 	}
 
 	if v.sf != nil {
-		return v.ValidateActionsOnly(
+		return v.validateActionsOnly(
 			blk.Actions,
 			blk.PublicKey(),
 			blk.ChainID(),
@@ -93,7 +86,7 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
 }
 
-func (v *validator) ValidateActionsOnly(
+func (v *validator) validateActionsOnly(
 	actions []action.SealedEnvelope,
 	pk keypair.PublicKey,
 	chainID uint32,
