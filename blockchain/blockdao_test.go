@@ -28,15 +28,17 @@ import (
 )
 
 func TestBlockDAO(t *testing.T) {
+
 	getBlocks := func() []*block.Block {
+		genesisConfig := genesis.Default
 		amount := uint64(50 << 22)
-		tsf1, err := testutil.SignedTransfer(testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, big.NewInt(int64(amount)), nil, genesis.ActionGasLimit, big.NewInt(0))
+		tsf1, err := testutil.SignedTransfer(testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, big.NewInt(int64(amount)), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		tsf2, err := testutil.SignedTransfer(testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey, 2, big.NewInt(int64(amount)), nil, genesis.ActionGasLimit, big.NewInt(0))
+		tsf2, err := testutil.SignedTransfer(testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey, 2, big.NewInt(int64(amount)), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		tsf3, err := testutil.SignedTransfer(testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 3, big.NewInt(int64(amount)), nil, genesis.ActionGasLimit, big.NewInt(0))
+		tsf3, err := testutil.SignedTransfer(testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 3, big.NewInt(int64(amount)), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
 		// create testing votes
@@ -158,7 +160,7 @@ func TestBlockDAO(t *testing.T) {
 		assert.Nil(t, err)
 		blk, err := dao.getBlock(blks[0].HashBlock())
 		assert.Nil(t, err)
-		assert.NotNil(t, blk)
+		require.NotNil(t, blk)
 		assert.Equal(t, blks[0].Actions[0].Hash(), blk.Actions[0].Hash())
 		height, err = dao.getBlockchainHeight()
 		assert.Nil(t, err)

@@ -35,7 +35,7 @@ func TestActionProto(t *testing.T) {
 	require.NoError(Verify(selp))
 
 	nselp := &SealedEnvelope{}
-	nselp.LoadProto(selp.Proto())
+	require.NoError(nselp.LoadProto(selp.Proto()))
 
 	require.Equal(selp.Hash(), nselp.Hash())
 }

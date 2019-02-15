@@ -22,11 +22,14 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -47,6 +50,7 @@ func TestLocalCommit(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
+	genesisCfg := genesis.Default
 
 	// create server
 	ctx := context.Background()
@@ -132,7 +136,7 @@ func TestLocalCommit(t *testing.T) {
 	change.Add(change, test)
 
 	require.Equal(
-		blockchain.ConvertIotxToRau(3000000000),
+		unit.ConvertIotxToRau(3000000000),
 		change,
 	)
 	t.Log("Total balance match")
@@ -149,11 +153,19 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
-	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	registry := protocol.Registry{}
+	rewardingProtocol := rewarding.NewProtocol()
+	registry.Register(rewarding.ProtocolID, rewardingProtocol)
+	chain := blockchain.NewBlockchain(
+		cfg,
+		blockchain.DefaultStateFactoryOption(),
+		blockchain.BoltDBDaoOption(),
+		blockchain.GenesisOption(genesisCfg),
+		blockchain.RegistryOption(&registry),
+	)
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
-	require.NotNil(chain)
-	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
+	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain), rewardingProtocol)
 	require.NoError(chain.Start(ctx))
 	require.True(5 == bc.TipHeight())
 	defer func() {
@@ -342,7 +354,7 @@ func TestLocalCommit(t *testing.T) {
 	change.Add(change, test)
 
 	require.Equal(
-		blockchain.ConvertIotxToRau(3000000000),
+		unit.ConvertIotxToRau(3000000000),
 		change,
 	)
 	t.Log("Total balance match")
@@ -484,6 +496,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg, err := newTestConfig()
 	cfg.Chain.NumCandidates = 2
 	require.Nil(err)
+	genesisCfg := genesis.Default
 
 	// create node
 	ctx := context.Background()
@@ -523,12 +536,20 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
-	chain := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	registry := protocol.Registry{}
+	rewardingProtocol := rewarding.NewProtocol()
+	registry.Register(rewarding.ProtocolID, rewardingProtocol)
+	chain := blockchain.NewBlockchain(
+		cfg,
+		blockchain.DefaultStateFactoryOption(),
+		blockchain.BoltDBDaoOption(),
+		blockchain.GenesisOption(genesisCfg),
+	)
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol(),
 		vote.NewProtocol(chain))
 	require.NotNil(chain)
-	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain))
+	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain), rewardingProtocol)
 	require.NoError(chain.Start(ctx))
 	require.True(5 == bc.TipHeight())
 	defer func() {
@@ -539,16 +560,16 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	// Add block 1
 	// Alfa, Bravo and Charlie selfnomination
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 7, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 7, unit.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 8, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 8, unit.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 9, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 9, unit.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 10, blockchain.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 10, unit.ConvertIotxToRau(200000000), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
 	require.NoError(err)
 
 	vote1, err := testutil.SignedVote(ta.Addrinfo["alfa"].String(), ta.Keyinfo["alfa"].PriKey, 1, 100000, big.NewInt(0))

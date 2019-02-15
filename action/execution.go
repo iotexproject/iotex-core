@@ -28,11 +28,15 @@ const (
 	ExecutionBaseIntrinsicGas = uint64(10000)
 )
 
+var _ hasDestination = (*Execution)(nil)
+
 // Execution defines the struct of account-based contract execution
 type Execution struct {
 	AbstractAction
-	amount *big.Int
-	data   []byte
+
+	contract string
+	amount   *big.Int
+	data     []byte
 }
 
 // NewExecution returns a Execution instance
@@ -48,12 +52,12 @@ func NewExecution(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			dstAddr:  contractAddress,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		amount: amount,
-		data:   data,
+		contract: contractAddress,
+		amount:   amount,
+		data:     data,
 	}, nil
 }
 
@@ -63,19 +67,16 @@ func (ex *Execution) ExecutorPublicKey() keypair.PublicKey {
 }
 
 // Contract returns a contract address
-func (ex *Execution) Contract() string {
-	return ex.DstAddr()
-}
+func (ex *Execution) Contract() string { return ex.contract }
+
+// Destination returns a contract address
+func (ex *Execution) Destination() string { return ex.Contract() }
 
 // Amount returns the amount
-func (ex *Execution) Amount() *big.Int {
-	return ex.amount
-}
+func (ex *Execution) Amount() *big.Int { return ex.amount }
 
 // Data returns the data bytes
-func (ex *Execution) Data() []byte {
-	return ex.data
-}
+func (ex *Execution) Data() []byte { return ex.data }
 
 // TotalSize returns the total size of this Execution
 func (ex *Execution) TotalSize() uint32 {
@@ -95,7 +96,7 @@ func (ex *Execution) ByteStream() []byte {
 // Proto converts Execution to protobuf's ExecutionPb
 func (ex *Execution) Proto() *iproto.ExecutionPb {
 	act := &iproto.ExecutionPb{
-		Contract: ex.dstAddr,
+		Contract: ex.contract,
 		Data:     ex.data,
 	}
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
@@ -114,9 +115,10 @@ func (ex *Execution) LoadProto(pbAct *iproto.ExecutionPb) error {
 	}
 	*ex = Execution{}
 
-	ex.data = pbAct.GetData()
+	ex.contract = pbAct.GetContract()
 	ex.amount = &big.Int{}
 	ex.amount.SetBytes(pbAct.GetAmount())
+	ex.data = pbAct.GetData()
 	return nil
 }
 

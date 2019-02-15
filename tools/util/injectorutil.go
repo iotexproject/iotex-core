@@ -21,11 +21,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -343,7 +343,7 @@ func injectTransfer(
 		amount = int64(rand.Intn(5))
 	}
 
-	selp, tsf, err := createSignedTransfer(sender, recipient, blockchain.ConvertIotxToRau(amount), nonce, gasLimit,
+	selp, tsf, err := createSignedTransfer(sender, recipient, unit.ConvertIotxToRau(amount), nonce, gasLimit,
 		gasPrice, payload)
 	if err != nil {
 		log.L().Fatal("Failed to inject transfer", zap.Error(err))
@@ -354,7 +354,7 @@ func injectTransfer(
 	request := explorer.SendTransferRequest{
 		Version:      int64(selp.Version()),
 		Nonce:        int64(selp.Nonce()),
-		Recipient:    selp.DstAddr(),
+		Recipient:    tsf.Recipient(),
 		SenderPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
 		GasLimit:     int64(selp.GasLimit()),
 		Signature:    hex.EncodeToString(selp.Signature()),
@@ -391,7 +391,7 @@ func injectVote(
 	retryNum int,
 	retryInterval int,
 ) {
-	selp, _, err := createSignedVote(sender, recipient, nonce, gasLimit, gasPrice)
+	selp, v, err := createSignedVote(sender, recipient, nonce, gasLimit, gasPrice)
 	if err != nil {
 		log.L().Fatal("Failed to inject vote", zap.Error(err))
 	}
@@ -401,7 +401,7 @@ func injectVote(
 	request := explorer.SendVoteRequest{
 		Version:     int64(selp.Version()),
 		Nonce:       int64(selp.Nonce()),
-		Votee:       selp.DstAddr(),
+		Votee:       v.Votee(),
 		VoterPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
 		GasLimit:    int64(selp.GasLimit()),
 		Signature:   hex.EncodeToString(selp.Signature()),
@@ -583,7 +583,7 @@ func injectExecution(
 	request := explorer.Execution{
 		Version:        int64(selp.Version()),
 		Nonce:          int64(selp.Nonce()),
-		Contract:       selp.DstAddr(),
+		Contract:       execution.Contract(),
 		ExecutorPubKey: keypair.EncodePublicKey(selp.SrcPubkey()),
 		GasLimit:       int64(selp.GasLimit()),
 		Data:           hex.EncodeToString(execution.Data()),

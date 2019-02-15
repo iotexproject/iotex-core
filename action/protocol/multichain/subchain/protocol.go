@@ -27,6 +27,10 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
+// ProtocolID is the protocol ID
+// TODO: it works only for one instance per protocol definition now
+const ProtocolID = "multi-chain_sub-chain"
+
 // Protocol defines the protocol to handle multi-chain actions on sub-chain
 type Protocol struct {
 	chainID      uint32

@@ -94,6 +94,7 @@ var (
 			EnableTrielessStateDB:        true,
 			EnableIndex:                  false,
 			EnableAsyncIndexWrite:        false,
+			AllowedBlockGasResidue:       10000,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -143,7 +144,7 @@ var (
 		API: API{
 			Enabled:   false,
 			UseRDS:    false,
-			Port:      14004,
+			Port:      14014,
 			TpsWindow: 10,
 			GasStation: GasStation{
 				SuggestBlockWindow: 20,
@@ -226,6 +227,8 @@ type (
 		EnableIndex bool `yaml:"enableIndex"`
 		// enable writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
+		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
+		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -248,9 +251,10 @@ type (
 		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
 		DelegateInterval  time.Duration       `yaml:"delegateInterval"`
 		Delay             time.Duration       `yaml:"delay"`
-		NumSubEpochs      uint                `yaml:"numSubEpochs"`
-		NumDelegates      uint                `yaml:"numDelegates"`
-		TimeBasedRotation bool                `yaml:"timeBasedRotation"`
+		// TODO: remove the following two fields from config
+		NumSubEpochs      uint `yaml:"numSubEpochs"`
+		NumDelegates      uint `yaml:"numDelegates"`
+		TimeBasedRotation bool `yaml:"timeBasedRotation"`
 	}
 
 	// Dispatcher is the dispatcher config
@@ -284,9 +288,9 @@ type (
 
 	// GasStation is the gas station config
 	GasStation struct {
-		SuggestBlockWindow int `yaml:"suggestBlockWindow"`
-		DefaultGas         int `yaml:"defaultGas"`
-		Percentile         int `yaml:"Percentile"`
+		SuggestBlockWindow int    `yaml:"suggestBlockWindow"`
+		DefaultGas         uint64 `yaml:"defaultGas"`
+		Percentile         int    `yaml:"Percentile"`
 	}
 
 	// Indexer is the index service config

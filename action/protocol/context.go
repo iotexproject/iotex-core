@@ -30,6 +30,8 @@ type RunActionsCtx struct {
 	BlockTimeStamp int64
 	// gas Limit for perform those actions
 	GasLimit *uint64
+	// ActionGasLimit is the action level gas limit
+	ActionGasLimit uint64
 	// whether disable gas charge
 	EnableGasCharge bool
 	// Producer is the address of whom composes the block containing this action

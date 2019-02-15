@@ -22,6 +22,8 @@ import (
 // PutBlockIntrinsicGas is the instrinsic gas for put block action.
 const PutBlockIntrinsicGas = uint64(1000)
 
+var _ hasDestination = (*PutBlock)(nil)
+
 // PutBlock represents put a sub-chain block message.
 type PutBlock struct {
 	AbstractAction
@@ -103,6 +105,9 @@ func (pb *PutBlock) Proto() *iproto.PutBlockPb {
 
 // SubChainAddress returns sub chain address.
 func (pb *PutBlock) SubChainAddress() string { return pb.subChainAddress }
+
+// Destination returns sub chain address.
+func (pb *PutBlock) Destination() string { return pb.SubChainAddress() }
 
 // Height returns put block height.
 func (pb *PutBlock) Height() uint64 { return pb.height }

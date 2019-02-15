@@ -18,7 +18,6 @@ type AbstractAction struct {
 	version   uint32
 	nonce     uint64
 	srcPubkey keypair.PublicKey
-	dstAddr   string
 	gasLimit  uint64
 	gasPrice  *big.Int
 	hash      hash.Hash256
@@ -32,9 +31,6 @@ func (act *AbstractAction) Nonce() uint64 { return act.nonce }
 
 // SrcPubkey returns the source public key
 func (act *AbstractAction) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
-
-// DstAddr returns the destination address
-func (act *AbstractAction) DstAddr() string { return act.dstAddr }
 
 // GasLimit returns the gas limit
 func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
@@ -55,7 +51,7 @@ func (act *AbstractAction) Hash() hash.Hash256 { return act.hash }
 func (act *AbstractAction) BasicActionSize() uint32 {
 	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
 	size := 4 + 8 + 8
-	size += len(act.dstAddr) + len(keypair.PublicKeyToBytes(act.srcPubkey))
+	size += len(keypair.PublicKeyToBytes(act.srcPubkey))
 	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
 		size += len(act.gasPrice.Bytes())
 	}
@@ -74,7 +70,6 @@ func (act *AbstractAction) SetEnvelopeContext(selp SealedEnvelope) {
 		SetSourcePublicKey(selp.SrcPubkey()).
 		SetGasLimit(selp.GasLimit()).
 		SetGasPrice(selp.GasPrice()).
-		SetDestinationAddress(selp.DstAddr()).
 		Build()
 
 	// the reason to set hash here, after set act context, is because some actions use envelope information in their proto define. for example transfer use des addr as Receipt.

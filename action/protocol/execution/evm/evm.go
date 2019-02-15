@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -85,7 +84,7 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    genesis.ActionGasLimit,
+		GasLimit:    raCtx.ActionGasLimit,
 		GasPrice:    execution.GasPrice(),
 	}
 

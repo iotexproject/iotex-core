@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -30,12 +31,18 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 	cfg, err := newTestConfig()
+	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	chain := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain := blockchain.NewBlockchain(
+		cfg,
+		blockchain.InMemStateFactoryOption(),
+		blockchain.InMemDaoOption(),
+		blockchain.GenesisOption(genesisCfg),
+	)
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
@@ -130,11 +137,17 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 	cfg, err := newTestConfig()
+	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	chain := blockchain.NewBlockchain(cfg, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	chain := blockchain.NewBlockchain(
+		cfg,
+		blockchain.InMemStateFactoryOption(),
+		blockchain.InMemDaoOption(),
+		blockchain.GenesisOption(genesisCfg),
+	)
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)

@@ -47,8 +47,8 @@ func (f *fund) Deserialize(data []byte) error {
 	return nil
 }
 
-// Donate donates token into the rewarding fund
-func (p *Protocol) Donate(
+// Deposit deposits token into the rewarding fund
+func (p *Protocol) Deposit(
 	ctx context.Context,
 	sm protocol.StateManager,
 	amount *big.Int,

@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -75,7 +75,7 @@ func TestMerkle(t *testing.T) {
 		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
 	)
 	hash := block.CalculateTxRoot()
-	require.Equal("9a32d3e0cd1a1ac754af41443ae13b20013542762345d73c3a2a14c8ac208d6b", hex.EncodeToString(hash[:]))
+	require.Equal("27708bd46b8ea8026db2eb764d19ae5c4213d20b035290f1e799d2298717887d", hex.EncodeToString(hash[:]))
 
 	t.Log("Merkle root match pass\n")
 }
@@ -91,36 +91,44 @@ func TestConvertFromBlockPb(t *testing.T) {
 		},
 		Actions: []*iproto.ActionPb{
 			{
-				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{},
+				Core: &iproto.ActionCore{
+					Action: &iproto.ActionCore_Transfer{
+						Transfer: &iproto.TransferPb{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   101,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        101,
 			},
 			{
-				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{},
+				Core: &iproto.ActionCore{
+					Action: &iproto.ActionCore_Transfer{
+						Transfer: &iproto.TransferPb{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   102,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        102,
 			},
 			{
-				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{},
+				Core: &iproto.ActionCore{
+					Action: &iproto.ActionCore_Vote{
+						Vote: &iproto.VotePb{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   103,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        103,
 			},
 			{
-				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{},
+				Core: &iproto.ActionCore{
+					Action: &iproto.ActionCore_Vote{
+						Vote: &iproto.VotePb{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   104,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        104,
 			},
 		},
 	}))

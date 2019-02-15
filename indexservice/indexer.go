@@ -140,8 +140,11 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 				return errors.Wrapf(err, "failed to update action to action history table")
 			}
 			// put new transfer for recipient
-			if err := idx.UpdateIndexHistory(blk, tx, config.IndexAction, selp.DstAddr(), selp.Hash()); err != nil {
-				return errors.Wrapf(err, "failed to update action to action history table")
+			dst, ok := selp.Destination()
+			if ok {
+				if err := idx.UpdateIndexHistory(blk, tx, config.IndexAction, dst, selp.Hash()); err != nil {
+					return errors.Wrapf(err, "failed to update action to action history table")
+				}
 			}
 			// map action to block
 			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexAction, selp.Hash(), blk.HashBlock()); err != nil {

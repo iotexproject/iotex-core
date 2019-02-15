@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -26,8 +26,10 @@ const (
 // SettleDeposit represents the action to settle a deposit on the sub-chain
 type SettleDeposit struct {
 	AbstractAction
-	amount *big.Int
-	index  uint64
+
+	recipient string
+	amount    *big.Int
+	index     uint64
 }
 
 // NewSettleDeposit instantiates a deposit settlement to sub-chain action struct
@@ -43,12 +45,12 @@ func NewSettleDeposit(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			dstAddr:  recipient,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		amount: amount,
-		index:  index,
+		recipient: recipient,
+		amount:    amount,
+		index:     index,
 	}
 }
 
@@ -61,9 +63,11 @@ func (sd *SettleDeposit) Index() uint64 { return sd.index }
 // SenderPublicKey returns the sender public key. It's the wrapper of Action.SrcPubkey
 func (sd *SettleDeposit) SenderPublicKey() keypair.PublicKey { return sd.SrcPubkey() }
 
-// Recipient returns the recipient address. It's the wrapper of Action.DstAddr. The recipient should be an address on
-// the sub-chain
-func (sd *SettleDeposit) Recipient() string { return sd.DstAddr() }
+// Recipient returns the recipient address. The recipient should be an address on the sub-chain
+func (sd *SettleDeposit) Recipient() string { return sd.recipient }
+
+// Destination returns the recipient address. The recipient should be an address on the sub-chain
+func (sd *SettleDeposit) Destination() string { return sd.Recipient() }
 
 // ByteStream returns a raw byte stream of the settle deposit action
 func (sd *SettleDeposit) ByteStream() []byte {
@@ -73,7 +77,7 @@ func (sd *SettleDeposit) ByteStream() []byte {
 // Proto converts SettleDeposit to protobuf's ActionPb
 func (sd *SettleDeposit) Proto() *iproto.SettleDepositPb {
 	act := &iproto.SettleDepositPb{
-		Recipient: sd.dstAddr,
+		Recipient: sd.recipient,
 		Index:     sd.index,
 	}
 	if sd.amount != nil && len(sd.amount.Bytes()) > 0 {
@@ -92,6 +96,7 @@ func (sd *SettleDeposit) LoadProto(pbDpst *iproto.SettleDepositPb) error {
 	}
 	*sd = SettleDeposit{}
 
+	sd.recipient = pbDpst.GetRecipient()
 	sd.amount = big.NewInt(0)
 	sd.amount.SetBytes(pbDpst.GetAmount())
 	sd.index = pbDpst.GetIndex()

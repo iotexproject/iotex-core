@@ -4,13 +4,14 @@
 // permitted by law, all liability for your use of the code is disset epoch rewarded. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rewarding
+package action
 
 import (
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDonateToRewardingFund(t *testing.T) {
@@ -19,8 +20,8 @@ func TestDonateToRewardingFund(t *testing.T) {
 		SetData([]byte{2}).
 		Build()
 	proto := s1.Proto()
-	s2 := DonateToRewardingFund{}
-	s2.LoadProto(proto)
+	s2 := DepositToRewardingFund{}
+	require.NoError(t, s2.LoadProto(proto))
 	assert.Equal(t, s1.Amount(), s2.Amount())
 	assert.Equal(t, s2.Data(), s2.Data())
 }
@@ -32,7 +33,7 @@ func TestClaimFromRewardingFund(t *testing.T) {
 		Build()
 	proto := s1.Proto()
 	s2 := ClaimFromRewardingFund{}
-	s2.LoadProto(proto)
+	require.NoError(t, s2.LoadProto(proto))
 	assert.Equal(t, s1.Amount(), s2.Amount())
 	assert.Equal(t, s2.Data(), s2.Data())
 }
@@ -44,7 +45,7 @@ func TestSetBlockReward(t *testing.T) {
 		Build()
 	proto := s1.Proto()
 	s2 := SetReward{}
-	s2.LoadProto(proto)
+	require.NoError(t, s2.LoadProto(proto))
 	assert.Equal(t, s1.Amount(), s2.Amount())
 	assert.Equal(t, s2.Data(), s2.Data())
 }
@@ -54,6 +55,6 @@ func TestGrantBlockReward(t *testing.T) {
 	s1 := b.SetRewardType(BlockReward).Build()
 	proto := s1.Proto()
 	s2 := GrantReward{}
-	s2.LoadProto(proto)
+	require.NoError(t, s2.LoadProto(proto))
 	assert.Equal(t, s1.RewardType(), s2.RewardType())
 }

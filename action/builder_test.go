@@ -17,13 +17,11 @@ import (
 )
 
 func TestActionBuilder(t *testing.T) {
-	dstAddr := testaddress.Addrinfo["echo"]
 	srcPubKey := testaddress.Keyinfo["producer"].PubKey
 	bd := &Builder{}
 	act := bd.SetVersion(version.ProtocolVersion).
 		SetNonce(2).
 		SetSourcePublicKey(srcPubKey).
-		SetDestinationAddress(dstAddr.String()).
 		SetGasLimit(10003).
 		SetGasPrice(big.NewInt(10004)).
 		Build()
@@ -31,7 +29,6 @@ func TestActionBuilder(t *testing.T) {
 	assert.Equal(t, uint32(version.ProtocolVersion), act.Version())
 	assert.Equal(t, uint64(2), act.Nonce())
 	assert.Equal(t, srcPubKey, act.SrcPubkey())
-	assert.Equal(t, dstAddr.String(), act.DstAddr())
 	assert.Equal(t, uint64(10003), act.GasLimit())
 	assert.Equal(t, big.NewInt(10004), act.GasPrice())
 }
