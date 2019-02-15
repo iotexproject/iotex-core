@@ -5,30 +5,30 @@
 // License 2.0 that can be found in the LICENSE file.
 
 // To compile the proto, run:
-//      protoc --go_out=plugins=grpc:. *.proto
+//      protoc --go_out=plugins=grpc:$GOPATH/src *.proto
 syntax = "proto3";
-option go_package = "github.com/iotexproject/iotex-core/proto";
 package iproto;
+option go_package = "github.com/iotexproject/iotex-core/proto;iproto";
 
 // corresponding to prepare and pre-prepare phase in view change protocol
 message Endorsement {
-    enum ConsensusVoteTopic {
-        PROPOSAL = 0;
-        LOCK = 1;
-        COMMIT = 2;
-    }
-    uint64 height = 1;
-    uint32 round = 2;
-    bytes blockHash = 3;
-    ConsensusVoteTopic topic = 4;
-    string endorser = 5;
-    bytes endorserPubKey = 6;
-    bool decision = 7;
-    bytes signature = 8;
+  enum ConsensusVoteTopic {
+    PROPOSAL = 0;
+    LOCK = 1;
+    COMMIT = 2;
+  }
+  uint64 height = 1;
+  uint32 round = 2;
+  bytes blockHash = 3;
+  ConsensusVoteTopic topic = 4;
+  string endorser = 5;
+  bytes endorserPubKey = 6;
+  bool decision = 7;
+  bytes signature = 8;
 }
 
 message EndorsementSet {
-    bytes blockHash = 1;
-    uint32 round = 2;
-    repeated Endorsement endorsements = 3;
+  bytes blockHash = 1;
+  uint32 round = 2;
+  repeated Endorsement endorsements = 3;
 }

@@ -33,3 +33,4 @@
 bin/*
 coverage.html
 lint.log
+.editorconfig
