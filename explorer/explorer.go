@@ -1910,7 +1910,6 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 			Data:        hex.EncodeToString(log.Data),
 			BlockNumber: int64(log.BlockNumber),
 			TxnHash:     hex.EncodeToString(log.TxnHash[:]),
-			BlockHash:   hex.EncodeToString(log.BlockHash[:]),
 			Index:       int64(log.Index),
 		})
 	}
