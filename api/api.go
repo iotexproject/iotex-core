@@ -14,8 +14,8 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -45,24 +45,8 @@ var (
 	ErrAction = errors.New("invalid action")
 )
 
-var (
-	requestMtc = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "iotex_api_request",
-			Help: "IoTeX API request counter.",
-		},
-		[]string{"method", "succeed"},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(requestMtc)
-}
-
-type (
-	// BroadcastOutbound sends a broadcast message to the whole network
-	BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
-)
+// BroadcastOutbound sends a broadcast message to the whole network
+type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
 
 // Config represents the config to setup api
 type Config struct {
@@ -124,6 +108,7 @@ func NewServer(
 	}
 
 	svr.grpcserver = grpc.NewServer()
+	grpc_prometheus.Register(svr.grpcserver)
 	iotexapi.RegisterAPIServiceServer(svr.grpcserver, svr)
 	reflection.Register(svr.grpcserver)
 
@@ -234,14 +219,6 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 // SendAction is the API to send an action to blockchain.
 func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (res *iotexapi.SendActionResponse, err error) {
 	log.L().Debug("receive send action request")
-
-	defer func() {
-		succeed := "true"
-		if err != nil {
-			succeed = "false"
-		}
-		requestMtc.WithLabelValues("SendAction", succeed).Inc()
-	}()
 
 	// broadcast to the network
 	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
