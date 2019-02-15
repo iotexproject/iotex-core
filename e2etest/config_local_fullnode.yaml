@@ -28,3 +28,7 @@ system:
 
 explorer:
     enabled: true
+
+api:
+    enabled: true
+

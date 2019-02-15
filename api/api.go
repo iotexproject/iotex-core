@@ -48,8 +48,8 @@ var (
 var (
 	requestMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "iotex_explorer_request",
-			Help: "IoTeX Explorer request counter.",
+			Name: "iotex_api_request",
+			Help: "IoTeX API request counter.",
 		},
 		[]string{"method", "succeed"},
 	)
@@ -313,7 +313,7 @@ func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.Estima
 
 // Start starts the API server
 func (api *Server) Start() error {
-	portStr := strconv.Itoa(api.cfg.Port)
+	portStr := ":" + strconv.Itoa(api.cfg.Port)
 	lis, err := net.Listen("tcp", portStr)
 	if err != nil {
 		log.L().Error("API server failed to listen.", zap.Error(err))
