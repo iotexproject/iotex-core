@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -987,9 +988,9 @@ func TestBlocks(t *testing.T) {
 	c := ta.Addrinfo["bravo"].String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccount(ws, a, big.NewInt(100000))
+	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100000))
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccount(ws, c, big.NewInt(100000))
+	_, err = util.LoadOrCreateAccount(ws, c, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -1052,9 +1053,9 @@ func TestActions(t *testing.T) {
 	c := ta.Addrinfo["bravo"].String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccount(ws, a, big.NewInt(100000))
+	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100000))
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccount(ws, c, big.NewInt(100000))
+	_, err = util.LoadOrCreateAccount(ws, c, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -1094,7 +1095,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(), Gen.TotalSupply); err != nil {
+	if _, err = util.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(), Gen.TotalSupply); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit

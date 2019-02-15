@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -353,7 +354,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			for j := 0; j < numNodes; j++ {
 				ws, err := sf.NewWorkingSet()
 				require.NoError(t, err)
-				_, err = account.LoadOrCreateAccount(ws, chainRawAddrs[j], big.NewInt(0))
+				_, err = util.LoadOrCreateAccount(ws, chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
 				gasLimit := testutil.TestGasLimit
 				wsctx := protocol.WithRunActionsCtx(ctx,

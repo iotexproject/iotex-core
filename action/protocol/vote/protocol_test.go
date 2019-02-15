@@ -12,12 +12,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -54,11 +53,11 @@ func TestProtocol_Handle(t *testing.T) {
 	pkHash2 := byteutil.BytesTo20B(testaddress.Addrinfo["bravo"].Bytes())
 	pkHash3 := byteutil.BytesTo20B(testaddress.Addrinfo["charlie"].Bytes())
 
-	_, err = account.LoadOrCreateAccount(ws, addr1, big.NewInt(100))
+	_, err = util.LoadOrCreateAccount(ws, addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccount(ws, addr2, big.NewInt(100))
+	_, err = util.LoadOrCreateAccount(ws, addr2, big.NewInt(100))
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccount(ws, addr3, big.NewInt(100))
+	_, err = util.LoadOrCreateAccount(ws, addr3, big.NewInt(100))
 	require.NoError(err)
 
 	checkSelfNomination := func(address string, account *state.Account) {
@@ -76,11 +75,12 @@ func TestProtocol_Handle(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["alfa"],
 			GasLimit: &gasLimit,
+			GasPrice: big.NewInt(0),
 		},
 	)
 	_, err = p.Handle(ctx, vote1.Action(), ws)
 	require.NoError(err)
-	account1, _ := account.LoadAccount(ws, pkHash1)
+	account1, _ := util.LoadAccount(ws, pkHash1)
 	checkSelfNomination(addr1, account1)
 
 	vote2, err := testutil.SignedVote(addr2, k2.PriKey, 1, uint64(100000), big.NewInt(0))
@@ -90,11 +90,12 @@ func TestProtocol_Handle(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["bravo"],
 			GasLimit: &gasLimit,
+			GasPrice: big.NewInt(0),
 		},
 	)
 	_, err = p.Handle(ctx, vote2.Action(), ws)
 	require.NoError(err)
-	account2, _ := account.LoadAccount(ws, pkHash2)
+	account2, _ := util.LoadAccount(ws, pkHash2)
 	checkSelfNomination(addr2, account2)
 
 	vote3, err := testutil.SignedVote(addr3, k3.PriKey, 1, uint64(100000), big.NewInt(0))
@@ -104,11 +105,12 @@ func TestProtocol_Handle(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["charlie"],
 			GasLimit: &gasLimit,
+			GasPrice: big.NewInt(0),
 		},
 	)
 	_, err = p.Handle(ctx, vote3.Action(), ws)
 	require.NoError(err)
-	account3, _ := account.LoadAccount(ws, pkHash3)
+	account3, _ := util.LoadAccount(ws, pkHash3)
 	checkSelfNomination(addr3, account3)
 
 	unvote1, err := testutil.SignedVote("", k1.PriKey, 2, uint64(100000), big.NewInt(0))
@@ -118,11 +120,12 @@ func TestProtocol_Handle(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["alfa"],
 			GasLimit: &gasLimit,
+			GasPrice: big.NewInt(0),
 		},
 	)
 	_, err = p.Handle(ctx, unvote1.Action(), ws)
 	require.NoError(err)
-	account1, _ = account.LoadAccount(ws, pkHash1)
+	account1, _ = util.LoadAccount(ws, pkHash1)
 	require.Equal(uint64(2), account1.Nonce)
 	require.False(account1.IsCandidate)
 	require.Equal("", account1.Votee)
@@ -135,12 +138,13 @@ func TestProtocol_Handle(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["bravo"],
 			GasLimit: &gasLimit,
+			GasPrice: big.NewInt(0),
 		},
 	)
 	_, err = p.Handle(ctx, vote4.Action(), ws)
 	require.NoError(err)
-	account2, _ = account.LoadAccount(ws, pkHash2)
-	account3, _ = account.LoadAccount(ws, pkHash3)
+	account2, _ = util.LoadAccount(ws, pkHash2)
+	account3, _ = util.LoadAccount(ws, pkHash3)
 	require.Equal(uint64(2), account2.Nonce)
 	require.True(account2.IsCandidate)
 	require.Equal(addr3, account2.Votee)
@@ -154,12 +158,13 @@ func TestProtocol_Handle(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["bravo"],
 			GasLimit: &gasLimit,
+			GasPrice: big.NewInt(0),
 		},
 	)
 	_, err = p.Handle(ctx, unvote2.Action(), ws)
 	require.NoError(err)
-	account2, _ = account.LoadAccount(ws, pkHash2)
-	account3, _ = account.LoadAccount(ws, pkHash3)
+	account2, _ = util.LoadAccount(ws, pkHash2)
+	account3, _ = util.LoadAccount(ws, pkHash3)
 	require.Equal(uint64(3), account2.Nonce)
 	require.False(account2.IsCandidate)
 	require.Equal("", account2.Votee)

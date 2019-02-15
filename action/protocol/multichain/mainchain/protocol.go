@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -114,7 +114,7 @@ func (p *Protocol) account(sender string, sm protocol.StateManager) (*state.Acco
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
 	addrHash := byteutil.BytesTo20B(addr.Bytes())
-	return account.LoadAccount(sm, addrHash)
+	return util.LoadAccount(sm, addrHash)
 }
 
 func (p *Protocol) accountWithEnoughBalance(

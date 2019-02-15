@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -66,62 +66,38 @@ func (p *Protocol) Handle(
 	case *action.SetReward:
 		switch act.RewardType() {
 		case action.BlockReward:
-			gasConsumed, err := act.IntrinsicGas()
-			if err != nil {
-				return p.settleAction(ctx, sm, 1, 0), nil
-			}
 			if err := p.SetBlockReward(ctx, sm, act.Amount()); err != nil {
-				return p.settleAction(ctx, sm, 1, gasConsumed), nil
+				return p.settleAction(ctx, sm, 1), nil
 			}
-			return p.settleAction(ctx, sm, 0, gasConsumed), nil
+			return p.settleAction(ctx, sm, 0), nil
 		case action.EpochReward:
-			gasConsumed, err := act.IntrinsicGas()
-			if err != nil {
-				return p.settleAction(ctx, sm, 1, 0), nil
-			}
 			if err := p.SetEpochReward(ctx, sm, act.Amount()); err != nil {
-				return p.settleAction(ctx, sm, 1, gasConsumed), nil
+				return p.settleAction(ctx, sm, 1), nil
 			}
-			return p.settleAction(ctx, sm, 0, gasConsumed), nil
+			return p.settleAction(ctx, sm, 0), nil
 		}
 	case *action.DepositToRewardingFund:
-		gasConsumed, err := act.IntrinsicGas()
-		if err != nil {
-			return p.settleAction(ctx, sm, 1, 0), nil
-		}
 		if err := p.Deposit(ctx, sm, act.Amount()); err != nil {
-			return p.settleAction(ctx, sm, 1, gasConsumed), nil
+			return p.settleAction(ctx, sm, 1), nil
 		}
-		return p.settleAction(ctx, sm, 0, gasConsumed), nil
+		return p.settleAction(ctx, sm, 0), nil
 	case *action.ClaimFromRewardingFund:
-		gasConsumed, err := act.IntrinsicGas()
-		if err != nil {
-			return p.settleAction(ctx, sm, 1, 0), nil
-		}
 		if err := p.Claim(ctx, sm, act.Amount()); err != nil {
-			return p.settleAction(ctx, sm, 1, gasConsumed), nil
+			return p.settleAction(ctx, sm, 1), nil
 		}
-		return p.settleAction(ctx, sm, 0, gasConsumed), nil
+		return p.settleAction(ctx, sm, 0), nil
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
-			gasConsumed, err := act.IntrinsicGas()
-			if err != nil {
-				return p.settleAction(ctx, sm, 1, 0), nil
-			}
 			if err := p.GrantBlockReward(ctx, sm); err != nil {
-				return p.settleAction(ctx, sm, 1, gasConsumed), nil
+				return p.settleAction(ctx, sm, 1), nil
 			}
-			return p.settleAction(ctx, sm, 0, gasConsumed), nil
+			return p.settleAction(ctx, sm, 0), nil
 		case action.EpochReward:
-			gasConsumed, err := act.IntrinsicGas()
-			if err != nil {
-				return p.settleAction(ctx, sm, 1, 0), nil
-			}
 			if err := p.GrantEpochReward(ctx, sm); err != nil {
-				return p.settleAction(ctx, sm, 1, gasConsumed), nil
+				return p.settleAction(ctx, sm, 1), nil
 			}
-			return p.settleAction(ctx, sm, 0, gasConsumed), nil
+			return p.settleAction(ctx, sm, 0), nil
 		}
 	}
 	return nil, nil
@@ -155,20 +131,20 @@ func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
 	status uint64,
-	gasConsumed uint64,
 ) *action.Receipt {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	gasFee := big.NewInt(0).Mul(raCtx.GasPrice, big.NewInt(0).SetUint64(raCtx.IntrinsicGas))
+	if err := DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
+		p.createReceipt(1, raCtx.ActionHash, raCtx.IntrinsicGas)
 	}
 	if err := p.increaseNonce(sm, raCtx.Caller, raCtx.Nonce); err != nil {
-		return p.createReceipt(1, raCtx.ActionHash, gasConsumed)
+		return p.createReceipt(1, raCtx.ActionHash, raCtx.IntrinsicGas)
 	}
-	return p.createReceipt(status, raCtx.ActionHash, gasConsumed)
+	return p.createReceipt(status, raCtx.ActionHash, raCtx.IntrinsicGas)
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := account.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
+	acc, err := util.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
@@ -176,7 +152,7 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 	if nonce > acc.Nonce {
 		acc.Nonce = nonce
 	}
-	if err := account.StoreAccount(sm, addr.String(), acc); err != nil {
+	if err := util.StoreAccount(sm, addr.String(), acc); err != nil {
 		return err
 	}
 	return nil
