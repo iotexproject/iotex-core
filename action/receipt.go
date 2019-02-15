@@ -34,7 +34,7 @@ type Log struct {
 	Index       uint
 }
 
-// ConvertToReceipt converts a Receipt to protobuf's Receipt
+// ConvertToReceiptPb converts a Receipt to protobuf's Receipt
 func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r := &iotextypes.Receipt{}
 	r.ReturnValue = receipt.ReturnValue
