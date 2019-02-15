@@ -56,7 +56,7 @@ func NewPutBlock(
 }
 
 // LoadProto converts a proto message into put block action.
-func (pb *PutBlock) LoadProto(putBlockPb *iotextypes.PutBlockPb) error {
+func (pb *PutBlock) LoadProto(putBlockPb *iotextypes.PutBlock) error {
 	if putBlockPb == nil {
 		return errors.New("empty action proto to load")
 	}
@@ -76,8 +76,8 @@ func (pb *PutBlock) LoadProto(putBlockPb *iotextypes.PutBlockPb) error {
 }
 
 // Proto converts put sub-chain block action into a proto message.
-func (pb *PutBlock) Proto() *iotextypes.PutBlockPb {
-	act := &iotextypes.PutBlockPb{
+func (pb *PutBlock) Proto() *iotextypes.PutBlock {
+	act := &iotextypes.PutBlock{
 		SubChainAddress: pb.subChainAddress,
 		Height:          pb.height,
 	}

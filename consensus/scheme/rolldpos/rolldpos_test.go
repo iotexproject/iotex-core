@@ -276,7 +276,7 @@ func (o *directOverlay) Stop(_ context.Context) error { return nil }
 
 func (o *directOverlay) Broadcast(msg proto.Message) error {
 	// Only broadcast consensus message
-	if cMsg, ok := msg.(*iotexrpc.ConsensusPb); ok {
+	if cMsg, ok := msg.(*iotexrpc.Consensus); ok {
 		for _, r := range o.peers {
 			if err := r.HandleConsensusMsg(cMsg); err != nil {
 				return errors.Wrap(err, "error when handling consensus message directly")

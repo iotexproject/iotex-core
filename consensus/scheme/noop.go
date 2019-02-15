@@ -32,7 +32,7 @@ func (n *Noop) Start(_ context.Context) error { return nil }
 func (n *Noop) Stop(_ context.Context) error { return nil }
 
 // HandleConsensusMsg handles incoming consensus message
-func (n *Noop) HandleConsensusMsg(msg *iotexrpc.ConsensusPb) error {
+func (n *Noop) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
 	log.L().Warn("Noop scheme does not handle incoming consensus message.")
 	return nil
 }

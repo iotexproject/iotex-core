@@ -15,7 +15,7 @@ import "endorsement.proto";
 import "google/protobuf/timestamp.proto";
 
 // header of a block
-message BlockHeaderPb {
+message BlockHeader {
   uint32 version = 1;
   uint32 chainID = 2;
   uint64 height = 3;
@@ -31,22 +31,22 @@ message BlockHeaderPb {
 }
 
 // footer of a block
-message BlockFooterPb {
+message BlockFooter {
   int64 CommitTimestamp = 1;
   EndorsementSet endorsements = 2;
 }
 
 // block consists of header followed by transactions
 // hash of current block can be computed from header hence not stored
-message BlockPb {
-  BlockHeaderPb header = 1;
-  repeated ActionPb actions = 2;
-  BlockFooterPb footer = 3;
+message Block {
+  BlockHeader header = 1;
+  repeated Action actions = 2;
+  BlockFooter footer = 3;
 }
 
 // Receipts consists of a collection of recepit
 message Receipts {
-  repeated ReceiptPb receipts = 1;
+  repeated Receipt receipts = 1;
 }
 
 

@@ -53,9 +53,9 @@ func (s *SetReward) Proto() *iotextypes.SetReward {
 	}
 	switch s.t {
 	case BlockReward:
-		sProto.Type = iotextypes.RewardType_Block
+		sProto.Type = iotextypes.RewardType_BlockReward
 	case EpochReward:
-		sProto.Type = iotextypes.RewardType_Epoch
+		sProto.Type = iotextypes.RewardType_EpochReward
 	}
 	return &sProto
 }
@@ -66,9 +66,9 @@ func (s *SetReward) LoadProto(sProto *iotextypes.SetReward) error {
 	s.amount = big.NewInt(0).SetBytes(sProto.Amount)
 	s.data = sProto.Data
 	switch sProto.Type {
-	case iotextypes.RewardType_Block:
+	case iotextypes.RewardType_BlockReward:
 		s.t = BlockReward
-	case iotextypes.RewardType_Epoch:
+	case iotextypes.RewardType_EpochReward:
 		s.t = EpochReward
 	}
 	return nil

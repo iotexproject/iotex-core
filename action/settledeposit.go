@@ -74,9 +74,9 @@ func (sd *SettleDeposit) ByteStream() []byte {
 	return byteutil.Must(proto.Marshal(sd.Proto()))
 }
 
-// Proto converts SettleDeposit to protobuf's ActionPb
-func (sd *SettleDeposit) Proto() *iotextypes.SettleDepositPb {
-	act := &iotextypes.SettleDepositPb{
+// Proto converts SettleDeposit to protobuf's Action
+func (sd *SettleDeposit) Proto() *iotextypes.SettleDeposit {
+	act := &iotextypes.SettleDeposit{
 		Recipient: sd.recipient,
 		Index:     sd.index,
 	}
@@ -86,8 +86,8 @@ func (sd *SettleDeposit) Proto() *iotextypes.SettleDepositPb {
 	return act
 }
 
-// LoadProto converts a protobuf's ActionPb to SettleDeposit
-func (sd *SettleDeposit) LoadProto(pbDpst *iotextypes.SettleDepositPb) error {
+// LoadProto converts a protobuf's Action to SettleDeposit
+func (sd *SettleDeposit) LoadProto(pbDpst *iotextypes.SettleDeposit) error {
 	if pbDpst == nil {
 		return errors.New("empty action proto to load")
 	}

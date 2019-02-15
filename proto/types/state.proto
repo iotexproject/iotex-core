@@ -10,7 +10,7 @@ syntax = "proto3";
 package iotextypes;
 option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
 
-message AccountPb {
+message Account {
   // used by state-based model
   uint64 nonce  = 1;
   bytes balance  = 2;

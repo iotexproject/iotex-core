@@ -128,7 +128,7 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 }
 
 // HandleConsensusMsg handles incoming consensus message
-func (r *RollDPoS) HandleConsensusMsg(msg *iotexrpc.ConsensusPb) error {
+func (r *RollDPoS) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
 	consensusHeight := r.ctx.Height()
 	if consensusHeight != 0 && msg.Height < consensusHeight {
 		log.L().Debug(
@@ -140,7 +140,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotexrpc.ConsensusPb) error {
 	}
 	data := msg.Data
 	switch msg.Type {
-	case iotexrpc.ConsensusPb_PROPOSAL:
+	case iotexrpc.Consensus_PROPOSAL:
 		block := &block.Block{}
 		if err := block.Deserialize(data); err != nil {
 			return errors.Wrap(err, "failed to deserialize block")
@@ -157,7 +157,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotexrpc.ConsensusPb) error {
 			return errors.Errorf("invalid block signature")
 		}
 		r.cfsm.ProduceReceiveBlockEvent(&blockWrapper{block, msg.Round})
-	case iotexrpc.ConsensusPb_ENDORSEMENT:
+	case iotexrpc.Consensus_ENDORSEMENT:
 		en := &endorsement.Endorsement{}
 		if err := en.Deserialize(data); err != nil {
 			return errors.Wrap(err, "error when deserializing a msg to endorsement")

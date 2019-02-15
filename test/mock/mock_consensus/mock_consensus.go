@@ -61,7 +61,7 @@ func (mr *MockConsensusMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 }
 
 // HandleConsensusMsg mocks base method
-func (m *MockConsensus) HandleConsensusMsg(arg0 *iotexrpc.ConsensusPb) error {
+func (m *MockConsensus) HandleConsensusMsg(arg0 *iotexrpc.Consensus) error {
 	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

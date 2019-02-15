@@ -96,7 +96,7 @@ message GetActionsByBlockRequest {
 }
 
 message GetActionsResponse {
-  repeated iotextypes.ActionPb actions = 1;
+  repeated iotextypes.Action actions = 1;
 }
 
 message GetBlockMetasRequest {
@@ -126,7 +126,7 @@ message GetChainMetaResponse {
 }
 
 message SendActionRequest {
-  iotextypes.ActionPb action = 1;
+  iotextypes.Action action = 1;
 }
 
 message SendActionResponse {}
@@ -136,11 +136,11 @@ message GetReceiptByActionRequest {
 }
 
 message GetReceiptByActionResponse {
-  iotextypes.ReceiptPb receipt = 1;
+  iotextypes.Receipt receipt = 1;
 }
 
 message ReadContractRequest {
-  iotextypes.ActionPb action = 1;
+  iotextypes.Action action = 1;
 }
 
 message ReadContractResponse {
@@ -154,7 +154,7 @@ message SuggestGasPriceResponse {
 }
 
 message EstimateGasForActionRequest {
-  iotextypes.ActionPb action = 1;
+  iotextypes.Action action = 1;
 }
 
 message EstimateGasForActionResponse {

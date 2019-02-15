@@ -338,7 +338,7 @@ func (api *Server) Stop() error {
 
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iotextypes.ActionPb
+	var res []*iotextypes.Action
 	var actionCount uint64
 
 	tipHeight := api.bc.TipHeight()
@@ -375,12 +375,12 @@ func (api *Server) getAction(actionHash string, checkPending bool) (*iotexapi.Ge
 	if err != nil {
 		return nil, err
 	}
-	return &iotexapi.GetActionsResponse{Actions: []*iotextypes.ActionPb{actPb}}, nil
+	return &iotexapi.GetActionsResponse{Actions: []*iotextypes.Action{actPb}}, nil
 }
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iotextypes.ActionPb
+	var res []*iotextypes.Action
 	var actions []hash.Hash256
 	if api.cfg.UseRDS {
 		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
@@ -428,7 +428,7 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iotextypes.ActionPb
+	var res []*iotextypes.Action
 	var actionCount uint64
 
 	selps := api.ap.GetUnconfirmedActs(address)
@@ -451,7 +451,7 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iotextypes.ActionPb
+	var res []*iotextypes.Action
 	hash, err := toHash256(blkHash)
 	if err != nil {
 		return nil, err
@@ -570,7 +570,7 @@ func toHash256(hashString string) (hash.Hash256, error) {
 	return hash, nil
 }
 
-func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash256, checkPending bool) (*iotextypes.ActionPb, error) {
+func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash256, checkPending bool) (*iotextypes.Action, error) {
 	var selp action.SealedEnvelope
 	var err error
 	if selp, err = bc.GetActionByActionHash(actHash); err != nil {

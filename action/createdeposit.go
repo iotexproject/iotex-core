@@ -78,8 +78,8 @@ func (d *CreateDeposit) ByteStream() []byte {
 }
 
 // Proto converts CreateDeposit to protobuf's ActionPb
-func (d *CreateDeposit) Proto() *iotextypes.CreateDepositPb {
-	act := &iotextypes.CreateDepositPb{
+func (d *CreateDeposit) Proto() *iotextypes.CreateDeposit {
+	act := &iotextypes.CreateDeposit{
 		ChainID:   d.chainID,
 		Recipient: d.recipient,
 	}
@@ -90,7 +90,7 @@ func (d *CreateDeposit) Proto() *iotextypes.CreateDepositPb {
 }
 
 // LoadProto converts a protobuf's ActionPb to CreateDeposit
-func (d *CreateDeposit) LoadProto(pbDpst *iotextypes.CreateDepositPb) error {
+func (d *CreateDeposit) LoadProto(pbDpst *iotextypes.CreateDeposit) error {
 	if d == nil {
 		return errors.New("nil action to load proto")
 	}
