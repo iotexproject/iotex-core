@@ -45,3 +45,13 @@ func (m *MockActionIterator) Next() (action.SealedEnvelope, bool) {
 func (mr *MockActionIteratorMockRecorder) Next() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockActionIterator)(nil).Next))
 }
+
+// PopAccount mocks base method
+func (m *MockActionIterator) PopAccount() {
+	m.ctrl.Call(m, "PopAccount")
+}
+
+// PopAccount indicates an expected call of PopAccount
+func (mr *MockActionIteratorMockRecorder) PopAccount() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PopAccount", reflect.TypeOf((*MockActionIterator)(nil).PopAccount))
+}

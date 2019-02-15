@@ -42,7 +42,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	pkHashProducer := keypair.HashPubKey(&skProducer.PublicKey)
 	addrProducer, err := address.FromBytes(pkHashProducer[:])
 	require.NoError(t, err)
-	p := NewProtocol(addr, 1)
+	p := NewProtocol()
 
 	// Initialize the protocol
 	ctx := protocol.WithRunActionsCtx(
@@ -56,7 +56,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	)
 	ws, err := stateDB.NewWorkingSet()
 	require.NoError(t, err)
-	require.NoError(t, p.Initialize(ctx, ws, big.NewInt(10), big.NewInt(100)))
+	require.NoError(t, p.Initialize(ctx, ws, addr, big.NewInt(0), big.NewInt(10), big.NewInt(100)))
 	require.NoError(t, stateDB.Commit(ws))
 
 	ws, err = stateDB.NewWorkingSet()

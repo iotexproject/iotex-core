@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -51,36 +51,42 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 	blk := block.Block{}
 
-	err = blk.ConvertFromBlockPb(&iproto.BlockPb{
-		Header: &iproto.BlockHeaderPb{
+	err = blk.ConvertFromBlockPb(&iotextypes.Block{
+		Header: &iotextypes.BlockHeader{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 			Pubkey:  keypair.PublicKeyToBytes(pubKey1),
 		},
-		Actions: []*iproto.ActionPb{
+		Actions: []*iotextypes.Action{
 			{
-				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{Recipient: addr2},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.Transfer{Recipient: addr2},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   101,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
-				Version:      version.ProtocolVersion,
-				Nonce:        101,
 			},
 			{
-				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{VoteeAddress: addr2},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.Vote{VoteeAddress: addr2},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   103,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
-				Version:      version.ProtocolVersion,
-				Nonce:        103,
 			},
 			{
-				Action: &iproto.ActionPb_Execution{
-					Execution: &iproto.ExecutionPb{Contract: addr2},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Execution{
+						Execution: &iotextypes.Execution{Contract: addr2},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   104,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
-				Version:      version.ProtocolVersion,
-				Nonce:        104,
 			},
 		},
 	})

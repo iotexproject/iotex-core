@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -22,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	iproto "github.com/iotexproject/iotex-core/proto"
 )
 
 const (
@@ -260,7 +260,7 @@ func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, er
 		height := enc.MachineEndian.Uint64(heightBytes)
 		return nil, errors.Wrapf(err, "failed to get receipts of block %d", height)
 	}
-	receipts := iproto.Receipts{}
+	receipts := iotextypes.Receipts{}
 	if err := proto.Unmarshal(receiptsBytes, &receipts); err != nil {
 		return nil, err
 	}
@@ -316,7 +316,7 @@ func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 	if blkReceipts == nil {
 		return nil
 	}
-	receipts := iproto.Receipts{}
+	receipts := iotextypes.Receipts{}
 	batch := db.NewBatch()
 	var heightBytes [8]byte
 	enc.MachineEndian.PutUint64(heightBytes[:], blkHeight)
@@ -750,7 +750,9 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 			return err
 		}
 		senderCount[callerAddr.String()]++
-		recipientCount[selp.DstAddr()]++
+		if dst, ok := selp.Destination(); ok {
+			recipientCount[dst]++
+		}
 	}
 	// Roll back the status of address -> actionCount mapping to the preivous block
 	for sender, count := range senderCount {
@@ -801,18 +803,22 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 		batch.Delete(blockAddressActionMappingNS, senderKey, "failed to delete action hash %x for sender %x",
 			actHash, callerAddrStr)
 
-		if delta, ok := recipientDelta[selp.DstAddr()]; ok {
-			recipientCount[selp.DstAddr()] += delta
-			recipientDelta[selp.DstAddr()] = recipientDelta[selp.DstAddr()] + 1
+		dst, ok := selp.Destination()
+		if !ok {
+			continue
+		}
+		if delta, ok := recipientDelta[dst]; ok {
+			recipientCount[dst] += delta
+			recipientDelta[dst]++
 		} else {
-			recipientDelta[selp.DstAddr()] = 1
+			recipientDelta[dst] = 1
 		}
 
 		// Delete new action to recipient
-		recipientKey := append(actionToPrefix, selp.DstAddr()...)
-		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[selp.DstAddr()])...)
+		recipientKey := append(actionToPrefix, dst...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[dst])...)
 		batch.Delete(blockAddressActionMappingNS, recipientKey, "failed to delete action hash %x for recipient %x",
-			actHash, selp.DstAddr())
+			actHash, dst)
 	}
 
 	return nil

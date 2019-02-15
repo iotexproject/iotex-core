@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -26,12 +26,15 @@ const (
 	TransferBaseIntrinsicGas = uint64(10000)
 )
 
+var _ hasDestination = (*Transfer)(nil)
+
 // Transfer defines the struct of account-based transfer
 type Transfer struct {
 	AbstractAction
 
-	amount  *big.Int
-	payload []byte
+	amount    *big.Int
+	recipient string
+	payload   []byte
 }
 
 // NewTransfer returns a Transfer instance
@@ -47,12 +50,12 @@ func NewTransfer(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			dstAddr:  recipient,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		amount:  amount,
-		payload: payload,
+		recipient: recipient,
+		amount:    amount,
+		payload:   payload,
 		// SenderPublicKey and Signature will be populated in Sign()
 	}, nil
 }
@@ -67,12 +70,13 @@ func (tsf *Transfer) Payload() []byte { return tsf.payload }
 func (tsf *Transfer) SenderPublicKey() keypair.PublicKey { return tsf.SrcPubkey() }
 
 // Recipient returns the recipient address. It's the wrapper of Action.DstAddr
-func (tsf *Transfer) Recipient() string { return tsf.DstAddr() }
+func (tsf *Transfer) Recipient() string { return tsf.recipient }
+
+// Destination returns the recipient address as destination.
+func (tsf *Transfer) Destination() string { return tsf.recipient }
 
 // IsContract returns true for contract action
-func (tsf *Transfer) IsContract() bool {
-	return tsf.dstAddr == EmptyAddress
-}
+func (tsf *Transfer) IsContract() bool { return tsf.recipient == EmptyAddress }
 
 // TotalSize returns the total size of this Transfer
 func (tsf *Transfer) TotalSize() uint32 {
@@ -89,11 +93,11 @@ func (tsf *Transfer) ByteStream() []byte {
 	return byteutil.Must(proto.Marshal(tsf.Proto()))
 }
 
-// Proto converts Transfer to protobuf's ActionPb
-func (tsf *Transfer) Proto() *iproto.TransferPb {
+// Proto converts Transfer to protobuf's Action
+func (tsf *Transfer) Proto() *iotextypes.Transfer {
 	// used by account-based model
-	act := &iproto.TransferPb{
-		Recipient: tsf.dstAddr,
+	act := &iotextypes.Transfer{
+		Recipient: tsf.recipient,
 		Payload:   tsf.payload,
 	}
 
@@ -103,8 +107,8 @@ func (tsf *Transfer) Proto() *iproto.TransferPb {
 	return act
 }
 
-// LoadProto converts a protobuf's ActionPb to Transfer
-func (tsf *Transfer) LoadProto(pbAct *iproto.TransferPb) error {
+// LoadProto converts a protobuf's Action to Transfer
+func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
@@ -113,9 +117,10 @@ func (tsf *Transfer) LoadProto(pbAct *iproto.TransferPb) error {
 	}
 	*tsf = Transfer{}
 
+	tsf.recipient = pbAct.GetRecipient()
+	tsf.payload = pbAct.GetPayload()
 	tsf.amount = big.NewInt(0)
 	tsf.amount.SetBytes(pbAct.GetAmount())
-	tsf.payload = pbAct.Payload
 	return nil
 }
 

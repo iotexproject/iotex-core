@@ -26,11 +26,15 @@ func TestTransferSignVerify(t *testing.T) {
 	tsf, err := NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
+	tsf.Proto()
+
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetDestinationAddress(recipientAddr.String()).
 		SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
+
+	elp.ByteStream()
 
 	w := AssembleSealedEnvelope(elp, senderAddr.String(), senderKey.PubKey, []byte("lol"))
 	require.Error(Verify(w))

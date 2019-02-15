@@ -10,9 +10,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
@@ -21,8 +18,11 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -31,8 +31,10 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -42,14 +44,16 @@ type ChainService struct {
 	consensus    consensus.Consensus
 	chain        blockchain.Blockchain
 	explorer     *explorer.Server
+	api          *api.Server
 	indexBuilder *blockchain.IndexBuilder
 	indexservice *indexservice.Server
-	protocols    []protocol.Protocol
+	registry     *protocol.Registry
 }
 
 type optionParams struct {
-	rootChainAPI explorerapi.Explorer
-	isTesting    bool
+	rootChainAPI  explorerapi.Explorer
+	isTesting     bool
+	genesisConfig genesis.Genesis
 }
 
 // Option sets ChainService construction parameter.
@@ -71,6 +75,14 @@ func WithTesting() Option {
 	}
 }
 
+// WithGenesis is an option to set genesis config
+func WithGenesis(genesisConfig genesis.Genesis) Option {
+	return func(ops *optionParams) error {
+		ops.genesisConfig = genesisConfig
+		return nil
+	}
+}
+
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(
 	cfg config.Config,
@@ -87,10 +99,18 @@ func New(
 
 	var chainOpts []blockchain.Option
 	if ops.isTesting {
-		chainOpts = []blockchain.Option{blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption()}
+		chainOpts = []blockchain.Option{
+			blockchain.InMemStateFactoryOption(),
+			blockchain.InMemDaoOption(),
+		}
 	} else {
-		chainOpts = []blockchain.Option{blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption()}
+		chainOpts = []blockchain.Option{
+			blockchain.DefaultStateFactoryOption(),
+			blockchain.BoltDBDaoOption(),
+		}
 	}
+	registry := protocol.Registry{}
+	chainOpts = append(chainOpts, blockchain.GenesisOption(ops.genesisConfig), blockchain.RegistryOption(&registry))
 
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
@@ -177,6 +197,24 @@ func New(
 		}
 	}
 
+	var apiSvr *api.Server
+	if cfg.API.Enabled {
+		apiSvr, err = api.NewServer(
+			cfg.API,
+			chain,
+			dispatcher,
+			actPool,
+			idx,
+			api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+				ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
+				return p2pAgent.BroadcastOutbound(ctx, msg)
+			}),
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &ChainService{
 		actpool:      actPool,
 		chain:        chain,
@@ -185,6 +223,8 @@ func New(
 		indexservice: idx,
 		indexBuilder: indexBuilder,
 		explorer:     exp,
+		api:          apiSvr,
+		registry:     &registry,
 	}, nil
 }
 
@@ -209,6 +249,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			return errors.Wrap(err, "error when starting explorer")
 		}
 	}
+	if cs.api != nil {
+		if err := cs.api.Start(); err != nil {
+			return errors.Wrap(err, "err when starting API server")
+		}
+	}
 	if cs.indexBuilder != nil {
 		if err := cs.indexBuilder.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when starting index builder")
@@ -229,6 +274,11 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 			return errors.Wrap(err, "error when stopping explorer")
 		}
 	}
+	if cs.api != nil {
+		if err := cs.api.Stop(); err != nil {
+			return errors.Wrap(err, "error when stopping API server")
+		}
+	}
 	if cs.indexservice != nil {
 		if err := cs.indexservice.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping indexservice")
@@ -247,7 +297,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 }
 
 // HandleAction handles incoming action request.
-func (cs *ChainService) HandleAction(_ context.Context, actPb *iproto.ActionPb) error {
+func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action) error {
 	var act action.SealedEnvelope
 	if err := act.LoadProto(actPb); err != nil {
 		return err
@@ -268,7 +318,7 @@ func (cs *ChainService) HandleAction(_ context.Context, actPb *iproto.ActionPb) 
 }
 
 // HandleBlock handles incoming block request.
-func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iproto.BlockPb) error {
+func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Block) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -277,7 +327,7 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iproto.BlockPb
 }
 
 // HandleBlockSync handles incoming block sync request.
-func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iproto.BlockPb) error {
+func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iotextypes.Block) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -286,12 +336,12 @@ func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iproto.Blo
 }
 
 // HandleSyncRequest handles incoming sync request.
-func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iproto.BlockSync) error {
+func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
 	return cs.blocksync.ProcessSyncRequest(ctx, peer, sync)
 }
 
 // HandleConsensusMsg handles incoming consensus message.
-func (cs *ChainService) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
+func (cs *ChainService) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
 	return cs.consensus.HandleConsensusMsg(msg)
 }
 
@@ -328,17 +378,16 @@ func (cs *ChainService) Explorer() *explorer.Server {
 	return cs.explorer
 }
 
-// Protocols returns the protocols
-func (cs *ChainService) Protocols() []protocol.Protocol {
-	return cs.protocols
+// RegisterProtocol register a protocol
+func (cs *ChainService) RegisterProtocol(id string, p protocol.Protocol) error {
+	if err := cs.registry.Register(id, p); err != nil {
+		return err
+	}
+	cs.chain.GetFactory().AddActionHandlers(p)
+	cs.actpool.AddActionValidators(p)
+	cs.chain.Validator().AddActionValidators(p)
+	return nil
 }
 
-// AddProtocols add the protocols
-func (cs *ChainService) AddProtocols(protocols ...protocol.Protocol) {
-	cs.protocols = append(cs.protocols, protocols...)
-	for _, protocol := range protocols {
-		cs.chain.GetFactory().AddActionHandlers(protocol)
-		cs.actpool.AddActionValidators(protocol)
-		cs.chain.Validator().AddActionValidators(protocol)
-	}
-}
+// Registry returns a pointer to the registry
+func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }

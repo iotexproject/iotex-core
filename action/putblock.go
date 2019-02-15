@@ -16,11 +16,13 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // PutBlockIntrinsicGas is the instrinsic gas for put block action.
 const PutBlockIntrinsicGas = uint64(1000)
+
+var _ hasDestination = (*PutBlock)(nil)
 
 // PutBlock represents put a sub-chain block message.
 type PutBlock struct {
@@ -54,7 +56,7 @@ func NewPutBlock(
 }
 
 // LoadProto converts a proto message into put block action.
-func (pb *PutBlock) LoadProto(putBlockPb *iproto.PutBlockPb) error {
+func (pb *PutBlock) LoadProto(putBlockPb *iotextypes.PutBlock) error {
 	if putBlockPb == nil {
 		return errors.New("empty action proto to load")
 	}
@@ -74,8 +76,8 @@ func (pb *PutBlock) LoadProto(putBlockPb *iproto.PutBlockPb) error {
 }
 
 // Proto converts put sub-chain block action into a proto message.
-func (pb *PutBlock) Proto() *iproto.PutBlockPb {
-	act := &iproto.PutBlockPb{
+func (pb *PutBlock) Proto() *iotextypes.PutBlock {
+	act := &iotextypes.PutBlock{
 		SubChainAddress: pb.subChainAddress,
 		Height:          pb.height,
 	}
@@ -86,13 +88,13 @@ func (pb *PutBlock) Proto() *iproto.PutBlockPb {
 	}
 	sort.Strings(keys)
 
-	act.Roots = make([]*iproto.MerkleRoot, 0, len(pb.roots))
+	act.Roots = make([]*iotextypes.MerkleRoot, 0, len(pb.roots))
 	for _, k := range keys {
 		v := pb.roots[k]
 		nv := make([]byte, len(v))
 		copy(nv, v[:])
 
-		act.Roots = append(act.Roots, &iproto.MerkleRoot{
+		act.Roots = append(act.Roots, &iotextypes.MerkleRoot{
 			Name:  k,
 			Value: nv,
 		})
@@ -103,6 +105,9 @@ func (pb *PutBlock) Proto() *iproto.PutBlockPb {
 
 // SubChainAddress returns sub chain address.
 func (pb *PutBlock) SubChainAddress() string { return pb.subChainAddress }
+
+// Destination returns sub chain address.
+func (pb *PutBlock) Destination() string { return pb.SubChainAddress() }
 
 // Height returns put block height.
 func (pb *PutBlock) Height() uint64 { return pb.height }

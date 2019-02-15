@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
@@ -37,7 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	iproto "github.com/iotexproject/iotex-core/proto"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -274,7 +276,7 @@ func (o *directOverlay) Stop(_ context.Context) error { return nil }
 
 func (o *directOverlay) Broadcast(msg proto.Message) error {
 	// Only broadcast consensus message
-	if cMsg, ok := msg.(*iproto.ConsensusPb); ok {
+	if cMsg, ok := msg.(*iotexrpc.Consensus); ok {
 		for _, r := range o.peers {
 			if err := r.HandleConsensusMsg(cMsg); err != nil {
 				return errors.Wrap(err, "error when handling consensus message directly")
@@ -311,6 +313,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.Consensus.RollDPoS.ToleratedOvertime = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
 		cfg.Consensus.RollDPoS.NumSubEpochs = 1
+
+		genesisCfg := genesis.Default
 
 		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
@@ -362,8 +366,13 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
-			chain := blockchain.NewBlockchain(cfg, blockchain.InMemDaoOption(), blockchain.PrecreatedStateFactoryOption(sf))
-			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+			chain := blockchain.NewBlockchain(
+				cfg,
+				blockchain.InMemDaoOption(),
+				blockchain.PrecreatedStateFactoryOption(sf),
+				blockchain.GenesisOption(genesisCfg),
+			)
+			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
 
@@ -511,7 +520,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}()
 
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 15*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 30*time.Second, func() (bool, error) {
 			for i, chain := range chains {
 				if i == 1 {
 					continue

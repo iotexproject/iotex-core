@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/testingpb"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -37,7 +37,7 @@ func TestBroadcast(t *testing.T) {
 	b := func(_ context.Context, _ uint32, msg proto.Message) {
 		mutex.Lock()
 		defer mutex.Unlock()
-		testMsg, ok := msg.(*iproto.TestPayload)
+		testMsg, ok := msg.(*testingpb.TestPayload)
 		require.True(t, ok)
 		idx := testMsg.MsgBody[0]
 		if _, ok = counts[idx]; ok {
@@ -59,7 +59,7 @@ func TestBroadcast(t *testing.T) {
 	}
 
 	for i := 0; i < n; i++ {
-		require.NoError(t, agents[i].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &iproto.TestPayload{
+		require.NoError(t, agents[i].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &testingpb.TestPayload{
 			MsgBody: []byte{uint8(i)},
 		}))
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
@@ -89,7 +89,7 @@ func TestUnicast(t *testing.T) {
 	u := func(_ context.Context, _ uint32, peer peerstore.PeerInfo, msg proto.Message) {
 		mutex.Lock()
 		defer mutex.Unlock()
-		testMsg, ok := msg.(*iproto.TestPayload)
+		testMsg, ok := msg.(*testingpb.TestPayload)
 		require.True(t, ok)
 		idx := testMsg.MsgBody[0]
 		if _, ok = counts[idx]; ok {
@@ -116,7 +116,7 @@ func TestUnicast(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(neighbors))
 		for _, neighbor := range neighbors {
-			require.NoError(t, agents[i].UnicastOutbound(WitContext(ctx, Context{ChainID: 1}), neighbor, &iproto.TestPayload{
+			require.NoError(t, agents[i].UnicastOutbound(WitContext(ctx, Context{ChainID: 1}), neighbor, &testingpb.TestPayload{
 				MsgBody: []byte{uint8(i)},
 			}))
 		}

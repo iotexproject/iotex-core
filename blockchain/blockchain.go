@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
@@ -167,6 +168,9 @@ type blockchain struct {
 
 	// used by account-based model
 	sf factory.Factory
+
+	genesisConfig genesis.Genesis
+	registry      *protocol.Registry
 }
 
 // Option sets blockchain construction parameter
@@ -248,6 +252,22 @@ func ClockOption(clk clock.Clock) Option {
 	}
 }
 
+// RegistryOption sets the blockchain with the protocol registry
+func RegistryOption(registry *protocol.Registry) Option {
+	return func(bc *blockchain, conf config.Config) error {
+		bc.registry = registry
+		return nil
+	}
+}
+
+// GenesisOption sets the blockchain with the genesis configs
+func GenesisOption(genesisConfig genesis.Genesis) Option {
+	return func(bc *blockchain, conf config.Config) error {
+		bc.genesisConfig = genesisConfig
+		return nil
+	}
+}
+
 // NewBlockchain creates a new blockchain and DB instance
 func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	// create the Blockchain
@@ -258,8 +278,7 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	}
 	for _, opt := range opts {
 		if err := opt(chain, cfg); err != nil {
-			log.S().Errorf("Failed to execute blockchain creation option %p: %v", opt, err)
-			return nil
+			log.S().Panicf("Failed to execute blockchain creation option %p: %v", opt, err)
 		}
 	}
 	timerFactory, err := prometheustimer.New(
@@ -269,22 +288,14 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		[]string{"default", strconv.FormatUint(uint64(cfg.Chain.ID), 10)},
 	)
 	if err != nil {
-		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
+		log.L().Panic("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	chain.timerFactory = timerFactory
 	// Set block validator
-	pubKey, _, err := cfg.KeyPair()
 	if err != nil {
-		log.L().Error("Failed to get key pair of producer.", zap.Error(err))
-		return nil
+		log.L().Panic("Failed to get block producer address.", zap.Error(err))
 	}
-	pkHash := keypair.HashPubKey(pubKey)
-	address, err := address.FromBytes(pkHash[:])
-	if err != nil {
-		log.L().Error("Failed to get producer's address by public key.", zap.Error(err))
-		return nil
-	}
-	chain.validator = &validator{sf: chain.sf, validatorAddr: address.String()}
+	chain.validator = &validator{sf: chain.sf, validatorAddr: producerAddress(cfg).String()}
 
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
@@ -685,15 +696,21 @@ func (bc *blockchain) MintNewBlock(
 		return nil, err
 	}
 
-	gasLimitForContext := genesis.BlockGasLimit
+	gasLimitForContext := bc.genesisConfig.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
+			EpochNumber: getEpochNum(
+				newblockHeight,
+				bc.genesisConfig.NumDelegates,
+				bc.genesisConfig.NumSubEpochs,
+			),
 			BlockHeight: newblockHeight,
 			// this field should be removed
 			BlockHash:       hash.ZeroHash256,
 			BlockTimeStamp:  bc.now(),
 			Producer:        producer,
 			GasLimit:        &gasLimitForContext,
+			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
 	root, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
@@ -819,7 +836,7 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 	if err != nil {
 		return nil, err
 	}
-	gasLimit := genesis.BlockGasLimit
+	gasLimit := bc.genesisConfig.BlockGasLimit
 	raCtx := protocol.RunActionsCtx{
 		BlockHeight:     blk.Height(),
 		BlockHash:       blk.HashBlock(),
@@ -854,7 +871,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
-	gasLimit := genesis.BlockGasLimit
+	gasLimit := bc.genesisConfig.BlockGasLimit
 	callerAddr, err := address.FromString(addr)
 	if err != nil {
 		return nil, err
@@ -868,6 +885,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 			EpochNumber:     0,
 			Producer:        producer,
 			GasLimit:        &gasLimit,
+			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 			Caller:          callerAddr,
 			ActionHash:      hash.ZeroHash256,
@@ -944,6 +962,11 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		root, receipts, err := bc.runActions(racts, ws)
 		if err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
+		}
+
+		// Initialize the states before any actions happen on the blockchain
+		if err := bc.createGenesisStates(ws); err != nil {
+			return err
 		}
 
 		genesis, err = block.NewBuilder(racts).
@@ -1110,21 +1133,27 @@ func (bc *blockchain) runActions(
 	if bc.sf == nil {
 		return hash.ZeroHash256, nil, errors.New("statefactory cannot be nil")
 	}
-	gasLimit := genesis.BlockGasLimit
+	gasLimit := bc.genesisConfig.BlockGasLimit
 	// update state factory
 	producer, err := address.FromString(acts.BlockProducerAddr())
 	if err != nil {
 		return hash.ZeroHash256, nil, err
 	}
+
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EpochNumber: 0, // TODO: need to get the actual epoch number from RollDPoS
+			EpochNumber: getEpochNum(
+				acts.BlockHeight(),
+				bc.genesisConfig.NumDelegates,
+				bc.genesisConfig.NumSubEpochs,
+			),
 			BlockHeight: acts.BlockHeight(),
 			// this field should be removed
 			BlockHash:       hash.ZeroHash256,
 			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
 			Producer:        producer,
 			GasLimit:        &gasLimit,
+			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
 			EnableGasCharge: bc.config.Chain.EnableGasCharge,
 		})
 
@@ -1169,10 +1198,22 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 		// than certain threshold
-		if *raCtx.GasLimit < genesis.MinimumBlockGasRemaining {
+		if *raCtx.GasLimit < bc.config.Chain.AllowedBlockGasResidue {
 			break
 		}
 	}
+
+	// Process grant block reward action
+	grant, err := bc.createGrantBlockRewardAction()
+	if err != nil {
+		return hash.ZeroHash256, nil, nil, err
+	}
+	receipt, err := ws.RunAction(ctx, grant)
+	if receipt != nil {
+		receipts = append(receipts, receipt)
+	}
+	executedActions = append(executedActions, grant)
+
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
 }
 
@@ -1269,6 +1310,58 @@ func (bc *blockchain) buildStateInGenesis() error {
 	return nil
 }
 
+func (bc *blockchain) createGrantBlockRewardAction() (action.SealedEnvelope, error) {
+	gb := action.GrantRewardBuilder{}
+	grant := gb.SetRewardType(action.BlockReward).Build()
+	eb := action.EnvelopeBuilder{}
+	envelope := eb.SetNonce(0).
+		SetGasPrice(big.NewInt(0)).
+		SetGasLimit(grant.GasLimit()).
+		SetAction(&grant).
+		Build()
+	_, sk, err := bc.config.KeyPair()
+	if err != nil {
+		log.L().Panic("Failed to get block producer private key.", zap.Error(err))
+	}
+	return action.Sign(envelope, sk)
+}
+
+func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
+	if bc.registry == nil {
+		// TODO: return nil to avoid test cases to blame on missing rewarding protocol
+		return nil
+	}
+	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		EpochNumber:     0,
+		BlockHeight:     0,
+		BlockHash:       hash.ZeroHash256,
+		BlockTimeStamp:  bc.genesisConfig.Timestamp,
+		GasLimit:        nil,
+		ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
+		EnableGasCharge: true,
+		Producer:        nil,
+		Caller:          nil,
+		ActionHash:      hash.ZeroHash256,
+		Nonce:           0,
+	})
+	p, ok := bc.registry.Find(rewarding.ProtocolID)
+	if !ok {
+		return errors.Errorf("protocol %s isn't found", rewarding.ProtocolID)
+	}
+	rp, ok := p.(*rewarding.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting protocol")
+	}
+	return rp.Initialize(
+		ctx,
+		ws,
+		bc.genesisConfig.Rewarding.InitAdminAddr(),
+		bc.genesisConfig.InitBalance(),
+		bc.genesisConfig.BlockReward(),
+		bc.genesisConfig.EpochReward(),
+	)
+}
+
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
 	var h []hash.Hash256
 	for _, receipt := range receipts {
@@ -1279,4 +1372,26 @@ func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
 	}
 	res := crypto.NewMerkleTree(h).HashTree()
 	return res
+}
+
+func producerAddress(cfg config.Config) address.Address {
+	pubKey, _, err := cfg.KeyPair()
+	if err != nil {
+		log.L().Panic("Failed to get block producer public key.", zap.Error(err))
+	}
+	pkHash := keypair.HashPubKey(pubKey)
+	address, err := address.FromBytes(pkHash[:])
+	if err != nil {
+		log.L().Panic("Failed to get block producer address.", zap.Error(err))
+	}
+	return address
+}
+
+// TODO: consolidate with the same method in consensus module
+func getEpochNum(
+	height uint64,
+	numDelegates uint64,
+	numSubEpochs uint64,
+) uint64 {
+	return (height-1)/uint64(numDelegates)/uint64(numSubEpochs) + 1
 }

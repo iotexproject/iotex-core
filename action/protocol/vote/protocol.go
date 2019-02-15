@@ -24,6 +24,10 @@ import (
 const (
 	// VoteSizeLimit is the maximum size of vote allowed
 	VoteSizeLimit = 278
+
+	// ProtocolID is the protocol ID
+	// TODO: it works only for one instance per protocol definition now
+	ProtocolID = "vote"
 )
 
 // Protocol defines the protocol of handling votes

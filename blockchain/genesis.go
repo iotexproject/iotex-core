@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -80,8 +81,8 @@ type SubChain struct {
 
 // Gen hardcodes genesis default settings
 var Gen = &Genesis{
-	TotalSupply:         ConvertIotxToRau(10000000000),
-	Timestamp:           1524676419,
+	TotalSupply:         unit.ConvertIotxToRau(10000000000),
+	Timestamp:           1546329600,
 	ParentHash:          hash.Hash256{},
 	GenesisCoinbaseData: "Connecting the physical world, block by block",
 }
@@ -106,7 +107,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 	for _, transfer := range actions.Transfers {
 		rpk, _ := decodeKey(transfer.RecipientPK, "")
 		recipientAddr := generateAddr(rpk)
-		amount := ConvertIotxToRau(transfer.Amount)
+		amount := unit.ConvertIotxToRau(transfer.Amount)
 		_, err := account.LoadOrCreateAccount(ws, recipientAddr, amount)
 		if err != nil {
 			log.L().Panic("Failed to add initial allocation.", zap.Error(err))
@@ -148,8 +149,8 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 			start := action.NewStartSubChain(
 				0,
 				sc.ChainID,
-				ConvertIotxToRau(sc.SecurityDeposit),
-				ConvertIotxToRau(sc.OperationDeposit),
+				unit.ConvertIotxToRau(sc.SecurityDeposit),
+				unit.ConvertIotxToRau(sc.OperationDeposit),
 				sc.StartHeight,
 				sc.ParentHeightOffset,
 				0,

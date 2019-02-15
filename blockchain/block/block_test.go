@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -75,7 +75,7 @@ func TestMerkle(t *testing.T) {
 		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
 	)
 	hash := block.CalculateTxRoot()
-	require.Equal("9a32d3e0cd1a1ac754af41443ae13b20013542762345d73c3a2a14c8ac208d6b", hex.EncodeToString(hash[:]))
+	require.Equal("27708bd46b8ea8026db2eb764d19ae5c4213d20b035290f1e799d2298717887d", hex.EncodeToString(hash[:]))
 
 	t.Log("Merkle root match pass\n")
 }
@@ -83,44 +83,52 @@ func TestMerkle(t *testing.T) {
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
 	senderPubKey := ta.Keyinfo["producer"].PubKey
-	require.NoError(t, blk.ConvertFromBlockPb(&iproto.BlockPb{
-		Header: &iproto.BlockHeaderPb{
+	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.Block{
+		Header: &iotextypes.BlockHeader{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 			Pubkey:  keypair.PublicKeyToBytes(senderPubKey),
 		},
-		Actions: []*iproto.ActionPb{
+		Actions: []*iotextypes.Action{
 			{
-				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.Transfer{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   101,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        101,
 			},
 			{
-				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.Transfer{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   102,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        102,
 			},
 			{
-				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.Vote{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   103,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        103,
 			},
 			{
-				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.Vote{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   104,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        104,
 			},
 		},
 	}))

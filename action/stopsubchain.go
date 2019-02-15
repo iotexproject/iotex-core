@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -22,10 +22,15 @@ const (
 	StopSubChainIntrinsicGas = uint64(1000)
 )
 
+var _ hasDestination = (*StopSubChain)(nil)
+
 // StopSubChain defines the action to stop sub chain
 type StopSubChain struct {
 	AbstractAction
-	stopHeight uint64
+
+	chainID      uint32
+	chainAddress string
+	stopHeight   uint64
 }
 
 // NewStopSubChain returns a StopSubChain instance
@@ -40,23 +45,22 @@ func NewStopSubChain(
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
 			nonce:    nonce,
-			dstAddr:  chainAddress,
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		stopHeight: stopHeight,
+		chainAddress: chainAddress,
+		stopHeight:   stopHeight,
 	}
 }
 
 // ChainAddress returns the address of the sub chain
-func (ssc *StopSubChain) ChainAddress() string {
-	return ssc.DstAddr()
-}
+func (ssc *StopSubChain) ChainAddress() string { return ssc.chainAddress }
+
+// Destination returns the address of the sub chain
+func (ssc *StopSubChain) Destination() string { return ssc.ChainAddress() }
 
 // StopHeight returns the height to stop the sub chain
-func (ssc *StopSubChain) StopHeight() uint64 {
-	return ssc.stopHeight
-}
+func (ssc *StopSubChain) StopHeight() uint64 { return ssc.stopHeight }
 
 // TotalSize returns the total size of this instance
 func (ssc *StopSubChain) TotalSize() uint32 {
@@ -68,16 +72,17 @@ func (ssc *StopSubChain) ByteStream() []byte {
 	return byteutil.Must(proto.Marshal(ssc.Proto()))
 }
 
-// Proto converts StopSubChain to protobuf's ActionPb
-func (ssc *StopSubChain) Proto() *iproto.StopSubChainPb {
-	return &iproto.StopSubChainPb{
+// Proto converts StopSubChain to protobuf's Action
+func (ssc *StopSubChain) Proto() *iotextypes.StopSubChain {
+	return &iotextypes.StopSubChain{
+		ChainID:         ssc.chainID,
 		StopHeight:      ssc.stopHeight,
-		SubChainAddress: ssc.dstAddr,
+		SubChainAddress: ssc.chainAddress,
 	}
 }
 
-// LoadProto converts a protobuf's ActionPb to StopSubChain
-func (ssc *StopSubChain) LoadProto(pbSSC *iproto.StopSubChainPb) error {
+// LoadProto converts a protobuf's Action to StopSubChain
+func (ssc *StopSubChain) LoadProto(pbSSC *iotextypes.StopSubChain) error {
 	if ssc == nil {
 		return errors.New("nil action to load proto")
 	}
@@ -87,7 +92,9 @@ func (ssc *StopSubChain) LoadProto(pbSSC *iproto.StopSubChainPb) error {
 		return errors.New("empty action proto to load")
 	}
 
-	ssc.stopHeight = pbSSC.StopHeight
+	ssc.chainID = pbSSC.GetChainID()
+	ssc.chainAddress = pbSSC.GetSubChainAddress()
+	ssc.stopHeight = pbSSC.GetStopHeight()
 	return nil
 }
 

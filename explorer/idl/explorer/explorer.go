@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "90a6e79cd2874d2f7decd0bb58d80471"
-const BarristerDateGenerated int64 = 1549330729958000000
+const BarristerChecksum string = "7b52ebe0df102112f05d6a9a24766cde"
+const BarristerDateGenerated int64 = 1550256002228000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -83,7 +83,6 @@ type Log struct {
 	Data        string   `json:"data"`
 	BlockNumber int64    `json:"blockNumber"`
 	TxnHash     string   `json:"txnHash"`
-	BlockHash   string   `json:"blockHash"`
 	Index       int64    `json:"index"`
 }
 
@@ -1718,13 +1717,6 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "txnHash",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "blockHash",
                 "type": "string",
                 "optional": false,
                 "is_array": false,
@@ -4186,7 +4178,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1549330729958,
-        "checksum": "90a6e79cd2874d2f7decd0bb58d80471"
+        "date_generated": 1550256002228,
+        "checksum": "7b52ebe0df102112f05d6a9a24766cde"
     }
 ]`

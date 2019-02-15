@@ -18,7 +18,7 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -34,44 +34,52 @@ func TestPutBlockToParentChain(t *testing.T) {
 	priKey := testaddress.Keyinfo["producer"].PriKey
 	subAddr := testaddress.Addrinfo["echo"].String()
 	blk := block.Block{}
-	blkpb := &iproto.BlockPb{
-		Header: &iproto.BlockHeaderPb{
+	blkpb := &iotextypes.Block{
+		Header: &iotextypes.BlockHeader{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 			Pubkey:  keypair.PublicKeyToBytes(pubKey),
 		},
-		Actions: []*iproto.ActionPb{
+		Actions: []*iotextypes.Action{
 			{
-				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.Transfer{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   101,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        101,
 			},
 			{
-				Action: &iproto.ActionPb_Transfer{
-					Transfer: &iproto.TransferPb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Transfer{
+						Transfer: &iotextypes.Transfer{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   102,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        102,
 			},
 			{
-				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.Vote{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   103,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        103,
 			},
 			{
-				Action: &iproto.ActionPb_Vote{
-					Vote: &iproto.VotePb{},
+				Core: &iotextypes.ActionCore{
+					Action: &iotextypes.ActionCore_Vote{
+						Vote: &iotextypes.Vote{},
+					},
+					Version: version.ProtocolVersion,
+					Nonce:   104,
 				},
 				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
-				Version:      version.ProtocolVersion,
-				Nonce:        104,
 			},
 		},
 	}

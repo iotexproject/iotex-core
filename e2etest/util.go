@@ -10,12 +10,12 @@ import (
 	"io/ioutil"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -24,7 +24,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	tsf0, _ := action.NewTransfer(
 		1,
-		blockchain.ConvertIotxToRau(3000000000),
+		unit.ConvertIotxToRau(3000000000),
 		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(0),
