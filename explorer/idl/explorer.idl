@@ -38,10 +38,8 @@ struct Block {
     executions int
     generateBy BlockGenerator
     amount string
-    forged int
     size int
     txRoot string
-    stateRoot string
     deltaStateDigest string
 }
 
