@@ -69,16 +69,16 @@ func (v *Vote) ByteStream() []byte {
 	return byteutil.Must(proto.Marshal(v.Proto()))
 }
 
-// Proto converts Vote to protobuf's ActionPb
-func (v *Vote) Proto() *iotextypes.VotePb {
-	return &iotextypes.VotePb{
+// Proto converts Vote to protobuf's Action
+func (v *Vote) Proto() *iotextypes.Vote {
+	return &iotextypes.Vote{
 		VoteeAddress: v.votee,
 		Timestamp:    v.timestamp,
 	}
 }
 
-// LoadProto converts a protobuf's ActionPb to Vote
-func (v *Vote) LoadProto(pbAct *iotextypes.VotePb) error {
+// LoadProto converts a protobuf's Action to Vote
+func (v *Vote) LoadProto(pbAct *iotextypes.Vote) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}

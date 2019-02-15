@@ -83,17 +83,17 @@ func TestMerkle(t *testing.T) {
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
 	senderPubKey := ta.Keyinfo["producer"].PubKey
-	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.BlockPb{
-		Header: &iotextypes.BlockHeaderPb{
+	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.Block{
+		Header: &iotextypes.BlockHeader{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 			Pubkey:  keypair.PublicKeyToBytes(senderPubKey),
 		},
-		Actions: []*iotextypes.ActionPb{
+		Actions: []*iotextypes.Action{
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Transfer{
-						Transfer: &iotextypes.TransferPb{},
+						Transfer: &iotextypes.Transfer{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   101,
@@ -103,7 +103,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Transfer{
-						Transfer: &iotextypes.TransferPb{},
+						Transfer: &iotextypes.Transfer{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   102,
@@ -113,7 +113,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Vote{
-						Vote: &iotextypes.VotePb{},
+						Vote: &iotextypes.Vote{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   103,
@@ -123,7 +123,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Vote{
-						Vote: &iotextypes.VotePb{},
+						Vote: &iotextypes.Vote{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   104,

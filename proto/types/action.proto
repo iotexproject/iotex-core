@@ -12,25 +12,25 @@ option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
 
 import "google/protobuf/timestamp.proto";
 
-message TransferPb {
+message Transfer {
   // used by state-based model
   bytes amount  = 1;
   string recipient = 2;
   bytes payload  = 3;
 }
 
-message VotePb {
+message Vote {
   google.protobuf.Timestamp timestamp = 1;
   string voteeAddress = 2;  // the address this node is voting for
 }
 
-message ExecutionPb {
+message Execution {
   bytes amount  = 1;
   string contract = 2;
   bytes data = 3;
 }
 
-message StartSubChainPb {
+message StartSubChain {
   // TODO: chainID chould be assigned by system and returned via a receipt
   uint32 chainID = 1;
   bytes securityDeposit = 2;
@@ -39,7 +39,7 @@ message StartSubChainPb {
   uint64 parentHeightOffset = 5;
 }
 
-message StopSubChainPb {
+message StopSubChain {
   uint32 chainID = 1;
   uint64 stopHeight = 2;
   string subChainAddress = 3;
@@ -50,45 +50,45 @@ message MerkleRoot {
   bytes value = 2;
 }
 
-message PutBlockPb {
+message PutBlock {
   string subChainAddress = 1;
   uint64 height = 2;
   repeated MerkleRoot roots = 3;
 }
 
-message CreateDepositPb {
+message CreateDeposit {
   uint32 chainID = 1;
   bytes amount  = 2;
   string recipient = 3;
 }
 
-message SettleDepositPb {
+message SettleDeposit {
   bytes amount  = 1;
   string recipient = 2;
   uint64 index = 3;
 }
 
 // plum main chain APIs
-message CreatePlumChainPb {
+message CreatePlumChain {
 }
 
-message TerminatePlumChainPb {
+message TerminatePlumChain {
   string subChainAddress = 1;
 }
 
-message PlumPutBlockPb {
+message PlumPutBlock {
   string subChainAddress = 1;
   uint64 height = 2;
   map<string, bytes> roots = 3;
 }
 
-message PlumCreateDepositPb {
+message PlumCreateDeposit {
   string subChainAddress = 1;
   bytes amount = 2;
   string recipient = 3;
 }
 
-message PlumStartExitPb {
+message PlumStartExit {
   string subChainAddress = 1;
   bytes previousTransfer = 2;
   bytes previousTransferBlockProof = 3;
@@ -121,11 +121,11 @@ message PlumFinalizeExit {
 }
 
 // plum sub chain APIs
-message PlumSettleDepositPb {
+message PlumSettleDeposit {
   uint64 coinID = 1;
 }
 
-message PlumTransferPb {
+message PlumTransfer {
   uint64 coinID = 1;
   bytes denomination = 2;
   string owner = 3;
@@ -138,27 +138,27 @@ message ActionCore {
   uint64 gasLimit = 3;
   bytes gasPrice = 4;
   oneof action {
-    TransferPb transfer = 10;
-    VotePb vote = 11;
-    ExecutionPb execution = 12;
+    Transfer transfer = 10;
+    Vote vote = 11;
+    Execution execution = 12;
     // FedChain
-    StartSubChainPb startSubChain = 13;
-    StopSubChainPb stopSubChain = 14;
-    PutBlockPb putBlock = 15;
-    CreateDepositPb createDeposit = 16;
-    SettleDepositPb settleDeposit = 17;
+    StartSubChain startSubChain = 13;
+    StopSubChain stopSubChain = 14;
+    PutBlock putBlock = 15;
+    CreateDeposit createDeposit = 16;
+    SettleDeposit settleDeposit = 17;
 
     // PlumChain
-    CreatePlumChainPb createPlumChain = 18;
-    TerminatePlumChainPb terminatePlumChain = 19;
-    PlumPutBlockPb plumPutBlock = 20;
-    PlumCreateDepositPb plumCreateDeposit = 21;
-    PlumStartExitPb plumStartExit = 22;
+    CreatePlumChain createPlumChain = 18;
+    TerminatePlumChain terminatePlumChain = 19;
+    PlumPutBlock plumPutBlock = 20;
+    PlumCreateDeposit plumCreateDeposit = 21;
+    PlumStartExit plumStartExit = 22;
     PlumChallengeExit plumChallengeExit = 23;
     PlumResponseChallengeExit plumResponseChallengeExit = 24;
     PlumFinalizeExit plumFinalizeExit = 25;
-    PlumSettleDepositPb plumSettleDeposit = 26;
-    PlumTransferPb plumTransfer = 27;
+    PlumSettleDeposit plumSettleDeposit = 26;
+    PlumTransfer plumTransfer = 27;
 
     // Rewarding protocol actions
     DepositToRewardingFund depositToRewardingFund = 30;
@@ -168,22 +168,22 @@ message ActionCore {
   }
 }
 
-message ActionPb {
+message Action {
   ActionCore core = 1;
   bytes senderPubKey = 2;
   bytes signature = 3;
 }
 
-message ReceiptPb {
+message Receipt {
   bytes returnValue = 1;
   uint64 status = 2;
   bytes actHash = 3;
   uint64 gasConsumed = 4;
   string contractAddress = 5;
-  repeated LogPb logs = 6;
+  repeated Log logs = 6;
 }
 
-message LogPb {
+message Log{
   string address = 1;
   repeated bytes topics = 2;
   bytes data = 3;
@@ -208,8 +208,8 @@ message ClaimFromRewardingFund {
 }
 
 enum RewardType {
-  Block = 0;
-  Epoch = 1;
+  BlockReward = 0;
+  EpochReward = 1;
 }
 
 message SetReward {

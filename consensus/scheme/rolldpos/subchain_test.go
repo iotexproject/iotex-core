@@ -34,17 +34,17 @@ func TestPutBlockToParentChain(t *testing.T) {
 	priKey := testaddress.Keyinfo["producer"].PriKey
 	subAddr := testaddress.Addrinfo["echo"].String()
 	blk := block.Block{}
-	blkpb := &iotextypes.BlockPb{
-		Header: &iotextypes.BlockHeaderPb{
+	blkpb := &iotextypes.Block{
+		Header: &iotextypes.BlockHeader{
 			Version: version.ProtocolVersion,
 			Height:  123456789,
 			Pubkey:  keypair.PublicKeyToBytes(pubKey),
 		},
-		Actions: []*iotextypes.ActionPb{
+		Actions: []*iotextypes.Action{
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Transfer{
-						Transfer: &iotextypes.TransferPb{},
+						Transfer: &iotextypes.Transfer{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   101,
@@ -54,7 +54,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Transfer{
-						Transfer: &iotextypes.TransferPb{},
+						Transfer: &iotextypes.Transfer{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   102,
@@ -64,7 +64,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Vote{
-						Vote: &iotextypes.VotePb{},
+						Vote: &iotextypes.Vote{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   103,
@@ -74,7 +74,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 			{
 				Core: &iotextypes.ActionCore{
 					Action: &iotextypes.ActionCore_Vote{
-						Vote: &iotextypes.VotePb{},
+						Vote: &iotextypes.Vote{},
 					},
 					Version: version.ProtocolVersion,
 					Nonce:   104,
