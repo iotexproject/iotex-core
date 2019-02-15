@@ -5,69 +5,67 @@
 // License 2.0 that can be found in the LICENSE file.
 
 // To compile the proto, run:
-//      protoc --go_out=plugins=grpc:. *.proto
+//      protoc --go_out=plugins=grpc:$GOPATH/src *.proto
 syntax = "proto3";
-
-option go_package = "github.com/iotexproject/iotex-core/proto";
-
 package iproto;
+option go_package = "github.com/iotexproject/iotex-core/proto;iproto";
 
 import "google/protobuf/timestamp.proto";
 
 message TransferPb {
-    // used by state-based model
-    bytes amount  = 1;
-    string recipient = 2;
-    bytes payload  = 3;
+  // used by state-based model
+  bytes amount  = 1;
+  string recipient = 2;
+  bytes payload  = 3;
 }
 
 message VotePb {
-    google.protobuf.Timestamp timestamp = 1;
-    string voteeAddress = 2;  // the address this node is voting for
+  google.protobuf.Timestamp timestamp = 1;
+  string voteeAddress = 2;  // the address this node is voting for
 }
 
 message ExecutionPb {
-    bytes amount  = 1;
-    string contract = 2;
-    bytes data = 3;
+  bytes amount  = 1;
+  string contract = 2;
+  bytes data = 3;
 }
 
 message StartSubChainPb {
-    // TODO: chainID chould be assigned by system and returned via a receipt
-    uint32 chainID = 1;
-    bytes securityDeposit = 2;
-    bytes operationDeposit = 3;
-    uint64 startHeight = 4;
-    uint64 parentHeightOffset = 5;
+  // TODO: chainID chould be assigned by system and returned via a receipt
+  uint32 chainID = 1;
+  bytes securityDeposit = 2;
+  bytes operationDeposit = 3;
+  uint64 startHeight = 4;
+  uint64 parentHeightOffset = 5;
 }
 
 message StopSubChainPb {
-    uint32 chainID = 1;
-    uint64 stopHeight = 2;
-    string subChainAddress = 3;
+  uint32 chainID = 1;
+  uint64 stopHeight = 2;
+  string subChainAddress = 3;
 }
 
 message MerkleRoot {
-    string name = 1;
-    bytes value = 2;
+  string name = 1;
+  bytes value = 2;
 }
 
 message PutBlockPb {
-    string subChainAddress = 1;
-    uint64 height = 2;
-    repeated MerkleRoot roots = 3;
+  string subChainAddress = 1;
+  uint64 height = 2;
+  repeated MerkleRoot roots = 3;
 }
 
 message CreateDepositPb {
-    uint32 chainID = 1;
-    bytes amount  = 2;
-    string recipient = 3;
+  uint32 chainID = 1;
+  bytes amount  = 2;
+  string recipient = 3;
 }
 
 message SettleDepositPb {
-    bytes amount  = 1;
-    string recipient = 2;
-    uint64 index = 3;
+  bytes amount  = 1;
+  string recipient = 2;
+  uint64 index = 3;
 }
 
 // plum main chain APIs
@@ -75,124 +73,124 @@ message CreatePlumChainPb {
 }
 
 message TerminatePlumChainPb {
-    string subChainAddress = 1;
+  string subChainAddress = 1;
 }
 
 message PlumPutBlockPb {
-    string subChainAddress = 1;
-    uint64 height = 2;
-    map<string, bytes> roots = 3;
+  string subChainAddress = 1;
+  uint64 height = 2;
+  map<string, bytes> roots = 3;
 }
 
 message PlumCreateDepositPb {
-    string subChainAddress = 1;
-    bytes amount = 2;
-    string recipient = 3;
+  string subChainAddress = 1;
+  bytes amount = 2;
+  string recipient = 3;
 }
 
 message PlumStartExitPb {
-    string subChainAddress = 1;
-    bytes previousTransfer = 2;
-    bytes previousTransferBlockProof = 3;
-    uint64 previousTransferBlockHeight = 4;
-    bytes exitTransfer = 5;
-    bytes exitTransferBlockProof = 6;
-    uint64 exitTransferBlockHeight = 7;
+  string subChainAddress = 1;
+  bytes previousTransfer = 2;
+  bytes previousTransferBlockProof = 3;
+  uint64 previousTransferBlockHeight = 4;
+  bytes exitTransfer = 5;
+  bytes exitTransferBlockProof = 6;
+  uint64 exitTransferBlockHeight = 7;
 }
 
 message PlumChallengeExit {
-    string subChainAddress = 1;
-    uint64 coinID = 2;
-    bytes challengeTransfer = 3;
-    bytes challengeTransferBlockProof = 4;
-    uint64 challengeTransferBlockHeight = 5;
+  string subChainAddress = 1;
+  uint64 coinID = 2;
+  bytes challengeTransfer = 3;
+  bytes challengeTransferBlockProof = 4;
+  uint64 challengeTransferBlockHeight = 5;
 }
 
 message PlumResponseChallengeExit {
-    string subChainAddress = 1;
-    uint64 coinID = 2;
-    bytes challengeTransfer = 3;
-    bytes responseTransfer = 4;
-    bytes responseTransferBlockProof = 5;
-    uint64 previousTransferBlockHeight = 6;
+  string subChainAddress = 1;
+  uint64 coinID = 2;
+  bytes challengeTransfer = 3;
+  bytes responseTransfer = 4;
+  bytes responseTransferBlockProof = 5;
+  uint64 previousTransferBlockHeight = 6;
 }
 
 message PlumFinalizeExit {
-    string subChainAddress = 1;
-    uint64 coinID = 2;
+  string subChainAddress = 1;
+  uint64 coinID = 2;
 }
 
 // plum sub chain APIs
 message PlumSettleDepositPb {
-    uint64 coinID = 1;
+  uint64 coinID = 1;
 }
 
 message PlumTransferPb {
-    uint64 coinID = 1;
-    bytes denomination = 2;
-    string owner = 3;
-    string recipient = 4;
+  uint64 coinID = 1;
+  bytes denomination = 2;
+  string owner = 3;
+  string recipient = 4;
 }
 
 message ActionCore {
-    uint32 version = 1;
-    uint64 nonce = 2;
-    uint64 gasLimit = 3;
-    bytes gasPrice = 4;
-    oneof action {
-        TransferPb transfer = 10;
-        VotePb vote = 11;
-        ExecutionPb execution = 12;
-        // FedChain
-        StartSubChainPb startSubChain = 13;
-        StopSubChainPb stopSubChain = 14;
-        PutBlockPb putBlock = 15;
-        CreateDepositPb createDeposit = 16;
-        SettleDepositPb settleDeposit = 17;
+  uint32 version = 1;
+  uint64 nonce = 2;
+  uint64 gasLimit = 3;
+  bytes gasPrice = 4;
+  oneof action {
+    TransferPb transfer = 10;
+    VotePb vote = 11;
+    ExecutionPb execution = 12;
+    // FedChain
+    StartSubChainPb startSubChain = 13;
+    StopSubChainPb stopSubChain = 14;
+    PutBlockPb putBlock = 15;
+    CreateDepositPb createDeposit = 16;
+    SettleDepositPb settleDeposit = 17;
 
-        // PlumChain
-        CreatePlumChainPb createPlumChain = 18;
-        TerminatePlumChainPb terminatePlumChain = 19;
-        PlumPutBlockPb plumPutBlock = 20;
-        PlumCreateDepositPb plumCreateDeposit = 21;
-        PlumStartExitPb plumStartExit = 22;
-        PlumChallengeExit plumChallengeExit = 23;
-        PlumResponseChallengeExit plumResponseChallengeExit = 24;
-        PlumFinalizeExit plumFinalizeExit = 25;
-        PlumSettleDepositPb plumSettleDeposit = 26;
-        PlumTransferPb plumTransfer = 27;
+    // PlumChain
+    CreatePlumChainPb createPlumChain = 18;
+    TerminatePlumChainPb terminatePlumChain = 19;
+    PlumPutBlockPb plumPutBlock = 20;
+    PlumCreateDepositPb plumCreateDeposit = 21;
+    PlumStartExitPb plumStartExit = 22;
+    PlumChallengeExit plumChallengeExit = 23;
+    PlumResponseChallengeExit plumResponseChallengeExit = 24;
+    PlumFinalizeExit plumFinalizeExit = 25;
+    PlumSettleDepositPb plumSettleDeposit = 26;
+    PlumTransferPb plumTransfer = 27;
 
-        // Rewarding protocol actions
-        DepositToRewardingFund depositToRewardingFund = 30;
-        ClaimFromRewardingFund claimFromRewardingFund = 31;
-        SetReward setReward = 32;
-        GrantReward grantReward = 33;
-    }
+    // Rewarding protocol actions
+    DepositToRewardingFund depositToRewardingFund = 30;
+    ClaimFromRewardingFund claimFromRewardingFund = 31;
+    SetReward setReward = 32;
+    GrantReward grantReward = 33;
+  }
 }
 
 message ActionPb {
-    ActionCore core = 1;
-    bytes senderPubKey = 2;
-    bytes signature = 3;
+  ActionCore core = 1;
+  bytes senderPubKey = 2;
+  bytes signature = 3;
 }
 
 message ReceiptPb {
-    bytes returnValue = 1;
-    uint64 status = 2;
-    bytes actHash = 3;
-    uint64 gasConsumed = 4;
-    string contractAddress = 5;
-    repeated LogPb logs = 6;
+  bytes returnValue = 1;
+  uint64 status = 2;
+  bytes actHash = 3;
+  uint64 gasConsumed = 4;
+  string contractAddress = 5;
+  repeated LogPb logs = 6;
 }
 
 message LogPb {
-    string address = 1;
-    repeated bytes topics = 2;
-    bytes data = 3;
-    uint64 blockNumber = 4;
-    bytes txnHash = 5;
-    bytes blockHash = 6;
-    uint32 index = 7;
+  string address = 1;
+  repeated bytes topics = 2;
+  bytes data = 3;
+  uint64 blockNumber = 4;
+  bytes txnHash = 5;
+  bytes blockHash = 6;
+  uint32 index = 7;
 }
 
 
@@ -201,26 +199,26 @@ message LogPb {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 message DepositToRewardingFund {
-     bytes amount = 1;
-     bytes data = 2;
+  bytes amount = 1;
+  bytes data = 2;
 }
 
 message ClaimFromRewardingFund {
-    bytes amount = 1;
-    bytes data = 2;
+  bytes amount = 1;
+  bytes data = 2;
 }
 
 enum RewardType {
-    Block = 0;
-    Epoch = 1;
+  Block = 0;
+  Epoch = 1;
 }
 
 message SetReward {
-    bytes amount = 1;
-    bytes data = 2;
-    RewardType type = 3;
+  bytes amount = 1;
+  bytes data = 2;
+  RewardType type = 3;
 }
 
 message GrantReward {
-    RewardType type = 1;
+  RewardType type = 1;
 }
