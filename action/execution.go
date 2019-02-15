@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -93,9 +93,9 @@ func (ex *Execution) ByteStream() []byte {
 	return byteutil.Must(proto.Marshal(ex.Proto()))
 }
 
-// Proto converts Execution to protobuf's ExecutionPb
-func (ex *Execution) Proto() *iproto.ExecutionPb {
-	act := &iproto.ExecutionPb{
+// Proto converts Execution to protobuf's Execution
+func (ex *Execution) Proto() *iotextypes.Execution {
+	act := &iotextypes.Execution{
 		Contract: ex.contract,
 		Data:     ex.data,
 	}
@@ -105,8 +105,8 @@ func (ex *Execution) Proto() *iproto.ExecutionPb {
 	return act
 }
 
-// LoadProto converts a protobuf's ExecutionPb to Execution
-func (ex *Execution) LoadProto(pbAct *iproto.ExecutionPb) error {
+// LoadProto converts a protobuf's Execution to Execution
+func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}

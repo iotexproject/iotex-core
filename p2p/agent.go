@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	p2ppb "github.com/iotexproject/iotex-core/p2p/pb"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen"
 )
 
 var (
@@ -145,7 +145,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
-		msg, err := iproto.TypifyProtoMsg(broadcast.MsgType, broadcast.MsgBody)
+		msg, err := protogen.TypifyProtoMsg(broadcast.MsgType, broadcast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
@@ -176,7 +176,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when marshaling unicast message")
 			return
 		}
-		msg, err := iproto.TypifyProtoMsg(unicast.MsgType, unicast.MsgBody)
+		msg, err := protogen.TypifyProtoMsg(unicast.MsgType, unicast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
@@ -366,7 +366,7 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 }
 
 func convertAppMsg(msg proto.Message) (uint32, []byte, error) {
-	msgType, err := iproto.GetTypeFromProtoMsg(msg)
+	msgType, err := protogen.GetTypeFromProtoMsg(msg)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "error when converting application message to proto")
 	}

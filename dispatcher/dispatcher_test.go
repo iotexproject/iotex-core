@@ -16,7 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/config"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-core/protogen/testingpb"
 )
 
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
@@ -46,13 +48,13 @@ func stopDispatcher(ctx context.Context, d Dispatcher, t *testing.T) {
 
 func setTestCase() []proto.Message {
 	return []proto.Message{
-		&pb.ActionPb{},
-		&pb.ConsensusPb{},
-		&pb.BlockPb{},
-		&pb.BlockSync{},
-		&pb.BlockContainer{},
-		&pb.BlockContainer{Block: &pb.BlockPb{}},
-		&pb.TestPayload{},
+		&iotextypes.Action{},
+		&iotexrpc.Consensus{},
+		&iotextypes.Block{},
+		&iotexrpc.BlockSync{},
+		&iotexrpc.BlockContainer{},
+		&iotexrpc.BlockContainer{Block: &iotextypes.Block{}},
+		&testingpb.TestPayload{},
 	}
 }
 
@@ -88,14 +90,14 @@ func TestHandleTell(t *testing.T) {
 
 type DummySubscriber struct{}
 
-func (s *DummySubscriber) HandleBlock(context.Context, *pb.BlockPb) error { return nil }
+func (s *DummySubscriber) HandleBlock(context.Context, *iotextypes.Block) error { return nil }
 
-func (s *DummySubscriber) HandleBlockSync(context.Context, *pb.BlockPb) error { return nil }
+func (s *DummySubscriber) HandleBlockSync(context.Context, *iotextypes.Block) error { return nil }
 
-func (s *DummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo, *pb.BlockSync) error {
+func (s *DummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error {
 	return nil
 }
 
-func (s *DummySubscriber) HandleAction(context.Context, *pb.ActionPb) error { return nil }
+func (s *DummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
 
-func (s *DummySubscriber) HandleConsensusMsg(*pb.ConsensusPb) error { return nil }
+func (s *DummySubscriber) HandleConsensusMsg(*iotexrpc.Consensus) error { return nil }
