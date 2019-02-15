@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -42,7 +42,7 @@ func NewSet(blkHash []byte) *Set {
 }
 
 // FromProto converts protobuf to endorsement set
-func (s *Set) FromProto(sPb *iproto.EndorsementSet) error {
+func (s *Set) FromProto(sPb *iotextypes.EndorsementSet) error {
 	s.blkHash = sPb.BlockHash
 	s.round = sPb.Round
 	s.endorsements = []*Endorsement{}
@@ -152,13 +152,13 @@ func (s *Set) NumOfValidEndorsements(topics map[ConsensusVoteTopic]bool, endorse
 }
 
 // ToProto convert the endorsement set to protobuf
-func (s *Set) ToProto() *iproto.EndorsementSet {
-	endorsements := []*iproto.Endorsement{}
+func (s *Set) ToProto() *iotextypes.EndorsementSet {
+	endorsements := []*iotextypes.Endorsement{}
 	for _, en := range s.endorsements {
 		endorsements = append(endorsements, en.ToProtoMsg())
 	}
 
-	return &iproto.EndorsementSet{
+	return &iotextypes.EndorsementSet{
 		BlockHash:    s.blkHash,
 		Round:        s.round,
 		Endorsements: endorsements,

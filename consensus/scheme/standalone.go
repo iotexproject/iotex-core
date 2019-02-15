@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 )
 
 // Standalone is the consensus scheme that periodically create blocks
@@ -74,7 +74,7 @@ func (n *Standalone) Stop(ctx context.Context) error {
 }
 
 // HandleConsensusMsg handles incoming consensus message
-func (n *Standalone) HandleConsensusMsg(msg *iproto.ConsensusPb) error {
+func (n *Standalone) HandleConsensusMsg(msg *iotexrpc.ConsensusPb) error {
 	log.L().Warn("Noop scheme does not handle incoming block propose requests.")
 	return nil
 }

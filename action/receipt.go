@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Receipt represents the result of a contract
@@ -35,14 +35,14 @@ type Log struct {
 }
 
 // ConvertToReceiptPb converts a Receipt to protobuf's ReceiptPb
-func (receipt *Receipt) ConvertToReceiptPb() *iproto.ReceiptPb {
-	r := &iproto.ReceiptPb{}
+func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.ReceiptPb {
+	r := &iotextypes.ReceiptPb{}
 	r.ReturnValue = receipt.ReturnValue
 	r.Status = receipt.Status
 	r.ActHash = receipt.ActHash[:]
 	r.GasConsumed = receipt.GasConsumed
 	r.ContractAddress = receipt.ContractAddress
-	r.Logs = []*iproto.LogPb{}
+	r.Logs = []*iotextypes.LogPb{}
 	for _, log := range receipt.Logs {
 		r.Logs = append(r.Logs, log.ConvertToLogPb())
 	}
@@ -50,7 +50,7 @@ func (receipt *Receipt) ConvertToReceiptPb() *iproto.ReceiptPb {
 }
 
 // ConvertFromReceiptPb converts a protobuf's ReceiptPb to Receipt
-func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iproto.ReceiptPb) {
+func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.ReceiptPb) {
 	receipt.ReturnValue = pbReceipt.GetReturnValue()
 	receipt.Status = pbReceipt.GetStatus()
 	copy(receipt.ActHash[:], pbReceipt.GetActHash())
@@ -71,7 +71,7 @@ func (receipt *Receipt) Serialize() ([]byte, error) {
 
 // Deserialize parse the byte stream into Receipt
 func (receipt *Receipt) Deserialize(buf []byte) error {
-	pbReceipt := &iproto.ReceiptPb{}
+	pbReceipt := &iotextypes.ReceiptPb{}
 	if err := proto.Unmarshal(buf, pbReceipt); err != nil {
 		return err
 	}
@@ -89,8 +89,8 @@ func (receipt *Receipt) Hash() hash.Hash256 {
 }
 
 // ConvertToLogPb converts a Log to protobuf's LogPb
-func (log *Log) ConvertToLogPb() *iproto.LogPb {
-	l := &iproto.LogPb{}
+func (log *Log) ConvertToLogPb() *iotextypes.LogPb {
+	l := &iotextypes.LogPb{}
 	l.Address = log.Address
 	l.Topics = [][]byte{}
 	for _, topic := range log.Topics {
@@ -104,7 +104,7 @@ func (log *Log) ConvertToLogPb() *iproto.LogPb {
 }
 
 // ConvertFromLogPb converts a protobuf's LogPb to Log
-func (log *Log) ConvertFromLogPb(pbLog *iproto.LogPb) {
+func (log *Log) ConvertFromLogPb(pbLog *iotextypes.LogPb) {
 	log.Address = pbLog.GetAddress()
 	pbLogs := pbLog.GetTopics()
 	log.Topics = make([]hash.Hash256, len(pbLogs))
@@ -124,7 +124,7 @@ func (log *Log) Serialize() ([]byte, error) {
 
 // Deserialize parse the byte stream into Log
 func (log *Log) Deserialize(buf []byte) error {
-	pbLog := &iproto.LogPb{}
+	pbLog := &iotextypes.LogPb{}
 	if err := proto.Unmarshal(buf, pbLog); err != nil {
 		return err
 	}

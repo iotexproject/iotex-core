@@ -4,12 +4,16 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package iproto
+package protogen
 
 import (
 	"errors"
 
 	"github.com/golang/protobuf/proto"
+
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-core/protogen/testingpb"
 )
 
 // Magic header to identify IoTex traffic
@@ -39,18 +43,18 @@ const (
 // GetTypeFromProtoMsg retrieves the proto message type
 func GetTypeFromProtoMsg(msg proto.Message) (uint32, error) {
 	switch msg.(type) {
-	case *BlockPb:
+	case *iotextypes.BlockPb:
 		return MsgBlockProtoMsgType, nil
-	case *BlockSync:
+	case *iotexrpc.BlockSync:
 		return MsgBlockSyncReqType, nil
-	case *BlockContainer:
+	case *iotexrpc.BlockContainer:
 		return MsgBlockSyncDataType, nil
-	case *ActionPb:
+	case *iotextypes.ActionPb:
 		return MsgActionType, nil
-	case *TestPayload:
-		return TestPayloadType, nil
-	case *ConsensusPb:
+	case *iotexrpc.ConsensusPb:
 		return MsgConsensusType, nil
+	case *testingpb.TestPayload:
+		return TestPayloadType, nil
 	default:
 		return UnknownProtoMsgType, errors.New("UnknownProtoMsgType proto message type")
 	}
@@ -61,17 +65,17 @@ func TypifyProtoMsg(tp uint32, msg []byte) (proto.Message, error) {
 	var m proto.Message
 	switch tp {
 	case MsgBlockProtoMsgType:
-		m = &BlockPb{}
+		m = &iotextypes.BlockPb{}
 	case MsgConsensusType:
-		m = &ConsensusPb{}
+		m = &iotexrpc.ConsensusPb{}
 	case MsgBlockSyncReqType:
-		m = &BlockSync{}
+		m = &iotexrpc.BlockSync{}
 	case MsgBlockSyncDataType:
-		m = &BlockContainer{}
+		m = &iotexrpc.BlockContainer{}
 	case MsgActionType:
-		m = &ActionPb{}
+		m = &iotextypes.ActionPb{}
 	case TestPayloadType:
-		m = &TestPayload{}
+		m = &testingpb.TestPayload{}
 	default:
 		return nil, errors.New("UnknownProtoMsgType proto message type")
 	}

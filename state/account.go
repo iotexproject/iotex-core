@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -37,8 +37,8 @@ type Account struct {
 }
 
 // ToProto converts to protobuf's AccountPb
-func (st *Account) ToProto() *iproto.AccountPb {
-	acPb := &iproto.AccountPb{}
+func (st *Account) ToProto() *iotextypes.AccountPb {
+	acPb := &iotextypes.AccountPb{}
 	acPb.Nonce = st.Nonce
 	if st.Balance != nil {
 		acPb.Balance = st.Balance.Bytes()
@@ -61,7 +61,7 @@ func (st Account) Serialize() ([]byte, error) {
 }
 
 // FromProto converts from protobuf's AccountPb
-func (st *Account) FromProto(acPb *iproto.AccountPb) {
+func (st *Account) FromProto(acPb *iotextypes.AccountPb) {
 	st.Nonce = acPb.Nonce
 	st.Balance = big.NewInt(0)
 	if acPb.Balance != nil {
@@ -83,7 +83,7 @@ func (st *Account) FromProto(acPb *iproto.AccountPb) {
 
 // Deserialize deserializes bytes into account state
 func (st *Account) Deserialize(buf []byte) error {
-	acPb := &iproto.AccountPb{}
+	acPb := &iotextypes.AccountPb{}
 	if err := proto.Unmarshal(buf, acPb); err != nil {
 		return err
 	}

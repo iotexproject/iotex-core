@@ -7,12 +7,12 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:$GOPATH/src *.proto
 syntax = "proto3";
-package iproto;
-option go_package = "github.com/iotexproject/iotex-core/proto;iproto";
+package iotextypes;
+option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
 
 import "action.proto";
-import "google/protobuf/timestamp.proto";
 import "endorsement.proto";
+import "google/protobuf/timestamp.proto";
 
 // header of a block
 message BlockHeaderPb {
@@ -49,36 +49,6 @@ message Receipts {
   repeated ReceiptPb receipts = 1;
 }
 
-// index of block raw data file
-message BlockIndex {
-  uint64 start = 1;
-  uint64 end = 2;
-  repeated uint32 offset = 3;
-}
-
-message BlockSync {
-  uint64 start = 2;
-  uint64 end = 3;
-}
-
-// block container
-// used to send old/existing blocks in block sync
-message BlockContainer {
-  BlockPb block = 1;
-}
-
-message ConsensusPb {
-  enum ConsensusMessageType {
-    PROPOSAL = 0;
-    ENDORSEMENT = 1;
-    // TODO: Unify ConsensusVoteTopic and ConsensusMessageType
-  }
-  uint64 height = 1;
-  uint32 round = 2;
-  ConsensusMessageType type = 3;
-  google.protobuf.Timestamp timestamp = 4;
-  bytes data = 5;
-}
 
 // Candidates and list of candidates
 message Candidate {
@@ -114,9 +84,10 @@ message BlockMeta {
   string deltaStateDigest = 9;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// BELOW ARE DEFINITIONS FOR TEST-ONLY MESSAGES!
-////////////////////////////////////////////////////////////////////////////////////////////////////
-message TestPayload {
-  bytes msg_body = 1;
+// Account Metadata
+message AccountMeta {
+  string address = 1;
+  string balance = 2;
+  uint64 nonce = 3;
+  uint64 pendingNonce = 4;
 }

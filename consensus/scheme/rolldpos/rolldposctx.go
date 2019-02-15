@@ -27,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -353,10 +353,10 @@ func (ctx *rollDPoSCtx) BroadcastBlockProposal(block consensusfsm.Endorsement) {
 	if err != nil {
 		ctx.loggerWithStats().Panic("Failed to serialize block", zap.Error(err))
 	}
-	if err := ctx.broadcastHandler(&iproto.ConsensusPb{
+	if err := ctx.broadcastHandler(&iotexrpc.ConsensusPb{
 		Height:    ctx.round.height,
 		Round:     ctx.round.number,
-		Type:      iproto.ConsensusPb_PROPOSAL,
+		Type:      iotexrpc.ConsensusPb_PROPOSAL,
 		Data:      data,
 		Timestamp: &timestamp.Timestamp{Seconds: ctx.clock.Now().Unix()},
 	}); err != nil {
@@ -372,10 +372,10 @@ func (ctx *rollDPoSCtx) BroadcastEndorsement(en consensusfsm.Endorsement) {
 	if err != nil {
 		ctx.loggerWithStats().Panic("Failed to serialize endorsement", zap.Error(err))
 	}
-	if err := ctx.broadcastHandler(&iproto.ConsensusPb{
+	if err := ctx.broadcastHandler(&iotexrpc.ConsensusPb{
 		Height:    ctx.round.height,
 		Round:     ctx.round.number,
-		Type:      iproto.ConsensusPb_ENDORSEMENT,
+		Type:      iotexrpc.ConsensusPb_ENDORSEMENT,
 		Data:      data,
 		Timestamp: &timestamp.Timestamp{Seconds: ctx.clock.Now().Unix()},
 	}); err != nil {

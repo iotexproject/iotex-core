@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -78,8 +78,8 @@ func (d *CreateDeposit) ByteStream() []byte {
 }
 
 // Proto converts CreateDeposit to protobuf's ActionPb
-func (d *CreateDeposit) Proto() *iproto.CreateDepositPb {
-	act := &iproto.CreateDepositPb{
+func (d *CreateDeposit) Proto() *iotextypes.CreateDepositPb {
+	act := &iotextypes.CreateDepositPb{
 		ChainID:   d.chainID,
 		Recipient: d.recipient,
 	}
@@ -90,7 +90,7 @@ func (d *CreateDeposit) Proto() *iproto.CreateDepositPb {
 }
 
 // LoadProto converts a protobuf's ActionPb to CreateDeposit
-func (d *CreateDeposit) LoadProto(pbDpst *iproto.CreateDepositPb) error {
+func (d *CreateDeposit) LoadProto(pbDpst *iotextypes.CreateDepositPb) error {
 	if d == nil {
 		return errors.New("nil action to load proto")
 	}

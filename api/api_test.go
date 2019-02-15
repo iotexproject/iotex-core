@@ -29,8 +29,8 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	iproto "github.com/iotexproject/iotex-core/proto"
-	iotexapi "github.com/iotexproject/iotex-core/proto/api"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
@@ -240,7 +240,7 @@ var (
 	}
 
 	sendActionTests = []struct {
-		actionPb *iproto.ActionPb
+		actionPb *iotextypes.ActionPb
 	}{
 		{
 			testTransferPb,
@@ -495,7 +495,7 @@ func TestServer_GetBlockMetas(t *testing.T) {
 		res, err := svr.GetBlockMetas(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numBlks, len(res.BlkMetas))
-		var prevBlkPb *iproto.BlockMeta
+		var prevBlkPb *iotextypes.BlockMeta
 		for _, blkPb := range res.BlkMetas {
 			if prevBlkPb != nil {
 				require.True(blkPb.Timestamp < prevBlkPb.Timestamp)

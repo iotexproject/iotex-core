@@ -9,7 +9,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	proto "github.com/golang/protobuf/proto"
 	dispatcher "github.com/iotexproject/iotex-core/dispatcher"
-	proto0 "github.com/iotexproject/iotex-core/proto"
+	iotexrpc "github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	iotextypes "github.com/iotexproject/iotex-core/protogen/iotextypes"
 	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
 	reflect "reflect"
 )
@@ -38,7 +39,7 @@ func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
 }
 
 // HandleAction mocks base method
-func (m *MockSubscriber) HandleAction(arg0 context.Context, arg1 *proto0.ActionPb) error {
+func (m *MockSubscriber) HandleAction(arg0 context.Context, arg1 *iotextypes.ActionPb) error {
 	ret := m.ctrl.Call(m, "HandleAction", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -50,7 +51,7 @@ func (mr *MockSubscriberMockRecorder) HandleAction(arg0, arg1 interface{}) *gomo
 }
 
 // HandleBlock mocks base method
-func (m *MockSubscriber) HandleBlock(arg0 context.Context, arg1 *proto0.BlockPb) error {
+func (m *MockSubscriber) HandleBlock(arg0 context.Context, arg1 *iotextypes.BlockPb) error {
 	ret := m.ctrl.Call(m, "HandleBlock", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -62,7 +63,7 @@ func (mr *MockSubscriberMockRecorder) HandleBlock(arg0, arg1 interface{}) *gomoc
 }
 
 // HandleBlockSync mocks base method
-func (m *MockSubscriber) HandleBlockSync(arg0 context.Context, arg1 *proto0.BlockPb) error {
+func (m *MockSubscriber) HandleBlockSync(arg0 context.Context, arg1 *iotextypes.BlockPb) error {
 	ret := m.ctrl.Call(m, "HandleBlockSync", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -74,7 +75,7 @@ func (mr *MockSubscriberMockRecorder) HandleBlockSync(arg0, arg1 interface{}) *g
 }
 
 // HandleSyncRequest mocks base method
-func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 go_libp2p_peerstore.PeerInfo, arg2 *proto0.BlockSync) error {
+func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 go_libp2p_peerstore.PeerInfo, arg2 *iotexrpc.BlockSync) error {
 	ret := m.ctrl.Call(m, "HandleSyncRequest", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -86,7 +87,7 @@ func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1, arg2 interfa
 }
 
 // HandleConsensusMsg mocks base method
-func (m *MockSubscriber) HandleConsensusMsg(arg0 *proto0.ConsensusPb) error {
+func (m *MockSubscriber) HandleConsensusMsg(arg0 *iotexrpc.ConsensusPb) error {
 	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

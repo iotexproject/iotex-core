@@ -21,16 +21,18 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Subscriber is the dispatcher subscriber interface
 type Subscriber interface {
-	HandleAction(context.Context, *pb.ActionPb) error
-	HandleBlock(context.Context, *pb.BlockPb) error
-	HandleBlockSync(context.Context, *pb.BlockPb) error
-	HandleSyncRequest(context.Context, peerstore.PeerInfo, *pb.BlockSync) error
-	HandleConsensusMsg(*pb.ConsensusPb) error
+	HandleAction(context.Context, *iotextypes.ActionPb) error
+	HandleBlock(context.Context, *iotextypes.BlockPb) error
+	HandleBlockSync(context.Context, *iotextypes.BlockPb) error
+	HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error
+	HandleConsensusMsg(*iotexrpc.ConsensusPb) error
 }
 
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
@@ -63,7 +65,7 @@ func init() {
 type blockMsg struct {
 	ctx     context.Context
 	chainID uint32
-	block   *pb.BlockPb
+	block   *iotextypes.BlockPb
 	blkType uint32
 }
 
@@ -75,7 +77,7 @@ func (m blockMsg) ChainID() uint32 {
 type blockSyncMsg struct {
 	ctx     context.Context
 	chainID uint32
-	sync    *pb.BlockSync
+	sync    *iotexrpc.BlockSync
 	peer    peerstore.PeerInfo
 }
 
@@ -87,7 +89,7 @@ func (m blockSyncMsg) ChainID() uint32 {
 type actionMsg struct {
 	ctx     context.Context
 	chainID uint32
-	action  *pb.ActionPb
+	action  *iotextypes.ActionPb
 }
 
 func (m actionMsg) ChainID() uint32 {
@@ -197,7 +199,7 @@ loop:
 
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
-	d.updateEventAudit(pb.MsgActionType)
+	d.updateEventAudit(protogen.MsgActionType)
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
 		if err := subscriber.HandleAction(m.ctx, m.action); err != nil {
 			requestMtc.WithLabelValues("AddAction", "false").Inc()
@@ -213,13 +215,13 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 	d.subscribersMU.RLock()
 	defer d.subscribersMU.RUnlock()
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
-		if m.blkType == pb.MsgBlockProtoMsgType {
-			d.updateEventAudit(pb.MsgBlockProtoMsgType)
+		if m.blkType == protogen.MsgBlockProtoMsgType {
+			d.updateEventAudit(protogen.MsgBlockProtoMsgType)
 			if err := subscriber.HandleBlock(m.ctx, m.block); err != nil {
 				log.L().Error("Fail to handle the block.", zap.Error(err))
 			}
-		} else if m.blkType == pb.MsgBlockSyncDataType {
-			d.updateEventAudit(pb.MsgBlockSyncDataType)
+		} else if m.blkType == protogen.MsgBlockSyncDataType {
+			d.updateEventAudit(protogen.MsgBlockSyncDataType)
 			if err := subscriber.HandleBlockSync(m.ctx, m.block); err != nil {
 				log.L().Error("Fail to sync the block.", zap.Error(err))
 			}
@@ -236,7 +238,7 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 		zap.Uint64("start", m.sync.Start),
 		zap.Uint64("end", m.sync.End))
 
-	d.updateEventAudit(pb.MsgBlockSyncReqType)
+	d.updateEventAudit(protogen.MsgBlockSyncReqType)
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
 		// dispatch to block sync
 		if err := subscriber.HandleSyncRequest(m.ctx, m.peer, m.sync); err != nil {
@@ -255,7 +257,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 	d.enqueueEvent(&actionMsg{
 		ctx:     ctx,
 		chainID: chainID,
-		action:  (msg).(*pb.ActionPb),
+		action:  (msg).(*iotextypes.ActionPb),
 	})
 }
 
@@ -267,8 +269,8 @@ func (d *IotxDispatcher) dispatchBlockCommit(ctx context.Context, chainID uint32
 	d.enqueueEvent(&blockMsg{
 		ctx:     ctx,
 		chainID: chainID,
-		block:   (msg).(*pb.BlockPb),
-		blkType: pb.MsgBlockProtoMsgType,
+		block:   (msg).(*iotextypes.BlockPb),
+		blkType: protogen.MsgBlockProtoMsgType,
 	})
 }
 
@@ -281,7 +283,7 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 		ctx:     ctx,
 		chainID: chainID,
 		peer:    peer,
-		sync:    (msg).(*pb.BlockSync),
+		sync:    (msg).(*iotexrpc.BlockSync),
 	})
 }
 
@@ -290,18 +292,18 @@ func (d *IotxDispatcher) dispatchBlockSyncData(ctx context.Context, chainID uint
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-	data := (msg).(*pb.BlockContainer)
+	data := (msg).(*iotexrpc.BlockContainer)
 	d.enqueueEvent(&blockMsg{
 		ctx:     ctx,
 		chainID: chainID,
 		block:   data.Block,
-		blkType: pb.MsgBlockSyncDataType,
+		blkType: protogen.MsgBlockSyncDataType,
 	})
 }
 
 // HandleBroadcast handles incoming broadcast message
 func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, message proto.Message) {
-	msgType, err := pb.GetTypeFromProtoMsg(message)
+	msgType, err := protogen.GetTypeFromProtoMsg(message)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleBroadcast.", zap.Error(err))
 	}
@@ -315,14 +317,14 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 	d.subscribersMU.RUnlock()
 
 	switch msgType {
-	case pb.MsgConsensusType:
-		err := subscriber.HandleConsensusMsg(message.(*pb.ConsensusPb))
+	case protogen.MsgConsensusType:
+		err := subscriber.HandleConsensusMsg(message.(*iotexrpc.ConsensusPb))
 		if err != nil {
 			log.L().Error("Failed to handle block propose.", zap.Error(err))
 		}
-	case pb.MsgActionType:
+	case protogen.MsgActionType:
 		d.dispatchAction(ctx, chainID, message)
-	case pb.MsgBlockProtoMsgType:
+	case protogen.MsgBlockProtoMsgType:
 		d.dispatchBlockCommit(ctx, chainID, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Uint32("msgType", msgType))
@@ -331,14 +333,14 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 
 // HandleTell handles incoming unicast message
 func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer peerstore.PeerInfo, message proto.Message) {
-	msgType, err := pb.GetTypeFromProtoMsg(message)
+	msgType, err := protogen.GetTypeFromProtoMsg(message)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleTell.", zap.Error(err))
 	}
 	switch msgType {
-	case pb.MsgBlockSyncReqType:
+	case protogen.MsgBlockSyncReqType:
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
-	case pb.MsgBlockSyncDataType:
+	case protogen.MsgBlockSyncDataType:
 		d.dispatchBlockSyncData(ctx, chainID, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Uint32("msgType", msgType))

@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	pb "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 )
 
 type syncBlocksInterval struct {
@@ -101,7 +101,7 @@ func (w *syncWorker) Sync() {
 	for _, interval := range intervals {
 		w.rrIdx %= len(peers)
 		p := peers[w.rrIdx]
-		if err := w.unicastHandler(ctx, p, &pb.BlockSync{
+		if err := w.unicastHandler(ctx, p, &iotexrpc.BlockSync{
 			Start: interval.Start, End: interval.End,
 		}); err != nil {
 			log.L().Warn("Failed to sync block.", zap.Error(err))

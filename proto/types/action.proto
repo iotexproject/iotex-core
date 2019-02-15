@@ -7,8 +7,8 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:$GOPATH/src *.proto
 syntax = "proto3";
-package iproto;
-option go_package = "github.com/iotexproject/iotex-core/proto;iproto";
+package iotextypes;
+option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
 
 import "google/protobuf/timestamp.proto";
 

@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // PutBlockIntrinsicGas is the instrinsic gas for put block action.
@@ -56,7 +56,7 @@ func NewPutBlock(
 }
 
 // LoadProto converts a proto message into put block action.
-func (pb *PutBlock) LoadProto(putBlockPb *iproto.PutBlockPb) error {
+func (pb *PutBlock) LoadProto(putBlockPb *iotextypes.PutBlockPb) error {
 	if putBlockPb == nil {
 		return errors.New("empty action proto to load")
 	}
@@ -76,8 +76,8 @@ func (pb *PutBlock) LoadProto(putBlockPb *iproto.PutBlockPb) error {
 }
 
 // Proto converts put sub-chain block action into a proto message.
-func (pb *PutBlock) Proto() *iproto.PutBlockPb {
-	act := &iproto.PutBlockPb{
+func (pb *PutBlock) Proto() *iotextypes.PutBlockPb {
+	act := &iotextypes.PutBlockPb{
 		SubChainAddress: pb.subChainAddress,
 		Height:          pb.height,
 	}
@@ -88,13 +88,13 @@ func (pb *PutBlock) Proto() *iproto.PutBlockPb {
 	}
 	sort.Strings(keys)
 
-	act.Roots = make([]*iproto.MerkleRoot, 0, len(pb.roots))
+	act.Roots = make([]*iotextypes.MerkleRoot, 0, len(pb.roots))
 	for _, k := range keys {
 		v := pb.roots[k]
 		nv := make([]byte, len(v))
 		copy(nv, v[:])
 
-		act.Roots = append(act.Roots, &iproto.MerkleRoot{
+		act.Roots = append(act.Roots, &iotextypes.MerkleRoot{
 			Name:  k,
 			Value: nv,
 		})
