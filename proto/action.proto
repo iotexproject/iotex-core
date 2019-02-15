@@ -189,8 +189,7 @@ message LogPb {
   bytes data = 3;
   uint64 blockNumber = 4;
   bytes txnHash = 5;
-  bytes blockHash = 6;
-  uint32 index = 7;
+  uint32 index = 6;
 }
 
 
