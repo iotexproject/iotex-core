@@ -16,6 +16,7 @@ RUN mkdir -p $GOPATH/src/github.com/iotexproject/go-ethereum/ && \
     make clean build && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/server /usr/local/bin/iotex-server  && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/actioninjector /usr/local/bin/iotex-actioninjector && \
+    ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/actioninjectorv2 /usr/local/bin/iotex-actioninjectorv2 && \
     ln -s $GOPATH/src/github.com/iotexproject/iotex-core/bin/addrgen /usr/local/bin/iotex-addrgen && \
     cp ./crypto/lib/libsect283k1_ubuntu.so /usr/lib/ && \
     cp ./crypto/lib/blslib/libtblsmnt_ubuntu.so /usr/lib/ && \
