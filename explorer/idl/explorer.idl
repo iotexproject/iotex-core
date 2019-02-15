@@ -230,6 +230,7 @@ struct GetBlkOrActResponse {
     transfer Transfer [optional]
     vote Vote [optional]
     execution Execution [optional]
+    address AddressDetails [optional]
 }
 
 struct CreateDepositRequest {
