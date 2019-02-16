@@ -14,7 +14,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -40,65 +41,40 @@ func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} 
 
 // Handle handles a vote
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
-
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	vote, ok := act.(*action.Vote)
 	if !ok {
 		return nil, nil
 	}
 
-	voteFrom, err := account.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
+	voteFrom, err := util.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", raCtx.Caller.String())
 	}
-	if raCtx.EnableGasCharge {
-		// Load or create account for producer
-		producer, err := account.LoadOrCreateAccount(sm, raCtx.Producer.String(), big.NewInt(0))
-		if err != nil {
-			return nil, errors.Wrapf(
-				err,
-				"failed to load or create the account of block producer %s",
-				raCtx.Producer.String(),
-			)
-		}
-		gas, err := vote.IntrinsicGas()
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get intrinsic gas for vote hash %s", vote.Hash())
-		}
-		if *raCtx.GasLimit < gas {
-			return nil, action.ErrHitGasLimit
-		}
-		gasFee := big.NewInt(0).Mul(vote.GasPrice(), big.NewInt(0).SetUint64(gas))
 
-		if gasFee.Cmp(voteFrom.Balance) == 1 {
-			return nil, errors.Wrapf(
-				state.ErrNotEnoughBalance,
-				"failed to verify the Balance for gas of voter %s, %d, %d",
-				raCtx.Caller.String(),
-				gas,
-				voteFrom.Balance,
-			)
-		}
-
-		// charge voter Gas
-		if err := voteFrom.SubBalance(gasFee); err != nil {
-			return nil, errors.Wrapf(err, "failed to charge the gas for voter %s", raCtx.Caller.String())
-		}
-		// compensate block producer gas
-		if err := producer.AddBalance(gasFee); err != nil {
-			return nil, errors.Wrapf(err, "failed to compensate gas to producer")
-		}
-		// Put updated producer's state to trie
-		if err := account.StoreAccount(sm, raCtx.Producer.String(), producer); err != nil {
-			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
-		}
-		*raCtx.GasLimit -= gas
+	if *raCtx.GasLimit < raCtx.IntrinsicGas {
+		return nil, action.ErrHitGasLimit
 	}
+	gasFee := big.NewInt(0).Mul(raCtx.GasPrice, big.NewInt(0).SetUint64(raCtx.IntrinsicGas))
+	if gasFee.Cmp(voteFrom.Balance) == 1 {
+		return nil, errors.Wrapf(
+			state.ErrNotEnoughBalance,
+			"failed to verify the Balance for gas of voter %s, %d, %d",
+			raCtx.Caller.String(),
+			raCtx.IntrinsicGas,
+			voteFrom.Balance,
+		)
+	}
+	// charge voter Gas
+	if err := voteFrom.SubBalance(gasFee); err != nil {
+		return nil, errors.Wrapf(err, "failed to charge the gas for voter %s", raCtx.Caller.String())
+	}
+	if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
+		return nil, err
+	}
+	*raCtx.GasLimit -= raCtx.IntrinsicGas
 	// Update voteFrom Nonce
-	account.SetNonce(vote, voteFrom)
+	util.SetNonce(vote, voteFrom)
 	prevVotee := voteFrom.Votee
 	voteFrom.Votee = vote.Votee()
 	if vote.Votee() == "" {
@@ -116,20 +92,20 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		}
 	}
 	// Put updated voter's state to trie
-	if err := account.StoreAccount(sm, raCtx.Caller.String(), voteFrom); err != nil {
+	if err := util.StoreAccount(sm, raCtx.Caller.String(), voteFrom); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
 	// Update old votee's weight
 	if len(prevVotee) > 0 {
 		// voter already voted
-		oldVotee, err := account.LoadOrCreateAccount(sm, prevVotee, big.NewInt(0))
+		oldVotee, err := util.LoadOrCreateAccount(sm, prevVotee, big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", prevVotee)
 		}
 		oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 		// Put updated state of voter's old votee to trie
-		if err := account.StoreAccount(sm, prevVotee, oldVotee); err != nil {
+		if err := util.StoreAccount(sm, prevVotee, oldVotee); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
@@ -141,7 +117,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 
 	if vote.Votee() != "" {
-		voteTo, err := account.LoadOrCreateAccount(sm, vote.Votee(), big.NewInt(0))
+		voteTo, err := util.LoadOrCreateAccount(sm, vote.Votee(), big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of votee %s", vote.Votee())
 		}
@@ -149,7 +125,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
 
 		// Put updated votee's state to trie
-		if err := account.StoreAccount(sm, vote.Votee(), voteTo); err != nil {
+		if err := util.StoreAccount(sm, vote.Votee(), voteTo); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map

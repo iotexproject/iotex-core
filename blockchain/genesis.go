@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -108,7 +108,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 		rpk, _ := decodeKey(transfer.RecipientPK, "")
 		recipientAddr := generateAddr(rpk)
 		amount := unit.ConvertIotxToRau(transfer.Amount)
-		_, err := account.LoadOrCreateAccount(ws, recipientAddr, amount)
+		_, err := util.LoadOrCreateAccount(ws, recipientAddr, amount)
 		if err != nil {
 			log.L().Panic("Failed to add initial allocation.", zap.Error(err))
 		}
@@ -117,7 +117,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 	// add creator
 	Gen.CreatorPubKey = actions.Creation.PubKey
 	creatorAddr := Gen.CreatorAddr()
-	_, err := account.LoadOrCreateAccount(ws, creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
+	_, err := util.LoadOrCreateAccount(ws, creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
 	if err != nil {
 		log.L().Panic("Failed to add creator.", zap.Error(err))
 	}

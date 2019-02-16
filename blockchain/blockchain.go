@@ -20,10 +20,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -706,12 +705,12 @@ func (bc *blockchain) MintNewBlock(
 			),
 			BlockHeight: newblockHeight,
 			// this field should be removed
-			BlockHash:       hash.ZeroHash256,
-			BlockTimeStamp:  bc.now(),
-			Producer:        producer,
-			GasLimit:        &gasLimitForContext,
-			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
-			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+			BlockHash:      hash.ZeroHash256,
+			BlockTimeStamp: bc.now(),
+			Producer:       producer,
+			GasLimit:       &gasLimitForContext,
+			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+			Registry:       bc.registry,
 		})
 	root, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
@@ -837,20 +836,22 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		return nil, err
 	}
 	gasLimit := bc.genesisConfig.BlockGasLimit
-	raCtx := protocol.RunActionsCtx{
-		BlockHeight:     blk.Height(),
-		BlockHash:       blk.HashBlock(),
-		BlockTimeStamp:  blk.Timestamp(),
-		Producer:        producer,
-		Caller:          caller,
-		EnableGasCharge: bc.config.Chain.EnableGasCharge,
-	}
+	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		BlockHeight:    blk.Height(),
+		BlockHash:      blk.HashBlock(),
+		BlockTimeStamp: blk.Timestamp(),
+		Producer:       producer,
+		Caller:         caller,
+		GasLimit:       &gasLimit,
+		ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+		GasPrice:       big.NewInt(0),
+		IntrinsicGas:   0,
+	})
 	return evm.ExecuteContract(
-		raCtx,
+		ctx,
 		ws,
 		ex,
 		bc,
-		&gasLimit,
 	)
 }
 
@@ -863,7 +864,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create clean working set")
 	}
-	account, err := account.LoadOrCreateAccount(ws, addr, init)
+	account, err := util.LoadOrCreateAccount(ws, addr, init)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}
@@ -882,14 +883,14 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EpochNumber:     0,
-			Producer:        producer,
-			GasLimit:        &gasLimit,
-			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
-			EnableGasCharge: bc.config.Chain.EnableGasCharge,
-			Caller:          callerAddr,
-			ActionHash:      hash.ZeroHash256,
-			Nonce:           0,
+			EpochNumber:    0,
+			Producer:       producer,
+			GasLimit:       &gasLimit,
+			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+			Caller:         callerAddr,
+			ActionHash:     hash.ZeroHash256,
+			Nonce:          0,
+			Registry:       bc.registry,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
@@ -1149,12 +1150,12 @@ func (bc *blockchain) runActions(
 			),
 			BlockHeight: acts.BlockHeight(),
 			// this field should be removed
-			BlockHash:       hash.ZeroHash256,
-			BlockTimeStamp:  int64(acts.BlockTimeStamp()),
-			Producer:        producer,
-			GasLimit:        &gasLimit,
-			ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
-			EnableGasCharge: bc.config.Chain.EnableGasCharge,
+			BlockHash:      hash.ZeroHash256,
+			BlockTimeStamp: int64(acts.BlockTimeStamp()),
+			Producer:       producer,
+			GasLimit:       &gasLimit,
+			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+			Registry:       bc.registry,
 		})
 
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
@@ -1269,9 +1270,10 @@ func (bc *blockchain) refreshStateDB() error {
 	if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
 		return errors.Wrap(err, "failed to reinitialize state DB")
 	}
-	// Install vote protocol
-	voteProtocol := vote.NewProtocol(bc)
-	bc.sf.AddActionHandlers(voteProtocol)
+
+	for _, p := range bc.registry.All() {
+		bc.sf.AddActionHandlers(p)
+	}
 
 	if err := bc.sf.Start(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to start state factory")
@@ -1304,6 +1306,10 @@ func (bc *blockchain) buildStateInGenesis() error {
 	if _, _, err := bc.runActions(racts, ws); err != nil {
 		return errors.Wrap(err, "failed to update state changes in Genesis block")
 	}
+	// Initialize the states before any actions happen on the blockchain
+	if err := bc.createGenesisStates(ws); err != nil {
+		return err
+	}
 	if err := bc.sf.Commit(ws); err != nil {
 		return errors.Wrap(err, "failed to commit state changes in Genesis block")
 	}
@@ -1332,17 +1338,17 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		return nil
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		EpochNumber:     0,
-		BlockHeight:     0,
-		BlockHash:       hash.ZeroHash256,
-		BlockTimeStamp:  bc.genesisConfig.Timestamp,
-		GasLimit:        nil,
-		ActionGasLimit:  bc.genesisConfig.ActionGasLimit,
-		EnableGasCharge: true,
-		Producer:        nil,
-		Caller:          nil,
-		ActionHash:      hash.ZeroHash256,
-		Nonce:           0,
+		EpochNumber:    0,
+		BlockHeight:    0,
+		BlockHash:      hash.ZeroHash256,
+		BlockTimeStamp: bc.genesisConfig.Timestamp,
+		GasLimit:       nil,
+		ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+		Producer:       nil,
+		Caller:         nil,
+		ActionHash:     hash.ZeroHash256,
+		Nonce:          0,
+		Registry:       bc.registry,
 	})
 	p, ok := bc.registry.Find(rewarding.ProtocolID)
 	if !ok {

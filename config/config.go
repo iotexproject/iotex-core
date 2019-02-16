@@ -90,7 +90,6 @@ var (
 			NumCandidates:                101,
 			EnableFallBackToFreshDB:      false,
 			EnableSubChainStartInGenesis: false,
-			EnableGasCharge:              false,
 			EnableTrielessStateDB:        true,
 			EnableIndex:                  false,
 			EnableAsyncIndexWrite:        false,
@@ -220,9 +219,6 @@ type (
 		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
 		EnableTrielessStateDB        bool   `yaml:"enableTrielessStateDB"`
-
-		// enable gas charge for block producer
-		EnableGasCharge bool `yaml:"enableGasCharge"`
 		// enable index the block actions and receipts
 		EnableIndex bool `yaml:"enableIndex"`
 		// enable writing the block actions' and receipts' index asynchronously

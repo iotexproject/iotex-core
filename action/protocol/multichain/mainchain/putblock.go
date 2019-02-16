@@ -10,17 +10,15 @@ import (
 	"context"
 	"sort"
 
-	"github.com/iotexproject/iotex-core/address"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -39,12 +37,12 @@ func (p *Protocol) handlePutBlock(ctx context.Context, pb *action.PutBlock, sm p
 	}
 	// Update the block producer's nonce
 	addrHash := byteutil.BytesTo20B(raCtx.Caller.Bytes())
-	acct, err := account.LoadAccount(sm, addrHash)
+	acct, err := util.LoadAccount(sm, addrHash)
 	if err != nil {
 		return err
 	}
-	account.SetNonce(pb, acct)
-	return account.StoreAccount(sm, raCtx.Caller.String(), acct)
+	util.SetNonce(pb, acct)
+	return util.StoreAccount(sm, raCtx.Caller.String(), acct)
 }
 
 func (p *Protocol) validatePutBlock(pb *action.PutBlock, sm protocol.StateManager) error {
