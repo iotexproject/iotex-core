@@ -107,9 +107,12 @@ func NewServer(
 		gs:               gasstation.NewGasStation(chain, cfg),
 	}
 
-	svr.grpcserver = grpc.NewServer()
-	grpc_prometheus.Register(svr.grpcserver)
+	svr.grpcserver = grpc.NewServer(
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
 	iotexapi.RegisterAPIServiceServer(svr.grpcserver, svr)
+	grpc_prometheus.Register(svr.grpcserver)
 	reflection.Register(svr.grpcserver)
 
 	return svr, nil
