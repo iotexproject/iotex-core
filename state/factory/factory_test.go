@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
@@ -59,11 +60,11 @@ func TestSnapshot(t *testing.T) {
 	addr := testaddress.Addrinfo["alfa"].String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = account.LoadOrCreateAccount(ws, addr, big.NewInt(5))
+	_, err = util.LoadOrCreateAccount(ws, addr, big.NewInt(5))
 	require.NoError(err)
 	sHash := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
 
-	s, err := account.LoadAccount(ws, sHash)
+	s, err := util.LoadAccount(ws, sHash)
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -78,11 +79,11 @@ func TestSnapshot(t *testing.T) {
 	require.NoError(ws.PutState(sHash, s))
 	// add another account
 	addr = testaddress.Addrinfo["bravo"].String()
-	_, err = account.LoadOrCreateAccount(ws, addr, big.NewInt(7))
+	_, err = util.LoadOrCreateAccount(ws, addr, big.NewInt(7))
 	require.NoError(err)
 	tHash := byteutil.BytesTo20B(testaddress.Addrinfo["bravo"].Bytes())
 
-	s, err = account.LoadAccount(ws, tHash)
+	s, err = util.LoadAccount(ws, tHash)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
@@ -236,17 +237,17 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, sf.Start(context.Background()))
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, b, big.NewInt(200))
+	_, err = util.LoadOrCreateAccount(ws, b, big.NewInt(200))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, c, big.NewInt(300))
+	_, err = util.LoadOrCreateAccount(ws, c, big.NewInt(300))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, d, big.NewInt(100))
+	_, err = util.LoadOrCreateAccount(ws, d, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, e, big.NewInt(100))
+	_, err = util.LoadOrCreateAccount(ws, e, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, f, big.NewInt(300))
+	_, err = util.LoadOrCreateAccount(ws, f, big.NewInt(300))
 	require.NoError(t, err)
 
 	// a:100(0) b:200(0) c:300(0)
@@ -268,9 +269,8 @@ func TestCandidates(t *testing.T) {
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	newRoot, _, err := ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2})
 	require.Nil(t, err)
@@ -298,9 +298,8 @@ func TestCandidates(t *testing.T) {
 	zeroGasLimit := uint64(0)
 	zctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &zeroGasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &zeroGasLimit,
 		})
 	_, _, err = ws.RunActions(zctx, 0, []action.SealedEnvelope{selp})
 	require.NotNil(t, err)
@@ -904,7 +903,7 @@ func TestCandidates(t *testing.T) {
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
-	stateA, err := account.LoadOrCreateAccount(ws, a, big.NewInt(0))
+	stateA, err := util.LoadOrCreateAccount(ws, a, big.NewInt(0))
 	require.Nil(t, err)
 	require.Equal(t, stateA.Balance, big.NewInt(100))
 }
@@ -931,9 +930,9 @@ func TestUnvote(t *testing.T) {
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(ws, b, big.NewInt(200))
+	_, err = util.LoadOrCreateAccount(ws, b, big.NewInt(200))
 	require.NoError(t, err)
 
 	vote1, err := action.NewVote(0, "", uint64(100000), big.NewInt(0))
@@ -948,9 +947,8 @@ func TestUnvote(t *testing.T) {
 	gasLimit := uint64(10000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
 	require.Nil(t, err)
@@ -1164,7 +1162,7 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 		b.Fatal(err)
 	}
 	for _, acc := range accounts {
-		_, err = account.LoadOrCreateAccount(ws, acc, big.NewInt(int64(b.N*100)))
+		_, err = util.LoadOrCreateAccount(ws, acc, big.NewInt(int64(b.N*100)))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1208,9 +1206,8 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 		b.StartTimer()
 		zctx := protocol.WithRunActionsCtx(context.Background(),
 			protocol.RunActionsCtx{
-				Producer:        testaddress.Addrinfo["producer"],
-				GasLimit:        &gasLimit,
-				EnableGasCharge: false,
+				Producer: testaddress.Addrinfo["producer"],
+				GasLimit: &gasLimit,
 			})
 		_, _, err = ws.RunActions(zctx, uint64(n), acts)
 		if err != nil {

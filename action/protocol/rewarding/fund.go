@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -61,12 +61,12 @@ func (p *Protocol) Deposit(
 		return err
 	}
 	// Subtract balance from caller
-	acc, err := account.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
+	acc, err := util.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, amount)
-	account.StoreAccount(sm, raCtx.Caller.String(), acc)
+	util.StoreAccount(sm, raCtx.Caller.String(), acc)
 	// Add balance to fund
 	f := fund{}
 	if err := p.state(sm, fundKey, &f); err != nil {
@@ -109,7 +109,7 @@ func (p *Protocol) assertEnoughBalance(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	acc, err := account.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
+	acc, err := util.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
 	if err != nil {
 		return err
 	}
@@ -117,4 +117,26 @@ func (p *Protocol) assertEnoughBalance(
 		return errors.New("balance is not enough for donation")
 	}
 	return nil
+}
+
+// DepositGas deposits gas into the rewarding fund
+func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, registry *protocol.Registry) error {
+	// TODO: we bypass the gas deposit for the actions in genesis block. Later we should remove this after we remove
+	// genesis actions
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.BlockHeight == 0 {
+		return nil
+	}
+	if registry == nil {
+		return nil
+	}
+	p, ok := registry.Find(ProtocolID)
+	if !ok {
+		return nil
+	}
+	rp, ok := p.(*Protocol)
+	if !ok {
+		log.S().Panicf("Protocol %d is not a rewarding protocol", ProtocolID)
+	}
+	return rp.Deposit(ctx, sm, amount)
 }

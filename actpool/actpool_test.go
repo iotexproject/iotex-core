@@ -106,9 +106,8 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{prevTsf})
 	require.NoError(err)
@@ -438,9 +437,8 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
@@ -595,9 +593,8 @@ func TestActPool_Reset(t *testing.T) {
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
@@ -706,9 +703,8 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
@@ -817,9 +813,8 @@ func TestActPool_Reset(t *testing.T) {
 
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
@@ -1077,9 +1072,8 @@ func TestActPool_GetSize(t *testing.T) {
 
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)

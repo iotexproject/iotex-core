@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -121,7 +122,6 @@ func (sct *smartContractTest) prepareBlockchain(
 	r *require.Assertions,
 ) blockchain.Blockchain {
 	cfg := config.Default
-	cfg.Chain.EnableGasCharge = true
 	cfg.Chain.EnableIndex = true
 	genesisCfg := genesis.Default
 	bc := blockchain.NewBlockchain(
@@ -140,16 +140,15 @@ func (sct *smartContractTest) prepareBlockchain(
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
 	for acct, supply := range sct.prepare {
-		_, err = account.LoadOrCreateAccount(ws, acct, supply)
+		_, err = util.LoadOrCreateAccount(ws, acct, supply)
 		r.NoError(err)
 	}
 
 	gasLimit := uint64(10000000)
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
@@ -218,7 +217,6 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg := config.Default
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableGasCharge = true
 		cfg.Chain.EnableIndex = true
 		genesisCfg := genesis.Default
 		bc := blockchain.NewBlockchain(
@@ -241,14 +239,13 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				Producer:        testaddress.Addrinfo["producer"],
-				GasLimit:        &gasLimit,
-				EnableGasCharge: testutil.EnableGasCharge,
+				Producer: testaddress.Addrinfo["producer"],
+				GasLimit: &gasLimit,
 			})
 		_, _, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -407,9 +404,6 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
-		ws, _ = sf.NewWorkingSet()
-		alfaAccount, _ := account.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), blockchain.Gen.TotalSupply)
-		require.NotEqual(blockchain.Gen.TotalSupply, alfaAccount.Balance)
 	}
 
 	testRollDice := func(t *testing.T) {
@@ -424,7 +418,6 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg := config.Default
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableGasCharge = true
 		cfg.Chain.EnableIndex = true
 		genesisCfg := genesis.Default
 		bc := blockchain.NewBlockchain(
@@ -446,18 +439,17 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
+		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccount(ws, testaddress.Addrinfo["bravo"].String(), big.NewInt(12000000))
+		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["bravo"].String(), big.NewInt(12000000))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				Producer:        testaddress.Addrinfo["producer"],
-				GasLimit:        &gasLimit,
-				EnableGasCharge: testutil.EnableGasCharge,
+				Producer: testaddress.Addrinfo["producer"],
+				GasLimit: &gasLimit,
 			})
 		_, _, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -625,18 +617,17 @@ func TestProtocol_Handle(t *testing.T) {
 		sf.AddActionHandlers(NewProtocol(bc))
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
+		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
-		_, err = account.LoadOrCreateAccount(ws, testaddress.Addrinfo["bravo"].String(), big.NewInt(0))
+		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["bravo"].String(), big.NewInt(0))
 		require.NoError(err)
 		gasLimit := uint64(10000000)
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				Producer:        testaddress.Addrinfo["producer"],
-				GasLimit:        &gasLimit,
-				EnableGasCharge: testutil.EnableGasCharge,
+				Producer: testaddress.Addrinfo["producer"],
+				GasLimit: &gasLimit,
 			})
 		_, _, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)

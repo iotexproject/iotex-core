@@ -10,16 +10,15 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -95,8 +94,8 @@ func (p *Protocol) mutateSubChainState(
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, start.SecurityDeposit())
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, start.OperationDeposit())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	account.SetNonce(start, acct)
-	if err := account.StoreAccount(sm, caller.String(), acct); err != nil {
+	util.SetNonce(start, acct)
+	if err := util.StoreAccount(sm, caller.String(), acct); err != nil {
 		return err
 	}
 	subChainsInOp = subChainsInOp.Append(InOperation{

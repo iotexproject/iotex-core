@@ -40,3 +40,17 @@ func (r *Registry) Find(id string) (Protocol, bool) {
 	}
 	return p, true
 }
+
+// All returns all protocols
+func (r *Registry) All() []Protocol {
+	all := make([]Protocol, 0)
+	r.protocols.Range(func(_, value interface{}) bool {
+		p, ok := value.(Protocol)
+		if !ok {
+			log.S().Panic("Registry stores the item which is not a protocol")
+		}
+		all = append(all, p)
+		return true
+	})
+	return all
+}

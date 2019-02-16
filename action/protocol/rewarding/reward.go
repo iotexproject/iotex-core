@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -236,12 +236,12 @@ func (p *Protocol) claimFromAccount(sm protocol.StateManager, addr address.Addre
 	}
 
 	// Update primary account
-	primAcc, err := account.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
+	primAcc, err := util.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
 	primAcc.Balance = big.NewInt(0).Add(primAcc.Balance, amount)
-	if err := account.StoreAccount(sm, addr.String(), primAcc); err != nil {
+	if err := util.StoreAccount(sm, addr.String(), primAcc); err != nil {
 
 	}
 	return nil

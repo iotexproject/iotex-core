@@ -96,6 +96,12 @@ func (stx *stateTX) RunAction(
 	}
 	raCtx.Caller = callerAddr
 	raCtx.ActionHash = elp.Hash()
+	raCtx.GasPrice = elp.GasPrice()
+	intrinsicGas, err := elp.IntrinsicGas()
+	if err != nil {
+		return nil, err
+	}
+	raCtx.IntrinsicGas = intrinsicGas
 	raCtx.Nonce = elp.Nonce()
 	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
 	for _, actionHandler := range stx.actionHandlers {

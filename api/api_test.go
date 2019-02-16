@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -680,16 +681,15 @@ func addProducerToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(),
+	if _, err = util.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(),
 		blockchain.Gen.TotalSupply); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        ta.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: ta.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err
