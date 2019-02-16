@@ -62,7 +62,11 @@ func newInjectionProcessor() (*injectProcessor, error) {
 		c:      c,
 		nonces: &sync.Map{},
 	}
-	return p, p.loadAccounts(injectCfg.configPath)
+	if err := p.loadAccounts(injectCfg.configPath); err != nil {
+		return p, err
+	}
+	p.syncNonces(context.Background())
+	return p, nil
 }
 
 func (p *injectProcessor) loadAccounts(keypairsPath string) error {
@@ -97,32 +101,36 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 	return nil
 }
 
-func (p *injectProcessor) resetNoncesProcess(ctx context.Context) {
+func (p *injectProcessor) syncNoncesProcess(ctx context.Context) {
 	reset := time.Tick(injectCfg.resetInterval)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-reset:
-			p.nonces.Range(func(key interface{}, value interface{}) bool {
-				addr := key.(string)
-				err := backoff.Retry(func() error {
-					resp, err := p.c.GetAccount(context.Background(), addr)
-					if err != nil {
-						return err
-					}
-					p.nonces.Store(addr, resp.GetAccountMeta().GetNonce())
-					return nil
-				}, backoff.NewExponentialBackOff())
-				if err != nil {
-					log.L().Fatal("Failed to inject actions by APS",
-						zap.Error(err),
-						zap.String("addr", addr))
-				}
-				return true
-			})
+			p.syncNonces(context.Background())
 		}
 	}
+}
+
+func (p *injectProcessor) syncNonces(ctx context.Context) {
+	p.nonces.Range(func(key interface{}, value interface{}) bool {
+		addr := key.(string)
+		err := backoff.Retry(func() error {
+			resp, err := p.c.GetAccount(ctx, addr)
+			if err != nil {
+				return err
+			}
+			p.nonces.Store(addr, resp.GetAccountMeta().GetNonce())
+			return nil
+		}, backoff.NewExponentialBackOff())
+		if err != nil {
+			log.L().Fatal("Failed to inject actions by APS",
+				zap.Error(err),
+				zap.String("addr", addr))
+		}
+		return true
+	})
 }
 
 func (p *injectProcessor) injectProcess(ctx context.Context) {
@@ -170,9 +178,12 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 }
 
 func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
+	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
-	val, _ := p.nonces.Load(sender.EncodedAddr)
-	nonce := val.(uint64)
+	val, ok := p.nonces.Load(sender.EncodedAddr)
+	if ok {
+		nonce = val.(uint64)
+	}
 	p.nonces.Store(sender.EncodedAddr, nonce+1)
 
 	bd := &action.EnvelopeBuilder{}
@@ -268,7 +279,7 @@ func inject(args []string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), injectCfg.duration)
 	defer cancel()
 	go p.injectProcess(ctx)
-	go p.resetNoncesProcess(ctx)
+	go p.syncNoncesProcess(ctx)
 	<-ctx.Done()
 	return ""
 }
