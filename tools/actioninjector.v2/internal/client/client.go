@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
-	iotexapi "github.com/iotexproject/iotex-core/proto/api"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 // Client is the blockchain API client.
@@ -16,7 +16,7 @@ type Client struct {
 
 // New creates a new Client.
 func New(serverAddr string) (*Client, error) {
-	conn, err := grpc.Dial(serverAddr)
+	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}

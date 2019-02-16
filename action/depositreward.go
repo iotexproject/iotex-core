@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -42,15 +42,15 @@ func (d *DepositToRewardingFund) ByteStream() []byte {
 }
 
 // Proto converts a deposit action struct to a deposit action protobuf
-func (d *DepositToRewardingFund) Proto() *iproto.DepositToRewardingFund {
-	return &iproto.DepositToRewardingFund{
+func (d *DepositToRewardingFund) Proto() *iotextypes.DepositToRewardingFund {
+	return &iotextypes.DepositToRewardingFund{
 		Amount: d.amount.Bytes(),
 		Data:   d.data,
 	}
 }
 
 // LoadProto converts a deposit action protobuf to a deposit action struct
-func (d *DepositToRewardingFund) LoadProto(deposit *iproto.DepositToRewardingFund) error {
+func (d *DepositToRewardingFund) LoadProto(deposit *iotextypes.DepositToRewardingFund) error {
 	*d = DepositToRewardingFund{}
 	d.amount = big.NewInt(0).SetBytes(deposit.Amount)
 	d.data = deposit.Data

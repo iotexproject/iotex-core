@@ -87,7 +87,6 @@ struct Log {
     data string
     blockNumber int
     txnHash string
-    blockHash string
     index int
 }
 
@@ -231,6 +230,7 @@ struct GetBlkOrActResponse {
     transfer Transfer [optional]
     vote Vote [optional]
     execution Execution [optional]
+    address AddressDetails [optional]
 }
 
 struct CreateDepositRequest {

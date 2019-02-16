@@ -21,7 +21,6 @@ func TestLogReceipt(t *testing.T) {
 	topic := hash.Hash256b([]byte("12345"))
 	log.Topics = []hash.Hash256{topic}
 	log.TxnHash = hash.Hash256b([]byte("11111"))
-	log.BlockHash = hash.Hash256b([]byte("22222"))
 	s, err := log.Serialize()
 	require.NoError(err)
 	actuallog := action.Log{}
@@ -32,7 +31,6 @@ func TestLogReceipt(t *testing.T) {
 	require.Equal(log.Data, actuallog.Data)
 	require.Equal(log.BlockNumber, actuallog.BlockNumber)
 	require.Equal(log.TxnHash, actuallog.TxnHash)
-	require.Equal(log.BlockHash, actuallog.BlockHash)
 	require.Equal(log.Index, actuallog.Index)
 
 	receipt := action.Receipt{ReturnValue: []byte("12345"), Status: 5, GasConsumed: 6, ContractAddress: "aaaaa", Logs: []*action.Log{&log}}

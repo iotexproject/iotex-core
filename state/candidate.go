@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -54,7 +54,7 @@ func (l CandidateList) Less(i, j int) bool {
 
 // Serialize serializes a list of Candidates to bytes
 func (l *CandidateList) Serialize() ([]byte, error) {
-	candidatesPb := make([]*iproto.Candidate, 0, len(*l))
+	candidatesPb := make([]*iotextypes.Candidate, 0, len(*l))
 	for _, cand := range *l {
 		candPb, err := candidateToPb(cand)
 		if err != nil {
@@ -62,12 +62,12 @@ func (l *CandidateList) Serialize() ([]byte, error) {
 		}
 		candidatesPb = append(candidatesPb, candPb)
 	}
-	return proto.Marshal(&iproto.CandidateList{Candidates: candidatesPb})
+	return proto.Marshal(&iotextypes.CandidateList{Candidates: candidatesPb})
 }
 
 // Deserialize deserializes bytes to list of Candidates
 func (l *CandidateList) Deserialize(buf []byte) error {
-	candList := &iproto.CandidateList{}
+	candList := &iotextypes.CandidateList{}
 	if err := proto.Unmarshal(buf, candList); err != nil {
 		return errors.Wrap(err, "failed to unmarshal candidate list")
 	}
@@ -85,11 +85,11 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 }
 
 // candidateToPb converts a candidate to protobuf's candidate message
-func candidateToPb(cand *Candidate) (*iproto.Candidate, error) {
+func candidateToPb(cand *Candidate) (*iotextypes.Candidate, error) {
 	if cand == nil {
 		return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")
 	}
-	candidatePb := &iproto.Candidate{
+	candidatePb := &iotextypes.Candidate{
 		Address:          cand.Address,
 		PubKey:           keypair.PublicKeyToBytes(cand.PublicKey),
 		CreationHeight:   cand.CreationHeight,
@@ -102,7 +102,7 @@ func candidateToPb(cand *Candidate) (*iproto.Candidate, error) {
 }
 
 // pbToCandidate converts a protobuf's candidate message to candidate
-func pbToCandidate(candPb *iproto.Candidate) (*Candidate, error) {
+func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 	if candPb == nil {
 		return nil, errors.Wrap(ErrCandidatePb, "protobuf's candidate message cannot be nil")
 	}
