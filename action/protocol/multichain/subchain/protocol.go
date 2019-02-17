@@ -11,17 +11,16 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -119,24 +118,24 @@ func (p *Protocol) mutateDeposit(ctx context.Context, deposit *action.SettleDepo
 	}
 
 	// Update the action owner
-	owner, err := account.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
+	owner, err := util.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
-	account.SetNonce(deposit, owner)
-	if err := account.StoreAccount(sm, raCtx.Caller.String(), owner); err != nil {
+	util.SetNonce(deposit, owner)
+	if err := util.StoreAccount(sm, raCtx.Caller.String(), owner); err != nil {
 		return err
 	}
 
 	// Update the deposit recipient
-	recipient, err := account.LoadOrCreateAccount(sm, deposit.Recipient(), big.NewInt(0))
+	recipient, err := util.LoadOrCreateAccount(sm, deposit.Recipient(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
 	if err := recipient.AddBalance(deposit.Amount()); err != nil {
 		return err
 	}
-	return account.StoreAccount(sm, deposit.Recipient(), recipient)
+	return util.StoreAccount(sm, deposit.Recipient(), recipient)
 }
 
 func depositAddress(index uint64) hash.Hash160 {

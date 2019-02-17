@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -29,8 +30,8 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	iproto "github.com/iotexproject/iotex-core/proto"
-	iotexapi "github.com/iotexproject/iotex-core/proto/api"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
@@ -240,7 +241,7 @@ var (
 	}
 
 	sendActionTests = []struct {
-		actionPb *iproto.ActionPb
+		actionPb *iotextypes.Action
 	}{
 		{
 			testTransferPb,
@@ -495,7 +496,7 @@ func TestServer_GetBlockMetas(t *testing.T) {
 		res, err := svr.GetBlockMetas(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numBlks, len(res.BlkMetas))
-		var prevBlkPb *iproto.BlockMeta
+		var prevBlkPb *iotextypes.BlockMeta
 		for _, blkPb := range res.BlkMetas {
 			if prevBlkPb != nil {
 				require.True(blkPb.Timestamp < prevBlkPb.Timestamp)
@@ -680,16 +681,15 @@ func addProducerToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = account.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(),
+	if _, err = util.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(),
 		blockchain.Gen.TotalSupply); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:        ta.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: ta.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err

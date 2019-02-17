@@ -12,8 +12,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action/protocol/account/accountpb"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/proto"
 )
 
 var (
@@ -36,9 +36,9 @@ type Account struct {
 	Votee        string
 }
 
-// ToProto converts to protobuf's AccountPb
-func (st *Account) ToProto() *iproto.AccountPb {
-	acPb := &iproto.AccountPb{}
+// ToProto converts to protobuf's Account
+func (st *Account) ToProto() *accountpb.Account {
+	acPb := &accountpb.Account{}
 	acPb.Nonce = st.Nonce
 	if st.Balance != nil {
 		acPb.Balance = st.Balance.Bytes()
@@ -60,8 +60,8 @@ func (st Account) Serialize() ([]byte, error) {
 	return proto.Marshal(st.ToProto())
 }
 
-// FromProto converts from protobuf's AccountPb
-func (st *Account) FromProto(acPb *iproto.AccountPb) {
+// FromProto converts from protobuf's Account
+func (st *Account) FromProto(acPb *accountpb.Account) {
 	st.Nonce = acPb.Nonce
 	st.Balance = big.NewInt(0)
 	if acPb.Balance != nil {
@@ -83,7 +83,7 @@ func (st *Account) FromProto(acPb *iproto.AccountPb) {
 
 // Deserialize deserializes bytes into account state
 func (st *Account) Deserialize(buf []byte) error {
-	acPb := &iproto.AccountPb{}
+	acPb := &accountpb.Account{}
 	if err := proto.Unmarshal(buf, acPb); err != nil {
 		return err
 	}

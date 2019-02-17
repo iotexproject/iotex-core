@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/testutil"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -63,10 +65,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		testaddress.Addrinfo["bravo"].String(), []byte{}, uint64(10000), big.NewInt(0))
 	require.NoError(err)
 
+	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Caller:          testaddress.Addrinfo["alfa"],
-			EnableGasCharge: false,
+			Producer: testaddress.Addrinfo["producer"],
+			Caller:   testaddress.Addrinfo["alfa"],
+			GasLimit: &gasLimit,
 		})
 	_, err = p.Handle(ctx, transfer, ws)
 	require.NoError(err)

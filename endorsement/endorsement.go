@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // ConsensusVoteTopic defines the topic of an consensus vote
@@ -114,22 +114,22 @@ func (en *Endorsement) VerifySignature() bool {
 }
 
 // ToProtoMsg converts an endorsement to endorse proto
-func (en *Endorsement) ToProtoMsg() *iproto.Endorsement {
+func (en *Endorsement) ToProtoMsg() *iotextypes.Endorsement {
 	vote := en.ConsensusVote()
-	var topic iproto.Endorsement_ConsensusVoteTopic
+	var topic iotextypes.Endorsement_ConsensusVoteTopic
 	switch vote.Topic {
 	case PROPOSAL:
-		topic = iproto.Endorsement_PROPOSAL
+		topic = iotextypes.Endorsement_PROPOSAL
 	case LOCK:
-		topic = iproto.Endorsement_LOCK
+		topic = iotextypes.Endorsement_LOCK
 	case COMMIT:
-		topic = iproto.Endorsement_COMMIT
+		topic = iotextypes.Endorsement_COMMIT
 	default:
 		log.L().Error("Endorsement object is of the wrong topic.")
 		return nil
 	}
 	pubkey := en.EndorserPublicKey()
-	return &iproto.Endorsement{
+	return &iotextypes.Endorsement{
 		Height:         vote.Height,
 		Round:          vote.Round,
 		BlockHash:      vote.BlkHash,
@@ -152,14 +152,14 @@ func (en *Endorsement) Serialize() ([]byte, error) {
 }
 
 // FromProtoMsg creates an endorsement from endorsePb
-func (en *Endorsement) FromProtoMsg(endorsePb *iproto.Endorsement) error {
+func (en *Endorsement) FromProtoMsg(endorsePb *iotextypes.Endorsement) error {
 	var topic ConsensusVoteTopic
 	switch endorsePb.Topic {
-	case iproto.Endorsement_PROPOSAL:
+	case iotextypes.Endorsement_PROPOSAL:
 		topic = PROPOSAL
-	case iproto.Endorsement_LOCK:
+	case iotextypes.Endorsement_LOCK:
 		topic = LOCK
-	case iproto.Endorsement_COMMIT:
+	case iotextypes.Endorsement_COMMIT:
 		topic = COMMIT
 	default:
 		return errors.New("Invalid topic")
@@ -187,7 +187,7 @@ func (en *Endorsement) FromProtoMsg(endorsePb *iproto.Endorsement) error {
 
 // Deserialize converts a byte array to endorsement
 func (en *Endorsement) Deserialize(bs []byte) error {
-	pb := iproto.Endorsement{}
+	pb := iotextypes.Endorsement{}
 	if err := proto.Unmarshal(bs, &pb); err != nil {
 		return err
 	}

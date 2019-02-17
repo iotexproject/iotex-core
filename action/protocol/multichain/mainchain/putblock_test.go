@@ -17,7 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -45,7 +45,7 @@ func TestHandlePutBlock(t *testing.T) {
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = account.LoadOrCreateAccount(
+	_, err = util.LoadOrCreateAccount(
 		ws,
 		addr.String(),
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(unit.Iotx)),
@@ -54,10 +54,9 @@ func TestHandlePutBlock(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			Producer:        testaddress.Addrinfo["producer"],
-			Caller:          testaddress.Addrinfo["producer"],
-			GasLimit:        &gasLimit,
-			EnableGasCharge: testutil.EnableGasCharge,
+			Producer: testaddress.Addrinfo["producer"],
+			Caller:   testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(t, err)

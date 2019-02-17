@@ -4,17 +4,19 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package account
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
+syntax = "proto3";
+package accountpb;
 
-import "github.com/iotexproject/iotex-core/state"
-
-type noncer interface {
-	Nonce() uint64
+message Account {
+    // used by state-based model
+    uint64 nonce  = 1;
+    bytes balance  = 2;
+    bytes root  = 3;
+    bytes codeHash  = 4;
+    bool isCandidate = 5;
+    bytes votingWeight  = 6;
+    string votee = 7;
 }
 
-// SetNonce sets nonce for account
-func SetNonce(i noncer, state *state.Account) {
-	if i.Nonce() > state.Nonce {
-		state.Nonce = i.Nonce()
-	}
-}

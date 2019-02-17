@@ -14,8 +14,8 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -32,8 +32,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/proto"
-	"github.com/iotexproject/iotex-core/proto/api"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -45,24 +45,8 @@ var (
 	ErrAction = errors.New("invalid action")
 )
 
-var (
-	requestMtc = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "iotex_api_request",
-			Help: "IoTeX API request counter.",
-		},
-		[]string{"method", "succeed"},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(requestMtc)
-}
-
-type (
-	// BroadcastOutbound sends a broadcast message to the whole network
-	BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
-)
+// BroadcastOutbound sends a broadcast message to the whole network
+type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
 
 // Config represents the config to setup api
 type Config struct {
@@ -123,8 +107,12 @@ func NewServer(
 		gs:               gasstation.NewGasStation(chain, cfg),
 	}
 
-	svr.grpcserver = grpc.NewServer()
+	svr.grpcserver = grpc.NewServer(
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
 	iotexapi.RegisterAPIServiceServer(svr.grpcserver, svr)
+	grpc_prometheus.Register(svr.grpcserver)
 	reflection.Register(svr.grpcserver)
 
 	return svr, nil
@@ -140,7 +128,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	if err != nil {
 		return nil, err
 	}
-	accountMeta := &iproto.AccountMeta{
+	accountMeta := &iotextypes.AccountMeta{
 		Address:      in.Address,
 		Balance:      state.Balance.String(),
 		Nonce:        state.Nonce,
@@ -221,7 +209,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 
 	tps := int64(totalActions) / timeDuration
 
-	chainMeta := &iproto.ChainMeta{
+	chainMeta := &iotextypes.ChainMeta{
 		Height:     tipHeight,
 		Supply:     blockchain.Gen.TotalSupply.String(),
 		NumActions: int64(totalActions),
@@ -234,14 +222,6 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 // SendAction is the API to send an action to blockchain.
 func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (res *iotexapi.SendActionResponse, err error) {
 	log.L().Debug("receive send action request")
-
-	defer func() {
-		succeed := "true"
-		if err != nil {
-			succeed = "false"
-		}
-		requestMtc.WithLabelValues("SendAction", succeed).Inc()
-	}()
 
 	// broadcast to the network
 	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
@@ -338,7 +318,7 @@ func (api *Server) Stop() error {
 
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iproto.ActionPb
+	var res []*iotextypes.Action
 	var actionCount uint64
 
 	tipHeight := api.bc.TipHeight()
@@ -375,12 +355,12 @@ func (api *Server) getAction(actionHash string, checkPending bool) (*iotexapi.Ge
 	if err != nil {
 		return nil, err
 	}
-	return &iotexapi.GetActionsResponse{Actions: []*iproto.ActionPb{actPb}}, nil
+	return &iotexapi.GetActionsResponse{Actions: []*iotextypes.Action{actPb}}, nil
 }
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iproto.ActionPb
+	var res []*iotextypes.Action
 	var actions []hash.Hash256
 	if api.cfg.UseRDS {
 		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
@@ -428,7 +408,7 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iproto.ActionPb
+	var res []*iotextypes.Action
 	var actionCount uint64
 
 	selps := api.ap.GetUnconfirmedActs(address)
@@ -451,7 +431,7 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iproto.ActionPb
+	var res []*iotextypes.Action
 	hash, err := toHash256(blkHash)
 	if err != nil {
 		return nil, err
@@ -482,7 +462,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 // getBlockMetas gets block within the height range
 func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
-	var res []*iproto.BlockMeta
+	var res []*iotextypes.BlockMeta
 
 	startHeight := api.bc.TipHeight()
 	var blkCount uint64
@@ -509,7 +489,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		deltaStateDigest := blk.DeltaStateDigest()
 		transferAmount := getTranferAmountInBlock(blk)
 
-		blockMeta := &iproto.BlockMeta{
+		blockMeta := &iotextypes.BlockMeta{
 			Hash:             hex.EncodeToString(hash[:]),
 			Height:           blk.Height(),
 			Timestamp:        blockHeaderPb.GetTimestamp().GetSeconds(),
@@ -545,7 +525,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	deltaStateDigest := blk.DeltaStateDigest()
 	transferAmount := getTranferAmountInBlock(blk)
 
-	blockMeta := &iproto.BlockMeta{
+	blockMeta := &iotextypes.BlockMeta{
 		Hash:             blkHash,
 		Height:           blk.Height(),
 		Timestamp:        blkHeaderPb.GetTimestamp().GetSeconds(),
@@ -557,7 +537,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 	}
 
-	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iproto.BlockMeta{blockMeta}}, nil
+	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iotextypes.BlockMeta{blockMeta}}, nil
 }
 
 func toHash256(hashString string) (hash.Hash256, error) {
@@ -570,7 +550,7 @@ func toHash256(hashString string) (hash.Hash256, error) {
 	return hash, nil
 }
 
-func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash256, checkPending bool) (*iproto.ActionPb, error) {
+func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash256, checkPending bool) (*iotextypes.Action, error) {
 	var selp action.SealedEnvelope
 	var err error
 	if selp, err = bc.GetActionByActionHash(actHash); err != nil {

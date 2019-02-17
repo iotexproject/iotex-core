@@ -7,8 +7,11 @@
 package evm
 
 import (
+	"context"
 	"math"
 	"math/big"
+
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 
 	"github.com/iotexproject/go-ethereum/common"
 	"github.com/iotexproject/go-ethereum/core/vm"
@@ -132,22 +135,18 @@ func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
 
 // ExecuteContract processes a transfer which contains a contract
 func ExecuteContract(
-	raCtx protocol.RunActionsCtx,
+	ctx context.Context,
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
-	gasLimit *uint64,
 ) (*action.Receipt, error) {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	stateDB := NewStateDBAdapter(cm, sm, raCtx.BlockHeight, raCtx.BlockHash, execution.Hash())
 	ps, err := NewParams(raCtx, execution, stateDB)
 	if err != nil {
 		return nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, gasLimit)
-	if !raCtx.EnableGasCharge {
-		remainingGas = depositGas
-	}
-
+	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, raCtx.GasLimit)
 	receipt := &action.Receipt{
 		ReturnValue:     retval,
 		GasConsumed:     ps.gas - remainingGas,
@@ -160,13 +159,15 @@ func ExecuteContract(
 		receipt.Status = SuccessStatus
 	}
 	if remainingGas > 0 {
-		*gasLimit += remainingGas
+		*raCtx.GasLimit += remainingGas
 		remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
 		stateDB.AddBalance(ps.context.Origin, remainingValue)
 	}
 	if depositGas-remainingGas > 0 {
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
-		stateDB.AddBalance(ps.context.Coinbase, gasValue)
+		if err := rewarding.DepositGas(ctx, sm, gasValue, raCtx.Registry); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := stateDB.commitContracts(); err != nil {

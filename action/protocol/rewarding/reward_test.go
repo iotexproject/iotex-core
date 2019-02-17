@@ -11,13 +11,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -112,7 +111,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, raCtx.Producer)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err := account.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Producer.Bytes()))
+		primAcc, err := util.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Producer.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), primAcc.Balance)
 
@@ -130,7 +129,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, raCtx.Producer)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
-		primAcc, err = account.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Producer.Bytes()))
+		primAcc, err = util.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Producer.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), primAcc.Balance)
 

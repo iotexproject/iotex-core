@@ -103,7 +103,7 @@ func (m *BranchPb) GetBranches() []*BranchNodePb {
 }
 
 type LeafPb struct {
-	Ext                  uint32   `protobuf:"varint,1,opt,name=ext,proto3" json:"ext,omitempty"`
+	Ext                  uint32   `protobuf:"varint,1,opt,name=external,proto3" json:"external,omitempty"`
 	Path                 []byte   `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	Value                []byte   `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`

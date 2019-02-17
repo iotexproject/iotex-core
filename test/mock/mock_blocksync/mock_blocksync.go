@@ -8,7 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	proto "github.com/iotexproject/iotex-core/proto"
+	iotexrpc "github.com/iotexproject/iotex-core/protogen/iotexrpc"
 	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
 	reflect "reflect"
 )
@@ -73,7 +73,7 @@ func (mr *MockBlockSyncMockRecorder) TargetHeight() *gomock.Call {
 }
 
 // ProcessSyncRequest mocks base method
-func (m *MockBlockSync) ProcessSyncRequest(ctx context.Context, peer go_libp2p_peerstore.PeerInfo, sync *proto.BlockSync) error {
+func (m *MockBlockSync) ProcessSyncRequest(ctx context.Context, peer go_libp2p_peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
 	ret := m.ctrl.Call(m, "ProcessSyncRequest", ctx, peer, sync)
 	ret0, _ := ret[0].(error)
 	return ret0

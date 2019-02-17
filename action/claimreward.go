@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -42,15 +42,15 @@ func (c *ClaimFromRewardingFund) ByteStream() []byte {
 }
 
 // Proto converts a claim action struct to a claim action protobuf
-func (c *ClaimFromRewardingFund) Proto() *iproto.ClaimFromRewardingFund {
-	return &iproto.ClaimFromRewardingFund{
+func (c *ClaimFromRewardingFund) Proto() *iotextypes.ClaimFromRewardingFund {
+	return &iotextypes.ClaimFromRewardingFund{
 		Amount: c.amount.Bytes(),
 		Data:   c.data,
 	}
 }
 
 // LoadProto converts a claim action protobuf to a claim action struct
-func (c *ClaimFromRewardingFund) LoadProto(claim *iproto.ClaimFromRewardingFund) error {
+func (c *ClaimFromRewardingFund) LoadProto(claim *iotextypes.ClaimFromRewardingFund) error {
 	*c = ClaimFromRewardingFund{}
 	c.amount = big.NewInt(0).SetBytes(claim.Amount)
 	c.data = claim.Data

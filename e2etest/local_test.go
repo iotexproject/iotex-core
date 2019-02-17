@@ -544,6 +544,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		blockchain.DefaultStateFactoryOption(),
 		blockchain.BoltDBDaoOption(),
 		blockchain.GenesisOption(genesisCfg),
+		blockchain.RegistryOption(&registry),
 	)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol(),

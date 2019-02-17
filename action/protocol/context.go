@@ -8,10 +8,11 @@ package protocol
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/iotexproject/iotex-core/address"
-
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type runActionsCtxKey struct{}
@@ -30,18 +31,22 @@ type RunActionsCtx struct {
 	BlockTimeStamp int64
 	// gas Limit for perform those actions
 	GasLimit *uint64
-	// ActionGasLimit is the action level gas limit
-	ActionGasLimit uint64
-	// whether disable gas charge
-	EnableGasCharge bool
 	// Producer is the address of whom composes the block containing this action
 	Producer address.Address
 	// Caller is the address of whom issues this action
 	Caller address.Address
 	// ActionHash is the hash of the action with the sealed envelope
 	ActionHash hash.Hash256
+	// ActionGasLimit is the action gas limit
+	ActionGasLimit uint64
+	// GasPrice is the action gas price
+	GasPrice *big.Int
+	// IntrinsicGas is the action intrinsic gas
+	IntrinsicGas uint64
 	// Nonce is the nonce of the action
 	Nonce uint64
+	// Registry is the pointer protocol registry
+	Registry *Registry
 }
 
 // ValidateActionsCtx provides action validators with auxiliary information.
@@ -63,6 +68,15 @@ func WithRunActionsCtx(ctx context.Context, ra RunActionsCtx) context.Context {
 func GetRunActionsCtx(ctx context.Context) (RunActionsCtx, bool) {
 	ra, ok := ctx.Value(runActionsCtxKey{}).(RunActionsCtx)
 	return ra, ok
+}
+
+// MustGetRunActionsCtx must get runActions context.
+func MustGetRunActionsCtx(ctx context.Context) RunActionsCtx {
+	ra, ok := ctx.Value(runActionsCtxKey{}).(RunActionsCtx)
+	if !ok {
+		log.S().Panic("Miss run actions context")
+	}
+	return ra
 }
 
 // WithValidateActionsCtx add ValidateActionsCtx into context.

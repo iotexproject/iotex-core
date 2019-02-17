@@ -222,10 +222,11 @@ type SendSmartContractResponse struct {
 }
 
 type GetBlkOrActResponse struct {
-	Block     *Block     `json:"block,omitempty"`
-	Transfer  *Transfer  `json:"transfer,omitempty"`
-	Vote      *Vote      `json:"vote,omitempty"`
-	Execution *Execution `json:"execution,omitempty"`
+	Block     *Block          `json:"block,omitempty"`
+	Transfer  *Transfer       `json:"transfer,omitempty"`
+	Vote      *Vote           `json:"vote,omitempty"`
+	Execution *Execution      `json:"execution,omitempty"`
+	Address   *AddressDetails `json:"address,omitempty"`
 }
 
 type CreateDepositRequest struct {

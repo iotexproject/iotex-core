@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	iproto "github.com/iotexproject/iotex-core/proto"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -93,10 +93,10 @@ func (tsf *Transfer) ByteStream() []byte {
 	return byteutil.Must(proto.Marshal(tsf.Proto()))
 }
 
-// Proto converts Transfer to protobuf's ActionPb
-func (tsf *Transfer) Proto() *iproto.TransferPb {
+// Proto converts Transfer to protobuf's Action
+func (tsf *Transfer) Proto() *iotextypes.Transfer {
 	// used by account-based model
-	act := &iproto.TransferPb{
+	act := &iotextypes.Transfer{
 		Recipient: tsf.recipient,
 		Payload:   tsf.payload,
 	}
@@ -107,8 +107,8 @@ func (tsf *Transfer) Proto() *iproto.TransferPb {
 	return act
 }
 
-// LoadProto converts a protobuf's ActionPb to Transfer
-func (tsf *Transfer) LoadProto(pbAct *iproto.TransferPb) error {
+// LoadProto converts a protobuf's Action to Transfer
+func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}

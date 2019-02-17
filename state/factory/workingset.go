@@ -168,6 +168,12 @@ func (ws *workingSet) RunAction(
 	}
 	raCtx.Caller = caller
 	raCtx.ActionHash = elp.Hash()
+	raCtx.GasPrice = elp.GasPrice()
+	intrinsicGas, err := elp.IntrinsicGas()
+	if err != nil {
+		return nil, err
+	}
+	raCtx.IntrinsicGas = intrinsicGas
 	raCtx.Nonce = elp.Nonce()
 	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
 
