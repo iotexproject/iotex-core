@@ -87,7 +87,7 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    raCtx.ActionGasLimit,
+		GasLimit:    execution.GasLimit(),
 		GasPrice:    execution.GasPrice(),
 	}
 

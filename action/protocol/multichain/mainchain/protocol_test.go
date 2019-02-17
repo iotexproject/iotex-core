@@ -48,7 +48,7 @@ func TestAddSubChainActions(t *testing.T) {
 	require.NoError(t, err)
 	p := NewProtocol(bc)
 	ap.AddActionValidators(p)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	defer require.NoError(t, bc.Stop(ctx))
 
 	startSubChain := action.NewStartSubChain(

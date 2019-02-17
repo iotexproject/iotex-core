@@ -131,7 +131,7 @@ func (sct *smartContractTest) prepareBlockchain(
 		blockchain.GenesisOption(genesisCfg),
 	)
 	r.NotNil(bc)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 	sf := bc.GetFactory()
 	r.NotNil(sf)
@@ -225,7 +225,7 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.BoltDBDaoOption(),
 			blockchain.GenesisOption(genesisCfg),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
@@ -426,7 +426,7 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.BoltDBDaoOption(),
 			blockchain.GenesisOption(genesisCfg),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
@@ -604,7 +604,7 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.BoltDBDaoOption(),
 			blockchain.GenesisOption(genesisCfg),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)

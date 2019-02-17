@@ -244,10 +244,10 @@ func TestExplorerApi(t *testing.T) {
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))

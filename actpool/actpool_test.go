@@ -68,21 +68,15 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	validator := ap.actionEnvelopeValidators[0]
-	// Case I: Over-gassed transfer
-	tsf, err := testutil.SignedTransfer(addr1, priKey1, 1, big.NewInt(1), nil, genesisCfg.Blockchain.ActionGasLimit+1, big.NewInt(0))
-	require.NoError(err)
-
 	ctx := protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{})
-	err = validator.Validate(ctx, tsf)
-	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
-	// Case II: Insufficient gas
-	tsf, err = testutil.SignedTransfer(addr1, priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
+	// Case I: Insufficient gas
+	tsf, err := testutil.SignedTransfer(addr1, priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
 	require.NoError(err)
 	err = validator.Validate(ctx, tsf)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
-	// Case III: Signature verification fails
+	// Case II: Signature verification fails
 	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
@@ -145,7 +139,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
@@ -252,31 +246,9 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	err = ap.Add(overBalTsf)
 	require.Equal(action.ErrBalance, errors.Cause(err))
-	// Case VI: over gas limit
-	creationExecution, err := action.NewExecution(
-		action.EmptyAddress,
-		uint64(5),
-		big.NewInt(int64(0)),
-		genesisCfg.Blockchain.ActionGasLimit,
-		big.NewInt(10),
-		[]byte{},
-	)
-	require.NoError(err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(5).
-		SetGasPrice(big.NewInt(10)).
-		SetGasLimit(genesisCfg.Blockchain.ActionGasLimit + 1).
-		SetAction(creationExecution).
-		SetDestinationAddress(action.EmptyAddress).Build()
-	selp, err = action.Sign(elp, priKey1)
-	require.NoError(err)
-
-	err = ap.Add(selp)
-	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
-	// Case VII: insufficient gas
+	// Case VI: insufficient gas
 	tmpData := [1234]byte{}
-	creationExecution, err = action.NewExecution(
+	creationExecution, err := action.NewExecution(
 		action.EmptyAddress,
 		uint64(5),
 		big.NewInt(int64(0)),
@@ -319,7 +291,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
-		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 		tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -407,7 +379,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -471,14 +443,14 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
-	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap1.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	Ap2, err := NewActPool(bc, apConfig)
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
-	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap2.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 
@@ -853,7 +825,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -904,7 +876,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -950,7 +922,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -1047,7 +1019,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.Zero(ap.GetSize())
 

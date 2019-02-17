@@ -709,7 +709,6 @@ func (bc *blockchain) MintNewBlock(
 			BlockTimeStamp: bc.now(),
 			Producer:       producer,
 			GasLimit:       &gasLimitForContext,
-			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
 			Registry:       bc.registry,
 		})
 	root, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
@@ -843,7 +842,6 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		Producer:       producer,
 		Caller:         caller,
 		GasLimit:       &gasLimit,
-		ActionGasLimit: bc.genesisConfig.ActionGasLimit,
 		GasPrice:       big.NewInt(0),
 		IntrinsicGas:   0,
 	})
@@ -883,14 +881,13 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EpochNumber:    0,
-			Producer:       producer,
-			GasLimit:       &gasLimit,
-			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
-			Caller:         callerAddr,
-			ActionHash:     hash.ZeroHash256,
-			Nonce:          0,
-			Registry:       bc.registry,
+			EpochNumber: 0,
+			Producer:    producer,
+			GasLimit:    &gasLimit,
+			Caller:      callerAddr,
+			ActionHash:  hash.ZeroHash256,
+			Nonce:       0,
+			Registry:    bc.registry,
 		})
 	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
@@ -1154,7 +1151,6 @@ func (bc *blockchain) runActions(
 			BlockTimeStamp: int64(acts.BlockTimeStamp()),
 			Producer:       producer,
 			GasLimit:       &gasLimit,
-			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
 			Registry:       bc.registry,
 		})
 
@@ -1343,7 +1339,6 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		BlockHash:      hash.ZeroHash256,
 		BlockTimeStamp: bc.genesisConfig.Timestamp,
 		GasLimit:       nil,
-		ActionGasLimit: bc.genesisConfig.ActionGasLimit,
 		Producer:       nil,
 		Caller:         nil,
 		ActionHash:     hash.ZeroHash256,

@@ -50,11 +50,10 @@ func init() {
 func initDefaultConfig() {
 	Default = Genesis{
 		Blockchain: Blockchain{
-			Timestamp:      1546329600,
-			BlockGasLimit:  20000000,
-			ActionGasLimit: 5000000,
-			NumSubEpochs:   1,
-			NumDelegates:   21,
+			Timestamp:     1546329600,
+			BlockGasLimit: 20000000,
+			NumSubEpochs:  1,
+			NumDelegates:  21,
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr: defaultAdminAddr.String(),
@@ -78,8 +77,6 @@ type (
 		Timestamp int64
 		// BlockGasLimit is the total gas limit could be consumed in a block
 		BlockGasLimit uint64 `yaml:"blockGasLimit"`
-		// ActionGasLimit is the per action gas limit cap
-		ActionGasLimit uint64 `yaml:"actionGasLimit"`
 		// NumSubEpochs is the number of sub epochs in one epoch of block production
 		NumSubEpochs uint64 `yaml:"numSubEpochs"`
 		// NumDelegates is the number of delegates that participate into one epoch of block production

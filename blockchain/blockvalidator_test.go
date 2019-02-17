@@ -99,7 +99,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(addCreatorToFactory(sf))
 
 	val := &validator{sf: sf, validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
 	// correct nonce
@@ -249,7 +249,7 @@ func TestWrongAddress(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	val := &validator{sf: bc.GetFactory(), validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 

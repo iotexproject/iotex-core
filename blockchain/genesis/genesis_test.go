@@ -19,7 +19,6 @@ func TestDefaultConfig(t *testing.T) {
 	require.NoError(t, err)
 	// Validate blockchain
 	assert.Equal(t, Default.BlockGasLimit, cfg.BlockGasLimit)
-	assert.Equal(t, Default.ActionGasLimit, cfg.ActionGasLimit)
 	assert.Equal(t, Default.NumSubEpochs, cfg.NumSubEpochs)
 	assert.Equal(t, Default.NumDelegates, cfg.NumDelegates)
 	// Validate rewarding protocol

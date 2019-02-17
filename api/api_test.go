@@ -887,7 +887,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, error) {
 		return nil, errors.New("failed to create blockchain")
 	}
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 
@@ -899,8 +899,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 	if err != nil {
 		return nil, err
 	}
-	genesisConfig := genesis.Default
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 

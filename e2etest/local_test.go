@@ -163,7 +163,7 @@ func TestLocalCommit(t *testing.T) {
 		blockchain.GenesisOption(genesisCfg),
 		blockchain.RegistryOption(&registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain), rewardingProtocol)
 	require.NoError(chain.Start(ctx))
@@ -546,7 +546,7 @@ func TestVoteLocalCommit(t *testing.T) {
 		blockchain.GenesisOption(genesisCfg),
 		blockchain.RegistryOption(&registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(account.NewProtocol(),
 		vote.NewProtocol(chain))
 	require.NotNil(chain)

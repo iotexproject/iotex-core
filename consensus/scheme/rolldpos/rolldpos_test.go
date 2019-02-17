@@ -372,7 +372,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				blockchain.PrecreatedStateFactoryOption(sf),
 				blockchain.GenesisOption(genesisCfg),
 			)
-			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
+			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
 
