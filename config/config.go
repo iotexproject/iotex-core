@@ -214,6 +214,7 @@ type (
 		GenesisActionsPath           string `yaml:"genesisActionsPath"`
 		EmptyGenesis                 bool   `yaml:"emptyGenesis"`
 		NumCandidates                uint   `yaml:"numCandidates"`
+		BeaconChainAPI               string `yaml:"beaconChainAPI"`
 		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
 		EnableTrielessStateDB        bool   `yaml:"enableTrielessStateDB"`

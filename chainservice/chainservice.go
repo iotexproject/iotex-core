@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-election/committee"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -37,15 +39,16 @@ import (
 
 // ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
-	actpool      actpool.ActPool
-	blocksync    blocksync.BlockSync
-	consensus    consensus.Consensus
-	chain        blockchain.Blockchain
-	explorer     *explorer.Server
-	api          *api.Server
-	indexBuilder *blockchain.IndexBuilder
-	indexservice *indexservice.Server
-	registry     *protocol.Registry
+	actpool           actpool.ActPool
+	blocksync         blocksync.BlockSync
+	consensus         consensus.Consensus
+	chain             blockchain.Blockchain
+	electionCommittee committee.Committee
+	explorer          *explorer.Server
+	api               *api.Server
+	indexBuilder      *blockchain.IndexBuilder
+	indexservice      *indexservice.Server
+	registry          *protocol.Registry
 }
 
 type optionParams struct {
@@ -88,9 +91,10 @@ func New(
 	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
 ) (*ChainService, error) {
+	var err error
 	var ops optionParams
 	for _, opt := range opts {
-		if err := opt(&ops); err != nil {
+		if err = opt(&ops); err != nil {
 			return nil, err
 		}
 	}
@@ -109,7 +113,14 @@ func New(
 	}
 	registry := protocol.Registry{}
 	chainOpts = append(chainOpts, blockchain.RegistryOption(&registry))
-
+	var electionCommittee committee.Committee
+	if cfg.Genesis.EnableBeaconChainVoting {
+		committeeConfig := cfg.Genesis.Poll.CommitteeConfig
+		committeeConfig.BeaconChainAPI = cfg.Chain.BeaconChainAPI
+		if electionCommittee, err = committee.NewCommittee(nil, committeeConfig); err != nil {
+			return nil, err
+		}
+	}
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
 	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
@@ -124,7 +135,6 @@ func New(
 	}
 
 	var indexBuilder *blockchain.IndexBuilder
-	var err error
 	if cfg.Chain.EnableIndex && cfg.Chain.EnableAsyncIndexWrite {
 		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
@@ -215,15 +225,16 @@ func New(
 	}
 
 	return &ChainService{
-		actpool:      actPool,
-		chain:        chain,
-		blocksync:    bs,
-		consensus:    consensus,
-		indexservice: idx,
-		indexBuilder: indexBuilder,
-		explorer:     exp,
-		api:          apiSvr,
-		registry:     &registry,
+		actpool:           actPool,
+		chain:             chain,
+		blocksync:         bs,
+		consensus:         consensus,
+		electionCommittee: electionCommittee,
+		indexservice:      idx,
+		indexBuilder:      indexBuilder,
+		explorer:          exp,
+		api:               apiSvr,
+		registry:          &registry,
 	}, nil
 }
 
@@ -356,6 +367,11 @@ func (cs *ChainService) Consensus() consensus.Consensus {
 // BlockSync returns the block syncer
 func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
+}
+
+// ElectionCommittee returns the election committee
+func (cs *ChainService) ElectionCommittee() committee.Committee {
+	return cs.electionCommittee
 }
 
 // IndexService returns the indexservice instance

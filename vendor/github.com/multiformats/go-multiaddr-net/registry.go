@@ -14,15 +14,16 @@ type FromNetAddrFunc func(a net.Addr) (ma.Multiaddr, error)
 // ToNetAddrFunc is a generic function which converts a Multiaddress to net.Addr
 type ToNetAddrFunc func(ma ma.Multiaddr) (net.Addr, error)
 
-var defaultCodecs *CodecMap
+var defaultCodecs = NewCodecMap()
 
 func init() {
-	defaultCodecs = NewCodecMap()
-	defaultCodecs.RegisterNetCodec(tcpAddrSpec)
-	defaultCodecs.RegisterNetCodec(udpAddrSpec)
-	defaultCodecs.RegisterNetCodec(ip4AddrSpec)
-	defaultCodecs.RegisterNetCodec(ip6AddrSpec)
-	defaultCodecs.RegisterNetCodec(ipnetAddrSpec)
+	defaultCodecs.RegisterFromNetAddr(parseTCPNetAddr, "tcp", "tcp4", "tcp6")
+	defaultCodecs.RegisterFromNetAddr(parseUDPNetAddr, "udp", "udp4", "udp6")
+	defaultCodecs.RegisterFromNetAddr(parseIPNetAddr, "ip", "ip4", "ip6")
+	defaultCodecs.RegisterFromNetAddr(parseIPPlusNetAddr, "ip+net")
+	defaultCodecs.RegisterFromNetAddr(parseUnixNetAddr, "unix")
+
+	defaultCodecs.RegisterToNetAddr(parseBasicNetMaddr, "tcp", "udp", "ip6", "ip4", "unix")
 }
 
 // CodecMap holds a map of NetCodecs indexed by their Protocol ID
@@ -39,7 +40,6 @@ type CodecMap struct {
 // NewCodecMap initializes and returns a CodecMap object.
 func NewCodecMap() *CodecMap {
 	return &CodecMap{
-		codecs:       make(map[string]*NetCodec),
 		addrParsers:  make(map[string]FromNetAddrFunc),
 		maddrParsers: make(map[string]ToNetAddrFunc),
 	}
@@ -48,6 +48,13 @@ func NewCodecMap() *CodecMap {
 // NetCodec is used to identify a network codec, that is, a network type for
 // which we are able to translate multiaddresses into standard Go net.Addr
 // and back.
+//
+// Deprecated: Unfortunately, these mappings aren't one to one. This abstraction
+// assumes that multiple "networks" can map to a single multiaddr protocol but
+// not the reverse. For example, this abstraction supports `tcp6, tcp4, tcp ->
+// /tcp/` really well but doesn't support `ip -> {/ip4/, /ip6/}`.
+//
+// Please use `RegisterFromNetAddr` and `RegisterToNetAddr` directly.
 type NetCodec struct {
 	// NetAddrNetworks is an array of strings that may be returned
 	// by net.Addr.Network() calls on addresses belonging to this type
@@ -76,7 +83,6 @@ func RegisterNetCodec(a *NetCodec) {
 func (cm *CodecMap) RegisterNetCodec(a *NetCodec) {
 	cm.lk.Lock()
 	defer cm.lk.Unlock()
-	cm.codecs[a.ProtocolName] = a
 	for _, n := range a.NetAddrNetworks {
 		cm.addrParsers[n] = a.ParseNetAddr
 	}
@@ -84,41 +90,24 @@ func (cm *CodecMap) RegisterNetCodec(a *NetCodec) {
 	cm.maddrParsers[a.ProtocolName] = a.ConvertMultiaddr
 }
 
-var tcpAddrSpec = &NetCodec{
-	ProtocolName:     "tcp",
-	NetAddrNetworks:  []string{"tcp", "tcp4", "tcp6"},
-	ParseNetAddr:     parseTCPNetAddr,
-	ConvertMultiaddr: parseBasicNetMaddr,
+// RegisterFromNetAddr registers a conversion from net.Addr instances to multiaddrs
+func (cm *CodecMap) RegisterFromNetAddr(from FromNetAddrFunc, networks ...string) {
+	cm.lk.Lock()
+	defer cm.lk.Unlock()
+
+	for _, n := range networks {
+		cm.addrParsers[n] = from
+	}
 }
 
-var udpAddrSpec = &NetCodec{
-	ProtocolName:     "udp",
-	NetAddrNetworks:  []string{"udp", "udp4", "udp6"},
-	ParseNetAddr:     parseUDPNetAddr,
-	ConvertMultiaddr: parseBasicNetMaddr,
-}
+// RegisterToNetAddr registers a conversion from multiaddrs to net.Addr instances
+func (cm *CodecMap) RegisterToNetAddr(to ToNetAddrFunc, protocols ...string) {
+	cm.lk.Lock()
+	defer cm.lk.Unlock()
 
-var ip4AddrSpec = &NetCodec{
-	ProtocolName:     "ip4",
-	NetAddrNetworks:  []string{"ip4"},
-	ParseNetAddr:     parseIPNetAddr,
-	ConvertMultiaddr: parseBasicNetMaddr,
-}
-
-var ip6AddrSpec = &NetCodec{
-	ProtocolName:     "ip6",
-	NetAddrNetworks:  []string{"ip6"},
-	ParseNetAddr:     parseIPNetAddr,
-	ConvertMultiaddr: parseBasicNetMaddr,
-}
-
-var ipnetAddrSpec = &NetCodec{
-	ProtocolName:    "ip+net",
-	NetAddrNetworks: []string{"ip+net"},
-	ParseNetAddr:    parseIPPlusNetAddr,
-	ConvertMultiaddr: func(ma.Multiaddr) (net.Addr, error) {
-		return nil, fmt.Errorf("converting ip+net multiaddr not supported")
-	},
+	for _, p := range protocols {
+		cm.maddrParsers[p] = to
+	}
 }
 
 func (cm *CodecMap) getAddrParser(net string) (FromNetAddrFunc, error) {

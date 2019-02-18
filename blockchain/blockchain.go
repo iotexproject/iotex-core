@@ -27,7 +27,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -1340,6 +1342,9 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
 		return err
 	}
+	if err := bc.createPollGenesisStates(ctx, ws); err != nil {
+		return err
+	}
 	if err := bc.createRewardingGenesisStates(ctx, ws); err != nil {
 		return err
 	}
@@ -1377,6 +1382,35 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 		bc.config.Genesis.EpochReward(),
 		bc.config.Genesis.NumDelegatesForEpochReward,
 	)
+}
+
+func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
+	if bc.config.Genesis.EnableBeaconChainVoting {
+		p, ok := bc.registry.Find(poll.ProtocolID)
+		if !ok {
+			return errors.Errorf("protocol %s is not found", poll.ProtocolID)
+		}
+		pp, ok := p.(*poll.Protocol)
+		if !ok {
+			return errors.Errorf("error when casting poll protocol")
+		}
+		return pp.Initialize(ctx, ws, bc.config.Genesis.Poll.InitBeaconChainHeight)
+	}
+	p, ok := bc.registry.Find(vote.ProtocolID)
+	if !ok {
+		return errors.Errorf("protocol %s is not found", vote.ProtocolID)
+	}
+	actions := loadGenesisData(bc.config.Chain)
+	addrs := make([]string, len(actions.SelfNominators))
+	for i, nominator := range actions.SelfNominators {
+		pk, _ := decodeKey(nominator.PubKey, "")
+		addrs[i] = generateAddr(pk)
+	}
+	vp, ok := p.(*vote.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting vote protocol")
+	}
+	return vp.Initialize(ctx, ws, addrs)
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {

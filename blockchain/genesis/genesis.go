@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-election/committee"
 )
 
 var (
@@ -47,6 +48,9 @@ func initDefaultConfig() {
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
 		},
+		Poll: Poll{
+			EnableBeaconChainVoting: false,
+		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr:           identityset.Address(0).String(),
 			InitBalanceStr:             unit.ConvertIotxToRau(1200000000).String(),
@@ -66,6 +70,7 @@ type (
 	Genesis struct {
 		Blockchain `yaml:"blockchain"`
 		Account    `ymal:"account"`
+		Poll       `yaml:"pool"`
 		Rewarding  `yaml:"rewarding"`
 	}
 	// Blockchain contains blockchain level configs
@@ -89,6 +94,15 @@ type (
 	Account struct {
 		// InitBalanceMap is the address and initial balance mapping before the first block.
 		InitBalanceMap map[string]string `yaml:"initBalances"`
+	}
+	// Poll contains the configs for poll protocol
+	Poll struct {
+		// EnableBeaconChainVoting is a flag whether read voting from beacon chain
+		EnableBeaconChainVoting bool `yaml:"enableBeaconChainVoting"`
+		// InitBeaconChainHeight is the height in beacon chain where the init poll result stored
+		InitBeaconChainHeight uint64 `yaml:"initBeaconChainHeight"`
+		// CommitteeConfig is the config for committee
+		CommitteeConfig committee.Config `yaml:"committeConfig"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {

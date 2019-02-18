@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -297,9 +298,16 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return err
 	}
-	voteProtocol := vote.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
-		return err
+	if genesisConfig.EnableBeaconChainVoting {
+		pollProtocol := poll.NewProtocol(cs.ElectionCommittee())
+		if err := cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
+			return err
+		}
+	} else {
+		voteProtocol := vote.NewProtocol(cs.Blockchain())
+		if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
+			return err
+		}
 	}
 	executionProtocol := execution.NewProtocol(cs.Blockchain())
 	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {

@@ -58,6 +58,10 @@
   name = "github.com/iotexproject/go-p2p"
   revision = "c26edc20f3d7c9ed16b6d996d162548cda979673"
 
+[[constraint]]
+  name = "github.com/iotexproject/iotex-election"
+  revision = "358ccc18419373f136bd7e1bfa7ea88fdf6af854"
+
 [prune]
   go-tests = true
   unused-packages = true

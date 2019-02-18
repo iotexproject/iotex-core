@@ -12,6 +12,7 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-fsm"
+	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -266,6 +267,7 @@ type Builder struct {
 	cfg config.Config
 	// TODO: we should use keystore in the future
 	encodedAddr            string
+	electionCommittee      committee.Committee
 	pubKey                 keypair.PublicKey
 	priKey                 keypair.PrivateKey
 	chain                  blockchain.Blockchain
@@ -335,11 +337,17 @@ func (b *Builder) SetRootChainAPI(api explorer.Explorer) *Builder {
 	return b
 }
 
-// SetCandidatesByHeightFunc sets candidatesByHeightFunc, which is only used by tests
+// SetCandidatesByHeightFunc sets candidatesByHeightFunc
 func (b *Builder) SetCandidatesByHeightFunc(
 	candidatesByHeightFunc CandidatesByHeightFunc,
 ) *Builder {
 	b.candidatesByHeightFunc = candidatesByHeightFunc
+	return b
+}
+
+// SetElectionCommittee sets the election committee
+func (b *Builder) SetElectionCommittee(c committee.Committee) *Builder {
+	b.electionCommittee = c
 	return b
 }
 
@@ -361,6 +369,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		cfg:                    b.cfg.Consensus.RollDPoS,
 		genesisCfg:             b.cfg.Genesis.Blockchain,
 		encodedAddr:            b.encodedAddr,
+		electionCommittee:      b.electionCommittee,
 		pubKey:                 b.pubKey,
 		priKey:                 b.priKey,
 		chain:                  b.chain,
