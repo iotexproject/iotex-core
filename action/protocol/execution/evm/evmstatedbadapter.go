@@ -44,7 +44,6 @@ type (
 		logs             []*action.Log
 		err              error
 		blockHeight      uint64
-		blockHash        hash.Hash256
 		executionHash    hash.Hash256
 		refund           uint64
 		cachedContract   contractMap
@@ -59,14 +58,13 @@ type (
 )
 
 // NewStateDBAdapter creates a new state db with iotex blockchain
-func NewStateDBAdapter(cm protocol.ChainManager, sm protocol.StateManager, blockHeight uint64, blockHash hash.Hash256, executionHash hash.Hash256) *StateDBAdapter {
+func NewStateDBAdapter(cm protocol.ChainManager, sm protocol.StateManager, blockHeight uint64, executionHash hash.Hash256) *StateDBAdapter {
 	return &StateDBAdapter{
 		cm:               cm,
 		sm:               sm,
 		logs:             []*action.Log{},
 		err:              nil,
 		blockHeight:      blockHeight,
-		blockHash:        blockHash,
 		executionHash:    executionHash,
 		cachedContract:   make(contractMap),
 		contractSnapshot: make(map[int]contractMap),

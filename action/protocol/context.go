@@ -25,8 +25,6 @@ type RunActionsCtx struct {
 	EpochNumber uint64
 	// height of block containing those actions
 	BlockHeight uint64
-	// hash of block containing those actions
-	BlockHash hash.Hash256
 	// timestamp of block containing those actions
 	BlockTimeStamp int64
 	// gas Limit for perform those actions
