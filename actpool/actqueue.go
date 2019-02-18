@@ -12,6 +12,9 @@ import (
 	"sort"
 	"time"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"go.uber.org/zap"
+
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
@@ -50,8 +53,6 @@ type ActQueue interface {
 	Overlaps(action.SealedEnvelope) bool
 	Put(action.SealedEnvelope) error
 	FilterNonce(uint64) []action.SealedEnvelope
-	SetStartNonce(uint64)
-	StartNonce() uint64
 	UpdateQueue(uint64) []action.SealedEnvelope
 	SetPendingNonce(uint64)
 	PendingNonce() uint64
@@ -65,12 +66,12 @@ type ActQueue interface {
 
 // actQueue is a queue of actions from an account
 type actQueue struct {
+	ap      *actPool
+	address string
 	// Map that stores all the actions belonging to an account associated with nonces
 	items map[uint64]action.SealedEnvelope
 	// Priority Queue that stores all the nonces belonging to an account. Nonces are used as indices for action map
 	index noncePriorityQueue
-	// Current nonce tracking the first action in queue
-	startNonce uint64
 	// Current pending nonce tracking previous actions that can be committed to the next block for the account
 	pendingNonce uint64
 	// Current pending balance for the account
@@ -85,11 +86,12 @@ type ActQueueOption interface {
 }
 
 // NewActQueue create a new action queue
-func NewActQueue(ops ...ActQueueOption) ActQueue {
+func NewActQueue(ap *actPool, address string, ops ...ActQueueOption) ActQueue {
 	aq := &actQueue{
+		ap:             ap,
+		address:        address,
 		items:          make(map[uint64]action.SealedEnvelope),
 		index:          noncePriorityQueue{},
-		startNonce:     uint64(1), // Taking coinbase Action into account, startNonce should start with 1
 		pendingNonce:   uint64(1), // Taking coinbase Action into account, pendingNonce should start with 1
 		pendingBalance: big.NewInt(0),
 		clock:          clock.New(),
@@ -194,16 +196,6 @@ func (q *actQueue) UpdateQueue(nonce uint64) []action.SealedEnvelope {
 	return removedFromQueue
 }
 
-// SetStartNonce sets the new start nonce for the queue
-func (q *actQueue) SetStartNonce(nonce uint64) {
-	q.startNonce = nonce
-}
-
-// StartNonce returns the current start nonce of the queue
-func (q *actQueue) StartNonce() uint64 {
-	return q.startNonce
-}
-
 // SetPendingNonce sets pending nonce for the queue
 func (q *actQueue) SetPendingNonce(nonce uint64) {
 	q.pendingNonce = nonce
@@ -240,7 +232,12 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		return []action.SealedEnvelope{}
 	}
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
-	nonce := q.startNonce
+	confirmedNonce, err := q.ap.bc.Nonce(q.address)
+	if err != nil {
+		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
+		return nil
+	}
+	nonce := confirmedNonce + 1
 	for ; ; nonce++ {
 		if _, exist := q.items[nonce]; !exist {
 			break

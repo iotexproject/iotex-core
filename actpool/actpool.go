@@ -114,7 +114,6 @@ func (ap *actPool) Reset() {
 			return
 		}
 		pendingNonce := confirmedNonce + 1
-		queue.SetStartNonce(pendingNonce)
 		queue.SetPendingNonce(pendingNonce)
 		ap.updateAccount(from)
 	}
@@ -254,18 +253,19 @@ func (ap *actPool) GetCapacity() uint64 {
 // private functions
 //======================================
 func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash hash.Hash256, actNonce uint64) error {
+	confirmedNonce, err := ap.bc.Nonce(sender)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get sender's nonce for action %x", hash)
+	}
+
 	queue := ap.accountActs[sender]
 	if queue == nil {
-		queue = NewActQueue(WithTimeOut(ap.cfg.ActionExpiry))
+		queue = NewActQueue(ap, sender, WithTimeOut(ap.cfg.ActionExpiry))
 		ap.accountActs[sender] = queue
-		confirmedNonce, err := ap.bc.Nonce(sender)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get sender's nonce for action %x", hash)
-		}
+
 		// Initialize pending nonce for new account
 		pendingNonce := confirmedNonce + 1
 		queue.SetPendingNonce(pendingNonce)
-		queue.SetStartNonce(pendingNonce)
 		// Initialize balance for new account
 		balance, err := ap.bc.Balance(sender)
 		if err != nil {
@@ -278,11 +278,11 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 		return errors.Wrapf(action.ErrNonce, "duplicate nonce for action %x", hash)
 	}
 
-	if actNonce-queue.StartNonce() >= ap.cfg.MaxNumActsPerAcct {
+	if actNonce-confirmedNonce-1 >= ap.cfg.MaxNumActsPerAcct {
 		// Nonce exceeds current range
 		log.L().Debug("Rejecting action because nonce is too large.",
 			log.Hex("hash", hash[:]),
-			zap.Uint64("startNonce", queue.StartNonce()),
+			zap.Uint64("startNonce", confirmedNonce+1),
 			zap.Uint64("actNonce", actNonce))
 		return errors.Wrapf(action.ErrNonce, "nonce too large")
 	}

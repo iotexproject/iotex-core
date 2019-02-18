@@ -723,18 +723,6 @@ func (bc *blockchain) MintNewBlock(
 		AddActions(actions...).
 		Build(producerAddr, producerPubKey)
 
-	validateActionsOnlyTimer := bc.timerFactory.NewTimer("ValidateActionsOnly")
-	if err := bc.validator.ValidateActionsOnly(
-		actions,
-		producerPubKey,
-		bc.ChainID(),
-		newblockHeight,
-	); err != nil {
-		validateActionsOnlyTimer.End()
-		return nil, err
-	}
-	validateActionsOnlyTimer.End()
-
 	blk, err := block.NewBuilder(ra).
 		SetChainID(bc.config.Chain.ID).
 		SetPrevBlockHash(bc.tipHash).
