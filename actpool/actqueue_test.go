@@ -12,6 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+
+	"github.com/iotexproject/iotex-core/config"
+
 	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,7 +57,7 @@ func TestNoncePriorityQueue(t *testing.T) {
 
 func TestActQueuePut(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue().(*actQueue)
+	q := NewActQueue(nil, "").(*actQueue)
 	vote1, err := testutil.SignedVote(addr2, priKey1, 2, 0, big.NewInt(0))
 	require.NoError(err)
 	err = q.Put(vote1)
@@ -76,7 +81,7 @@ func TestActQueuePut(t *testing.T) {
 
 func TestActQueueFilterNonce(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue().(*actQueue)
+	q := NewActQueue(nil, "").(*actQueue)
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	vote2, err := testutil.SignedVote(addr2, priKey1, 2, 0, big.NewInt(0))
@@ -97,7 +102,7 @@ func TestActQueueFilterNonce(t *testing.T) {
 
 func TestActQueueUpdateNonce(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue().(*actQueue)
+	q := NewActQueue(nil, "").(*actQueue)
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, 1, big.NewInt(1), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf2, err := testutil.SignedTransfer(addr2, priKey1, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
@@ -126,8 +131,15 @@ func TestActQueueUpdateNonce(t *testing.T) {
 }
 
 func TestActQueuePendingActs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	require := require.New(t)
-	q := NewActQueue().(*actQueue)
+	cfg := config.Default
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	bc.EXPECT().Nonce(gomock.Any()).Return(uint64(1), nil).Times(1)
+	ap, err := NewActPool(bc, cfg.ActPool)
+	require.NoError(err)
+	q := NewActQueue(ap.(*actPool), "").(*actQueue)
 	vote1, err := testutil.SignedVote(addr2, priKey1, 2, 0, big.NewInt(0))
 	require.NoError(err)
 	tsf2, err := testutil.SignedTransfer(addr2, priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
@@ -148,7 +160,6 @@ func TestActQueuePendingActs(t *testing.T) {
 	require.NoError(err)
 	err = q.Put(tsf5)
 	require.NoError(err)
-	q.startNonce = 2
 	q.pendingNonce = 4
 	actions := q.PendingActs()
 	require.Equal([]action.SealedEnvelope{vote1, tsf2}, actions)
@@ -156,7 +167,7 @@ func TestActQueuePendingActs(t *testing.T) {
 
 func TestActQueueAllActs(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue().(*actQueue)
+	q := NewActQueue(nil, "").(*actQueue)
 	vote1, err := testutil.SignedVote(addr2, priKey1, 1, 0, big.NewInt(0))
 	require.NoError(err)
 	tsf3, err := testutil.SignedTransfer(addr2, priKey1, 3, big.NewInt(1000), nil, uint64(0), big.NewInt(0))
@@ -171,7 +182,7 @@ func TestActQueueAllActs(t *testing.T) {
 
 func TestActQueueRemoveActs(t *testing.T) {
 	require := require.New(t)
-	q := NewActQueue().(*actQueue)
+	q := NewActQueue(nil, "").(*actQueue)
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	vote2, err := testutil.SignedVote(addr2, priKey1, 2, 0, big.NewInt(0))
@@ -209,7 +220,7 @@ func TestActQueueRemoveActs(t *testing.T) {
 
 func TestActQueueTimeOutAction(t *testing.T) {
 	c := clock.NewMock()
-	q := NewActQueue(WithClock(c), WithTimeOut(3*time.Minute))
+	q := NewActQueue(nil, "", WithClock(c), WithTimeOut(3*time.Minute))
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 	tsf2, err := testutil.SignedTransfer(addr2, priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))

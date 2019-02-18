@@ -270,7 +270,7 @@ func TestWrongAddress(t *testing.T) {
 		AddActions(selp).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
-	err = val.ValidateActionsOnly(
+	err = val.validateActionsOnly(
 		blk1.Actions,
 		blk1.PublicKey(),
 		blk1.ChainID(),
@@ -297,7 +297,7 @@ func TestWrongAddress(t *testing.T) {
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 
-	err = val.ValidateActionsOnly(
+	err = val.validateActionsOnly(
 		blk2.Actions,
 		blk2.PublicKey(),
 		blk2.ChainID(),
@@ -323,7 +323,7 @@ func TestWrongAddress(t *testing.T) {
 		AddActions(selp).
 		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
-	err = val.ValidateActionsOnly(
+	err = val.validateActionsOnly(
 		blk3.Actions,
 		blk3.PublicKey(),
 		blk3.ChainID(),
@@ -349,7 +349,7 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	blk, err := chain.MintNewBlock(nil, pk, sk, addr, 0)
 	require.NoError(t, err)
 	validator := validator{}
-	require.NoError(t, validator.ValidateActionsOnly(
+	require.NoError(t, validator.validateActionsOnly(
 		blk.Actions,
 		blk.PublicKey(),
 		blk.ChainID(),
