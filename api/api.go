@@ -200,6 +200,10 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if len(blks) == 0 {
 		return nil, errors.New("get 0 blocks! not able to calculate aps")
 	}
+	epoch, err := api.getEpochData(tipHeight)
+	if err != nil {
+		return nil, err
+	}
 
 	timeDuration := blks[0].Timestamp - blks[len(blks)-1].Timestamp
 	// if time duration is less than 1 second, we set it to be 1 second
@@ -211,6 +215,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 
 	chainMeta := &iotextypes.ChainMeta{
 		Height:     tipHeight,
+		Epoch:      epoch,
 		Supply:     blockchain.Gen.TotalSupply.String(),
 		NumActions: int64(totalActions),
 		Tps:        tps,
@@ -538,6 +543,19 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	}
 
 	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iotextypes.BlockMeta{blockMeta}}, nil
+}
+
+// getEpochData is the API to get epoch data
+func (api *Server) getEpochData(height uint64) (*iotextypes.EpochData, error) {
+	if height == 0 {
+		return nil, errors.New("epoch data is not available to block 0")
+	}
+	// TODO: fill with real epoch data
+	return &iotextypes.EpochData{
+		Num:               0,
+		Height:            0,
+		BeaconChainHeight: 0,
+	}, nil
 }
 
 func toHash256(hashString string) (hash.Hash256, error) {
