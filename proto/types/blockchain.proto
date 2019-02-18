@@ -63,12 +63,19 @@ message CandidateList {
   repeated Candidate candidates = 1;
 }
 
+message EpochData {
+  uint64 num = 1;
+  uint64 height = 2;
+  uint64 beaconChainHeight = 3;
+}
+
 // Blockchain Metadata
 message ChainMeta {
   uint64 height = 1;
   string supply = 2;
   int64 numActions = 3;
   int64 tps = 4;
+  EpochData epoch = 5;
 }
 
 // Block Metadata
