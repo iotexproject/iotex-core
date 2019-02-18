@@ -573,8 +573,7 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 		return nil, err
 	}
 	out := iotexapi.ReadStateResponse{
-		Status: iotexapi.ReadStateResponse_SUCCESS,
-		Data:   data,
+		Data: data,
 	}
 	return &out, nil
 }

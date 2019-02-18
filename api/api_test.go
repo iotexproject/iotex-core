@@ -309,7 +309,6 @@ var (
 		addr       string
 		// Expected values
 		returnErr bool
-		status    iotexapi.ReadStateResponse_Status
 		balance   *big.Int
 	}{
 		{
@@ -317,7 +316,6 @@ var (
 			methodName: "UnclaimedBalance",
 			addr:       ta.Addrinfo["producer"].String(),
 			returnErr:  false,
-			status:     iotexapi.ReadStateResponse_SUCCESS,
 			balance:    unit.ConvertIotxToRau(144), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
 		{
@@ -325,7 +323,6 @@ var (
 			methodName: "UnclaimedBalance",
 			addr:       ta.Addrinfo["alfa"].String(),
 			returnErr:  false,
-			status:     iotexapi.ReadStateResponse_SUCCESS,
 			balance:    unit.ConvertIotxToRau(0), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
 		{
@@ -740,7 +737,6 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 			continue
 		}
 		require.NoError(t, err)
-		assert.Equal(t, test.status, out.Status)
 		val, ok := big.NewInt(0).SetString(string(out.Data), 10)
 		require.True(t, ok)
 		assert.Equal(t, test.balance, val)

@@ -171,10 +171,5 @@ message ReadStateRequest {
 }
 
 message ReadStateResponse {
-  enum Status {
-    SUCCESS = 0;
-    FAILURE = 1;
-  }
-  Status status = 1;
-  bytes data = 2;
+  bytes data = 1;
 }
