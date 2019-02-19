@@ -57,10 +57,18 @@ func TestSnapshot(t *testing.T) {
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	addr := testaddress.Addrinfo["alfa"].String()
+	defer func() {
+		require.NoError(sf.Stop(context.Background()))
+	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = util.LoadOrCreateAccount(ws, addr, big.NewInt(5))
+	testSnapshot(ws, t)
+}
+
+func testSnapshot(ws WorkingSet, t *testing.T) {
+	require := require.New(t)
+	addr := testaddress.Addrinfo["alfa"].String()
+	_, err := util.LoadOrCreateAccount(ws, addr, big.NewInt(5))
 	require.NoError(err)
 	sHash := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
 
@@ -212,6 +220,18 @@ func TestSnapshot(t *testing.T) {
 //}
 
 func TestCandidates(t *testing.T) {
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	cfg := config.Default
+	cfg.Chain.NumCandidates = 2
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	require.NoError(t, err)
+	testCandidates(sf, t, true)
+}
+
+func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
+
 	// Create three dummy iotex addresses
 	a := testaddress.Addrinfo["alfa"].String()
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
@@ -225,16 +245,12 @@ func TestCandidates(t *testing.T) {
 	priKeyE := testaddress.Keyinfo["echo"].PriKey
 	f := testaddress.Addrinfo["foxtrot"].String()
 	priKeyF := testaddress.Keyinfo["foxtrot"].PriKey
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 
-	cfg := config.Default
-	cfg.Chain.NumCandidates = 2
-	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
-	require.NoError(t, err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
 	require.NoError(t, sf.Start(context.Background()))
+	defer func() {
+		require.NoError(t, sf.Stop(context.Background()))
+	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
@@ -249,7 +265,6 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 	_, err = util.LoadOrCreateAccount(ws, f, big.NewInt(300))
 	require.NoError(t, err)
-
 	// a:100(0) b:200(0) c:300(0)
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
@@ -273,15 +288,16 @@ func TestCandidates(t *testing.T) {
 			GasLimit: &gasLimit,
 		})
 	newRoot, _, err := ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2})
-	require.Nil(t, err)
-	root := newRoot
-	require.NotEqual(t, hash.ZeroHash256, root)
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	balanceB, err := sf.Balance(b)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, balanceB, big.NewInt(210))
 	balanceC, err := sf.Balance(c)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, balanceC, big.NewInt(320))
 	h, _ := sf.Height()
 	cand, _ := sf.CandidatesByHeight(h)
@@ -304,11 +320,12 @@ func TestCandidates(t *testing.T) {
 	_, _, err = ws.RunActions(zctx, 0, []action.SealedEnvelope{selp})
 	require.NotNil(t, err)
 	_, err = ws.RunAction(ctx, selp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(0)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":70"}))
@@ -323,12 +340,12 @@ func TestCandidates(t *testing.T) {
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 	_, err = ws.RunAction(ctx, selp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(1)
-	require.NotEqual(t, newRoot, root)
-
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":70", b + ":210"}))
@@ -346,12 +363,12 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = ws.RunAction(ctx, selp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(2)
-	require.NotEqual(t, newRoot, root)
-
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
@@ -369,12 +386,12 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = ws.RunAction(ctx, selp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(3)
-	require.NotEqual(t, newRoot, root)
-
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
@@ -392,12 +409,12 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = ws.RunAction(ctx, selp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(4)
-	require.NotEqual(t, newRoot, root)
-
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
@@ -415,10 +432,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 5, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":210", b + ":70"}))
@@ -436,10 +454,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 6, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
@@ -457,10 +476,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 7, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
@@ -478,10 +498,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 8, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":300"}))
@@ -499,10 +520,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 9, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":300"}))
@@ -520,10 +542,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 10, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":90"}))
@@ -541,10 +564,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 11, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
@@ -562,10 +586,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 12, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
@@ -583,10 +608,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 13, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", d + ":100"}))
@@ -604,10 +630,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 14, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
@@ -625,10 +652,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 15, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":210", d + ":300"}))
@@ -646,10 +674,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 16, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
@@ -676,10 +705,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 17, []action.SealedEnvelope{selp1, selp2})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", a + ":100"}))
@@ -697,10 +727,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 18, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", e + ":500"}))
@@ -718,10 +749,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 19, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{f + ":300", e + ":500"}))
@@ -748,14 +780,14 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = ws.RunAction(ctx, selp1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, err = ws.RunAction(ctx, selp2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(20)
-	require.NotEqual(t, newRoot, root)
-
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{d + ":300", e + ":500"}))
@@ -773,10 +805,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 21, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":310", e + ":500"}))
@@ -795,10 +828,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 22, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", e + ":500"}))
@@ -816,10 +850,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 23, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, err = sf.Height()
 	require.Equal(t, uint64(23), h)
 	require.NoError(t, err)
@@ -848,10 +883,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 24, []action.SealedEnvelope{selp1, selp2})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, err = sf.Height()
 	require.Equal(t, uint64(24), h)
 	require.NoError(t, err)
@@ -871,10 +907,12 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 25, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	root = newRoot
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, hash.ZeroHash256, newRoot)
+	}
+	root := newRoot
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	require.Equal(t, uint64(25), h)
 	require.NoError(t, err)
@@ -894,9 +932,11 @@ func TestCandidates(t *testing.T) {
 	require.NoError(t, err)
 
 	newRoot, _, err = ws.RunActions(ctx, 26, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.NotEqual(t, newRoot, root)
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	if checkStateRoot {
+		require.NotEqual(t, newRoot, root)
+	}
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	require.Equal(t, uint64(26), h)
 	require.NoError(t, err)
@@ -904,17 +944,11 @@ func TestCandidates(t *testing.T) {
 	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 	stateA, err := util.LoadOrCreateAccount(ws, a, big.NewInt(0))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, stateA.Balance, big.NewInt(100))
 }
 
 func TestUnvote(t *testing.T) {
-	// Create three dummy iotex addresses
-	a := testaddress.Addrinfo["alfa"].String()
-	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	b := testaddress.Addrinfo["bravo"].String()
-	priKeyB := testaddress.Keyinfo["bravo"].PriKey
-
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 
@@ -923,11 +957,21 @@ func TestUnvote(t *testing.T) {
 	cfg.DB.DbPath = testTriePath
 	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(t, err)
-	sf, ok := f.(*factory)
-	require.True(t, ok)
+	testUnvote(f, t)
+}
+
+func testUnvote(sf Factory, t *testing.T) {
+	// Create three dummy iotex addresses
+	a := testaddress.Addrinfo["alfa"].String()
+	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	b := testaddress.Addrinfo["bravo"].String()
+	priKeyB := testaddress.Keyinfo["bravo"].PriKey
+
 	sf.AddActionHandlers(vote.NewProtocol(nil))
 	require.NoError(t, sf.Start(context.Background()))
-
+	defer func() {
+		require.NoError(t, sf.Stop(context.Background()))
+	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
@@ -951,8 +995,8 @@ func TestUnvote(t *testing.T) {
 			GasLimit: &gasLimit,
 		})
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	require.NoError(t, sf.Commit(ws))
 	h, _ := sf.Height()
 	cand, _ := sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{}))
@@ -967,8 +1011,8 @@ func TestUnvote(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":100"}))
@@ -983,8 +1027,8 @@ func TestUnvote(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{}))
@@ -1017,8 +1061,8 @@ func TestUnvote(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2, selp3})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
+	require.NoError(t, err)
+	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{b + ":200"}))
@@ -1032,20 +1076,9 @@ func TestLoadStoreHeight(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	statefactory, err := NewFactory(cfg, DefaultTrieOption())
-	require.Nil(err)
-	require.Nil(statefactory.Start(context.Background()))
-
-	sf := statefactory.(*factory)
-
-	require.Nil(sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
-	height, err := sf.Height()
 	require.NoError(err)
-	require.Equal(uint64(0), height)
 
-	require.Nil(sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
-	height, err = sf.Height()
-	require.NoError(err)
-	require.Equal(uint64(10), height)
+	testLoadStoreHeight(statefactory, t)
 }
 
 func TestLoadStoreHeightInMem(t *testing.T) {
@@ -1057,17 +1090,25 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
 	statefactory, err := NewFactory(cfg, InMemTrieOption())
-	require.Nil(err)
-	require.Nil(statefactory.Start(context.Background()))
+	require.NoError(err)
+	testLoadStoreHeight(statefactory, t)
+}
 
-	sf := statefactory.(*factory)
-
-	require.Nil(sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
+func testLoadStoreHeight(sf Factory, t *testing.T) {
+	require := require.New(t)
+	require.NoError(sf.Start(context.Background()))
+	defer func() {
+		require.NoError(sf.Stop(context.Background()))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	dao := ws.GetDB()
+	require.NoError(dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
 
-	require.Nil(sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
+	require.NoError(dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
 	height, err = sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(10), height)
@@ -1079,7 +1120,9 @@ func TestFactory_RootHashByHeight(t *testing.T) {
 	sf, err := NewFactory(cfg, InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(ctx))
-	defer require.NoError(t, sf.Stop(ctx))
+	defer func() {
+		require.NoError(t, sf.Stop(ctx))
+	}()
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
@@ -1109,7 +1152,12 @@ func compareStrings(actual []string, expected []string) bool {
 }
 
 func BenchmarkInMemRunAction(b *testing.B) {
-	benchRunAction(db.NewMemKVStore(), b)
+	cfg := config.Default
+	sf, err := NewFactory(cfg, InMemTrieOption())
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchRunAction(sf, b)
 }
 
 func BenchmarkDBRunAction(b *testing.B) {
@@ -1120,15 +1168,18 @@ func BenchmarkDBRunAction(b *testing.B) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = tp
-
-	benchRunAction(db.NewOnDiskDB(cfg.DB), b)
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchRunAction(sf, b)
 
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
 }
 
-func benchRunAction(db db.KVStore, b *testing.B) {
+func benchRunAction(sf Factory, b *testing.B) {
 	// set up
 	accounts := []string{
 		testaddress.Addrinfo["alfa"].String(),
@@ -1148,15 +1199,16 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 	}
 	nonces := make([]uint64, len(accounts))
 
-	cfg := config.Default
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db))
-	if err != nil {
-		b.Fatal(err)
-	}
 	sf.AddActionHandlers(account.NewProtocol())
 	if err := sf.Start(context.Background()); err != nil {
 		b.Fatal(err)
 	}
+	defer func() {
+		defer func() {
+			sf.Stop(context.Background())
+		}()
+	}()
+
 	ws, err := sf.NewWorkingSet()
 	if err != nil {
 		b.Fatal(err)
@@ -1170,7 +1222,7 @@ func benchRunAction(db db.KVStore, b *testing.B) {
 	if err := sf.Commit(ws); err != nil {
 		b.Fatal(err)
 	}
-	gasLimit := testutil.TestGasLimit
+	gasLimit := testutil.TestGasLimit * 100000
 
 	for n := 0; n < b.N; n++ {
 		ws, err := sf.NewWorkingSet()
