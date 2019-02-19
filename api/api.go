@@ -497,7 +497,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		blockMeta := &iotextypes.BlockMeta{
 			Hash:             hex.EncodeToString(hash[:]),
 			Height:           blk.Height(),
-			Timestamp:        blockHeaderPb.GetTimestamp().GetSeconds(),
+			Timestamp:        blockHeaderPb.GetCore().GetTimestamp().GetSeconds(),
 			NumActions:       int64(len(blk.Actions)),
 			ProducerAddress:  blk.ProducerAddress(),
 			TransferAmount:   transferAmount.String(),
@@ -533,7 +533,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	blockMeta := &iotextypes.BlockMeta{
 		Hash:             blkHash,
 		Height:           blk.Height(),
-		Timestamp:        blkHeaderPb.GetTimestamp().GetSeconds(),
+		Timestamp:        blkHeaderPb.GetCore().GetTimestamp().GetSeconds(),
 		NumActions:       int64(len(blk.Actions)),
 		ProducerAddress:  blk.ProducerAddress(),
 		TransferAmount:   transferAmount.String(),
