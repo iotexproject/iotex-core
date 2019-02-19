@@ -41,7 +41,6 @@ func TestWrongRootHash(t *testing.T) {
 
 	blkhash := tsf1.Hash()
 	blk, err := block.NewTestingBuilder().
-		SetChainID(1).
 		SetHeight(1).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -66,7 +65,6 @@ func TestSignBlock(t *testing.T) {
 
 	blkhash := tsf1.Hash()
 	blk, err := block.NewTestingBuilder().
-		SetChainID(1).
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -109,7 +107,6 @@ func TestWrongNonce(t *testing.T) {
 
 	blkhash := tsf1.Hash()
 	blk, err := block.NewTestingBuilder().
-		SetChainID(cfg.Chain.ID).
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -135,7 +132,6 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 
 	blk, err = block.NewTestingBuilder().
-		SetChainID(cfg.Chain.ID).
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -151,7 +147,6 @@ func TestWrongNonce(t *testing.T) {
 
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
-		SetChainID(cfg.Chain.ID).
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -170,7 +165,6 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
-		SetChainID(cfg.Chain.ID).
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -188,7 +182,6 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
-		SetChainID(cfg.Chain.ID).
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -206,7 +199,6 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
-		SetChainID(cfg.Chain.ID).
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -224,7 +216,6 @@ func TestWrongNonce(t *testing.T) {
 
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
-		SetChainID(cfg.Chain.ID).
 		SetHeight(3).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -263,7 +254,6 @@ func TestWrongAddress(t *testing.T) {
 	selp, err := action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	blk1, err := block.NewTestingBuilder().
-		SetChainID(1).
 		SetHeight(3).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -273,7 +263,6 @@ func TestWrongAddress(t *testing.T) {
 	err = val.validateActionsOnly(
 		blk1.Actions,
 		blk1.PublicKey(),
-		blk1.ChainID(),
 		blk1.Height(),
 	)
 	require.Error(t, err)
@@ -289,7 +278,6 @@ func TestWrongAddress(t *testing.T) {
 	selp, err = action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	blk2, err := block.NewTestingBuilder().
-		SetChainID(1).
 		SetHeight(3).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -300,7 +288,6 @@ func TestWrongAddress(t *testing.T) {
 	err = val.validateActionsOnly(
 		blk2.Actions,
 		blk2.PublicKey(),
-		blk2.ChainID(),
 		blk2.Height(),
 	)
 	require.Error(t, err)
@@ -316,7 +303,6 @@ func TestWrongAddress(t *testing.T) {
 	selp, err = action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	blk3, err := block.NewTestingBuilder().
-		SetChainID(1).
 		SetHeight(3).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -326,7 +312,6 @@ func TestWrongAddress(t *testing.T) {
 	err = val.validateActionsOnly(
 		blk3.Actions,
 		blk3.PublicKey(),
-		blk3.ChainID(),
 		blk3.Height(),
 	)
 	require.Error(t, err)
@@ -352,7 +337,6 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	require.NoError(t, validator.validateActionsOnly(
 		blk.Actions,
 		blk.PublicKey(),
-		blk.ChainID(),
 		blk.Height(),
 	))
 }
