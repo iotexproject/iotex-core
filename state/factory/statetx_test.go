@@ -157,7 +157,7 @@ func TestCachedBatch(t *testing.T) {
 	require.Error(err)
 }
 
-func TestFetDB(t *testing.T) {
+func TestGetDB(t *testing.T) {
 	require := require.New(t)
 	memDB := db.NewMemKVStore()
 	ws := newStateTX(0, memDB, []protocol.ActionHandler{account.NewProtocol()})
