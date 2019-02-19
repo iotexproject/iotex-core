@@ -10,6 +10,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/pkg/errors"
+
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -110,6 +112,29 @@ func (p *Protocol) Validate(
 ) error {
 	// TODO: validate interface shouldn't be required for protocol code
 	return nil
+}
+
+// ReadState read the state on blockchain via protocol
+func (p *Protocol) ReadState(
+	ctx context.Context,
+	sm protocol.StateManager,
+	method []byte,
+	args ...[]byte,
+) ([]byte, error) {
+	switch string(method) {
+	case "UnclaimedBalance":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		addr, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		balance, err := p.UnclaimedBalance(ctx, sm, addr)
+		return []byte(balance.String()), nil
+	default:
+		return nil, errors.New("corresponding method isn't found")
+	}
 }
 
 func (p *Protocol) state(sm protocol.StateManager, key []byte, value interface{}) error {

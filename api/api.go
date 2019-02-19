@@ -13,12 +13,10 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/action/protocol/util"
-
 	"github.com/iotexproject/iotex-core/action/protocol"
 
 	"github.com/golang/protobuf/proto"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -567,7 +565,7 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	if err != nil {
 		return nil, err
 	}
-	data, err := util.ReadState(ctx, ws, p, in.MethodName, in.Arguments...)
+	data, err := p.ReadState(ctx, ws, in.MethodName, in.Arguments...)
 	// TODO: need to distinguish user error and system error
 	if err != nil {
 		return nil, err
