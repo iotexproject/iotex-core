@@ -712,7 +712,7 @@ func (bc *blockchain) MintNewBlock(
 			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
 			Registry:       bc.registry,
 		})
-	root, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
+	_, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
 	}
@@ -724,9 +724,7 @@ func (bc *blockchain) MintNewBlock(
 		Build(producerAddr, producerPubKey)
 
 	blk, err := block.NewBuilder(ra).
-		SetChainID(bc.config.Chain.ID).
 		SetPrevBlockHash(bc.tipHash).
-		SetStateRoot(root).
 		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
 		SetReceiptRoot(calculateReceiptRoot(rc)).
@@ -948,7 +946,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			AddActions(acts...).
 			Build(addr, pk)
 		// run execution and update state trie root hash
-		root, receipts, err := bc.runActions(racts, ws)
+		_, receipts, err := bc.runActions(racts, ws)
 		if err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
 		}
@@ -959,9 +957,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		}
 
 		genesis, err = block.NewBuilder(racts).
-			SetChainID(bc.ChainID()).
 			SetPrevBlockHash(Gen.ParentHash).
-			SetStateRoot(root).
 			SetDeltaStateDigest(ws.Digest()).
 			SetReceipts(receipts).
 			SetReceiptRoot(calculateReceiptRoot(receipts)).
@@ -975,7 +971,6 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetTimeStamp(Gen.Timestamp).
 			Build(addr, pk)
 		genesis, err = block.NewBuilder(racts).
-			SetChainID(bc.ChainID()).
 			SetPrevBlockHash(hash.ZeroHash256).
 			SignAndBuild(pk, sk)
 		if err != nil {
@@ -1043,14 +1038,10 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 	runTimer := bc.timerFactory.NewTimer("runActions")
-	root, receipts, err := bc.runActions(blk.RunnableActions(), ws)
+	_, receipts, err := bc.runActions(blk.RunnableActions(), ws)
 	runTimer.End()
 	if err != nil {
 		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bc.tipHeight), zap.Error(err))
-	}
-
-	if err = blk.VerifyStateRoot(root); err != nil {
-		return err
 	}
 
 	if err = blk.VerifyDeltaStateDigest(ws.Digest()); err != nil {

@@ -40,21 +40,9 @@ func (b *Builder) SetVersion(v uint32) *Builder {
 	return b
 }
 
-// SetChainID sets the chain id for block which is building.
-func (b *Builder) SetChainID(c uint32) *Builder {
-	b.blk.Header.chainID = c
-	return b
-}
-
 // SetPrevBlockHash sets the previous block hash for block which is building.
 func (b *Builder) SetPrevBlockHash(h hash.Hash256) *Builder {
 	b.blk.Header.prevBlockHash = h
-	return b
-}
-
-// SetStateRoot sets the new state root after running actions included in this building block.
-func (b *Builder) SetStateRoot(h hash.Hash256) *Builder {
-	b.blk.Header.stateRoot = h
 	return b
 }
 

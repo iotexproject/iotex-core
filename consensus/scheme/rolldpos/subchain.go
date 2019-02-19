@@ -84,7 +84,6 @@ func constructPutSubChainBlockRequest(
 	}
 
 	rootm := make(map[string]hash.Hash256)
-	rootm["state"] = b.StateRoot()
 	rootm["tx"] = b.TxRoot()
 	pb := action.NewPutBlock(
 		uint64(senderPCAddrDetails.PendingNonce),
