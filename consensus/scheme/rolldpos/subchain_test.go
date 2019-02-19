@@ -86,10 +86,8 @@ func TestPutBlockToParentChain(t *testing.T) {
 	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
 	txRoot := blk.CalculateTxRoot()
 	blkpb.Header.TxRoot = txRoot[:]
-	blkpb.Header.StateRoot = []byte("state root")
 	blk = block.Block{}
 	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
-	stateRoot := blk.StateRoot()
 
 	req := explorerapi.PutSubChainBlockRequest{
 		Version:         1,
@@ -101,10 +99,6 @@ func TestPutBlockToParentChain(t *testing.T) {
 		SubChainAddress: subAddr,
 		Height:          123456789,
 		Roots: []explorerapi.PutSubChainBlockMerkelRoot{
-			{
-				Name:  "state",
-				Value: hex.EncodeToString(stateRoot[:]),
-			},
 			{
 				Name:  "tx",
 				Value: hex.EncodeToString(txRoot[:]),

@@ -57,14 +57,12 @@ func (b *Block) ConvertToBlockHeaderPb() *iotextypes.BlockHeader {
 	pbHeader := iotextypes.BlockHeader{}
 
 	pbHeader.Version = b.Header.version
-	pbHeader.ChainID = b.Header.chainID
 	pbHeader.Height = b.Header.height
 	pbHeader.Timestamp = &timestamp.Timestamp{
 		Seconds: b.Header.Timestamp(),
 	}
 	pbHeader.PrevBlockHash = b.Header.prevBlockHash[:]
 	pbHeader.TxRoot = b.Header.txRoot[:]
-	pbHeader.StateRoot = b.Header.stateRoot[:]
 	pbHeader.DeltaStateDigest = b.Header.deltaStateDigest[:]
 	pbHeader.ReceiptRoot = b.Header.receiptRoot[:]
 	pbHeader.Signature = b.Header.blockSig
@@ -95,12 +93,10 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iotextypes.Block) {
 	b.Header = Header{}
 
 	b.Header.version = pbBlock.GetHeader().GetVersion()
-	b.Header.chainID = pbBlock.GetHeader().GetChainID()
 	b.Header.height = pbBlock.GetHeader().GetHeight()
 	b.Header.timestamp = pbBlock.GetHeader().GetTimestamp().GetSeconds()
 	copy(b.Header.prevBlockHash[:], pbBlock.GetHeader().GetPrevBlockHash())
 	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetTxRoot())
-	copy(b.Header.stateRoot[:], pbBlock.GetHeader().GetStateRoot())
 	copy(b.Header.deltaStateDigest[:], pbBlock.GetHeader().GetDeltaStateDigest())
 	copy(b.Header.receiptRoot[:], pbBlock.GetHeader().GetReceiptRoot())
 	b.Header.blockSig = pbBlock.GetHeader().GetSignature()
@@ -157,18 +153,6 @@ func (b *Block) CalculateTxRoot() hash.Hash256 {
 // HashBlock return the hash of this block (actually hash of block header)
 func (b *Block) HashBlock() hash.Hash256 {
 	return blake2b.Sum256(b.Header.ByteStream())
-}
-
-// VerifyStateRoot verifies the state root in header
-func (b *Block) VerifyStateRoot(root hash.Hash256) error {
-	if b.Header.stateRoot != root {
-		return errors.Errorf(
-			"state root hash does not match, expected = %x, actual = %x",
-			b.Header.stateRoot,
-			root,
-		)
-	}
-	return nil
 }
 
 // VerifyDeltaStateDigest verifies the delta state digest in header

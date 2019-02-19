@@ -36,12 +36,6 @@ func (b *TestingBuilder) SetVersion(v uint32) *TestingBuilder {
 	return b
 }
 
-// SetChainID sets the chain id for block which is building.
-func (b *TestingBuilder) SetChainID(c uint32) *TestingBuilder {
-	b.blk.Header.chainID = c
-	return b
-}
-
 // SetHeight sets the block height for block which is building.
 func (b *TestingBuilder) SetHeight(h uint64) *TestingBuilder {
 	b.blk.Header.height = h
@@ -66,12 +60,6 @@ func (b *TestingBuilder) AddActions(acts ...action.SealedEnvelope) *TestingBuild
 		b.blk.Actions = make([]action.SealedEnvelope, 0)
 	}
 	b.blk.Actions = append(b.blk.Actions, acts...)
-	return b
-}
-
-// SetStateRoot sets the new state root after running actions included in this building block.
-func (b *TestingBuilder) SetStateRoot(h hash.Hash256) *TestingBuilder {
-	b.blk.Header.stateRoot = h
 	return b
 }
 
@@ -107,13 +95,11 @@ func NewBlockDeprecated(
 	block := &Block{
 		Header: Header{
 			version:       version.ProtocolVersion,
-			chainID:       chainID,
 			height:        height,
 			timestamp:     timestamp,
 			prevBlockHash: prevBlockHash,
 			pubkey:        producer,
 			txRoot:        hash.ZeroHash256,
-			stateRoot:     hash.ZeroHash256,
 			receiptRoot:   hash.ZeroHash256,
 		},
 		Actions: actions,
