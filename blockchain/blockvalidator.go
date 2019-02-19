@@ -68,7 +68,6 @@ func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Ha
 		return v.validateActionsOnly(
 			blk.Actions,
 			blk.PublicKey(),
-			blk.ChainID(),
 			blk.Height(),
 		)
 	}
@@ -89,7 +88,6 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 func (v *validator) validateActionsOnly(
 	actions []action.SealedEnvelope,
 	pk keypair.PublicKey,
-	chainID uint32,
 	height uint64,
 ) error {
 	// Verify transfers, votes, executions, witness, and secrets
@@ -99,7 +97,6 @@ func (v *validator) validateActionsOnly(
 	if err := v.validateActions(
 		actions,
 		pk,
-		chainID,
 		height,
 		accountNonceMap,
 		errChan,
@@ -143,7 +140,6 @@ func (v *validator) validateActionsOnly(
 func (v *validator) validateActions(
 	actions []action.SealedEnvelope,
 	pk keypair.PublicKey,
-	chainID uint32,
 	height uint64,
 	accountNonceMap map[string][]uint64,
 	errChan chan error,

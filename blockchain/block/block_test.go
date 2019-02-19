@@ -155,6 +155,5 @@ func TestConvertFromBlockPb(t *testing.T) {
 	require.Equal(t, uint64(104), newblk.Actions[3].Nonce())
 
 	require.Equal(t, blk.Header.txRoot, blk.TxRoot())
-	require.Equal(t, blk.Header.stateRoot, blk.StateRoot())
 	require.Equal(t, blk.Header.receiptRoot, blk.ReceiptRoot())
 }

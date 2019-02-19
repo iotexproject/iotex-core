@@ -827,7 +827,6 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 		}
 
 		txRoot := blk.TxRoot()
-		stateRoot := blk.StateRoot()
 		deltaStateDigest := blk.DeltaStateDigest()
 		explorerBlock := explorer.Block{
 			ID:         hex.EncodeToString(hash[:]),
@@ -843,7 +842,6 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 				Address: keypair.EncodePublicKey(blk.PublicKey()),
 			},
 			TxRoot:           hex.EncodeToString(txRoot[:]),
-			StateRoot:        hex.EncodeToString(stateRoot[:]),
 			DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 		}
 
@@ -878,7 +876,6 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 	}
 
 	txRoot := blk.TxRoot()
-	stateRoot := blk.StateRoot()
 	deltaStateDigest := blk.DeltaStateDigest()
 	explorerBlock := explorer.Block{
 		ID:         blkID,
@@ -894,7 +891,6 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 			Address: keypair.EncodePublicKey(blk.PublicKey()),
 		},
 		TxRoot:           hex.EncodeToString(txRoot[:]),
-		StateRoot:        hex.EncodeToString(stateRoot[:]),
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 	}
 

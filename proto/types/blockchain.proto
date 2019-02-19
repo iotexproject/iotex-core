@@ -17,17 +17,14 @@ import "google/protobuf/timestamp.proto";
 // header of a block
 message BlockHeader {
   uint32 version = 1;
-  uint32 chainID = 2;
-  uint64 height = 3;
-  google.protobuf.Timestamp timestamp = 4;
-  bytes prevBlockHash = 5;
-  bytes txRoot = 6;
-  bytes stateRoot = 7;
-  bytes deltaStateDigest = 8;
-  bytes receiptRoot = 9;
-  bytes reserved = 10;
-  bytes signature = 11;
-  bytes pubkey = 12;
+  uint64 height = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  bytes prevBlockHash = 4;
+  bytes txRoot = 5;
+  bytes deltaStateDigest = 6;
+  bytes receiptRoot = 7;
+  bytes signature = 8;
+  bytes pubkey = 9;
 }
 
 // footer of a block
