@@ -703,9 +703,7 @@ func (bc *blockchain) MintNewBlock(
 				bc.genesisConfig.NumDelegates,
 				bc.genesisConfig.NumSubEpochs,
 			),
-			BlockHeight: newblockHeight,
-			// this field should be removed
-			BlockHash:      hash.ZeroHash256,
+			BlockHeight:    newblockHeight,
 			BlockTimeStamp: bc.now(),
 			Producer:       producer,
 			GasLimit:       &gasLimitForContext,
@@ -824,7 +822,6 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 	gasLimit := bc.genesisConfig.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight:    blk.Height(),
-		BlockHash:      blk.HashBlock(),
 		BlockTimeStamp: blk.Timestamp(),
 		Producer:       producer,
 		Caller:         caller,
@@ -1127,9 +1124,7 @@ func (bc *blockchain) runActions(
 				bc.genesisConfig.NumDelegates,
 				bc.genesisConfig.NumSubEpochs,
 			),
-			BlockHeight: acts.BlockHeight(),
-			// this field should be removed
-			BlockHash:      hash.ZeroHash256,
+			BlockHeight:    acts.BlockHeight(),
 			BlockTimeStamp: int64(acts.BlockTimeStamp()),
 			Producer:       producer,
 			GasLimit:       &gasLimit,
@@ -1319,7 +1314,6 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		EpochNumber:    0,
 		BlockHeight:    0,
-		BlockHash:      hash.ZeroHash256,
 		BlockTimeStamp: bc.genesisConfig.Timestamp,
 		GasLimit:       nil,
 		ActionGasLimit: bc.genesisConfig.ActionGasLimit,
