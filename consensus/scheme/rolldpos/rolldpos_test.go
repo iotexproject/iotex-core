@@ -419,9 +419,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Add(21)
 		for i := 0; i < 21; i++ {
 			go func(idx int) {
+				defer wg.Done()
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
-				defer wg.Done()
 			}(i)
 		}
 		wg.Wait()
@@ -458,9 +458,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Add(21)
 		for i := 0; i < 21; i++ {
 			go func(idx int) {
+				defer wg.Done()
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
-				defer wg.Done()
 			}(i)
 		}
 		wg.Wait()
@@ -502,10 +502,10 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Add(21)
 		for i := 0; i < 21; i++ {
 			go func(idx int) {
+				defer wg.Done()
 				cs[idx].ctx.cfg.TimeBasedRotation = true
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
-				defer wg.Done()
 			}(i)
 		}
 		wg.Wait()
@@ -552,9 +552,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Add(21)
 		for i := 0; i < 21; i++ {
 			go func(idx int) {
+				defer wg.Done()
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
-				defer wg.Done()
 			}(i)
 		}
 		wg.Wait()
@@ -594,9 +594,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Add(21)
 		for i := 0; i < 21; i++ {
 			go func(idx int) {
+				defer wg.Done()
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
-				defer wg.Done()
 			}(i)
 		}
 		wg.Wait()
