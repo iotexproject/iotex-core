@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -582,7 +583,7 @@ func (ctx *rollDPoSCtx) updateEpoch(height uint64) error {
 	if ctx.epoch != nil {
 		epochNum = ctx.epoch.num
 	}
-	if epochNum < getEpochNum(height, ctx.cfg.NumDelegates, ctx.cfg.NumSubEpochs) {
+	if epochNum < rolldpos.GetEpochNum(height, uint64(ctx.cfg.NumDelegates), uint64(ctx.cfg.NumSubEpochs)) {
 		epoch, err := ctx.epochCtxByHeight(height)
 		if err != nil {
 			return err
