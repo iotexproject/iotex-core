@@ -14,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -712,11 +714,6 @@ func (bc *blockchain) MintNewBlock(
 	gasLimitForContext := bc.genesisConfig.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EpochNumber: getEpochNum(
-				newblockHeight,
-				bc.genesisConfig.NumDelegates,
-				bc.genesisConfig.NumSubEpochs,
-			),
 			BlockHeight:    newblockHeight,
 			BlockTimeStamp: bc.now(),
 			Producer:       producer,
@@ -883,7 +880,6 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EpochNumber:    0,
 			Producer:       producer,
 			GasLimit:       &gasLimit,
 			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
@@ -1136,11 +1132,6 @@ func (bc *blockchain) runActions(
 
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			EpochNumber: getEpochNum(
-				acts.BlockHeight(),
-				bc.genesisConfig.NumDelegates,
-				bc.genesisConfig.NumSubEpochs,
-			),
 			BlockHeight:    acts.BlockHeight(),
 			BlockTimeStamp: int64(acts.BlockTimeStamp()),
 			Producer:       producer,
@@ -1160,10 +1151,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
 
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		return hash.ZeroHash256, nil, nil, errors.New("failed to get action context")
-	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	// initial action iterator
 	actionIterator := actioniterator.NewActionIterator(actionMap)
 	for {
@@ -1196,7 +1184,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	}
 
 	// Process grant block reward action
-	grant, err := bc.createGrantBlockRewardAction()
+	grant, err := bc.createGrantRewardAction(action.BlockReward)
 	if err != nil {
 		return hash.ZeroHash256, nil, nil, err
 	}
@@ -1205,6 +1193,21 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		receipts = append(receipts, receipt)
 	}
 	executedActions = append(executedActions, grant)
+
+	// Process grant epoch reward action if the block is the last one in an epoch
+	epochNum := rolldpos.GetEpochNum(raCtx.BlockHeight, bc.genesisConfig.NumDelegates, bc.genesisConfig.NumSubEpochs)
+	lastBlkHeight := rolldpos.GetEpochLastBlockHeight(epochNum, bc.genesisConfig.NumDelegates, bc.genesisConfig.NumSubEpochs)
+	if raCtx.BlockHeight == lastBlkHeight {
+		grant, err = bc.createGrantRewardAction(action.EpochReward)
+		if err != nil {
+			return hash.ZeroHash256, nil, nil, err
+		}
+		receipt, err = ws.RunAction(ctx, grant)
+		if receipt != nil {
+			receipts = append(receipts, receipt)
+		}
+		executedActions = append(executedActions, grant)
+	}
 
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
 }
@@ -1307,9 +1310,9 @@ func (bc *blockchain) buildStateInGenesis() error {
 	return nil
 }
 
-func (bc *blockchain) createGrantBlockRewardAction() (action.SealedEnvelope, error) {
+func (bc *blockchain) createGrantRewardAction(rewardType int) (action.SealedEnvelope, error) {
 	gb := action.GrantRewardBuilder{}
-	grant := gb.SetRewardType(action.BlockReward).Build()
+	grant := gb.SetRewardType(rewardType).Build()
 	eb := action.EnvelopeBuilder{}
 	envelope := eb.SetNonce(0).
 		SetGasPrice(big.NewInt(0)).
@@ -1329,7 +1332,6 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		return nil
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		EpochNumber:    0,
 		BlockHeight:    0,
 		BlockTimeStamp: bc.genesisConfig.Timestamp,
 		GasLimit:       nil,
@@ -1355,6 +1357,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		bc.genesisConfig.InitBalance(),
 		bc.genesisConfig.BlockReward(),
 		bc.genesisConfig.EpochReward(),
+		bc.genesisConfig.NumDelegatesForEpochReward,
 	)
 }
 
@@ -1381,13 +1384,4 @@ func producerAddress(cfg config.Config) address.Address {
 		log.L().Panic("Failed to get block producer address.", zap.Error(err))
 	}
 	return address
-}
-
-// TODO: consolidate with the same method in consensus module
-func getEpochNum(
-	height uint64,
-	numDelegates uint64,
-	numSubEpochs uint64,
-) uint64 {
-	return (height-1)/uint64(numDelegates)/uint64(numSubEpochs) + 1
 }

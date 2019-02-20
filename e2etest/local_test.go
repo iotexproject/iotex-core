@@ -154,8 +154,6 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	registry := protocol.Registry{}
-	rewardingProtocol := rewarding.NewProtocol()
-	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		blockchain.DefaultStateFactoryOption(),
@@ -163,6 +161,8 @@ func TestLocalCommit(t *testing.T) {
 		blockchain.GenesisOption(genesisCfg),
 		blockchain.RegistryOption(&registry),
 	)
+	rewardingProtocol := rewarding.NewProtocol(chain, genesisCfg.NumDelegates, genesisCfg.NumSubEpochs)
+	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain), rewardingProtocol)
@@ -537,8 +537,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	registry := protocol.Registry{}
-	rewardingProtocol := rewarding.NewProtocol()
-	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		blockchain.DefaultStateFactoryOption(),
@@ -546,6 +544,8 @@ func TestVoteLocalCommit(t *testing.T) {
 		blockchain.GenesisOption(genesisCfg),
 		blockchain.RegistryOption(&registry),
 	)
+	rewardingProtocol := rewarding.NewProtocol(chain, genesisCfg.NumDelegates, genesisCfg.NumSubEpochs)
+	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol(),
 		vote.NewProtocol(chain))

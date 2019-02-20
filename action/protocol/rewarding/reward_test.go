@@ -11,6 +11,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/test/testaddress"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-func TestProtocol_GrantReward(t *testing.T) {
+func TestProtocol_GrantBlockReward(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
@@ -54,6 +56,18 @@ func TestProtocol_GrantReward(t *testing.T) {
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.Error(t, p.GrantBlockReward(ctx, ws))
+	})
+}
+
+func TestProtocol_GrantEpochReward(t *testing.T) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
+		raCtx, ok := protocol.GetRunActionsCtx(ctx)
+		require.True(t, ok)
+
+		ws, err := stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.NoError(t, p.Deposit(ctx, ws, big.NewInt(200)))
+		require.NoError(t, stateDB.Commit(ws))
 
 		// Grant epoch reward
 		ws, err = stateDB.NewWorkingSet()
@@ -63,17 +77,32 @@ func TestProtocol_GrantReward(t *testing.T) {
 
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		availableBalance, err = p.AvailableBalance(ctx, ws)
+		availableBalance, err := p.AvailableBalance(ctx, ws)
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(90), availableBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, raCtx.Producer)
+		assert.Equal(t, big.NewInt(100), availableBalance)
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["producer"])
 		require.NoError(t, err)
-		// TODO: assert unclaimedBalance after splitting epoch reward correctly
+		assert.Equal(t, big.NewInt(40), unclaimedBalance)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["alfa"])
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(30), unclaimedBalance)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["bravo"])
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(20), unclaimedBalance)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["charlie"])
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(10), unclaimedBalance)
 
 		// Grant the same epoch reward again will fail
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.Error(t, p.GrantEpochReward(ctx, ws))
+
+		// Grant the epoch reward on a block that is not the last one in an epoch will fail
+		raCtx.BlockHeight++
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.Error(t, p.GrantEpochReward(protocol.WithRunActionsCtx(context.Background(), raCtx), ws))
 	})
 }
 

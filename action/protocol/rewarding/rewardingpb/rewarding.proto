@@ -13,6 +13,7 @@ message Admin {
     bytes admin = 1;
     bytes blockReward = 2;
     bytes epochReward = 3;
+    uint64 numDelegatesForEpochReward = 4;
 }
 
 message Fund {
