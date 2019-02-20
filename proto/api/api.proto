@@ -5,7 +5,7 @@
 // License 2.0 that can be found in the LICENSE file.
 
 // To compile the proto, run:
-//      protoc -I.  -I ../types --go_out=plugins=grpc:. api.proto
+//      protoc -I. -I ./../types --go_out=plugins=grpc:$GOPATH/src *.proto
 syntax = "proto3";
 package iotexapi;
 option go_package = "github.com/iotexproject/iotex-core/protogen/iotexapi";

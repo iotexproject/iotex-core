@@ -67,8 +67,8 @@ func (b *Builder) SetReceiptRoot(h hash.Hash256) *Builder {
 // SignAndBuild signs and then builds a block.
 func (b *Builder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.pubkey = signerPubKey
-	blkHash := b.blk.HashBlock()
-	sig, err := crypto.Sign(blkHash[:], signerPriKey)
+	h := b.blk.Header.HashHeaderCore()
+	sig, err := crypto.Sign(h[:], signerPriKey)
 	if err != nil {
 		return Block{}, errors.New("Failed to sign block")
 	}
