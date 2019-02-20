@@ -36,9 +36,11 @@ func TestPutBlockToParentChain(t *testing.T) {
 	blk := block.Block{}
 	blkpb := &iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
-			Version: version.ProtocolVersion,
-			Height:  123456789,
-			Pubkey:  keypair.PublicKeyToBytes(pubKey),
+			Core: &iotextypes.BlockHeaderCore{
+				Version: version.ProtocolVersion,
+				Height:  123456789,
+			},
+			ProducerPubkey: keypair.PublicKeyToBytes(pubKey),
 		},
 		Actions: []*iotextypes.Action{
 			{
@@ -85,7 +87,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 	}
 	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
 	txRoot := blk.CalculateTxRoot()
-	blkpb.Header.TxRoot = txRoot[:]
+	blkpb.Header.Core.TxRoot = txRoot[:]
 	blk = block.Block{}
 	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
 
