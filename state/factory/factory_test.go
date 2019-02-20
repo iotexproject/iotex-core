@@ -38,6 +38,33 @@ import (
 )
 
 const testTriePath = "trie.test"
+const testStateDBPath = "stateDB.test"
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+func compareStrings(actual []string, expected []string) bool {
+	act := make(map[string]bool)
+	for i := 0; i < len(actual); i++ {
+		act[actual[i]] = true
+	}
+
+	for i := 0; i < len(expected); i++ {
+		if _, ok := act[expected[i]]; ok {
+			delete(act, expected[i])
+		} else {
+			return false
+		}
+	}
+	return len(act) == 0
+}
 
 func voteForm(height uint64, cs []*state.Candidate) []string {
 	r := make([]string, len(cs))
@@ -61,6 +88,21 @@ func TestSnapshot(t *testing.T) {
 		require.NoError(sf.Stop(context.Background()))
 	}()
 	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	testSnapshot(ws, t)
+}
+
+func TestSDBSnapshot(t *testing.T) {
+	require := require.New(t)
+	testutil.CleanupPath(t, testStateDBPath)
+	defer testutil.CleanupPath(t, testStateDBPath)
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testStateDBPath
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(err)
+	require.NoError(sdb.Start(context.Background()))
+	ws, err := sdb.NewWorkingSet()
 	require.NoError(err)
 	testSnapshot(ws, t)
 }
@@ -116,109 +158,6 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
 }
 
-// Test configure: candidateSize = 2, candidateBufferSize = 3
-//func TestCandidatePool(t *testing.T) {
-//	c1 := &Candidate{Address: "a1", Votes: big.NewInt(1), PublicKey: []byte("p1")}
-//	c2 := &Candidate{Address: "a2", Votes: big.NewInt(2), PublicKey: []byte("p2")}
-//	c3 := &Candidate{Address: "a3", Votes: big.NewInt(3), PublicKey: []byte("p3")}
-//	c4 := &Candidate{Address: "a4", Votes: big.NewInt(4), PublicKey: []byte("p4")}
-//	c5 := &Candidate{Address: "a5", Votes: big.NewInt(5), PublicKey: []byte("p5")}
-//	c6 := &Candidate{Address: "a6", Votes: big.NewInt(6), PublicKey: []byte("p6")}
-//	c7 := &Candidate{Address: "a7", Votes: big.NewInt(7), PublicKey: []byte("p7")}
-//	c8 := &Candidate{Address: "a8", Votes: big.NewInt(8), PublicKey: []byte("p8")}
-//	c9 := &Candidate{Address: "a9", Votes: big.NewInt(9), PublicKey: []byte("p9")}
-//	c10 := &Candidate{Address: "a10", Votes: big.NewInt(10), PublicKey: []byte("p10")}
-//	c11 := &Candidate{Address: "a11", Votes: big.NewInt(11), PublicKey: []byte("p11")}
-//	c12 := &Candidate{Address: "a12", Votes: big.NewInt(12), PublicKey: []byte("p12")}
-//	tr, _ := trie.NewTrie("trie.test", false)
-//	sf := &stateFactory{
-//		trie:                   tr,
-//		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
-//		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
-//		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
-//	}
-//
-//	sf.updateVotes(c1, big.NewInt(1))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:1"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
-//
-//	sf.updateVotes(c1, big.NewInt(2))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
-//
-//	sf.updateVotes(c2, big.NewInt(2))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2", "a2:2"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
-//
-//	sf.updateVotes(c3, big.NewInt(3))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:2", "a3:3"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2"}))
-//
-//	sf.updateVotes(c4, big.NewInt(4))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:3", "a4:4"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a2:2"}))
-//
-//	sf.updateVotes(c2, big.NewInt(1))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:3", "a4:4"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a2:1"}))
-//
-//	sf.updateVotes(c5, big.NewInt(5))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a4:4", "a5:5"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a2:1", "a3:3"}))
-//
-//	sf.updateVotes(c2, big.NewInt(9))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a5:5"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a3:3", "a4:4"}))
-//
-//	sf.updateVotes(c6, big.NewInt(6))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a6:6"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:3", "a4:4", "a5:5"}))
-//
-//	sf.updateVotes(c1, big.NewInt(10))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a4:4", "a5:5", "a6:6"}))
-//
-//	sf.updateVotes(c7, big.NewInt(7))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a5:5", "a6:6", "a7:7"}))
-//
-//	sf.updateVotes(c3, big.NewInt(8))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:8", "a6:6", "a7:7"}))
-//
-//	sf.updateVotes(c8, big.NewInt(12))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a2:9", "a3:8", "a7:7"}))
-//
-//	sf.updateVotes(c4, big.NewInt(8))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a2:9", "a3:8", "a4:8"}))
-//
-//	sf.updateVotes(c6, big.NewInt(7))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a2:9", "a3:8", "a4:8"}))
-//
-//	sf.updateVotes(c1, big.NewInt(1))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:8", "a4:8", "a1:1"}))
-//
-//	sf.updateVotes(c9, big.NewInt(2))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:8", "a4:8", "a9:2"}))
-//
-//	sf.updateVotes(c10, big.NewInt(8))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
-//
-//	sf.updateVotes(c11, big.NewInt(3))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
-//
-//	sf.updateVotes(c12, big.NewInt(1))
-//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
-//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
-//}
-
 func TestCandidates(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -228,6 +167,17 @@ func TestCandidates(t *testing.T) {
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(t, err)
 	testCandidates(sf, t, true)
+}
+
+func TestSDBCandidates(t *testing.T) {
+	testutil.CleanupPath(t, testStateDBPath)
+	defer testutil.CleanupPath(t, testStateDBPath)
+	cfg := config.Default
+	cfg.Chain.NumCandidates = 2
+	cfg.Chain.TrieDBPath = testStateDBPath
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(t, err)
+	testCandidates(sdb, t, false)
 }
 
 func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
@@ -948,6 +898,158 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Equal(t, stateA.Balance, big.NewInt(100))
 }
 
+func TestState(t *testing.T) {
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+
+	cfg := config.Default
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	require.NoError(t, err)
+	testState(sf, t)
+}
+
+func TestSDBState(t *testing.T) {
+	testutil.CleanupPath(t, testStateDBPath)
+	defer testutil.CleanupPath(t, testStateDBPath)
+
+	cfg := config.Default
+	cfg.Chain.NumCandidates = 2
+	cfg.Chain.TrieDBPath = testStateDBPath
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(t, err)
+	testState(sdb, t)
+}
+
+func testState(sf Factory, t *testing.T) {
+	// Create a dummy iotex address
+	a := testaddress.Addrinfo["alfa"].String()
+	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
+	require.NoError(t, sf.Start(context.Background()))
+	defer func() {
+		require.NoError(t, sf.Stop(context.Background()))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(t, err)
+	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	require.NoError(t, err)
+
+	// a:100(0)
+
+	vote, err := action.NewVote(0, a, uint64(20000), big.NewInt(0))
+	require.NoError(t, err)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(vote).
+		SetDestinationAddress(a).SetGasLimit(20000).Build()
+	selp, err := action.Sign(elp, priKeyA)
+	require.NoError(t, err)
+	gasLimit := uint64(1000000)
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
+		})
+
+	_, err = ws.RunAction(ctx, selp)
+	require.NoError(t, err)
+	_ = ws.UpdateBlockLevelInfo(0)
+	require.NoError(t, sf.Commit(ws))
+	h, _ := sf.Height()
+	cand, _ := sf.CandidatesByHeight(h)
+	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":100"}))
+	// a(a):100(+0=100) b:200 c:300
+
+	//test AccountState() & State()
+	var testAccount state.Account
+	accountA, err := sf.AccountState(a)
+	require.NoError(t, err)
+	sHash := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
+	err = sf.State(sHash, &testAccount)
+	require.NoError(t, err)
+	require.Equal(t, accountA, &testAccount)
+	require.Equal(t, big.NewInt(100), accountA.Balance)
+	require.True(t, accountA.IsCandidate)
+	require.Equal(t, a, accountA.Votee)
+	require.Equal(t, big.NewInt(100), accountA.VotingWeight)
+}
+
+func TestNonce(t *testing.T) {
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+
+	cfg := config.Default
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	require.NoError(t, err)
+	testNonce(sf, t)
+}
+func TestSDBNonce(t *testing.T) {
+	testutil.CleanupPath(t, testStateDBPath)
+	defer testutil.CleanupPath(t, testStateDBPath)
+
+	cfg := config.Default
+	cfg.Chain.NumCandidates = 2
+	cfg.Chain.TrieDBPath = testStateDBPath
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(t, err)
+
+	testNonce(sdb, t)
+}
+
+func testNonce(sf Factory, t *testing.T) {
+	// Create two dummy iotex address
+	a := testaddress.Addrinfo["alfa"].String()
+	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	b := testaddress.Addrinfo["bravo"].String()
+
+	sf.AddActionHandlers(account.NewProtocol(), account.NewProtocol())
+	require.NoError(t, sf.Start(context.Background()))
+	defer func() {
+		require.NoError(t, sf.Stop(context.Background()))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(t, err)
+	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	require.NoError(t, err)
+
+	tx, err := action.NewTransfer(0, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
+	require.NoError(t, err)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(tx).SetNonce(0).
+		SetDestinationAddress(a).SetGasLimit(20000).Build()
+	selp, err := action.Sign(elp, priKeyA)
+	require.NoError(t, err)
+	gasLimit := uint64(1000000)
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
+		})
+
+	_, err = ws.RunAction(ctx, selp)
+	require.NoError(t, err)
+	nonce, err := sf.Nonce(a)
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), nonce)
+
+	tx, err = action.NewTransfer(1, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
+	require.NoError(t, err)
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetAction(tx).SetNonce(1).
+		SetDestinationAddress(a).SetGasLimit(20000).Build()
+	selp, err = action.Sign(elp, priKeyA)
+	require.NoError(t, err)
+
+	_, err = ws.RunAction(ctx, selp)
+	require.NoError(t, err)
+	_ = ws.UpdateBlockLevelInfo(0)
+	require.NoError(t, sf.Commit(ws))
+	nonce, err = sf.Nonce(a)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), nonce)
+}
+
 func TestUnvote(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -958,6 +1060,17 @@ func TestUnvote(t *testing.T) {
 	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(t, err)
 	testUnvote(f, t)
+}
+
+func TestSDBUnvote(t *testing.T) {
+	testutil.CleanupPath(t, testStateDBPath)
+	defer testutil.CleanupPath(t, testStateDBPath)
+	cfg := config.Default
+	cfg.Chain.NumCandidates = 2
+	cfg.Chain.TrieDBPath = testStateDBPath
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(t, err)
+	testUnvote(sdb, t)
 }
 
 func testUnvote(sf Factory, t *testing.T) {
@@ -1094,6 +1207,33 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 	testLoadStoreHeight(statefactory, t)
 }
 
+func TestSDBLoadStoreHeight(t *testing.T) {
+	require := require.New(t)
+	testutil.CleanupPath(t, testStateDBPath)
+	defer testutil.CleanupPath(t, testStateDBPath)
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testStateDBPath
+	db, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(err)
+
+	testLoadStoreHeight(db, t)
+}
+
+func TestSDBLoadStoreHeightInMem(t *testing.T) {
+	require := require.New(t)
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testStateDBPath
+
+	testutil.CleanupPath(t, testStateDBPath)
+	defer testutil.CleanupPath(t, testStateDBPath)
+	db, err := NewStateDB(cfg, InMemStateDBOption())
+	require.NoError(err)
+
+	testLoadStoreHeight(db, t)
+}
+
 func testLoadStoreHeight(sf Factory, t *testing.T) {
 	require := require.New(t)
 	require.NoError(sf.Start(context.Background()))
@@ -1135,20 +1275,133 @@ func TestFactory_RootHashByHeight(t *testing.T) {
 	require.NotEqual(t, hash.ZeroHash256, rootHash)
 }
 
-func compareStrings(actual []string, expected []string) bool {
-	act := make(map[string]bool)
-	for i := 0; i < len(actual); i++ {
-		act[actual[i]] = true
+func TestRunActions(t *testing.T) {
+	sf, err := NewFactory(config.Default, InMemTrieOption())
+	require.NoError(t, err)
+	ws, err := sf.NewWorkingSet()
+	require.NoError(t, err)
+	testRunActions(ws, t)
+}
+
+func TestSTXRunActions(t *testing.T) {
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	testRunActions(ws, t)
+}
+
+func testRunActions(ws WorkingSet, t *testing.T) {
+	require := require.New(t)
+	require.Equal(uint64(0), ws.Version())
+	require.NoError(ws.GetDB().Start(context.Background()))
+	a := testaddress.Addrinfo["alfa"].String()
+	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	b := testaddress.Addrinfo["bravo"].String()
+	priKeyB := testaddress.Keyinfo["bravo"].PriKey
+	_, err := util.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	require.NoError(err)
+	_, err = util.LoadOrCreateAccount(ws, b, big.NewInt(200))
+	require.NoError(err)
+
+	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
+	require.NoError(err)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).SetDestinationAddress(b).SetAction(tx1).Build()
+	selp1, err := action.Sign(elp, priKeyA)
+	require.NoError(err)
+
+	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(0), big.NewInt(0))
+	require.NoError(err)
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetNonce(1).SetDestinationAddress(b).SetAction(tx2).Build()
+	selp2, err := action.Sign(elp, priKeyB)
+	require.NoError(err)
+
+	gasLimit := uint64(1000000)
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			Producer: testaddress.Addrinfo["producer"],
+			GasLimit: &gasLimit,
+		})
+	_, _, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp1, selp2})
+	require.NoError(err)
+	rootHash1 := ws.UpdateBlockLevelInfo(1)
+	require.NoError(ws.Commit())
+
+	rootHash2 := ws.RootHash()
+	require.Equal(rootHash1, rootHash2)
+	h := ws.Height()
+	require.Equal(uint64(1), h)
+}
+
+func TestCachedBatch(t *testing.T) {
+	sf, err := NewFactory(config.Default, InMemTrieOption())
+	require.NoError(t, err)
+	ws, err := sf.NewWorkingSet()
+	require.NoError(t, err)
+	testCachedBatch(ws, t, false)
+}
+
+func TestSTXCachedBatch(t *testing.T) {
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	testCachedBatch(ws, t, true)
+}
+
+func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
+	require := require.New(t)
+	hash1 := ws.Digest()
+	if chechCachedBatchHash {
+		require.NotEqual(hash.ZeroHash256, hash1)
 	}
 
-	for i := 0; i < len(expected); i++ {
-		if _, ok := act[expected[i]]; ok {
-			delete(act, expected[i])
-		} else {
-			return false
-		}
+	// test PutState()
+	hashA := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
+	accountA := state.EmptyAccount()
+	accountA.Balance = big.NewInt(70)
+	accountA.VotingWeight = big.NewInt(70)
+	err := ws.PutState(hashA, accountA)
+	require.NoError(err)
+	hash2 := ws.Digest()
+	if chechCachedBatchHash {
+		require.NotEqual(hash1, hash2)
 	}
-	return len(act) == 0
+
+	// test State()
+	testAccount := state.EmptyAccount()
+	err = ws.State(hashA, &testAccount)
+	require.NoError(err)
+	require.Equal(accountA, testAccount)
+
+	// test DelState()
+	err = ws.DelState(hashA)
+	require.NoError(err)
+	hash3 := ws.Digest()
+	if chechCachedBatchHash {
+		require.NotEqual(hash2, hash3)
+	}
+
+	// can't state account "alfa" anymore
+	err = ws.State(hashA, &testAccount)
+	require.Error(err)
+}
+
+func TestGetDB(t *testing.T) {
+	sf, err := NewFactory(config.Default, InMemTrieOption())
+	require.NoError(t, err)
+	ws, err := sf.NewWorkingSet()
+	require.NoError(t, err)
+	testGetDB(ws, t)
+}
+
+func TestSTXGetDB(t *testing.T) {
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	testGetDB(ws, t)
+}
+
+func testGetDB(ws WorkingSet, t *testing.T) {
+	require := require.New(t)
+	memDB := db.NewMemKVStore()
+	require.Equal(uint64(0), ws.Version())
+	require.NoError(ws.GetDB().Start(context.Background()))
+	require.Equal(memDB, ws.GetDB())
 }
 
 func BenchmarkInMemRunAction(b *testing.B) {
@@ -1174,6 +1427,32 @@ func BenchmarkDBRunAction(b *testing.B) {
 	}
 	benchRunAction(sf, b)
 
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+}
+
+func BenchmarkSDBInMemRunAction(b *testing.B) {
+	cfg := config.Default
+	sdb, err := NewStateDB(cfg, InMemStateDBOption())
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchRunAction(sdb, b)
+}
+
+func BenchmarkSDBRunAction(b *testing.B) {
+	tp := filepath.Join(os.TempDir(), testStateDBPath)
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = tp
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchRunAction(sdb, b)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
@@ -1277,12 +1556,105 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func randStringRunes(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(b)
-}
+// Test configure: candidateSize = 2, candidateBufferSize = 3
+//func TestCandidatePool(t *testing.T) {
+//	c1 := &Candidate{Address: "a1", Votes: big.NewInt(1), PublicKey: []byte("p1")}
+//	c2 := &Candidate{Address: "a2", Votes: big.NewInt(2), PublicKey: []byte("p2")}
+//	c3 := &Candidate{Address: "a3", Votes: big.NewInt(3), PublicKey: []byte("p3")}
+//	c4 := &Candidate{Address: "a4", Votes: big.NewInt(4), PublicKey: []byte("p4")}
+//	c5 := &Candidate{Address: "a5", Votes: big.NewInt(5), PublicKey: []byte("p5")}
+//	c6 := &Candidate{Address: "a6", Votes: big.NewInt(6), PublicKey: []byte("p6")}
+//	c7 := &Candidate{Address: "a7", Votes: big.NewInt(7), PublicKey: []byte("p7")}
+//	c8 := &Candidate{Address: "a8", Votes: big.NewInt(8), PublicKey: []byte("p8")}
+//	c9 := &Candidate{Address: "a9", Votes: big.NewInt(9), PublicKey: []byte("p9")}
+//	c10 := &Candidate{Address: "a10", Votes: big.NewInt(10), PublicKey: []byte("p10")}
+//	c11 := &Candidate{Address: "a11", Votes: big.NewInt(11), PublicKey: []byte("p11")}
+//	c12 := &Candidate{Address: "a12", Votes: big.NewInt(12), PublicKey: []byte("p12")}
+//	tr, _ := trie.NewTrie("trie.test", false)
+//	sf := &stateFactory{
+//		trie:                   tr,
+//		candidateHeap:          CandidateMinPQ{candidateSize, make([]*Candidate, 0)},
+//		candidateBufferMinHeap: CandidateMinPQ{candidateBufferSize, make([]*Candidate, 0)},
+//		candidateBufferMaxHeap: CandidateMaxPQ{candidateBufferSize, make([]*Candidate, 0)},
+//	}
+//
+//	sf.updateVotes(c1, big.NewInt(1))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:1"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+//
+//	sf.updateVotes(c1, big.NewInt(2))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+//
+//	sf.updateVotes(c2, big.NewInt(2))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:2", "a2:2"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{}))
+//
+//	sf.updateVotes(c3, big.NewInt(3))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:2", "a3:3"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2"}))
+//
+//	sf.updateVotes(c4, big.NewInt(4))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:3", "a4:4"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a2:2"}))
+//
+//	sf.updateVotes(c2, big.NewInt(1))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a3:3", "a4:4"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a2:1"}))
+//
+//	sf.updateVotes(c5, big.NewInt(5))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a4:4", "a5:5"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a2:1", "a3:3"}))
+//
+//	sf.updateVotes(c2, big.NewInt(9))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a5:5"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a1:2", "a3:3", "a4:4"}))
+//
+//	sf.updateVotes(c6, big.NewInt(6))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a6:6"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:3", "a4:4", "a5:5"}))
+//
+//	sf.updateVotes(c1, big.NewInt(10))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a4:4", "a5:5", "a6:6"}))
+//
+//	sf.updateVotes(c7, big.NewInt(7))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a5:5", "a6:6", "a7:7"}))
+//
+//	sf.updateVotes(c3, big.NewInt(8))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a2:9"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:8", "a6:6", "a7:7"}))
+//
+//	sf.updateVotes(c8, big.NewInt(12))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a2:9", "a3:8", "a7:7"}))
+//
+//	sf.updateVotes(c4, big.NewInt(8))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a2:9", "a3:8", "a4:8"}))
+//
+//	sf.updateVotes(c6, big.NewInt(7))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a1:10", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a2:9", "a3:8", "a4:8"}))
+//
+//	sf.updateVotes(c1, big.NewInt(1))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:8", "a4:8", "a1:1"}))
+//
+//	sf.updateVotes(c9, big.NewInt(2))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a3:8", "a4:8", "a9:2"}))
+//
+//	sf.updateVotes(c10, big.NewInt(8))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
+//
+//	sf.updateVotes(c11, big.NewInt(3))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
+//
+//	sf.updateVotes(c12, big.NewInt(1))
+//	assert.True(t, compareStrings(voteForm(sf.Candidates()), []string{"a2:9", "a8:12"}))
+//	assert.True(t, compareStrings(voteForm(sf.candidatesBuffer()), []string{"a10:8", "a3:8", "a4:8"}))
+//}
