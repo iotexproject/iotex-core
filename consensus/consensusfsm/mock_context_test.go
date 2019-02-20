@@ -37,6 +37,7 @@ func (m *MockContext) EXPECT() *MockContextMockRecorder {
 
 // IsStaleEvent mocks base method
 func (m *MockContext) IsStaleEvent(arg0 *ConsensusEvent) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsStaleEvent", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -44,11 +45,13 @@ func (m *MockContext) IsStaleEvent(arg0 *ConsensusEvent) bool {
 
 // IsStaleEvent indicates an expected call of IsStaleEvent
 func (mr *MockContextMockRecorder) IsStaleEvent(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsStaleEvent", reflect.TypeOf((*MockContext)(nil).IsStaleEvent), arg0)
 }
 
 // IsFutureEvent mocks base method
 func (m *MockContext) IsFutureEvent(arg0 *ConsensusEvent) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsFutureEvent", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -56,11 +59,13 @@ func (m *MockContext) IsFutureEvent(arg0 *ConsensusEvent) bool {
 
 // IsFutureEvent indicates an expected call of IsFutureEvent
 func (mr *MockContextMockRecorder) IsFutureEvent(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFutureEvent", reflect.TypeOf((*MockContext)(nil).IsFutureEvent), arg0)
 }
 
 // IsStaleUnmatchedEvent mocks base method
 func (m *MockContext) IsStaleUnmatchedEvent(arg0 *ConsensusEvent) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsStaleUnmatchedEvent", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -68,11 +73,13 @@ func (m *MockContext) IsStaleUnmatchedEvent(arg0 *ConsensusEvent) bool {
 
 // IsStaleUnmatchedEvent indicates an expected call of IsStaleUnmatchedEvent
 func (mr *MockContextMockRecorder) IsStaleUnmatchedEvent(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsStaleUnmatchedEvent", reflect.TypeOf((*MockContext)(nil).IsStaleUnmatchedEvent), arg0)
 }
 
 // Logger mocks base method
 func (m *MockContext) Logger() *zap.Logger {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Logger")
 	ret0, _ := ret[0].(*zap.Logger)
 	return ret0
@@ -80,11 +87,13 @@ func (m *MockContext) Logger() *zap.Logger {
 
 // Logger indicates an expected call of Logger
 func (mr *MockContextMockRecorder) Logger() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logger", reflect.TypeOf((*MockContext)(nil).Logger))
 }
 
 // LoggerWithStats mocks base method
 func (m *MockContext) LoggerWithStats() *zap.Logger {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoggerWithStats")
 	ret0, _ := ret[0].(*zap.Logger)
 	return ret0
@@ -92,11 +101,13 @@ func (m *MockContext) LoggerWithStats() *zap.Logger {
 
 // LoggerWithStats indicates an expected call of LoggerWithStats
 func (mr *MockContextMockRecorder) LoggerWithStats() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoggerWithStats", reflect.TypeOf((*MockContext)(nil).LoggerWithStats))
 }
 
 // Height mocks base method
 func (m *MockContext) Height() uint64 {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Height")
 	ret0, _ := ret[0].(uint64)
 	return ret0
@@ -104,11 +115,13 @@ func (m *MockContext) Height() uint64 {
 
 // Height indicates an expected call of Height
 func (mr *MockContextMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContext)(nil).Height))
 }
 
 // NewConsensusEvent mocks base method
 func (m *MockContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{}) *ConsensusEvent {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewConsensusEvent", arg0, arg1)
 	ret0, _ := ret[0].(*ConsensusEvent)
 	return ret0
@@ -116,11 +129,13 @@ func (m *MockContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{})
 
 // NewConsensusEvent indicates an expected call of NewConsensusEvent
 func (mr *MockContextMockRecorder) NewConsensusEvent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewConsensusEvent", reflect.TypeOf((*MockContext)(nil).NewConsensusEvent), arg0, arg1)
 }
 
 // NewBackdoorEvt mocks base method
 func (m *MockContext) NewBackdoorEvt(arg0 go_fsm.State) *ConsensusEvent {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBackdoorEvt", arg0)
 	ret0, _ := ret[0].(*ConsensusEvent)
 	return ret0
@@ -128,11 +143,13 @@ func (m *MockContext) NewBackdoorEvt(arg0 go_fsm.State) *ConsensusEvent {
 
 // NewBackdoorEvt indicates an expected call of NewBackdoorEvt
 func (mr *MockContextMockRecorder) NewBackdoorEvt(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBackdoorEvt", reflect.TypeOf((*MockContext)(nil).NewBackdoorEvt), arg0)
 }
 
 // IsDelegate mocks base method
 func (m *MockContext) IsDelegate() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsDelegate")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -140,11 +157,13 @@ func (m *MockContext) IsDelegate() bool {
 
 // IsDelegate indicates an expected call of IsDelegate
 func (mr *MockContextMockRecorder) IsDelegate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsDelegate", reflect.TypeOf((*MockContext)(nil).IsDelegate))
 }
 
 // IsProposer mocks base method
 func (m *MockContext) IsProposer() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsProposer")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -152,31 +171,37 @@ func (m *MockContext) IsProposer() bool {
 
 // IsProposer indicates an expected call of IsProposer
 func (mr *MockContextMockRecorder) IsProposer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsProposer", reflect.TypeOf((*MockContext)(nil).IsProposer))
 }
 
 // BroadcastBlockProposal mocks base method
 func (m *MockContext) BroadcastBlockProposal(arg0 Endorsement) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "BroadcastBlockProposal", arg0)
 }
 
 // BroadcastBlockProposal indicates an expected call of BroadcastBlockProposal
 func (mr *MockContextMockRecorder) BroadcastBlockProposal(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastBlockProposal", reflect.TypeOf((*MockContext)(nil).BroadcastBlockProposal), arg0)
 }
 
 // BroadcastEndorsement mocks base method
 func (m *MockContext) BroadcastEndorsement(arg0 Endorsement) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "BroadcastEndorsement", arg0)
 }
 
 // BroadcastEndorsement indicates an expected call of BroadcastEndorsement
 func (mr *MockContextMockRecorder) BroadcastEndorsement(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastEndorsement", reflect.TypeOf((*MockContext)(nil).BroadcastEndorsement), arg0)
 }
 
 // Prepare mocks base method
 func (m *MockContext) Prepare() (time.Duration, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Prepare")
 	ret0, _ := ret[0].(time.Duration)
 	ret1, _ := ret[1].(error)
@@ -185,11 +210,13 @@ func (m *MockContext) Prepare() (time.Duration, error) {
 
 // Prepare indicates an expected call of Prepare
 func (mr *MockContextMockRecorder) Prepare() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockContext)(nil).Prepare))
 }
 
 // MintBlock mocks base method
 func (m *MockContext) MintBlock() (Endorsement, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MintBlock")
 	ret0, _ := ret[0].(Endorsement)
 	ret1, _ := ret[1].(error)
@@ -198,11 +225,13 @@ func (m *MockContext) MintBlock() (Endorsement, error) {
 
 // MintBlock indicates an expected call of MintBlock
 func (mr *MockContextMockRecorder) MintBlock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintBlock", reflect.TypeOf((*MockContext)(nil).MintBlock))
 }
 
 // NewProposalEndorsement mocks base method
 func (m *MockContext) NewProposalEndorsement(arg0 Endorsement) (Endorsement, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewProposalEndorsement", arg0)
 	ret0, _ := ret[0].(Endorsement)
 	ret1, _ := ret[1].(error)
@@ -211,11 +240,13 @@ func (m *MockContext) NewProposalEndorsement(arg0 Endorsement) (Endorsement, err
 
 // NewProposalEndorsement indicates an expected call of NewProposalEndorsement
 func (mr *MockContextMockRecorder) NewProposalEndorsement(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewProposalEndorsement", reflect.TypeOf((*MockContext)(nil).NewProposalEndorsement), arg0)
 }
 
 // NewLockEndorsement mocks base method
 func (m *MockContext) NewLockEndorsement() (Endorsement, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewLockEndorsement")
 	ret0, _ := ret[0].(Endorsement)
 	ret1, _ := ret[1].(error)
@@ -224,11 +255,13 @@ func (m *MockContext) NewLockEndorsement() (Endorsement, error) {
 
 // NewLockEndorsement indicates an expected call of NewLockEndorsement
 func (mr *MockContextMockRecorder) NewLockEndorsement() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewLockEndorsement", reflect.TypeOf((*MockContext)(nil).NewLockEndorsement))
 }
 
 // NewPreCommitEndorsement mocks base method
 func (m *MockContext) NewPreCommitEndorsement() (Endorsement, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewPreCommitEndorsement")
 	ret0, _ := ret[0].(Endorsement)
 	ret1, _ := ret[1].(error)
@@ -237,21 +270,25 @@ func (m *MockContext) NewPreCommitEndorsement() (Endorsement, error) {
 
 // NewPreCommitEndorsement indicates an expected call of NewPreCommitEndorsement
 func (mr *MockContextMockRecorder) NewPreCommitEndorsement() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewPreCommitEndorsement", reflect.TypeOf((*MockContext)(nil).NewPreCommitEndorsement))
 }
 
 // OnConsensusReached mocks base method
 func (m *MockContext) OnConsensusReached() {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "OnConsensusReached")
 }
 
 // OnConsensusReached indicates an expected call of OnConsensusReached
 func (mr *MockContextMockRecorder) OnConsensusReached() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnConsensusReached", reflect.TypeOf((*MockContext)(nil).OnConsensusReached))
 }
 
 // AddProposalEndorsement mocks base method
 func (m *MockContext) AddProposalEndorsement(arg0 Endorsement) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddProposalEndorsement", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -259,11 +296,13 @@ func (m *MockContext) AddProposalEndorsement(arg0 Endorsement) error {
 
 // AddProposalEndorsement indicates an expected call of AddProposalEndorsement
 func (mr *MockContextMockRecorder) AddProposalEndorsement(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddProposalEndorsement", reflect.TypeOf((*MockContext)(nil).AddProposalEndorsement), arg0)
 }
 
 // AddLockEndorsement mocks base method
 func (m *MockContext) AddLockEndorsement(arg0 Endorsement) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddLockEndorsement", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -271,11 +310,13 @@ func (m *MockContext) AddLockEndorsement(arg0 Endorsement) error {
 
 // AddLockEndorsement indicates an expected call of AddLockEndorsement
 func (mr *MockContextMockRecorder) AddLockEndorsement(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLockEndorsement", reflect.TypeOf((*MockContext)(nil).AddLockEndorsement), arg0)
 }
 
 // AddPreCommitEndorsement mocks base method
 func (m *MockContext) AddPreCommitEndorsement(arg0 Endorsement) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddPreCommitEndorsement", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -283,11 +324,13 @@ func (m *MockContext) AddPreCommitEndorsement(arg0 Endorsement) error {
 
 // AddPreCommitEndorsement indicates an expected call of AddPreCommitEndorsement
 func (mr *MockContextMockRecorder) AddPreCommitEndorsement(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPreCommitEndorsement", reflect.TypeOf((*MockContext)(nil).AddPreCommitEndorsement), arg0)
 }
 
 // HasReceivedBlock mocks base method
 func (m *MockContext) HasReceivedBlock() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HasReceivedBlock")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -295,11 +338,13 @@ func (m *MockContext) HasReceivedBlock() bool {
 
 // HasReceivedBlock indicates an expected call of HasReceivedBlock
 func (mr *MockContextMockRecorder) HasReceivedBlock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasReceivedBlock", reflect.TypeOf((*MockContext)(nil).HasReceivedBlock))
 }
 
 // IsLocked mocks base method
 func (m *MockContext) IsLocked() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsLocked")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -307,11 +352,13 @@ func (m *MockContext) IsLocked() bool {
 
 // IsLocked indicates an expected call of IsLocked
 func (mr *MockContextMockRecorder) IsLocked() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLocked", reflect.TypeOf((*MockContext)(nil).IsLocked))
 }
 
 // ReadyToPreCommit mocks base method
 func (m *MockContext) ReadyToPreCommit() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadyToPreCommit")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -319,11 +366,13 @@ func (m *MockContext) ReadyToPreCommit() bool {
 
 // ReadyToPreCommit indicates an expected call of ReadyToPreCommit
 func (mr *MockContextMockRecorder) ReadyToPreCommit() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadyToPreCommit", reflect.TypeOf((*MockContext)(nil).ReadyToPreCommit))
 }
 
 // ReadyToCommit mocks base method
 func (m *MockContext) ReadyToCommit() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadyToCommit")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -331,5 +380,6 @@ func (m *MockContext) ReadyToCommit() bool {
 
 // ReadyToCommit indicates an expected call of ReadyToCommit
 func (mr *MockContextMockRecorder) ReadyToCommit() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadyToCommit", reflect.TypeOf((*MockContext)(nil).ReadyToCommit))
 }

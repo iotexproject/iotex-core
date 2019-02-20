@@ -3,13 +3,14 @@ package explorer
 
 import (
 	"fmt"
-	"github.com/coopernurse/barrister-go"
 	"reflect"
+
+	"github.com/coopernurse/barrister-go"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "9a91a9518bf4888d8fcedc7e25cd3407"
-const BarristerDateGenerated int64 = 1550271368575000000
+const BarristerChecksum string = "3b0b57c6a62d1672a4bbc32a0a363031"
+const BarristerDateGenerated int64 = 1550686946112000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -302,6 +303,13 @@ type SettleDeposit struct {
 	IsPending    bool   `json:"isPending"`
 }
 
+type Meta struct {
+	ProtocolVersion int64  `json:"protocolVersion"`
+	ChainID         int64  `json:"chainID"`
+	SourceVersion   string `json:"sourceVersion"`
+	SourceCommitID  string `json:"sourceCommitID"`
+}
+
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
 	GetAddressBalance(address string) (string, error)
@@ -349,6 +357,7 @@ type Explorer interface {
 	EstimateGasForVote() (int64, error)
 	EstimateGasForSmartContract(request Execution) (int64, error)
 	GetStateRootHash(blockHeight int64) (string, error)
+	GetMeta() (Meta, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -1186,6 +1195,24 @@ func (_p ExplorerProxy) GetStateRootHash(blockHeight int64) (string, error) {
 		return _cast, nil
 	}
 	return "", _err
+}
+
+func (_p ExplorerProxy) GetMeta() (Meta, error) {
+	_res, _err := _p.client.Call("Explorer.getMeta")
+	if _err == nil {
+		_retType := _p.idl.Method("Explorer.getMeta").Returns
+		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Meta{}), _res, "")
+	}
+	if _err == nil {
+		_cast, _ok := _res.(Meta)
+		if !_ok {
+			_t := reflect.TypeOf(_res)
+			_msg := fmt.Sprintf("Explorer.getMeta returned invalid type: %v", _t)
+			return Meta{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
+		}
+		return _cast, nil
+	}
+	return Meta{}, _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -2566,6 +2593,13 @@ var IdlJsonRaw = `[
                 "optional": true,
                 "is_array": false,
                 "comment": ""
+            },
+            {
+                "name": "address",
+                "type": "AddressDetails",
+                "optional": true,
+                "is_array": false,
+                "comment": ""
             }
         ],
         "values": null,
@@ -3039,6 +3073,48 @@ var IdlJsonRaw = `[
             {
                 "name": "isPending",
                 "type": "bool",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            }
+        ],
+        "values": null,
+        "functions": null,
+        "barrister_version": "",
+        "date_generated": 0,
+        "checksum": ""
+    },
+    {
+        "type": "struct",
+        "name": "Meta",
+        "comment": "",
+        "value": "",
+        "extends": "",
+        "fields": [
+            {
+                "name": "protocolVersion",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "chainID",
+                "type": "int",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "sourceVersion",
+                "type": "string",
+                "optional": false,
+                "is_array": false,
+                "comment": ""
+            },
+            {
+                "name": "sourceCommitID",
+                "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -4146,6 +4222,18 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
+            },
+            {
+                "name": "getMeta",
+                "comment": "get the meta data of a blockchain",
+                "params": [],
+                "returns": {
+                    "name": "",
+                    "type": "Meta",
+                    "optional": false,
+                    "is_array": false,
+                    "comment": ""
+                }
             }
         ],
         "barrister_version": "",
@@ -4162,7 +4250,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1550271368575,
-        "checksum": "9a91a9518bf4888d8fcedc7e25cd3407"
+        "date_generated": 1550686946112,
+        "checksum": "3b0b57c6a62d1672a4bbc32a0a363031"
     }
 ]`

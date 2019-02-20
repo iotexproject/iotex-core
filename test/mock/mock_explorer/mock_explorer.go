@@ -35,6 +35,7 @@ func (m *MockExplorer) EXPECT() *MockExplorerMockRecorder {
 
 // GetBlockchainHeight mocks base method
 func (m *MockExplorer) GetBlockchainHeight() (int64, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBlockchainHeight")
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
@@ -43,11 +44,13 @@ func (m *MockExplorer) GetBlockchainHeight() (int64, error) {
 
 // GetBlockchainHeight indicates an expected call of GetBlockchainHeight
 func (mr *MockExplorerMockRecorder) GetBlockchainHeight() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockchainHeight", reflect.TypeOf((*MockExplorer)(nil).GetBlockchainHeight))
 }
 
 // GetAddressBalance mocks base method
 func (m *MockExplorer) GetAddressBalance(address string) (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAddressBalance", address)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -56,11 +59,13 @@ func (m *MockExplorer) GetAddressBalance(address string) (string, error) {
 
 // GetAddressBalance indicates an expected call of GetAddressBalance
 func (mr *MockExplorerMockRecorder) GetAddressBalance(address interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddressBalance", reflect.TypeOf((*MockExplorer)(nil).GetAddressBalance), address)
 }
 
 // GetAddressDetails mocks base method
 func (m *MockExplorer) GetAddressDetails(address string) (explorer.AddressDetails, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAddressDetails", address)
 	ret0, _ := ret[0].(explorer.AddressDetails)
 	ret1, _ := ret[1].(error)
@@ -69,11 +74,13 @@ func (m *MockExplorer) GetAddressDetails(address string) (explorer.AddressDetail
 
 // GetAddressDetails indicates an expected call of GetAddressDetails
 func (mr *MockExplorerMockRecorder) GetAddressDetails(address interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddressDetails", reflect.TypeOf((*MockExplorer)(nil).GetAddressDetails), address)
 }
 
 // GetLastTransfersByRange mocks base method
 func (m *MockExplorer) GetLastTransfersByRange(startBlockHeight, offset, limit int64, showCoinBase bool) ([]explorer.Transfer, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLastTransfersByRange", startBlockHeight, offset, limit, showCoinBase)
 	ret0, _ := ret[0].([]explorer.Transfer)
 	ret1, _ := ret[1].(error)
@@ -82,11 +89,13 @@ func (m *MockExplorer) GetLastTransfersByRange(startBlockHeight, offset, limit i
 
 // GetLastTransfersByRange indicates an expected call of GetLastTransfersByRange
 func (mr *MockExplorerMockRecorder) GetLastTransfersByRange(startBlockHeight, offset, limit, showCoinBase interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastTransfersByRange", reflect.TypeOf((*MockExplorer)(nil).GetLastTransfersByRange), startBlockHeight, offset, limit, showCoinBase)
 }
 
 // GetTransferByID mocks base method
 func (m *MockExplorer) GetTransferByID(transferID string) (explorer.Transfer, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTransferByID", transferID)
 	ret0, _ := ret[0].(explorer.Transfer)
 	ret1, _ := ret[1].(error)
@@ -95,11 +104,13 @@ func (m *MockExplorer) GetTransferByID(transferID string) (explorer.Transfer, er
 
 // GetTransferByID indicates an expected call of GetTransferByID
 func (mr *MockExplorerMockRecorder) GetTransferByID(transferID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransferByID", reflect.TypeOf((*MockExplorer)(nil).GetTransferByID), transferID)
 }
 
 // GetTransfersByAddress mocks base method
 func (m *MockExplorer) GetTransfersByAddress(address string, offset, limit int64) ([]explorer.Transfer, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTransfersByAddress", address, offset, limit)
 	ret0, _ := ret[0].([]explorer.Transfer)
 	ret1, _ := ret[1].(error)
@@ -108,11 +119,13 @@ func (m *MockExplorer) GetTransfersByAddress(address string, offset, limit int64
 
 // GetTransfersByAddress indicates an expected call of GetTransfersByAddress
 func (mr *MockExplorerMockRecorder) GetTransfersByAddress(address, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransfersByAddress", reflect.TypeOf((*MockExplorer)(nil).GetTransfersByAddress), address, offset, limit)
 }
 
 // GetUnconfirmedTransfersByAddress mocks base method
 func (m *MockExplorer) GetUnconfirmedTransfersByAddress(address string, offset, limit int64) ([]explorer.Transfer, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnconfirmedTransfersByAddress", address, offset, limit)
 	ret0, _ := ret[0].([]explorer.Transfer)
 	ret1, _ := ret[1].(error)
@@ -121,11 +134,13 @@ func (m *MockExplorer) GetUnconfirmedTransfersByAddress(address string, offset, 
 
 // GetUnconfirmedTransfersByAddress indicates an expected call of GetUnconfirmedTransfersByAddress
 func (mr *MockExplorerMockRecorder) GetUnconfirmedTransfersByAddress(address, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnconfirmedTransfersByAddress", reflect.TypeOf((*MockExplorer)(nil).GetUnconfirmedTransfersByAddress), address, offset, limit)
 }
 
 // GetTransfersByBlockID mocks base method
 func (m *MockExplorer) GetTransfersByBlockID(blkID string, offset, limit int64) ([]explorer.Transfer, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTransfersByBlockID", blkID, offset, limit)
 	ret0, _ := ret[0].([]explorer.Transfer)
 	ret1, _ := ret[1].(error)
@@ -134,11 +149,13 @@ func (m *MockExplorer) GetTransfersByBlockID(blkID string, offset, limit int64) 
 
 // GetTransfersByBlockID indicates an expected call of GetTransfersByBlockID
 func (mr *MockExplorerMockRecorder) GetTransfersByBlockID(blkID, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransfersByBlockID", reflect.TypeOf((*MockExplorer)(nil).GetTransfersByBlockID), blkID, offset, limit)
 }
 
 // GetLastVotesByRange mocks base method
 func (m *MockExplorer) GetLastVotesByRange(startBlockHeight, offset, limit int64) ([]explorer.Vote, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLastVotesByRange", startBlockHeight, offset, limit)
 	ret0, _ := ret[0].([]explorer.Vote)
 	ret1, _ := ret[1].(error)
@@ -147,11 +164,13 @@ func (m *MockExplorer) GetLastVotesByRange(startBlockHeight, offset, limit int64
 
 // GetLastVotesByRange indicates an expected call of GetLastVotesByRange
 func (mr *MockExplorerMockRecorder) GetLastVotesByRange(startBlockHeight, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastVotesByRange", reflect.TypeOf((*MockExplorer)(nil).GetLastVotesByRange), startBlockHeight, offset, limit)
 }
 
 // GetVoteByID mocks base method
 func (m *MockExplorer) GetVoteByID(voteID string) (explorer.Vote, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVoteByID", voteID)
 	ret0, _ := ret[0].(explorer.Vote)
 	ret1, _ := ret[1].(error)
@@ -160,11 +179,13 @@ func (m *MockExplorer) GetVoteByID(voteID string) (explorer.Vote, error) {
 
 // GetVoteByID indicates an expected call of GetVoteByID
 func (mr *MockExplorerMockRecorder) GetVoteByID(voteID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVoteByID", reflect.TypeOf((*MockExplorer)(nil).GetVoteByID), voteID)
 }
 
 // GetVotesByAddress mocks base method
 func (m *MockExplorer) GetVotesByAddress(address string, offset, limit int64) ([]explorer.Vote, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVotesByAddress", address, offset, limit)
 	ret0, _ := ret[0].([]explorer.Vote)
 	ret1, _ := ret[1].(error)
@@ -173,11 +194,13 @@ func (m *MockExplorer) GetVotesByAddress(address string, offset, limit int64) ([
 
 // GetVotesByAddress indicates an expected call of GetVotesByAddress
 func (mr *MockExplorerMockRecorder) GetVotesByAddress(address, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVotesByAddress", reflect.TypeOf((*MockExplorer)(nil).GetVotesByAddress), address, offset, limit)
 }
 
 // GetUnconfirmedVotesByAddress mocks base method
 func (m *MockExplorer) GetUnconfirmedVotesByAddress(address string, offset, limit int64) ([]explorer.Vote, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnconfirmedVotesByAddress", address, offset, limit)
 	ret0, _ := ret[0].([]explorer.Vote)
 	ret1, _ := ret[1].(error)
@@ -186,11 +209,13 @@ func (m *MockExplorer) GetUnconfirmedVotesByAddress(address string, offset, limi
 
 // GetUnconfirmedVotesByAddress indicates an expected call of GetUnconfirmedVotesByAddress
 func (mr *MockExplorerMockRecorder) GetUnconfirmedVotesByAddress(address, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnconfirmedVotesByAddress", reflect.TypeOf((*MockExplorer)(nil).GetUnconfirmedVotesByAddress), address, offset, limit)
 }
 
 // GetVotesByBlockID mocks base method
 func (m *MockExplorer) GetVotesByBlockID(blkID string, offset, limit int64) ([]explorer.Vote, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVotesByBlockID", blkID, offset, limit)
 	ret0, _ := ret[0].([]explorer.Vote)
 	ret1, _ := ret[1].(error)
@@ -199,11 +224,13 @@ func (m *MockExplorer) GetVotesByBlockID(blkID string, offset, limit int64) ([]e
 
 // GetVotesByBlockID indicates an expected call of GetVotesByBlockID
 func (mr *MockExplorerMockRecorder) GetVotesByBlockID(blkID, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVotesByBlockID", reflect.TypeOf((*MockExplorer)(nil).GetVotesByBlockID), blkID, offset, limit)
 }
 
 // GetLastExecutionsByRange mocks base method
 func (m *MockExplorer) GetLastExecutionsByRange(startBlockHeight, offset, limit int64) ([]explorer.Execution, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLastExecutionsByRange", startBlockHeight, offset, limit)
 	ret0, _ := ret[0].([]explorer.Execution)
 	ret1, _ := ret[1].(error)
@@ -212,11 +239,13 @@ func (m *MockExplorer) GetLastExecutionsByRange(startBlockHeight, offset, limit 
 
 // GetLastExecutionsByRange indicates an expected call of GetLastExecutionsByRange
 func (mr *MockExplorerMockRecorder) GetLastExecutionsByRange(startBlockHeight, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastExecutionsByRange", reflect.TypeOf((*MockExplorer)(nil).GetLastExecutionsByRange), startBlockHeight, offset, limit)
 }
 
 // GetExecutionByID mocks base method
 func (m *MockExplorer) GetExecutionByID(executionID string) (explorer.Execution, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetExecutionByID", executionID)
 	ret0, _ := ret[0].(explorer.Execution)
 	ret1, _ := ret[1].(error)
@@ -225,11 +254,13 @@ func (m *MockExplorer) GetExecutionByID(executionID string) (explorer.Execution,
 
 // GetExecutionByID indicates an expected call of GetExecutionByID
 func (mr *MockExplorerMockRecorder) GetExecutionByID(executionID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExecutionByID", reflect.TypeOf((*MockExplorer)(nil).GetExecutionByID), executionID)
 }
 
 // GetExecutionsByAddress mocks base method
 func (m *MockExplorer) GetExecutionsByAddress(address string, offset, limit int64) ([]explorer.Execution, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetExecutionsByAddress", address, offset, limit)
 	ret0, _ := ret[0].([]explorer.Execution)
 	ret1, _ := ret[1].(error)
@@ -238,11 +269,13 @@ func (m *MockExplorer) GetExecutionsByAddress(address string, offset, limit int6
 
 // GetExecutionsByAddress indicates an expected call of GetExecutionsByAddress
 func (mr *MockExplorerMockRecorder) GetExecutionsByAddress(address, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExecutionsByAddress", reflect.TypeOf((*MockExplorer)(nil).GetExecutionsByAddress), address, offset, limit)
 }
 
 // GetUnconfirmedExecutionsByAddress mocks base method
 func (m *MockExplorer) GetUnconfirmedExecutionsByAddress(address string, offset, limit int64) ([]explorer.Execution, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnconfirmedExecutionsByAddress", address, offset, limit)
 	ret0, _ := ret[0].([]explorer.Execution)
 	ret1, _ := ret[1].(error)
@@ -251,11 +284,13 @@ func (m *MockExplorer) GetUnconfirmedExecutionsByAddress(address string, offset,
 
 // GetUnconfirmedExecutionsByAddress indicates an expected call of GetUnconfirmedExecutionsByAddress
 func (mr *MockExplorerMockRecorder) GetUnconfirmedExecutionsByAddress(address, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnconfirmedExecutionsByAddress", reflect.TypeOf((*MockExplorer)(nil).GetUnconfirmedExecutionsByAddress), address, offset, limit)
 }
 
 // GetExecutionsByBlockID mocks base method
 func (m *MockExplorer) GetExecutionsByBlockID(blkID string, offset, limit int64) ([]explorer.Execution, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetExecutionsByBlockID", blkID, offset, limit)
 	ret0, _ := ret[0].([]explorer.Execution)
 	ret1, _ := ret[1].(error)
@@ -264,11 +299,13 @@ func (m *MockExplorer) GetExecutionsByBlockID(blkID string, offset, limit int64)
 
 // GetExecutionsByBlockID indicates an expected call of GetExecutionsByBlockID
 func (mr *MockExplorerMockRecorder) GetExecutionsByBlockID(blkID, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExecutionsByBlockID", reflect.TypeOf((*MockExplorer)(nil).GetExecutionsByBlockID), blkID, offset, limit)
 }
 
 // GetCreateDeposit mocks base method
 func (m *MockExplorer) GetCreateDeposit(createDepositID string) (explorer.CreateDeposit, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCreateDeposit", createDepositID)
 	ret0, _ := ret[0].(explorer.CreateDeposit)
 	ret1, _ := ret[1].(error)
@@ -277,11 +314,13 @@ func (m *MockExplorer) GetCreateDeposit(createDepositID string) (explorer.Create
 
 // GetCreateDeposit indicates an expected call of GetCreateDeposit
 func (mr *MockExplorerMockRecorder) GetCreateDeposit(createDepositID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCreateDeposit", reflect.TypeOf((*MockExplorer)(nil).GetCreateDeposit), createDepositID)
 }
 
 // GetCreateDepositsByAddress mocks base method
 func (m *MockExplorer) GetCreateDepositsByAddress(address string, offset, limit int64) ([]explorer.CreateDeposit, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCreateDepositsByAddress", address, offset, limit)
 	ret0, _ := ret[0].([]explorer.CreateDeposit)
 	ret1, _ := ret[1].(error)
@@ -290,11 +329,13 @@ func (m *MockExplorer) GetCreateDepositsByAddress(address string, offset, limit 
 
 // GetCreateDepositsByAddress indicates an expected call of GetCreateDepositsByAddress
 func (mr *MockExplorerMockRecorder) GetCreateDepositsByAddress(address, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCreateDepositsByAddress", reflect.TypeOf((*MockExplorer)(nil).GetCreateDepositsByAddress), address, offset, limit)
 }
 
 // GetSettleDeposit mocks base method
 func (m *MockExplorer) GetSettleDeposit(settleDepositID string) (explorer.SettleDeposit, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSettleDeposit", settleDepositID)
 	ret0, _ := ret[0].(explorer.SettleDeposit)
 	ret1, _ := ret[1].(error)
@@ -303,11 +344,13 @@ func (m *MockExplorer) GetSettleDeposit(settleDepositID string) (explorer.Settle
 
 // GetSettleDeposit indicates an expected call of GetSettleDeposit
 func (mr *MockExplorerMockRecorder) GetSettleDeposit(settleDepositID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSettleDeposit", reflect.TypeOf((*MockExplorer)(nil).GetSettleDeposit), settleDepositID)
 }
 
 // GetSettleDepositsByAddress mocks base method
 func (m *MockExplorer) GetSettleDepositsByAddress(address string, offset, limit int64) ([]explorer.SettleDeposit, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSettleDepositsByAddress", address, offset, limit)
 	ret0, _ := ret[0].([]explorer.SettleDeposit)
 	ret1, _ := ret[1].(error)
@@ -316,11 +359,13 @@ func (m *MockExplorer) GetSettleDepositsByAddress(address string, offset, limit 
 
 // GetSettleDepositsByAddress indicates an expected call of GetSettleDepositsByAddress
 func (mr *MockExplorerMockRecorder) GetSettleDepositsByAddress(address, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSettleDepositsByAddress", reflect.TypeOf((*MockExplorer)(nil).GetSettleDepositsByAddress), address, offset, limit)
 }
 
 // GetLastBlocksByRange mocks base method
 func (m *MockExplorer) GetLastBlocksByRange(offset, limit int64) ([]explorer.Block, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLastBlocksByRange", offset, limit)
 	ret0, _ := ret[0].([]explorer.Block)
 	ret1, _ := ret[1].(error)
@@ -329,11 +374,13 @@ func (m *MockExplorer) GetLastBlocksByRange(offset, limit int64) ([]explorer.Blo
 
 // GetLastBlocksByRange indicates an expected call of GetLastBlocksByRange
 func (mr *MockExplorerMockRecorder) GetLastBlocksByRange(offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastBlocksByRange", reflect.TypeOf((*MockExplorer)(nil).GetLastBlocksByRange), offset, limit)
 }
 
 // GetBlockByID mocks base method
 func (m *MockExplorer) GetBlockByID(blkID string) (explorer.Block, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBlockByID", blkID)
 	ret0, _ := ret[0].(explorer.Block)
 	ret1, _ := ret[1].(error)
@@ -342,11 +389,13 @@ func (m *MockExplorer) GetBlockByID(blkID string) (explorer.Block, error) {
 
 // GetBlockByID indicates an expected call of GetBlockByID
 func (mr *MockExplorerMockRecorder) GetBlockByID(blkID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByID", reflect.TypeOf((*MockExplorer)(nil).GetBlockByID), blkID)
 }
 
 // GetCoinStatistic mocks base method
 func (m *MockExplorer) GetCoinStatistic() (explorer.CoinStatistic, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCoinStatistic")
 	ret0, _ := ret[0].(explorer.CoinStatistic)
 	ret1, _ := ret[1].(error)
@@ -355,11 +404,13 @@ func (m *MockExplorer) GetCoinStatistic() (explorer.CoinStatistic, error) {
 
 // GetCoinStatistic indicates an expected call of GetCoinStatistic
 func (mr *MockExplorerMockRecorder) GetCoinStatistic() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCoinStatistic", reflect.TypeOf((*MockExplorer)(nil).GetCoinStatistic))
 }
 
 // GetConsensusMetrics mocks base method
 func (m *MockExplorer) GetConsensusMetrics() (explorer.ConsensusMetrics, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetConsensusMetrics")
 	ret0, _ := ret[0].(explorer.ConsensusMetrics)
 	ret1, _ := ret[1].(error)
@@ -368,11 +419,13 @@ func (m *MockExplorer) GetConsensusMetrics() (explorer.ConsensusMetrics, error) 
 
 // GetConsensusMetrics indicates an expected call of GetConsensusMetrics
 func (mr *MockExplorerMockRecorder) GetConsensusMetrics() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConsensusMetrics", reflect.TypeOf((*MockExplorer)(nil).GetConsensusMetrics))
 }
 
 // GetCandidateMetrics mocks base method
 func (m *MockExplorer) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCandidateMetrics")
 	ret0, _ := ret[0].(explorer.CandidateMetrics)
 	ret1, _ := ret[1].(error)
@@ -381,11 +434,13 @@ func (m *MockExplorer) GetCandidateMetrics() (explorer.CandidateMetrics, error) 
 
 // GetCandidateMetrics indicates an expected call of GetCandidateMetrics
 func (mr *MockExplorerMockRecorder) GetCandidateMetrics() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCandidateMetrics", reflect.TypeOf((*MockExplorer)(nil).GetCandidateMetrics))
 }
 
 // GetCandidateMetricsByHeight mocks base method
 func (m *MockExplorer) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetrics, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCandidateMetricsByHeight", h)
 	ret0, _ := ret[0].(explorer.CandidateMetrics)
 	ret1, _ := ret[1].(error)
@@ -394,11 +449,13 @@ func (m *MockExplorer) GetCandidateMetricsByHeight(h int64) (explorer.CandidateM
 
 // GetCandidateMetricsByHeight indicates an expected call of GetCandidateMetricsByHeight
 func (mr *MockExplorerMockRecorder) GetCandidateMetricsByHeight(h interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCandidateMetricsByHeight", reflect.TypeOf((*MockExplorer)(nil).GetCandidateMetricsByHeight), h)
 }
 
 // SendTransfer mocks base method
 func (m *MockExplorer) SendTransfer(request explorer.SendTransferRequest) (explorer.SendTransferResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendTransfer", request)
 	ret0, _ := ret[0].(explorer.SendTransferResponse)
 	ret1, _ := ret[1].(error)
@@ -407,11 +464,13 @@ func (m *MockExplorer) SendTransfer(request explorer.SendTransferRequest) (explo
 
 // SendTransfer indicates an expected call of SendTransfer
 func (mr *MockExplorerMockRecorder) SendTransfer(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendTransfer", reflect.TypeOf((*MockExplorer)(nil).SendTransfer), request)
 }
 
 // SendVote mocks base method
 func (m *MockExplorer) SendVote(request explorer.SendVoteRequest) (explorer.SendVoteResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendVote", request)
 	ret0, _ := ret[0].(explorer.SendVoteResponse)
 	ret1, _ := ret[1].(error)
@@ -420,11 +479,13 @@ func (m *MockExplorer) SendVote(request explorer.SendVoteRequest) (explorer.Send
 
 // SendVote indicates an expected call of SendVote
 func (mr *MockExplorerMockRecorder) SendVote(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendVote", reflect.TypeOf((*MockExplorer)(nil).SendVote), request)
 }
 
 // SendSmartContract mocks base method
 func (m *MockExplorer) SendSmartContract(request explorer.Execution) (explorer.SendSmartContractResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendSmartContract", request)
 	ret0, _ := ret[0].(explorer.SendSmartContractResponse)
 	ret1, _ := ret[1].(error)
@@ -433,11 +494,13 @@ func (m *MockExplorer) SendSmartContract(request explorer.Execution) (explorer.S
 
 // SendSmartContract indicates an expected call of SendSmartContract
 func (mr *MockExplorerMockRecorder) SendSmartContract(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendSmartContract", reflect.TypeOf((*MockExplorer)(nil).SendSmartContract), request)
 }
 
 // PutSubChainBlock mocks base method
 func (m *MockExplorer) PutSubChainBlock(request explorer.PutSubChainBlockRequest) (explorer.PutSubChainBlockResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PutSubChainBlock", request)
 	ret0, _ := ret[0].(explorer.PutSubChainBlockResponse)
 	ret1, _ := ret[1].(error)
@@ -446,11 +509,13 @@ func (m *MockExplorer) PutSubChainBlock(request explorer.PutSubChainBlockRequest
 
 // PutSubChainBlock indicates an expected call of PutSubChainBlock
 func (mr *MockExplorerMockRecorder) PutSubChainBlock(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutSubChainBlock", reflect.TypeOf((*MockExplorer)(nil).PutSubChainBlock), request)
 }
 
 // SendAction mocks base method
 func (m *MockExplorer) SendAction(request explorer.SendActionRequest) (explorer.SendActionResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendAction", request)
 	ret0, _ := ret[0].(explorer.SendActionResponse)
 	ret1, _ := ret[1].(error)
@@ -459,11 +524,13 @@ func (m *MockExplorer) SendAction(request explorer.SendActionRequest) (explorer.
 
 // SendAction indicates an expected call of SendAction
 func (mr *MockExplorerMockRecorder) SendAction(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAction", reflect.TypeOf((*MockExplorer)(nil).SendAction), request)
 }
 
 // GetPeers mocks base method
 func (m *MockExplorer) GetPeers() (explorer.GetPeersResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPeers")
 	ret0, _ := ret[0].(explorer.GetPeersResponse)
 	ret1, _ := ret[1].(error)
@@ -472,11 +539,13 @@ func (m *MockExplorer) GetPeers() (explorer.GetPeersResponse, error) {
 
 // GetPeers indicates an expected call of GetPeers
 func (mr *MockExplorerMockRecorder) GetPeers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPeers", reflect.TypeOf((*MockExplorer)(nil).GetPeers))
 }
 
 // GetReceiptByExecutionID mocks base method
 func (m *MockExplorer) GetReceiptByExecutionID(id string) (explorer.Receipt, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetReceiptByExecutionID", id)
 	ret0, _ := ret[0].(explorer.Receipt)
 	ret1, _ := ret[1].(error)
@@ -485,11 +554,13 @@ func (m *MockExplorer) GetReceiptByExecutionID(id string) (explorer.Receipt, err
 
 // GetReceiptByExecutionID indicates an expected call of GetReceiptByExecutionID
 func (mr *MockExplorerMockRecorder) GetReceiptByExecutionID(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByExecutionID", reflect.TypeOf((*MockExplorer)(nil).GetReceiptByExecutionID), id)
 }
 
 // GetReceiptByActionID mocks base method
 func (m *MockExplorer) GetReceiptByActionID(id string) (explorer.Receipt, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetReceiptByActionID", id)
 	ret0, _ := ret[0].(explorer.Receipt)
 	ret1, _ := ret[1].(error)
@@ -498,11 +569,13 @@ func (m *MockExplorer) GetReceiptByActionID(id string) (explorer.Receipt, error)
 
 // GetReceiptByActionID indicates an expected call of GetReceiptByActionID
 func (mr *MockExplorerMockRecorder) GetReceiptByActionID(id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByActionID", reflect.TypeOf((*MockExplorer)(nil).GetReceiptByActionID), id)
 }
 
 // ReadExecutionState mocks base method
 func (m *MockExplorer) ReadExecutionState(request explorer.Execution) (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadExecutionState", request)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -511,11 +584,13 @@ func (m *MockExplorer) ReadExecutionState(request explorer.Execution) (string, e
 
 // ReadExecutionState indicates an expected call of ReadExecutionState
 func (mr *MockExplorerMockRecorder) ReadExecutionState(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadExecutionState", reflect.TypeOf((*MockExplorer)(nil).ReadExecutionState), request)
 }
 
 // GetBlockOrActionByHash mocks base method
 func (m *MockExplorer) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOrActResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetBlockOrActionByHash", hashStr)
 	ret0, _ := ret[0].(explorer.GetBlkOrActResponse)
 	ret1, _ := ret[1].(error)
@@ -524,11 +599,13 @@ func (m *MockExplorer) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOr
 
 // GetBlockOrActionByHash indicates an expected call of GetBlockOrActionByHash
 func (mr *MockExplorerMockRecorder) GetBlockOrActionByHash(hashStr interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockOrActionByHash", reflect.TypeOf((*MockExplorer)(nil).GetBlockOrActionByHash), hashStr)
 }
 
 // CreateDeposit mocks base method
 func (m *MockExplorer) CreateDeposit(request explorer.CreateDepositRequest) (explorer.CreateDepositResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateDeposit", request)
 	ret0, _ := ret[0].(explorer.CreateDepositResponse)
 	ret1, _ := ret[1].(error)
@@ -537,11 +614,13 @@ func (m *MockExplorer) CreateDeposit(request explorer.CreateDepositRequest) (exp
 
 // CreateDeposit indicates an expected call of CreateDeposit
 func (mr *MockExplorerMockRecorder) CreateDeposit(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDeposit", reflect.TypeOf((*MockExplorer)(nil).CreateDeposit), request)
 }
 
 // GetDeposits mocks base method
 func (m *MockExplorer) GetDeposits(subChainID, offset, limit int64) ([]explorer.Deposit, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDeposits", subChainID, offset, limit)
 	ret0, _ := ret[0].([]explorer.Deposit)
 	ret1, _ := ret[1].(error)
@@ -550,11 +629,13 @@ func (m *MockExplorer) GetDeposits(subChainID, offset, limit int64) ([]explorer.
 
 // GetDeposits indicates an expected call of GetDeposits
 func (mr *MockExplorerMockRecorder) GetDeposits(subChainID, offset, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeposits", reflect.TypeOf((*MockExplorer)(nil).GetDeposits), subChainID, offset, limit)
 }
 
 // SettleDeposit mocks base method
 func (m *MockExplorer) SettleDeposit(request explorer.SettleDepositRequest) (explorer.SettleDepositResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SettleDeposit", request)
 	ret0, _ := ret[0].(explorer.SettleDepositResponse)
 	ret1, _ := ret[1].(error)
@@ -563,11 +644,13 @@ func (m *MockExplorer) SettleDeposit(request explorer.SettleDepositRequest) (exp
 
 // SettleDeposit indicates an expected call of SettleDeposit
 func (mr *MockExplorerMockRecorder) SettleDeposit(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SettleDeposit", reflect.TypeOf((*MockExplorer)(nil).SettleDeposit), request)
 }
 
 // SuggestGasPrice mocks base method
 func (m *MockExplorer) SuggestGasPrice() (int64, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SuggestGasPrice")
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
@@ -576,11 +659,13 @@ func (m *MockExplorer) SuggestGasPrice() (int64, error) {
 
 // SuggestGasPrice indicates an expected call of SuggestGasPrice
 func (mr *MockExplorerMockRecorder) SuggestGasPrice() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuggestGasPrice", reflect.TypeOf((*MockExplorer)(nil).SuggestGasPrice))
 }
 
 // EstimateGasForTransfer mocks base method
 func (m *MockExplorer) EstimateGasForTransfer(request explorer.SendTransferRequest) (int64, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EstimateGasForTransfer", request)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
@@ -589,11 +674,13 @@ func (m *MockExplorer) EstimateGasForTransfer(request explorer.SendTransferReque
 
 // EstimateGasForTransfer indicates an expected call of EstimateGasForTransfer
 func (mr *MockExplorerMockRecorder) EstimateGasForTransfer(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForTransfer", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForTransfer), request)
 }
 
 // EstimateGasForVote mocks base method
 func (m *MockExplorer) EstimateGasForVote() (int64, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EstimateGasForVote")
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
@@ -602,11 +689,13 @@ func (m *MockExplorer) EstimateGasForVote() (int64, error) {
 
 // EstimateGasForVote indicates an expected call of EstimateGasForVote
 func (mr *MockExplorerMockRecorder) EstimateGasForVote() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForVote", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForVote))
 }
 
 // EstimateGasForSmartContract mocks base method
 func (m *MockExplorer) EstimateGasForSmartContract(request explorer.Execution) (int64, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EstimateGasForSmartContract", request)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
@@ -615,11 +704,13 @@ func (m *MockExplorer) EstimateGasForSmartContract(request explorer.Execution) (
 
 // EstimateGasForSmartContract indicates an expected call of EstimateGasForSmartContract
 func (mr *MockExplorerMockRecorder) EstimateGasForSmartContract(request interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EstimateGasForSmartContract", reflect.TypeOf((*MockExplorer)(nil).EstimateGasForSmartContract), request)
 }
 
 // GetStateRootHash mocks base method
 func (m *MockExplorer) GetStateRootHash(blockHeight int64) (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStateRootHash", blockHeight)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -628,5 +719,21 @@ func (m *MockExplorer) GetStateRootHash(blockHeight int64) (string, error) {
 
 // GetStateRootHash indicates an expected call of GetStateRootHash
 func (mr *MockExplorerMockRecorder) GetStateRootHash(blockHeight interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateRootHash", reflect.TypeOf((*MockExplorer)(nil).GetStateRootHash), blockHeight)
+}
+
+// GetMeta mocks base method
+func (m *MockExplorer) GetMeta() (explorer.Meta, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMeta")
+	ret0, _ := ret[0].(explorer.Meta)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMeta indicates an expected call of GetMeta
+func (mr *MockExplorerMockRecorder) GetMeta() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMeta", reflect.TypeOf((*MockExplorer)(nil).GetMeta))
 }

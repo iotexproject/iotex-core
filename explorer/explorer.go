@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/pkg/version"
+
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -1563,6 +1565,16 @@ func (exp *Service) GetStateRootHash(blockHeight int64) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(rootHash[:]), nil
+}
+
+// GetMeta gets meta data of a blockchain
+func (exp *Service) GetMeta() (explorer.Meta, error) {
+	var meta explorer.Meta
+	meta.ChainID = int64(exp.bc.ChainID())
+	meta.ProtocolVersion = version.ProtocolVersion
+	meta.SourceVersion = version.SourceVersion
+	meta.SourceCommitID = version.SourceCommitID
+	return meta, nil
 }
 
 // getTransfer takes in a blockchain and transferHash and returns an Explorer Transfer

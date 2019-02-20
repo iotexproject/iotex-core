@@ -38,6 +38,7 @@ func (m *MockBlockSync) EXPECT() *MockBlockSyncMockRecorder {
 
 // Start mocks base method
 func (m *MockBlockSync) Start(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -45,11 +46,13 @@ func (m *MockBlockSync) Start(arg0 context.Context) error {
 
 // Start indicates an expected call of Start
 func (mr *MockBlockSyncMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockBlockSync)(nil).Start), arg0)
 }
 
 // Stop mocks base method
 func (m *MockBlockSync) Stop(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -57,11 +60,13 @@ func (m *MockBlockSync) Stop(arg0 context.Context) error {
 
 // Stop indicates an expected call of Stop
 func (mr *MockBlockSyncMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockSync)(nil).Stop), arg0)
 }
 
 // TargetHeight mocks base method
 func (m *MockBlockSync) TargetHeight() uint64 {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TargetHeight")
 	ret0, _ := ret[0].(uint64)
 	return ret0
@@ -69,11 +74,13 @@ func (m *MockBlockSync) TargetHeight() uint64 {
 
 // TargetHeight indicates an expected call of TargetHeight
 func (mr *MockBlockSyncMockRecorder) TargetHeight() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TargetHeight", reflect.TypeOf((*MockBlockSync)(nil).TargetHeight))
 }
 
 // ProcessSyncRequest mocks base method
 func (m *MockBlockSync) ProcessSyncRequest(ctx context.Context, peer go_libp2p_peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessSyncRequest", ctx, peer, sync)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -81,11 +88,13 @@ func (m *MockBlockSync) ProcessSyncRequest(ctx context.Context, peer go_libp2p_p
 
 // ProcessSyncRequest indicates an expected call of ProcessSyncRequest
 func (mr *MockBlockSyncMockRecorder) ProcessSyncRequest(ctx, peer, sync interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessSyncRequest", reflect.TypeOf((*MockBlockSync)(nil).ProcessSyncRequest), ctx, peer, sync)
 }
 
 // ProcessBlock mocks base method
 func (m *MockBlockSync) ProcessBlock(ctx context.Context, blk *block.Block) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessBlock", ctx, blk)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -93,11 +102,13 @@ func (m *MockBlockSync) ProcessBlock(ctx context.Context, blk *block.Block) erro
 
 // ProcessBlock indicates an expected call of ProcessBlock
 func (mr *MockBlockSyncMockRecorder) ProcessBlock(ctx, blk interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessBlock", reflect.TypeOf((*MockBlockSync)(nil).ProcessBlock), ctx, blk)
 }
 
 // ProcessBlockSync mocks base method
 func (m *MockBlockSync) ProcessBlockSync(ctx context.Context, blk *block.Block) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessBlockSync", ctx, blk)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -105,5 +116,6 @@ func (m *MockBlockSync) ProcessBlockSync(ctx context.Context, blk *block.Block) 
 
 // ProcessBlockSync indicates an expected call of ProcessBlockSync
 func (mr *MockBlockSyncMockRecorder) ProcessBlockSync(ctx, blk interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessBlockSync", reflect.TypeOf((*MockBlockSync)(nil).ProcessBlockSync), ctx, blk)
 }

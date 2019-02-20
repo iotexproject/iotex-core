@@ -29,6 +29,11 @@ ROOT_PKG := "github.com/iotexproject/iotex-core"
 # Docker parameters
 DOCKERCMD=docker
 
+# Source
+SourceVersion := $(shell git describe --abbrev=0 --tags)
+SourceCommitID := $(shell git log --pretty=format:"%h" -1)
+SourceFlags = -version=$(SourceVersion) -commitID=$(SourceCommitID)
+
 TEST_IGNORE= ".git,vendor"
 COV_OUT := profile.coverprofile
 COV_REPORT := overalls.coverprofile
@@ -134,21 +139,21 @@ reboot:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
-	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
+	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml $(SourceFlags)
 
 .PHONY: run
 run:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
-	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
+	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml $(SourceFlags)
 
 .PHONY: fullnode
 fullnode:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
-	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_fullnode.yaml
+	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_fullnode.yaml $(SourceFlags)
 
 .PHONY: docker
 docker:

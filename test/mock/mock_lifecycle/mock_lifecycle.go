@@ -35,6 +35,7 @@ func (m *MockStartStopper) EXPECT() *MockStartStopperMockRecorder {
 
 // Start mocks base method
 func (m *MockStartStopper) Start(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -42,11 +43,13 @@ func (m *MockStartStopper) Start(arg0 context.Context) error {
 
 // Start indicates an expected call of Start
 func (mr *MockStartStopperMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockStartStopper)(nil).Start), arg0)
 }
 
 // Stop mocks base method
 func (m *MockStartStopper) Stop(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -54,5 +57,6 @@ func (m *MockStartStopper) Stop(arg0 context.Context) error {
 
 // Stop indicates an expected call of Stop
 func (mr *MockStartStopperMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockStartStopper)(nil).Stop), arg0)
 }
