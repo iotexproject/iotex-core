@@ -56,6 +56,8 @@ type ChainManager interface {
 	StateByAddr(address string) (*state.Account, error)
 	// Nonce returns the nonce if the account exists
 	Nonce(addr string) (uint64, error)
+	// CandidatesByHeight returns the candidate list by a given height
+	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 }
 
 // StateManager defines the state DB interface atop IoTeX blockchain

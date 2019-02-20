@@ -9,6 +9,7 @@ package rolldpos
 import (
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -24,38 +25,14 @@ type epochCtx struct {
 	delegates   []string
 }
 
-func getEpochHeight(
-	epochNum uint64,
-	numDelegates uint,
-	numSubEpochs uint,
-) uint64 {
-	return (epochNum-1)*uint64(numDelegates)*uint64(numSubEpochs) + 1
-}
-
-func getEpochNum(
-	height uint64,
-	numDelegates uint,
-	numSubEpochs uint,
-) uint64 {
-	return (height-1)/uint64(numDelegates)/uint64(numSubEpochs) + 1
-}
-
-func getSubEpochNum(
-	height uint64,
-	numDelegates uint,
-	numSubEpochs uint,
-) uint64 {
-	return (height - 1) % (uint64(numDelegates) * uint64(numSubEpochs)) / uint64(numDelegates)
-}
-
 func newEpochCtx(
 	numDelegates uint,
 	numSubEpochs uint,
 	blockHeight uint64,
 	candidatesByHeight func(uint64) ([]*state.Candidate, error),
 ) (*epochCtx, error) {
-	epochNum := getEpochNum(blockHeight, numDelegates, numSubEpochs)
-	epochHeight := getEpochHeight(epochNum, numDelegates, numSubEpochs)
+	epochNum := rolldpos.GetEpochNum(blockHeight, uint64(numDelegates), uint64(numSubEpochs))
+	epochHeight := rolldpos.GetEpochHeight(epochNum, uint64(numDelegates), uint64(numSubEpochs))
 	candidates, err := candidatesByHeight(epochHeight - 1)
 	if err != nil {
 		return nil, errors.Wrapf(
