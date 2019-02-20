@@ -73,8 +73,8 @@ func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder
 func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
 	b.blk.Header.pubkey = signerPubKey
-	blkHash := b.blk.HashBlock()
-	sig, err := crypto.Sign(blkHash[:], signerPriKey)
+	h := b.blk.Header.HashHeaderCore()
+	sig, err := crypto.Sign(h[:], signerPriKey)
 	if err != nil {
 		return Block{}, errors.New("Failed to sign block")
 	}
