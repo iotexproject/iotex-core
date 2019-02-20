@@ -7,12 +7,16 @@
 package block
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Header defines the struct of block header
@@ -53,21 +57,51 @@ func (h Header) PublicKey() keypair.PublicKey { return h.pubkey }
 // ReceiptRoot returns the receipt root after apply this block
 func (h Header) ReceiptRoot() hash.Hash256 { return h.receiptRoot }
 
-// ByteStream returns a byte stream of the header.
-func (h Header) ByteStream() []byte {
-	stream := make([]byte, 4)
-	enc.MachineEndian.PutUint32(stream, h.version)
-	tmp8B := make([]byte, 8)
-	enc.MachineEndian.PutUint64(tmp8B, h.height)
-	stream = append(stream, tmp8B...)
-	enc.MachineEndian.PutUint64(tmp8B, uint64(h.timestamp))
-	stream = append(stream, tmp8B...)
-	stream = append(stream, h.prevBlockHash[:]...)
-	stream = append(stream, h.txRoot[:]...)
-	stream = append(stream, h.deltaStateDigest[:]...)
-	stream = append(stream, h.receiptRoot[:]...)
-	return stream
+// BlockHeaderProto returns BlockHeader proto.
+func (h Header) BlockHeaderProto() *iotextypes.BlockHeader {
+	return &iotextypes.BlockHeader{
+		Core:           h.BlockHeaderCoreProto(),
+		ProducerPubkey: keypair.PublicKeyToBytes(h.pubkey),
+		Signature:      h.blockSig,
+	}
 }
+
+// BlockHeaderCoreProto returns BlockHeaderCore proto.
+func (h Header) BlockHeaderCoreProto() *iotextypes.BlockHeaderCore {
+	return &iotextypes.BlockHeaderCore{
+		Version: h.version,
+		Height:  h.height,
+		Timestamp: &timestamp.Timestamp{
+			Seconds: h.timestamp,
+		},
+		PrevBlockHash:    h.prevBlockHash[:],
+		TxRoot:           h.txRoot[:],
+		DeltaStateDigest: h.deltaStateDigest[:],
+		ReceiptRoot:      h.receiptRoot[:],
+	}
+}
+
+// CoreByteStream returns byte stream for header core.
+func (h Header) CoreByteStream() []byte {
+	return byteutil.Must(proto.Marshal(h.BlockHeaderCoreProto()))
+}
+
+// ByteStream returns byte stream for header.
+func (h Header) ByteStream() []byte {
+	return byteutil.Must(proto.Marshal(h.BlockHeaderProto()))
+}
+
+// HashHeader hashes the header
+func (h Header) HashHeader() hash.Hash256 {
+	return blake2b.Sum256(h.ByteStream())
+}
+
+// HashHeaderCore hahes the header core.
+func (h Header) HashHeaderCore() hash.Hash256 {
+	return blake2b.Sum256(h.CoreByteStream())
+}
+
+// ByteStream returns a byte stream of the header.
 
 // HeaderLogger returns a new logger with block header fields' value.
 func (h Header) HeaderLogger(l *zap.Logger) *zap.Logger {
