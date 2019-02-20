@@ -77,19 +77,19 @@ func TestProtocol_Admin(t *testing.T) {
 		// Update num of candidates to share a epoch reward
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.NoError(t, p.SetNumCandidatesForEpochReward(ctx, ws, 20))
+		require.NoError(t, p.SetNumDelegatesForEpochReward(ctx, ws, 20))
 		stateDB.Commit(ws)
 
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		numCandidatesForEpochReward, err := p.NumCandidatesForEpochReward(ctx, ws)
+		numDelegatesForEpochReward, err := p.NumDelegatesForEpochReward(ctx, ws)
 		require.NoError(t, err)
-		assert.Equal(t, uint64(20), numCandidatesForEpochReward)
+		assert.Equal(t, uint64(20), numDelegatesForEpochReward)
 
 		// Set num of candidates again will fail because caller is not admin
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.Error(t, p.SetNumCandidatesForEpochReward(
+		require.Error(t, p.SetNumDelegatesForEpochReward(
 			protocol.WithRunActionsCtx(
 				context.Background(),
 				protocol.RunActionsCtx{

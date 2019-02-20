@@ -1357,7 +1357,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		bc.genesisConfig.InitBalance(),
 		bc.genesisConfig.BlockReward(),
 		bc.genesisConfig.EpochReward(),
-		bc.genesisConfig.NumCandidatesForEpochReward,
+		bc.genesisConfig.NumDelegatesForEpochReward,
 	)
 }
 

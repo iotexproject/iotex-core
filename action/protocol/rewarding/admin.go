@@ -21,19 +21,19 @@ import (
 
 // admin stores the admin data of the rewarding protocol
 type admin struct {
-	admin                       address.Address
-	BlockReward                 *big.Int
-	EpochReward                 *big.Int
-	NumCandidatesForEpochReward uint64
+	admin                      address.Address
+	BlockReward                *big.Int
+	EpochReward                *big.Int
+	NumDelegatesForEpochReward uint64
 }
 
 // Serialize serializes admin state into bytes
 func (a admin) Serialize() ([]byte, error) {
 	gen := rewardingpb.Admin{
-		Admin:                       a.admin.Bytes(),
-		BlockReward:                 a.BlockReward.Bytes(),
-		EpochReward:                 a.EpochReward.Bytes(),
-		NumCandidatesForEpochReward: a.NumCandidatesForEpochReward,
+		Admin:                      a.admin.Bytes(),
+		BlockReward:                a.BlockReward.Bytes(),
+		EpochReward:                a.EpochReward.Bytes(),
+		NumDelegatesForEpochReward: a.NumDelegatesForEpochReward,
 	}
 	return proto.Marshal(&gen)
 }
@@ -50,7 +50,7 @@ func (a *admin) Deserialize(data []byte) error {
 	}
 	a.BlockReward = big.NewInt(0).SetBytes(gen.BlockReward)
 	a.EpochReward = big.NewInt(0).SetBytes(gen.EpochReward)
-	a.NumCandidatesForEpochReward = gen.NumCandidatesForEpochReward
+	a.NumDelegatesForEpochReward = gen.NumDelegatesForEpochReward
 	return nil
 }
 
@@ -62,7 +62,7 @@ func (p *Protocol) Initialize(
 	initBalance *big.Int,
 	blockReward *big.Int,
 	epochReward *big.Int,
-	numCandidatesForEpochReward uint64,
+	numDelegatesForEpochReward uint64,
 ) error {
 	if err := p.assertAmount(blockReward); err != nil {
 		return err
@@ -74,10 +74,10 @@ func (p *Protocol) Initialize(
 		sm,
 		adminKey,
 		&admin{
-			admin:                       adminAddr,
-			BlockReward:                 blockReward,
-			EpochReward:                 epochReward,
-			NumCandidatesForEpochReward: numCandidatesForEpochReward,
+			admin:                      adminAddr,
+			BlockReward:                blockReward,
+			EpochReward:                epochReward,
+			NumDelegatesForEpochReward: numDelegatesForEpochReward,
 		},
 	); err != nil {
 		return err
@@ -171,8 +171,8 @@ func (p *Protocol) SetEpochReward(
 	return p.setReward(ctx, sm, amount, false)
 }
 
-// NumCandidatesForEpochReward returns the number of candidates sharing an epoch reward
-func (p *Protocol) NumCandidatesForEpochReward(
+// NumDelegatesForEpochReward returns the number of candidates sharing an epoch reward
+func (p *Protocol) NumDelegatesForEpochReward(
 	_ context.Context,
 	sm protocol.StateManager,
 ) (uint64, error) {
@@ -180,11 +180,11 @@ func (p *Protocol) NumCandidatesForEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return 0, err
 	}
-	return a.NumCandidatesForEpochReward, nil
+	return a.NumDelegatesForEpochReward, nil
 }
 
-// SetNumCandidatesForEpochReward sets the number of candidates sharing an epoch reward
-func (p *Protocol) SetNumCandidatesForEpochReward(
+// SetNumDelegatesForEpochReward sets the number of candidates sharing an epoch reward
+func (p *Protocol) SetNumDelegatesForEpochReward(
 	ctx context.Context,
 	sm protocol.StateManager,
 	num uint64,
@@ -197,7 +197,7 @@ func (p *Protocol) SetNumCandidatesForEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	a.NumCandidatesForEpochReward = num
+	a.NumDelegatesForEpochReward = num
 	if err := p.putState(sm, adminKey, &a); err != nil {
 		return err
 	}

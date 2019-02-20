@@ -57,11 +57,11 @@ func initDefaultConfig() {
 			NumDelegates:   21,
 		},
 		Rewarding: Rewarding{
-			InitAdminAddrStr:            defaultAdminAddr.String(),
-			InitBalanceStr:              unit.ConvertIotxToRau(1200000000).String(),
-			BlockRewardStr:              unit.ConvertIotxToRau(36).String(),
-			EpochRewardStr:              unit.ConvertIotxToRau(400000).String(),
-			NumCandidatesForEpochReward: 100,
+			InitAdminAddrStr:           defaultAdminAddr.String(),
+			InitBalanceStr:             unit.ConvertIotxToRau(1200000000).String(),
+			BlockRewardStr:             unit.ConvertIotxToRau(36).String(),
+			EpochRewardStr:             unit.ConvertIotxToRau(400000).String(),
+			NumDelegatesForEpochReward: 100,
 		},
 	}
 }
@@ -96,8 +96,8 @@ type (
 		BlockRewardStr string `yaml:"blockReward"`
 		// EpochReward is the epoch reward amount in decimal string format
 		EpochRewardStr string `yaml:"epochReward"`
-		// NumCandidatesForEpochReward is the number of top candidates that will share a epoch reward
-		NumCandidatesForEpochReward uint64 `yaml:"numCandidatesForEpochReward"`
+		// NumDelegatesForEpochReward is the number of top candidates that will share a epoch reward
+		NumDelegatesForEpochReward uint64 `yaml:"numDelegatesForEpochReward"`
 	}
 )
 
