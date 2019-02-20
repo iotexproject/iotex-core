@@ -38,25 +38,22 @@ func TestGenesis(t *testing.T) {
 		Build(testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PubKey)
 
 	genesisBlk, err := block.NewBuilder(racts).
-		SetChainID(cfg.Chain.ID).
 		SetPrevBlockHash(Gen.ParentHash).
 		SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 	assert.NoError(err)
 
 	t.Log("The Genesis Block has the following header:")
 	t.Logf("Version: %d", genesisBlk.Version())
-	t.Logf("ChainID: %d", genesisBlk.ChainID())
 	t.Logf("Height: %d", genesisBlk.Height())
 	t.Logf("Timestamp: %d", genesisBlk.Timestamp())
 	t.Logf("PrevBlockHash: %x", genesisBlk.PrevHash())
 
 	assert.Equal(uint32(1), genesisBlk.Version())
-	assert.Equal(cfg.Chain.ID, genesisBlk.ChainID())
 	assert.Equal(uint64(0), genesisBlk.Height())
 	assert.Equal(int64(1546329600), genesisBlk.Timestamp())
 	assert.Equal(hash.ZeroHash256, genesisBlk.PrevHash())
 
 	h := genesisBlk.HashBlock()
 	genesisHash := hex.EncodeToString(h[:])
-	assert.Equal("759e200b033cf93edba471b687ab467c5f64829d64aa611f3322f62f8d88a152", genesisHash)
+	assert.Equal("b63d8881b1d4b55bf194a2f097ca16a2b9984eb4752ed1f668f92b30f28f176b", genesisHash)
 }

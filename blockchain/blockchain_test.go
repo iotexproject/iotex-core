@@ -589,7 +589,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
-		SetChainID(0).
 		SetHeight(h+2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -605,7 +604,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
-		SetChainID(0).
 		SetHeight(h+1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -809,7 +807,6 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
-		SetChainID(0).
 		SetHeight(h+2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
@@ -824,7 +821,6 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
-		SetChainID(0).
 		SetHeight(h+1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).

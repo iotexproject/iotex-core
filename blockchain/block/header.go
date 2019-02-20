@@ -7,24 +7,26 @@
 package block
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Header defines the struct of block header
 // make sure the variable type and order of this struct is same as "BlockHeaderPb" in blockchain.pb.go
 type Header struct {
 	version          uint32            // version
-	chainID          uint32            // this chain's ID
 	height           uint64            // block height
 	timestamp        int64             // unix timestamp
 	prevBlockHash    hash.Hash256      // hash of previous block
 	txRoot           hash.Hash256      // merkle root of all transactions
-	stateRoot        hash.Hash256      // root of state trie
 	deltaStateDigest hash.Hash256      // digest of state change by this block
 	receiptRoot      hash.Hash256      // root of receipt trie
 	blockSig         []byte            // block signature
@@ -33,9 +35,6 @@ type Header struct {
 
 // Version returns the version of this block.
 func (h Header) Version() uint32 { return h.version }
-
-// ChainID returns the chain id of this block.
-func (h Header) ChainID() uint32 { return h.chainID }
 
 // Height returns the height of this block.
 func (h Header) Height() uint64 { return h.height }
@@ -49,9 +48,6 @@ func (h Header) PrevHash() hash.Hash256 { return h.prevBlockHash }
 // TxRoot returns the hash of all actions in this block.
 func (h Header) TxRoot() hash.Hash256 { return h.txRoot }
 
-// StateRoot returns the state root after applying this block.
-func (h Header) StateRoot() hash.Hash256 { return h.stateRoot }
-
 // DeltaStateDigest returns the delta sate digest after applying this block.
 func (h Header) DeltaStateDigest() hash.Hash256 { return h.deltaStateDigest }
 
@@ -61,35 +57,59 @@ func (h Header) PublicKey() keypair.PublicKey { return h.pubkey }
 // ReceiptRoot returns the receipt root after apply this block
 func (h Header) ReceiptRoot() hash.Hash256 { return h.receiptRoot }
 
-// ByteStream returns a byte stream of the header.
-func (h Header) ByteStream() []byte {
-	stream := make([]byte, 4)
-	enc.MachineEndian.PutUint32(stream, h.version)
-	tmp4B := make([]byte, 4)
-	enc.MachineEndian.PutUint32(tmp4B, h.chainID)
-	stream = append(stream, tmp4B...)
-	tmp8B := make([]byte, 8)
-	enc.MachineEndian.PutUint64(tmp8B, h.height)
-	stream = append(stream, tmp8B...)
-	enc.MachineEndian.PutUint64(tmp8B, uint64(h.timestamp))
-	stream = append(stream, tmp8B...)
-	stream = append(stream, h.prevBlockHash[:]...)
-	stream = append(stream, h.txRoot[:]...)
-	stream = append(stream, h.stateRoot[:]...)
-	stream = append(stream, h.deltaStateDigest[:]...)
-	stream = append(stream, h.receiptRoot[:]...)
-	return stream
+// BlockHeaderProto returns BlockHeader proto.
+func (h Header) BlockHeaderProto() *iotextypes.BlockHeader {
+	return &iotextypes.BlockHeader{
+		Core:           h.BlockHeaderCoreProto(),
+		ProducerPubkey: keypair.PublicKeyToBytes(h.pubkey),
+		Signature:      h.blockSig,
+	}
 }
+
+// BlockHeaderCoreProto returns BlockHeaderCore proto.
+func (h Header) BlockHeaderCoreProto() *iotextypes.BlockHeaderCore {
+	return &iotextypes.BlockHeaderCore{
+		Version: h.version,
+		Height:  h.height,
+		Timestamp: &timestamp.Timestamp{
+			Seconds: h.timestamp,
+		},
+		PrevBlockHash:    h.prevBlockHash[:],
+		TxRoot:           h.txRoot[:],
+		DeltaStateDigest: h.deltaStateDigest[:],
+		ReceiptRoot:      h.receiptRoot[:],
+	}
+}
+
+// CoreByteStream returns byte stream for header core.
+func (h Header) CoreByteStream() []byte {
+	return byteutil.Must(proto.Marshal(h.BlockHeaderCoreProto()))
+}
+
+// ByteStream returns byte stream for header.
+func (h Header) ByteStream() []byte {
+	return byteutil.Must(proto.Marshal(h.BlockHeaderProto()))
+}
+
+// HashHeader hashes the header
+func (h Header) HashHeader() hash.Hash256 {
+	return blake2b.Sum256(h.ByteStream())
+}
+
+// HashHeaderCore hahes the header core.
+func (h Header) HashHeaderCore() hash.Hash256 {
+	return blake2b.Sum256(h.CoreByteStream())
+}
+
+// ByteStream returns a byte stream of the header.
 
 // HeaderLogger returns a new logger with block header fields' value.
 func (h Header) HeaderLogger(l *zap.Logger) *zap.Logger {
 	return l.With(zap.Uint32("version", h.version),
-		zap.Uint32("chainID", h.chainID),
 		zap.Uint64("height", h.height),
 		zap.Int64("timeStamp", h.timestamp),
 		log.Hex("prevBlockHash", h.prevBlockHash[:]),
 		log.Hex("txRoot", h.txRoot[:]),
-		log.Hex("stateRoot", h.stateRoot[:]),
 		log.Hex("receiptRoot", h.receiptRoot[:]),
 		log.Hex("deltaStateDigest", h.deltaStateDigest[:]),
 	)

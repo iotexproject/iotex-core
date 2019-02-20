@@ -141,7 +141,7 @@ func ExecuteContract(
 	cm protocol.ChainManager,
 ) (*action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	stateDB := NewStateDBAdapter(cm, sm, raCtx.BlockHeight, raCtx.BlockHash, execution.Hash())
+	stateDB := NewStateDBAdapter(cm, sm, raCtx.BlockHeight, execution.Hash())
 	ps, err := NewParams(raCtx, execution, stateDB)
 	if err != nil {
 		return nil, err

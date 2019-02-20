@@ -23,7 +23,6 @@ func TestBuilder(t *testing.T) {
 		Build(ta.Addrinfo["bravo"].String(), ta.Keyinfo["bravo"].PubKey)
 
 	nblk, err := NewBuilder(ra).
-		SetChainID(0).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(t, err)

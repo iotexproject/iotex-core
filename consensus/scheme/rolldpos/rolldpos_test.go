@@ -300,8 +300,6 @@ func (o *directOverlay) GetPeers() []net.Addr {
 }
 
 func TestRollDPoSConsensus(t *testing.T) {
-	t.Parallel()
-
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
@@ -435,7 +433,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 10*time.Second, func() (bool, error) {
 			for _, chain := range chains {
 				if blk, err := chain.GetBlockByHeight(1); blk == nil || err != nil {
 					return false, nil
@@ -474,7 +472,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 45*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 60*time.Second, func() (bool, error) {
 			for _, chain := range chains {
 				if blk, err := chain.GetBlockByHeight(42); blk == nil || err != nil {
 					return false, nil
@@ -520,7 +518,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}()
 
-		assert.NoError(t, testutil.WaitUntil(100*time.Millisecond, 30*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 60*time.Second, func() (bool, error) {
 			for i, chain := range chains {
 				if i == 1 {
 					continue
@@ -568,7 +566,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 		for _, chain := range chains {
 			blk, err := chain.GetBlockByHeight(1)
 			assert.Nil(t, blk)

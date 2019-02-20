@@ -40,21 +40,9 @@ func (b *Builder) SetVersion(v uint32) *Builder {
 	return b
 }
 
-// SetChainID sets the chain id for block which is building.
-func (b *Builder) SetChainID(c uint32) *Builder {
-	b.blk.Header.chainID = c
-	return b
-}
-
 // SetPrevBlockHash sets the previous block hash for block which is building.
 func (b *Builder) SetPrevBlockHash(h hash.Hash256) *Builder {
 	b.blk.Header.prevBlockHash = h
-	return b
-}
-
-// SetStateRoot sets the new state root after running actions included in this building block.
-func (b *Builder) SetStateRoot(h hash.Hash256) *Builder {
-	b.blk.Header.stateRoot = h
 	return b
 }
 
@@ -79,8 +67,8 @@ func (b *Builder) SetReceiptRoot(h hash.Hash256) *Builder {
 // SignAndBuild signs and then builds a block.
 func (b *Builder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.pubkey = signerPubKey
-	blkHash := b.blk.HashBlock()
-	sig, err := crypto.Sign(blkHash[:], signerPriKey)
+	h := b.blk.Header.HashHeaderCore()
+	sig, err := crypto.Sign(h[:], signerPriKey)
 	if err != nil {
 		return Block{}, errors.New("Failed to sign block")
 	}

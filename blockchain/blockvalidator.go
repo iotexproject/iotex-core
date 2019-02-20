@@ -28,13 +28,6 @@ import (
 type Validator interface {
 	// Validate validates the given block's content
 	Validate(block *block.Block, tipHeight uint64, tipHash hash.Hash256) error
-	// ValidateActionsOnly validates the actions only
-	ValidateActionsOnly(
-		actions []action.SealedEnvelope,
-		pk keypair.PublicKey,
-		chainID uint32,
-		height uint64,
-	) error
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
@@ -72,10 +65,9 @@ func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Ha
 	}
 
 	if v.sf != nil {
-		return v.ValidateActionsOnly(
+		return v.validateActionsOnly(
 			blk.Actions,
 			blk.PublicKey(),
-			blk.ChainID(),
 			blk.Height(),
 		)
 	}
@@ -93,10 +85,9 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
 }
 
-func (v *validator) ValidateActionsOnly(
+func (v *validator) validateActionsOnly(
 	actions []action.SealedEnvelope,
 	pk keypair.PublicKey,
-	chainID uint32,
 	height uint64,
 ) error {
 	// Verify transfers, votes, executions, witness, and secrets
@@ -106,7 +97,6 @@ func (v *validator) ValidateActionsOnly(
 	if err := v.validateActions(
 		actions,
 		pk,
-		chainID,
 		height,
 		accountNonceMap,
 		errChan,
@@ -150,7 +140,6 @@ func (v *validator) ValidateActionsOnly(
 func (v *validator) validateActions(
 	actions []action.SealedEnvelope,
 	pk keypair.PublicKey,
-	chainID uint32,
 	height uint64,
 	accountNonceMap map[string][]uint64,
 	errChan chan error,
