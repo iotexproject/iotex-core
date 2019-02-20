@@ -18,7 +18,6 @@ import (
 
 func TestTestingBuilder(t *testing.T) {
 	nblk, err := NewTestingBuilder().
-		SetChainID(0).
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
