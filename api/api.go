@@ -13,8 +13,10 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+
 	"github.com/golang/protobuf/proto"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -73,6 +75,7 @@ type Server struct {
 	broadcastHandler BroadcastOutbound
 	cfg              config.API
 	idx              *indexservice.Server
+	registry         *protocol.Registry
 	grpcserver       *grpc.Server
 }
 
@@ -83,6 +86,7 @@ func NewServer(
 	dispatcher dispatcher.Dispatcher,
 	actPool actpool.ActPool,
 	idx *indexservice.Server,
+	registry *protocol.Registry,
 	opts ...Option,
 ) (*Server, error) {
 	apiCfg := Config{}
@@ -104,6 +108,7 @@ func NewServer(
 		broadcastHandler: apiCfg.broadcastHandler,
 		cfg:              cfg,
 		idx:              idx,
+		registry:         registry,
 		gs:               gasstation.NewGasStation(chain, cfg),
 	}
 
@@ -543,6 +548,32 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	}
 
 	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iotextypes.BlockMeta{blockMeta}}, nil
+}
+
+// ReadState reads state on blockchain
+func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
+	p, ok := api.registry.Find(string(in.ProtocolID))
+	if !ok {
+		return nil, errors.Errorf("protocol %s isn't registered", string(in.ProtocolID))
+	}
+	// TODO: need to complete the context
+	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
+		BlockHeight: api.bc.TipHeight(),
+		Registry:    api.registry,
+	})
+	ws, err := api.bc.GetFactory().NewWorkingSet()
+	if err != nil {
+		return nil, err
+	}
+	data, err := p.ReadState(ctx, ws, in.MethodName, in.Arguments...)
+	// TODO: need to distinguish user error and system error
+	if err != nil {
+		return nil, err
+	}
+	out := iotexapi.ReadStateResponse{
+		Data: data,
+	}
+	return &out, nil
 }
 
 // getEpochData is the API to get epoch data

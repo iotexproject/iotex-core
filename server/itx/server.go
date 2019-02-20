@@ -95,7 +95,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
 	// Install protocols
-	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+	if err := registerDefaultProtocols(cs); err != nil {
 		return nil, err
 	}
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
@@ -193,7 +193,7 @@ func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Opti
 		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
 		)
-	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+	if err := registerDefaultProtocols(cs); err != nil {
 		return err
 	}
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
@@ -292,7 +292,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 }
 
-func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) error {
+func registerDefaultProtocols(cs *chainservice.ChainService) error {
 	accountProtocol := account.NewProtocol()
 	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return err
