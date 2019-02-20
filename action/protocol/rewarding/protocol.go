@@ -40,20 +40,27 @@ var (
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
+	cm        protocol.ChainManager
 	keyPrefix []byte
 	addr      address.Address
+	// TODO: these should be migrate to rolldpos protocol
+	numDelegates uint64
+	numSubEpochs uint64
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol() *Protocol {
+func NewProtocol(cm protocol.ChainManager, numDelegates uint64, numSubEpochs uint64) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
 	}
 	return &Protocol{
-		keyPrefix: h[:],
-		addr:      addr,
+		cm:           cm,
+		keyPrefix:    h[:],
+		addr:         addr,
+		numDelegates: numDelegates,
+		numSubEpochs: numSubEpochs,
 	}
 }
 

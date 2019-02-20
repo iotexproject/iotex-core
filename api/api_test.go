@@ -959,7 +959,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	acc := account.NewProtocol()
 	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
-	r := rewarding.NewProtocol()
+	r := rewarding.NewProtocol(bc, genesisConfig.NumDelegates, genesisConfig.NumSubEpochs)
 	registry.Register(account.ProtocolID, acc)
 	registry.Register(vote.ProtocolID, v)
 	registry.Register(execution.ProtocolID, evm)

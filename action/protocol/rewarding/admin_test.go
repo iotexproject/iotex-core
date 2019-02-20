@@ -11,14 +11,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestProtocol_Admin(t *testing.T) {
@@ -38,16 +36,12 @@ func TestProtocol_Admin(t *testing.T) {
 		// Set block reward again will fail because caller is not admin
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		skNoAuth, err := crypto.GenerateKey()
-		require.NoError(t, err)
-		pkHashNoAuth := keypair.HashPubKey(&skNoAuth.PublicKey)
-		addrNoAuth, err := address.FromBytes(pkHashNoAuth[:])
 		require.NoError(t, err)
 		require.Error(t, p.SetBlockReward(
 			protocol.WithRunActionsCtx(
 				context.Background(),
 				protocol.RunActionsCtx{
-					Caller: addrNoAuth,
+					Caller: testaddress.Addrinfo["bravo"],
 				},
 			),
 			ws,
@@ -73,39 +67,55 @@ func TestProtocol_Admin(t *testing.T) {
 			protocol.WithRunActionsCtx(
 				context.Background(),
 				protocol.RunActionsCtx{
-					Caller: addrNoAuth,
+					Caller: testaddress.Addrinfo["bravo"],
 				},
 			),
 			ws,
 			big.NewInt(300),
 		))
 
+		// Update num of candidates to share a epoch reward
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.NoError(t, p.SetNumDelegatesForEpochReward(ctx, ws, 20))
+		stateDB.Commit(ws)
+
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		numDelegatesForEpochReward, err := p.NumDelegatesForEpochReward(ctx, ws)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(20), numDelegatesForEpochReward)
+
+		// Set num of candidates again will fail because caller is not admin
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.Error(t, p.SetNumDelegatesForEpochReward(
+			protocol.WithRunActionsCtx(
+				context.Background(),
+				protocol.RunActionsCtx{
+					Caller: testaddress.Addrinfo["bravo"],
+				},
+			),
+			ws,
+			30,
+		))
+
 		// Update admin
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		skNew, err := crypto.GenerateKey()
-		require.NoError(t, err)
-		pkHashNew := keypair.HashPubKey(&skNew.PublicKey)
-		addrNew, err := address.FromBytes(pkHashNew[:])
-		require.NoError(t, err)
-		require.NoError(t, p.SetAdmin(ctx, ws, addrNew))
+		require.NoError(t, p.SetAdmin(ctx, ws, testaddress.Addrinfo["charlie"]))
 		stateDB.Commit(ws)
 
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		adminAddr, err := p.Admin(ctx, ws)
 		require.NoError(t, err)
-		assert.Equal(t, addrNew.Bytes(), adminAddr.Bytes())
+		assert.Equal(t, testaddress.Addrinfo["charlie"].Bytes(), adminAddr.Bytes())
 
 		// Update admin again will fail because addr is no longer the admin
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		skNew, err = crypto.GenerateKey()
-		require.NoError(t, err)
-		pkHashNew = keypair.HashPubKey(&skNew.PublicKey)
-		addrNew, err = address.FromBytes(pkHashNew[:])
-		require.NoError(t, err)
-		require.Error(t, p.SetAdmin(ctx, ws, addrNew))
+		require.Error(t, p.SetAdmin(ctx, ws, testaddress.Addrinfo["delta"]))
 	})
 
 }

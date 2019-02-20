@@ -21,8 +21,6 @@ type validateActionsCtxKey struct{}
 
 // RunActionsCtx provides the runactions with auxiliary information.
 type RunActionsCtx struct {
-	// EpochNumber is the epoch number
-	EpochNumber uint64
 	// height of block containing those actions
 	BlockHeight uint64
 	// timestamp of block containing those actions

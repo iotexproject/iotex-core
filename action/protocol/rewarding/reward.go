@@ -16,9 +16,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -68,10 +68,7 @@ func (p *Protocol) GrantBlockReward(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
 		return err
 	}
@@ -96,14 +93,14 @@ func (p *Protocol) GrantEpochReward(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
-	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, raCtx.EpochNumber); err != nil {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	epochNum := rolldpos.GetEpochNum(raCtx.BlockHeight, p.numDelegates, p.numSubEpochs)
+	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return err
 	}
-	// TODO: check the current block is the last block of the given epoch number
+	if err := p.assertLastBlockInEpoch(raCtx.BlockHeight, epochNum); err != nil {
+		return err
+	}
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
@@ -111,7 +108,7 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.updateAvailableBalance(sm, a.EpochReward); err != nil {
 		return err
 	}
-	addrs, amounts, err := p.splitEpochReward(a.EpochReward)
+	addrs, amounts, err := p.splitEpochReward(raCtx.BlockHeight, a.EpochReward)
 	if err != nil {
 		return err
 	}
@@ -120,7 +117,7 @@ func (p *Protocol) GrantEpochReward(
 			return err
 		}
 	}
-	if err := p.updateRewardHistory(sm, epochRewardHistoryKeyPrefix, raCtx.EpochNumber); err != nil {
+	if err := p.updateRewardHistory(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return err
 	}
 	return nil
@@ -132,10 +129,7 @@ func (p *Protocol) Claim(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.updateTotalBalance(sm, amount); err != nil {
 		return err
 	}
@@ -256,9 +250,27 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 	return nil
 }
 
-func (p *Protocol) splitEpochReward(totalAmount *big.Int) ([]address.Address, []*big.Int, error) {
-	// TODO: implement splitting epoch reward for a set of rewarding accounts
-	return nil, nil, nil
+func (p *Protocol) splitEpochReward(blkHeight uint64, totalAmount *big.Int) ([]address.Address, []*big.Int, error) {
+	candidates, err := p.cm.CandidatesByHeight(blkHeight)
+	if err != nil {
+		return nil, nil, err
+	}
+	totalWeight := big.NewInt(0)
+	for _, candidate := range candidates {
+		totalWeight = big.NewInt(0).Add(totalWeight, candidate.Votes)
+	}
+	addrs := make([]address.Address, 0)
+	amounts := make([]*big.Int, 0)
+	for _, candidate := range candidates {
+		addr, err := address.FromString(candidate.Address)
+		if err != nil {
+			return nil, nil, err
+		}
+		addrs = append(addrs, addr)
+		amountPerAddr := big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
+		amounts = append(amounts, amountPerAddr)
+	}
+	return addrs, amounts, nil
 }
 
 func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, index uint64) error {
@@ -271,6 +283,14 @@ func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, in
 	}
 	if errors.Cause(err) != state.ErrStateNotExist {
 		return err
+	}
+	return nil
+}
+
+func (p *Protocol) assertLastBlockInEpoch(blkHeight uint64, epochNum uint64) error {
+	lastBlkHeight := rolldpos.GetEpochLastBlockHeight(epochNum, p.numDelegates, p.numSubEpochs)
+	if blkHeight != lastBlkHeight {
+		return errors.Errorf("current block %d is not the last block of epoch %d", blkHeight, epochNum)
 	}
 	return nil
 }
