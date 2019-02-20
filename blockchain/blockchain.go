@@ -16,6 +16,7 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -39,6 +40,19 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
+
+var blockMtc = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "iotex_block_metrics",
+
+		Help: "Block metrics.",
+	},
+	[]string{"type"},
+)
+
+func init() {
+	prometheus.MustRegister(blockMtc)
+}
 
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
@@ -714,6 +728,9 @@ func (bc *blockchain) MintNewBlock(
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
 	}
+
+	blockMtc.WithLabelValues("numActions").Set(float64(len(actions)))
+	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.genesisConfig.BlockGasLimit - gasLimitForContext))
 
 	ra := block.NewRunnableActionsBuilder().
 		SetHeight(newblockHeight).
