@@ -53,9 +53,11 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 	err = blk.ConvertFromBlockPb(&iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
-			Version: version.ProtocolVersion,
-			Height:  123456789,
-			Pubkey:  keypair.PublicKeyToBytes(pubKey1),
+			Core: &iotextypes.BlockHeaderCore{
+				Version: version.ProtocolVersion,
+				Height:  123456789,
+			},
+			ProducerPubkey: keypair.PublicKeyToBytes(pubKey1),
 		},
 		Actions: []*iotextypes.Action{
 			{

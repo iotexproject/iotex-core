@@ -85,9 +85,11 @@ func TestConvertFromBlockPb(t *testing.T) {
 	senderPubKey := ta.Keyinfo["producer"].PubKey
 	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
-			Version: version.ProtocolVersion,
-			Height:  123456789,
-			Pubkey:  keypair.PublicKeyToBytes(senderPubKey),
+			Core: &iotextypes.BlockHeaderCore{
+				Version: version.ProtocolVersion,
+				Height:  123456789,
+			},
+			ProducerPubkey: keypair.PublicKeyToBytes(senderPubKey),
 		},
 		Actions: []*iotextypes.Action{
 			{
@@ -155,6 +157,5 @@ func TestConvertFromBlockPb(t *testing.T) {
 	require.Equal(t, uint64(104), newblk.Actions[3].Nonce())
 
 	require.Equal(t, blk.Header.txRoot, blk.TxRoot())
-	require.Equal(t, blk.Header.stateRoot, blk.StateRoot())
 	require.Equal(t, blk.Header.receiptRoot, blk.ReceiptRoot())
 }

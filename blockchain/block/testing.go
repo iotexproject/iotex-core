@@ -36,12 +36,6 @@ func (b *TestingBuilder) SetVersion(v uint32) *TestingBuilder {
 	return b
 }
 
-// SetChainID sets the chain id for block which is building.
-func (b *TestingBuilder) SetChainID(c uint32) *TestingBuilder {
-	b.blk.Header.chainID = c
-	return b
-}
-
 // SetHeight sets the block height for block which is building.
 func (b *TestingBuilder) SetHeight(h uint64) *TestingBuilder {
 	b.blk.Header.height = h
@@ -69,12 +63,6 @@ func (b *TestingBuilder) AddActions(acts ...action.SealedEnvelope) *TestingBuild
 	return b
 }
 
-// SetStateRoot sets the new state root after running actions included in this building block.
-func (b *TestingBuilder) SetStateRoot(h hash.Hash256) *TestingBuilder {
-	b.blk.Header.stateRoot = h
-	return b
-}
-
 // SetReceipts sets the receipts after running actions included in this building block.
 func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder {
 	b.blk.Receipts = receipts // make a shallow copy
@@ -85,8 +73,8 @@ func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder
 func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
 	b.blk.Header.pubkey = signerPubKey
-	blkHash := b.blk.HashBlock()
-	sig, err := crypto.Sign(blkHash[:], signerPriKey)
+	h := b.blk.Header.HashHeaderCore()
+	sig, err := crypto.Sign(h[:], signerPriKey)
 	if err != nil {
 		return Block{}, errors.New("Failed to sign block")
 	}
@@ -107,13 +95,11 @@ func NewBlockDeprecated(
 	block := &Block{
 		Header: Header{
 			version:       version.ProtocolVersion,
-			chainID:       chainID,
 			height:        height,
 			timestamp:     timestamp,
 			prevBlockHash: prevBlockHash,
 			pubkey:        producer,
 			txRoot:        hash.ZeroHash256,
-			stateRoot:     hash.ZeroHash256,
 			receiptRoot:   hash.ZeroHash256,
 		},
 		Actions: actions,
