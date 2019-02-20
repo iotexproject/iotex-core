@@ -71,6 +71,11 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	return nil
 }
 
+// ReadState read the state on blockchain via protocol
+func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error) {
+	return nil, protocol.ErrUnimplemented
+}
+
 func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, sm protocol.StateManager) error {
 	// Validate main-chain state
 	// TODO: this may not be the type safe casting if index is greater than 2^63

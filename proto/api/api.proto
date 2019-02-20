@@ -47,6 +47,9 @@ service APIService {
 
   // estimate gas for action
   rpc EstimateGasForAction(EstimateGasForActionRequest) returns (EstimateGasForActionResponse) {}
+
+  // read state from blockchain
+  rpc ReadState(ReadStateRequest) returns (ReadStateResponse) {}
 }
 
 message GetAccountRequest {
@@ -159,4 +162,14 @@ message EstimateGasForActionRequest {
 
 message EstimateGasForActionResponse {
   uint64 gas = 1;
+}
+
+message ReadStateRequest {
+  bytes protocolID = 1;
+  bytes methodName = 2;
+  repeated bytes arguments = 3;
+}
+
+message ReadStateResponse {
+  bytes data = 1;
 }

@@ -9,16 +9,24 @@ package protocol
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 )
 
+var (
+	// ErrUnimplemented indicates a method is not implemented yet
+	ErrUnimplemented = errors.New("method is unimplemented")
+)
+
 // Protocol defines the protocol interfaces atop IoTeX blockchain
 type Protocol interface {
 	ActionValidator
 	ActionHandler
+	ReadState(context.Context, StateManager, []byte, ...[]byte) ([]byte, error)
 }
 
 // ActionValidator is the interface of validating an action

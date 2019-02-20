@@ -16,6 +16,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -23,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -30,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -296,6 +299,43 @@ var (
 		{
 			hex.EncodeToString(voteHash1[:]),
 			10000,
+		},
+	}
+
+	readUnclaimedBalanceTests = []struct {
+		// Arguments
+		protocolID string
+		methodName string
+		addr       string
+		// Expected values
+		returnErr bool
+		balance   *big.Int
+	}{
+		{
+			protocolID: rewarding.ProtocolID,
+			methodName: "UnclaimedBalance",
+			addr:       ta.Addrinfo["producer"].String(),
+			returnErr:  false,
+			balance:    unit.ConvertIotxToRau(144), // 4 block * 36 IOTX reward by default = 144 IOTX
+		},
+		{
+			protocolID: rewarding.ProtocolID,
+			methodName: "UnclaimedBalance",
+			addr:       ta.Addrinfo["alfa"].String(),
+			returnErr:  false,
+			balance:    unit.ConvertIotxToRau(0), // 4 block * 36 IOTX reward by default = 144 IOTX
+		},
+		{
+			protocolID: "Wrong ID",
+			methodName: "UnclaimedBalance",
+			addr:       ta.Addrinfo["producer"].String(),
+			returnErr:  true,
+		},
+		{
+			protocolID: rewarding.ProtocolID,
+			methodName: "Wrong Method",
+			addr:       ta.Addrinfo["producer"].String(),
+			returnErr:  true,
 		},
 	}
 )
@@ -676,6 +716,33 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 	}
 }
 
+func TestServer_ReadUnclaimedBalance(t *testing.T) {
+	cfg := newConfig()
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
+
+	svr, err := createServer(cfg, false)
+	require.NoError(t, err)
+
+	for _, test := range readUnclaimedBalanceTests {
+		out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+			ProtocolID: []byte(test.protocolID),
+			MethodName: []byte(test.methodName),
+			Arguments:  [][]byte{[]byte(test.addr)},
+		})
+		if test.returnErr {
+			require.Error(t, err)
+			continue
+		}
+		require.NoError(t, err)
+		val, ok := big.NewInt(0).SetString(string(out.Data), 10)
+		require.True(t, ok)
+		assert.Equal(t, test.balance, val)
+	}
+}
+
 func addProducerToFactory(sf factory.Factory) error {
 	ws, err := sf.NewWorkingSet()
 	if err != nil {
@@ -869,29 +936,39 @@ func addActsToActPool(ap actpool.ActPool) error {
 	return ap.Add(execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, error) {
+func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, error) {
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// create chain
 	genesisConfig := genesis.Default
+	registry := protocol.Registry{}
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
 		blockchain.GenesisOption(genesisConfig),
+		blockchain.RegistryOption(&registry),
 	)
 	if bc == nil {
-		return nil, errors.New("failed to create blockchain")
+		return nil, nil, errors.New("failed to create blockchain")
 	}
-	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
-		execution.NewProtocol(bc))
 
-	return bc, nil
+	acc := account.NewProtocol()
+	v := vote.NewProtocol(bc)
+	evm := execution.NewProtocol(bc)
+	r := rewarding.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
+	registry.Register(vote.ProtocolID, v)
+	registry.Register(execution.ProtocolID, evm)
+	registry.Register(rewarding.ProtocolID, r)
+	sf.AddActionHandlers(acc, v, evm, r)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
+	bc.Validator().AddActionValidators(acc, v, evm, r)
+
+	return bc, &registry, nil
 }
 
 func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool, error) {
@@ -916,7 +993,7 @@ func newConfig() config.Config {
 }
 
 func createServer(cfg config.Config, needActPool bool) (*Server, error) {
-	bc, err := setupChain(cfg)
+	bc, registry, err := setupChain(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -952,10 +1029,11 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	apiCfg := config.API{TpsWindow: 10, MaxTransferPayloadBytes: 1024, GasStation: cfg.API.GasStation}
 
 	svr := &Server{
-		bc:  bc,
-		ap:  ap,
-		cfg: apiCfg,
-		gs:  gasstation.NewGasStation(bc, apiCfg),
+		bc:       bc,
+		ap:       ap,
+		cfg:      apiCfg,
+		gs:       gasstation.NewGasStation(bc, apiCfg),
+		registry: registry,
 	}
 
 	return svr, nil
