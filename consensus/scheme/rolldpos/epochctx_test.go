@@ -17,42 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-func TestGetEpochHeight(t *testing.T) {
-	require := require.New(t)
-	numDelegates := uint(4)
-	numSubEpochs := uint(3)
-	epochNums := []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	expectedHeights := []uint64{1, 13, 25, 37, 49, 61, 73, 85, 97, 109}
-	for i, epochNum := range epochNums {
-		height := getEpochHeight(epochNum, numDelegates, numSubEpochs)
-		require.Equal(expectedHeights[i], height)
-	}
-}
-
-func TestGetEpochNum(t *testing.T) {
-	require := require.New(t)
-	numDelegates := uint(4)
-	numSubEpochs := uint(3)
-	epochHeights := []uint64{1, 12, 25, 38, 53, 59, 80, 90, 93, 120}
-	expectedNums := []uint64{1, 1, 3, 4, 5, 5, 7, 8, 8, 10}
-	for i, epochHeight := range epochHeights {
-		num := getEpochNum(epochHeight, numDelegates, numSubEpochs)
-		require.Equal(expectedNums[i], num)
-	}
-}
-
-func TestGetSubEpochNum(t *testing.T) {
-	require := require.New(t)
-	numDelegates := uint(4)
-	numSubEpochs := uint(3)
-	epochHeights := []uint64{1, 12, 25, 38, 53, 59, 80, 90, 93, 120}
-	expectedSubEpochNums := []uint64{0, 2, 0, 0, 1, 2, 1, 1, 2, 2}
-	for i, epochHeight := range epochHeights {
-		subEpochNum := getSubEpochNum(epochHeight, numDelegates, numSubEpochs)
-		require.Equal(expectedSubEpochNums[i], subEpochNum)
-	}
-}
-
 func TestNewEpochCtx(t *testing.T) {
 	require := require.New(t)
 	numDelegates := uint(24)
