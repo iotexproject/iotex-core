@@ -168,7 +168,7 @@ func (sct *smartContractTest) deployContract(
 
 	ws, err := bc.GetFactory().NewWorkingSet()
 	r.NoError(err)
-	stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256, hash.ZeroHash256)
+	stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
 	var evmContractAddrHash common.Address
 	addr, _ := address.FromString(contractAddress)
 	copy(evmContractAddrHash[:], addr.Bytes())
@@ -285,7 +285,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
 
-		stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256, hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		copy(evmContractAddrHash[:], contract.Bytes())
 		code := stateDB.GetCode(evmContractAddrHash)
@@ -337,7 +337,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
-		stateDB = evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256, hash.ZeroHash256)
+		stateDB = evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
 		var emptyEVMHash common.Hash
 		v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 		require.Equal(byte(15), v[31])
@@ -669,7 +669,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
 
-		stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256, hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		copy(evmContractAddrHash[:], h)
 		code := stateDB.GetCode(evmContractAddrHash)

@@ -8,8 +8,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "7b52ebe0df102112f05d6a9a24766cde"
-const BarristerDateGenerated int64 = 1550256002228000000
+const BarristerChecksum string = "9a91a9518bf4888d8fcedc7e25cd3407"
+const BarristerDateGenerated int64 = 1550271368575000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -34,10 +34,8 @@ type Block struct {
 	Executions       int64          `json:"executions"`
 	GenerateBy       BlockGenerator `json:"generateBy"`
 	Amount           string         `json:"amount"`
-	Forged           int64          `json:"forged"`
 	Size             int64          `json:"size"`
 	TxRoot           string         `json:"txRoot"`
-	StateRoot        string         `json:"stateRoot"`
 	DeltaStateDigest string         `json:"deltaStateDigest"`
 }
 
@@ -1401,13 +1399,6 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "forged",
-                "type": "int",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
                 "name": "size",
                 "type": "int",
                 "optional": false,
@@ -1416,13 +1407,6 @@ var IdlJsonRaw = `[
             },
             {
                 "name": "txRoot",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "stateRoot",
                 "type": "string",
                 "optional": false,
                 "is_array": false,
@@ -4178,7 +4162,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1550256002228,
-        "checksum": "7b52ebe0df102112f05d6a9a24766cde"
+        "date_generated": 1550271368575,
+        "checksum": "9a91a9518bf4888d8fcedc7e25cd3407"
     }
 ]`
