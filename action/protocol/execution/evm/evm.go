@@ -78,6 +78,13 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		contractAddrPointer = &contractAddr
 	}
 	producer := common.BytesToAddress(raCtx.Producer.Bytes())
+
+	gasLimit := execution.GasLimit()
+	// Reset gas limit to the system wide action gas limit cap if it's greater than it
+	if gasLimit > raCtx.ActionGasLimit {
+		gasLimit = raCtx.ActionGasLimit
+	}
+
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
@@ -87,7 +94,7 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    raCtx.ActionGasLimit,
+		GasLimit:    gasLimit,
 		GasPrice:    execution.GasPrice(),
 	}
 
