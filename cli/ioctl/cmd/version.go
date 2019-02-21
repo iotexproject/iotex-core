@@ -4,10 +4,22 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package main
+package cmd
 
-import "github.com/iotexproject/iotex-core/cli/iotc/cmd"
+import (
+	"fmt"
 
-func main() {
-	cmd.Execute()
+	"github.com/spf13/cobra"
+)
+
+func init() {
+	rootCmd.AddCommand(versionCmd)
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version number of ioctl",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("v0.1")
+	},
 }
