@@ -123,15 +123,13 @@ func (sct *smartContractTest) prepareBlockchain(
 ) blockchain.Blockchain {
 	cfg := config.Default
 	cfg.Chain.EnableIndex = true
-	genesisCfg := genesis.Default
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemDaoOption(),
 		blockchain.InMemStateFactoryOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	r.NotNil(bc)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 	sf := bc.GetFactory()
 	r.NotNil(sf)
@@ -218,14 +216,12 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
-		genesisCfg := genesis.Default
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
-			blockchain.GenesisOption(genesisCfg),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
@@ -419,14 +415,12 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
-		genesisCfg := genesis.Default
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
-			blockchain.GenesisOption(genesisCfg),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
@@ -597,14 +591,12 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
-		genesisCfg := genesis.Default
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
-			blockchain.GenesisOption(genesisCfg),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)

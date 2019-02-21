@@ -98,13 +98,21 @@ func TestRollDPoSCtx(t *testing.T) {
 			testAddrs[0].pubKey,
 			make([]action.SealedEnvelope, 0),
 		)
+		cfg := config.Default
+
+		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 4 * time.Second
+		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 2 * time.Second
+		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 2 * time.Second
+		cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
+
+		cfg.Genesis.BlockInterval = 10 * time.Second
+		cfg.Genesis.NumDelegates = 4
+		cfg.Genesis.NumSubEpochs = 1
+
 		ctx := makeTestRollDPoSCtx(
 			testAddrs[0],
 			ctrl,
-			config.RollDPoS{
-				NumSubEpochs: 1,
-				NumDelegates: 4,
-			},
+			cfg,
 			func(blockchain *mock_blockchain.MockBlockchain) {
 				blockchain.EXPECT().GetBlockByHeight(blockHeight).Return(blk, nil).Times(4)
 				blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
@@ -119,11 +127,6 @@ func TestRollDPoSCtx(t *testing.T) {
 			clock,
 		)
 		ctx.round = &roundCtx{height: blockHeight + 1}
-		ctx.cfg.DelegateInterval = 10 * time.Second
-		ctx.cfg.FSM.AcceptBlockTTL = 4 * time.Second
-		ctx.cfg.FSM.AcceptProposalEndorsementTTL = 2 * time.Second
-		ctx.cfg.FSM.AcceptLockEndorsementTTL = 2 * time.Second
-		ctx.cfg.ToleratedOvertime = 2 * time.Second
 
 		epoch, err := ctx.epochCtxByHeight(blockHeight + 1)
 		require.NoError(t, err)

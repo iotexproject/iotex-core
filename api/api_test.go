@@ -943,13 +943,11 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	}
 
 	// create chain
-	genesisConfig := genesis.Default
 	registry := protocol.Registry{}
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisConfig),
 		blockchain.RegistryOption(&registry),
 	)
 	if bc == nil {
@@ -959,13 +957,13 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	acc := account.NewProtocol()
 	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
-	r := rewarding.NewProtocol(bc, genesisConfig.NumDelegates, genesisConfig.NumSubEpochs)
+	r := rewarding.NewProtocol(bc, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
 	registry.Register(account.ProtocolID, acc)
 	registry.Register(vote.ProtocolID, v)
 	registry.Register(execution.ProtocolID, evm)
 	registry.Register(rewarding.ProtocolID, r)
 	sf.AddActionHandlers(acc, v, evm, r)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(acc, v, evm, r)
 
 	return bc, &registry, nil
@@ -976,10 +974,8 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 	if err != nil {
 		return nil, err
 	}
-	genesisConfig := genesis.Default
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
-	ap.AddActionValidators(vote.NewProtocol(bc),
-		execution.NewProtocol(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	ap.AddActionValidators(vote.NewProtocol(bc), execution.NewProtocol(bc))
 
 	return ap, nil
 }

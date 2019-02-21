@@ -110,7 +110,7 @@ func New(
 		}
 	}
 	registry := protocol.Registry{}
-	chainOpts = append(chainOpts, blockchain.GenesisOption(ops.genesisConfig), blockchain.RegistryOption(&registry))
+	chainOpts = append(chainOpts, blockchain.RegistryOption(&registry))
 
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)

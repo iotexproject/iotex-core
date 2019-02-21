@@ -12,15 +12,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-
-	"github.com/iotexproject/iotex-core/action/protocol"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -32,12 +29,10 @@ import (
 func TestValidateDeposit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
-	gensisCfg := genesis.Default
 	bc := blockchain.NewBlockchain(
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(gensisCfg),
 	)
 	require.NoError(t, bc.Start(ctx))
 	exp := mock_explorer.NewMockExplorer(ctrl)
@@ -98,12 +93,10 @@ func TestValidateDeposit(t *testing.T) {
 func TestMutateDeposit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
-	genesisCfg := genesis.Default
 	bc := blockchain.NewBlockchain(
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(t, bc.Start(ctx))
 	exp := mock_explorer.NewMockExplorer(ctrl)
