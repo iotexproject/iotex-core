@@ -23,7 +23,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
@@ -851,7 +851,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create clean working set")
 	}
-	account, err := util.LoadOrCreateAccount(ws, addr, init)
+	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}

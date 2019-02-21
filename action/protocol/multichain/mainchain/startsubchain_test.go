@@ -19,7 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -254,7 +254,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	// Create an account with 2000000000 iotx
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(
+	_, err = accountutil.LoadOrCreateAccount(
 		ws,
 		testaddress.Addrinfo["producer"].String(),
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(unit.Iotx)),
