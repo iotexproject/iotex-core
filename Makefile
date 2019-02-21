@@ -47,12 +47,12 @@ endif
 all: clean build test
 .PHONY: build
 build:
-	# $(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	# $(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
-	# $(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
-	# $(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
-	# $(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 
 .PHONY: fmt
 fmt:
