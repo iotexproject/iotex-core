@@ -37,9 +37,9 @@ func main() {
 		return c == ','
 	}
 	servers := strings.FieldsFunc(addr, splitFn)
-	// fmt.Println(servers)
+
+	// check health for all given servers
 	for _, bcServer := range servers {
-		// fmt.Println(bcServer)
 		// TODO - run for all servers in goroutines ?
 		c, err := New(bcServer)
 		if err != nil {
@@ -47,10 +47,11 @@ func main() {
 			fmt.Println(errMsg)
 			continue
 		}
-		res, err := c.ServerMonitor(height)
+		res, err := c.serverMonitor(height)
 		if err != nil {
 			errMsg := fmt.Errorf("error in getting health status for %s, error %v", bcServer, err)
 			fmt.Println(errMsg)
+			continue
 		}
 		if res {
 			successMsg := fmt.Sprintf("positive health status for server %s", bcServer)
@@ -79,7 +80,7 @@ func New(serverAddr string) (*Client, error) {
 }
 
 // ServerMonitor is to track server's health by checking it's current height
-func (c *Client) ServerMonitor(height uint64) (bool, error) {
+func (c *Client) serverMonitor(height uint64) (bool, error) {
 	req := &iotexapi.GetChainMetaRequest{}
 	resp, err := c.api.GetChainMeta(context.Background(), req)
 	if err != nil {
