@@ -64,6 +64,7 @@ func TestBlockReward(t *testing.T) {
 	pk := &sk.PublicKey
 	pkHash1 := keypair.HashPubKey(pk)
 	addr, err := address.FromBytes(pkHash1[:])
+	require.NoError(t, err)
 
 	blockReward, err := rp.BlockReward(ctx, ws)
 	require.NoError(t, err)
