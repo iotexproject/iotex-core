@@ -33,9 +33,6 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
-// recoveryHeight is the blockchain height being recovered to
-var recoveryHeight int
-
 func init() {
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,

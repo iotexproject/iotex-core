@@ -17,7 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -45,7 +45,7 @@ func TestHandlePutBlock(t *testing.T) {
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(
+	_, err = accountutil.LoadOrCreateAccount(
 		ws,
 		addr.String(),
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(unit.Iotx)),

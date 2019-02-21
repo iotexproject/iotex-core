@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -176,7 +176,7 @@ func (p *Protocol) settleAction(
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := util.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
+	acc, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
@@ -184,10 +184,7 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 	if nonce > acc.Nonce {
 		acc.Nonce = nonce
 	}
-	if err := util.StoreAccount(sm, addr.String(), acc); err != nil {
-		return err
-	}
-	return nil
+	return accountutil.StoreAccount(sm, addr.String(), acc)
 }
 
 func (p *Protocol) createReceipt(status uint64, actHash hash.Hash256, gasConsumed uint64) *action.Receipt {

@@ -22,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
@@ -110,11 +110,11 @@ func TestSDBSnapshot(t *testing.T) {
 func testSnapshot(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
 	addr := testaddress.Addrinfo["alfa"].String()
-	_, err := util.LoadOrCreateAccount(ws, addr, big.NewInt(5))
+	_, err := accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(5))
 	require.NoError(err)
 	sHash := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
 
-	s, err := util.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, sHash)
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -129,11 +129,11 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	require.NoError(ws.PutState(sHash, s))
 	// add another account
 	addr = testaddress.Addrinfo["bravo"].String()
-	_, err = util.LoadOrCreateAccount(ws, addr, big.NewInt(7))
+	_, err = accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(7))
 	require.NoError(err)
 	tHash := byteutil.BytesTo20B(testaddress.Addrinfo["bravo"].Bytes())
 
-	s, err = util.LoadAccount(ws, tHash)
+	s, err = accountutil.LoadAccount(ws, tHash)
 	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
 	s2 := ws.Snapshot()
@@ -203,17 +203,17 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, b, big.NewInt(200))
+	_, err = accountutil.LoadOrCreateAccount(ws, b, big.NewInt(200))
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, c, big.NewInt(300))
+	_, err = accountutil.LoadOrCreateAccount(ws, c, big.NewInt(300))
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, d, big.NewInt(100))
+	_, err = accountutil.LoadOrCreateAccount(ws, d, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, e, big.NewInt(100))
+	_, err = accountutil.LoadOrCreateAccount(ws, e, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, f, big.NewInt(300))
+	_, err = accountutil.LoadOrCreateAccount(ws, f, big.NewInt(300))
 	require.NoError(t, err)
 	// a:100(0) b:200(0) c:300(0)
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
@@ -893,7 +893,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	cand, _ = sf.CandidatesByHeight(h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
-	stateA, err := util.LoadOrCreateAccount(ws, a, big.NewInt(0))
+	stateA, err := accountutil.LoadOrCreateAccount(ws, a, big.NewInt(0))
 	require.NoError(t, err)
 	require.Equal(t, stateA.Balance, big.NewInt(100))
 }
@@ -932,7 +932,7 @@ func testState(sf Factory, t *testing.T) {
 	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
 
 	// a:100(0)
@@ -1010,7 +1010,7 @@ func testNonce(sf Factory, t *testing.T) {
 	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
 
 	tx, err := action.NewTransfer(0, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
@@ -1087,9 +1087,9 @@ func testUnvote(sf Factory, t *testing.T) {
 	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, b, big.NewInt(200))
+	_, err = accountutil.LoadOrCreateAccount(ws, b, big.NewInt(200))
 	require.NoError(t, err)
 
 	vote1, err := action.NewVote(0, "", uint64(100000), big.NewInt(0))
@@ -1296,9 +1296,9 @@ func testRunActions(ws WorkingSet, t *testing.T) {
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
 	b := testaddress.Addrinfo["bravo"].String()
 	priKeyB := testaddress.Keyinfo["bravo"].PriKey
-	_, err := util.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	_, err := accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(err)
-	_, err = util.LoadOrCreateAccount(ws, b, big.NewInt(200))
+	_, err = accountutil.LoadOrCreateAccount(ws, b, big.NewInt(200))
 	require.NoError(err)
 
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
@@ -1493,7 +1493,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 		b.Fatal(err)
 	}
 	for _, acc := range accounts {
-		_, err = util.LoadOrCreateAccount(ws, acc, big.NewInt(int64(b.N*100)))
+		_, err = accountutil.LoadOrCreateAccount(ws, acc, big.NewInt(int64(b.N*100)))
 		if err != nil {
 			b.Fatal(err)
 		}

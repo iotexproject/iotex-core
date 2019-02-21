@@ -18,7 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -58,7 +58,7 @@ func TestValidateDeposit(t *testing.T) {
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(
+	_, err = accountutil.LoadOrCreateAccount(
 		ws,
 		testaddress.Addrinfo["producer"].String(),
 		big.NewInt(1000),

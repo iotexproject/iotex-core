@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/address"
@@ -32,13 +32,7 @@ func (b rewardHistory) Serialize() ([]byte, error) {
 }
 
 // Deserialize deserializes bytes into reward history state
-func (b *rewardHistory) Deserialize(data []byte) error {
-	gen := rewardingpb.RewardHistory{}
-	if err := proto.Unmarshal(data, &gen); err != nil {
-		return err
-	}
-	return nil
-}
+func (b *rewardHistory) Deserialize(data []byte) error { return nil }
 
 // rewardHistory stores the unclaimed balance of an account
 type rewardAccount struct {
@@ -82,10 +76,7 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.grantToAccount(sm, raCtx.Producer, a.BlockReward); err != nil {
 		return err
 	}
-	if err := p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
-		return err
-	}
-	return nil
+	return p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight)
 }
 
 // GrantEpochReward grants the epoch reward (token) to all beneficiaries of a epoch
@@ -117,10 +108,7 @@ func (p *Protocol) GrantEpochReward(
 			return err
 		}
 	}
-	if err := p.updateRewardHistory(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
-		return err
-	}
-	return nil
+	return p.updateRewardHistory(sm, epochRewardHistoryKeyPrefix, epochNum)
 }
 
 // Claim claims the token from the rewarding fund
@@ -133,10 +121,7 @@ func (p *Protocol) Claim(
 	if err := p.updateTotalBalance(sm, amount); err != nil {
 		return err
 	}
-	if err := p.claimFromAccount(sm, raCtx.Caller, amount); err != nil {
-		return err
-	}
-	return nil
+	return p.claimFromAccount(sm, raCtx.Caller, amount)
 }
 
 // UnclaimedBalance returns unclaimed balance of a given address
@@ -167,10 +152,7 @@ func (p *Protocol) updateTotalBalance(sm protocol.StateManager, amount *big.Int)
 		return errors.New("no enough total balance")
 	}
 	f.totalBalance = totalBalance
-	if err := p.putState(sm, fundKey, &f); err != nil {
-		return err
-	}
-	return nil
+	return p.putState(sm, fundKey, &f)
 }
 
 func (p *Protocol) updateAvailableBalance(sm protocol.StateManager, amount *big.Int) error {
@@ -183,10 +165,7 @@ func (p *Protocol) updateAvailableBalance(sm protocol.StateManager, amount *big.
 		return errors.New("no enough available balance")
 	}
 	f.unclaimedBalance = availableBalance
-	if err := p.putState(sm, fundKey, &f); err != nil {
-		return err
-	}
-	return nil
+	return p.putState(sm, fundKey, &f)
 }
 
 func (p *Protocol) grantToAccount(sm protocol.StateManager, addr address.Address, amount *big.Int) error {
@@ -201,10 +180,7 @@ func (p *Protocol) grantToAccount(sm protocol.StateManager, addr address.Address
 		}
 	}
 	acc.balance = big.NewInt(0).Add(acc.balance, amount)
-	if err := p.putState(sm, accKey, &acc); err != nil {
-		return err
-	}
-	return nil
+	return p.putState(sm, accKey, &acc)
 }
 
 func (p *Protocol) claimFromAccount(sm protocol.StateManager, addr address.Address, amount *big.Int) error {
@@ -230,24 +206,18 @@ func (p *Protocol) claimFromAccount(sm protocol.StateManager, addr address.Addre
 	}
 
 	// Update primary account
-	primAcc, err := util.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
+	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
 	primAcc.Balance = big.NewInt(0).Add(primAcc.Balance, amount)
-	if err := util.StoreAccount(sm, addr.String(), primAcc); err != nil {
-
-	}
-	return nil
+	return accountutil.StoreAccount(sm, addr.String(), primAcc)
 }
 
 func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, index uint64) error {
 	var indexBytes [8]byte
 	enc.MachineEndian.PutUint64(indexBytes[:], index)
-	if err := p.putState(sm, append(prefix, indexBytes[:]...), &rewardHistory{}); err != nil {
-		return err
-	}
-	return nil
+	return p.putState(sm, append(prefix, indexBytes[:]...), &rewardHistory{})
 }
 
 func (p *Protocol) splitEpochReward(blkHeight uint64, totalAmount *big.Int) ([]address.Address, []*big.Int, error) {

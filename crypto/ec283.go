@@ -59,7 +59,7 @@ func (c *ec283) NewPubKey(priv keypair.EC283PrivateKey) (keypair.EC283PublicKey,
 		return keypair.ZeroPublicKey, nil
 	}
 	if result := C.pk_generation(&privKey[0], &pubKey); result == 0 {
-		return keypair.ZeroPublicKey, errors.New("Fail to generate the public key")
+		return keypair.ZeroPublicKey, errors.New("fail to generate the public key")
 	}
 	pub, err := c.publicKeySerialization(pubKey)
 	if err != nil {
@@ -86,7 +86,7 @@ func (c *ec283) Sign(priv keypair.EC283PrivateKey, msg []byte) []byte {
 
 // Verify verifies the signature
 func (c *ec283) Verify(pub keypair.EC283PublicKey, msg []byte, sig []byte) bool {
-	msgString := string(msg[:])
+	msgString := string(msg)
 	pubKey, err := c.publicKeyDeserialization(pub)
 	if err != nil {
 		return false

@@ -13,7 +13,7 @@ import (
 )
 
 func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash256 {
-	var h []hash.Hash256
+	h := make([]hash.Hash256, 0, len(acts))
 	for _, act := range acts {
 		h = append(h, act.Hash())
 	}
