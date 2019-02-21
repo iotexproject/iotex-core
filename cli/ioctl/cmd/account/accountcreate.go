@@ -4,25 +4,25 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package cmd
+package account
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-ethereum/crypto"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/address"
 )
 
 var numAccounts int
 
-// accountcreateCmd represents the accountcreate command
-var accountcreateCmd = &cobra.Command{
+// accountCreateCmd represents the account create command
+var accountCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create N new accounts and print them",
 	Args:  cobra.ExactArgs(0),
@@ -32,9 +32,9 @@ var accountcreateCmd = &cobra.Command{
 }
 
 func init() {
-	accountcreateCmd.Flags().IntVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
+	accountCreateCmd.Flags().IntVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
 
-	accountCmd.AddCommand(accountcreateCmd)
+	AccountCmd.AddCommand(accountCreateCmd)
 }
 
 func accountCreate(args []string) string {

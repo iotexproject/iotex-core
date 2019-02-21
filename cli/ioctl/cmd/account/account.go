@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package cmd
+package account
 
 import (
 	"fmt"
@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// accountCmd represents the account command
-var accountCmd = &cobra.Command{
+// AccountCmd represents the account command
+var AccountCmd = &cobra.Command{
 	Use:   "account",
 	Short: "Deal with accounts of IoTeX blockchain",
 	Args:  cobra.MinimumNArgs(1),
@@ -23,6 +23,3 @@ var accountCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(accountCmd)
-}

@@ -4,19 +4,17 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package cmd
+package version
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
 )
 
-func init() {
-	rootCmd.AddCommand(versionCmd)
-}
-
-var versionCmd = &cobra.Command{
+// VersionCmd represents the version command
+var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version number of ioctl",
 	Run: func(cmd *cobra.Command, args []string) {

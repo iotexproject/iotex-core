@@ -11,19 +11,27 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/version"
 )
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
+// RootCmd represents the base command when called without any subcommands
+var RootCmd = &cobra.Command{
 	Use:   "ioctl",
-	Short: "Command-line interface for IoTeX blockchains",
-	Long:  `ioctl is a command-line interface for interacting with IoTeX blockchains.`,
+	Short: "Command-line interface for IoTeX blockchain",
+	Long:  `ioctl is a command-line interface for interacting with IoTeX blockchain.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
+func init() {
+	RootCmd.AddCommand(account.AccountCmd)
+	RootCmd.AddCommand(version.VersionCmd)
+}
+
