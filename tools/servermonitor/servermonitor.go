@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -17,7 +17,7 @@ import (
 
 	"flag"
 
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -37,57 +37,39 @@ func main() {
 		return c == ','
 	}
 	servers := strings.FieldsFunc(addr, splitFn)
-	// fmt.Println(servers)
+
+	var client pb.APIServiceClient
+
+	// check health for all given servers
 	for _, bcServer := range servers {
-		fmt.Println(bcServer)
-		c, err := New(bcServer)
+		// TODO - run for all servers in goroutines ?
+		result, err := servermonitor(bcServer, height)
 		if err != nil {
-			errMsg := fmt.Errorf("could not connect to server %s", bcServer)
-			fmt.Println(errMsg)
+			fmt.Println(fmt.Errorf("error in getting server health status %v", err))
 			continue
 		}
-		res, err := c.ServerMonitor(height)
-		if err != nil {
-			errMsg := fmt.Errorf("error in getting health status for %s, error %v", bcServer, err)
-			fmt.Println(errMsg)
-		}
-		if res {
-			successMsg := fmt.Sprintf("positive health status for server %s", bcServer)
-			fmt.Println(successMsg)
-		} else {
-			failureMsg := fmt.Sprintf("negative health status for server %s", bcServer)
-			fmt.Println(failureMsg)
+		if !result {
+			fmt.Println(fmt.Errorf("server health status negative for server %s", bcServer))
 		}
 	}
 }
 
-// Client is the blockchain API client.
-type Client struct {
-	api iotexapi.APIServiceClient
-}
-
-// New creates a new Client.
-func New(serverAddr string) (*Client, error) {
+func servermonitor(serverAddr string, height uint64) (bool, error) {
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	return &Client{
-		api: iotexapi.NewAPIServiceClient(conn),
-	}, nil
-}
 
-// ServerMonitor is to track server's health by checking it's current height
-func (c *Client) ServerMonitor(height uint64) (bool, error) {
-	req := &iotexapi.GetChainMetaRequest{}
-	resp, err := c.api.GetChainMeta(context.Background(), req)
+	client := pb.NewAPIServiceClient(conn)
+	req := &pb.GetChainMetaRequest{}
+	resp, err := client.GetChainMeta(context.Background(), req)
 	if err != nil {
-		return false, fmt.Errorf("\n error in GetChainMeta: %v", err)
+		return false, err
 	}
-	fmt.Printf("Info: Current height is %v", resp.ChainMeta.Height)
-	if resp.ChainMeta.Height < height {
-		return false, nil
+	// check if returned height is valid
+	if resp.ChainMeta.Height > height {
+		return true, nil
 	}
 
-	return true, nil
+	return false, nil
 }
