@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -224,18 +223,6 @@ func TestValidateChain(t *testing.T) {
 		t,
 		strings.Contains(err.Error(), "candidate number should be greater than 0"),
 	)
-
-	cfg.NodeType = DelegateType
-	cfg.Consensus.Scheme = RollDPoSScheme
-	cfg.Consensus.RollDPoS.NumDelegates = 5
-	cfg.Chain.NumCandidates = 3
-	err = ValidateChain(cfg)
-	require.Error(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "candidate number should be greater than or equal to delegate number"),
-	)
 }
 
 func TestValidateConsensusScheme(t *testing.T) {
@@ -286,35 +273,13 @@ func TestValidateRollDPoS(t *testing.T) {
 	cfg.NodeType = DelegateType
 	cfg.Consensus.Scheme = RollDPoSScheme
 
-	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 3 * time.Second
-	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second
-	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 3 * time.Second
-	cfg.Consensus.RollDPoS.DelegateInterval = 8 * time.Second
+	cfg.Consensus.RollDPoS.FSM.EventChanSize = 0
 	err := ValidateRollDPoS(cfg)
 	require.NotNil(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
 		t,
-		strings.Contains(err.Error(), "roll-DPoS ttl sum is larger than proposer interval"),
-	)
-
-	cfg.Consensus.RollDPoS.FSM.EventChanSize = 0
-	err = ValidateRollDPoS(cfg)
-	require.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
 		strings.Contains(err.Error(), "roll-DPoS event chan size should be greater than 0"),
-	)
-
-	cfg.Consensus.RollDPoS.FSM.EventChanSize = 1
-	cfg.Consensus.RollDPoS.NumDelegates = 0
-	err = ValidateRollDPoS(cfg)
-	require.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "roll-DPoS event delegate number should be greater than 0"),
 	)
 }
 

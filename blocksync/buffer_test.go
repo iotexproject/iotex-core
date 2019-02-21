@@ -31,7 +31,6 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
@@ -40,9 +39,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		cfg,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.ActionGasLimit))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
@@ -137,7 +135,6 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
@@ -146,7 +143,6 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		cfg,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)

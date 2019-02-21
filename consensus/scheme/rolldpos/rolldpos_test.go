@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 
 	"github.com/facebookgo/clock"
@@ -92,10 +91,12 @@ func TestNewRollDPoS(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	cfg := config.Default
+
 	t.Run("normal", func(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
-			SetConfig(config.RollDPoS{}).
+			SetConfig(cfg).
 			SetAddr(addr.encodedAddr).
 			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
@@ -111,7 +112,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("mock-clock", func(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
-			SetConfig(config.RollDPoS{}).
+			SetConfig(cfg).
 			SetAddr(addr.encodedAddr).
 			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
@@ -131,7 +132,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("root chain API", func(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
-			SetConfig(config.RollDPoS{}).
+			SetConfig(cfg).
 			SetAddr(addr.encodedAddr).
 			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
@@ -150,7 +151,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("missing-dep", func(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
-			SetConfig(config.RollDPoS{}).
+			SetConfig(cfg).
 			SetAddr(addr.encodedAddr).
 			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
@@ -201,13 +202,12 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	}, nil).AnyTimes()
 
 	addr := newTestAddr()
+	cfg := config.Default
+	cfg.Genesis.NumDelegates = 4
+	cfg.Genesis.NumSubEpochs = 1
+	cfg.Genesis.BlockInterval = 10 * time.Second
 	r, err := NewRollDPoSBuilder().
-		SetConfig(config.RollDPoS{
-			NumDelegates:     4,
-			NumSubEpochs:     1,
-			FSM:              config.Default.Consensus.RollDPoS.FSM,
-			DelegateInterval: 10 * time.Second,
-		}).
+		SetConfig(cfg).
 		SetAddr(addr.encodedAddr).
 		SetPubKey(addr.pubKey).
 		SetPriKey(addr.priKey).
@@ -221,7 +221,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	r.ctx.round = &roundCtx{height: blockHeight + 1}
-	clock.Add(r.ctx.cfg.DelegateInterval)
+	clock.Add(r.ctx.genesisCfg.BlockInterval)
 	require.NoError(t, r.ctx.updateEpoch(blockHeight+1))
 	require.NoError(t, r.ctx.updateRound(blockHeight+1))
 
@@ -237,7 +237,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 func makeTestRollDPoSCtx(
 	addr *addrKeyPair,
 	ctrl *gomock.Controller,
-	cfg config.RollDPoS,
+	cfg config.Config,
 	mockChain func(*mock_blockchain.MockBlockchain),
 	mockActPool func(*mock_actpool.MockActPool),
 	broadcastCB func(proto.Message) error,
@@ -253,7 +253,8 @@ func makeTestRollDPoSCtx(
 		}
 	}
 	return &rollDPoSCtx{
-		cfg:              cfg,
+		cfg:              cfg.Consensus.RollDPoS,
+		genesisCfg:       cfg.Genesis.Blockchain,
 		encodedAddr:      addr.encodedAddr,
 		pubKey:           addr.pubKey,
 		priKey:           addr.priKey,
@@ -303,17 +304,16 @@ func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.DelegateInterval = time.Second
 		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 400 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.UnmatchedEventTTL = 400 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 10 * time.Millisecond
 		cfg.Consensus.RollDPoS.ToleratedOvertime = 200 * time.Millisecond
-		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
-		cfg.Consensus.RollDPoS.NumSubEpochs = 1
 
-		genesisCfg := genesis.Default
+		cfg.Genesis.BlockInterval = time.Second
+		cfg.Genesis.Blockchain.NumDelegates = uint64(numNodes)
+		cfg.Genesis.Blockchain.NumSubEpochs = 1
 
 		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
@@ -368,7 +368,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 				cfg,
 				blockchain.InMemDaoOption(),
 				blockchain.PrecreatedStateFactoryOption(sf),
-				blockchain.GenesisOption(genesisCfg),
 			)
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 			chain.Validator().AddActionValidators(account.NewProtocol())
@@ -387,7 +386,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetAddr(chainAddrs[i].encodedAddr).
 				SetPubKey(&chainAddrs[i].priKey.PublicKey).
 				SetPriKey(chainAddrs[i].priKey).
-				SetConfig(cfg.Consensus.RollDPoS).
+				SetConfig(cfg).
 				SetBlockchain(chain).
 				SetActPool(actPool).
 				SetBroadcast(p2p.Broadcast).
@@ -503,7 +502,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < 21; i++ {
 			go func(idx int) {
 				defer wg.Done()
-				cs[idx].ctx.cfg.TimeBasedRotation = true
+				cs[idx].ctx.genesisCfg.TimeBasedRotation = true
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
 			}(i)

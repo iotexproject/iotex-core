@@ -126,7 +126,7 @@ func NewConsensus(
 			SetAddr(addr).
 			SetPubKey(pk).
 			SetPriKey(sk).
-			SetConfig(cfg.Consensus.RollDPoS).
+			SetConfig(cfg).
 			SetBlockchain(bc).
 			SetActPool(ap).
 			SetClock(clock).

@@ -50,7 +50,6 @@ func TestLocalCommit(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	genesisCfg := genesis.Default
 
 	// create server
 	ctx := context.Background()
@@ -158,12 +157,11 @@ func TestLocalCommit(t *testing.T) {
 		cfg,
 		blockchain.DefaultStateFactoryOption(),
 		blockchain.BoltDBDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 		blockchain.RegistryOption(&registry),
 	)
-	rewardingProtocol := rewarding.NewProtocol(chain, genesisCfg.NumDelegates, genesisCfg.NumSubEpochs)
+	rewardingProtocol := rewarding.NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	chain.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(chain), rewardingProtocol)
 	require.NoError(chain.Start(ctx))
@@ -496,7 +494,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	cfg, err := newTestConfig()
 	cfg.Chain.NumCandidates = 2
 	require.Nil(err)
-	genesisCfg := genesis.Default
 
 	// create node
 	ctx := context.Background()
@@ -541,12 +538,11 @@ func TestVoteLocalCommit(t *testing.T) {
 		cfg,
 		blockchain.DefaultStateFactoryOption(),
 		blockchain.BoltDBDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 		blockchain.RegistryOption(&registry),
 	)
-	rewardingProtocol := rewarding.NewProtocol(chain, genesisCfg.NumDelegates, genesisCfg.NumSubEpochs)
+	rewardingProtocol := rewarding.NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.Blockchain.ActionGasLimit))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol(),
 		vote.NewProtocol(chain))
 	require.NotNil(chain)
