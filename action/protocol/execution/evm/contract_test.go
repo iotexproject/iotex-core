@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -47,7 +47,7 @@ func TestCreateContract(t *testing.T) {
 	addr := testaddress.Addrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
-	_, err = util.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
+	_, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	stateDB := StateDBAdapter{
 		sm:             ws,
@@ -84,7 +84,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(err)
 
 	// reload same contract
-	contract1, err := util.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
+	contract1, err := accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 	require.Nil(sf.Commit(ws))
@@ -97,7 +97,7 @@ func TestCreateContract(t *testing.T) {
 	// reload same contract
 	ws, err = sf.NewWorkingSet()
 	require.Nil(err)
-	contract1, err = util.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
+	contract1, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 	stateDB = StateDBAdapter{
@@ -129,7 +129,7 @@ func TestLoadStoreContract(t *testing.T) {
 	addr := testaddress.Addrinfo["alfa"]
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
-	_, err = util.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
+	_, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	stateDB := StateDBAdapter{
 		sm:             ws,
@@ -157,7 +157,7 @@ func TestLoadStoreContract(t *testing.T) {
 
 	code1 := []byte("2nd contract creation")
 	addr1 := testaddress.Addrinfo["bravo"]
-	_, err = util.LoadOrCreateAccount(ws, addr1.String(), big.NewInt(0))
+	_, err = accountutil.LoadOrCreateAccount(ws, addr1.String(), big.NewInt(0))
 	require.Nil(err)
 	contract1 := addr1.Bytes()
 	var evmContract1 common.Address

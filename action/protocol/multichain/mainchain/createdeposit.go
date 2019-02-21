@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -94,8 +94,8 @@ func (p *Protocol) mutateDeposit(
 	// Subtract the balance from sender account
 	acct.Balance = big.NewInt(0).Sub(acct.Balance, deposit.Amount())
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	util.SetNonce(deposit, acct)
-	if err := util.StoreAccount(sm, caller.String(), acct); err != nil {
+	accountutil.SetNonce(deposit, acct)
+	if err := accountutil.StoreAccount(sm, caller.String(), acct); err != nil {
 		return nil, err
 	}
 

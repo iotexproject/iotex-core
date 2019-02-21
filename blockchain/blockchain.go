@@ -23,7 +23,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
@@ -188,9 +188,6 @@ type blockchain struct {
 
 // Option sets blockchain construction parameter
 type Option func(*blockchain, config.Config) error
-
-// key specifies the type of recovery height key used by context
-type key string
 
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
@@ -851,7 +848,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create clean working set")
 	}
-	account, err := util.LoadOrCreateAccount(ws, addr, init)
+	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}
@@ -1123,7 +1120,7 @@ func (bc *blockchain) runActions(
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight:    acts.BlockHeight(),
-			BlockTimeStamp: int64(acts.BlockTimeStamp()),
+			BlockTimeStamp: acts.BlockTimeStamp(),
 			Producer:       producer,
 			GasLimit:       &gasLimit,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
@@ -1179,6 +1176,9 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		return hash.ZeroHash256, nil, nil, err
 	}
 	receipt, err := ws.RunAction(ctx, grant)
+	if err != nil {
+		return hash.ZeroHash256, nil, nil, err
+	}
 	if receipt != nil {
 		receipts = append(receipts, receipt)
 	}
@@ -1193,6 +1193,9 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			return hash.ZeroHash256, nil, nil, err
 		}
 		receipt, err = ws.RunAction(ctx, grant)
+		if err != nil {
+			return hash.ZeroHash256, nil, nil, err
+		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
 		}
@@ -1352,7 +1355,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
-	var h []hash.Hash256
+	h := make([]hash.Hash256, 0, len(receipts))
 	for _, receipt := range receipts {
 		h = append(h, receipt.Hash())
 	}
