@@ -603,7 +603,7 @@ func (ctx *rollDPoSCtx) updateSubEpochNum(height uint64) error {
 		return errors.New("Tip height cannot be less than epoch height")
 	}
 	numDlgs := ctx.genesisCfg.NumDelegates
-	ctx.epoch.subEpochNum = (height - ctx.epoch.height) / uint64(numDlgs)
+	ctx.epoch.subEpochNum = (height - ctx.epoch.height) / numDlgs
 
 	return nil
 }
@@ -736,10 +736,10 @@ func (ctx *rollDPoSCtx) getProposer(
 		return "", errors.New("delegates number is different from config")
 	}
 	if !ctx.genesisCfg.TimeBasedRotation {
-		return delegates[(height)%uint64(numDelegates)], nil
+		return delegates[(height)%numDelegates], nil
 	}
 
-	return delegates[(height+uint64(round))%uint64(numDelegates)], nil
+	return delegates[(height+uint64(round))%numDelegates], nil
 }
 
 func (ctx *rollDPoSCtx) epochCtxByHeight(height uint64) (*epochCtx, error) {

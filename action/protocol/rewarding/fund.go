@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -61,12 +61,12 @@ func (p *Protocol) Deposit(
 		return err
 	}
 	// Subtract balance from caller
-	acc, err := util.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
+	acc, err := accountutil.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, amount)
-	util.StoreAccount(sm, raCtx.Caller.String(), acc)
+	accountutil.StoreAccount(sm, raCtx.Caller.String(), acc)
 	// Add balance to fund
 	f := fund{}
 	if err := p.state(sm, fundKey, &f); err != nil {
@@ -74,10 +74,7 @@ func (p *Protocol) Deposit(
 	}
 	f.totalBalance = big.NewInt(0).Add(f.totalBalance, amount)
 	f.unclaimedBalance = big.NewInt(0).Add(f.unclaimedBalance, amount)
-	if err := p.putState(sm, fundKey, &f); err != nil {
-		return err
-	}
-	return nil
+	return p.putState(sm, fundKey, &f)
 }
 
 // TotalBalance returns the total balance of the rewarding fund
@@ -109,7 +106,7 @@ func (p *Protocol) assertEnoughBalance(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	acc, err := util.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
+	acc, err := accountutil.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
 	if err != nil {
 		return err
 	}

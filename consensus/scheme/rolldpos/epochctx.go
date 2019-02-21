@@ -57,7 +57,7 @@ func newEpochCtx(
 	return &epochCtx{
 		num:         epochNum,
 		delegates:   addrs[:numDelegates],
-		subEpochNum: (blockHeight - epochHeight) / uint64(numDelegates),
+		subEpochNum: (blockHeight - epochHeight) / numDelegates,
 		height:      epochHeight,
 	}, nil
 }

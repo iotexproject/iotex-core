@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
@@ -35,7 +35,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil
 	}
 	// check sender
-	sender, err := util.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
+	sender, err := accountutil.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
 		return errors.Wrapf(err, "failed to load or create the account of sender %s", raCtx.Caller.String())
 	}
@@ -74,21 +74,21 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return errors.Wrapf(err, "failed to update the Balance of sender %s", raCtx.Caller.String())
 	}
 	// update sender Nonce
-	util.SetNonce(tsf, sender)
+	accountutil.SetNonce(tsf, sender)
 	// put updated sender's state to trie
-	if err := util.StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
+	if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
 		return errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// Update sender votes
 	if len(sender.Votee) > 0 {
 		// sender already voted to a different person
-		voteeOfSender, err := util.LoadOrCreateAccount(sm, sender.Votee, big.NewInt(0))
+		voteeOfSender, err := accountutil.LoadOrCreateAccount(sm, sender.Votee, big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of sender's votee %s", sender.Votee)
 		}
 		voteeOfSender.VotingWeight.Sub(voteeOfSender.VotingWeight, tsf.Amount())
 		// put updated state of sender's votee to trie
-		if err := util.StoreAccount(sm, sender.Votee, voteeOfSender); err != nil {
+		if err := accountutil.StoreAccount(sm, sender.Votee, voteeOfSender); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 
@@ -100,7 +100,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 	}
 	// check recipient
-	recipient, err := util.LoadOrCreateAccount(sm, tsf.Recipient(), big.NewInt(0))
+	recipient, err := accountutil.LoadOrCreateAccount(sm, tsf.Recipient(), big.NewInt(0))
 	if err != nil {
 		return errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
@@ -109,19 +109,19 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 
 	// put updated recipient's state to trie
-	if err := util.StoreAccount(sm, tsf.Recipient(), recipient); err != nil {
+	if err := accountutil.StoreAccount(sm, tsf.Recipient(), recipient); err != nil {
 		return errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// Update recipient votes
 	if len(recipient.Votee) > 0 {
 		// recipient already voted to a different person
-		voteeOfRecipient, err := util.LoadOrCreateAccount(sm, recipient.Votee, big.NewInt(0))
+		voteeOfRecipient, err := accountutil.LoadOrCreateAccount(sm, recipient.Votee, big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of recipient's votee %s", recipient.Votee)
 		}
 		voteeOfRecipient.VotingWeight.Add(voteeOfRecipient.VotingWeight, tsf.Amount())
 		// put updated state of recipient's votee to trie
-		if err := util.StoreAccount(sm, recipient.Votee, voteeOfRecipient); err != nil {
+		if err := accountutil.StoreAccount(sm, recipient.Votee, voteeOfRecipient); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 

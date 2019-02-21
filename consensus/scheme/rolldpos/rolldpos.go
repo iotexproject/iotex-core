@@ -47,8 +47,6 @@ var (
 	)
 )
 
-const sigSize = 5 // number of uint32s in BLS sig
-
 func init() {
 	prometheus.MustRegister(timeSlotMtc)
 	prometheus.MustRegister(blockIntervalMtc)

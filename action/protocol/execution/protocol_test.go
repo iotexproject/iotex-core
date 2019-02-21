@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -138,7 +138,7 @@ func (sct *smartContractTest) prepareBlockchain(
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
 	for acct, supply := range sct.prepare {
-		_, err = util.LoadOrCreateAccount(ws, acct, supply)
+		_, err = accountutil.LoadOrCreateAccount(ws, acct, supply)
 		r.NoError(err)
 	}
 
@@ -235,7 +235,7 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
@@ -433,11 +433,11 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
 		require.NoError(err)
-		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
-		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["bravo"].String(), big.NewInt(12000000))
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["bravo"].String(), big.NewInt(12000000))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
@@ -609,11 +609,11 @@ func TestProtocol_Handle(t *testing.T) {
 		sf.AddActionHandlers(NewProtocol(bc))
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
 		require.NoError(err)
-		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
-		_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["bravo"].String(), big.NewInt(0))
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["bravo"].String(), big.NewInt(0))
 		require.NoError(err)
 		gasLimit := uint64(10000000)
 		ctx = protocol.WithRunActionsCtx(ctx,
