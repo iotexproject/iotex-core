@@ -265,7 +265,7 @@ func (r *RollDPoS) CurrentState() fsm.State {
 
 // Builder is the builder for RollDPoS
 type Builder struct {
-	cfg config.RollDPoS
+	cfg config.Config
 	// TODO: we should use keystore in the future
 	encodedAddr            string
 	pubKey                 keypair.PublicKey
@@ -283,8 +283,8 @@ func NewRollDPoSBuilder() *Builder {
 	return &Builder{}
 }
 
-// SetConfig sets RollDPoS config
-func (b *Builder) SetConfig(cfg config.RollDPoS) *Builder {
+// SetConfig sets config
+func (b *Builder) SetConfig(cfg config.Config) *Builder {
 	b.cfg = cfg
 	return b
 }
@@ -360,7 +360,8 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.clock = clock.New()
 	}
 	ctx := rollDPoSCtx{
-		cfg:                    b.cfg,
+		cfg:                    b.cfg.Consensus.RollDPoS,
+		genesisCfg:             b.cfg.Genesis.Blockchain,
 		encodedAddr:            b.encodedAddr,
 		pubKey:                 b.pubKey,
 		priKey:                 b.priKey,
@@ -371,7 +372,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		rootChainAPI:           b.rootChainAPI,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,
 	}
-	cfsm, err := consensusfsm.NewConsensusFSM(b.cfg.FSM, &ctx, b.clock)
+	cfsm, err := consensusfsm.NewConsensusFSM(b.cfg.Consensus.RollDPoS.FSM, &ctx, b.clock)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
 	}

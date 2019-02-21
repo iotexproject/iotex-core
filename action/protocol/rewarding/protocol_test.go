@@ -11,13 +11,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -31,7 +32,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	defer ctrl.Finish()
 
 	cfg := config.Default
-	genesisCfg := genesis.Default
 	stateDB, err := factory.NewStateDB(cfg, factory.InMemStateDBOption())
 	require.NoError(t, err)
 	require.NoError(t, stateDB.Start(context.Background()))
@@ -56,7 +56,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			Votes:   unit.ConvertIotxToRau(1000000),
 		},
 	}, nil).AnyTimes()
-	p := NewProtocol(chain, genesisCfg.NumDelegates, genesisCfg.NumSubEpochs)
+	p := NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
 
 	// Initialize the protocol
 	ctx := protocol.WithRunActionsCtx(
@@ -64,7 +64,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 		protocol.RunActionsCtx{
 			Producer:    testaddress.Addrinfo["producer"],
 			Caller:      testaddress.Addrinfo["alfa"],
-			BlockHeight: genesisCfg.NumDelegates * genesisCfg.NumSubEpochs,
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
 	ws, err := stateDB.NewWorkingSet()

@@ -9,6 +9,7 @@ package genesis
 import (
 	"flag"
 	"math/big"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/config"
@@ -50,11 +51,13 @@ func init() {
 func initDefaultConfig() {
 	Default = Genesis{
 		Blockchain: Blockchain{
-			Timestamp:      1546329600,
-			BlockGasLimit:  20000000,
-			ActionGasLimit: 5000000,
-			NumSubEpochs:   1,
-			NumDelegates:   21,
+			Timestamp:         1546329600,
+			BlockGasLimit:     20000000,
+			ActionGasLimit:    5000000,
+			BlockInterval:     10 * time.Second,
+			NumSubEpochs:      1,
+			NumDelegates:      21,
+			TimeBasedRotation: false,
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr:           defaultAdminAddr.String(),
@@ -68,7 +71,7 @@ func initDefaultConfig() {
 
 type (
 	// Genesis is the root level of genesis config. Genesis config is the network-wide blockchain config. All the nodes
-	// participating into the same network should use the same genesis config.
+	// participating into the same network should use EXACTLY SAME genesis config.
 	Genesis struct {
 		Blockchain `yaml:"blockchain"`
 		Rewarding  `yaml:"rewarding"`
@@ -81,10 +84,14 @@ type (
 		BlockGasLimit uint64 `yaml:"blockGasLimit"`
 		// ActionGasLimit is the per action gas limit cap
 		ActionGasLimit uint64 `yaml:"actionGasLimit"`
+		// BlockInterval is the interval between two blocks
+		BlockInterval time.Duration `yaml:"blockInterval"`
 		// NumSubEpochs is the number of sub epochs in one epoch of block production
 		NumSubEpochs uint64 `yaml:"numSubEpochs"`
 		// NumDelegates is the number of delegates that participate into one epoch of block production
 		NumDelegates uint64 `yaml:"numDelegates"`
+		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
+		TimeBasedRotation bool `yaml:"timeBasedRotation"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {

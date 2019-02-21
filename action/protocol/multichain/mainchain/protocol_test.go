@@ -11,6 +11,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -31,12 +32,10 @@ func TestAddSubChainActions(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := config.Default
-	genesisCfg := genesis.Default
 	bc := blockchain.NewBlockchain(
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(t, bc.Start(ctx))
 	_, err := bc.CreateState(
@@ -48,7 +47,7 @@ func TestAddSubChainActions(t *testing.T) {
 	require.NoError(t, err)
 	p := NewProtocol(bc)
 	ap.AddActionValidators(p)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	defer require.NoError(t, bc.Stop(ctx))
 
 	startSubChain := action.NewStartSubChain(

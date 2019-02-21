@@ -12,6 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/iotex-core/config"
+
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+
 	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/iotexproject/go-fsm"
@@ -21,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -48,6 +51,7 @@ type roundCtx struct {
 
 type rollDPoSCtx struct {
 	cfg              config.RollDPoS
+	genesisCfg       genesis.Blockchain
 	encodedAddr      string
 	pubKey           keypair.PublicKey
 	priKey           keypair.PrivateKey
@@ -68,7 +72,7 @@ func (ctx *rollDPoSCtx) Prepare() (time.Duration, error) {
 	defer ctx.mutex.Unlock()
 	height := ctx.chain.TipHeight() + 1
 	if err := ctx.updateEpoch(height); err != nil {
-		return ctx.cfg.DelegateInterval, err
+		return ctx.genesisCfg.BlockInterval, err
 	}
 	// If the current node is the delegate, move to the next state
 	if !ctx.isDelegate() {
@@ -77,7 +81,7 @@ func (ctx *rollDPoSCtx) Prepare() (time.Duration, error) {
 			zap.Uint64("epoch", ctx.epoch.num),
 			zap.Uint64("height", height),
 		)
-		return ctx.cfg.DelegateInterval, nil
+		return ctx.genesisCfg.BlockInterval, nil
 	}
 	log.L().Info(
 		"current node is a delegate",
@@ -85,10 +89,10 @@ func (ctx *rollDPoSCtx) Prepare() (time.Duration, error) {
 		zap.Uint64("height", height),
 	)
 	if err := ctx.updateSubEpochNum(height); err != nil {
-		return ctx.cfg.DelegateInterval, err
+		return ctx.genesisCfg.BlockInterval, err
 	}
 	if err := ctx.updateRound(height); err != nil {
-		return ctx.cfg.DelegateInterval, err
+		return ctx.genesisCfg.BlockInterval, err
 	}
 
 	return ctx.round.timestamp.Sub(ctx.clock.Now()), nil
@@ -583,7 +587,7 @@ func (ctx *rollDPoSCtx) updateEpoch(height uint64) error {
 	if ctx.epoch != nil {
 		epochNum = ctx.epoch.num
 	}
-	if epochNum < rolldpos.GetEpochNum(height, uint64(ctx.cfg.NumDelegates), uint64(ctx.cfg.NumSubEpochs)) {
+	if epochNum < rolldpos.GetEpochNum(height, ctx.genesisCfg.NumDelegates, ctx.genesisCfg.NumSubEpochs) {
 		epoch, err := ctx.epochCtxByHeight(height)
 		if err != nil {
 			return err
@@ -598,7 +602,7 @@ func (ctx *rollDPoSCtx) updateSubEpochNum(height uint64) error {
 	if height < ctx.epoch.height {
 		return errors.New("Tip height cannot be less than epoch height")
 	}
-	numDlgs := ctx.cfg.NumDelegates
+	numDlgs := ctx.genesisCfg.NumDelegates
 	ctx.epoch.subEpochNum = (height - ctx.epoch.height) / uint64(numDlgs)
 
 	return nil
@@ -634,7 +638,7 @@ func (ctx *rollDPoSCtx) roundCtxByTime(
 		return nil, err
 	}
 	// proposer interval should be always larger than 0
-	interval := ctx.cfg.DelegateInterval
+	interval := ctx.genesisCfg.BlockInterval
 	if interval <= 0 {
 		ctx.logger().Panic("invalid proposer interval")
 	}
@@ -704,7 +708,7 @@ func (ctx *rollDPoSCtx) rotatedProposer(epoch *epochCtx, height uint64, round ui
 	if numDelegates == 0 {
 		return "", ErrZeroDelegate
 	}
-	if !ctx.cfg.TimeBasedRotation {
+	if !ctx.genesisCfg.TimeBasedRotation {
 		return delegates[(height)%uint64(numDelegates)], nil
 	}
 	return delegates[(height+uint64(round))%uint64(numDelegates)], nil
@@ -727,11 +731,11 @@ func (ctx *rollDPoSCtx) getProposer(
 	round uint32,
 	delegates []string,
 ) (string, error) {
-	numDelegates := ctx.cfg.NumDelegates
+	numDelegates := ctx.genesisCfg.NumDelegates
 	if int(numDelegates) != len(delegates) {
 		return "", errors.New("delegates number is different from config")
 	}
-	if !ctx.cfg.TimeBasedRotation {
+	if !ctx.genesisCfg.TimeBasedRotation {
 		return delegates[(height)%uint64(numDelegates)], nil
 	}
 
@@ -746,5 +750,5 @@ func (ctx *rollDPoSCtx) epochCtxByHeight(height uint64) (*epochCtx, error) {
 		}
 	}
 
-	return newEpochCtx(ctx.cfg.NumDelegates, ctx.cfg.NumSubEpochs, height, f)
+	return newEpochCtx(ctx.genesisCfg.NumDelegates, ctx.genesisCfg.NumSubEpochs, height, f)
 }

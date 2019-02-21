@@ -19,8 +19,8 @@ import (
 
 func TestNewEpochCtx(t *testing.T) {
 	require := require.New(t)
-	numDelegates := uint(24)
-	numSubEpochs := uint(360)
+	numDelegates := uint64(24)
+	numSubEpochs := uint64(360)
 	candidates := []*state.Candidate{}
 	addrs := []string{}
 	for i := 0; i < 24; i++ {

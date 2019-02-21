@@ -222,7 +222,6 @@ func TestExplorerApi(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
-	genesisCfg := genesis.Default
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -238,16 +237,15 @@ func TestExplorerApi(t *testing.T) {
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NotNil(bc)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	ap.AddActionValidators(vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
@@ -935,7 +933,6 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
-	genesisCfg := genesis.Default
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -951,7 +948,6 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(bc.Start(ctx))
 	defer func() {

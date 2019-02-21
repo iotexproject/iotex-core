@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -319,13 +318,11 @@ func TestHandleStartSubChain(t *testing.T) {
 
 func TestNoStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
-	genesisCfg := genesis.Default
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
@@ -340,14 +337,12 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 func TestStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.EnableSubChainStartInGenesis = true
-	genesisCfg := genesis.Default
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
