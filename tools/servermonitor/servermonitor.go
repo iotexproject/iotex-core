@@ -38,36 +38,36 @@ func main() {
 	}
 	servers := strings.FieldsFunc(addr, splitFn)
 
-	var client pb.APIServiceClient
-
 	// check health for all given servers
 	for _, bcServer := range servers {
 		// TODO - run for all servers in goroutines ?
-		// log.Println(bcServer)
-		conn, err := grpc.Dial(bcServer, grpc.WithInsecure())
-
+		result, err := servermonitor(bcServer, height)
 		if err != nil {
-			errMsg := fmt.Errorf("cannot dial server %s : %v", bcServer, err)
-			fmt.Println(errMsg)
+			fmt.Println(fmt.Errorf("error in getting server health status %v", err))
 			continue
 		}
-
-		client = pb.NewAPIServiceClient(conn)
-
-		req := &pb.GetChainMetaRequest{}
-		resp, err := client.GetChainMeta(context.Background(), req)
-		if err != nil {
-			errMsg := fmt.Errorf("error in getting health status for %s, error %v", bcServer, err)
-			fmt.Println(errMsg)
-			continue
-		}
-		// check for returned height
-		if resp.ChainMeta.Height > height {
-			successMsg := fmt.Sprintf("positive health status for server %s", bcServer)
-			fmt.Println(successMsg)
-		} else {
-			failureMsg := fmt.Sprintf("negative health status for server %s", bcServer)
-			fmt.Println(failureMsg)
+		if !result {
+			fmt.Println(fmt.Errorf("server health status negative for server %s", bcServer))
 		}
 	}
+}
+
+func servermonitor(serverAddr string, height uint64) (bool, error) {
+	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
+	if err != nil {
+		return false, err
+	}
+
+	client := pb.NewAPIServiceClient(conn)
+	req := &pb.GetChainMetaRequest{}
+	resp, err := client.GetChainMeta(context.Background(), req)
+	if err != nil {
+		return false, err
+	}
+	// check if returned height is valid
+	if resp.ChainMeta.Height > height {
+		return true, nil
+	}
+
+	return false, nil
 }
