@@ -38,6 +38,8 @@ func main() {
 	}
 	servers := strings.FieldsFunc(addr, splitFn)
 
+	var client pb.APIServiceClient
+
 	// check health for all given servers
 	for _, bcServer := range servers {
 		// TODO - run for all servers in goroutines ?
