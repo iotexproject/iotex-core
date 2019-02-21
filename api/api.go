@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
