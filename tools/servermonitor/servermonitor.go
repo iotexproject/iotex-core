@@ -22,8 +22,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-var client pb.APIServiceClient
-
 func main() {
 	// target addresses for jrpc connection.
 	var addr string
@@ -39,6 +37,8 @@ func main() {
 		return c == ','
 	}
 	servers := strings.FieldsFunc(addr, splitFn)
+
+	var client pb.APIServiceClient
 
 	// check health for all given servers
 	for _, bcServer := range servers {
