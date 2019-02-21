@@ -85,7 +85,7 @@ type (
 		// ActionGasLimit is the per action gas limit cap
 		ActionGasLimit uint64 `yaml:"actionGasLimit"`
 		// BlockInterval is the interval between two blocks
-		BlockInterval time.Duration
+		BlockInterval time.Duration `yaml:"blockInterval"`
 		// NumSubEpochs is the number of sub epochs in one epoch of block production
 		NumSubEpochs uint64 `yaml:"numSubEpochs"`
 		// NumDelegates is the number of delegates that participate into one epoch of block production

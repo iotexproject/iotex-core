@@ -67,6 +67,8 @@ func main() {
 
 	cfg.Genesis = genesisCfg
 
+	log.S().Infof("Config in use: %+v", cfg)
+
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPProbePort)
 	if err := probeSvr.Start(ctx); err != nil {
