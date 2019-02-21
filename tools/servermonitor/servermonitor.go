@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -39,7 +39,8 @@ func main() {
 	servers := strings.FieldsFunc(addr, splitFn)
 	// fmt.Println(servers)
 	for _, bcServer := range servers {
-		fmt.Println(bcServer)
+		// fmt.Println(bcServer)
+		// TODO - run for all servers in goroutines ?
 		c, err := New(bcServer)
 		if err != nil {
 			errMsg := fmt.Errorf("could not connect to server %s", bcServer)
