@@ -19,11 +19,9 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/iotexproject/go-fsm"
-	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -52,19 +50,18 @@ type roundCtx struct {
 }
 
 type rollDPoSCtx struct {
-	cfg               config.RollDPoS
-	electionCommittee committee.Committee
-	genesisCfg        genesis.Blockchain
-	encodedAddr       string
-	pubKey            keypair.PublicKey
-	priKey            keypair.PrivateKey
-	chain             blockchain.Blockchain
-	actPool           actpool.ActPool
-	broadcastHandler  scheme.Broadcast
-	epoch             *epochCtx
-	round             *roundCtx
-	clock             clock.Clock
-	rootChainAPI      explorer.Explorer
+	cfg              config.RollDPoS
+	genesisCfg       genesis.Blockchain
+	encodedAddr      string
+	pubKey           keypair.PublicKey
+	priKey           keypair.PrivateKey
+	chain            blockchain.Blockchain
+	actPool          actpool.ActPool
+	broadcastHandler scheme.Broadcast
+	epoch            *epochCtx
+	round            *roundCtx
+	clock            clock.Clock
+	rootChainAPI     explorer.Explorer
 	// candidatesByHeightFunc is only used for testing purpose
 	candidatesByHeightFunc CandidatesByHeightFunc
 	mutex                  sync.RWMutex
@@ -161,46 +158,6 @@ func (ctx *rollDPoSCtx) MintBlock() (consensusfsm.Endorsement, error) {
 	if blk == nil {
 		actionMap := ctx.actPool.PendingActionMap()
 		log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
-		if ctx.electionCommittee != nil {
-			// prepare next epoch delegates
-			if ctx.round.height == ctx.epoch.height+ctx.genesisCfg.NumDelegates*ctx.genesisCfg.NumSubEpochs/2 {
-				blkTime, err := ctx.getBlockTime(ctx.epoch.height)
-				if err != nil {
-					return nil, err
-				}
-				beaconHeight, err := ctx.electionCommittee.HeightByTime(blkTime)
-				if err != nil {
-					return nil, err
-				}
-				r, err := ctx.electionCommittee.ResultByHeight(beaconHeight)
-				if err != nil {
-					return nil, err
-				}
-				l := state.CandidateList{}
-				for _, c := range r.Delegates() {
-					l = append(l, &state.Candidate{
-						Address:       string(c.OperatorAddress()),
-						Votes:         c.Score(),
-						RewardAddress: string(c.RewardAddress()),
-					})
-				}
-				nonce := uint64(0)
-				pollAction := action.NewPutPollResult(
-					nonce,
-					rolldpos.GetEpochHeight(ctx.epoch.num+1, ctx.genesisCfg.NumDelegates, ctx.genesisCfg.NumSubEpochs),
-					l,
-				)
-				builder := action.EnvelopeBuilder{}
-				selp, err := action.Sign(
-					builder.SetNonce(nonce).SetAction(pollAction).Build(),
-					ctx.priKey,
-				)
-				if err != nil {
-					return nil, err
-				}
-				actionMap[""] = []action.SealedEnvelope{selp}
-			}
-		}
 		b, err := ctx.chain.MintNewBlock(
 			actionMap,
 			ctx.pubKey,
@@ -268,7 +225,6 @@ func (ctx *rollDPoSCtx) LoggerWithStats() *zap.Logger {
 func (ctx *rollDPoSCtx) NewProposalEndorsement(en consensusfsm.Endorsement) (consensusfsm.Endorsement, error) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-
 	if en != nil {
 		blk, ok := en.(*blockWrapper)
 		if !ok {
@@ -676,10 +632,11 @@ func (ctx *rollDPoSCtx) roundCtxByTime(
 	height uint64,
 	timestamp time.Time,
 ) (*roundCtx, error) {
-	lastBlockTime, err := ctx.getBlockTime(height - 1)
+	lastBlock, err := ctx.chain.GetBlockByHeight(height - 1)
 	if err != nil {
 		return nil, err
 	}
+	lastBlockTime := time.Unix(lastBlock.Timestamp(), 0)
 	// proposer interval should be always larger than 0
 	interval := ctx.genesisCfg.BlockInterval
 	if interval <= 0 {
@@ -757,18 +714,6 @@ func (ctx *rollDPoSCtx) rotatedProposer(epoch *epochCtx, height uint64, round ui
 	return delegates[(height+uint64(round))%uint64(numDelegates)], nil
 }
 
-// getBlockTime returns the duration since block time
-func (ctx *rollDPoSCtx) getBlockTime(height uint64) (time.Time, error) {
-	blk, err := ctx.chain.GetBlockByHeight(height)
-	if err != nil {
-		return time.Now(), errors.Wrapf(
-			err, "error when getting the block at height: %d",
-			height,
-		)
-	}
-	return time.Unix(blk.Header.Timestamp(), 0), nil
-}
-
 func (ctx *rollDPoSCtx) getProposer(
 	height uint64,
 	round uint32,
@@ -788,18 +733,16 @@ func (ctx *rollDPoSCtx) getProposer(
 func (ctx *rollDPoSCtx) epochCtxByHeight(height uint64) (*epochCtx, error) {
 	f := ctx.candidatesByHeightFunc
 	if f == nil {
-		if ctx.electionCommittee != nil {
-			f = func(h uint64) ([]*state.Candidate, error) {
-				epochNum := rolldpos.GetEpochNum(h, ctx.genesisCfg.NumDelegates, ctx.genesisCfg.NumSubEpochs)
-				epochHeight := rolldpos.GetEpochHeight(epochNum, ctx.genesisCfg.NumDelegates, ctx.genesisCfg.NumSubEpochs)
-				return ctx.chain.CandidatesByHeight(epochHeight)
-			}
-		} else {
-			f = func(h uint64) ([]*state.Candidate, error) {
-				return ctx.chain.CandidatesByHeight(h)
-			}
+		f = func(h uint64) ([]*state.Candidate, error) {
+			return ctx.chain.CandidatesByHeight(h)
 		}
 	}
 
-	return newEpochCtx(ctx.genesisCfg.NumDelegates, ctx.genesisCfg.NumSubEpochs, height, f)
+	return newEpochCtx(
+		ctx.genesisCfg.NumCandidateDelegates,
+		ctx.genesisCfg.NumDelegates,
+		ctx.genesisCfg.NumSubEpochs,
+		height,
+		f,
+	)
 }

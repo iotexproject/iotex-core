@@ -11,14 +11,14 @@ import (
 )
 
 type resultCache struct {
-	size    uint8
+	size    uint32
 	results []*types.ElectionResult
 	heights []uint64
 	index   map[uint64]int
 	cursor  int
 }
 
-func newResultCache(size uint8) *resultCache {
+func newResultCache(size uint32) *resultCache {
 	return &resultCache{
 		size:    size,
 		results: make([]*types.ElectionResult, size),

@@ -89,6 +89,8 @@ var (
 			GenesisActionsPath:           "",
 			EmptyGenesis:                 false,
 			NumCandidates:                101,
+			BeaconChainAPI:               "",
+			BeaconChainDB:                DB{DbPath: "/tmp/poll.db", NumRetries: 10},
 			EnableFallBackToFreshDB:      false,
 			EnableSubChainStartInGenesis: false,
 			EnableTrielessStateDB:        true,
@@ -215,6 +217,7 @@ type (
 		EmptyGenesis                 bool   `yaml:"emptyGenesis"`
 		NumCandidates                uint   `yaml:"numCandidates"`
 		BeaconChainAPI               string `yaml:"beaconChainAPI"`
+		BeaconChainDB                DB     `yaml:"beaconChainDB"`
 		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
 		EnableTrielessStateDB        bool   `yaml:"enableTrielessStateDB"`

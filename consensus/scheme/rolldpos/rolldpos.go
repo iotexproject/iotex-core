@@ -12,7 +12,6 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-fsm"
-	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -267,7 +266,6 @@ type Builder struct {
 	cfg config.Config
 	// TODO: we should use keystore in the future
 	encodedAddr            string
-	electionCommittee      committee.Committee
 	pubKey                 keypair.PublicKey
 	priKey                 keypair.PrivateKey
 	chain                  blockchain.Blockchain
@@ -345,12 +343,6 @@ func (b *Builder) SetCandidatesByHeightFunc(
 	return b
 }
 
-// SetElectionCommittee sets the election committee
-func (b *Builder) SetElectionCommittee(c committee.Committee) *Builder {
-	b.electionCommittee = c
-	return b
-}
-
 // Build builds a RollDPoS consensus module
 func (b *Builder) Build() (*RollDPoS, error) {
 	if b.chain == nil {
@@ -369,7 +361,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		cfg:                    b.cfg.Consensus.RollDPoS,
 		genesisCfg:             b.cfg.Genesis.Blockchain,
 		encodedAddr:            b.encodedAddr,
-		electionCommittee:      b.electionCommittee,
 		pubKey:                 b.pubKey,
 		priKey:                 b.priKey,
 		chain:                  b.chain,

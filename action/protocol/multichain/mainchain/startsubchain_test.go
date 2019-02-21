@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 
 	"github.com/iotexproject/iotex-core/test/identityset"
 
@@ -352,6 +353,8 @@ func TestStartSubChainInGenesis(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
+	vp := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, vp)
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))

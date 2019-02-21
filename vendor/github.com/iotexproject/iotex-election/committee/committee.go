@@ -8,8 +8,6 @@ package committee
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"math"
 	"math/big"
 	"sync"
@@ -18,16 +16,16 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-election/carrier"
+	"github.com/iotexproject/iotex-election/db"
 	"github.com/iotexproject/iotex-election/types"
 	"github.com/iotexproject/iotex-election/util"
 )
 
-var (
-	// ErrNotExist defines an error that the query has no return value in db
-	ErrNotExist = errors.New("not exist in db")
-)
+// Namespace to store the result in db
+const Namespace = "electionNS"
 
 // CalcBeaconChainHeight calculates the corresponding beacon chain height for an epoch
 type CalcBeaconChainHeight func(uint64) (uint64, error)
@@ -44,7 +42,7 @@ type Config struct {
 	VoteThreshold             string `yaml:"voteThreshold"`
 	ScoreThreshold            string `yaml:"scoreThreshold"`
 	SelfStakingThreshold      string `yaml:"selfStakingThreshold"`
-	CacheSize                 uint8  `yaml:"cacheSize"`
+	CacheSize                 uint32 `yaml:"cacheSize"`
 }
 
 // Committee defines an interface of an election committee
@@ -65,7 +63,7 @@ type Committee interface {
 }
 
 type committee struct {
-	db                   KVStore
+	db                   db.KVStore
 	carrier              carrier.Carrier
 	retryLimit           uint8
 	paginationSize       uint8
@@ -82,11 +80,13 @@ type committee struct {
 	mutex                sync.RWMutex
 }
 
+// NewCommitteeWithKVStoreWithNamespace creates a committee with kvstore with namespace
+func NewCommitteeWithKVStoreWithNamespace(kvstore db.KVStoreWithNamespace, cfg Config) (Committee, error) {
+	return NewCommittee(db.NewKVStoreWithNamespaceWrapper(Namespace, kvstore), cfg)
+}
+
 // NewCommittee creates a committee
-func NewCommittee(db KVStore, cfg Config) (Committee, error) {
-	if db == nil {
-		db = &store{}
-	}
+func NewCommittee(kvstore db.KVStore, cfg Config) (Committee, error) {
 	if !common.IsHexAddress(cfg.StakingContractAddress) {
 		return nil, errors.New("Invalid staking contract address")
 	}
@@ -111,7 +111,7 @@ func NewCommittee(db KVStore, cfg Config) (Committee, error) {
 		return nil, errors.New("Invalid self staking threshold")
 	}
 	return &committee{
-		db:                   db,
+		db:                   kvstore,
 		cache:                newResultCache(cfg.CacheSize),
 		heightManager:        newHeightManager(),
 		carrier:              carrier,
@@ -131,16 +131,38 @@ func NewCommittee(db KVStore, cfg Config) (Committee, error) {
 func (ec *committee) Start(ctx context.Context) (err error) {
 	ec.mutex.Lock()
 	defer ec.mutex.Unlock()
+	if err := ec.db.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting db")
+	}
+	if startHeight, err := ec.db.Get(db.NextHeightKey); err == nil {
+		zap.L().Info("restoring from db")
+		ec.nextHeight = util.BytesToUint64(startHeight)
+		for height := ec.startHeight; height < ec.nextHeight; height += ec.interval {
+			zap.L().Info("loading", zap.Uint64("height", height))
+			data, err := ec.db.Get(ec.dbKey(height))
+			if err != nil {
+				return err
+			}
+			r := &types.ElectionResult{}
+			if err := r.Deserialize(data); err != nil {
+				return err
+			}
+			ec.cache.insert(height, r)
+			if err := ec.heightManager.add(height, r.MintTime()); err != nil {
+				return err
+			}
+		}
+	}
+	zap.L().Info("catching up via network")
 	for {
 		result, err := ec.fetchResultByHeight(ec.nextHeight)
-		if err == ErrNotExist {
+		if err == db.ErrNotExist {
 			break
 		}
 		if err == nil {
-			if err := ec.heightManager.add(ec.nextHeight, result.MintTime()); err != nil {
+			if err = ec.storeResult(ec.nextHeight, result); err != nil {
 				return err
 			}
-			ec.cache.insert(ec.nextHeight, result)
 			ec.currentHeight = ec.nextHeight
 			ec.nextHeight += ec.interval
 			continue
@@ -149,9 +171,10 @@ func (ec *committee) Start(ctx context.Context) (err error) {
 	}
 	for i := uint8(0); i < ec.retryLimit; i++ {
 		if err = ec.carrier.SubscribeNewBlock(ec.OnNewBlock, ec.terminate); err == nil {
-			break
+			return
 		}
-		fmt.Println("retry new block subscription")
+		zap.L().Warn("retry new block subscription", zap.Error(err))
+		time.Sleep(time.Duration(i) * time.Second)
 	}
 	return
 }
@@ -160,6 +183,7 @@ func (ec *committee) Stop(ctx context.Context) error {
 	ec.mutex.Lock()
 	defer ec.mutex.Unlock()
 	ec.terminate <- true
+	ec.carrier.Close()
 	return nil
 }
 
@@ -170,35 +194,38 @@ func (ec *committee) OnNewBlock(tipHeight uint64) {
 		ec.currentHeight = tipHeight
 	}
 	for {
-		if ec.nextHeight > ec.currentHeight {
+		if ec.nextHeight >= ec.currentHeight {
 			break
 		}
 		var result *types.ElectionResult
 		var err error
 		for i := uint8(0); i < ec.retryLimit; i++ {
 			if result, err = ec.fetchResultByHeight(ec.nextHeight); err != nil {
-				log.Println(err)
+				zap.L().Error(
+					"failed to fetch result by height",
+					zap.Error(err),
+					zap.Uint64("height", ec.nextHeight),
+					zap.Uint8("tried", i+1),
+				)
 				continue
 			}
 			break
 		}
 		if result == nil {
-			log.Printf("failed to fetch result for %d\n", ec.nextHeight)
+			zap.L().Error("failed to fetch result", zap.Uint64("height", ec.nextHeight))
 			return
 		}
 		if err = ec.heightManager.validate(ec.nextHeight, result.MintTime()); err != nil {
-			log.Fatalln(
+			zap.L().Fatal(
 				"Unexpected status that the upcoming block height or time is invalid",
-				err,
+				zap.Error(err),
 			)
 			return
 		}
 		if err = ec.storeResult(ec.nextHeight, result); err != nil {
-			log.Println("failed to store result into db", err)
+			zap.L().Error("failed to store result", zap.Error(err))
 			return
 		}
-		ec.heightManager.add(ec.nextHeight, result.MintTime())
-		ec.cache.insert(ec.nextHeight, result)
 		ec.nextHeight += ec.interval
 	}
 }
@@ -214,7 +241,7 @@ func (ec *committee) HeightByTime(ts time.Time) (uint64, error) {
 	defer ec.mutex.RUnlock()
 	height := ec.heightManager.nearestHeightBefore(ts)
 	if height == 0 {
-		return 0, ErrNotExist
+		return 0, db.ErrNotExist
 	}
 
 	return height, nil
@@ -249,7 +276,7 @@ func (ec *committee) resultByHeight(height uint64) (*types.ElectionResult, error
 		return nil, err
 	}
 	if data == nil {
-		return nil, ErrNotExist
+		return nil, db.ErrNotExist
 	}
 	result = &types.ElectionResult{}
 
@@ -272,13 +299,13 @@ func (ec *committee) calcWeightedVotes(v *types.Vote, now time.Time) *big.Int {
 }
 
 func (ec *committee) fetchResultByHeight(height uint64) (*types.ElectionResult, error) {
-	fmt.Printf("fetch result for %d\n", height)
+	zap.L().Info("fetch result", zap.Uint64("height", height))
 	mintTime, err := ec.carrier.BlockTimestamp(height)
 	switch errors.Cause(err) {
 	case nil:
 		break
 	case ethereum.NotFound:
-		return nil, ErrNotExist
+		return nil, db.ErrNotExist
 	default:
 		return nil, err
 	}
@@ -337,6 +364,13 @@ func (ec *committee) storeResult(height uint64, result *types.ElectionResult) er
 	if err != nil {
 		return err
 	}
+	if err := ec.db.Put(ec.dbKey(height), data); err != nil {
+		return errors.Wrapf(err, "failed to put election result into db")
+	}
+	if err := ec.db.Put(db.NextHeightKey, ec.dbKey(height+ec.interval)); err != nil {
+		return err
+	}
+	ec.cache.insert(height, result)
 
-	return ec.db.Put(ec.dbKey(height), data)
+	return ec.heightManager.add(height, result.MintTime())
 }

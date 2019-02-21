@@ -23,7 +23,7 @@ type Candidate struct {
 	rewardAddress     []byte
 	score             *big.Int
 	selfStakingScore  *big.Int
-	selfStakingWeight uint32
+	selfStakingWeight uint64
 }
 
 // NewCandidate creates a new candidate with scores as 0s
@@ -32,7 +32,7 @@ func NewCandidate(
 	address []byte,
 	operatorAddress []byte,
 	rewardPubKey []byte,
-	selfStakingWeight uint32,
+	selfStakingWeight uint64,
 ) *Candidate {
 	return &Candidate{
 		name:              util.CopyBytes(name),
@@ -139,7 +139,7 @@ func (c *Candidate) SelfStakingScore() *big.Int {
 }
 
 // SelfStakingWeight returns the extra weight for self staking
-func (c *Candidate) SelfStakingWeight() uint32 {
+func (c *Candidate) SelfStakingWeight() uint64 {
 	return c.selfStakingWeight
 }
 

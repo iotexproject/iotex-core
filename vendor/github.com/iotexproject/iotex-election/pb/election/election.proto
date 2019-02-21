@@ -31,7 +31,7 @@ message Candidate {
 	bytes address = 2;
 	bytes operatorAddress = 3;
 	bytes rewardAddress = 4;
-	uint32 selfStakingWeight = 5;
+	uint64 selfStakingWeight = 5;
 	bytes score = 6;
 	bytes selfStakingScore = 7;
 }

@@ -292,6 +292,7 @@ func TestCreateBlockchain(t *testing.T) {
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(bc.Start(ctx))
@@ -341,12 +342,13 @@ func TestCreateBlockchain(t *testing.T) {
 func TestBlockchain_MintNewBlock(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	regsitry := protocol.Registry{}
+	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	regsitry.Register(account.ProtocolID, acc)
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&regsitry))
+	registry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
@@ -385,12 +387,13 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	regsitry := protocol.Registry{}
+	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	regsitry.Register(account.ProtocolID, acc)
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&regsitry))
+	registry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
@@ -490,6 +493,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		RegistryOption(&registry),
 	)
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(acc, v)
 	sf.AddActionHandlers(acc, v)
@@ -513,7 +517,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 	accountProtocol := account.NewProtocol()
 	sf.AddActionHandlers(accountProtocol)
-	registry := protocol.Registry{}
+	registry = protocol.Registry{}
 	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
 	bc = NewBlockchain(
 		cfg,
@@ -740,6 +744,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		RegistryOption(&registry),
 	)
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(acc, v)
 	sf.AddActionHandlers(acc, v)

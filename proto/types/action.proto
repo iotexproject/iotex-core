@@ -184,6 +184,8 @@ message ActionCore {
     ClaimFromRewardingFund claimFromRewardingFund = 31;
     SetReward setReward = 32;
     GrantReward grantReward = 33;
+
+    PutPollResult putPollResult = 50;
   }
 }
 

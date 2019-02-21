@@ -28,7 +28,7 @@ var (
 )
 
 // RegisterABI is the input ABI used to generate the binding from.
-const RegisterABI = "[{\"constant\":true,\"inputs\":[{\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isOwner\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"candidates\",\"outputs\":[{\"name\":\"name\",\"type\":\"bytes12\"},{\"name\":\"addr\",\"type\":\"address\"},{\"name\":\"ioOperatorPubKey\",\"type\":\"bytes\"},{\"name\":\"ioRewardPubKey\",\"type\":\"bytes\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"nameRegistrationFee\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"addrToIdx\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\"},{\"name\":\"\",\"type\":\"bytes32\"},{\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"ioPubKeyToIdx\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"candidateCount\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"feeCollector\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"bytes12\"}],\"name\":\"nameToIdx\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"token\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"name\":\"_tokenAddr\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"idx\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"name\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"ioOperatorPubKey\",\"type\":\"bytes\"},{\"indexed\":false,\"name\":\"ioRewardPubKey\",\"type\":\"bytes\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"Registered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Pause\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Unpause\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[{\"name\":\"_index\",\"type\":\"uint256\"},{\"name\":\"_limit\",\"type\":\"uint256\"}],\"name\":\"getAllCandidates\",\"outputs\":[{\"name\":\"names\",\"type\":\"bytes12[]\"},{\"name\":\"addresses\",\"type\":\"address[]\"},{\"name\":\"ioOperatorPubKeys\",\"type\":\"bytes32[]\"},{\"name\":\"ioRewardPubKeys\",\"type\":\"bytes32[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_addr\",\"type\":\"address\"}],\"name\":\"setFeeCollector\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_fee\",\"type\":\"uint256\"}],\"name\":\"setNameRegistrationFee\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes12\"},{\"name\":\"_ioOperatorPubKey\",\"type\":\"bytes\"},{\"name\":\"_ioRewardPubKey\",\"type\":\"bytes\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"register\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
+const RegisterABI = "[{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\"},{\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"ioAddrToIdx\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isOwner\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"candidates\",\"outputs\":[{\"name\":\"name\",\"type\":\"bytes12\"},{\"name\":\"addr\",\"type\":\"address\"},{\"name\":\"ioOperatorAddr\",\"type\":\"string\"},{\"name\":\"ioRewardAddr\",\"type\":\"string\"},{\"name\":\"weight\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"nameRegistrationFee\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"addrToIdx\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"candidateCount\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"feeCollector\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"bytes12\"}],\"name\":\"nameToIdx\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"token\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"name\":\"_tokenAddr\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"idx\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"name\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"addr\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"ioOperatorAddr\",\"type\":\"string\"},{\"indexed\":false,\"name\":\"ioRewardAddr\",\"type\":\"string\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"Registered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Pause\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Unpause\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[{\"name\":\"_startIndex\",\"type\":\"uint256\"},{\"name\":\"_limit\",\"type\":\"uint256\"}],\"name\":\"getAllCandidates\",\"outputs\":[{\"name\":\"names\",\"type\":\"bytes12[]\"},{\"name\":\"addresses\",\"type\":\"address[]\"},{\"name\":\"ioOperatorAddr\",\"type\":\"bytes32[]\"},{\"name\":\"ioRewardAddr\",\"type\":\"bytes32[]\"},{\"name\":\"weights\",\"type\":\"uint256[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_addr\",\"type\":\"address\"}],\"name\":\"setFeeCollector\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_fee\",\"type\":\"uint256\"}],\"name\":\"setNameRegistrationFee\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes12\"},{\"name\":\"_weight\",\"type\":\"uint256\"}],\"name\":\"setWeight\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes12\"},{\"name\":\"_ioOperatorAddr\",\"type\":\"string\"},{\"name\":\"_ioRewardAddr\",\"type\":\"string\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"register\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
 // Register is an auto generated Go binding around an Ethereum contract.
 type Register struct {
@@ -226,18 +226,20 @@ func (_Register *RegisterCallerSession) CandidateCount() (*big.Int, error) {
 
 // Candidates is a free data retrieval call binding the contract method 0x3477ee2e.
 //
-// Solidity: function candidates(uint256 ) constant returns(bytes12 name, address addr, bytes ioOperatorPubKey, bytes ioRewardPubKey)
+// Solidity: function candidates(uint256 ) constant returns(bytes12 name, address addr, string ioOperatorAddr, string ioRewardAddr, uint256 weight)
 func (_Register *RegisterCaller) Candidates(opts *bind.CallOpts, arg0 *big.Int) (struct {
-	Name             [12]byte
-	Addr             common.Address
-	IoOperatorPubKey []byte
-	IoRewardPubKey   []byte
+	Name           [12]byte
+	Addr           common.Address
+	IoOperatorAddr string
+	IoRewardAddr   string
+	Weight         *big.Int
 }, error) {
 	ret := new(struct {
-		Name             [12]byte
-		Addr             common.Address
-		IoOperatorPubKey []byte
-		IoRewardPubKey   []byte
+		Name           [12]byte
+		Addr           common.Address
+		IoOperatorAddr string
+		IoRewardAddr   string
+		Weight         *big.Int
 	})
 	out := ret
 	err := _Register.contract.Call(opts, out, "candidates", arg0)
@@ -246,24 +248,26 @@ func (_Register *RegisterCaller) Candidates(opts *bind.CallOpts, arg0 *big.Int) 
 
 // Candidates is a free data retrieval call binding the contract method 0x3477ee2e.
 //
-// Solidity: function candidates(uint256 ) constant returns(bytes12 name, address addr, bytes ioOperatorPubKey, bytes ioRewardPubKey)
+// Solidity: function candidates(uint256 ) constant returns(bytes12 name, address addr, string ioOperatorAddr, string ioRewardAddr, uint256 weight)
 func (_Register *RegisterSession) Candidates(arg0 *big.Int) (struct {
-	Name             [12]byte
-	Addr             common.Address
-	IoOperatorPubKey []byte
-	IoRewardPubKey   []byte
+	Name           [12]byte
+	Addr           common.Address
+	IoOperatorAddr string
+	IoRewardAddr   string
+	Weight         *big.Int
 }, error) {
 	return _Register.Contract.Candidates(&_Register.CallOpts, arg0)
 }
 
 // Candidates is a free data retrieval call binding the contract method 0x3477ee2e.
 //
-// Solidity: function candidates(uint256 ) constant returns(bytes12 name, address addr, bytes ioOperatorPubKey, bytes ioRewardPubKey)
+// Solidity: function candidates(uint256 ) constant returns(bytes12 name, address addr, string ioOperatorAddr, string ioRewardAddr, uint256 weight)
 func (_Register *RegisterCallerSession) Candidates(arg0 *big.Int) (struct {
-	Name             [12]byte
-	Addr             common.Address
-	IoOperatorPubKey []byte
-	IoRewardPubKey   []byte
+	Name           [12]byte
+	Addr           common.Address
+	IoOperatorAddr string
+	IoRewardAddr   string
+	Weight         *big.Int
 }, error) {
 	return _Register.Contract.Candidates(&_Register.CallOpts, arg0)
 }
@@ -296,72 +300,76 @@ func (_Register *RegisterCallerSession) FeeCollector() (common.Address, error) {
 
 // GetAllCandidates is a free data retrieval call binding the contract method 0x5e924246.
 //
-// Solidity: function getAllCandidates(uint256 _index, uint256 _limit) constant returns(bytes12[] names, address[] addresses, bytes32[] ioOperatorPubKeys, bytes32[] ioRewardPubKeys)
-func (_Register *RegisterCaller) GetAllCandidates(opts *bind.CallOpts, _index *big.Int, _limit *big.Int) (struct {
-	Names             [][12]byte
-	Addresses         []common.Address
-	IoOperatorPubKeys [][32]byte
-	IoRewardPubKeys   [][32]byte
+// Solidity: function getAllCandidates(uint256 _startIndex, uint256 _limit) constant returns(bytes12[] names, address[] addresses, bytes32[] ioOperatorAddr, bytes32[] ioRewardAddr, uint256[] weights)
+func (_Register *RegisterCaller) GetAllCandidates(opts *bind.CallOpts, _startIndex *big.Int, _limit *big.Int) (struct {
+	Names          [][12]byte
+	Addresses      []common.Address
+	IoOperatorAddr [][32]byte
+	IoRewardAddr   [][32]byte
+	Weights        []*big.Int
 }, error) {
 	ret := new(struct {
-		Names             [][12]byte
-		Addresses         []common.Address
-		IoOperatorPubKeys [][32]byte
-		IoRewardPubKeys   [][32]byte
+		Names          [][12]byte
+		Addresses      []common.Address
+		IoOperatorAddr [][32]byte
+		IoRewardAddr   [][32]byte
+		Weights        []*big.Int
 	})
 	out := ret
-	err := _Register.contract.Call(opts, out, "getAllCandidates", _index, _limit)
+	err := _Register.contract.Call(opts, out, "getAllCandidates", _startIndex, _limit)
 	return *ret, err
 }
 
 // GetAllCandidates is a free data retrieval call binding the contract method 0x5e924246.
 //
-// Solidity: function getAllCandidates(uint256 _index, uint256 _limit) constant returns(bytes12[] names, address[] addresses, bytes32[] ioOperatorPubKeys, bytes32[] ioRewardPubKeys)
-func (_Register *RegisterSession) GetAllCandidates(_index *big.Int, _limit *big.Int) (struct {
-	Names             [][12]byte
-	Addresses         []common.Address
-	IoOperatorPubKeys [][32]byte
-	IoRewardPubKeys   [][32]byte
+// Solidity: function getAllCandidates(uint256 _startIndex, uint256 _limit) constant returns(bytes12[] names, address[] addresses, bytes32[] ioOperatorAddr, bytes32[] ioRewardAddr, uint256[] weights)
+func (_Register *RegisterSession) GetAllCandidates(_startIndex *big.Int, _limit *big.Int) (struct {
+	Names          [][12]byte
+	Addresses      []common.Address
+	IoOperatorAddr [][32]byte
+	IoRewardAddr   [][32]byte
+	Weights        []*big.Int
 }, error) {
-	return _Register.Contract.GetAllCandidates(&_Register.CallOpts, _index, _limit)
+	return _Register.Contract.GetAllCandidates(&_Register.CallOpts, _startIndex, _limit)
 }
 
 // GetAllCandidates is a free data retrieval call binding the contract method 0x5e924246.
 //
-// Solidity: function getAllCandidates(uint256 _index, uint256 _limit) constant returns(bytes12[] names, address[] addresses, bytes32[] ioOperatorPubKeys, bytes32[] ioRewardPubKeys)
-func (_Register *RegisterCallerSession) GetAllCandidates(_index *big.Int, _limit *big.Int) (struct {
-	Names             [][12]byte
-	Addresses         []common.Address
-	IoOperatorPubKeys [][32]byte
-	IoRewardPubKeys   [][32]byte
+// Solidity: function getAllCandidates(uint256 _startIndex, uint256 _limit) constant returns(bytes12[] names, address[] addresses, bytes32[] ioOperatorAddr, bytes32[] ioRewardAddr, uint256[] weights)
+func (_Register *RegisterCallerSession) GetAllCandidates(_startIndex *big.Int, _limit *big.Int) (struct {
+	Names          [][12]byte
+	Addresses      []common.Address
+	IoOperatorAddr [][32]byte
+	IoRewardAddr   [][32]byte
+	Weights        []*big.Int
 }, error) {
-	return _Register.Contract.GetAllCandidates(&_Register.CallOpts, _index, _limit)
+	return _Register.Contract.GetAllCandidates(&_Register.CallOpts, _startIndex, _limit)
 }
 
-// IoPubKeyToIdx is a free data retrieval call binding the contract method 0x9c1c4645.
+// IoAddrToIdx is a free data retrieval call binding the contract method 0x12f2a2a9.
 //
-// Solidity: function ioPubKeyToIdx(bytes32 , bytes32 , bytes32 ) constant returns(uint256)
-func (_Register *RegisterCaller) IoPubKeyToIdx(opts *bind.CallOpts, arg0 [32]byte, arg1 [32]byte, arg2 [32]byte) (*big.Int, error) {
+// Solidity: function ioAddrToIdx(bytes32 , bytes32 ) constant returns(uint256)
+func (_Register *RegisterCaller) IoAddrToIdx(opts *bind.CallOpts, arg0 [32]byte, arg1 [32]byte) (*big.Int, error) {
 	var (
 		ret0 = new(*big.Int)
 	)
 	out := ret0
-	err := _Register.contract.Call(opts, out, "ioPubKeyToIdx", arg0, arg1, arg2)
+	err := _Register.contract.Call(opts, out, "ioAddrToIdx", arg0, arg1)
 	return *ret0, err
 }
 
-// IoPubKeyToIdx is a free data retrieval call binding the contract method 0x9c1c4645.
+// IoAddrToIdx is a free data retrieval call binding the contract method 0x12f2a2a9.
 //
-// Solidity: function ioPubKeyToIdx(bytes32 , bytes32 , bytes32 ) constant returns(uint256)
-func (_Register *RegisterSession) IoPubKeyToIdx(arg0 [32]byte, arg1 [32]byte, arg2 [32]byte) (*big.Int, error) {
-	return _Register.Contract.IoPubKeyToIdx(&_Register.CallOpts, arg0, arg1, arg2)
+// Solidity: function ioAddrToIdx(bytes32 , bytes32 ) constant returns(uint256)
+func (_Register *RegisterSession) IoAddrToIdx(arg0 [32]byte, arg1 [32]byte) (*big.Int, error) {
+	return _Register.Contract.IoAddrToIdx(&_Register.CallOpts, arg0, arg1)
 }
 
-// IoPubKeyToIdx is a free data retrieval call binding the contract method 0x9c1c4645.
+// IoAddrToIdx is a free data retrieval call binding the contract method 0x12f2a2a9.
 //
-// Solidity: function ioPubKeyToIdx(bytes32 , bytes32 , bytes32 ) constant returns(uint256)
-func (_Register *RegisterCallerSession) IoPubKeyToIdx(arg0 [32]byte, arg1 [32]byte, arg2 [32]byte) (*big.Int, error) {
-	return _Register.Contract.IoPubKeyToIdx(&_Register.CallOpts, arg0, arg1, arg2)
+// Solidity: function ioAddrToIdx(bytes32 , bytes32 ) constant returns(uint256)
+func (_Register *RegisterCallerSession) IoAddrToIdx(arg0 [32]byte, arg1 [32]byte) (*big.Int, error) {
+	return _Register.Contract.IoAddrToIdx(&_Register.CallOpts, arg0, arg1)
 }
 
 // IsOwner is a free data retrieval call binding the contract method 0x2f54bf6e.
@@ -541,25 +549,25 @@ func (_Register *RegisterTransactorSession) Pause() (*types.Transaction, error) 
 	return _Register.Contract.Pause(&_Register.TransactOpts)
 }
 
-// Register is a paid mutator transaction binding the contract method 0xaf7a9bed.
+// Register is a paid mutator transaction binding the contract method 0x690c1f22.
 //
-// Solidity: function register(bytes12 _name, bytes _ioOperatorPubKey, bytes _ioRewardPubKey, bytes _data) returns()
-func (_Register *RegisterTransactor) Register(opts *bind.TransactOpts, _name [12]byte, _ioOperatorPubKey []byte, _ioRewardPubKey []byte, _data []byte) (*types.Transaction, error) {
-	return _Register.contract.Transact(opts, "register", _name, _ioOperatorPubKey, _ioRewardPubKey, _data)
+// Solidity: function register(bytes12 _name, string _ioOperatorAddr, string _ioRewardAddr, bytes _data) returns()
+func (_Register *RegisterTransactor) Register(opts *bind.TransactOpts, _name [12]byte, _ioOperatorAddr string, _ioRewardAddr string, _data []byte) (*types.Transaction, error) {
+	return _Register.contract.Transact(opts, "register", _name, _ioOperatorAddr, _ioRewardAddr, _data)
 }
 
-// Register is a paid mutator transaction binding the contract method 0xaf7a9bed.
+// Register is a paid mutator transaction binding the contract method 0x690c1f22.
 //
-// Solidity: function register(bytes12 _name, bytes _ioOperatorPubKey, bytes _ioRewardPubKey, bytes _data) returns()
-func (_Register *RegisterSession) Register(_name [12]byte, _ioOperatorPubKey []byte, _ioRewardPubKey []byte, _data []byte) (*types.Transaction, error) {
-	return _Register.Contract.Register(&_Register.TransactOpts, _name, _ioOperatorPubKey, _ioRewardPubKey, _data)
+// Solidity: function register(bytes12 _name, string _ioOperatorAddr, string _ioRewardAddr, bytes _data) returns()
+func (_Register *RegisterSession) Register(_name [12]byte, _ioOperatorAddr string, _ioRewardAddr string, _data []byte) (*types.Transaction, error) {
+	return _Register.Contract.Register(&_Register.TransactOpts, _name, _ioOperatorAddr, _ioRewardAddr, _data)
 }
 
-// Register is a paid mutator transaction binding the contract method 0xaf7a9bed.
+// Register is a paid mutator transaction binding the contract method 0x690c1f22.
 //
-// Solidity: function register(bytes12 _name, bytes _ioOperatorPubKey, bytes _ioRewardPubKey, bytes _data) returns()
-func (_Register *RegisterTransactorSession) Register(_name [12]byte, _ioOperatorPubKey []byte, _ioRewardPubKey []byte, _data []byte) (*types.Transaction, error) {
-	return _Register.Contract.Register(&_Register.TransactOpts, _name, _ioOperatorPubKey, _ioRewardPubKey, _data)
+// Solidity: function register(bytes12 _name, string _ioOperatorAddr, string _ioRewardAddr, bytes _data) returns()
+func (_Register *RegisterTransactorSession) Register(_name [12]byte, _ioOperatorAddr string, _ioRewardAddr string, _data []byte) (*types.Transaction, error) {
+	return _Register.Contract.Register(&_Register.TransactOpts, _name, _ioOperatorAddr, _ioRewardAddr, _data)
 }
 
 // SetFeeCollector is a paid mutator transaction binding the contract method 0xa42dce80.
@@ -602,6 +610,27 @@ func (_Register *RegisterSession) SetNameRegistrationFee(_fee *big.Int) (*types.
 // Solidity: function setNameRegistrationFee(uint256 _fee) returns()
 func (_Register *RegisterTransactorSession) SetNameRegistrationFee(_fee *big.Int) (*types.Transaction, error) {
 	return _Register.Contract.SetNameRegistrationFee(&_Register.TransactOpts, _fee)
+}
+
+// SetWeight is a paid mutator transaction binding the contract method 0x3207bcf0.
+//
+// Solidity: function setWeight(bytes12 _name, uint256 _weight) returns()
+func (_Register *RegisterTransactor) SetWeight(opts *bind.TransactOpts, _name [12]byte, _weight *big.Int) (*types.Transaction, error) {
+	return _Register.contract.Transact(opts, "setWeight", _name, _weight)
+}
+
+// SetWeight is a paid mutator transaction binding the contract method 0x3207bcf0.
+//
+// Solidity: function setWeight(bytes12 _name, uint256 _weight) returns()
+func (_Register *RegisterSession) SetWeight(_name [12]byte, _weight *big.Int) (*types.Transaction, error) {
+	return _Register.Contract.SetWeight(&_Register.TransactOpts, _name, _weight)
+}
+
+// SetWeight is a paid mutator transaction binding the contract method 0x3207bcf0.
+//
+// Solidity: function setWeight(bytes12 _name, uint256 _weight) returns()
+func (_Register *RegisterTransactorSession) SetWeight(_name [12]byte, _weight *big.Int) (*types.Transaction, error) {
+	return _Register.Contract.SetWeight(&_Register.TransactOpts, _name, _weight)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -836,18 +865,18 @@ func (it *RegisterRegisteredIterator) Close() error {
 
 // RegisterRegistered represents a Registered event raised by the Register contract.
 type RegisterRegistered struct {
-	Idx              *big.Int
-	Name             [12]byte
-	Addr             common.Address
-	IoOperatorPubKey []byte
-	IoRewardPubKey   []byte
-	Data             []byte
-	Raw              types.Log // Blockchain specific contextual infos
+	Idx            *big.Int
+	Name           [12]byte
+	Addr           common.Address
+	IoOperatorAddr string
+	IoRewardAddr   string
+	Data           []byte
+	Raw            types.Log // Blockchain specific contextual infos
 }
 
-// FilterRegistered is a free log retrieval operation binding the contract event 0x249f904a108d913345039508ae7820f976a20efc267ec51b760f92ea14d68544.
+// FilterRegistered is a free log retrieval operation binding the contract event 0x3340640ab5b6f15b631e9400701305335845b74a8bd5054f7b268608b2b869d4.
 //
-// Solidity: event Registered(uint256 idx, bytes12 name, address addr, bytes ioOperatorPubKey, bytes ioRewardPubKey, bytes data)
+// Solidity: event Registered(uint256 idx, bytes12 name, address addr, string ioOperatorAddr, string ioRewardAddr, bytes data)
 func (_Register *RegisterFilterer) FilterRegistered(opts *bind.FilterOpts) (*RegisterRegisteredIterator, error) {
 
 	logs, sub, err := _Register.contract.FilterLogs(opts, "Registered")
@@ -857,9 +886,9 @@ func (_Register *RegisterFilterer) FilterRegistered(opts *bind.FilterOpts) (*Reg
 	return &RegisterRegisteredIterator{contract: _Register.contract, event: "Registered", logs: logs, sub: sub}, nil
 }
 
-// WatchRegistered is a free log subscription operation binding the contract event 0x249f904a108d913345039508ae7820f976a20efc267ec51b760f92ea14d68544.
+// WatchRegistered is a free log subscription operation binding the contract event 0x3340640ab5b6f15b631e9400701305335845b74a8bd5054f7b268608b2b869d4.
 //
-// Solidity: event Registered(uint256 idx, bytes12 name, address addr, bytes ioOperatorPubKey, bytes ioRewardPubKey, bytes data)
+// Solidity: event Registered(uint256 idx, bytes12 name, address addr, string ioOperatorAddr, string ioRewardAddr, bytes data)
 func (_Register *RegisterFilterer) WatchRegistered(opts *bind.WatchOpts, sink chan<- *RegisterRegistered) (event.Subscription, error) {
 
 	logs, sub, err := _Register.contract.WatchLogs(opts, "Registered")

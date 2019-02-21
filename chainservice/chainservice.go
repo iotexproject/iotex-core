@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -117,7 +118,11 @@ func New(
 	if cfg.Genesis.EnableBeaconChainVoting {
 		committeeConfig := cfg.Genesis.Poll.CommitteeConfig
 		committeeConfig.BeaconChainAPI = cfg.Chain.BeaconChainAPI
-		if electionCommittee, err = committee.NewCommittee(nil, committeeConfig); err != nil {
+		kvstore := db.NewOnDiskDB(cfg.Chain.BeaconChainDB)
+		if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
+			kvstore,
+			committeeConfig,
+		); err != nil {
 			return nil, err
 		}
 	}
@@ -243,6 +248,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if cs.indexservice != nil {
 		if err := cs.indexservice.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when starting indexservice")
+		}
+	}
+	if cs.electionCommittee != nil {
+		if err := cs.electionCommittee.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting election committee")
 		}
 	}
 	if err := cs.chain.Start(ctx); err != nil {

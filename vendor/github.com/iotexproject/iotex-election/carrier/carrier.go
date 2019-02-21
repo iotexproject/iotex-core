@@ -9,8 +9,6 @@ package carrier
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
 	"math/big"
 	"time"
 
@@ -18,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-election/contract"
 	"github.com/iotexproject/iotex-election/types"
@@ -33,10 +32,13 @@ type Carrier interface {
 	Candidates(uint64, *big.Int, uint8) (*big.Int, []*types.Candidate, error)
 	// Votes returns the votes on height
 	Votes(uint64, *big.Int, uint8) (*big.Int, []*types.Vote, error)
+	// Close closes carrier
+	Close()
 }
 
 type ethereumCarrier struct {
 	client                  *ethclient.Client
+	clientURL               string
 	stakingContractAddress  common.Address
 	registerContractAddress common.Address
 }
@@ -53,6 +55,7 @@ func NewEthereumVoteCarrier(
 	}
 	return &ethereumCarrier{
 		client:                  client,
+		clientURL:               url,
 		stakingContractAddress:  stakingContractAddress,
 		registerContractAddress: registerContractAddress,
 	}, nil
@@ -62,10 +65,26 @@ func (evc *ethereumCarrier) Close() {
 	evc.client.Close()
 }
 
+func (evc *ethereumCarrier) reset(err error) error {
+	switch err.Error() {
+	case "tls: use of closed connection":
+		fallthrough
+	case "EOF":
+		zap.L().Warn("reset ethclient", zap.Error(err))
+		evc.client.Close()
+		var newErr error
+		if evc.client, newErr = ethclient.Dial(evc.clientURL); newErr != nil {
+			err = newErr
+		}
+	}
+
+	return err
+}
+
 func (evc *ethereumCarrier) BlockTimestamp(height uint64) (time.Time, error) {
 	header, err := evc.client.HeaderByNumber(context.Background(), big.NewInt(0).SetUint64(height))
 	if err != nil {
-		return time.Now(), err
+		return time.Now(), evc.reset(err)
 	}
 	return time.Unix(header.Time.Int64(), 0), nil
 }
@@ -74,18 +93,23 @@ func (evc *ethereumCarrier) SubscribeNewBlock(cb func(uint64), close chan bool) 
 	headers := make(chan *ethtypes.Header)
 	sub, err := evc.client.SubscribeNewHead(context.Background(), headers)
 	if err != nil {
-		return err
+		return evc.reset(err)
 	}
 	go func() {
 		for {
 			select {
 			case closed := <-close:
 				close <- closed
-				break
+				return
 			case err := <-sub.Err():
-				log.Fatal(err)
+				if err := evc.reset(err); err.Error() != "tls: use of closed connection" {
+					zap.L().Fatal("failed to reset client", zap.Error(err))
+				}
+				if sub, err = evc.client.SubscribeNewHead(context.Background(), headers); err != nil {
+					zap.L().Fatal("failed to resubscribe new head", zap.Error(err))
+				}
 			case header := <-headers:
-				fmt.Printf("New block %d %x\n", header.Number, header.Hash())
+				zap.L().Debug("New ethereum block", zap.Uint64("height", header.Number.Uint64()))
 				cb(header.Number.Uint64())
 			}
 		}
@@ -103,7 +127,7 @@ func (evc *ethereumCarrier) Candidates(
 	}
 	caller, err := contract.NewRegisterCaller(evc.registerContractAddress, evc.client)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, evc.reset(err)
 	}
 	retval, err := caller.GetAllCandidates(
 		&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(height)},
@@ -117,11 +141,11 @@ func (evc *ethereumCarrier) Candidates(
 	if len(retval.Addresses) != num {
 		return nil, nil, errors.New("invalid addresses from GetAllCandidates")
 	}
-	operatorPubKeys, err := decodePubKeys(retval.IoOperatorPubKeys, num)
+	operatorPubKeys, err := decodeAddress(retval.IoOperatorAddr, num)
 	if err != nil {
 		return nil, nil, err
 	}
-	rewardPubKeys, err := decodePubKeys(retval.IoRewardPubKeys, num)
+	rewardPubKeys, err := decodeAddress(retval.IoRewardAddr, num)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -132,7 +156,7 @@ func (evc *ethereumCarrier) Candidates(
 			retval.Addresses[i][:],
 			operatorPubKeys[i],
 			rewardPubKeys[i],
-			1, // TODO: read weight from contract
+			retval.Weights[i].Uint64(),
 		)
 	}
 	return new(big.Int).Add(startIndex, big.NewInt(int64(num))), candidates, nil
@@ -148,7 +172,7 @@ func (evc *ethereumCarrier) Votes(
 	}
 	caller, err := contract.NewStakingCaller(evc.stakingContractAddress, evc.client)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, evc.reset(err)
 	}
 	buckets, err := caller.GetActiveBuckets(
 		&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(height)},
@@ -188,14 +212,14 @@ func (evc *ethereumCarrier) Votes(
 	return previousIndex, votes, nil
 }
 
-func decodePubKeys(data [][32]byte, num int) ([][]byte, error) {
-	if len(data) != 3*num {
-		return nil, errors.New("the length of pub key array is not as expected")
+func decodeAddress(data [][32]byte, num int) ([][]byte, error) {
+	if len(data) != 2*num {
+		return nil, errors.New("the length of address array is not as expected")
 	}
 	keys := [][]byte{}
 	for i := 0; i < num; i++ {
-		key := append(data[3*i][:], data[3*i+1][:]...)
-		keys = append(keys, append(key, data[3*i+2][0]))
+		key := append(data[2*i][:], data[2*i+1][:9]...)
+		keys = append(keys, key)
 	}
 
 	return keys, nil

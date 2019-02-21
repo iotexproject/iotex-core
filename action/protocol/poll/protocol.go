@@ -9,13 +9,16 @@ package poll
 import (
 	"context"
 	"math/big"
+	"time"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-election/committee"
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -26,51 +29,78 @@ const (
 	ProtocolID = "poll"
 )
 
+// ErrNoElectionCommittee is an error that the election committee is not specified
+var ErrNoElectionCommittee = errors.New("no election committee specified")
+
+// GetBlockTime defines a function to get block creation time
+type GetBlockTime func(uint64) (time.Time, error)
+
+// GetEpochHeight defines a function to get the corresponding epoch height
+type GetEpochHeight func(height uint64) uint64
+
 // Protocol defines the protocol of handling votes
 type Protocol struct {
+	getBlockTime      GetBlockTime
+	getEpochHeight    GetEpochHeight
 	electionCommittee committee.Committee
 }
 
 // NewProtocol instantiates the protocol of vote
-func NewProtocol(electionCommittee committee.Committee) *Protocol {
-	return &Protocol{electionCommittee: electionCommittee}
+func NewProtocol(
+	getBlockTime GetBlockTime,
+	getEpochHeight GetEpochHeight,
+	electionCommittee committee.Committee,
+) *Protocol {
+	return &Protocol{
+		getBlockTime:      getBlockTime,
+		getEpochHeight:    getEpochHeight,
+		electionCommittee: electionCommittee,
+	}
+}
+
+// ElectionCommittee returns the election committee in this protocol instance
+func (p *Protocol) ElectionCommittee() committee.Committee {
+	return p.electionCommittee
 }
 
 // Initialize fetches the poll result for genesis block
-func (p *Protocol) Initialize(ctx context.Context, sm protocol.StateManager, height uint64) error {
-	r, err := p.electionCommittee.ResultByHeight(height)
-	if err != nil {
-		return err
+func (p *Protocol) Initialize(
+	ctx context.Context,
+	sm protocol.StateManager,
+	height uint64,
+	addrs []string,
+) (err error) {
+	log.L().Info("Initialize poll protocol", zap.Uint64("height", height))
+	var ds state.CandidateList
+	if height == 0 || p.electionCommittee == nil {
+		for _, addr := range addrs {
+			ds = append(ds, &state.Candidate{
+				Address:       addr,
+				Votes:         big.NewInt(0),
+				RewardAddress: addr,
+			})
+		}
+	} else {
+		log.L().Info("Loading delegates from beacon chain")
+		if ds, err = p.DelegatesByBeaconChainHeight(height); err != nil {
+			return
+		}
+		log.L().Info("Validating delegates from beacon chain", zap.Any("delegates", ds))
+		if err = p.validate(ds); err != nil {
+			return
+		}
 	}
-	l := state.CandidateList{}
-	for _, c := range r.Delegates() {
-		l = append(l, &state.Candidate{
-			Address:       string(c.OperatorAddress()),
-			Votes:         c.Score(),
-			RewardAddress: string(c.RewardAddress()),
-		})
-	}
-	if err := p.validate(l); err != nil {
-		return err
-	}
-	return p.setCandidates(sm, l, uint64(1))
+
+	return p.setCandidates(sm, ds, uint64(1))
 }
 
 // Handle handles a vote
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
 	r, ok := act.(*action.PutPollResult)
 	if !ok {
 		return nil, nil
 	}
-	caller, err := util.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", raCtx.Caller.String())
-	}
-	util.SetNonce(r, caller)
+	zap.L().Debug("Handle PutPollResult Action", zap.Uint64("height", r.Height()))
 
 	return nil, p.setCandidates(sm, r.Candidates(), r.Height())
 }
@@ -95,11 +125,11 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 	if err := p.validate(proposedDelegates); err != nil {
 		return err
 	}
-	result, err := p.electionCommittee.ResultByHeight(vaCtx.BlockHeight)
+	epochHeight := p.getEpochHeight(vaCtx.BlockHeight)
+	ds, err := p.DelegatesByHeight(epochHeight)
 	if err != nil {
 		return err
 	}
-	ds := result.Delegates()
 	if len(ds) != len(proposedDelegates) {
 		return errors.Errorf(
 			"the proposed delegate list length, %d, is not as expected, %d",
@@ -108,12 +138,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 		)
 	}
 	for i, d := range ds {
-		c := &state.Candidate{
-			Address:       string(d.OperatorAddress()),
-			Votes:         d.Score(),
-			RewardAddress: string(d.RewardAddress()),
-		}
-		if !proposedDelegates[i].Equal(c) {
+		if !proposedDelegates[i].Equal(d) {
 			return errors.Errorf(
 				"delegates are not as expected, %v vs %v (expected)",
 				proposedDelegates,
@@ -122,6 +147,49 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 		}
 	}
 	return nil
+}
+
+// DelegatesByBeaconChainHeight returns the delegates by beacon chain height
+func (p *Protocol) DelegatesByBeaconChainHeight(height uint64) (state.CandidateList, error) {
+	electionCommittee := p.electionCommittee
+	if electionCommittee == nil {
+		return nil, ErrNoElectionCommittee
+	}
+	r, err := p.electionCommittee.ResultByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	l := state.CandidateList{}
+	for _, c := range r.Delegates() {
+		l = append(l, &state.Candidate{
+			Address:       string(c.OperatorAddress()),
+			Votes:         c.Score(),
+			RewardAddress: string(c.RewardAddress()),
+		})
+	}
+	return l, nil
+}
+
+// DelegatesByHeight returns the delegates by chain height
+func (p *Protocol) DelegatesByHeight(height uint64) (state.CandidateList, error) {
+	blkTime, err := p.getBlockTime(height)
+	if err != nil {
+		return nil, err
+	}
+	electionCommittee := p.electionCommittee
+	if electionCommittee == nil {
+		return nil, ErrNoElectionCommittee
+	}
+	beaconHeight, err := electionCommittee.HeightByTime(blkTime)
+	log.L().Debug(
+		"fetch delegates from beacon chain by time",
+		zap.Uint64("beaconChainHeight", beaconHeight),
+		zap.Time("time", blkTime),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return p.DelegatesByBeaconChainHeight(beaconHeight)
 }
 
 // ReadState read the state on blockchain via protocol
@@ -154,5 +222,24 @@ func (p *Protocol) setCandidates(
 	candidates state.CandidateList,
 	height uint64,
 ) error {
+	for _, candidate := range candidates {
+		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address, big.NewInt(0))
+		if err != nil {
+			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
+		}
+		delegate.IsCandidate = true
+		if err := candidatesutil.LoadAndAddCandidates(sm, candidate.Address); err != nil {
+			return err
+		}
+		if err := accountutil.StoreAccount(sm, candidate.Address, delegate); err != nil {
+			return errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+		log.L().Debug(
+			"add candidate",
+			zap.String("address", candidate.Address),
+			zap.String("rewardAddress", candidate.RewardAddress),
+			zap.String("score", candidate.Votes.String()),
+		)
+	}
 	return sm.PutState(candidatesutil.ConstructKey(height), &candidates)
 }

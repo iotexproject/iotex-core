@@ -143,6 +143,8 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_ClaimFromRewardingFund{ClaimFromRewardingFund: act.Proto()}
 	case *DepositToRewardingFund:
 		actCore.Action = &iotextypes.ActionCore_DepositToRewardingFund{DepositToRewardingFund: act.Proto()}
+	case *PutPollResult:
+		actCore.Action = &iotextypes.ActionCore_PutPollResult{PutPollResult: act.Proto()}
 	default:
 		log.S().Panicf("Cannot convert type of action %T.\r\n", act)
 	}
@@ -236,8 +238,15 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 		if err := act.LoadProto(pbAct.GetDepositToRewardingFund()); err != nil {
 			return err
 		}
+		elp.payload = act
+	case pbAct.GetPutPollResult() != nil:
+		act := &PutPollResult{}
+		if err := act.LoadProto(pbAct.GetPutPollResult()); err != nil {
+			return err
+		}
+		elp.payload = act
 	default:
-		return errors.New("no applicable action to handle in action proto")
+		return errors.Errorf("no applicable action to handle in action proto %+v", pbAct)
 	}
 	return nil
 }

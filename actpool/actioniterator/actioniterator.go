@@ -45,21 +45,15 @@ type ActionIterator interface {
 }
 
 type actionIterator struct {
-	accountActs   map[string][]action.SealedEnvelope
-	heads         actionByPrice
-	systemActions []action.SealedEnvelope
+	accountActs map[string][]action.SealedEnvelope
+	heads       actionByPrice
 }
 
 // NewActionIterator return a new action iterator
 func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIterator {
 	heads := make(actionByPrice, 0, len(accountActs))
-	var systemActions []action.SealedEnvelope
 	for sender, accActs := range accountActs {
 		if len(accActs) == 0 {
-			continue
-		}
-		if sender == "" {
-			systemActions = accActs
 			continue
 		}
 
@@ -72,9 +66,8 @@ func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIte
 	}
 	heap.Init(&heads)
 	return &actionIterator{
-		accountActs:   accountActs,
-		heads:         heads,
-		systemActions: systemActions,
+		accountActs: accountActs,
+		heads:       heads,
 	}
 }
 
@@ -94,11 +87,6 @@ func (ai *actionIterator) loadNextActionForTopAccount() {
 
 // Next load next action of account of top action
 func (ai *actionIterator) Next() (action.SealedEnvelope, bool) {
-	if len(ai.systemActions) > 0 {
-		headAction := ai.systemActions[0]
-		ai.systemActions = ai.systemActions[1:]
-		return headAction, true
-	}
 	if len(ai.heads) == 0 {
 		return action.SealedEnvelope{}, false
 	}
