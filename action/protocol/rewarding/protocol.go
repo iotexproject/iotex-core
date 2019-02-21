@@ -10,6 +10,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/pkg/errors"
+
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -38,20 +40,27 @@ var (
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
+	cm        protocol.ChainManager
 	keyPrefix []byte
 	addr      address.Address
+	// TODO: these should be migrate to rolldpos protocol
+	numDelegates uint64
+	numSubEpochs uint64
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol() *Protocol {
+func NewProtocol(cm protocol.ChainManager, numDelegates uint64, numSubEpochs uint64) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
 	}
 	return &Protocol{
-		keyPrefix: h[:],
-		addr:      addr,
+		cm:           cm,
+		keyPrefix:    h[:],
+		addr:         addr,
+		numDelegates: numDelegates,
+		numSubEpochs: numSubEpochs,
 	}
 }
 
@@ -110,6 +119,29 @@ func (p *Protocol) Validate(
 ) error {
 	// TODO: validate interface shouldn't be required for protocol code
 	return nil
+}
+
+// ReadState read the state on blockchain via protocol
+func (p *Protocol) ReadState(
+	ctx context.Context,
+	sm protocol.StateManager,
+	method []byte,
+	args ...[]byte,
+) ([]byte, error) {
+	switch string(method) {
+	case "UnclaimedBalance":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		addr, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		balance, err := p.UnclaimedBalance(ctx, sm, addr)
+		return []byte(balance.String()), nil
+	default:
+		return nil, errors.New("corresponding method isn't found")
+	}
 }
 
 func (p *Protocol) state(sm protocol.StateManager, key []byte, value interface{}) error {

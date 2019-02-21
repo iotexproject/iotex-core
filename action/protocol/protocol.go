@@ -9,16 +9,24 @@ package protocol
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 )
 
+var (
+	// ErrUnimplemented indicates a method is not implemented yet
+	ErrUnimplemented = errors.New("method is unimplemented")
+)
+
 // Protocol defines the protocol interfaces atop IoTeX blockchain
 type Protocol interface {
 	ActionValidator
 	ActionHandler
+	ReadState(context.Context, StateManager, []byte, ...[]byte) ([]byte, error)
 }
 
 // ActionValidator is the interface of validating an action
@@ -48,6 +56,8 @@ type ChainManager interface {
 	StateByAddr(address string) (*state.Account, error)
 	// Nonce returns the nonce if the account exists
 	Nonce(addr string) (uint64, error)
+	// CandidatesByHeight returns the candidate list by a given height
+	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 }
 
 // StateManager defines the state DB interface atop IoTeX blockchain
