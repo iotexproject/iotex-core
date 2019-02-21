@@ -138,6 +138,9 @@ func (p *Protocol) ReadState(
 			return nil, err
 		}
 		balance, err := p.UnclaimedBalance(ctx, sm, addr)
+		if err != nil {
+			return nil, err
+		}
 		return []byte(balance.String()), nil
 	default:
 		return nil, errors.New("corresponding method isn't found")
