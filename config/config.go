@@ -17,6 +17,7 @@ import (
 	uconfig "go.uber.org/config"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -113,11 +114,7 @@ var (
 					EventChanSize:                10000,
 				},
 				ToleratedOvertime: 2 * time.Second,
-				DelegateInterval:  10 * time.Second,
 				Delay:             5 * time.Second,
-				NumSubEpochs:      1,
-				NumDelegates:      21,
-				TimeBasedRotation: false,
 			},
 			BlockCreationInterval: 10 * time.Second,
 		},
@@ -173,6 +170,7 @@ var (
 				SQLite3File: "./explorer.db",
 			},
 		},
+		Genesis: genesis.Default,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -245,12 +243,7 @@ type (
 	RollDPoS struct {
 		FSM               consensusfsm.Config `yaml:"fsm"`
 		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
-		DelegateInterval  time.Duration       `yaml:"delegateInterval"`
 		Delay             time.Duration       `yaml:"delay"`
-		// TODO: remove the following two fields from config
-		NumSubEpochs      uint `yaml:"numSubEpochs"`
-		NumDelegates      uint `yaml:"numDelegates"`
-		TimeBasedRotation bool `yaml:"timeBasedRotation"`
 	}
 
 	// Dispatcher is the dispatcher config
@@ -374,6 +367,7 @@ type (
 		System     System           `yaml:"system"`
 		DB         DB               `yaml:"db"`
 		Log        log.GlobalConfig `yaml:"log"`
+		Genesis    genesis.Genesis  `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config
@@ -520,9 +514,6 @@ func ValidateChain(cfg Config) error {
 	if cfg.Chain.NumCandidates <= 0 {
 		return errors.Wrapf(ErrInvalidCfg, "candidate number should be greater than 0")
 	}
-	if cfg.Consensus.Scheme == RollDPoSScheme && cfg.Chain.NumCandidates < cfg.Consensus.RollDPoS.NumDelegates {
-		return errors.Wrapf(ErrInvalidCfg, "candidate number should be greater than or equal to delegate number")
-	}
 	return nil
 }
 
@@ -558,18 +549,10 @@ func ValidateRollDPoS(cfg Config) error {
 		return nil
 	}
 	rollDPoS := cfg.Consensus.RollDPoS
-	if rollDPoS.NumDelegates <= 0 {
-		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event delegate number should be greater than 0")
-	}
 	fsm := rollDPoS.FSM
 	if fsm.EventChanSize <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
 	}
-	ttl := fsm.AcceptLockEndorsementTTL + fsm.AcceptBlockTTL + fsm.AcceptProposalEndorsementTTL
-	if ttl >= rollDPoS.DelegateInterval {
-		return errors.Wrap(ErrInvalidCfg, "roll-DPoS ttl sum is larger than proposer interval")
-	}
-
 	return nil
 }
 
