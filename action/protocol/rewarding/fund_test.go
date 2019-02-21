@@ -32,6 +32,7 @@ func TestProtocol_Fund(t *testing.T) {
 		require.NoError(t, stateDB.Commit(ws))
 
 		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
 		totalBalance, err := p.TotalBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), totalBalance)
