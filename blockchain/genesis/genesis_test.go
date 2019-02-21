@@ -22,6 +22,9 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, Default.ActionGasLimit, cfg.ActionGasLimit)
 	assert.Equal(t, Default.NumSubEpochs, cfg.NumSubEpochs)
 	assert.Equal(t, Default.NumDelegates, cfg.NumDelegates)
+	// Validate account protocol
+	assert.Equal(t, Default.InitAddresses(), cfg.InitAddresses())
+	assert.Equal(t, Default.InitBalances(), cfg.InitBalances())
 	// Validate rewarding protocol
 	assert.Equal(t, Default.InitAdminAddr().String(), cfg.InitAdminAddr().String())
 	assert.Equal(t, Default.BlockReward(), cfg.BlockReward())

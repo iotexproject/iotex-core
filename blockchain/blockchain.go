@@ -14,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 
 	"github.com/facebookgo/clock"
@@ -1335,6 +1337,28 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		Nonce:          0,
 		Registry:       bc.registry,
 	})
+	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
+		return err
+	}
+	if err := bc.createRewardingGenesisStates(ctx, ws); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
+	p, ok := bc.registry.Find(account.ProtocolID)
+	if !ok {
+		return errors.Errorf("protocol %s isn't found", rewarding.ProtocolID)
+	}
+	ap, ok := p.(*account.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting protocol")
+	}
+	return ap.Initialize(ctx, ws, bc.config.Genesis.InitAddresses(), bc.config.Genesis.InitBalances())
+}
+
+func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
 	p, ok := bc.registry.Find(rewarding.ProtocolID)
 	if !ok {
 		return errors.Errorf("protocol %s isn't found", rewarding.ProtocolID)
