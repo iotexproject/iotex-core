@@ -17,10 +17,12 @@ import (
 
 	"flag"
 
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
+
+var client pb.APIServiceClient
 
 func main() {
 	// target addresses for jrpc connection.
@@ -41,19 +43,26 @@ func main() {
 	// check health for all given servers
 	for _, bcServer := range servers {
 		// TODO - run for all servers in goroutines ?
-		c, err := New(bcServer)
+		// log.Println(bcServer)
+		conn, err := grpc.Dial(bcServer, grpc.WithInsecure())
+
 		if err != nil {
-			errMsg := fmt.Errorf("could not connect to server %s", bcServer)
+			errMsg := fmt.Errorf("cannot dial server %s : %v", bcServer, err)
 			fmt.Println(errMsg)
 			continue
 		}
-		res, err := c.serverMonitor(height)
+
+		client = pb.NewAPIServiceClient(conn)
+
+		req := &pb.GetChainMetaRequest{}
+		resp, err := client.GetChainMeta(context.Background(), req)
 		if err != nil {
 			errMsg := fmt.Errorf("error in getting health status for %s, error %v", bcServer, err)
 			fmt.Println(errMsg)
 			continue
 		}
-		if res {
+		// check for returned height
+		if resp.ChainMeta.Height > height {
 			successMsg := fmt.Sprintf("positive health status for server %s", bcServer)
 			fmt.Println(successMsg)
 		} else {
@@ -61,35 +70,4 @@ func main() {
 			fmt.Println(failureMsg)
 		}
 	}
-}
-
-// Client is the blockchain API client.
-type Client struct {
-	api iotexapi.APIServiceClient
-}
-
-// New creates a new Client.
-func New(serverAddr string) (*Client, error) {
-	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	return &Client{
-		api: iotexapi.NewAPIServiceClient(conn),
-	}, nil
-}
-
-// ServerMonitor is to track server's health by checking it's current height
-func (c *Client) serverMonitor(height uint64) (bool, error) {
-	req := &iotexapi.GetChainMetaRequest{}
-	resp, err := c.api.GetChainMeta(context.Background(), req)
-	if err != nil {
-		return false, fmt.Errorf("\n error in GetChainMeta: %v", err)
-	}
-	fmt.Printf("Info: Current height is %v", resp.ChainMeta.Height)
-	if resp.ChainMeta.Height < height {
-		return false, nil
-	}
-
-	return true, nil
 }
