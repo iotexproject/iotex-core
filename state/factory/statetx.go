@@ -63,19 +63,20 @@ func (stx *stateTX) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
-) (hash.Hash256, []*action.Receipt, error) {
+) ([]*action.Receipt, error) {
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
 		receipt, err := stx.RunAction(ctx, elp)
 		if err != nil {
-			return hash.ZeroHash256, nil, errors.Wrap(err, "error when run action")
+			return nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
 		}
 	}
-	return stx.UpdateBlockLevelInfo(blockHeight), receipts, nil
+	stx.UpdateBlockLevelInfo(blockHeight)
+	return receipts, nil
 }
 
 // RunAction runs action in the block and track pending changes in working set

@@ -1004,7 +1004,7 @@ func TestBlocks(t *testing.T) {
 			Producer: ta.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, nil)
+	_, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -1069,7 +1069,7 @@ func TestActions(t *testing.T) {
 			Producer: ta.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, nil)
+	_, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
@@ -1110,7 +1110,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 			Producer: ta.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
+	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err
 	}
 	return sf.Commit(ws)

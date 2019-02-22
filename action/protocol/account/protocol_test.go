@@ -54,7 +54,7 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, nil)
+	_, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 	ss, err := sf.AccountState(addrv1.String())
