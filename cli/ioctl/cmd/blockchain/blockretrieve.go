@@ -1,0 +1,33 @@
+// Copyright (c) 2019 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+package blockchain
+
+import (
+	"fmt"
+	"github.com/spf13/cobra"
+)
+
+var blockheaderid int
+
+// blockRetrieveCmd represents the account create command
+var blockRetrieveCmd = &cobra.Command{
+	Use:   "blockheader",
+	Short: "Create N new accounts and print them",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println(blockRetrieve(args))
+	},
+}
+
+func init() {
+	blockRetrieveCmd.Flags().IntVarP(&blockheaderid, "blockheaderid", "b", 1, "retrieves a full block from the blockchain")
+	BlockchainCmd.AddCommand(blockRetrieveCmd)
+}
+
+func blockRetrieve(args []string) string {
+	return "TODO: Implement it"
+}
