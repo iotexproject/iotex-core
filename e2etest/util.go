@@ -24,7 +24,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	tsf0, _ := action.NewTransfer(
 		1,
-		unit.ConvertIotxToRau(3000000000),
+		unit.ConvertIotxToRau(90000000),
 		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(0),

@@ -48,8 +48,10 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if big.NewInt(0).Add(tsf.Amount(), gasFee).Cmp(sender.Balance) == 1 {
 		return errors.Wrapf(
 			state.ErrNotEnoughBalance,
-			"failed to verify the Balance of sender %s",
+			"sender %s balance %s, required amount %s",
 			raCtx.Caller.String(),
+			sender.Balance,
+			big.NewInt(0).Add(tsf.Amount(), gasFee),
 		)
 	}
 

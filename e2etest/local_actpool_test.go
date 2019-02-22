@@ -12,27 +12,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/iotexproject/go-ethereum/crypto"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	// Make sure the key pairs used here match the genesis block
-	// Sender's public/private key pair
-	fromPubKey  = "046fd639e777d7ebc441a2f594994f99b3cce0e7c9bc47aa2c71b50b14c561efbc8762b915608fc97b79ba81aa555ef2b5b275c5cc0405873039d67749ffce3476"
-	fromPrivKey = "bb8f0b63179590f1f47c9613b00819d8869591ccdf654c363f5825ac3d05d45f"
-	// Recipient's public key
-	toPubKey = "0415efbeb0cabe6e920afdff0558e34be9f17f3ef3a70bb60d5eb6c00f517c2f870da979eed4e60deeb627d6335544aa514b25f0225063f4094cedc0ef0b49a316"
 )
 
 func TestLocalActPool(t *testing.T) {
@@ -77,18 +68,8 @@ func TestLocalActPool(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	fromPK, _ := keypair.DecodePublicKey(fromPubKey)
-	toPK, _ := keypair.DecodePublicKey(toPubKey)
-
-	fromPKHash := keypair.HashPubKey(fromPK)
-	toPKHash := keypair.HashPubKey(toPK)
-
-	from, _ := address.FromBytes(fromPKHash[:])
-	to, _ := address.FromBytes(toPKHash[:])
-	priKey, _ := keypair.DecodePrivateKey(fromPrivKey)
-
 	// Create three valid actions from "from" to "to"
-	tsf1, err := testutil.SignedTransfer(to.String(), priKey, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 	// Wait until server receives the 1st action
@@ -98,16 +79,16 @@ func TestLocalActPool(t *testing.T) {
 		return len(acts) == 1, nil
 	}))
 
-	vote2, err := testutil.SignedVote(from.String(), priKey, uint64(2), uint64(100000), big.NewInt(0))
+	vote2, err := testutil.SignedVote(identityset.Address(1).String(), identityset.PrivateKey(1), 2, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(to.String(), priKey, uint64(3), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 3, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Create contract
-	exec4, err := testutil.SignedExecution(action.EmptyAddress, priKey, uint64(4), big.NewInt(0), uint64(120000), big.NewInt(10), []byte{})
+	exec4, err := testutil.SignedExecution(action.EmptyAddress, identityset.PrivateKey(1), 4, big.NewInt(0), uint64(120000), big.NewInt(10), []byte{})
 	require.NoError(err)
 	// Create three invalid actions from "from" to "to"
 	// Existed Vote
-	vote5, err := testutil.SignedVote(from.String(), priKey, uint64(2), uint64(100000), big.NewInt(0))
+	vote5, err := testutil.SignedVote(identityset.Address(0).String(), identityset.PrivateKey(1), 2, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(cli.BroadcastOutbound(p2pCtx, vote2.Proto()))
@@ -163,14 +144,8 @@ func TestPressureActPool(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 	}()
 
-	toPK, _ := keypair.DecodePublicKey(toPubKey)
-	toPKHash := keypair.HashPubKey(toPK)
-	toAddr, _ := address.FromBytes(toPKHash[:])
-	to := toAddr.String()
-	priKey, _ := keypair.DecodePrivateKey(fromPrivKey)
-
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
-	tsf, err := testutil.SignedTransfer(to, priKey, 1, big.NewInt(int64(0)), []byte{}, uint64(100000), big.NewInt(0))
+	tsf, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(int64(0)), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Wait until server receives the 1st action
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
@@ -180,7 +155,7 @@ func TestPressureActPool(t *testing.T) {
 	}))
 
 	for i := 2; i <= 1000; i++ {
-		tsf, err := testutil.SignedTransfer(to, priKey, uint64(i), big.NewInt(int64(i)), []byte{}, uint64(100000), big.NewInt(0))
+		tsf, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), uint64(i), big.NewInt(int64(i)), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf.Proto()))
 	}

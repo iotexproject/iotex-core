@@ -9,6 +9,7 @@ package genesis
 import (
 	"flag"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,35 +17,19 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
-
-// DefaultAdminPrivateKey is used to create the default genesis config. It could facilitate quick setup of the
-// blockchain, but it MUST NOT be used in production.
-const DefaultAdminPrivateKey = "bace9b2435db45b119e1570b4ea9c57993b2311e0c408d743d87cd22838ae892"
 
 var (
 	// Default contains the default genesis config
-	Default Genesis
-
-	genesisPath      string
-	defaultAdminAddr address.Address
+	Default     Genesis
+	genesisPath string
 )
 
 func init() {
 	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
-	sk, err := keypair.DecodePrivateKey(DefaultAdminPrivateKey)
-	if err != nil {
-		log.L().Panic("Error when decoding the default admin private key.", zap.Error(err))
-	}
-	pkHash := keypair.HashPubKey(&sk.PublicKey)
-	defaultAdminAddr, err = address.FromBytes(pkHash[:])
-	if err != nil {
-		log.L().Panic("Error when constructing the default admin address.", zap.Error(err))
-	}
-
 	initDefaultConfig()
 }
 
@@ -55,17 +40,23 @@ func initDefaultConfig() {
 			BlockGasLimit:     20000000,
 			ActionGasLimit:    5000000,
 			BlockInterval:     10 * time.Second,
-			NumSubEpochs:      1,
-			NumDelegates:      21,
+			NumSubEpochs:      2,
+			NumDelegates:      24,
 			TimeBasedRotation: false,
 		},
+		Account: Account{
+			InitBalanceMap: make(map[string]string),
+		},
 		Rewarding: Rewarding{
-			InitAdminAddrStr:           defaultAdminAddr.String(),
+			InitAdminAddrStr:           identityset.Address(0).String(),
 			InitBalanceStr:             unit.ConvertIotxToRau(1200000000).String(),
 			BlockRewardStr:             unit.ConvertIotxToRau(36).String(),
 			EpochRewardStr:             unit.ConvertIotxToRau(400000).String(),
 			NumDelegatesForEpochReward: 100,
 		},
+	}
+	for i := 0; i < identityset.Size(); i++ {
+		Default.InitBalanceMap[identityset.Address(i).String()] = unit.ConvertIotxToRau(100000000).String()
 	}
 }
 
@@ -74,6 +65,7 @@ type (
 	// participating into the same network should use EXACTLY SAME genesis config.
 	Genesis struct {
 		Blockchain `yaml:"blockchain"`
+		Account    `ymal:"account"`
 		Rewarding  `yaml:"rewarding"`
 	}
 	// Blockchain contains blockchain level configs
@@ -92,6 +84,11 @@ type (
 		NumDelegates uint64 `yaml:"numDelegates"`
 		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
+	}
+	// Account contains the configs for account protocol
+	Account struct {
+		// InitBalanceMap is the address and initial balance mapping before the first block.
+		InitBalanceMap map[string]string `yaml:"initBalances"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
@@ -126,6 +123,32 @@ func New() (Genesis, error) {
 		return Genesis{}, errors.Wrap(err, "failed to unmarshal yaml genesis to struct")
 	}
 	return genesis, nil
+}
+
+// InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
+// i-th address' balance.
+func (a *Account) InitBalances() ([]address.Address, []*big.Int) {
+	// Make the list always be ordered
+	addrStrs := make([]string, 0)
+	for addrStr := range a.InitBalanceMap {
+		addrStrs = append(addrStrs, addrStr)
+	}
+	sort.Strings(addrStrs)
+	addrs := make([]address.Address, 0)
+	amounts := make([]*big.Int, 0)
+	for _, addrStr := range addrStrs {
+		addr, err := address.FromString(addrStr)
+		if err != nil {
+			log.L().Panic("Error when decoding the account protocol init balance address from string.", zap.Error(err))
+		}
+		addrs = append(addrs, addr)
+		amount, ok := big.NewInt(0).SetString(a.InitBalanceMap[addrStr], 10)
+		if !ok {
+			log.S().Panicf("Error when casting init balance string %s into big int", a.InitBalanceMap[addrStr])
+		}
+		amounts = append(amounts, amount)
+	}
+	return addrs, amounts
 }
 
 // InitAdminAddr returns the address of the initial rewarding protocol admin
