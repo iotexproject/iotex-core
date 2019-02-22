@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/iotexproject/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 

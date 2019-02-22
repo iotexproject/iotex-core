@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
