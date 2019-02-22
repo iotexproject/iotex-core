@@ -36,6 +36,7 @@ func Execute() {
 func init() {
 	RootCmd.AddCommand(account.AccountCmd)
 	RootCmd.AddCommand(version.VersionCmd)
+	RootCmd.AddCommand(blockchain.BlockchainCmd)
 	RootCmd.AddCommand(bc.BCCmd)
 	RootCmd.AddCommand(blockchain.BlockchainCmd)
 	RootCmd.AddCommand(bc.BCCmd)
