@@ -37,8 +37,7 @@ func TestClient(t *testing.T) {
 	testutil.CleanupPath(t, testChainPath)
 	testutil.CleanupPath(t, testTriePath)
 
-	cfg, err := newConfig()
-	require.NoError(err)
+	cfg := newConfig()
 	ctx := context.Background()
 
 	mockCtrl := gomock.NewController(t)
@@ -51,6 +50,7 @@ func TestClient(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetDestinationAddress(b).SetAction(tx).Build()
 	selp, err := action.Sign(elp, priKeyA)
+	require.NoError(err)
 
 	bc := mock_blockchain.NewMockBlockchain(mockCtrl)
 	ap := mock_actpool.NewMockActPool(mockCtrl)
@@ -80,8 +80,8 @@ func TestClient(t *testing.T) {
 	require.NoError(cli.SendAction(ctx, selp))
 }
 
-func newConfig() (config.API, error) {
+func newConfig() config.API {
 	cfg := config.Default
 	cfg.API.Enabled = true
-	return cfg.API, nil
+	return cfg.API
 }
