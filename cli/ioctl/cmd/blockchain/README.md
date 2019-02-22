@@ -1,7 +1,7 @@
     blockchain aka bc is a sub command of ioctl command-line interface for interacting with IoTeX blockchains.
 
     Usage:
-      ioctl bc
+      ioctl blockchain
 
     Available Commands:
       blockheader       Retrieves a full block from blockchain
