@@ -13,10 +13,12 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"net/http"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -28,7 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/util"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -92,20 +93,31 @@ func main() {
 		}
 		svrs[i] = svr
 	}
+
+	// Create probe servers, and start only 1st one, since grpc use only 1st server to inject actions
+	probeSvrs := make([]*probe.Server, numNodes)
+	for i := 0; i < numNodes; i++ {
+		probeSvrs[i] = probe.New(7788 + i)
+	}
+	probeSvrs[0].Start(context.Background())
+
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(context.Background(), svrs[i], probe.New(7788), configs[i])
+		go itx.StartServer(context.Background(), svrs[i], probeSvrs[i], configs[i])
 	}
 
-	// target address for grpc connection. Default is "127.0.0.1:14014"
-	grpcAddr := "127.0.0.1:14014"
-	var conn *grpc.ClientConn
-	if err := testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		conn, err = grpc.Dial(grpcAddr, grpc.WithInsecure())
-		return err == nil, nil
+	if err := testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+		resp, err := http.Get("http://localhost:7788/readiness")
+		if err != nil {
+			return false, nil
+		}
+		return http.StatusOK == resp.StatusCode, nil
 	}); err != nil {
 		log.L().Fatal("Failed to start API server", zap.Error(err))
 	}
+	// target address for grpc connection. Default is "127.0.0.1:14014"
+	grpcAddr := "127.0.0.1:14014"
+	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
 	client := iotexapi.NewAPIServiceClient(conn)
 
 	counter, err := util.InitCounter(client, chainAddrs)
