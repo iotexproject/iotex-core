@@ -360,7 +360,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 						Producer: testaddress.Addrinfo["producer"],
 						GasLimit: &gasLimit,
 					})
-				_, _, err = ws.RunActions(wsctx, 0, nil)
+				_, err = ws.RunActions(wsctx, 0, nil)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}

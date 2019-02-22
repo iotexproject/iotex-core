@@ -122,7 +122,7 @@ func TestWrongNonce(t *testing.T) {
 			Producer: ta.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{tsf1})
+	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{tsf1})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 
