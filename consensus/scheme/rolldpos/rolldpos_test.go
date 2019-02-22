@@ -619,4 +619,68 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("network-half-offline-recover", func(t *testing.T) {
+		ctx := context.Background()
+		cs, p2ps, chains := newConsensusComponents(21)
+		recoverPeers := p2ps[0].peers
+
+		for i := 0; i < 21; i++ {
+			require.NoError(t, chains[i].Start(ctx))
+			require.NoError(t, p2ps[i].Start(ctx))
+		}
+		wg := sync.WaitGroup{}
+		wg.Add(21)
+		for i := 0; i < 21; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				err := cs[idx].Start(ctx)
+				require.NoError(t, err)
+			}(i)
+		}
+		wg.Wait()
+
+		defer func() {
+			for i := 0; i < 21; i++ {
+				require.NoError(t, cs[i].Stop(ctx))
+				require.NoError(t, p2ps[i].Stop(ctx))
+				require.NoError(t, chains[i].Stop(ctx))
+			}
+		}()
+
+		time.Sleep(5 * time.Second)
+
+		for i, p2p := range p2ps {
+			if i < 11 {
+				p2p.peers = make(map[net.Addr]*RollDPoS)
+			} else {
+				for j := 0; j < 11; j++ {
+					delete(p2p.peers, p2ps[j].addr)
+				}
+			}
+		}
+		sumHeigh := uint64(0)
+		for _, chain := range chains {
+			sumHeigh += chain.TipHeight()
+		}
+		require.NotEqual(t, uint64(0), sumHeigh)
+
+		time.Sleep(5 * time.Second)
+		sumHeigh2 := uint64(0)
+		for _, chain := range chains {
+			sumHeigh2 += chain.TipHeight()
+		}
+		require.Equal(t, sumHeigh, sumHeigh2)
+
+		for _, p2p := range p2ps {
+			p2p.peers = recoverPeers
+		}
+
+		time.Sleep(5 * time.Second)
+		sumHeigh3 := uint64(0)
+		for _, chain := range chains {
+			sumHeigh3 += chain.TipHeight()
+		}
+		require.NotEqual(t, sumHeigh2, sumHeigh3)
+	})
 }
