@@ -13,9 +13,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 
-	"github.com/iotexproject/go-ethereum/common"
-	"github.com/iotexproject/go-ethereum/core/vm"
-	"github.com/iotexproject/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
