@@ -21,13 +21,14 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/util"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -72,9 +73,9 @@ func main() {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
 		networkPort := 4689 + i
-		explorerPort := 14004 + i
+		apiPort := 14014 + i
 		config := newConfig(genesisConfigPath, chainDBPath, trieDBPath, chainAddrs[i].PriKey,
-			networkPort, explorerPort)
+			networkPort, apiPort)
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
 			config.Network.MasterKey = "bootnode"
@@ -96,15 +97,16 @@ func main() {
 		go itx.StartServer(context.Background(), svrs[i], probe.New(7788), configs[i])
 	}
 
+	// target address for grpc connection. Default is "127.0.0.1:14014"
+	grpcAddr := "127.0.0.1:14014"
+	var conn *grpc.ClientConn
 	if err := testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		return svrs[0].ChainService(uint32(1)).Explorer().Port() == 14004, nil
+		conn, err = grpc.Dial(grpcAddr, grpc.WithInsecure())
+		return err == nil, nil
 	}); err != nil {
-		log.L().Fatal("Failed to start explorer JSON-RPC server", zap.Error(err))
+		log.L().Fatal("Failed to start API server", zap.Error(err))
 	}
-
-	// target address for jrpc connection. Default is "127.0.0.1:14004"
-	jrpcAddr := "127.0.0.1:14004"
-	client := explorer.NewExplorerProxy("http://" + jrpcAddr)
+	client := iotexapi.NewAPIServiceClient(conn)
 
 	counter, err := util.InitCounter(client, chainAddrs)
 	if err != nil {
@@ -213,7 +215,7 @@ func newConfig(
 	trieDBPath string,
 	producerPriKey keypair.PrivateKey,
 	networkPort,
-	explorerPort int,
+	apiPort int,
 ) config.Config {
 	cfg := config.Default
 
@@ -247,8 +249,8 @@ func newConfig(
 
 	cfg.System.HTTPMetricsPort = 0
 
-	cfg.Explorer.Enabled = true
-	cfg.Explorer.Port = explorerPort
+	cfg.API.Enabled = true
+	cfg.API.Port = apiPort
 
 	cfg.Genesis.Blockchain.BlockInterval = 10 * time.Second
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
