@@ -8,29 +8,41 @@ package blockchain
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 )
-
-var blockheaderid string
 
 // blockRetrieveCmd creates a new `ioctl blockchain blockheader` command
 var blockRetrieveCmd = &cobra.Command{
 	Use:   "blockheader",
 	Short: "Retrieve a block from blockchain",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.ExactArgs(1), // TODO - add help for
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(blockRetrieve(args))
 	},
 }
 
 func init() {
-	// TODO - override default help of cobra, we don't need last value as flag
-	blockRetrieveCmd.Flags().StringVarP(&blockheaderid, "blockheaderid", "", "", "retrieves a full block from the blockchain")
 	BlockchainCmd.AddCommand(blockRetrieveCmd)
 }
 
 // blockRetrieve is the actual implementation
 func blockRetrieve(args []string) string {
-	return "TODO: Implement it"
+	fmt.Println("TODO: Implement it")
+
+	// default method to getBlock
+	method := "hash"
+
+	// check for user input to decide method at runtime
+	v := args[0]
+	if _, err := strconv.Atoi(v); err == nil {
+		method = "height"
+	}
+
+	if method == "hash" {
+		// call GetblockByHash
+		return "call GetByHash method here"
+	}
+	return "call GetByHeight method here"
 }
