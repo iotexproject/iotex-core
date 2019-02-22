@@ -17,7 +17,7 @@ var blockheaderid int
 // blockRetrieveCmd creates a new `ioctl blockchain blockheader` command
 var blockRetrieveCmd = &cobra.Command{
 	Use:   "blockheader",
-	Short: "Retrieved a block from blockchain",
+	Short: "Retrieve a block from blockchain",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(blockRetrieve(args))
@@ -25,10 +25,11 @@ var blockRetrieveCmd = &cobra.Command{
 }
 
 func init() {
-	blockRetrieveCmd.Flags().IntVarP(&blockheaderid, "blockheaderid", "b", 0, "retrieves a full block from the blockchain")
+	blockRetrieveCmd.Flags().IntVarP(&blockheaderid, "blockheaderid", "", 0, "retrieves a full block from the blockchain")
 	BlockchainCmd.AddCommand(blockRetrieveCmd)
 }
 
+// blockRetrieve is the actual implementation
 func blockRetrieve(args []string) string {
 	return "TODO: Implement it"
 }
