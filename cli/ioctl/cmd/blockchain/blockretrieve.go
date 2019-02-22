@@ -8,12 +8,13 @@ package blockchain
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
 var blockheaderid int
 
-// blockRetrieveCmd represents the account create command
+// blockRetrieveCmd creates a new `ioctl blockchain blockheader` command
 var blockRetrieveCmd = &cobra.Command{
 	Use:   "blockheader",
 	Short: "Create N new accounts and print them",
@@ -24,7 +25,7 @@ var blockRetrieveCmd = &cobra.Command{
 }
 
 func init() {
-	blockRetrieveCmd.Flags().IntVarP(&blockheaderid, "blockheaderid", "b", 1, "retrieves a full block from the blockchain")
+	blockRetrieveCmd.Flags().IntVarP(&blockheaderid, "blockheaderid", "b", 0, "retrieves a full block from the blockchain")
 	BlockchainCmd.AddCommand(blockRetrieveCmd)
 }
 
