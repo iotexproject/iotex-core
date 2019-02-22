@@ -14,7 +14,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -28,7 +27,7 @@ import (
 const (
 	testnetActionPath = "testnet_actions.yaml"
 	// GenesisProducerPublicKey is only used for test
-	GenesisProducerPublicKey = "0444b7ac782c60e90b1aa263fe4d61dbe73bf8260d3e773ce9f4f0dbc181e8e5f2e3b6f6d4cf47f1d53af95cf24b88b92037125c7bf6f63b55bebbb8579b3a9b24"
+	GenesisProducerPublicKey = "04e93b5b1c8fba69263652a483ad55318e4eed5b5122314cb7fdb077d8c7295097cec92ee50b1108dc7495a9720e5921e56d3048e37abe6a6716d7c9b913e9f2e6"
 	// GenesisProducerPrivateKey is only used for test
 	GenesisProducerPrivateKey = "bace9b2435db45b119e1570b4ea9c57993b2311e0c408d743d87cd22838ae892"
 	// TODO: Gensis block producer's keypair should be a config. Note genesis block producer is not the creator
@@ -102,26 +101,6 @@ func (g *Genesis) CreatorPKHash() hash.Hash160 {
 // NewGenesisActions creates a new genesis block
 func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.SealedEnvelope {
 	actions := loadGenesisData(chainCfg)
-	// add initial allocation
-	alloc := big.NewInt(0)
-	for _, transfer := range actions.Transfers {
-		rpk, _ := decodeKey(transfer.RecipientPK, "")
-		recipientAddr := generateAddr(rpk)
-		amount := unit.ConvertIotxToRau(transfer.Amount)
-		_, err := accountutil.LoadOrCreateAccount(ws, recipientAddr, amount)
-		if err != nil {
-			log.L().Panic("Failed to add initial allocation.", zap.Error(err))
-		}
-		alloc.Add(alloc, amount)
-	}
-	// add creator
-	Gen.CreatorPubKey = actions.Creation.PubKey
-	creatorAddr := Gen.CreatorAddr()
-	_, err := accountutil.LoadOrCreateAccount(ws, creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
-	if err != nil {
-		log.L().Panic("Failed to add creator.", zap.Error(err))
-	}
-
 	// TODO: convert vote to state operation as well
 	acts := make([]action.SealedEnvelope, 0)
 	for _, nominator := range actions.SelfNominators {
@@ -158,7 +137,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 			)
 			bd := action.EnvelopeBuilder{}
 			elp := bd.SetAction(start).Build()
-			pk, _ := decodeKey(Gen.CreatorPubKey, "")
+			pk, _ := decodeKey(actions.Creation.PubKey, "")
 			selp := action.FakeSeal(elp, pk)
 			acts = append(acts, selp)
 		}

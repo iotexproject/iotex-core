@@ -14,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 
 	"github.com/facebookgo/clock"
@@ -936,6 +938,11 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
+		// Initialize the states before any actions happen on the blockchain
+		if err := bc.createGenesisStates(ws); err != nil {
+			return err
+		}
+
 		acts := NewGenesisActions(bc.config.Chain, ws)
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
@@ -946,11 +953,6 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		_, receipts, err := bc.runActions(racts, ws)
 		if err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
-		}
-
-		// Initialize the states before any actions happen on the blockchain
-		if err := bc.createGenesisStates(ws); err != nil {
-			return err
 		}
 
 		genesis, err = block.NewBuilder(racts).
@@ -1156,7 +1158,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 				actionIterator.PopAccount()
 				continue
 			}
-			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %s", nextAction.Hash())
+			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
 		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
@@ -1335,9 +1337,32 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		Nonce:          0,
 		Registry:       bc.registry,
 	})
+	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
+		return err
+	}
+	if err := bc.createRewardingGenesisStates(ctx, ws); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
+	p, ok := bc.registry.Find(account.ProtocolID)
+	if !ok {
+		return nil
+	}
+	ap, ok := p.(*account.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting protocol")
+	}
+	addrs, balances := bc.config.Genesis.InitBalances()
+	return ap.Initialize(ctx, ws, addrs, balances)
+}
+
+func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
 	p, ok := bc.registry.Find(rewarding.ProtocolID)
 	if !ok {
-		return errors.Errorf("protocol %s isn't found", rewarding.ProtocolID)
+		return nil
 	}
 	rp, ok := p.(*rewarding.Protocol)
 	if !ok {

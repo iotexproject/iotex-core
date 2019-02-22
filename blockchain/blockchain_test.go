@@ -13,6 +13,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/test/identityset"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -39,7 +41,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	// Add block 0
 	tsf0, _ := action.NewTransfer(
 		1,
-		big.NewInt(3000000000),
+		big.NewInt(90000000),
 		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
@@ -283,10 +285,14 @@ func TestCreateBlockchain(t *testing.T) {
 	cfg.Chain.TrieDBPath = ""
 
 	// create chain
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	v := vote.NewProtocol(bc)
+	bc.Validator().AddActionValidators(acc, v)
+	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -306,7 +312,7 @@ func TestCreateBlockchain(t *testing.T) {
 
 	transfers, votes, _ := action.ClassifyActions(genesis.Actions)
 	require.Equal(0, len(transfers))
-	require.Equal(21, len(votes))
+	require.Equal(24, len(votes))
 
 	fmt.Printf("Block size match pass\n")
 	fmt.Printf("Marshaling Block pass\n")
@@ -334,16 +340,20 @@ func TestCreateBlockchain(t *testing.T) {
 func TestBlockchain_MintNewBlock(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	regsitry := protocol.Registry{}
+	acc := account.NewProtocol()
+	regsitry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&regsitry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	v := vote.NewProtocol(bc)
+	bc.Validator().AddActionValidators(acc, v)
+	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
 
 	tsf, err := action.NewTransfer(
 		1,
-		big.NewInt(3000000000),
+		big.NewInt(100000000),
 		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
@@ -374,10 +384,14 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	regsitry := protocol.Registry{}
+	acc := account.NewProtocol()
+	regsitry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&regsitry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	v := vote.NewProtocol(bc)
+	bc.Validator().AddActionValidators(acc, v)
+	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
 
@@ -462,17 +476,20 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
-	sf.AddActionHandlers(account.NewProtocol())
-
 	// Create a blockchain from scratch
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
 	bc := NewBlockchain(
 		cfg,
 		PrecreatedStateFactoryOption(sf),
 		BoltDBDaoOption(),
+		RegistryOption(&registry),
 	)
+	v := vote.NewProtocol(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	sf.AddActionHandlers(vote.NewProtocol(bc))
+	bc.Validator().AddActionValidators(acc, v)
+	sf.AddActionHandlers(acc, v)
 	require.NoError(bc.Start(ctx))
 	require.NoError(addCreatorToFactory(sf))
 
@@ -669,7 +686,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	totalVotes, err := bc.GetTotalVotes()
 	require.Nil(err)
-	require.Equal(totalVotes, uint64(23))
+	require.Equal(totalVotes, uint64(26))
 
 	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
 	require.NotNil(err)
@@ -693,16 +710,20 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
-	sf.AddActionHandlers(account.NewProtocol())
 	// Create a blockchain from scratch
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
 	bc := NewBlockchain(
 		cfg,
 		PrecreatedStateFactoryOption(sf),
 		BoltDBDaoOption(),
+		RegistryOption(&registry),
 	)
+	v := vote.NewProtocol(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	sf.AddActionHandlers(vote.NewProtocol(bc))
+	bc.Validator().AddActionValidators(acc, v)
+	sf.AddActionHandlers(acc, v)
 	require.NoError(bc.Start(ctx))
 
 	require.NoError(addCreatorToFactory(sf))
@@ -926,15 +947,16 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	// create chain
+
 	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-
-	s, err := bc.StateByAddr(Gen.CreatorAddr())
+	_, err := bc.CreateState(identityset.Address(0).String(), big.NewInt(100))
+	require.NoError(err)
+	s, err := bc.StateByAddr(identityset.Address(0).String())
 	require.NoError(err)
 	require.Equal(uint64(0), s.Nonce)
-	bal := big.NewInt(7700000000)
-	require.Equal(bal.Mul(bal, big.NewInt(1e18)).String(), s.Balance.String())
+	require.Equal(big.NewInt(100), s.Balance)
 	require.Equal(hash.ZeroHash256, s.Root)
 	require.Equal([]byte(nil), s.CodeHash)
 	require.Equal(false, s.IsCandidate)

@@ -64,6 +64,10 @@ func (p *Protocol) Initialize(
 	epochReward *big.Int,
 	numDelegatesForEpochReward uint64,
 ) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
+		return err
+	}
 	if err := p.assertAmount(blockReward); err != nil {
 		return err
 	}
@@ -211,6 +215,13 @@ func (p *Protocol) assertAdminPermission(raCtx protocol.RunActionsCtx, sm protoc
 		return nil
 	}
 	return errors.Errorf("%s is not the rewarding protocol admin", raCtx.Caller.String())
+}
+
+func (p *Protocol) assertZeroBlockHeight(height uint64) error {
+	if height != 0 {
+		return errors.Errorf("current block height %d is not zero", height)
+	}
+	return nil
 }
 
 func (p *Protocol) setReward(
