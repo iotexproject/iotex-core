@@ -7,58 +7,82 @@
 package blockchain
 
 import (
+	"context"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/explorer"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+
+	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
+	pb1 "github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
-var address string
+var serverAddr string
 
-// blockRetrieveCmd creates a new `ioctl blockchain blockheader` command
-var blockRetrieveCmd = &cobra.Command{
+// blockHeaderRetrieveCmd creates a new `ioctl blockchain blockheader` command
+var blockHeaderRetrieveCmd = &cobra.Command{
 	Use:   "blockheader",
 	Short: "Retrieve a block from blockchain",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(blockRetrieve(args))
+		fmt.Println(blockHeaderRetrieve(args))
 	},
 }
 
 func init() {
-	blockRetrieveCmd.Flags().StringVarP(&address, "host", "s", "127.0.0.1:14014", "host of api server")
-	BlockchainCmd.AddCommand(blockRetrieveCmd)
+	blockHeaderRetrieveCmd.Flags().StringVarP(&serverAddr, "host", "s", "127.0.0.1:14014", "host of api server")
+	BlockchainCmd.AddCommand(blockHeaderRetrieveCmd)
 }
 
-// blockRetrieve is the actual implementation
-func blockRetrieve(args []string) (*block.Block, error) {
+// blockHeaderRetrieve is the actual implementation
+func blockHeaderRetrieve(args []string) (*pb1.BlockHeader, error) {
 	// deduce height or hash method from user input
 	method := "hash"
 	var userHeight uint64
+	var userHash hash.Hash256
 
 	v := args[0]
+	// check if user provided height
 	if h, err := strconv.Atoi(v); err == nil {
 		method = "height"
 		userHeight = uint64(h)
+		fmt.Println("user height is ", userHeight)
 	}
 
+	// otherwise it's hash string
 	if method == "hash" {
+		userHash, _ = toHash256(v)
 		fmt.Println("complete Hash method")
+		fmt.Println("user hash is ", userHash)
 	}
-	fmt.Println("user height is ", userHeight)
 
-	client := explorer.NewExplorerProxy(address)
-	fmt.Println(client)
+	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
+	if err != nil {
+		return new(pb1.BlockHeader), err
+	}
 
-	// TODO - How to call GetBlockByHeight method with this server
-	//var bc blockchain.Blockchain
-	//resp, err := bc.GetBlockByHeight(userHeight)
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
-	//fmt.Println(resp)
-	//return resp, err
-	return new(block.Block), nil
+	// TODO- which api or api flow to call for blockheader
+
+	client := pb.NewAPIServiceClient(conn)
+	req := &pb.GetBlockMetasRequest{}
+	_, err = client.GetBlockMetas(context.Background(), req)
+
+	if err != nil {
+		return new(pb1.BlockHeader), err
+	}
+
+	return new(pb1.BlockHeader), nil
+}
+
+func toHash256(hashString string) (hash.Hash256, error) {
+	bytes, err := hex.DecodeString(hashString)
+	if err != nil {
+		return hash.ZeroHash256, err
+	}
+	var _hash hash.Hash256
+	copy(_hash[:], bytes)
+	return _hash, nil
 }
