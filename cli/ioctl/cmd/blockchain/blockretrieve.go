@@ -10,39 +10,55 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/spf13/cobra"
 )
+
+var address string
 
 // blockRetrieveCmd creates a new `ioctl blockchain blockheader` command
 var blockRetrieveCmd = &cobra.Command{
 	Use:   "blockheader",
 	Short: "Retrieve a block from blockchain",
-	Args:  cobra.ExactArgs(1), // TODO - add help for
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(blockRetrieve(args))
 	},
 }
 
 func init() {
+	blockRetrieveCmd.Flags().StringVarP(&address, "host", "s", "127.0.0.1:14014", "host of api server")
 	BlockchainCmd.AddCommand(blockRetrieveCmd)
 }
 
 // blockRetrieve is the actual implementation
-func blockRetrieve(args []string) string {
-	fmt.Println("TODO: Implement it")
-
-	// default method to getBlock
+func blockRetrieve(args []string) (*block.Block, error) {
+	// deduce height or hash method from user input
 	method := "hash"
+	var userHeight uint64
 
-	// check for user input to decide method at runtime
 	v := args[0]
-	if _, err := strconv.Atoi(v); err == nil {
+	if h, err := strconv.Atoi(v); err == nil {
 		method = "height"
+		userHeight = uint64(h)
 	}
 
 	if method == "hash" {
-		// call GetblockByHash
-		return "call GetByHash method here"
+		fmt.Println("complete Hash method")
 	}
-	return "call GetByHeight method here"
+	fmt.Println("user height is ", userHeight)
+
+	client := explorer.NewExplorerProxy(address)
+	fmt.Println(client)
+
+	// TODO - How to call GetBlockByHeight method with this server
+	//var bc blockchain.Blockchain
+	//resp, err := bc.GetBlockByHeight(userHeight)
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	//fmt.Println(resp)
+	//return resp, err
+	return new(block.Block), nil
 }
