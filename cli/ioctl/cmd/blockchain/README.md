@@ -4,7 +4,7 @@
       ioctl bc
 
     Available Commands:
-      blockheader       Retrieved a full block from blockchain
+      blockheader       Retrieves a full block from blockchain
 
 
     Flags:
