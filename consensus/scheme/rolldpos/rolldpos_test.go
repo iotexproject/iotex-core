@@ -16,10 +16,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

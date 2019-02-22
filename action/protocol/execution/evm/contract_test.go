@@ -11,7 +11,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 

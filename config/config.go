@@ -12,7 +12,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/iotexproject/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 

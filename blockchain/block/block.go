@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 

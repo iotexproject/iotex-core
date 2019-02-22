@@ -46,9 +46,9 @@
   version = "~0.9.0"
 
 [[constraint]]
-  name = "github.com/iotexproject/go-ethereum"
-  revision = "ccc12f4fab5e9a9038675904481734570e05f95d"
-
+  name = "github.com/ethereum/go-ethereum"
+  revision = "2bbee71fbe61def241832e800b4f0bd24d4beb89"
+  source = "github.com/iotexproject/go-ethereum"
 
 [[constraint]]
   name = "github.com/iotexproject/go-fsm"
@@ -63,7 +63,7 @@
   unused-packages = true
 
   [[prune.project]]
-      name = "github.com/iotexproject/go-ethereum"
+      name = "github.com/ethereum/go-ethereum"
       unused-packages = false
 
 [[constraint]]
