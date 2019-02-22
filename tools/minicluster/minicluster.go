@@ -99,8 +99,10 @@ func main() {
 	for i := 0; i < numNodes; i++ {
 		probeSvrs[i] = probe.New(7788 + i)
 	}
-	probeSvrs[0].Start(context.Background())
-
+	err = probeSvrs[0].Start(context.Background())
+	if err != nil {
+		log.L().Error("Failed to start probe server")
+	}
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
 		go itx.StartServer(context.Background(), svrs[i], probeSvrs[i], configs[i])
@@ -118,6 +120,9 @@ func main() {
 	// target address for grpc connection. Default is "127.0.0.1:14014"
 	grpcAddr := "127.0.0.1:14014"
 	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
+	if err != nil {
+		log.L().Error("Failed to connect to API server.")
+	}
 	client := iotexapi.NewAPIServiceClient(conn)
 
 	counter, err := util.InitCounter(client, chainAddrs)
