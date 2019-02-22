@@ -758,7 +758,7 @@ func addProducerToFactory(sf factory.Factory) error {
 			Producer: ta.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
+	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err
 	}
 	return sf.Commit(ws)
