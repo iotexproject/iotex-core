@@ -54,6 +54,10 @@ build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 
+.PHONY: buildcli
+buildcli:
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
+
 .PHONY: fmt
 fmt:
 	$(GOCMD) fmt ./...
