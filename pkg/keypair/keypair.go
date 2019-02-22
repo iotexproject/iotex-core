@@ -10,7 +10,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 
-	"github.com/iotexproject/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"

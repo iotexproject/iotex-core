@@ -7,7 +7,7 @@
 package block
 
 import (
-	"github.com/iotexproject/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
