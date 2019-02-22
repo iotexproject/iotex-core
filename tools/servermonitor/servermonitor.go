@@ -41,33 +41,26 @@ func main() {
 	// check health for all given servers
 	for _, bcServer := range servers {
 		// TODO - run for all servers in goroutines ?
-		result, err := servermonitor(bcServer, height)
+		currHeight, err := servermonitor(bcServer)
 		if err != nil {
 			fmt.Println(fmt.Errorf("error in getting server health status %v", err))
 			continue
 		}
-		if !result {
-			fmt.Println(fmt.Errorf("server health status negative for server %s", bcServer))
-		}
+		fmt.Printf("server address: %s,  current height %v", bcServer, currHeight)
 	}
 }
 
-func servermonitor(serverAddr string, height uint64) (bool, error) {
+func servermonitor(serverAddr string) (uint64, error) {
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 
 	client := pb.NewAPIServiceClient(conn)
 	req := &pb.GetChainMetaRequest{}
 	resp, err := client.GetChainMeta(context.Background(), req)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	// check if returned height is valid
-	if resp.ChainMeta.Height > height {
-		return true, nil
-	}
-
-	return false, nil
+	return resp.ChainMeta.Height, nil
 }
