@@ -18,7 +18,7 @@ BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJ=actioninjector
 BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
-BUILD_TARGET_IOTC=iotc
+BUILD_TARGET_IOCTL=ioctl
 BUILD_TARGET_MINICLUSTER=minicluster
 
 # Pkgs
@@ -51,7 +51,7 @@ build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOTC) -v ./cli/iotc
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 
 .PHONY: fmt
