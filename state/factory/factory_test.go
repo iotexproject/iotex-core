@@ -1484,7 +1484,10 @@ func benchRunAction(sf Factory, b *testing.B) {
 	}
 	defer func() {
 		defer func() {
-			sf.Stop(context.Background())
+			if err := sf.Stop(context.Background()); err != nil {
+				b.Fatal(err)
+			}
+
 		}()
 	}()
 
