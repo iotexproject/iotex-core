@@ -26,13 +26,13 @@ type epochCtx struct {
 }
 
 func newEpochCtx(
-	numDelegates uint,
-	numSubEpochs uint,
+	numDelegates uint64,
+	numSubEpochs uint64,
 	blockHeight uint64,
 	candidatesByHeight func(uint64) ([]*state.Candidate, error),
 ) (*epochCtx, error) {
-	epochNum := rolldpos.GetEpochNum(blockHeight, uint64(numDelegates), uint64(numSubEpochs))
-	epochHeight := rolldpos.GetEpochHeight(epochNum, uint64(numDelegates), uint64(numSubEpochs))
+	epochNum := rolldpos.GetEpochNum(blockHeight, numDelegates, numSubEpochs)
+	epochHeight := rolldpos.GetEpochHeight(epochNum, numDelegates, numSubEpochs)
 	candidates, err := candidatesByHeight(epochHeight - 1)
 	if err != nil {
 		return nil, errors.Wrapf(
@@ -57,7 +57,7 @@ func newEpochCtx(
 	return &epochCtx{
 		num:         epochNum,
 		delegates:   addrs[:numDelegates],
-		subEpochNum: (blockHeight - epochHeight) / uint64(numDelegates),
+		subEpochNum: (blockHeight - epochHeight) / numDelegates,
 		height:      epochHeight,
 	}, nil
 }

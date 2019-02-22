@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
@@ -47,7 +47,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, nil
 	}
 
-	voteFrom, err := util.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
+	voteFrom, err := accountutil.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", raCtx.Caller.String())
 	}
@@ -74,7 +74,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 	*raCtx.GasLimit -= raCtx.IntrinsicGas
 	// Update voteFrom Nonce
-	util.SetNonce(vote, voteFrom)
+	accountutil.SetNonce(vote, voteFrom)
 	prevVotee := voteFrom.Votee
 	voteFrom.Votee = vote.Votee()
 	if vote.Votee() == "" {
@@ -92,20 +92,20 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		}
 	}
 	// Put updated voter's state to trie
-	if err := util.StoreAccount(sm, raCtx.Caller.String(), voteFrom); err != nil {
+	if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), voteFrom); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
 	// Update old votee's weight
 	if len(prevVotee) > 0 {
 		// voter already voted
-		oldVotee, err := util.LoadOrCreateAccount(sm, prevVotee, big.NewInt(0))
+		oldVotee, err := accountutil.LoadOrCreateAccount(sm, prevVotee, big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", prevVotee)
 		}
 		oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 		// Put updated state of voter's old votee to trie
-		if err := util.StoreAccount(sm, prevVotee, oldVotee); err != nil {
+		if err := accountutil.StoreAccount(sm, prevVotee, oldVotee); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
@@ -117,7 +117,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 
 	if vote.Votee() != "" {
-		voteTo, err := util.LoadOrCreateAccount(sm, vote.Votee(), big.NewInt(0))
+		voteTo, err := accountutil.LoadOrCreateAccount(sm, vote.Votee(), big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of votee %s", vote.Votee())
 		}
@@ -125,7 +125,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
 
 		// Put updated votee's state to trie
-		if err := util.StoreAccount(sm, vote.Votee(), voteTo); err != nil {
+		if err := accountutil.StoreAccount(sm, vote.Votee(), voteTo); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map

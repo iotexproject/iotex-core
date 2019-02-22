@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
@@ -222,7 +222,6 @@ func TestExplorerApi(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
-	genesisCfg := genesis.Default
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -238,16 +237,15 @@ func TestExplorerApi(t *testing.T) {
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NotNil(bc)
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	ap.AddActionValidators(vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.Blockchain.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
@@ -329,7 +327,7 @@ func TestExplorerApi(t *testing.T) {
 		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
 	}
 	votes, err = svc.GetLastVotesByRange(3, 0, 50)
-	require.Equal(22, len(votes))
+	require.Equal(25, len(votes))
 	require.Nil(err)
 	for i := 0; i < len(votes)-1; i++ {
 		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
@@ -430,7 +428,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
 	require.Equal(int64(5), stats.Transfers)
-	require.Equal(int64(24), stats.Votes)
+	require.Equal(int64(27), stats.Votes)
 	require.Equal(int64(3), stats.Executions)
 	require.Equal(int64(11), stats.Aps)
 
@@ -935,7 +933,6 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
-	genesisCfg := genesis.Default
 
 	testutil.CleanupPath(t, testTriePath)
 	defer testutil.CleanupPath(t, testTriePath)
@@ -951,7 +948,6 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	require.NoError(bc.Start(ctx))
 	defer func() {
@@ -1224,7 +1220,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = util.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(),
+	if _, err = accountutil.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(),
 		blockchain.Gen.TotalSupply); err != nil {
 		return err
 	}

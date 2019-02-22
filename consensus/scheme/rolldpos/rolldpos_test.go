@@ -14,13 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,7 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -78,9 +77,9 @@ func newTestAddr() *addrKeyPair {
 	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.String()}
 }
 
-func test21Addrs() []*addrKeyPair {
+func test24Addrs() []*addrKeyPair {
 	addrs := make([]*addrKeyPair, 0)
-	for i := 0; i < 21; i++ {
+	for i := 0; i < 24; i++ {
 		addrs = append(addrs, newTestAddr())
 	}
 	return addrs
@@ -92,10 +91,12 @@ func TestNewRollDPoS(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	cfg := config.Default
+
 	t.Run("normal", func(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
-			SetConfig(config.RollDPoS{}).
+			SetConfig(cfg).
 			SetAddr(addr.encodedAddr).
 			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
@@ -111,7 +112,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("mock-clock", func(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
-			SetConfig(config.RollDPoS{}).
+			SetConfig(cfg).
 			SetAddr(addr.encodedAddr).
 			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
@@ -131,7 +132,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("root chain API", func(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
-			SetConfig(config.RollDPoS{}).
+			SetConfig(cfg).
 			SetAddr(addr.encodedAddr).
 			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
@@ -150,7 +151,7 @@ func TestNewRollDPoS(t *testing.T) {
 	t.Run("missing-dep", func(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
-			SetConfig(config.RollDPoS{}).
+			SetConfig(cfg).
 			SetAddr(addr.encodedAddr).
 			SetPubKey(addr.pubKey).
 			SetPriKey(addr.priKey).
@@ -201,13 +202,12 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	}, nil).AnyTimes()
 
 	addr := newTestAddr()
+	cfg := config.Default
+	cfg.Genesis.NumDelegates = 4
+	cfg.Genesis.NumSubEpochs = 1
+	cfg.Genesis.BlockInterval = 10 * time.Second
 	r, err := NewRollDPoSBuilder().
-		SetConfig(config.RollDPoS{
-			NumDelegates:     4,
-			NumSubEpochs:     1,
-			FSM:              config.Default.Consensus.RollDPoS.FSM,
-			DelegateInterval: 10 * time.Second,
-		}).
+		SetConfig(cfg).
 		SetAddr(addr.encodedAddr).
 		SetPubKey(addr.pubKey).
 		SetPriKey(addr.priKey).
@@ -221,7 +221,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	r.ctx.round = &roundCtx{height: blockHeight + 1}
-	clock.Add(r.ctx.cfg.DelegateInterval)
+	clock.Add(r.ctx.genesisCfg.BlockInterval)
 	require.NoError(t, r.ctx.updateEpoch(blockHeight+1))
 	require.NoError(t, r.ctx.updateRound(blockHeight+1))
 
@@ -237,7 +237,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 func makeTestRollDPoSCtx(
 	addr *addrKeyPair,
 	ctrl *gomock.Controller,
-	cfg config.RollDPoS,
+	cfg config.Config,
 	mockChain func(*mock_blockchain.MockBlockchain),
 	mockActPool func(*mock_actpool.MockActPool),
 	broadcastCB func(proto.Message) error,
@@ -253,7 +253,8 @@ func makeTestRollDPoSCtx(
 		}
 	}
 	return &rollDPoSCtx{
-		cfg:              cfg,
+		cfg:              cfg.Consensus.RollDPoS,
+		genesisCfg:       cfg.Genesis.Blockchain,
 		encodedAddr:      addr.encodedAddr,
 		pubKey:           addr.pubKey,
 		priKey:           addr.priKey,
@@ -303,17 +304,16 @@ func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.DelegateInterval = time.Second
 		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 400 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.UnmatchedEventTTL = 400 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 10 * time.Millisecond
 		cfg.Consensus.RollDPoS.ToleratedOvertime = 200 * time.Millisecond
-		cfg.Consensus.RollDPoS.NumDelegates = uint(numNodes)
-		cfg.Consensus.RollDPoS.NumSubEpochs = 1
 
-		genesisCfg := genesis.Default
+		cfg.Genesis.BlockInterval = time.Second
+		cfg.Genesis.Blockchain.NumDelegates = uint64(numNodes)
+		cfg.Genesis.Blockchain.NumSubEpochs = 1
 
 		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
@@ -352,7 +352,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			for j := 0; j < numNodes; j++ {
 				ws, err := sf.NewWorkingSet()
 				require.NoError(t, err)
-				_, err = util.LoadOrCreateAccount(ws, chainRawAddrs[j], big.NewInt(0))
+				_, err = accountutil.LoadOrCreateAccount(ws, chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
 				gasLimit := testutil.TestGasLimit
 				wsctx := protocol.WithRunActionsCtx(ctx,
@@ -368,7 +368,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 				cfg,
 				blockchain.InMemDaoOption(),
 				blockchain.PrecreatedStateFactoryOption(sf),
-				blockchain.GenesisOption(genesisCfg),
 			)
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 			chain.Validator().AddActionValidators(account.NewProtocol())
@@ -387,7 +386,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetAddr(chainAddrs[i].encodedAddr).
 				SetPubKey(&chainAddrs[i].priKey.PublicKey).
 				SetPriKey(chainAddrs[i].priKey).
-				SetConfig(cfg.Consensus.RollDPoS).
+				SetConfig(cfg).
 				SetBlockchain(chain).
 				SetActPool(actPool).
 				SetBroadcast(p2p.Broadcast).
@@ -409,15 +408,15 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("1-block", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(21)
+		cs, p2ps, chains := newConsensusComponents(24)
 
-		for i := 0; i < 21; i++ {
+		for i := 0; i < 24; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 		}
 		wg := sync.WaitGroup{}
-		wg.Add(21)
-		for i := 0; i < 21; i++ {
+		wg.Add(24)
+		for i := 0; i < 24; i++ {
 			go func(idx int) {
 				defer wg.Done()
 				err := cs[idx].Start(ctx)
@@ -427,7 +426,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Wait()
 
 		defer func() {
-			for i := 0; i < 21; i++ {
+			for i := 0; i < 24; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
@@ -448,15 +447,15 @@ func TestRollDPoSConsensus(t *testing.T) {
 			t.Skip("Skip the 1-epoch test in short mode.")
 		}
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(21)
+		cs, p2ps, chains := newConsensusComponents(24)
 
-		for i := 0; i < 21; i++ {
+		for i := 0; i < 24; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 		}
 		wg := sync.WaitGroup{}
-		wg.Add(21)
-		for i := 0; i < 21; i++ {
+		wg.Add(24)
+		for i := 0; i < 24; i++ {
 			go func(idx int) {
 				defer wg.Done()
 				err := cs[idx].Start(ctx)
@@ -466,7 +465,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Wait()
 
 		defer func() {
-			for i := 0; i < 21; i++ {
+			for i := 0; i < 24; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
@@ -474,7 +473,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}()
 		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 60*time.Second, func() (bool, error) {
 			for _, chain := range chains {
-				if blk, err := chain.GetBlockByHeight(42); blk == nil || err != nil {
+				if blk, err := chain.GetBlockByHeight(48); blk == nil || err != nil {
 					return false, nil
 				}
 			}
@@ -484,7 +483,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("network-partition-time-rotation", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(21)
+		cs, p2ps, chains := newConsensusComponents(24)
 		// 1 should be the block 1's proposer
 		for i, p2p := range p2ps {
 			if i == 1 {
@@ -494,16 +493,16 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < 21; i++ {
+		for i := 0; i < 24; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 		}
 		wg := sync.WaitGroup{}
-		wg.Add(21)
-		for i := 0; i < 21; i++ {
+		wg.Add(24)
+		for i := 0; i < 24; i++ {
 			go func(idx int) {
 				defer wg.Done()
-				cs[idx].ctx.cfg.TimeBasedRotation = true
+				cs[idx].ctx.genesisCfg.TimeBasedRotation = true
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
 			}(i)
@@ -511,7 +510,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Wait()
 
 		defer func() {
-			for i := 0; i < 21; i++ {
+			for i := 0; i < 24; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
@@ -534,7 +533,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("proposer-network-partition-blocking", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(21)
+		cs, p2ps, chains := newConsensusComponents(24)
 		// 1 should be the block 1's proposer
 		for i, p2p := range p2ps {
 			if i == 1 {
@@ -544,13 +543,13 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < 21; i++ {
+		for i := 0; i < 24; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 		}
 		wg := sync.WaitGroup{}
-		wg.Add(21)
-		for i := 0; i < 21; i++ {
+		wg.Add(24)
+		for i := 0; i < 24; i++ {
 			go func(idx int) {
 				defer wg.Done()
 				err := cs[idx].Start(ctx)
@@ -560,7 +559,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Wait()
 
 		defer func() {
-			for i := 0; i < 21; i++ {
+			for i := 0; i < 24; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))
@@ -576,7 +575,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 	t.Run("non-proposer-network-partition-blocking", func(t *testing.T) {
 		ctx := context.Background()
-		cs, p2ps, chains := newConsensusComponents(21)
+		cs, p2ps, chains := newConsensusComponents(24)
 		// 1 should be the block 1's proposer
 		for i, p2p := range p2ps {
 			if i == 0 {
@@ -586,13 +585,13 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 
-		for i := 0; i < 21; i++ {
+		for i := 0; i < 24; i++ {
 			require.NoError(t, chains[i].Start(ctx))
 			require.NoError(t, p2ps[i].Start(ctx))
 		}
 		wg := sync.WaitGroup{}
-		wg.Add(21)
-		for i := 0; i < 21; i++ {
+		wg.Add(24)
+		for i := 0; i < 24; i++ {
 			go func(idx int) {
 				defer wg.Done()
 				err := cs[idx].Start(ctx)
@@ -602,7 +601,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		wg.Wait()
 
 		defer func() {
-			for i := 0; i < 21; i++ {
+			for i := 0; i < 24; i++ {
 				require.NoError(t, cs[i].Stop(ctx))
 				require.NoError(t, p2ps[i].Stop(ctx))
 				require.NoError(t, chains[i].Stop(ctx))

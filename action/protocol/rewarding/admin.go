@@ -64,6 +64,10 @@ func (p *Protocol) Initialize(
 	epochReward *big.Int,
 	numDelegatesForEpochReward uint64,
 ) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
+		return err
+	}
 	if err := p.assertAmount(blockReward); err != nil {
 		return err
 	}
@@ -82,17 +86,14 @@ func (p *Protocol) Initialize(
 	); err != nil {
 		return err
 	}
-	if err := p.putState(
+	return p.putState(
 		sm,
 		fundKey,
 		&fund{
 			totalBalance:     initBalance,
 			unclaimedBalance: initBalance,
 		},
-	); err != nil {
-		return err
-	}
-	return nil
+	)
 }
 
 // Admin returns the address of current admin
@@ -122,10 +123,7 @@ func (p *Protocol) SetAdmin(
 		return err
 	}
 	a.admin = addr
-	if err := p.putState(sm, adminKey, &a); err != nil {
-		return err
-	}
-	return nil
+	return p.putState(sm, adminKey, &a)
 }
 
 // BlockReward returns the block reward amount
@@ -198,10 +196,7 @@ func (p *Protocol) SetNumDelegatesForEpochReward(
 		return err
 	}
 	a.NumDelegatesForEpochReward = num
-	if err := p.putState(sm, adminKey, &a); err != nil {
-		return err
-	}
-	return nil
+	return p.putState(sm, adminKey, &a)
 }
 
 func (p *Protocol) assertAmount(amount *big.Int) error {
@@ -220,6 +215,13 @@ func (p *Protocol) assertAdminPermission(raCtx protocol.RunActionsCtx, sm protoc
 		return nil
 	}
 	return errors.Errorf("%s is not the rewarding protocol admin", raCtx.Caller.String())
+}
+
+func (p *Protocol) assertZeroBlockHeight(height uint64) error {
+	if height != 0 {
+		return errors.Errorf("current block height %d is not zero", height)
+	}
+	return nil
 }
 
 func (p *Protocol) setReward(
@@ -244,8 +246,5 @@ func (p *Protocol) setReward(
 	} else {
 		a.EpochReward = amount
 	}
-	if err := p.putState(sm, adminKey, &a); err != nil {
-		return err
-	}
-	return nil
+	return p.putState(sm, adminKey, &a)
 }

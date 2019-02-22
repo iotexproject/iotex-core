@@ -260,7 +260,7 @@ func (idx *Indexer) getIndexHistory(getQuery string, userAddr string) ([]hash.Ha
 		return nil, errors.Wrapf(err, "failed to parse results")
 	}
 
-	var indexHashes []hash.Hash256
+	indexHashes := make([]hash.Hash256, 0, len(parsedRows))
 	for _, parsedRow := range parsedRows {
 		var hash hash.Hash256
 		copy(hash[:], parsedRow.(*IndexHistory).IndexHash)

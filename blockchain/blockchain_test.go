@@ -13,12 +13,14 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/test/identityset"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -39,7 +41,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	// Add block 0
 	tsf0, _ := action.NewTransfer(
 		1,
-		big.NewInt(3000000000),
+		big.NewInt(90000000),
 		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
@@ -282,13 +284,15 @@ func TestCreateBlockchain(t *testing.T) {
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 
-	genesisCfg := genesis.Default
-
 	// create chain
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), GenesisOption(genesisCfg))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	v := vote.NewProtocol(bc)
+	bc.Validator().AddActionValidators(acc, v)
+	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -308,7 +312,7 @@ func TestCreateBlockchain(t *testing.T) {
 
 	transfers, votes, _ := action.ClassifyActions(genesis.Actions)
 	require.Equal(0, len(transfers))
-	require.Equal(21, len(votes))
+	require.Equal(24, len(votes))
 
 	fmt.Printf("Block size match pass\n")
 	fmt.Printf("Marshaling Block pass\n")
@@ -336,17 +340,20 @@ func TestCreateBlockchain(t *testing.T) {
 func TestBlockchain_MintNewBlock(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	genesisCfg := genesis.Default
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), GenesisOption(genesisCfg))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	regsitry := protocol.Registry{}
+	acc := account.NewProtocol()
+	regsitry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&regsitry))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	v := vote.NewProtocol(bc)
+	bc.Validator().AddActionValidators(acc, v)
+	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
 
 	tsf, err := action.NewTransfer(
 		1,
-		big.NewInt(3000000000),
+		big.NewInt(100000000),
 		ta.Addrinfo["producer"].String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
@@ -377,11 +384,14 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	genesisCfg := genesis.Default
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), GenesisOption(genesisCfg))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisCfg.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(), vote.NewProtocol(bc))
+	regsitry := protocol.Registry{}
+	acc := account.NewProtocol()
+	regsitry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&regsitry))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	v := vote.NewProtocol(bc)
+	bc.Validator().AddActionValidators(acc, v)
+	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
 
@@ -463,22 +473,23 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
-	genesisConfig := genesis.Default
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
-	sf.AddActionHandlers(account.NewProtocol())
-
 	// Create a blockchain from scratch
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
 	bc := NewBlockchain(
 		cfg,
 		PrecreatedStateFactoryOption(sf),
 		BoltDBDaoOption(),
-		GenesisOption(genesisConfig),
+		RegistryOption(&registry),
 	)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	sf.AddActionHandlers(vote.NewProtocol(bc))
+	v := vote.NewProtocol(bc)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	bc.Validator().AddActionValidators(acc, v)
+	sf.AddActionHandlers(acc, v)
 	require.NoError(bc.Start(ctx))
 	require.NoError(addCreatorToFactory(sf))
 
@@ -499,7 +510,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol())
 
-	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisConfig))
+	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
@@ -585,7 +596,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 
 	// add block with wrong height
-	selp, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
+	selp, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
@@ -600,7 +611,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
-	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
+	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
@@ -675,7 +686,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	totalVotes, err := bc.GetTotalVotes()
 	require.Nil(err)
-	require.Equal(totalVotes, uint64(23))
+	require.Equal(totalVotes, uint64(26))
 
 	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
 	require.NotNil(err)
@@ -696,21 +707,23 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	cfg.DB.UseBadgerDB = false // test with boltDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	genesisConfig := genesis.Default
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
-	sf.AddActionHandlers(account.NewProtocol())
 	// Create a blockchain from scratch
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
 	bc := NewBlockchain(
 		cfg,
 		PrecreatedStateFactoryOption(sf),
 		BoltDBDaoOption(),
-		GenesisOption(genesisConfig),
+		RegistryOption(&registry),
 	)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesisConfig.Blockchain.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
-	sf.AddActionHandlers(vote.NewProtocol(bc))
+	v := vote.NewProtocol(bc)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	bc.Validator().AddActionValidators(acc, v)
+	sf.AddActionHandlers(acc, v)
 	require.NoError(bc.Start(ctx))
 
 	require.NoError(addCreatorToFactory(sf))
@@ -734,7 +747,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol())
 
-	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisConfig))
+	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
 	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.NoError(bc.Start(ctx))
@@ -803,7 +816,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Equal(blkhash, blk.HashBlock())
 	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 	// add block with wrong height
-	selp, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
+	selp, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
@@ -817,7 +830,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NotNil(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// add block with zero prev hash
-	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
+	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
@@ -882,10 +895,9 @@ func TestBlockchain_Validator(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
-	genesisCfg := genesis.Default
 
 	ctx := context.Background()
-	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption(), GenesisOption(genesisCfg))
+	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -912,12 +924,10 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.NumCandidates = 2
 
-	genesisCfg := genesis.Default
-
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), GenesisOption(genesisCfg))
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -935,18 +945,18 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	require := require.New(t)
 
 	cfg := config.Default
-	genesisCfg := genesis.Default
 	// disable account-based testing
 	// create chain
-	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption(), GenesisOption(genesisCfg))
+
+	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-
-	s, err := bc.StateByAddr(Gen.CreatorAddr())
+	_, err := bc.CreateState(identityset.Address(0).String(), big.NewInt(100))
+	require.NoError(err)
+	s, err := bc.StateByAddr(identityset.Address(0).String())
 	require.NoError(err)
 	require.Equal(uint64(0), s.Nonce)
-	bal := big.NewInt(7700000000)
-	require.Equal(bal.Mul(bal, big.NewInt(1e18)).String(), s.Balance.String())
+	require.Equal(big.NewInt(100), s.Balance)
 	require.Equal(hash.ZeroHash256, s.Root)
 	require.Equal([]byte(nil), s.CodeHash)
 	require.Equal(false, s.IsCandidate)
@@ -984,9 +994,9 @@ func TestBlocks(t *testing.T) {
 	c := ta.Addrinfo["bravo"].String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100000))
+	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100000))
 	require.NoError(err)
-	_, err = util.LoadOrCreateAccount(ws, c, big.NewInt(100000))
+	_, err = accountutil.LoadOrCreateAccount(ws, c, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -1049,9 +1059,9 @@ func TestActions(t *testing.T) {
 	c := ta.Addrinfo["bravo"].String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	_, err = util.LoadOrCreateAccount(ws, a, big.NewInt(100000))
+	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100000))
 	require.NoError(err)
-	_, err = util.LoadOrCreateAccount(ws, c, big.NewInt(100000))
+	_, err = accountutil.LoadOrCreateAccount(ws, c, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -1091,7 +1101,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = util.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(), Gen.TotalSupply); err != nil {
+	if _, err = accountutil.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(), Gen.TotalSupply); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit

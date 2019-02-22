@@ -14,6 +14,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 
 	"github.com/facebookgo/clock"
@@ -23,13 +25,12 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
@@ -184,15 +185,11 @@ type blockchain struct {
 	// used by account-based model
 	sf factory.Factory
 
-	genesisConfig genesis.Genesis
-	registry      *protocol.Registry
+	registry *protocol.Registry
 }
 
 // Option sets blockchain construction parameter
 type Option func(*blockchain, config.Config) error
-
-// key specifies the type of recovery height key used by context
-type key string
 
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
@@ -271,14 +268,6 @@ func ClockOption(clk clock.Clock) Option {
 func RegistryOption(registry *protocol.Registry) Option {
 	return func(bc *blockchain, conf config.Config) error {
 		bc.registry = registry
-		return nil
-	}
-}
-
-// GenesisOption sets the blockchain with the genesis configs
-func GenesisOption(genesisConfig genesis.Genesis) Option {
-	return func(bc *blockchain, conf config.Config) error {
-		bc.genesisConfig = genesisConfig
 		return nil
 	}
 }
@@ -711,14 +700,14 @@ func (bc *blockchain) MintNewBlock(
 		return nil, err
 	}
 
-	gasLimitForContext := bc.genesisConfig.BlockGasLimit
+	gasLimitForContext := bc.config.Genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight:    newblockHeight,
 			BlockTimeStamp: bc.now(),
 			Producer:       producer,
 			GasLimit:       &gasLimitForContext,
-			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
 	_, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
@@ -727,7 +716,7 @@ func (bc *blockchain) MintNewBlock(
 	}
 
 	blockMtc.WithLabelValues("numActions").Set(float64(len(actions)))
-	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.genesisConfig.BlockGasLimit - gasLimitForContext))
+	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - gasLimitForContext))
 
 	ra := block.NewRunnableActionsBuilder().
 		SetHeight(newblockHeight).
@@ -833,14 +822,14 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 	if err != nil {
 		return nil, err
 	}
-	gasLimit := bc.genesisConfig.BlockGasLimit
+	gasLimit := bc.config.Genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight:    blk.Height(),
 		BlockTimeStamp: blk.Timestamp(),
 		Producer:       producer,
 		Caller:         caller,
 		GasLimit:       &gasLimit,
-		ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		GasPrice:       big.NewInt(0),
 		IntrinsicGas:   0,
 	})
@@ -861,7 +850,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create clean working set")
 	}
-	account, err := util.LoadOrCreateAccount(ws, addr, init)
+	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}
@@ -869,7 +858,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get genesis block")
 	}
-	gasLimit := bc.genesisConfig.BlockGasLimit
+	gasLimit := bc.config.Genesis.BlockGasLimit
 	callerAddr, err := address.FromString(addr)
 	if err != nil {
 		return nil, err
@@ -882,7 +871,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 		protocol.RunActionsCtx{
 			Producer:       producer,
 			GasLimit:       &gasLimit,
-			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Caller:         callerAddr,
 			ActionHash:     hash.ZeroHash256,
 			Nonce:          0,
@@ -949,6 +938,11 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
+		// Initialize the states before any actions happen on the blockchain
+		if err := bc.createGenesisStates(ws); err != nil {
+			return err
+		}
+
 		acts := NewGenesisActions(bc.config.Chain, ws)
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
@@ -959,11 +953,6 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		_, receipts, err := bc.runActions(racts, ws)
 		if err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
-		}
-
-		// Initialize the states before any actions happen on the blockchain
-		if err := bc.createGenesisStates(ws); err != nil {
-			return err
 		}
 
 		genesis, err = block.NewBuilder(racts).
@@ -1123,7 +1112,7 @@ func (bc *blockchain) runActions(
 	if bc.sf == nil {
 		return hash.ZeroHash256, nil, errors.New("statefactory cannot be nil")
 	}
-	gasLimit := bc.genesisConfig.BlockGasLimit
+	gasLimit := bc.config.Genesis.BlockGasLimit
 	// update state factory
 	producer, err := address.FromString(acts.BlockProducerAddr())
 	if err != nil {
@@ -1133,10 +1122,10 @@ func (bc *blockchain) runActions(
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight:    acts.BlockHeight(),
-			BlockTimeStamp: int64(acts.BlockTimeStamp()),
+			BlockTimeStamp: acts.BlockTimeStamp(),
 			Producer:       producer,
 			GasLimit:       &gasLimit,
-			ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
 
@@ -1169,7 +1158,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 				actionIterator.PopAccount()
 				continue
 			}
-			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %s", nextAction.Hash())
+			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
 		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
@@ -1189,20 +1178,26 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		return hash.ZeroHash256, nil, nil, err
 	}
 	receipt, err := ws.RunAction(ctx, grant)
+	if err != nil {
+		return hash.ZeroHash256, nil, nil, err
+	}
 	if receipt != nil {
 		receipts = append(receipts, receipt)
 	}
 	executedActions = append(executedActions, grant)
 
 	// Process grant epoch reward action if the block is the last one in an epoch
-	epochNum := rolldpos.GetEpochNum(raCtx.BlockHeight, bc.genesisConfig.NumDelegates, bc.genesisConfig.NumSubEpochs)
-	lastBlkHeight := rolldpos.GetEpochLastBlockHeight(epochNum, bc.genesisConfig.NumDelegates, bc.genesisConfig.NumSubEpochs)
+	epochNum := rolldpos.GetEpochNum(raCtx.BlockHeight, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
+	lastBlkHeight := rolldpos.GetEpochLastBlockHeight(epochNum, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
 	if raCtx.BlockHeight == lastBlkHeight {
 		grant, err = bc.createGrantRewardAction(action.EpochReward)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
 		receipt, err = ws.RunAction(ctx, grant)
+		if err != nil {
+			return hash.ZeroHash256, nil, nil, err
+		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
 		}
@@ -1333,18 +1328,41 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight:    0,
-		BlockTimeStamp: bc.genesisConfig.Timestamp,
+		BlockTimeStamp: bc.config.Genesis.Timestamp,
 		GasLimit:       nil,
-		ActionGasLimit: bc.genesisConfig.ActionGasLimit,
+		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		Producer:       nil,
 		Caller:         nil,
 		ActionHash:     hash.ZeroHash256,
 		Nonce:          0,
 		Registry:       bc.registry,
 	})
+	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
+		return err
+	}
+	if err := bc.createRewardingGenesisStates(ctx, ws); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
+	p, ok := bc.registry.Find(account.ProtocolID)
+	if !ok {
+		return nil
+	}
+	ap, ok := p.(*account.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting protocol")
+	}
+	addrs, balances := bc.config.Genesis.InitBalances()
+	return ap.Initialize(ctx, ws, addrs, balances)
+}
+
+func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
 	p, ok := bc.registry.Find(rewarding.ProtocolID)
 	if !ok {
-		return errors.Errorf("protocol %s isn't found", rewarding.ProtocolID)
+		return nil
 	}
 	rp, ok := p.(*rewarding.Protocol)
 	if !ok {
@@ -1353,16 +1371,16 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	return rp.Initialize(
 		ctx,
 		ws,
-		bc.genesisConfig.Rewarding.InitAdminAddr(),
-		bc.genesisConfig.InitBalance(),
-		bc.genesisConfig.BlockReward(),
-		bc.genesisConfig.EpochReward(),
-		bc.genesisConfig.NumDelegatesForEpochReward,
+		bc.config.Genesis.Rewarding.InitAdminAddr(),
+		bc.config.Genesis.InitBalance(),
+		bc.config.Genesis.BlockReward(),
+		bc.config.Genesis.EpochReward(),
+		bc.config.Genesis.NumDelegatesForEpochReward,
 	)
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
-	var h []hash.Hash256
+	h := make([]hash.Hash256, 0, len(receipts))
 	for _, receipt := range receipts {
 		h = append(h, receipt.Hash())
 	}

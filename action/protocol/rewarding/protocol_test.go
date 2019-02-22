@@ -11,13 +11,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -31,11 +32,12 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	defer ctrl.Finish()
 
 	cfg := config.Default
-	genesisCfg := genesis.Default
 	stateDB, err := factory.NewStateDB(cfg, factory.InMemStateDBOption())
 	require.NoError(t, err)
 	require.NoError(t, stateDB.Start(context.Background()))
-	defer require.NoError(t, stateDB.Stop(context.Background()))
+	defer func() {
+		require.NoError(t, stateDB.Stop(context.Background()))
+	}()
 
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
 	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
@@ -56,15 +58,13 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			Votes:   unit.ConvertIotxToRau(1000000),
 		},
 	}, nil).AnyTimes()
-	p := NewProtocol(chain, genesisCfg.NumDelegates, genesisCfg.NumSubEpochs)
+	p := NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
 
 	// Initialize the protocol
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
-			Producer:    testaddress.Addrinfo["producer"],
-			Caller:      testaddress.Addrinfo["alfa"],
-			BlockHeight: genesisCfg.NumDelegates * genesisCfg.NumSubEpochs,
+			BlockHeight: 0,
 		},
 	)
 	ws, err := stateDB.NewWorkingSet()
@@ -72,6 +72,14 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	require.NoError(t, p.Initialize(ctx, ws, testaddress.Addrinfo["alfa"], big.NewInt(0), big.NewInt(10), big.NewInt(100), 10))
 	require.NoError(t, stateDB.Commit(ws))
 
+	ctx = protocol.WithRunActionsCtx(
+		context.Background(),
+		protocol.RunActionsCtx{
+			Producer:    testaddress.Addrinfo["producer"],
+			Caller:      testaddress.Addrinfo["alfa"],
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+		},
+	)
 	ws, err = stateDB.NewWorkingSet()
 	require.NoError(t, err)
 	adminAddr, err := p.Admin(ctx, ws)
@@ -94,7 +102,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	// Create a test account with 1000 token
 	ws, err = stateDB.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(1000))
+	_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(1000))
 	require.NoError(t, err)
 	require.NoError(t, stateDB.Commit(ws))
 

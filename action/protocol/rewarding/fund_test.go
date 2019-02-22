@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -32,13 +32,14 @@ func TestProtocol_Fund(t *testing.T) {
 		require.NoError(t, stateDB.Commit(ws))
 
 		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
 		totalBalance, err := p.TotalBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), totalBalance)
 		availableBalance, err := p.AvailableBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), availableBalance)
-		acc, err := util.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
+		acc, err := accountutil.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 

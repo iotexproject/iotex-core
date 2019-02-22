@@ -175,13 +175,12 @@ func main() {
 				log.S().Errorf("Node %d: Can not get State height", i)
 			}
 			bcHeights[i] = chains[i].TipHeight()
-			cfg := configs[i].Consensus.RollDPoS
-			minTimeout = int(cfg.Delay/time.Second - cfg.DelegateInterval/time.Second)
+			minTimeout = int(configs[i].Consensus.RollDPoS.Delay/time.Second - configs[i].Genesis.BlockInterval/time.Second)
 			netTimeout = 0
 			if timeout > minTimeout {
 				netTimeout = timeout - minTimeout
 			}
-			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.DelegateInterval)
+			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / configs[i].Genesis.BlockInterval)
 
 			log.S().Infof("Node#%d blockchain height: %d", i, bcHeights[i])
 			log.S().Infof("Node#%d state      height: %d", i, stateHeights[i])
@@ -236,7 +235,6 @@ func newConfig(
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(producerPriKey)
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Consensus.RollDPoS.DelegateInterval = 10 * time.Second
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 4 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second
@@ -244,9 +242,6 @@ func newConfig(
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
-	cfg.Consensus.RollDPoS.NumSubEpochs = 2
-	cfg.Consensus.RollDPoS.NumDelegates = numNodes
-	cfg.Consensus.RollDPoS.TimeBasedRotation = true
 
 	cfg.ActPool.MaxNumActsToPick = 2000
 
@@ -254,6 +249,11 @@ func newConfig(
 
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = explorerPort
+
+	cfg.Genesis.Blockchain.BlockInterval = 10 * time.Second
+	cfg.Genesis.Blockchain.NumSubEpochs = 2
+	cfg.Genesis.Blockchain.NumDelegates = numNodes
+	cfg.Genesis.Blockchain.TimeBasedRotation = true
 
 	return cfg
 }

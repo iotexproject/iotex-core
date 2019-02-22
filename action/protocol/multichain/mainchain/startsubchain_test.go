@@ -13,16 +13,19 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+
+	"github.com/iotexproject/iotex-core/test/identityset"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -40,7 +43,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	factory := mock_factory.NewMockFactory(ctrl)
 	factory.EXPECT().AccountState(gomock.Any()).Return(
-		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(unit.Iotx))},
+		&state.Account{Balance: big.NewInt(0).Mul(big.NewInt(2000000), big.NewInt(unit.Iotx))},
 		nil,
 	).AnyTimes()
 	factory.EXPECT().
@@ -66,7 +69,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		1,
 		2,
 		MinSecurityDeposit,
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		0,
@@ -82,7 +85,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		1,
 		1,
 		MinSecurityDeposit,
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		0,
@@ -99,7 +102,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		1,
 		3,
 		MinSecurityDeposit,
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		0,
@@ -115,8 +118,8 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start = action.NewStartSubChain(
 		1,
 		2,
-		big.NewInt(0).Mul(big.NewInt(500000000), big.NewInt(unit.Iotx)),
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(500000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		0,
@@ -132,8 +135,8 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start = action.NewStartSubChain(
 		1,
 		2,
-		big.NewInt(0).Mul(big.NewInt(2100000000), big.NewInt(unit.Iotx)),
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(2100000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		0,
@@ -149,8 +152,8 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	start = action.NewStartSubChain(
 		1,
 		2,
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
-		big.NewInt(0).Mul(big.NewInt(1100000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1100000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		0,
@@ -177,7 +180,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 	ws.EXPECT().
 		State(gomock.Any(), gomock.Any()).
 		Do(func(_ hash.Hash160, s interface{}) error {
-			out := &state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000000), big.NewInt(unit.Iotx))}
+			out := &state.Account{Balance: big.NewInt(0).Mul(big.NewInt(1500000), big.NewInt(unit.Iotx))}
 			data, err := state.Serialize(out)
 			if err != nil {
 				return err
@@ -188,7 +191,7 @@ func TestProtocolValidateSubChainStart(t *testing.T) {
 		1,
 		2,
 		MinSecurityDeposit,
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		0,
@@ -255,10 +258,10 @@ func TestHandleStartSubChain(t *testing.T) {
 	// Create an account with 2000000000 iotx
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(
+	_, err = accountutil.LoadOrCreateAccount(
 		ws,
 		testaddress.Addrinfo["producer"].String(),
-		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(2000000), big.NewInt(unit.Iotx)),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
@@ -280,7 +283,7 @@ func TestHandleStartSubChain(t *testing.T) {
 		1,
 		2,
 		MinSecurityDeposit,
-		big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)),
+		big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx)),
 		110,
 		10,
 		0,
@@ -310,7 +313,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint32(2), sc.ChainID)
 	assert.Equal(t, MinSecurityDeposit, sc.SecurityDeposit)
-	assert.Equal(t, big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx)), sc.OperationDeposit)
+	assert.Equal(t, big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx)), sc.OperationDeposit)
 	assert.Equal(t, testaddress.Keyinfo["producer"].PubKey, sc.OwnerPublicKey)
 	assert.Equal(t, uint64(110), sc.StartHeight)
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
@@ -319,13 +322,11 @@ func TestHandleStartSubChain(t *testing.T) {
 
 func TestNoStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
-	genesisCfg := genesis.Default
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
@@ -340,29 +341,30 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 func TestStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.EnableSubChainStartInGenesis = true
-	genesisCfg := genesis.Default
 
 	ctx := context.Background()
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
+		blockchain.RegistryOption(&registry),
 	)
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
 	defer require.NoError(t, bc.Stop(ctx))
-
-	scAddr, err := createSubChainAddress(blockchain.Gen.CreatorAddr(), 0)
+	scAddr, err := createSubChainAddress(identityset.Address(0).String(), 0)
 	require.NoError(t, err)
 	addr, err := address.FromBytes(scAddr[:])
 	require.NoError(t, err)
 	sc, err := p.SubChain(addr)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(2), sc.ChainID)
-	assert.Equal(t, unit.ConvertIotxToRau(1000000000), sc.SecurityDeposit)
-	assert.Equal(t, unit.ConvertIotxToRau(1000000000), sc.OperationDeposit)
+	assert.Equal(t, unit.ConvertIotxToRau(1000000), sc.SecurityDeposit)
+	assert.Equal(t, unit.ConvertIotxToRau(1000000), sc.OperationDeposit)
 	assert.Equal(t, uint64(10), sc.StartHeight)
 	assert.Equal(t, uint64(10), sc.ParentHeightOffset)
 	subChainsInOp, err := p.SubChainsInOperation()
