@@ -52,7 +52,7 @@ func (c *ec160) NewPubKey(priv []byte) ([]byte, error) {
 		return []byte{}, nil
 	}
 	if result := C.ec160_pk_generation(&privKey[0], &pubKey); result == 0 {
-		return []byte{}, errors.New("Fail to generate the public key")
+		return []byte{}, errors.New("fail to generate the public key")
 	}
 	pub, err := c.publicKeySerialization(pubKey)
 	if err != nil {

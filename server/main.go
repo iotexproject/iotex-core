@@ -20,6 +20,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+
 	_ "net/http/pprof"
 
 	_ "go.uber.org/automaxprocs"
@@ -30,9 +32,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
 )
-
-// recoveryHeight is the blockchain height being recovered to
-var recoveryHeight int
 
 func init() {
 	flag.Usage = func() {
@@ -52,11 +51,20 @@ func main() {
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 
+	genesisCfg, err := genesis.New()
+	if err != nil {
+		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
+	}
+
 	cfg, err := config.New()
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
 	initLogger(cfg)
+
+	cfg.Genesis = genesisCfg
+
+	log.S().Infof("Config in use: %+v", cfg)
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPProbePort)

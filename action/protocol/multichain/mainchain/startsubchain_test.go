@@ -19,10 +19,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -255,7 +254,7 @@ func TestHandleStartSubChain(t *testing.T) {
 	// Create an account with 2000000000 iotx
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = util.LoadOrCreateAccount(
+	_, err = accountutil.LoadOrCreateAccount(
 		ws,
 		testaddress.Addrinfo["producer"].String(),
 		big.NewInt(0).Mul(big.NewInt(2000000000), big.NewInt(unit.Iotx)),
@@ -319,13 +318,11 @@ func TestHandleStartSubChain(t *testing.T) {
 
 func TestNoStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
-	genesisCfg := genesis.Default
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
@@ -340,14 +337,12 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 func TestStartSubChainInGenesis(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.EnableSubChainStartInGenesis = true
-	genesisCfg := genesis.Default
 
 	ctx := context.Background()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.GenesisOption(genesisCfg),
 	)
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)

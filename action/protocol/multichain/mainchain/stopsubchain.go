@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -81,8 +81,8 @@ func (p *Protocol) handleStopSubChain(ctx context.Context, stop *action.StopSubC
 		return errors.Wrapf(err, "error when getting the account of sender %s", raCtx.Caller.String())
 	}
 	// TODO: this is not right, but currently the actions in a block is not processed according to the nonce
-	util.SetNonce(stop, acct)
-	if err := util.StoreAccount(sm, raCtx.Caller.String(), acct); err != nil {
+	accountutil.SetNonce(stop, acct)
+	if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), acct); err != nil {
 		return err
 	}
 	// check that subchain is in register
