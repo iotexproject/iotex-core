@@ -648,7 +648,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}()
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(3 * time.Second)
 
 		for i, p2p := range p2ps {
 			if i < 11 {
@@ -659,13 +659,14 @@ func TestRollDPoSConsensus(t *testing.T) {
 				}
 			}
 		}
+		time.Sleep(1 * time.Second)
 		sumHeigh := uint64(0)
 		for _, chain := range chains {
 			sumHeigh += chain.TipHeight()
 		}
 		require.NotEqual(t, uint64(0), sumHeigh)
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 		sumHeigh2 := uint64(0)
 		for _, chain := range chains {
 			sumHeigh2 += chain.TipHeight()
@@ -676,7 +677,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			p2p.peers = recoverPeers
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(3 * time.Second)
 		sumHeigh3 := uint64(0)
 		for _, chain := range chains {
 			sumHeigh3 += chain.TipHeight()
