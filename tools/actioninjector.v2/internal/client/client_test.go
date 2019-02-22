@@ -6,27 +6,18 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
-
-	"github.com/iotexproject/iotex-core/state"
-
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-core/api"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	"github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/stretchr/testify/require"
-)
-
-const (
-	testChainPath = "./chain.db"
-	testTriePath  = "./trie.db"
 )
 
 func TestClient(t *testing.T) {
@@ -34,8 +25,6 @@ func TestClient(t *testing.T) {
 	a := testaddress.Addrinfo["alfa"].String()
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
 	b := testaddress.Addrinfo["bravo"].String()
-	testutil.CleanupPath(t, testChainPath)
-	testutil.CleanupPath(t, testTriePath)
 
 	cfg := newConfig()
 	ctx := context.Background()
@@ -56,9 +45,9 @@ func TestClient(t *testing.T) {
 	ap := mock_actpool.NewMockActPool(mockCtrl)
 	dp := mock_dispatcher.NewMockDispatcher(mockCtrl)
 
-	bc.EXPECT().StateByAddr(a).Return(&state, nil).AnyTimes()
+	bc.EXPECT().StateByAddr(gomock.Any()).Return(&state, nil).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
-	ap.EXPECT().GetPendingNonce(a).Return(uint64(1), nil).AnyTimes()
+	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
 	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	newOption := api.WithBroadcastOutbound(func(_ context.Context, _ uint32, _ proto.Message) error {
 		return nil
