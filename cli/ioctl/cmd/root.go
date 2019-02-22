@@ -34,4 +34,3 @@ func init() {
 	RootCmd.AddCommand(account.AccountCmd)
 	RootCmd.AddCommand(version.VersionCmd)
 }
-

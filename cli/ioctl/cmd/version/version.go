@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
 )
 
 // VersionCmd represents the version command

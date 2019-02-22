@@ -22,4 +22,3 @@ var AccountCmd = &cobra.Command{
 		fmt.Println("Print: " + strings.Join(args, " "))
 	},
 }
-
