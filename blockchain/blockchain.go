@@ -1355,7 +1355,8 @@ func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory
 	if !ok {
 		return errors.Errorf("error when casting protocol")
 	}
-	return ap.Initialize(ctx, ws, bc.config.Genesis.InitAddresses(), bc.config.Genesis.InitBalances())
+	addrs, balances := bc.config.Genesis.InitBalances()
+	return ap.Initialize(ctx, ws, addrs, balances)
 }
 
 func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws factory.WorkingSet) error {

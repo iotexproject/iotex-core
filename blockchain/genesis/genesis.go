@@ -9,6 +9,7 @@ package genesis
 import (
 	"flag"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -44,8 +45,7 @@ func initDefaultConfig() {
 			TimeBasedRotation: false,
 		},
 		Account: Account{
-			InitAddrStrs:    make([]string, 0),
-			InitBalanceStrs: make([]string, 0),
+			InitBalanceMap: make(map[string]string),
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr:           identityset.Address(0).String(),
@@ -56,8 +56,7 @@ func initDefaultConfig() {
 		},
 	}
 	for i := 0; i < identityset.Size(); i++ {
-		Default.InitAddrStrs = append(Default.InitAddrStrs, identityset.Address(i).String())
-		Default.InitBalanceStrs = append(Default.InitBalanceStrs, unit.ConvertIotxToRau(100000000).String())
+		Default.InitBalanceMap[identityset.Address(i).String()] = unit.ConvertIotxToRau(100000000).String()
 	}
 }
 
@@ -88,11 +87,8 @@ type (
 	}
 	// Account contains the configs for account protocol
 	Account struct {
-		// InitAddrStrs is the address that have the initial balances before the first block
-		InitAddrStrs []string
-		// InitBalances is the initial balances on the accounts before the first block. It is one-to-one mapped to
-		// InitAddrStrs
-		InitBalanceStrs []string `yaml:"initBalances"`
+		// InitBalanceMap is the address and initial balance mapping before the first block.
+		InitBalanceMap map[string]string `yaml:"initBalances"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
@@ -129,30 +125,30 @@ func New() (Genesis, error) {
 	return genesis, nil
 }
 
-// InitAddresses returns the address that have initial balances
-func (a *Account) InitAddresses() []address.Address {
+// InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
+// i-th address' balance.
+func (a *Account) InitBalances() ([]address.Address, []*big.Int) {
+	// Make the list always be ordered
+	addrStrs := make([]string, 0)
+	for addrStr := range a.InitBalanceMap {
+		addrStrs = append(addrStrs, addrStr)
+	}
+	sort.Strings(addrStrs)
 	addrs := make([]address.Address, 0)
-	for _, addrStr := range a.InitAddrStrs {
+	amounts := make([]*big.Int, 0)
+	for _, addrStr := range addrStrs {
 		addr, err := address.FromString(addrStr)
 		if err != nil {
 			log.L().Panic("Error when decoding the account protocol init balance address from string.", zap.Error(err))
 		}
 		addrs = append(addrs, addr)
-	}
-	return addrs
-}
-
-// InitBalances returns the initial balances. The i-th balance belongs to the i-th address.
-func (a *Account) InitBalances() []*big.Int {
-	amounts := make([]*big.Int, 0)
-	for _, balanceStr := range a.InitBalanceStrs {
-		amount, ok := big.NewInt(0).SetString(balanceStr, 10)
+		amount, ok := big.NewInt(0).SetString(a.InitBalanceMap[addrStr], 10)
 		if !ok {
-			log.S().Panicf("Error when casting init balance string %s into big int", balanceStr)
+			log.S().Panicf("Error when casting init balance string %s into big int", a.InitBalanceMap[addrStr])
 		}
 		amounts = append(amounts, amount)
 	}
-	return amounts
+	return addrs, amounts
 }
 
 // InitAdminAddr returns the address of the initial rewarding protocol admin
