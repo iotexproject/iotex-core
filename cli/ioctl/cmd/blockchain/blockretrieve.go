@@ -25,6 +25,7 @@ var blockRetrieveCmd = &cobra.Command{
 }
 
 func init() {
+	// TODO - override default help of cobra, we don't need last value as flag
 	blockRetrieveCmd.Flags().IntVarP(&blockheaderid, "blockheaderid", "", 0, "retrieves a full block from the blockchain")
 	BlockchainCmd.AddCommand(blockRetrieveCmd)
 }
