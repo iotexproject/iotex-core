@@ -55,7 +55,7 @@ func initDefaultConfig() {
 			NumDelegatesForEpochReward: 100,
 		},
 	}
-	for i := 1; i <= 24; i++ {
+	for i := 0; i < identityset.Size(); i++ {
 		Default.InitAddrStrs = append(Default.InitAddrStrs, identityset.Address(i).String())
 		Default.InitBalanceStrs = append(Default.InitBalanceStrs, unit.ConvertIotxToRau(100000000).String())
 	}
