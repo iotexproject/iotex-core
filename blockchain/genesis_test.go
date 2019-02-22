@@ -55,5 +55,5 @@ func TestGenesis(t *testing.T) {
 
 	h := genesisBlk.HashBlock()
 	genesisHash := hex.EncodeToString(h[:])
-	assert.Equal("b63d8881b1d4b55bf194a2f097ca16a2b9984eb4752ed1f668f92b30f28f176b", genesisHash)
+	assert.Equal("232709156aaa3ee4dd5585936a623bd369fb9ede17c9ce9820df6f9afda0bcd9", genesisHash)
 }

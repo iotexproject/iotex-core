@@ -8,11 +8,14 @@ package account
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/address"
 )
 
 // ProtocolID is the protocol ID
@@ -50,4 +53,57 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 // ReadState read the state on blockchain via protocol
 func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error) {
 	return nil, protocol.ErrUnimplemented
+}
+
+// Initialize initializes the protocol by setting the initial balances to some addresses
+func (p *Protocol) Initialize(
+	ctx context.Context,
+	sm protocol.StateManager,
+	addrs []address.Address,
+	amounts []*big.Int,
+) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
+		return err
+	}
+	if err := p.assertEqualLength(addrs, amounts); err != nil {
+		return err
+	}
+	if err := p.assertAmounts(amounts); err != nil {
+		return err
+	}
+	for i, addr := range addrs {
+		if _, err := accountutil.LoadOrCreateAccount(sm, addr.String(), amounts[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *Protocol) assertZeroBlockHeight(height uint64) error {
+	if height != 0 {
+		return errors.Errorf("current block height %d is not zero", height)
+	}
+	return nil
+}
+
+func (p *Protocol) assertEqualLength(addrs []address.Address, amounts []*big.Int) error {
+	if len(addrs) != len(amounts) {
+		return errors.Errorf(
+			"address slice length %d and amounts slice length %d don't match",
+			len(addrs),
+			len(amounts),
+		)
+	}
+	return nil
+}
+
+func (p *Protocol) assertAmounts(amounts []*big.Int) error {
+	for _, amount := range amounts {
+		if amount.Cmp(big.NewInt(0)) >= 0 {
+			return nil
+		}
+		return errors.Errorf("account amount %s shouldn't be negative", amount.String())
+	}
+	return nil
 }
