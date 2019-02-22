@@ -12,14 +12,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"strings"
 
-	"flag"
-
-	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
+	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 func main() {
