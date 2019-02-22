@@ -17,7 +17,7 @@ var blockheaderid int
 // blockRetrieveCmd creates a new `ioctl blockchain blockheader` command
 var blockRetrieveCmd = &cobra.Command{
 	Use:   "blockheader",
-	Short: "Create N new accounts and print them",
+	Short: "Retrieved a block from blockchain",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(blockRetrieve(args))
