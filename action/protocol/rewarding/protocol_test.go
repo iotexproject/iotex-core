@@ -35,7 +35,9 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	stateDB, err := factory.NewStateDB(cfg, factory.InMemStateDBOption())
 	require.NoError(t, err)
 	require.NoError(t, stateDB.Start(context.Background()))
-	defer require.NoError(t, stateDB.Stop(context.Background()))
+	defer func() {
+		require.NoError(t, stateDB.Stop(context.Background()))
+	}()
 
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
 	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
@@ -62,9 +64,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
-			Producer:    testaddress.Addrinfo["producer"],
-			Caller:      testaddress.Addrinfo["alfa"],
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+			BlockHeight: 0,
 		},
 	)
 	ws, err := stateDB.NewWorkingSet()
@@ -72,6 +72,14 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	require.NoError(t, p.Initialize(ctx, ws, testaddress.Addrinfo["alfa"], big.NewInt(0), big.NewInt(10), big.NewInt(100), 10))
 	require.NoError(t, stateDB.Commit(ws))
 
+	ctx = protocol.WithRunActionsCtx(
+		context.Background(),
+		protocol.RunActionsCtx{
+			Producer:    testaddress.Addrinfo["producer"],
+			Caller:      testaddress.Addrinfo["alfa"],
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+		},
+	)
 	ws, err = stateDB.NewWorkingSet()
 	require.NoError(t, err)
 	adminAddr, err := p.Admin(ctx, ws)
