@@ -36,6 +36,8 @@ COV_HTML := coverage.html
 
 LINT_LOG := lint.log
 
+#run exe error
+MY_LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib ./bin/$(BUILD_TARGET_SERVER)
 V ?= 0
 ifeq ($(V),0)
 	ECHO_V = @
@@ -133,19 +135,19 @@ reboot:
 	$(ECHO_V)rm -rf *trie*.db
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib ./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
+	LD_LIBRARY_PATH=$(MY_LD_LIBRARY_PATH) ./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
 
 .PHONY: run
 run:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib ./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
+	LD_LIBRARY_PATH=$(MY_LD_LIBRARY_PATH) ./bin/$(BUILD_TARGET_SERVER)  -config-path=e2etest/config_local_delegate.yaml
 
 .PHONY: fullnode
 fullnode:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib ./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_fullnode.yaml
+	LD_LIBRARY_PATH=$(MY_LD_LIBRARY_PATH) ./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_fullnode.yaml
 
 .PHONY: docker
 docker:
@@ -156,11 +158,11 @@ minicluster:
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
-	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib ./bin/$(BUILD_TARGET_MINICLUSTER)
+	LD_LIBRARY_PATH=$(MY_LD_LIBRARY_PATH) ./bin/$(BUILD_TARGET_MINICLUSTER)
 
 .PHONY: nightlybuild
 nightlybuild:
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
-	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib ./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400
+	LD_LIBRARY_PATH=$(MY_LD_LIBRARY_PATH) ./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400
