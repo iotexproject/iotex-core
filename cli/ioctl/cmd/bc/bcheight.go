@@ -4,17 +4,18 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package block
+package bc
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	grpc "google.golang.org/grpc"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
+	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 var (
@@ -32,14 +33,15 @@ var heightCmd = &cobra.Command{
 
 func init() {
 	heightCmd.Flags().StringVarP(&address, "host", "s", "127.0.0.1:8080", "host of api server")
-	BlockCmd.AddCommand(heightCmd)
+	BCCmd.AddCommand(heightCmd)
 }
 
 // getCurrentBlockHeigh get current height of block chain from server
 func getCurrentBlockHeigh(args []string) string {
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
-		log.L().Fatal("failed to connect to server", zap.Error(err))
+		log.L().Error("failed to connect to server", zap.Error(err))
+		return err.Error()
 	}
 	defer conn.Close()
 
@@ -48,7 +50,8 @@ func getCurrentBlockHeigh(args []string) string {
 	ctx := context.Background()
 	response, err := cli.GetChainMeta(ctx, &request)
 	if err != nil {
-		log.L().Fatal("server error", zap.Error(err))
+		log.L().Error("server error", zap.Error(err))
+		return err.Error()
 	}
 	return fmt.Sprintf("%d", response.ChainMeta.Height)
 }
