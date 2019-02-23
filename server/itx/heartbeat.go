@@ -67,8 +67,8 @@ func (h *HeartbeatHandler) Log() {
 	ctx := context.Background()
 	peers, err := p2pAgent.Neighbors(ctx)
 	if err != nil {
-		log.L().Error("error when get neighbors.", zap.Error(err))
-		return
+		log.L().Debug("error when get neighbors.", zap.Error(err))
+		peers = nil
 	}
 	numPeers := len(peers)
 	log.L().Info("Node status.",

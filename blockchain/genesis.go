@@ -9,6 +9,7 @@ package blockchain
 import (
 	"io/ioutil"
 	"math/big"
+	"os"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -20,12 +21,12 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 const (
-	testnetActionPath = "testnet_actions.yaml"
+	testnetActionPath       = "testnet_actions.yaml"
+	systemTestnetActionPath = "/etc/iotex/testnet_actions.yaml"
 	// GenesisProducerPublicKey is only used for test
 	GenesisProducerPublicKey = "04e93b5b1c8fba69263652a483ad55318e4eed5b5122314cb7fdb077d8c7295097cec92ee50b1108dc7495a9720e5921e56d3048e37abe6a6716d7c9b913e9f2e6"
 	// GenesisProducerPrivateKey is only used for test
@@ -177,10 +178,11 @@ func loadGenesisData(chainCfg config.Chain) GenesisAction {
 	var filePath string
 	if chainCfg.GenesisActionsPath != "" {
 		filePath = chainCfg.GenesisActionsPath
-	} else {
-		filePath = fileutil.GetFileAbsPath(testnetActionPath)
+	} else if _, err := os.Stat(testnetActionPath); err == nil {
+		filePath = testnetActionPath
+	} else if _, err := os.Stat(systemTestnetActionPath); err == nil {
+		filePath = systemTestnetActionPath
 	}
-
 	actionsBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		log.L().Panic("Fail to load genesis data.", zap.Error(err))
