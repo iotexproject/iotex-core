@@ -70,6 +70,7 @@ func blockHeaderRetrieve(args []string) (*pb1.BlockHeader, error) {
 	}
 
 	// TODO - implement code to get blockheader
+	fmt.Println(userHash, userHeight) //TODO - remove it
 	return new(pb1.BlockHeader), nil
 }
 
