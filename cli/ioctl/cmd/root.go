@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/blockchain"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/version"
 )
 
@@ -34,5 +35,6 @@ func Execute() {
 func init() {
 	RootCmd.AddCommand(account.AccountCmd)
 	RootCmd.AddCommand(version.VersionCmd)
+	RootCmd.AddCommand(bc.BCCmd)
 	RootCmd.AddCommand(blockchain.BlockchainCmd)
 }
