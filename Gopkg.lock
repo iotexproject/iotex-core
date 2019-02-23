@@ -305,6 +305,14 @@
   version = "v1.0"
 
 [[projects]]
+  digest = "1:65525585b4cdef5b4067ba7aab4851da3ab7e57d6e1cad6a6ab7dd48dc8a0860"
+  name = "github.com/iotexproject/go-ethereum"
+  packages = ["crypto"]
+  pruneopts = "UT"
+  revision = "4bb3c89d44e372e6a9ab85a8be0c9345265c763a"
+  version = "v1.7.3"
+
+[[projects]]
   digest = "1:9adf8a325fcb0d2185fe93bbb740e011222ae8e8e4ba475924404fe6c1c323f3"
   name = "github.com/iotexproject/go-fsm"
   packages = ["."]
@@ -1382,6 +1390,7 @@
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/grpc-ecosystem/go-grpc-prometheus",
+    "github.com/iotexproject/go-ethereum/crypto",
     "github.com/iotexproject/go-fsm",
     "github.com/iotexproject/go-p2p",
     "github.com/libp2p/go-libp2p-peerstore",

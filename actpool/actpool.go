@@ -293,7 +293,13 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 	}
 	if queue.PendingBalance().Cmp(cost) < 0 {
 		// Pending balance is insufficient
-		return errors.Wrapf(action.ErrBalance, "insufficient balance for action %x", hash)
+		return errors.Wrapf(
+			action.ErrBalance,
+			"insufficient balance for action %x, cost = %s, pending balance = %s",
+			hash,
+			cost.String(),
+			queue.PendingBalance().String(),
+		)
 	}
 
 	if err := queue.Put(act); err != nil {

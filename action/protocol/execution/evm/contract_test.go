@@ -80,7 +80,7 @@ func TestCreateContract(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, nil)
+	_, err = ws.RunActions(ctx, 0, nil)
 	require.Nil(err)
 
 	// reload same contract
@@ -183,7 +183,7 @@ func TestLoadStoreContract(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, nil)
+	_, err = ws.RunActions(ctx, 0, nil)
 	require.Nil(err)
 	require.Nil(sf.Commit(ws))
 	require.Nil(sf.Stop(context.Background()))
