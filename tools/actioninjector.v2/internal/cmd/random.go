@@ -121,7 +121,7 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 			if err != nil {
 				return err
 			}
-			p.nonces.Store(addr, resp.GetAccountMeta().GetNonce())
+			p.nonces.Store(addr, resp.GetAccountMeta().GetPendingNonce())
 			return nil
 		}, backoff.NewExponentialBackOff())
 		if err != nil {
