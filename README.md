@@ -162,7 +162,7 @@ You can use command line flags to customize the injector.
 ```
 
 Default flag values:
-* injector-config-path="./tools/actioninjector/gentsfaddrs.yaml"
+* injector-config-path="./tools/actioninjector.v2/gentsfaddrs.yaml"
 * chain=1
 * addr="127.0.0.1:14004"
 * transfer-num=50
