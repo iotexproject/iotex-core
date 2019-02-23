@@ -27,6 +27,14 @@ jobs:
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
+
+   build:
+      macos:  # indicate that we are using the macOS executor
+      working_directory: /go/src/github.com/iotexproject/iotex-core
+      steps:
+        - checkout
+        - run: make build
+
   nightly:
     docker:
       # specify the version
