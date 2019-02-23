@@ -9,7 +9,6 @@ COPY . .
 RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
     make clean build && \
     cp $GOPATH/src/github.com/iotexproject/iotex-core/bin/server /usr/local/bin/iotex-server  && \
-    cp $GOPATH/src/github.com/iotexproject/iotex-core/bin/actioninjector /usr/local/bin/iotex-actioninjector && \
     cp $GOPATH/src/github.com/iotexproject/iotex-core/bin/actioninjectorv2 /usr/local/bin/iotex-actioninjectorv2 && \
     cp $GOPATH/src/github.com/iotexproject/iotex-core/bin/addrgen /usr/local/bin/iotex-addrgen && \
     cp ./crypto/lib/libsect283k1_ubuntu.so /usr/lib/ && \
