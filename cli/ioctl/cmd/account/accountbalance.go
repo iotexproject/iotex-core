@@ -20,8 +20,9 @@ import (
 
 // TODO: use wallet config later
 var configAddress = "ioaddress"
+var hostAddress string
 
-// balanceCmd represents the wallet balance command
+// accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
 	Use:   "balance",
 	Short: "Get balance of an account",
@@ -31,12 +32,13 @@ var accountBalanceCmd = &cobra.Command{
 }
 
 func init() {
+	accountBalanceCmd.Flags().StringVarP(&hostAddress, "host", "s", "127.0.0.1:8080", "host address of node")
 	AccountCmd.AddCommand(accountBalanceCmd)
 }
 
-// getCurrentBlockHeigh get current height of block chain from server
+// balance gets balance of an IoTex Blockchian address
 func balance(args []string) string {
-	conn, err := grpc.Dial("127.0.0.1:8080", grpc.WithInsecure())
+	conn, err := grpc.Dial(hostAddress, grpc.WithInsecure())
 	if err != nil {
 		log.L().Error("failed to connect to server", zap.Error(err))
 		return err.Error()
@@ -55,18 +57,18 @@ func balance(args []string) string {
 			return err.Error()
 		}
 		accountMeta := response.AccountMeta
-		res = res + fmt.Sprintf("%s: %s\n", request.Address, accountMeta.Balance)
+		res += fmt.Sprintf("%s: %s\n", request.Address, accountMeta.Balance)
 
 	} else {
 		for _, addr := range args {
 			request.Address = addr
 			response, err := cli.GetAccount(ctx, &request)
 			if err != nil {
-				log.L().Error("cannot get account"+request.Address, zap.Error(err))
+				log.L().Error("cannot get account from "+request.Address, zap.Error(err))
 				return err.Error()
 			}
 			accountMeta := response.AccountMeta
-			res = res + fmt.Sprintf("%s: %s\n", request.Address, accountMeta.Balance)
+			res += fmt.Sprintf("%s: %s\n", request.Address, accountMeta.Balance)
 		}
 	}
 	return res
