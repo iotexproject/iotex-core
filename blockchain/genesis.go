@@ -11,6 +11,8 @@ import (
 	"math/big"
 	"os"
 
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
@@ -178,8 +180,8 @@ func loadGenesisData(chainCfg config.Chain) GenesisAction {
 	var filePath string
 	if chainCfg.GenesisActionsPath != "" {
 		filePath = chainCfg.GenesisActionsPath
-	} else if _, err := os.Stat(testnetActionPath); err == nil {
-		filePath = testnetActionPath
+	} else if _, err := os.Stat(fileutil.GetFileAbsPath(testnetActionPath)); err == nil {
+		filePath = fileutil.GetFileAbsPath(testnetActionPath)
 	} else if _, err := os.Stat(systemTestnetActionPath); err == nil {
 		filePath = systemTestnetActionPath
 	}
