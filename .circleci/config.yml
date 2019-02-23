@@ -52,5 +52,4 @@ workflows:
   commit:
     jobs:
       - build
-    jobs:
       - nightly
