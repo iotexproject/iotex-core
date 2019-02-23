@@ -92,6 +92,10 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["charlie"])
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), unclaimedBalance)
+		// The 5-th candidate can't get the reward because being out of the range
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["delta"])
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 
 		// Grant the same epoch reward again will fail
 		ws, err = stateDB.NewWorkingSet()

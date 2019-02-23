@@ -53,10 +53,7 @@ func (p *Protocol) Deposit(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertEnoughBalance(raCtx, sm, amount); err != nil {
 		return err
 	}
@@ -118,6 +115,10 @@ func (p *Protocol) assertEnoughBalance(
 
 // DepositGas deposits gas into the rewarding fund
 func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, registry *protocol.Registry) error {
+	// If the gas fee is 0, return immediately
+	if amount.Cmp(big.NewInt(0)) == 0 {
+		return nil
+	}
 	// TODO: we bypass the gas deposit for the actions in genesis block. Later we should remove this after we remove
 	// genesis actions
 	raCtx := protocol.MustGetRunActionsCtx(ctx)

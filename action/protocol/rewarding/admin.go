@@ -22,18 +22,18 @@ import (
 // admin stores the admin data of the rewarding protocol
 type admin struct {
 	admin                      address.Address
-	BlockReward                *big.Int
-	EpochReward                *big.Int
-	NumDelegatesForEpochReward uint64
+	blockReward                *big.Int
+	epochReward                *big.Int
+	numDelegatesForEpochReward uint64
 }
 
 // Serialize serializes admin state into bytes
 func (a admin) Serialize() ([]byte, error) {
 	gen := rewardingpb.Admin{
 		Admin:                      a.admin.Bytes(),
-		BlockReward:                a.BlockReward.Bytes(),
-		EpochReward:                a.EpochReward.Bytes(),
-		NumDelegatesForEpochReward: a.NumDelegatesForEpochReward,
+		BlockReward:                a.blockReward.Bytes(),
+		EpochReward:                a.epochReward.Bytes(),
+		NumDelegatesForEpochReward: a.numDelegatesForEpochReward,
 	}
 	return proto.Marshal(&gen)
 }
@@ -48,9 +48,9 @@ func (a *admin) Deserialize(data []byte) error {
 	if a.admin, err = address.FromBytes(gen.Admin); err != nil {
 		return err
 	}
-	a.BlockReward = big.NewInt(0).SetBytes(gen.BlockReward)
-	a.EpochReward = big.NewInt(0).SetBytes(gen.EpochReward)
-	a.NumDelegatesForEpochReward = gen.NumDelegatesForEpochReward
+	a.blockReward = big.NewInt(0).SetBytes(gen.BlockReward)
+	a.epochReward = big.NewInt(0).SetBytes(gen.EpochReward)
+	a.numDelegatesForEpochReward = gen.NumDelegatesForEpochReward
 	return nil
 }
 
@@ -79,9 +79,9 @@ func (p *Protocol) Initialize(
 		adminKey,
 		&admin{
 			admin:                      adminAddr,
-			BlockReward:                blockReward,
-			EpochReward:                epochReward,
-			NumDelegatesForEpochReward: numDelegatesForEpochReward,
+			blockReward:                blockReward,
+			epochReward:                epochReward,
+			numDelegatesForEpochReward: numDelegatesForEpochReward,
 		},
 	); err != nil {
 		return err
@@ -135,7 +135,7 @@ func (p *Protocol) BlockReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return nil, err
 	}
-	return a.BlockReward, nil
+	return a.blockReward, nil
 }
 
 // SetBlockReward sets the block reward amount for the block rewarding. Only the current admin could make this change
@@ -156,7 +156,7 @@ func (p *Protocol) EpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return nil, err
 	}
-	return a.EpochReward, nil
+	return a.epochReward, nil
 }
 
 // SetEpochReward sets the epoch reward amount shared by all beneficiaries in an epoch. Only the current admin could
@@ -178,7 +178,7 @@ func (p *Protocol) NumDelegatesForEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return 0, err
 	}
-	return a.NumDelegatesForEpochReward, nil
+	return a.numDelegatesForEpochReward, nil
 }
 
 // SetNumDelegatesForEpochReward sets the number of candidates sharing an epoch reward
@@ -195,7 +195,7 @@ func (p *Protocol) SetNumDelegatesForEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	a.NumDelegatesForEpochReward = num
+	a.numDelegatesForEpochReward = num
 	return p.putState(sm, adminKey, &a)
 }
 
@@ -242,9 +242,9 @@ func (p *Protocol) setReward(
 		return err
 	}
 	if blockLevel {
-		a.BlockReward = amount
+		a.blockReward = amount
 	} else {
-		a.EpochReward = amount
+		a.epochReward = amount
 	}
 	return p.putState(sm, adminKey, &a)
 }

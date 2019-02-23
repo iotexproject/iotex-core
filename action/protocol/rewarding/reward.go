@@ -70,10 +70,10 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateAvailableBalance(sm, a.BlockReward); err != nil {
+	if err := p.updateAvailableBalance(sm, a.blockReward); err != nil {
 		return err
 	}
-	if err := p.grantToAccount(sm, raCtx.Producer, a.BlockReward); err != nil {
+	if err := p.grantToAccount(sm, raCtx.Producer, a.blockReward); err != nil {
 		return err
 	}
 	return p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight)
@@ -96,10 +96,10 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateAvailableBalance(sm, a.EpochReward); err != nil {
+	if err := p.updateAvailableBalance(sm, a.epochReward); err != nil {
 		return err
 	}
-	addrs, amounts, err := p.splitEpochReward(raCtx.BlockHeight, a.EpochReward)
+	addrs, amounts, err := p.splitEpochReward(raCtx.BlockHeight, a.epochReward, a.numDelegatesForEpochReward)
 	if err != nil {
 		return err
 	}
@@ -220,10 +220,18 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 	return p.putState(sm, append(prefix, indexBytes[:]...), &rewardHistory{})
 }
 
-func (p *Protocol) splitEpochReward(blkHeight uint64, totalAmount *big.Int) ([]address.Address, []*big.Int, error) {
+func (p *Protocol) splitEpochReward(
+	blkHeight uint64,
+	totalAmount *big.Int,
+	numDelegatesForEpochReward uint64,
+) ([]address.Address, []*big.Int, error) {
 	candidates, err := p.cm.CandidatesByHeight(blkHeight)
 	if err != nil {
 		return nil, nil, err
+	}
+	// We at most allow numDelegatesForEpochReward delegates to get the epoch reward
+	if uint64(len(candidates)) > numDelegatesForEpochReward {
+		candidates = candidates[:numDelegatesForEpochReward]
 	}
 	totalWeight := big.NewInt(0)
 	for _, candidate := range candidates {
