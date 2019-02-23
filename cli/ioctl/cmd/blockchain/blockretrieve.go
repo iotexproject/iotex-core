@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 	pb1 "github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
@@ -49,31 +49,27 @@ func blockHeaderRetrieve(args []string) (*pb1.BlockHeader, error) {
 	if h, err := strconv.Atoi(v); err == nil {
 		method = "height"
 		userHeight = uint64(h)
-		fmt.Println("user height is ", userHeight)
 	}
 
 	// otherwise it's hash string
 	if method == "hash" {
 		userHash, _ = toHash256(v)
-		fmt.Println("complete Hash method")
-		fmt.Println("user hash is ", userHash)
 	}
 
 	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
 	if err != nil {
-		return new(pb1.BlockHeader), err
+		return nil, err
 	}
-
-	// TODO- which api or api flow to call for blockheader
 
 	client := pb.NewAPIServiceClient(conn)
 	req := &pb.GetBlockMetasRequest{}
 	_, err = client.GetBlockMetas(context.Background(), req)
 
 	if err != nil {
-		return new(pb1.BlockHeader), err
+		return nil, err
 	}
 
+	// TODO - implement code to get blockheader
 	return new(pb1.BlockHeader), nil
 }
 

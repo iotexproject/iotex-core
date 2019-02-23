@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/blockchain"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/blockchain"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/version"
 )
 
