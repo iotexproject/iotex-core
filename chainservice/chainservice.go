@@ -11,14 +11,13 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -31,7 +30,6 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
@@ -304,15 +302,6 @@ func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action
 		return err
 	}
 	if err := cs.actpool.Add(act); err != nil {
-		callerPKHash := keypair.HashPubKey(act.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
-		if err != nil {
-			return err
-		}
-		log.L().Debug("Failed to add action.",
-			zap.Error(err),
-			zap.String("src", callerAddr.String()),
-			zap.Uint64("nonce", act.Nonce()))
 		return err
 	}
 	return nil

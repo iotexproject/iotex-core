@@ -107,7 +107,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{prevTsf})
+	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{prevTsf})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.Reset()
@@ -432,7 +432,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
+	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
@@ -586,7 +586,7 @@ func TestActPool_Reset(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, pickedActs)
+	_, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -696,7 +696,7 @@ func TestActPool_Reset(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, pickedActs)
+	_, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -806,7 +806,7 @@ func TestActPool_Reset(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, pickedActs)
+	_, err = ws.RunActions(ctx, 0, pickedActs)
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -1055,7 +1055,7 @@ func TestActPool_GetSize(t *testing.T) {
 			Producer: testaddress.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	_, _, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
+	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
