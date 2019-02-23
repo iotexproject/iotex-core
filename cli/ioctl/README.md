@@ -8,6 +8,7 @@
       bc          Deal with block chain of IoTex blockchain
       help        Help about any command
       version     Print the version number of ioctl
+      wallet      Manage keystores of IoTex blockchain
     
     Flags:
       -h, --help   help for ioctl
