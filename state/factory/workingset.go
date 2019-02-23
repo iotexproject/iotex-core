@@ -52,10 +52,10 @@ type (
 	// WorkingSet defines an interface for working set of states changes
 	WorkingSet interface {
 		// states and actions
-		//RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash32B, map[hash.Hash32B]*action.Receipt, error)
+		//RunActions(context.Context, uint64, []action.SealedEnvelope) (map[hash.Hash32B]*action.Receipt, error)
 		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
 		UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256
-		RunActions(context.Context, uint64, []action.SealedEnvelope) (hash.Hash256, []*action.Receipt, error)
+		RunActions(context.Context, uint64, []action.SealedEnvelope) ([]*action.Receipt, error)
 		Snapshot() int
 		Revert(int) error
 		Commit() error
@@ -135,19 +135,20 @@ func (ws *workingSet) RunActions(
 	ctx context.Context,
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
-) (hash.Hash256, []*action.Receipt, error) {
+) ([]*action.Receipt, error) {
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
 		receipt, err := ws.RunAction(ctx, elp)
 		if err != nil {
-			return hash.ZeroHash256, nil, errors.Wrap(err, "error when run action")
+			return nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
 		}
 	}
-	return ws.UpdateBlockLevelInfo(blockHeight), receipts, nil
+	ws.UpdateBlockLevelInfo(blockHeight)
+	return receipts, nil
 }
 
 // RunAction runs action in the block and track pending changes in working set

@@ -327,7 +327,7 @@ func TestExplorerApi(t *testing.T) {
 		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
 	}
 	votes, err = svc.GetLastVotesByRange(3, 0, 50)
-	require.Equal(22, len(votes))
+	require.Equal(25, len(votes))
 	require.Nil(err)
 	for i := 0; i < len(votes)-1; i++ {
 		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
@@ -428,7 +428,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
 	require.Equal(int64(5), stats.Transfers)
-	require.Equal(int64(24), stats.Votes)
+	require.Equal(int64(27), stats.Votes)
 	require.Equal(int64(3), stats.Executions)
 	require.Equal(int64(11), stats.Aps)
 
@@ -1230,7 +1230,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 			Producer: ta.Addrinfo["producer"],
 			GasLimit: &gasLimit,
 		})
-	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
+	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err
 	}
 	return sf.Commit(ws)

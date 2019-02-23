@@ -31,7 +31,7 @@ const ProtocolID = "multi-chain_main-chain"
 
 var (
 	// MinSecurityDeposit represents the security deposit minimal required for start a sub-chain, which is 1M iotx
-	MinSecurityDeposit = big.NewInt(0).Mul(big.NewInt(1000000000), big.NewInt(unit.Iotx))
+	MinSecurityDeposit = big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx))
 	// SubChainsInOperationKey is to find the used chain IDs in the state factory
 	// TODO: this is a not safe way to define the key, as other protocols could collide it
 	SubChainsInOperationKey = hash.Hash160b([]byte("subChainsInOperation"))
