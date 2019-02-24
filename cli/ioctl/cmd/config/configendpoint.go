@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const endpointToken = "endpoint:"
+const endpointPrefix = "endpoint:"
 
 // configGetEndpointCmd represents the config get endpoint command
 var configGetEndpointCmd = &cobra.Command{
@@ -60,8 +60,8 @@ func getEndpoint() string {
 	var endpoint string
 	lines := strings.Split(string(file), "\n")
 	for _, line := range lines {
-		if strings.HasPrefix(line, endpointToken) {
-			endpoint = strings.TrimPrefix(line, endpointToken)
+		if strings.HasPrefix(line, endpointPrefix) {
+			endpoint = strings.TrimPrefix(line, endpointPrefix)
 			break
 		}
 	}
@@ -76,7 +76,7 @@ func setEndpoint(args []string) string {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// special case of empty config file just being created
-			line := endpointToken + args[1]
+			line := endpointPrefix + args[1]
 			if err := ioutil.WriteFile(configFileName, []byte(line), 0644); err != nil {
 				return fmt.Sprintf("failed to create config file %s", configFileName)
 			}
@@ -85,17 +85,17 @@ func setEndpoint(args []string) string {
 		return fmt.Sprintf("failed to open config file %s", configFileName)
 	}
 	// find the line that specifies endpoint
-	findToken := false
+	findEndpoint := false
 	lines := strings.Split(string(file), "\n")
 	for i, line := range lines {
-		if strings.HasPrefix(line, endpointToken) {
-			lines[i] = endpointToken + args[1]
-			findToken = true
+		if strings.HasPrefix(line, endpointPrefix) {
+			lines[i] = endpointPrefix + args[1]
+			findEndpoint = true
 			break
 		}
 	}
-	if !findToken {
-		lines = append(lines, endpointToken+args[1])
+	if !findEndpoint {
+		lines = append(lines, endpointPrefix+args[1])
 	}
 	output := strings.Join(lines, "\n")
 	if err := ioutil.WriteFile(configFileName, []byte(output), 0644); err != nil {
