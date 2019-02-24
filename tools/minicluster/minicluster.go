@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -94,14 +95,16 @@ func main() {
 		svrs[i] = svr
 	}
 
-	// Create probe servers, and start only 1st one, since grpc use only 1st server to inject actions
+	// Create and start probe servers
 	probeSvrs := make([]*probe.Server, numNodes)
 	for i := 0; i < numNodes; i++ {
 		probeSvrs[i] = probe.New(7788 + i)
 	}
-	err = probeSvrs[0].Start(context.Background())
-	if err != nil {
-		log.L().Error("Failed to start probe server")
+	for i := 0; i < numNodes; i++ {
+		err = probeSvrs[i].Start(context.Background())
+		if err != nil {
+			log.L().Panic("Failed to start probe server")
+		}
 	}
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
@@ -109,11 +112,14 @@ func main() {
 	}
 
 	if err := testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		resp, err := http.Get("http://localhost:7788/readiness")
-		if err != nil {
-			return false, nil
+		ret := true
+		for i := 0; i < numNodes; i++ {
+			resp, err := http.Get("http://localhost:" + strconv.Itoa(7788+i) + "/readiness")
+			if err != nil || http.StatusOK != resp.StatusCode {
+				ret = false
+			}
 		}
-		return http.StatusOK == resp.StatusCode, nil
+		return ret, nil
 	}); err != nil {
 		log.L().Fatal("Failed to start API server", zap.Error(err))
 	}
