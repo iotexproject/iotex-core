@@ -5,6 +5,7 @@
     
     Available Commands:
       account     Deal with accounts of IoTeX blockchain
+      action      Deal with actions of IoTeX blockchain
       bc          Deal with block chain of IoTex blockchain
       help        Help about any command
       version     Print the version number of ioctl
