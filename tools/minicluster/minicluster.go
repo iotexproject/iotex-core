@@ -103,7 +103,7 @@ func main() {
 	for i := 0; i < numNodes; i++ {
 		err = probeSvrs[i].Start(context.Background())
 		if err != nil {
-			log.L().Error("Failed to start probe server")
+			log.L().Panic("Failed to start probe server")
 		}
 	}
 	// Start mini-cluster
