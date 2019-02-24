@@ -38,7 +38,7 @@ func init() {
 	ActionCmd.AddCommand(actionHashCmd)
 }
 
-// getActionByHash gets balance of an IoTex Blockchian address
+// getActionByHash gets balance of an IoTex Blockchain address
 func getActionByHash(args []string) string {
 	conn, err := grpc.Dial(hostAddress, grpc.WithInsecure())
 	if err != nil {
