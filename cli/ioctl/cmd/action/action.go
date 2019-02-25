@@ -4,12 +4,21 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package main
+package action
 
 import (
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd"
+	"fmt"
+	"strings"
+
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cmd.Execute()
+// ActionCmd represents the account command
+var ActionCmd = &cobra.Command{
+	Use:   "action",
+	Short: "Deal with actions of IoTeX blockchain",
+	Args:  cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Print: " + strings.Join(args, " "))
+	},
 }
