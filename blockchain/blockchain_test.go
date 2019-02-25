@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -291,6 +292,7 @@ func TestCreateBlockchain(t *testing.T) {
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(bc.Start(ctx))
@@ -308,11 +310,11 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NotNil(genesis)
 	// serialize
 	data, err := genesis.Serialize()
-	require.Nil(err)
+	require.NoError(err)
 
 	transfers, votes, _ := action.ClassifyActions(genesis.Actions)
 	require.Equal(0, len(transfers))
-	require.Equal(24, len(votes))
+	require.Equal(0, len(votes))
 
 	fmt.Printf("Block size match pass\n")
 	fmt.Printf("Marshaling Block pass\n")
@@ -320,7 +322,7 @@ func TestCreateBlockchain(t *testing.T) {
 	// deserialize
 	deserialize := block.Block{}
 	err = deserialize.Deserialize(data)
-	require.Nil(err)
+	require.NoError(err)
 	fmt.Printf("Unmarshaling Block pass\n")
 
 	blkhash := genesis.HashBlock()
@@ -340,12 +342,13 @@ func TestCreateBlockchain(t *testing.T) {
 func TestBlockchain_MintNewBlock(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	regsitry := protocol.Registry{}
+	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	regsitry.Register(account.ProtocolID, acc)
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&regsitry))
+	registry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
@@ -384,12 +387,13 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	regsitry := protocol.Registry{}
+	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	regsitry.Register(account.ProtocolID, acc)
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&regsitry))
+	registry.Register(account.ProtocolID, acc)
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
@@ -475,7 +479,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.EnableIndex = true
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.Nil(err)
+	require.NoError(err)
+	sf.AddActionHandlers(account.NewProtocol())
+
 	// Create a blockchain from scratch
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
@@ -487,6 +493,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		RegistryOption(&registry),
 	)
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(acc, v)
 	sf.AddActionHandlers(acc, v)
@@ -495,7 +502,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	ms := &MockSubscriber{counter: 0}
 	err = bc.AddSubscriber(ms)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(0, ms.Counter())
 
 	height := bc.TipHeight()
@@ -507,12 +514,26 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	// Load a blockchain from DB
 	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.Nil(err)
-	sf.AddActionHandlers(account.NewProtocol())
-
-	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(err)
+	accountProtocol := account.NewProtocol()
+	sf.AddActionHandlers(accountProtocol)
+	registry = protocol.Registry{}
+	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
+	bc = NewBlockchain(
+		cfg,
+		PrecreatedStateFactoryOption(sf),
+		BoltDBDaoOption(),
+	)
+	voteProtocol := vote.NewProtocol(bc)
+	require.NoError(registry.Register(vote.ProtocolID, voteProtocol))
+	rewardingProtocol := rewarding.NewProtocol(
+		bc,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
+	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
-	bc.Validator().AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
+	bc.Validator().AddActionValidators(accountProtocol, voteProtocol)
 	require.NoError(bc.Start(ctx))
 	defer func() {
 		require.NoError(bc.Stop(ctx))
@@ -520,62 +541,62 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	// check hash<-->height mapping
 	blkhash, err := bc.GetHashByHeight(0)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(blkhash)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(0), height)
 	blk, err := bc.GetBlockByHash(blkhash)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(blkhash, blk.HashBlock())
 	fmt.Printf("Genesis hash = %x\n", blkhash)
 
 	hash1, err := bc.GetHashByHeight(1)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash1)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(1), height)
 	blk, err = bc.GetBlockByHash(hash1)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash1, blk.HashBlock())
 	fmt.Printf("block 1 hash = %x\n", hash1)
 
 	hash2, err := bc.GetHashByHeight(2)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash2)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(2), height)
 	blk, err = bc.GetBlockByHash(hash2)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash2, blk.HashBlock())
 	fmt.Printf("block 2 hash = %x\n", hash2)
 
 	hash3, err := bc.GetHashByHeight(3)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash3)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(3), height)
 	blk, err = bc.GetBlockByHash(hash3)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash3, blk.HashBlock())
 	fmt.Printf("block 3 hash = %x\n", hash3)
 
 	hash4, err := bc.GetHashByHeight(4)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash4)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(4), height)
 	blk, err = bc.GetBlockByHash(hash4)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash4, blk.HashBlock())
 	fmt.Printf("block 4 hash = %x\n", hash4)
 
 	hash5, err := bc.GetHashByHeight(5)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash5)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(5), height)
 	blk, err = bc.GetBlockByHash(hash5)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash5, blk.HashBlock())
 	fmt.Printf("block 5 hash = %x\n", hash5)
 
@@ -585,13 +606,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	blk, err = bc.GetBlockByHeight(60000)
 	require.Nil(blk)
-	require.NotNil(err)
+	require.Error(err)
 
 	// add wrong blocks
 	h := bc.TipHeight()
 	blkhash = bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(blkhash, blk.HashBlock())
 	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 
@@ -607,7 +628,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk)
-	require.NotNil(err)
+	require.Error(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add block with zero prev hash
@@ -621,79 +642,80 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk)
-	require.NotNil(err)
+	require.Error(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 
 	// add existing block again will have no effect
 	blk, err = bc.GetBlockByHeight(3)
 	require.NotNil(blk)
-	require.Nil(err)
+	require.NoError(err)
 	require.NoError(bc.(*blockchain).commitBlock(blk))
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 	// check all Tx from block 4
 	blk, err = bc.GetBlockByHeight(5)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash5, blk.HashBlock())
 	tsfs, votes, _ := action.ClassifyActions(blk.Actions)
 	for _, transfer := range tsfs {
 		transferHash := transfer.Hash()
 		blkhash, err := bc.GetBlockHashByTransferHash(transferHash)
-		require.Nil(err)
+		require.NoError(err)
 		require.Equal(blkhash, hash5)
 		transfer1, err := bc.GetTransferByTransferHash(transferHash)
-		require.Nil(err)
+		require.NoError(err)
 		require.Equal(transfer1.Hash(), transferHash)
 	}
 
 	for _, vote := range votes {
 		voteHash := vote.Hash()
 		blkhash, err := bc.GetBlockHashByVoteHash(voteHash)
-		require.Nil(err)
+		require.NoError(err)
 		require.Equal(blkhash, hash5)
 		vote1, err := bc.GetVoteByVoteHash(voteHash)
-		require.Nil(err)
+		require.NoError(err)
 		require.Equal(vote1.Hash(), voteHash)
 	}
 
 	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].String())
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(len(fromTransfers), 5)
 
 	toTransfers, err := bc.GetTransfersToAddress(ta.Addrinfo["charlie"].String())
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(len(toTransfers), 2)
 
 	fromVotes, err := bc.GetVotesFromAddress(ta.Addrinfo["charlie"].String())
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(len(fromVotes), 1)
 
 	fromVotes, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].String())
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(len(fromVotes), 1)
 
 	toVotes, err := bc.GetVotesToAddress(ta.Addrinfo["charlie"].String())
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(len(toVotes), 1)
 
 	toVotes, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].String())
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(len(toVotes), 1)
 
 	totalTransfers, err := bc.GetTotalTransfers()
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(totalTransfers, uint64(22))
 
 	totalVotes, err := bc.GetTotalVotes()
-	require.Nil(err)
-	require.Equal(totalVotes, uint64(26))
+	require.NoError(err)
+	// Self nominations are not counted as votes
+	require.Equal(totalVotes, uint64(2))
 
 	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetVoteByVoteHash(hash.ZeroHash256)
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.StateByAddr("")
-	require.NotNil(err)
+	require.Error(err)
 }
 
 func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
@@ -709,7 +731,8 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.Nil(err)
+	require.NoError(err)
+	sf.AddActionHandlers(account.NewProtocol())
 	// Create a blockchain from scratch
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
@@ -721,6 +744,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		RegistryOption(&registry),
 	)
 	v := vote.NewProtocol(bc)
+	registry.Register(vote.ProtocolID, v)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(acc, v)
 	sf.AddActionHandlers(acc, v)
@@ -730,10 +754,10 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 
 	ms := &MockSubscriber{counter: 0}
 	err = bc.AddSubscriber(ms)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(0, ms.counter)
 	err = bc.RemoveSubscriber(ms)
-	require.Nil(err)
+	require.NoError(err)
 
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
@@ -744,7 +768,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 
 	// Load a blockchain from DB
 	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.Nil(err)
+	require.NoError(err)
 	sf.AddActionHandlers(account.NewProtocol())
 
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -758,48 +782,48 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NotNil(bc)
 	// check hash<-->height mapping
 	blkhash, err := bc.GetHashByHeight(0)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(blkhash)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(0), height)
 	blk, err := bc.GetBlockByHash(blkhash)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(blkhash, blk.HashBlock())
 	fmt.Printf("Genesis hash = %x\n", blkhash)
 	hash1, err := bc.GetHashByHeight(1)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash1)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(1), height)
 	blk, err = bc.GetBlockByHash(hash1)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash1, blk.HashBlock())
 	fmt.Printf("block 1 hash = %x\n", hash1)
 	hash2, err := bc.GetHashByHeight(2)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash2)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(2), height)
 	blk, err = bc.GetBlockByHash(hash2)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash2, blk.HashBlock())
 	fmt.Printf("block 2 hash = %x\n", hash2)
 	hash3, err := bc.GetHashByHeight(3)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash3)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(3), height)
 	blk, err = bc.GetBlockByHash(hash3)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash3, blk.HashBlock())
 	fmt.Printf("block 3 hash = %x\n", hash3)
 	hash4, err := bc.GetHashByHeight(4)
-	require.Nil(err)
+	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash4)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(uint64(4), height)
 	blk, err = bc.GetBlockByHash(hash4)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash4, blk.HashBlock())
 	fmt.Printf("block 4 hash = %x\n", hash4)
 	empblk, err := bc.GetBlockByHash(hash.ZeroHash256)
@@ -807,12 +831,12 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NotNil(err.Error())
 	blk, err = bc.GetBlockByHeight(60000)
 	require.Nil(blk)
-	require.NotNil(err)
+	require.Error(err)
 	// add wrong blocks
 	h := bc.TipHeight()
 	blkhash = bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(blkhash, blk.HashBlock())
 	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 	// add block with wrong height
@@ -827,7 +851,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk)
-	require.NotNil(err)
+	require.Error(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// add block with zero prev hash
 	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
@@ -840,55 +864,55 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk)
-	require.NotNil(err)
+	require.Error(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// add existing block again will have no effect
 	blk, err = bc.GetBlockByHeight(3)
 	require.NotNil(blk)
-	require.Nil(err)
+	require.NoError(err)
 	require.NoError(bc.(*blockchain).commitBlock(blk))
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 	// check all Tx from block 4
 	blk, err = bc.GetBlockByHeight(4)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash4, blk.HashBlock())
 	tsfs, votes, _ := action.ClassifyActions(blk.Actions)
 	for _, transfer := range tsfs {
 		transferHash := transfer.Hash()
 		_, err := bc.GetBlockHashByTransferHash(transferHash)
-		require.NotNil(err)
+		require.Error(err)
 		_, err = bc.GetTransferByTransferHash(transferHash)
-		require.NotNil(err)
+		require.Error(err)
 	}
 	for _, vote := range votes {
 		voteHash := vote.Hash()
 		_, err := bc.GetBlockHashByVoteHash(voteHash)
-		require.NotNil(err)
+		require.Error(err)
 		_, err = bc.GetVoteByVoteHash(voteHash)
-		require.NotNil(err)
+		require.Error(err)
 	}
 	_, err = bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].String())
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetTransfersToAddress(ta.Addrinfo["charlie"].String())
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetVotesFromAddress(ta.Addrinfo["charlie"].String())
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].String())
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetVotesToAddress(ta.Addrinfo["charlie"].String())
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].String())
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetTotalTransfers()
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetTotalVotes()
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.GetVoteByVoteHash(hash.ZeroHash256)
-	require.NotNil(err)
+	require.Error(err)
 	_, err = bc.StateByAddr("")
-	require.NotNil(err)
+	require.Error(err)
 }
 
 func TestBlockchain_Validator(t *testing.T) {
@@ -925,9 +949,25 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Chain.NumCandidates = 2
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.Nil(err)
-	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	require.NoError(err)
+	voteProtocol := vote.NewProtocol(nil)
+	accountProtocol := account.NewProtocol()
+	sf.AddActionHandlers(accountProtocol, voteProtocol)
+	registry := protocol.Registry{}
+	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
+	require.NoError(registry.Register(vote.ProtocolID, voteProtocol))
+	bc := NewBlockchain(
+		cfg,
+		PrecreatedStateFactoryOption(sf),
+		BoltDBDaoOption(),
+		RegistryOption(&registry),
+	)
+	rewardingProtocol := rewarding.NewProtocol(
+		bc,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
+	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))

@@ -3,9 +3,10 @@ package manet
 import (
 	"fmt"
 	"net"
-	"strings"
+	"path/filepath"
 
 	ma "github.com/multiformats/go-multiaddr"
+	madns "github.com/multiformats/go-multiaddr-dns"
 )
 
 var errIncorrectNetAddr = fmt.Errorf("incorrect network addr conversion")
@@ -61,50 +62,141 @@ func parseBasicNetMaddr(maddr ma.Multiaddr) (net.Addr, error) {
 		return net.ResolveUDPAddr(network, host)
 	case "ip", "ip4", "ip6":
 		return net.ResolveIPAddr(network, host)
+	case "unix":
+		return net.ResolveUnixAddr(network, host)
 	}
 
 	return nil, fmt.Errorf("network not supported: %s", network)
 }
 
-// FromIP converts a net.IP type to a Multiaddr.
-func FromIP(ip net.IP) (ma.Multiaddr, error) {
+func FromIPAndZone(ip net.IP, zone string) (ma.Multiaddr, error) {
 	switch {
 	case ip.To4() != nil:
-		return ma.NewMultiaddr("/ip4/" + ip.String())
+		return ma.NewComponent("ip4", ip.String())
 	case ip.To16() != nil:
-		return ma.NewMultiaddr("/ip6/" + ip.String())
+		ip6, err := ma.NewComponent("ip6", ip.String())
+		if err != nil {
+			return nil, err
+		}
+		if zone == "" {
+			return ip6, nil
+		} else {
+			zone, err := ma.NewComponent("ip6zone", zone)
+			if err != nil {
+				return nil, err
+			}
+			return zone.Encapsulate(ip6), nil
+		}
 	default:
 		return nil, errIncorrectNetAddr
 	}
 }
 
-// DialArgs is a convenience function returning arguments for use in net.Dial
+// FromIP converts a net.IP type to a Multiaddr.
+func FromIP(ip net.IP) (ma.Multiaddr, error) {
+	return FromIPAndZone(ip, "")
+}
+
+// DialArgs is a convenience function that returns network and address as
+// expected by net.Dial. See https://godoc.org/net#Dial for an overview of
+// possible return values (we do not support the unixpacket ones yet). Unix
+// addresses do not, at present, compose.
 func DialArgs(m ma.Multiaddr) (string, string, error) {
-	// TODO: find a 'good' way to eliminate the function.
-	// My preference is with a multiaddr.Format(...) function
-	if !IsThinWaist(m) {
+	var (
+		zone, network, ip, port string
+		err                     error
+		hostname                bool
+	)
+
+	ma.ForEach(m, func(c ma.Component) bool {
+		switch network {
+		case "":
+			switch c.Protocol().Code {
+			case ma.P_IP6ZONE:
+				if zone != "" {
+					err = fmt.Errorf("%s has multiple zones", m)
+					return false
+				}
+				zone = c.Value()
+				return true
+			case ma.P_IP6:
+				network = "ip6"
+				ip = c.Value()
+				return true
+			case ma.P_IP4:
+				if zone != "" {
+					err = fmt.Errorf("%s has ip4 with zone", m)
+					return false
+				}
+				network = "ip4"
+				ip = c.Value()
+				return true
+			case madns.Dns4Protocol.Code:
+				network = "ip4"
+				hostname = true
+				ip = c.Value()
+				return true
+			case madns.Dns6Protocol.Code:
+				network = "ip6"
+				hostname = true
+				ip = c.Value()
+				return true
+			case ma.P_UNIX:
+				network = "unix"
+				ip = c.Value()
+				return false
+			}
+		case "ip4":
+			switch c.Protocol().Code {
+			case ma.P_UDP:
+				network = "udp4"
+			case ma.P_TCP:
+				network = "tcp4"
+			default:
+				return false
+			}
+			port = c.Value()
+		case "ip6":
+			switch c.Protocol().Code {
+			case ma.P_UDP:
+				network = "udp6"
+			case ma.P_TCP:
+				network = "tcp6"
+			default:
+				return false
+			}
+			port = c.Value()
+		}
+		// Done.
+		return false
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	switch network {
+	case "ip6":
+		if zone != "" {
+			ip += "%" + zone
+		}
+		fallthrough
+	case "ip4":
+		return network, ip, nil
+	case "tcp4", "udp4":
+		return network, ip + ":" + port, nil
+	case "tcp6", "udp6":
+		if zone != "" {
+			ip += "%" + zone
+		}
+		if hostname {
+			return network, ip + ":" + port, nil
+		}
+		return network, "[" + ip + "]" + ":" + port, nil
+	case "unix":
+		return network, ip, nil
+	default:
 		return "", "", fmt.Errorf("%s is not a 'thin waist' address", m)
 	}
-
-	str := m.String()
-	parts := strings.Split(str, "/")[1:]
-
-	if len(parts) == 2 { // only IP
-		return parts[0], parts[1], nil
-	}
-
-	network := parts[2]
-
-	var host string
-	switch parts[0] {
-	case "ip4":
-		network = network + "4"
-		host = strings.Join([]string{parts[1], parts[3]}, ":")
-	case "ip6":
-		network = network + "6"
-		host = fmt.Sprintf("[%s]:%s", parts[1], parts[3])
-	}
-	return network, host, nil
 }
 
 func parseTCPNetAddr(a net.Addr) (ma.Multiaddr, error) {
@@ -114,7 +206,7 @@ func parseTCPNetAddr(a net.Addr) (ma.Multiaddr, error) {
 	}
 
 	// Get IP Addr
-	ipm, err := FromIP(ac.IP)
+	ipm, err := FromIPAndZone(ac.IP, ac.Zone)
 	if err != nil {
 		return nil, errIncorrectNetAddr
 	}
@@ -136,7 +228,7 @@ func parseUDPNetAddr(a net.Addr) (ma.Multiaddr, error) {
 	}
 
 	// Get IP Addr
-	ipm, err := FromIP(ac.IP)
+	ipm, err := FromIPAndZone(ac.IP, ac.Zone)
 	if err != nil {
 		return nil, errIncorrectNetAddr
 	}
@@ -156,7 +248,7 @@ func parseIPNetAddr(a net.Addr) (ma.Multiaddr, error) {
 	if !ok {
 		return nil, errIncorrectNetAddr
 	}
-	return FromIP(ac.IP)
+	return FromIPAndZone(ac.IP, ac.Zone)
 }
 
 func parseIPPlusNetAddr(a net.Addr) (ma.Multiaddr, error) {
@@ -165,4 +257,13 @@ func parseIPPlusNetAddr(a net.Addr) (ma.Multiaddr, error) {
 		return nil, errIncorrectNetAddr
 	}
 	return FromIP(ac.IP)
+}
+
+func parseUnixNetAddr(a net.Addr) (ma.Multiaddr, error) {
+	ac, ok := a.(*net.UnixAddr)
+	if !ok {
+		return nil, errIncorrectNetAddr
+	}
+	cleaned := filepath.Clean(ac.Name)
+	return ma.NewComponent("unix", cleaned)
 }

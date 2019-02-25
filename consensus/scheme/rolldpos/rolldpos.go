@@ -335,7 +335,7 @@ func (b *Builder) SetRootChainAPI(api explorer.Explorer) *Builder {
 	return b
 }
 
-// SetCandidatesByHeightFunc sets candidatesByHeightFunc, which is only used by tests
+// SetCandidatesByHeightFunc sets candidatesByHeightFunc
 func (b *Builder) SetCandidatesByHeightFunc(
 	candidatesByHeightFunc CandidatesByHeightFunc,
 ) *Builder {

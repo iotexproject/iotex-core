@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -38,6 +39,25 @@ type Protocol struct {
 
 // NewProtocol instantiates the protocol of vote
 func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} }
+
+// Initialize initializes the rewarding protocol by setting the original admin, block and epoch reward
+func (p *Protocol) Initialize(ctx context.Context, sm protocol.StateManager, addrs []string) error {
+	for _, addr := range addrs {
+		selfNominator, err := accountutil.LoadOrCreateAccount(sm, addr, big.NewInt(0))
+		if err != nil {
+			return errors.Wrapf(err, "failed to load or create the account of self nominator %s", addr)
+		}
+		selfNominator.IsCandidate = true
+		if err := candidatesutil.LoadAndAddCandidates(sm, addr); err != nil {
+			return err
+		}
+		if err := accountutil.StoreAccount(sm, addr, selfNominator); err != nil {
+			return errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+
+	}
+	return nil
+}
 
 // Handle handles a vote
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -87,7 +107,13 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	} else if raCtx.Caller.String() == vote.Votee() {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
-		if err := candidatesutil.LoadAndAddCandidates(sm, vote); err != nil {
+		votePubkey := vote.VoterPublicKey()
+		callerPKHash := keypair.HashPubKey(votePubkey)
+		addr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return nil, err
+		}
+		if err := candidatesutil.LoadAndAddCandidates(sm, addr.String()); err != nil {
 			return nil, errors.Wrap(err, "failed to load and add candidates")
 		}
 	}
@@ -148,6 +174,9 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 
 	vote, ok := act.(*action.Vote)
 	if !ok {
+		if _, ok := act.(*action.PutPollResult); ok {
+			return errors.New("with vote protocol, put poll result action cannot be processed")
+		}
 		return nil
 	}
 	// Reject oversized vote
