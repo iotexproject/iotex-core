@@ -16,6 +16,8 @@ Welcome to the official Go implementation of IoTeX protocol! IoTeX is building t
 network for IoT powered by scalability- and privacy-centric blockchains. Please refer to IoTeX
 [whitepaper](https://iotex.io/academics) for details.
 
+## Get started
+
 ### Minimum requirements
 
 | Components | Version | Description |
