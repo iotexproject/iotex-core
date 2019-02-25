@@ -17,6 +17,7 @@ import (
 
 const endpointPrefix = "endpoint:"
 
+// ErrEmptyEndpoint indicates error for empty endpoint
 var ErrEmptyEndpoint = "no endpoint has been set"
 
 // configGetEndpointCmd represents the config get endpoint command
