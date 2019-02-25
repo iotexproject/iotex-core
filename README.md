@@ -7,7 +7,7 @@
 [![Coverage](https://codecov.io/gh/iotexproject/iotex-core/branch/master/graph/badge.svg)](https://codecov.io/gh/iotexproject/iotex-core)
 [![Godoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/iotexproject/iotex-core)
 [![Releases](https://img.shields.io/github/release/iotexproject/iotex-core/all.svg?style=flat-square)](https://github.com/iotexproject/iotex-core/releases)
-[![LICENSE](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/iotexproject/iotex-core/blob/master/LICENSE)
+[![LICENSE](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ![IoTeX Logo](logo/IoTeX.png)
 ----
