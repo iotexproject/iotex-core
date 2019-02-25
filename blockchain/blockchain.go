@@ -877,7 +877,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 			Nonce:          0,
 			Registry:       bc.registry,
 		})
-	if _, _, err = ws.RunActions(ctx, 0, nil); err != nil {
+	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
 	}
 	if err = bc.sf.Commit(ws); err != nil {
@@ -950,7 +950,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			AddActions(acts...).
 			Build(addr, pk)
 		// run execution and update state trie root hash
-		_, receipts, err := bc.runActions(racts, ws)
+		receipts, err := bc.runActions(racts, ws)
 		if err != nil {
 			return errors.Wrap(err, "failed to update state changes in Genesis block")
 		}
@@ -1006,7 +1006,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
-		if _, _, err := bc.runActions(blk.RunnableActions(), ws); err != nil {
+		if _, err := bc.runActions(blk.RunnableActions(), ws); err != nil {
 			return err
 		}
 		if err := bc.sf.Commit(ws); err != nil {
@@ -1037,7 +1037,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 	runTimer := bc.timerFactory.NewTimer("runActions")
-	_, receipts, err := bc.runActions(blk.RunnableActions(), ws)
+	receipts, err := bc.runActions(blk.RunnableActions(), ws)
 	runTimer.End()
 	if err != nil {
 		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bc.tipHeight), zap.Error(err))
@@ -1108,15 +1108,15 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 func (bc *blockchain) runActions(
 	acts block.RunnableActions,
 	ws factory.WorkingSet,
-) (hash.Hash256, []*action.Receipt, error) {
+) ([]*action.Receipt, error) {
 	if bc.sf == nil {
-		return hash.ZeroHash256, nil, errors.New("statefactory cannot be nil")
+		return nil, errors.New("statefactory cannot be nil")
 	}
 	gasLimit := bc.config.Genesis.BlockGasLimit
 	// update state factory
 	producer, err := address.FromString(acts.BlockProducerAddr())
 	if err != nil {
-		return hash.ZeroHash256, nil, err
+		return nil, err
 	}
 
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -1292,7 +1292,7 @@ func (bc *blockchain) buildStateInGenesis() error {
 		AddActions(acts...).
 		Build(addr, pk)
 	// run execution and update state trie root hash
-	if _, _, err := bc.runActions(racts, ws); err != nil {
+	if _, err := bc.runActions(racts, ws); err != nil {
 		return errors.Wrap(err, "failed to update state changes in Genesis block")
 	}
 	// Initialize the states before any actions happen on the blockchain
