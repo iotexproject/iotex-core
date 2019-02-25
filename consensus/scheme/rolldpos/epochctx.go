@@ -26,6 +26,7 @@ type epochCtx struct {
 }
 
 func newEpochCtx(
+	numCandidateDelegates uint64,
 	numDelegates uint64,
 	numSubEpochs uint64,
 	blockHeight uint64,
@@ -48,8 +49,14 @@ func newEpochCtx(
 			numDelegates,
 		)
 	}
+	if numCandidateDelegates < numDelegates {
+		numCandidateDelegates = numDelegates
+	}
 	addrs := []string{}
-	for _, candidate := range candidates {
+	for i, candidate := range candidates {
+		if uint64(i) >= numCandidateDelegates {
+			break
+		}
 		addrs = append(addrs, candidate.Address)
 	}
 	crypto.SortCandidates(addrs, epochNum, crypto.CryptoSeed)

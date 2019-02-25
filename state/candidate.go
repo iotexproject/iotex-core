@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
@@ -35,9 +34,24 @@ var (
 type Candidate struct {
 	Address          string
 	Votes            *big.Int
-	PublicKey        keypair.PublicKey
+	RewardAddress    string
 	CreationHeight   uint64
 	LastUpdateHeight uint64
+}
+
+// Equal compares two candidate instances
+func (c *Candidate) Equal(d *Candidate) bool {
+	if c == d {
+		return true
+	}
+	if c == nil || d == nil {
+		return false
+	}
+	return strings.Compare(c.Address, d.Address) == 0 &&
+		c.RewardAddress == d.RewardAddress &&
+		c.Votes.Cmp(d.Votes) == 0 &&
+		c.CreationHeight == d.CreationHeight &&
+		c.LastUpdateHeight == d.LastUpdateHeight
 }
 
 // CandidateList indicates the list of Candidates which is sortable
@@ -54,15 +68,16 @@ func (l CandidateList) Less(i, j int) bool {
 
 // Serialize serializes a list of Candidates to bytes
 func (l *CandidateList) Serialize() ([]byte, error) {
+	return proto.Marshal(l.Proto())
+}
+
+// Proto converts the candidate list to a protobuf message
+func (l *CandidateList) Proto() *iotextypes.CandidateList {
 	candidatesPb := make([]*iotextypes.Candidate, 0, len(*l))
 	for _, cand := range *l {
-		candPb, err := candidateToPb(cand)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert candidate to protobuf's candidate message")
-		}
-		candidatesPb = append(candidatesPb, candPb)
+		candidatesPb = append(candidatesPb, candidateToPb(cand))
 	}
-	return proto.Marshal(&iotextypes.CandidateList{Candidates: candidatesPb})
+	return &iotextypes.CandidateList{Candidates: candidatesPb}
 }
 
 // Deserialize deserializes bytes to list of Candidates
@@ -71,6 +86,11 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 	if err := proto.Unmarshal(buf, candList); err != nil {
 		return errors.Wrap(err, "failed to unmarshal candidate list")
 	}
+	return l.LoadProto(candList)
+}
+
+// LoadProto loads candidate list from proto
+func (l *CandidateList) LoadProto(candList *iotextypes.CandidateList) error {
 	candidates := make(CandidateList, 0)
 	candidatesPb := candList.Candidates
 	for _, candPb := range candidatesPb {
@@ -81,24 +101,23 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 		candidates = append(candidates, cand)
 	}
 	*l = candidates
+
 	return nil
 }
 
 // candidateToPb converts a candidate to protobuf's candidate message
-func candidateToPb(cand *Candidate) (*iotextypes.Candidate, error) {
-	if cand == nil {
-		return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")
-	}
+func candidateToPb(cand *Candidate) *iotextypes.Candidate {
 	candidatePb := &iotextypes.Candidate{
 		Address:          cand.Address,
-		PubKey:           keypair.PublicKeyToBytes(cand.PublicKey),
+		Votes:            cand.Votes.Bytes(),
+		RewardAddress:    cand.RewardAddress,
 		CreationHeight:   cand.CreationHeight,
 		LastUpdateHeight: cand.LastUpdateHeight,
 	}
 	if cand.Votes != nil && len(cand.Votes.Bytes()) > 0 {
 		candidatePb.Votes = cand.Votes.Bytes()
 	}
-	return candidatePb, nil
+	return candidatePb
 }
 
 // pbToCandidate converts a protobuf's candidate message to candidate
@@ -106,15 +125,10 @@ func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 	if candPb == nil {
 		return nil, errors.Wrap(ErrCandidatePb, "protobuf's candidate message cannot be nil")
 	}
-
-	pk, err := keypair.BytesToPublicKey(candPb.PubKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal public key")
-	}
 	candidate := &Candidate{
 		Address:          candPb.Address,
 		Votes:            big.NewInt(0).SetBytes(candPb.Votes),
-		PublicKey:        pk,
+		RewardAddress:    candPb.RewardAddress,
 		CreationHeight:   candPb.CreationHeight,
 		LastUpdateHeight: candPb.LastUpdateHeight,
 	}

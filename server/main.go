@@ -114,7 +114,6 @@ func initLogger(cfg config.Config) {
 	if err := log.InitGlobal(cfg.Log, zap.Fields(
 		zap.String("addr", addr.String()),
 		zap.String("networkAddress", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
-		zap.String("nodeType", cfg.NodeType),
 	)); err != nil {
 		glog.Println("Cannot config global logger, use default one: ", err)
 	}

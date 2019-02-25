@@ -225,7 +225,6 @@ func (ctx *rollDPoSCtx) LoggerWithStats() *zap.Logger {
 func (ctx *rollDPoSCtx) NewProposalEndorsement(en consensusfsm.Endorsement) (consensusfsm.Endorsement, error) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-
 	if en != nil {
 		blk, ok := en.(*blockWrapper)
 		if !ok {
@@ -633,10 +632,11 @@ func (ctx *rollDPoSCtx) roundCtxByTime(
 	height uint64,
 	timestamp time.Time,
 ) (*roundCtx, error) {
-	lastBlockTime, err := ctx.getBlockTime(height - 1)
+	lastBlock, err := ctx.chain.GetBlockByHeight(height - 1)
 	if err != nil {
 		return nil, err
 	}
+	lastBlockTime := time.Unix(lastBlock.Timestamp(), 0)
 	// proposer interval should be always larger than 0
 	interval := ctx.genesisCfg.BlockInterval
 	if interval <= 0 {
@@ -714,18 +714,6 @@ func (ctx *rollDPoSCtx) rotatedProposer(epoch *epochCtx, height uint64, round ui
 	return delegates[(height+uint64(round))%uint64(numDelegates)], nil
 }
 
-// getBlockTime returns the duration since block time
-func (ctx *rollDPoSCtx) getBlockTime(height uint64) (time.Time, error) {
-	blk, err := ctx.chain.GetBlockByHeight(height)
-	if err != nil {
-		return time.Now(), errors.Wrapf(
-			err, "error when getting the block at height: %d",
-			height,
-		)
-	}
-	return time.Unix(blk.Header.Timestamp(), 0), nil
-}
-
 func (ctx *rollDPoSCtx) getProposer(
 	height uint64,
 	round uint32,
@@ -750,5 +738,11 @@ func (ctx *rollDPoSCtx) epochCtxByHeight(height uint64) (*epochCtx, error) {
 		}
 	}
 
-	return newEpochCtx(ctx.genesisCfg.NumDelegates, ctx.genesisCfg.NumSubEpochs, height, f)
+	return newEpochCtx(
+		ctx.genesisCfg.NumCandidateDelegates,
+		ctx.genesisCfg.NumDelegates,
+		ctx.genesisCfg.NumSubEpochs,
+		height,
+		f,
+	)
 }

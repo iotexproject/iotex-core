@@ -63,6 +63,24 @@ func (mr *MockProtocolMockRecorder) Handle(arg0, arg1, arg2 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockProtocol)(nil).Handle), arg0, arg1, arg2)
 }
 
+// ReadState mocks base method
+func (m *MockProtocol) ReadState(arg0 context.Context, arg1 protocol.StateManager, arg2 []byte, arg3 ...[]byte) ([]byte, error) {
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ReadState", varargs...)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadState indicates an expected call of ReadState
+func (mr *MockProtocolMockRecorder) ReadState(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadState", reflect.TypeOf((*MockProtocol)(nil).ReadState), varargs...)
+}
+
 // MockActionValidator is a mock of ActionValidator interface
 type MockActionValidator struct {
 	ctrl     *gomock.Controller

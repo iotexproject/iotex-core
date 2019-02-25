@@ -10,11 +10,8 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -26,12 +23,12 @@ import (
 const CandidatesPrefix = "Candidates."
 
 // LoadAndAddCandidates loads candidates from trie and adds a new candidate
-func LoadAndAddCandidates(sm protocol.StateManager, vote *action.Vote) error {
+func LoadAndAddCandidates(sm protocol.StateManager, addr string) error {
 	candidateMap, err := GetMostRecentCandidateMap(sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to get most recent candidates from trie")
 	}
-	if err := addCandidate(candidateMap, vote, sm.Height()); err != nil {
+	if err := addCandidate(candidateMap, addr, sm.Height()); err != nil {
 		return errors.Wrap(err, "failed to add candidate to candidate map")
 	}
 	return storeCandidates(candidateMap, sm)
@@ -94,17 +91,15 @@ func ConstructKey(height uint64) hash.Hash160 {
 }
 
 // addCandidate adds a new candidate to candidateMap
-func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, vote *action.Vote, height uint64) error {
-	votePubkey := vote.VoterPublicKey()
-	callerPKHash := keypair.HashPubKey(votePubkey)
-	addr, err := address.FromBytes(callerPKHash[:])
+func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr string, height uint64) error {
+	addr, err := address.FromString(encodedAddr)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get public key hash from account address")
 	}
-	if _, ok := candidateMap[callerPKHash]; !ok {
-		candidateMap[callerPKHash] = &state.Candidate{
-			Address:        addr.String(),
-			PublicKey:      votePubkey,
+	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	if _, ok := candidateMap[addrHash]; !ok {
+		candidateMap[addrHash] = &state.Candidate{
+			Address:        encodedAddr,
 			Votes:          big.NewInt(0),
 			CreationHeight: height,
 		}

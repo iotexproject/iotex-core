@@ -62,12 +62,11 @@ func (mr *MockWorkingSetMockRecorder) UpdateBlockLevelInfo(blockHeight interface
 }
 
 // RunActions mocks base method
-func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.SealedEnvelope) (hash.Hash256, []*action.Receipt, error) {
+func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.SealedEnvelope) ([]*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].([]*action.Receipt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].([]*action.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RunActions indicates an expected call of RunActions

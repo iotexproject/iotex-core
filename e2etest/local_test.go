@@ -411,7 +411,6 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 
 	// Create client
-	cfg.NodeType = config.FullNodeType
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)

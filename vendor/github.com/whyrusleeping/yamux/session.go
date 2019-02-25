@@ -69,6 +69,11 @@ type Session struct {
 	// between stream registration and stream shutdown
 	recvDoneCh chan struct{}
 
+	// sendDoneCh is closed when send() exits to avoid a race
+	// between returning from a Stream.Write and exiting from the send loop
+	// (which may be reading a buffer on-load-from Stream.Write).
+	sendDoneCh chan struct{}
+
 	// client is true if we're the client and our stream IDs should be odd.
 	client bool
 
@@ -112,6 +117,7 @@ func newSession(config *Config, conn io.ReadWriteCloser, client bool, readBuf in
 		acceptCh:   make(chan *Stream, config.AcceptBacklog),
 		sendCh:     make(chan *sendReady, 64),
 		recvDoneCh: make(chan struct{}),
+		sendDoneCh: make(chan struct{}),
 		shutdownCh: make(chan struct{}),
 	}
 	if client {
@@ -245,6 +251,7 @@ func (s *Session) Close() error {
 	close(s.shutdownCh)
 	s.conn.Close()
 	<-s.recvDoneCh
+	<-s.sendDoneCh
 
 	s.streamLock.Lock()
 	defer s.streamLock.Unlock()
@@ -363,6 +370,12 @@ func pooledTimer(d time.Duration) (*time.Timer, func()) {
 //    has not set a write deadline on the stream.
 //  * non-`nil` if (a) this is a user-requested write, and (b) the stream has a write deadline.
 func (s *Session) waitForSendErr(hdr header, body io.Reader, errCh chan error, timeout <-chan time.Time) error {
+	select {
+	case <-s.shutdownCh:
+		return ErrSessionShutdown
+	default:
+	}
+
 	var connWriteTimerCh <-chan time.Time
 
 	if timeout == nil {
@@ -375,9 +388,9 @@ func (s *Session) waitForSendErr(hdr header, body io.Reader, errCh chan error, t
 	ready := &sendReady{Hdr: hdr, Body: body, Err: errCh, Stage: stageInitial}
 
 	select {
-	case s.sendCh <- ready:
 	case <-s.shutdownCh:
 		return ErrSessionShutdown
+	case s.sendCh <- ready:
 	case <-timeout:
 		// we timed out before the write went across the channel. keep connection open.
 		return ErrTimeout
@@ -390,10 +403,10 @@ func (s *Session) waitForSendErr(hdr header, body io.Reader, errCh chan error, t
 
 WAIT:
 	select {
+	case <-s.sendDoneCh: // shutdown isn't enough, we need to wait for the send loop to exit.
+		return ErrSessionShutdown
 	case err := <-errCh:
 		return err
-	case <-s.shutdownCh:
-		return ErrSessionShutdown
 	case <-timeout:
 		// A deadline had been set on the stream. Try to abort the write if it hasn't started.
 		if atomic.CompareAndSwapUint32(&ready.Stage, stageInitial, stageFinal) {
@@ -420,6 +433,12 @@ WAIT:
 // the send happens right here, we enforce the connection write timeout if we
 // can't queue the header to be sent.
 func (s *Session) sendNoWait(hdr header) error {
+	select {
+	case <-s.shutdownCh:
+		return ErrSessionShutdown
+	default:
+	}
+
 	timer, cancelFn := pooledTimer(s.config.ConnectionWriteTimeout)
 	defer cancelFn()
 
@@ -435,7 +454,21 @@ func (s *Session) sendNoWait(hdr header) error {
 
 // send is a long running goroutine that sends data
 func (s *Session) send() {
+	if err := s.sendLoop(); err != nil {
+		s.exitErr(err)
+	}
+}
+func (s *Session) sendLoop() error {
+	defer close(s.sendDoneCh)
 	for {
+		// yield after processing the last message, if we've shutdown.
+		// s.sendCh is a buffered channel and Go doesn't guarantee select order.
+		select {
+		case <-s.shutdownCh:
+			return nil
+		default:
+		}
+
 		select {
 		case ready := <-s.sendCh:
 			// Commit to perform the write, iff it has not expired prior to being consumed from the ch.
@@ -451,8 +484,7 @@ func (s *Session) send() {
 					if err != nil {
 						s.logger.Printf("[ERR] yamux: Failed to write header: %v", err)
 						asyncSendErr(ready.Err, err)
-						s.exitErr(err)
-						return
+						return err
 					}
 					sent += n
 				}
@@ -464,15 +496,15 @@ func (s *Session) send() {
 				if err != nil {
 					s.logger.Printf("[ERR] yamux: Failed to write body: %v", err)
 					asyncSendErr(ready.Err, err)
-					s.exitErr(err)
-					return
+					return err
 				}
 			}
 
 			// No error, successful send
 			asyncSendErr(ready.Err, nil)
+
 		case <-s.shutdownCh:
-			return
+			return nil
 		}
 	}
 }

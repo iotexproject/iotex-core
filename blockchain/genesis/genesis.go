@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-election/committee"
 )
 
 var (
@@ -36,16 +37,21 @@ func init() {
 func initDefaultConfig() {
 	Default = Genesis{
 		Blockchain: Blockchain{
-			Timestamp:         1546329600,
-			BlockGasLimit:     20000000,
-			ActionGasLimit:    5000000,
-			BlockInterval:     10 * time.Second,
-			NumSubEpochs:      2,
-			NumDelegates:      24,
-			TimeBasedRotation: false,
+			Timestamp:             1546329600,
+			BlockGasLimit:         20000000,
+			ActionGasLimit:        5000000,
+			BlockInterval:         10 * time.Second,
+			NumSubEpochs:          2,
+			NumDelegates:          24,
+			NumCandidateDelegates: 36,
+			TimeBasedRotation:     false,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
+		},
+		Poll: Poll{
+			EnableBeaconChainVoting: false,
+			DelegateAddresses:       []string{},
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr:           identityset.Address(0).String(),
@@ -66,6 +72,7 @@ type (
 	Genesis struct {
 		Blockchain `yaml:"blockchain"`
 		Account    `ymal:"account"`
+		Poll       `yaml:"poll"`
 		Rewarding  `yaml:"rewarding"`
 	}
 	// Blockchain contains blockchain level configs
@@ -82,6 +89,8 @@ type (
 		NumSubEpochs uint64 `yaml:"numSubEpochs"`
 		// NumDelegates is the number of delegates that participate into one epoch of block production
 		NumDelegates uint64 `yaml:"numDelegates"`
+		// NumCandidateDelegates is the number of candidate delegates, who may be selected as a delegate via roll dpos
+		NumCandidateDelegates uint64 `yaml:"numCandidateDelegates"`
 		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
 	}
@@ -89,6 +98,17 @@ type (
 	Account struct {
 		// InitBalanceMap is the address and initial balance mapping before the first block.
 		InitBalanceMap map[string]string `yaml:"initBalances"`
+	}
+	// Poll contains the configs for poll protocol
+	Poll struct {
+		// EnableBeaconChainVoting is a flag whether read voting from beacon chain
+		EnableBeaconChainVoting bool `yaml:"enableBeaconChainVoting"`
+		// InitBeaconChainHeight is the height in beacon chain where the init poll result stored
+		InitBeaconChainHeight uint64 `yaml:"initBeaconChainHeight"`
+		// CommitteeConfig is the config for committee
+		CommitteeConfig committee.Config `yaml:"committeeConfig"`
+		// DelegateAddresses is a list of delegate's addresses
+		DelegateAddresses []string `yaml:"delegateAddresses"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
