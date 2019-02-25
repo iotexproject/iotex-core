@@ -32,7 +32,7 @@ var configGetEndpointCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(getEndpoint())
+		fmt.Println(GetEndpoint())
 	},
 }
 
@@ -51,7 +51,7 @@ func init() {
 	ConfigCmd.AddCommand(configSetEndpointCmd)
 }
 
-func getEndpoint() string {
+func GetEndpoint() string {
 	file, err := ioutil.ReadFile(configFileName)
 	if err != nil {
 		return fmt.Sprintf("failed to open config file %s", configFileName)

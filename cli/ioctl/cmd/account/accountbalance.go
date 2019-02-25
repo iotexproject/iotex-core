@@ -14,13 +14,13 @@ import (
 	"go.uber.org/zap"
 	grpc "google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 // TODO: use wallet config later
 var configAddress = "ioaddress"
-var hostAddress string
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
@@ -32,13 +32,17 @@ var accountBalanceCmd = &cobra.Command{
 }
 
 func init() {
-	accountBalanceCmd.Flags().StringVarP(&hostAddress, "host", "s", "127.0.0.1:14014", "host of api server")
 	AccountCmd.AddCommand(accountBalanceCmd)
 }
 
 // balance gets balance of an IoTex Blockchian address
 func balance(args []string) string {
-	conn, err := grpc.Dial(hostAddress, grpc.WithInsecure())
+	endpoint := config.GetEndpoint()
+	if endpoint == "" {
+		log.L().Error("get empty endpoint")
+		return "get empty endpoint"
+	}
+	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
 	if err != nil {
 		log.L().Error("failed to connect to server", zap.Error(err))
 		return err.Error()
