@@ -42,13 +42,6 @@ var (
 )
 
 const (
-	// DelegateType represents the delegate node type
-	DelegateType = "delegate"
-	// FullNodeType represents the full node type
-	FullNodeType = "full_node"
-	// LightweightType represents the lightweight type
-	LightweightType = "lightweight"
-
 	// RollDPoSScheme means randomized delegated proof of stake
 	RollDPoSScheme = "ROLLDPOS"
 	// StandaloneScheme means that the node creates a block periodically regardless of others (if there is any)
@@ -70,7 +63,6 @@ const (
 var (
 	// Default is the default config
 	Default = Config{
-		NodeType: FullNodeType,
 		Network: Network{
 			Host:           "0.0.0.0",
 			Port:           4689,
@@ -105,7 +97,7 @@ var (
 			ActionExpiry:      10 * time.Minute,
 		},
 		Consensus: Consensus{
-			Scheme: NOOPScheme,
+			Scheme: StandaloneScheme,
 			RollDPoS: RollDPoS{
 				FSM: consensusfsm.Config{
 					UnmatchedEventTTL:            3 * time.Second,
@@ -118,7 +110,6 @@ var (
 				ToleratedOvertime: 2 * time.Second,
 				Delay:             5 * time.Second,
 			},
-			BlockCreationInterval: 10 * time.Second,
 		},
 		BlockSync: BlockSync{
 			Interval:   10 * time.Second,
@@ -181,7 +172,6 @@ var (
 	// Validates is the collection config validation functions
 	Validates = []Validate{
 		ValidateKeyPair,
-		ValidateConsensusScheme,
 		ValidateRollDPoS,
 		ValidateDispatcher,
 		ValidateExplorer,
@@ -232,9 +222,8 @@ type (
 	// Consensus is the config struct for consensus package
 	Consensus struct {
 		// There are three schemes that are supported
-		Scheme                string        `yaml:"scheme"`
-		RollDPoS              RollDPoS      `yaml:"rollDPoS"`
-		BlockCreationInterval time.Duration `yaml:"blockCreationInterval"`
+		Scheme   string   `yaml:"scheme"`
+		RollDPoS RollDPoS `yaml:"rollDPoS"`
 	}
 
 	// BlockSync is the config struct for the BlockSync
@@ -358,7 +347,6 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		NodeType   string           `yaml:"nodeType"`
 		Network    Network          `yaml:"network"`
 		Chain      Chain            `yaml:"chain"`
 		ActPool    ActPool          `yaml:"actPool"`
@@ -452,21 +440,6 @@ func NewSub(validates ...Validate) (Config, error) {
 	return cfg, nil
 }
 
-// IsDelegate returns true if the node type is Delegate
-func (cfg Config) IsDelegate() bool {
-	return cfg.NodeType == DelegateType
-}
-
-// IsFullnode returns true if the node type is Fullnode
-func (cfg Config) IsFullnode() bool {
-	return cfg.NodeType == FullNodeType
-}
-
-// IsLightweight returns true if the node type is Lightweight
-func (cfg Config) IsLightweight() bool {
-	return cfg.NodeType == LightweightType
-}
-
 // BlockchainAddress returns the address derived from the configured chain ID and public key
 func (cfg Config) BlockchainAddress() (address.Address, error) {
 	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
@@ -517,24 +490,6 @@ func ValidateKeyPair(cfg Config) error {
 func ValidateChain(cfg Config) error {
 	if cfg.Chain.NumCandidates <= 0 {
 		return errors.Wrapf(ErrInvalidCfg, "candidate number should be greater than 0")
-	}
-	return nil
-}
-
-// ValidateConsensusScheme validates the if scheme and node type match
-func ValidateConsensusScheme(cfg Config) error {
-	switch cfg.NodeType {
-	case DelegateType:
-	case FullNodeType:
-		if cfg.Consensus.Scheme != NOOPScheme {
-			return errors.Wrap(ErrInvalidCfg, "consensus scheme of fullnode should be NOOP")
-		}
-	case LightweightType:
-		if cfg.Consensus.Scheme != NOOPScheme {
-			return errors.Wrap(ErrInvalidCfg, "consensus scheme of lightweight node should be NOOP")
-		}
-	default:
-		return errors.Wrapf(ErrInvalidCfg, "unknown node type %s", cfg.NodeType)
 	}
 	return nil
 }

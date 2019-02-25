@@ -49,7 +49,7 @@ func TestTwoChains(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.StandaloneScheme
-	cfg.Consensus.BlockCreationInterval = time.Second
+	cfg.Genesis.BlockInterval = time.Second
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(identityset.PrivateKey(1))
 	pk := identityset.PrivateKey(1).PublicKey
 	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&pk)

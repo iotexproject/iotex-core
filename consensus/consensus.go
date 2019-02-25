@@ -172,7 +172,7 @@ func NewConsensus(
 			commitBlockCB,
 			broadcastBlockCB,
 			bc,
-			cfg.Consensus.BlockCreationInterval,
+			cfg.Genesis.BlockInterval,
 		)
 	default:
 		return nil, errors.Errorf("unexpected IotxConsensus scheme %s", cfg.Consensus.Scheme)
