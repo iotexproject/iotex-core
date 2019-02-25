@@ -4,12 +4,21 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package main
+package wallet
 
 import (
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd"
+	"fmt"
+	"strings"
+
+	"github.com/spf13/cobra"
 )
 
-func main() {
-	cmd.Execute()
+// WalletCmd represents the wallet command
+var WalletCmd = &cobra.Command{
+	Use:   "wallet",
+	Short: "Manage accounts",
+	Args:  cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Print: " + strings.Join(args, " "))
+	},
 }
