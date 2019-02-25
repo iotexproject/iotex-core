@@ -51,6 +51,7 @@ func init() {
 	ConfigCmd.AddCommand(configSetEndpointCmd)
 }
 
+// GetEndpoint gets the endpoint
 func GetEndpoint() string {
 	file, err := ioutil.ReadFile(configFileName)
 	if err != nil {
