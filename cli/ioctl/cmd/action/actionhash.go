@@ -10,14 +10,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
-
 	"github.com/golang/protobuf/proto"
-
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
