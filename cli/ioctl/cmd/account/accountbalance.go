@@ -32,7 +32,7 @@ var accountBalanceCmd = &cobra.Command{
 }
 
 func init() {
-	accountBalanceCmd.Flags().StringVarP(&hostAddress, "host", "s", "127.0.0.1:8080", "host address of node")
+	accountBalanceCmd.Flags().StringVarP(&hostAddress, "host", "s", "127.0.0.1:14014", "host of api server")
 	AccountCmd.AddCommand(accountBalanceCmd)
 }
 

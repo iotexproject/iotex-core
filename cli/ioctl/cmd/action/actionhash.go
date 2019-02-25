@@ -34,7 +34,7 @@ var actionHashCmd = &cobra.Command{
 }
 
 func init() {
-	actionHashCmd.Flags().StringVarP(&hostAddress, "host", "s", "127.0.0.1:8080", "host address of node")
+	actionHashCmd.Flags().StringVarP(&hostAddress, "host", "s", "127.0.0.1:14014", "host of api server")
 	ActionCmd.AddCommand(actionHashCmd)
 }
 

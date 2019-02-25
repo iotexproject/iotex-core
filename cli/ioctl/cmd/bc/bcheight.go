@@ -32,7 +32,7 @@ var heightCmd = &cobra.Command{
 }
 
 func init() {
-	heightCmd.Flags().StringVarP(&address, "host", "s", "127.0.0.1:8080", "host of api server")
+	heightCmd.Flags().StringVarP(&address, "host", "s", "127.0.0.1:14014", "host of api server")
 	BCCmd.AddCommand(heightCmd)
 }
 
