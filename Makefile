@@ -36,7 +36,7 @@ COV_HTML := coverage.html
 
 LINT_LOG := lint.log
 
-#run exe error
+#blslib finding
 MY_LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib ./bin/$(BUILD_TARGET_SERVER)
 V ?= 0
 ifeq ($(V),0)
