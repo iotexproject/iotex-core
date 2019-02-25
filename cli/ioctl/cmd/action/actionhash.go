@@ -37,9 +37,9 @@ func init() {
 // getActionByHash gets balance of an IoTex Blockchain address
 func getActionByHash(args []string) string {
 	endpoint := config.GetEndpoint()
-	if endpoint == "" {
-		log.L().Error("get empty endpoint")
-		return "get empty endpoint"
+	if endpoint == config.ErrEmptyEndpoint {
+		log.L().Error(config.ErrEmptyEndpoint)
+		return "use \"ioctl config set endpoint\" to config endpoint first."
 	}
 	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
 	if err != nil {

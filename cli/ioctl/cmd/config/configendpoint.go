@@ -17,6 +17,8 @@ import (
 
 const endpointPrefix = "endpoint:"
 
+var ErrEmptyEndpoint = "no endpoint has been set"
+
 // configGetEndpointCmd represents the config get endpoint command
 var configGetEndpointCmd = &cobra.Command{
 	Use:       "get",
@@ -67,7 +69,7 @@ func GetEndpoint() string {
 		}
 	}
 	if endpoint == "" {
-		return fmt.Sprintf("no endpoint has been set")
+		return ErrEmptyEndpoint
 	}
 	return endpoint
 }
