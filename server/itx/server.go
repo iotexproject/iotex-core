@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -22,7 +23,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
@@ -297,9 +300,39 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return err
 	}
-	voteProtocol := vote.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
-		return err
+	if genesisConfig.EnableBeaconChainVoting {
+		pollProtocol := poll.NewProtocol(
+			func(height uint64) (time.Time, error) {
+				blk, err := cs.Blockchain().GetBlockByHeight(height)
+				if err != nil {
+					return time.Now(), errors.Wrapf(
+						err, "error when getting the block at height: %d",
+						height,
+					)
+				}
+				return time.Unix(blk.Header.Timestamp(), 0), nil
+			},
+			func(height uint64) uint64 {
+				return rolldpos.GetEpochHeight(
+					rolldpos.GetEpochNum(
+						height,
+						genesisConfig.NumDelegates,
+						genesisConfig.NumSubEpochs,
+					),
+					genesisConfig.NumDelegates,
+					genesisConfig.NumSubEpochs,
+				)
+			},
+			cs.ElectionCommittee(),
+		)
+		if err := cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
+			return err
+		}
+	} else {
+		voteProtocol := vote.NewProtocol(cs.Blockchain())
+		if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
+			return err
+		}
 	}
 	executionProtocol := execution.NewProtocol(cs.Blockchain())
 	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {

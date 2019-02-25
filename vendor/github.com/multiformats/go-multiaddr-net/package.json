@@ -9,9 +9,15 @@
   "gxDependencies": [
     {
       "author": "multiformats",
-      "hash": "QmYmsdtJ3HsodkePE3eU3TsCaP2YvPZJ4LoXnNkDE5Tpt7",
+      "hash": "QmNTCey11oxhb1AxDnQBRHtdhap6Ctud872NjAYPYYXPuc",
       "name": "go-multiaddr",
-      "version": "1.3.0"
+      "version": "1.4.0"
+    },
+    {
+      "author": "lgierth",
+      "hash": "QmQc7jbDUsxUJZyFJzxVrnrWeECCct6fErEpMqtjyWvCX8",
+      "name": "go-multiaddr-dns",
+      "version": "0.3.0"
     }
   ],
   "gxVersion": "0.6.0",
@@ -19,6 +25,6 @@
   "license": "",
   "name": "go-multiaddr-net",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.6.3"
+  "version": "1.7.1"
 }
 
