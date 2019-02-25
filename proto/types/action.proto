@@ -24,6 +24,25 @@ message Vote {
   string voteeAddress = 2;  // the address this node is voting for
 }
 
+// Candidates and list of candidates
+message Candidate {
+  string address = 1;
+  bytes votes = 2;
+  bytes pubKey = 3;
+  uint64 creationHeight = 4;
+  uint64 lastUpdateHeight = 5;
+  string rewardAddress = 6;
+}
+
+message CandidateList {
+  repeated Candidate candidates = 1;
+}
+
+message PutPollResult {
+  uint64 height = 1;
+	CandidateList	candidates = 2;
+}
+
 message Execution {
   bytes amount  = 1;
   string contract = 2;
@@ -165,6 +184,8 @@ message ActionCore {
     ClaimFromRewardingFund claimFromRewardingFund = 31;
     SetReward setReward = 32;
     GrantReward grantReward = 33;
+
+    PutPollResult putPollResult = 50;
   }
 }
 

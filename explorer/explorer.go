@@ -1034,10 +1034,8 @@ func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetr
 	}
 	candidates := make([]explorer.Candidate, 0, len(allCandidates))
 	for _, c := range allCandidates {
-		pubKey := keypair.EncodePublicKey(c.PublicKey)
 		candidates = append(candidates, explorer.Candidate{
 			Address:          c.Address,
-			PubKey:           pubKey,
 			TotalVote:        c.Votes.String(),
 			CreationHeight:   int64(c.CreationHeight),
 			LastUpdateHeight: int64(c.LastUpdateHeight),

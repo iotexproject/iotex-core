@@ -5,10 +5,13 @@ import (
 	"fmt"
 
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	relay "github.com/libp2p/go-libp2p/p2p/host/relay"
+	routed "github.com/libp2p/go-libp2p/p2p/host/routed"
 
 	logging "github.com/ipfs/go-log"
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	crypto "github.com/libp2p/go-libp2p-crypto"
+	discovery "github.com/libp2p/go-libp2p-discovery"
 	host "github.com/libp2p/go-libp2p-host"
 	ifconnmgr "github.com/libp2p/go-libp2p-interface-connmgr"
 	pnet "github.com/libp2p/go-libp2p-interface-pnet"
@@ -16,6 +19,7 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	routing "github.com/libp2p/go-libp2p-routing"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	filter "github.com/libp2p/go-maddr-filter"
@@ -30,6 +34,8 @@ type AddrsFactory = bhost.AddrsFactory
 
 // NATManagerC is a NATManager constructor.
 type NATManagerC func(inet.Network) bhost.NATManager
+
+type RoutingC func(host.Host) (routing.PeerRouting, error)
 
 // Config describes a set of settings for a libp2p node
 //
@@ -58,6 +64,10 @@ type Config struct {
 	Reporter    metrics.Reporter
 
 	DisablePing bool
+
+	Routing RoutingC
+
+	EnableAutoRelay bool
 }
 
 // NewNode constructs a new libp2p Host from the Config.
@@ -99,8 +109,8 @@ func (cfg *Config) NewNode(ctx context.Context) (host.Host, error) {
 		swrm.Filters = cfg.Filters
 	}
 
-	// TODO: make host implementation configurable.
-	h, err := bhost.NewHost(ctx, swrm, &bhost.HostOpts{
+	var h host.Host
+	h, err = bhost.NewHost(ctx, swrm, &bhost.HostOpts{
 		ConnManager:  cfg.ConnManager,
 		AddrsFactory: cfg.AddrsFactory,
 		NATManager:   cfg.NATManager,
@@ -158,7 +168,54 @@ func (cfg *Config) NewNode(ctx context.Context) (host.Host, error) {
 		return nil, err
 	}
 
-	// TODO: Configure routing (it's a pain to setup).
+	// Configure routing and autorelay
+	var router routing.PeerRouting
+	if cfg.Routing != nil {
+		router, err = cfg.Routing(h)
+		if err != nil {
+			h.Close()
+			return nil, err
+		}
+	}
+
+	if cfg.EnableAutoRelay {
+		if !cfg.Relay {
+			h.Close()
+			return nil, fmt.Errorf("cannot enable autorelay; relay is not enabled")
+		}
+
+		if router == nil {
+			h.Close()
+			return nil, fmt.Errorf("cannot enable autorelay; no routing for discovery")
+		}
+
+		crouter, ok := router.(routing.ContentRouting)
+		if !ok {
+			h.Close()
+			return nil, fmt.Errorf("cannot enable autorelay; no suitable routing for discovery")
+		}
+
+		discovery := discovery.NewRoutingDiscovery(crouter)
+
+		hop := false
+		for _, opt := range cfg.RelayOpts {
+			if opt == circuit.OptHop {
+				hop = true
+				break
+			}
+		}
+
+		if hop {
+			h = relay.NewRelayHost(swrm.Context(), h.(*bhost.BasicHost), discovery)
+		} else {
+			h = relay.NewAutoRelayHost(swrm.Context(), h.(*bhost.BasicHost), discovery)
+		}
+	}
+
+	if router != nil {
+		h = routed.Wrap(h, router)
+	}
+
 	// TODO: Bootstrapping.
 
 	return h, nil

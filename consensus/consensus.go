@@ -145,17 +145,12 @@ func NewConsensus(
 					if err != nil {
 						return nil, errors.Wrapf(err, "error when converting address string")
 					}
-					pubKey, err := keypair.DecodePublicKey(rawc.PubKey)
-					if err != nil {
-						log.L().Error("Error when convert candidate PublicKey.", zap.Error(err))
-					}
 					votes, ok := big.NewInt(0).SetString(rawc.TotalVote, 10)
 					if !ok {
 						log.L().Error("Error when setting candidate total votes.", zap.Error(err))
 					}
 					cs = append(cs, &state.Candidate{
 						Address:          addr.String(),
-						PublicKey:        pubKey,
 						Votes:            votes,
 						CreationHeight:   uint64(rawc.CreationHeight),
 						LastUpdateHeight: uint64(rawc.LastUpdateHeight),

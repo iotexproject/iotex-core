@@ -101,27 +101,7 @@ func (g *Genesis) CreatorPKHash() hash.Hash160 {
 // NewGenesisActions creates a new genesis block
 func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.SealedEnvelope {
 	actions := loadGenesisData(chainCfg)
-	// TODO: convert vote to state operation as well
 	acts := make([]action.SealedEnvelope, 0)
-	for _, nominator := range actions.SelfNominators {
-		pk, _ := decodeKey(nominator.PubKey, "")
-		address := generateAddr(pk)
-		vote, err := action.NewVote(
-			0,
-			address,
-			0,
-			big.NewInt(0),
-		)
-		if err != nil {
-			log.L().Panic("Fail to create the new vote action.", zap.Error(err))
-		}
-		bd := action.EnvelopeBuilder{}
-		elp := bd.SetDestinationAddress(address).
-			SetAction(vote).Build()
-		selp := action.FakeSeal(elp, pk)
-		acts = append(acts, selp)
-	}
-
 	// TODO: decouple start sub-chain from genesis block
 	if chainCfg.EnableSubChainStartInGenesis {
 		for _, sc := range actions.SubChains {
