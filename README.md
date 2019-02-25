@@ -7,7 +7,7 @@
 [![Coverage](https://codecov.io/gh/iotexproject/iotex-core/branch/master/graph/badge.svg)](https://codecov.io/gh/iotexproject/iotex-core)
 [![Godoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/iotexproject/iotex-core)
 [![Releases](https://img.shields.io/github/release/iotexproject/iotex-core/all.svg?style=flat-square)](https://github.com/iotexproject/iotex-core/releases)
-[![LICENSE](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/iotexproject/iotex-core/blob/master/LICENSE)
+[![LICENSE](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ![IoTeX Logo](logo/IoTeX.png)
 ----
@@ -16,11 +16,7 @@ Welcome to the official Go implementation of IoTeX protocol! IoTeX is building t
 network for IoT powered by scalability- and privacy-centric blockchains. Please refer to IoTeX
 [whitepaper](https://iotex.io/academics) for details.
 
-
-## Contact
-
-- Mailing list: [iotex-dev](iotex-dev@iotex.io)
-- IRC: [gitter](https://gitter.im/iotex-dev-community/Lobby)
+## Get started
 
 ### Minimum requirements
 
@@ -92,6 +88,16 @@ Note that if your enviroment is in Linux, you need to add the share libraries in
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib/blslib
 ```
 
+### Use CLI
+
+Users could interact with iotex blockchain by
+
+```
+ioctl [command]
+```
+
+Refer to [CLI document](cli/ioctl/README.md) for more details.
+
 ## Contact
 
 - Mailing list: [iotex-dev](iotex-dev@iotex.io)
@@ -102,8 +108,8 @@ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/iotexproject/iotex-core/
 ## Contribution
 We are glad to have contributors out of the core team; contributions, including (but not limited to) style/bug fixes,
 implementation of features, proposals of schemes/algorithms, and thorough documentation, are welcomed. Please refer to
-our [contribution guideline](https://github.com/iotexproject/iotex-core/blob/master/CONTRIBUTING.md) for more
+our [contribution guideline](CONTRIBUTING.md) for more
 information. Development guide documentation is [here](https://github.com/iotexproject/iotex-core/wiki/Developers%27-Guide).
 
 ## License
-This project is licensed under the [Apache License 2.0](https://github.com/iotexproject/iotex-core/blob/master/LICENSE).
+This project is licensed under the [Apache License 2.0](LICENSE).
