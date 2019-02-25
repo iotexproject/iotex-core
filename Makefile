@@ -154,6 +154,7 @@ docker:
 minicluster:
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	LD_LIBRARY_PATH=$(MY_LD_LIBRARY_PATH) ./bin/$(BUILD_TARGET_MINICLUSTER)
 
@@ -161,5 +162,6 @@ minicluster:
 nightlybuild:
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	LD_LIBRARY_PATH=$(MY_LD_LIBRARY_PATH) ./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400
