@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/pkg/version"
+
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -296,6 +298,16 @@ var (
 		{
 			hex.EncodeToString(voteHash1[:]),
 			10000,
+		},
+	}
+
+	getServerMetaTests = []struct {
+		packageVersion  string
+		packageCommitID string
+	}{
+		{
+			version.PackageVersion,
+			version.PackageCommitID,
 		},
 	}
 )
@@ -673,6 +685,28 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 		res, err := svr.EstimateGasForAction(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.estimatedGas, res.Gas)
+	}
+}
+
+func TestServer_GetServerMeta(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
+
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+
+	for _, test := range getServerMetaTests {
+		requst := &iotexapi.GetServerMetaRequest{}
+		response, err := svr.GetServerMeta(context.Background(), requst)
+		require.NoError(err)
+		serverMeta := response.ServerMeta
+		require.Equal(test.packageVersion, serverMeta.PackageVersion)
+		require.Equal(test.packageCommitID, serverMeta.PackageCommitID)
 	}
 }
 

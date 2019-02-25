@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
@@ -319,6 +320,14 @@ func (api *Server) Stop() error {
 	api.grpcserver.Stop()
 	log.L().Info("API server stops.")
 	return nil
+}
+
+// GetServerMeta gets the server metadata
+func (api *Server) GetServerMeta(ctx context.Context, in *iotexapi.GetServerMetaRequest) (*iotexapi.GetServerMetaResponse, error) {
+	var serverMeta iotextypes.ServerMeta
+	serverMeta.PackageVersion = version.PackageVersion
+	serverMeta.PackageCommitID = version.PackageCommitID
+	return &iotexapi.GetServerMetaResponse{ServerMeta: &serverMeta}, nil
 }
 
 // GetActions returns actions within the range

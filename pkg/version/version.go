@@ -6,27 +6,14 @@
 
 package version
 
-import (
-	"flag"
-	"fmt"
-)
-
 const (
 	// ProtocolVersion defines Protocol version, starting from 1
 	ProtocolVersion = 0x01
 )
 
 var (
-	// SourceVersion gets version of code from git tag.
-	SourceVersion string
-	// SourceCommitID gets latest commit id of code from git
-	SourceCommitID string
+	// PackageVersion gets version of code from git tag.
+	PackageVersion = "NoPackageInfo"
+	// PackageCommitID gets latest commit id of code from git
+	PackageCommitID = "NoPackageInfo"
 )
-
-func init() {
-	flag.StringVar(&SourceVersion, "version", "NoVersionInfo", "source version from git")
-	flag.StringVar(&SourceCommitID, "commitID", "NoVersionInfo", "latest commit id from git")
-	flag.Parse()
-
-	fmt.Println(SourceCommitID, SourceVersion)
-}

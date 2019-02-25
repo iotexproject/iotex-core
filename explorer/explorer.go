@@ -1572,8 +1572,8 @@ func (exp *Service) GetMeta() (explorer.Meta, error) {
 	var meta explorer.Meta
 	meta.ChainID = int64(exp.bc.ChainID())
 	meta.ProtocolVersion = version.ProtocolVersion
-	meta.SourceVersion = version.SourceVersion
-	meta.SourceCommitID = version.SourceCommitID
+	meta.PackageVersion = version.PackageVersion
+	meta.PackageCommitID = version.PackageCommitID
 	return meta, nil
 }
 

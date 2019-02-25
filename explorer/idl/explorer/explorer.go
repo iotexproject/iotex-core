@@ -9,8 +9,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "3b0b57c6a62d1672a4bbc32a0a363031"
-const BarristerDateGenerated int64 = 1550686946112000000
+const BarristerChecksum string = "c342aa7b1d5a5ab555ae659c2e2c2b2d"
+const BarristerDateGenerated int64 = 1550889795972000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -306,8 +306,8 @@ type SettleDeposit struct {
 type Meta struct {
 	ProtocolVersion int64  `json:"protocolVersion"`
 	ChainID         int64  `json:"chainID"`
-	SourceVersion   string `json:"sourceVersion"`
-	SourceCommitID  string `json:"sourceCommitID"`
+	PackageVersion  string `json:"packageVersion"`
+	PackageCommitID string `json:"packageCommitID"`
 }
 
 type Explorer interface {
@@ -3106,14 +3106,14 @@ var IdlJsonRaw = `[
                 "comment": ""
             },
             {
-                "name": "sourceVersion",
+                "name": "packageVersion",
                 "type": "string",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
             },
             {
-                "name": "sourceCommitID",
+                "name": "packageCommitID",
                 "type": "string",
                 "optional": false,
                 "is_array": false,
@@ -4250,7 +4250,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1550686946112,
-        "checksum": "3b0b57c6a62d1672a4bbc32a0a363031"
+        "date_generated": 1550889795972,
+        "checksum": "c342aa7b1d5a5ab555ae659c2e2c2b2d"
     }
 ]`

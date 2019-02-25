@@ -309,8 +309,8 @@ struct SettleDeposit {
 struct Meta {
     protocolVersion int
     chainID int
-    sourceVersion string
-    sourceCommitID string
+    packageVersion string
+    packageCommitID string
 }
 
 interface Explorer {
