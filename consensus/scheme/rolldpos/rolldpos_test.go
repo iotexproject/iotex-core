@@ -307,8 +307,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 400 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 200 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.UnmatchedEventTTL = 400 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 10 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.UnmatchedEventTTL = time.Second
+		cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 1 * time.Millisecond
 		cfg.Consensus.RollDPoS.ToleratedOvertime = 200 * time.Millisecond
 
 		cfg.Genesis.BlockInterval = time.Second
@@ -434,7 +434,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}()
 		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 10*time.Second, func() (bool, error) {
 			for _, chain := range chains {
-				if blk, err := chain.GetBlockByHeight(1); blk == nil || err != nil {
+				if chain.TipHeight() < 1 {
 					return false, nil
 				}
 			}
@@ -473,7 +473,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}()
 		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 60*time.Second, func() (bool, error) {
 			for _, chain := range chains {
-				if blk, err := chain.GetBlockByHeight(48); blk == nil || err != nil {
+				if chain.TipHeight() < 48 {
 					return false, nil
 				}
 			}
@@ -522,8 +522,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				if i == 1 {
 					continue
 				}
-				blk, err := chain.GetBlockByHeight(4)
-				if blk == nil || err != nil {
+				if chain.TipHeight() < 4 {
 					return false, nil
 				}
 			}

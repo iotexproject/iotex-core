@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/version"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/wallet"
 )
@@ -37,6 +38,7 @@ func init() {
 	RootCmd.AddCommand(account.AccountCmd)
 	RootCmd.AddCommand(action.ActionCmd)
 	RootCmd.AddCommand(bc.BCCmd)
+	RootCmd.AddCommand(config.ConfigCmd)
 	RootCmd.AddCommand(version.VersionCmd)
 	RootCmd.AddCommand(wallet.WalletCmd)
 }
