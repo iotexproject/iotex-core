@@ -54,6 +54,9 @@ func (p *Protocol) Initialize(ctx context.Context, sm protocol.StateManager, add
 		if err := accountutil.StoreAccount(sm, addr, selfNominator); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
+		if err := candidatesutil.LoadAndUpdateCandidates(sm, addr, selfNominator.Balance); err != nil {
+			return errors.Wrap(err, "failed to load and update candidates")
+		}
 
 	}
 	return nil
