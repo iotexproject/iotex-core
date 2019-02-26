@@ -165,13 +165,10 @@ func (b *Block) ProducerAddress() string {
 
 // RunnableActions abstructs RunnableActions from a Block.
 func (b *Block) RunnableActions() RunnableActions {
-	pkHash := keypair.HashPubKey(b.Header.pubkey)
-	addr, _ := address.FromBytes(pkHash[:])
 	return RunnableActions{
 		blockHeight:         b.Header.height,
 		blockTimeStamp:      b.Header.timestamp,
 		blockProducerPubKey: b.Header.pubkey,
-		blockProducerAddr:   addr.String(),
 		actions:             b.Actions,
 		txHash:              b.txRoot,
 	}
