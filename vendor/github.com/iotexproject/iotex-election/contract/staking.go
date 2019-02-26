@@ -28,7 +28,7 @@ var (
 )
 
 // StakingABI is the input ABI used to generate the binding from.
-const StakingABI = "[{\"constant\":false,\"inputs\":[{\"name\":\"addrs\",\"type\":\"address[]\"}],\"name\":\"removeAddressesFromWhitelist\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"removeAddressFromWhitelist\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isOwner\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"},{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"stakeholders\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"addAddressToWhitelist\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"whitelist\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"buckets\",\"outputs\":[{\"name\":\"canName\",\"type\":\"bytes12\"},{\"name\":\"stakedAmount\",\"type\":\"uint256\"},{\"name\":\"stakeDuration\",\"type\":\"uint256\"},{\"name\":\"stakeStartTime\",\"type\":\"uint256\"},{\"name\":\"nonDecay\",\"type\":\"bool\"},{\"name\":\"unstakeStartTime\",\"type\":\"uint256\"},{\"name\":\"bucketOwner\",\"type\":\"address\"},{\"name\":\"prev\",\"type\":\"uint256\"},{\"name\":\"next\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addrs\",\"type\":\"address[]\"}],\"name\":\"addAddressesToWhitelist\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"name\":\"_stakingTokenAddr\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"bucketIndex\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"canName\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"stakeDuration\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"nonDecay\",\"type\":\"bool\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"BucketCreated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"bucketIndex\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"canName\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"stakeDuration\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"stakeStartTime\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"nonDecay\",\"type\":\"bool\"},{\"indexed\":false,\"name\":\"bucketOwner\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"BucketUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"bucketIndex\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"canName\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"BucketUnstake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"bucketIndex\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"canName\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"BucketWithdraw\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"WhitelistedAddressAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"WhitelistedAddressRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Pause\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Unpause\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[{\"name\":\"_prevIndex\",\"type\":\"uint256\"},{\"name\":\"_limit\",\"type\":\"uint256\"}],\"name\":\"getActiveBuckets\",\"outputs\":[{\"name\":\"count\",\"type\":\"uint256\"},{\"name\":\"indexes\",\"type\":\"uint256[]\"},{\"name\":\"stakeStartTimes\",\"type\":\"uint256[]\"},{\"name\":\"stakeDurations\",\"type\":\"uint256[]\"},{\"name\":\"decays\",\"type\":\"bool[]\"},{\"name\":\"stakedAmounts\",\"type\":\"uint256[]\"},{\"name\":\"canNames\",\"type\":\"bytes12[]\"},{\"name\":\"owners\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\"}],\"name\":\"getBucketIndexesByAddress\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_stakeDuration\",\"type\":\"uint256\"},{\"name\":\"_nonDecay\",\"type\":\"bool\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"restake\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_canName\",\"type\":\"bytes12\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"revote\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_newOwner\",\"type\":\"address\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"setBucketOwner\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"unstake\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"withdraw\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"totalStaked\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"token\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_canName\",\"type\":\"bytes12\"},{\"name\":\"_amount\",\"type\":\"uint256\"},{\"name\":\"_stakeDuration\",\"type\":\"uint256\"},{\"name\":\"_nonDecay\",\"type\":\"bool\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"createBucket\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
+const StakingABI = "[{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"withdraw\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_prevIndex\",\"type\":\"uint256\"},{\"name\":\"_limit\",\"type\":\"uint256\"}],\"name\":\"getActiveBuckets\",\"outputs\":[{\"name\":\"count\",\"type\":\"uint256\"},{\"name\":\"indexes\",\"type\":\"uint256[]\"},{\"name\":\"stakeStartTimes\",\"type\":\"uint256[]\"},{\"name\":\"stakeDurations\",\"type\":\"uint256[]\"},{\"name\":\"decays\",\"type\":\"bool[]\"},{\"name\":\"stakedAmounts\",\"type\":\"uint256[]\"},{\"name\":\"canNames\",\"type\":\"bytes12[]\"},{\"name\":\"owners\",\"type\":\"address[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addrs\",\"type\":\"address[]\"}],\"name\":\"removeAddressesFromWhitelist\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"removeAddressFromWhitelist\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_address\",\"type\":\"address\"}],\"name\":\"isOwner\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_prevIndex\",\"type\":\"uint256\"},{\"name\":\"_limit\",\"type\":\"uint256\"}],\"name\":\"getActiveBucketCreateTimes\",\"outputs\":[{\"name\":\"count\",\"type\":\"uint256\"},{\"name\":\"indexes\",\"type\":\"uint256[]\"},{\"name\":\"createTimes\",\"type\":\"uint256[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"},{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"stakeholders\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_stakeDuration\",\"type\":\"uint256\"},{\"name\":\"_nonDecay\",\"type\":\"bool\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"restake\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"addAddressToWhitelist\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\"}],\"name\":\"getBucketIndexesByAddress\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"totalStaked\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_prevIndex\",\"type\":\"uint256\"},{\"name\":\"_limit\",\"type\":\"uint256\"}],\"name\":\"getActiveBucketIdx\",\"outputs\":[{\"name\":\"count\",\"type\":\"uint256\"},{\"name\":\"indexes\",\"type\":\"uint256[]\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"whitelist\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"buckets\",\"outputs\":[{\"name\":\"canName\",\"type\":\"bytes12\"},{\"name\":\"stakedAmount\",\"type\":\"uint256\"},{\"name\":\"stakeDuration\",\"type\":\"uint256\"},{\"name\":\"stakeStartTime\",\"type\":\"uint256\"},{\"name\":\"nonDecay\",\"type\":\"bool\"},{\"name\":\"unstakeStartTime\",\"type\":\"uint256\"},{\"name\":\"bucketOwner\",\"type\":\"address\"},{\"name\":\"createTime\",\"type\":\"uint256\"},{\"name\":\"prev\",\"type\":\"uint256\"},{\"name\":\"next\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_newOwner\",\"type\":\"address\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"setBucketOwner\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"unstake\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_bucketIndex\",\"type\":\"uint256\"},{\"name\":\"_canName\",\"type\":\"bytes12\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"revote\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addrs\",\"type\":\"address[]\"}],\"name\":\"addAddressesToWhitelist\",\"outputs\":[{\"name\":\"success\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_canName\",\"type\":\"bytes12\"},{\"name\":\"_amount\",\"type\":\"uint256\"},{\"name\":\"_stakeDuration\",\"type\":\"uint256\"},{\"name\":\"_nonDecay\",\"type\":\"bool\"},{\"name\":\"_data\",\"type\":\"bytes\"}],\"name\":\"createBucket\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"token\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"name\":\"_stakingTokenAddr\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"bucketIndex\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"canName\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"stakeDuration\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"nonDecay\",\"type\":\"bool\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"BucketCreated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"bucketIndex\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"canName\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"stakeDuration\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"stakeStartTime\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"nonDecay\",\"type\":\"bool\"},{\"indexed\":false,\"name\":\"bucketOwner\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"BucketUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"bucketIndex\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"canName\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"BucketUnstake\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"bucketIndex\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"canName\",\"type\":\"bytes12\"},{\"indexed\":false,\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"BucketWithdraw\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"WhitelistedAddressAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"WhitelistedAddressRemoved\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Pause\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[],\"name\":\"Unpause\",\"type\":\"event\"}]"
 
 // Staking is an auto generated Go binding around an Ethereum contract.
 type Staking struct {
@@ -174,7 +174,7 @@ func (_Staking *StakingTransactorRaw) Transact(opts *bind.TransactOpts, method s
 
 // Buckets is a free data retrieval call binding the contract method 0x9b51fb0d.
 //
-// Solidity: function buckets(uint256 ) constant returns(bytes12 canName, uint256 stakedAmount, uint256 stakeDuration, uint256 stakeStartTime, bool nonDecay, uint256 unstakeStartTime, address bucketOwner, uint256 prev, uint256 next)
+// Solidity: function buckets(uint256 ) constant returns(bytes12 canName, uint256 stakedAmount, uint256 stakeDuration, uint256 stakeStartTime, bool nonDecay, uint256 unstakeStartTime, address bucketOwner, uint256 createTime, uint256 prev, uint256 next)
 func (_Staking *StakingCaller) Buckets(opts *bind.CallOpts, arg0 *big.Int) (struct {
 	CanName          [12]byte
 	StakedAmount     *big.Int
@@ -183,6 +183,7 @@ func (_Staking *StakingCaller) Buckets(opts *bind.CallOpts, arg0 *big.Int) (stru
 	NonDecay         bool
 	UnstakeStartTime *big.Int
 	BucketOwner      common.Address
+	CreateTime       *big.Int
 	Prev             *big.Int
 	Next             *big.Int
 }, error) {
@@ -194,6 +195,7 @@ func (_Staking *StakingCaller) Buckets(opts *bind.CallOpts, arg0 *big.Int) (stru
 		NonDecay         bool
 		UnstakeStartTime *big.Int
 		BucketOwner      common.Address
+		CreateTime       *big.Int
 		Prev             *big.Int
 		Next             *big.Int
 	})
@@ -204,7 +206,7 @@ func (_Staking *StakingCaller) Buckets(opts *bind.CallOpts, arg0 *big.Int) (stru
 
 // Buckets is a free data retrieval call binding the contract method 0x9b51fb0d.
 //
-// Solidity: function buckets(uint256 ) constant returns(bytes12 canName, uint256 stakedAmount, uint256 stakeDuration, uint256 stakeStartTime, bool nonDecay, uint256 unstakeStartTime, address bucketOwner, uint256 prev, uint256 next)
+// Solidity: function buckets(uint256 ) constant returns(bytes12 canName, uint256 stakedAmount, uint256 stakeDuration, uint256 stakeStartTime, bool nonDecay, uint256 unstakeStartTime, address bucketOwner, uint256 createTime, uint256 prev, uint256 next)
 func (_Staking *StakingSession) Buckets(arg0 *big.Int) (struct {
 	CanName          [12]byte
 	StakedAmount     *big.Int
@@ -213,6 +215,7 @@ func (_Staking *StakingSession) Buckets(arg0 *big.Int) (struct {
 	NonDecay         bool
 	UnstakeStartTime *big.Int
 	BucketOwner      common.Address
+	CreateTime       *big.Int
 	Prev             *big.Int
 	Next             *big.Int
 }, error) {
@@ -221,7 +224,7 @@ func (_Staking *StakingSession) Buckets(arg0 *big.Int) (struct {
 
 // Buckets is a free data retrieval call binding the contract method 0x9b51fb0d.
 //
-// Solidity: function buckets(uint256 ) constant returns(bytes12 canName, uint256 stakedAmount, uint256 stakeDuration, uint256 stakeStartTime, bool nonDecay, uint256 unstakeStartTime, address bucketOwner, uint256 prev, uint256 next)
+// Solidity: function buckets(uint256 ) constant returns(bytes12 canName, uint256 stakedAmount, uint256 stakeDuration, uint256 stakeStartTime, bool nonDecay, uint256 unstakeStartTime, address bucketOwner, uint256 createTime, uint256 prev, uint256 next)
 func (_Staking *StakingCallerSession) Buckets(arg0 *big.Int) (struct {
 	CanName          [12]byte
 	StakedAmount     *big.Int
@@ -230,10 +233,87 @@ func (_Staking *StakingCallerSession) Buckets(arg0 *big.Int) (struct {
 	NonDecay         bool
 	UnstakeStartTime *big.Int
 	BucketOwner      common.Address
+	CreateTime       *big.Int
 	Prev             *big.Int
 	Next             *big.Int
 }, error) {
 	return _Staking.Contract.Buckets(&_Staking.CallOpts, arg0)
+}
+
+// GetActiveBucketCreateTimes is a free data retrieval call binding the contract method 0x37130b93.
+//
+// Solidity: function getActiveBucketCreateTimes(uint256 _prevIndex, uint256 _limit) constant returns(uint256 count, uint256[] indexes, uint256[] createTimes)
+func (_Staking *StakingCaller) GetActiveBucketCreateTimes(opts *bind.CallOpts, _prevIndex *big.Int, _limit *big.Int) (struct {
+	Count       *big.Int
+	Indexes     []*big.Int
+	CreateTimes []*big.Int
+}, error) {
+	ret := new(struct {
+		Count       *big.Int
+		Indexes     []*big.Int
+		CreateTimes []*big.Int
+	})
+	out := ret
+	err := _Staking.contract.Call(opts, out, "getActiveBucketCreateTimes", _prevIndex, _limit)
+	return *ret, err
+}
+
+// GetActiveBucketCreateTimes is a free data retrieval call binding the contract method 0x37130b93.
+//
+// Solidity: function getActiveBucketCreateTimes(uint256 _prevIndex, uint256 _limit) constant returns(uint256 count, uint256[] indexes, uint256[] createTimes)
+func (_Staking *StakingSession) GetActiveBucketCreateTimes(_prevIndex *big.Int, _limit *big.Int) (struct {
+	Count       *big.Int
+	Indexes     []*big.Int
+	CreateTimes []*big.Int
+}, error) {
+	return _Staking.Contract.GetActiveBucketCreateTimes(&_Staking.CallOpts, _prevIndex, _limit)
+}
+
+// GetActiveBucketCreateTimes is a free data retrieval call binding the contract method 0x37130b93.
+//
+// Solidity: function getActiveBucketCreateTimes(uint256 _prevIndex, uint256 _limit) constant returns(uint256 count, uint256[] indexes, uint256[] createTimes)
+func (_Staking *StakingCallerSession) GetActiveBucketCreateTimes(_prevIndex *big.Int, _limit *big.Int) (struct {
+	Count       *big.Int
+	Indexes     []*big.Int
+	CreateTimes []*big.Int
+}, error) {
+	return _Staking.Contract.GetActiveBucketCreateTimes(&_Staking.CallOpts, _prevIndex, _limit)
+}
+
+// GetActiveBucketIdx is a free data retrieval call binding the contract method 0x8b59c5e0.
+//
+// Solidity: function getActiveBucketIdx(uint256 _prevIndex, uint256 _limit) constant returns(uint256 count, uint256[] indexes)
+func (_Staking *StakingCaller) GetActiveBucketIdx(opts *bind.CallOpts, _prevIndex *big.Int, _limit *big.Int) (struct {
+	Count   *big.Int
+	Indexes []*big.Int
+}, error) {
+	ret := new(struct {
+		Count   *big.Int
+		Indexes []*big.Int
+	})
+	out := ret
+	err := _Staking.contract.Call(opts, out, "getActiveBucketIdx", _prevIndex, _limit)
+	return *ret, err
+}
+
+// GetActiveBucketIdx is a free data retrieval call binding the contract method 0x8b59c5e0.
+//
+// Solidity: function getActiveBucketIdx(uint256 _prevIndex, uint256 _limit) constant returns(uint256 count, uint256[] indexes)
+func (_Staking *StakingSession) GetActiveBucketIdx(_prevIndex *big.Int, _limit *big.Int) (struct {
+	Count   *big.Int
+	Indexes []*big.Int
+}, error) {
+	return _Staking.Contract.GetActiveBucketIdx(&_Staking.CallOpts, _prevIndex, _limit)
+}
+
+// GetActiveBucketIdx is a free data retrieval call binding the contract method 0x8b59c5e0.
+//
+// Solidity: function getActiveBucketIdx(uint256 _prevIndex, uint256 _limit) constant returns(uint256 count, uint256[] indexes)
+func (_Staking *StakingCallerSession) GetActiveBucketIdx(_prevIndex *big.Int, _limit *big.Int) (struct {
+	Count   *big.Int
+	Indexes []*big.Int
+}, error) {
+	return _Staking.Contract.GetActiveBucketIdx(&_Staking.CallOpts, _prevIndex, _limit)
 }
 
 // GetActiveBuckets is a free data retrieval call binding the contract method 0x042f95bd.

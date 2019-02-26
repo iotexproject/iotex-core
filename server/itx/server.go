@@ -295,48 +295,61 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 }
 
-func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) error {
+func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) (err error) {
 	accountProtocol := account.NewProtocol()
-	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
-		return err
+	if err = cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
+		return
 	}
 	if genesisConfig.EnableBeaconChainVoting {
-		pollProtocol := poll.NewProtocol(
-			func(height uint64) (time.Time, error) {
-				blk, err := cs.Blockchain().GetBlockByHeight(height)
-				if err != nil {
-					return time.Now(), errors.Wrapf(
-						err, "error when getting the block at height: %d",
-						height,
-					)
-				}
-				return time.Unix(blk.Header.Timestamp(), 0), nil
-			},
-			func(height uint64) uint64 {
-				return rolldpos.GetEpochHeight(
-					rolldpos.GetEpochNum(
-						height,
+		electionCommittee := cs.ElectionCommittee()
+		initBeaconChainHeight := genesisConfig.InitBeaconChainHeight
+		var pollProtocol poll.Protocol
+		if genesisConfig.InitBeaconChainHeight != 0 && electionCommittee != nil {
+			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
+				electionCommittee,
+				initBeaconChainHeight,
+				func(height uint64) (time.Time, error) {
+					blk, err := cs.Blockchain().GetBlockByHeight(height)
+					if err != nil {
+						return time.Now(), errors.Wrapf(
+							err, "error when getting the block at height: %d",
+							height,
+						)
+					}
+					return time.Unix(blk.Header.Timestamp(), 0), nil
+				},
+				func(height uint64) uint64 {
+					return rolldpos.GetEpochHeight(
+						rolldpos.GetEpochNum(
+							height,
+							genesisConfig.NumDelegates,
+							genesisConfig.NumSubEpochs,
+						),
 						genesisConfig.NumDelegates,
 						genesisConfig.NumSubEpochs,
-					),
-					genesisConfig.NumDelegates,
-					genesisConfig.NumSubEpochs,
-				)
-			},
-			cs.ElectionCommittee(),
-		)
-		if err := cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
-			return err
+					)
+				},
+			); err != nil {
+				return
+			}
+		} else {
+			if uint64(len(genesisConfig.Delegates)) < genesisConfig.NumDelegates {
+				return errors.New("invalid delegate address in genesis block")
+			}
+			pollProtocol = poll.NewLifeLongDelegatesProtocol(genesisConfig.Delegates)
+		}
+		if err = cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
+			return
 		}
 	} else {
 		voteProtocol := vote.NewProtocol(cs.Blockchain())
-		if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
-			return err
+		if err = cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
+			return
 		}
 	}
 	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
-		return err
+	if err = cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
+		return
 	}
 	rewardingProtocol := rewarding.NewProtocol(cs.Blockchain(), genesisConfig.NumDelegates, genesisConfig.NumSubEpochs)
 	return cs.RegisterProtocol(rewarding.ProtocolID, rewardingProtocol)
