@@ -23,13 +23,14 @@ jobs:
 
       # specify any bash command here prefixed with `run: `
       - run: mkdir -p /tmp/test_report_upload
+      - run: echo 'hello world to circleci' > /tmp/test_report_upload/test.txt
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
       - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
       - store_test_results:
-          path: /go/src/github.com/iotexproject/iotex-core/test
+          path: /tmp/test_report_upload
   nightly:
     docker:
       # specify the version
