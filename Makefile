@@ -159,4 +159,3 @@ nightlybuild:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
 	./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400
-	
