@@ -28,6 +28,7 @@ jobs:
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
+      - run: ls -l ./
       - store_test_results:
           path: /tmp/test_report_upload 
   nightly:
