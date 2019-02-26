@@ -69,6 +69,7 @@ func (mr *MockProtocolMockRecorder) Handle(arg0, arg1, arg2 interface{}) *gomock
 
 // ReadState mocks base method
 func (m *MockProtocol) ReadState(arg0 context.Context, arg1 protocol.StateManager, arg2 []byte, arg3 ...[]byte) ([]byte, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
 		varargs = append(varargs, a)
@@ -81,6 +82,7 @@ func (m *MockProtocol) ReadState(arg0 context.Context, arg1 protocol.StateManage
 
 // ReadState indicates an expected call of ReadState
 func (mr *MockProtocolMockRecorder) ReadState(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadState", reflect.TypeOf((*MockProtocol)(nil).ReadState), varargs...)
 }
@@ -281,6 +283,7 @@ func (mr *MockChainManagerMockRecorder) Nonce(addr interface{}) *gomock.Call {
 
 // CandidatesByHeight mocks base method
 func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CandidatesByHeight", height)
 	ret0, _ := ret[0].([]*state.Candidate)
 	ret1, _ := ret[1].(error)
@@ -289,6 +292,7 @@ func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate
 
 // CandidatesByHeight indicates an expected call of CandidatesByHeight
 func (mr *MockChainManagerMockRecorder) CandidatesByHeight(height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockChainManager)(nil).CandidatesByHeight), height)
 }
 

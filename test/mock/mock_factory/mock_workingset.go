@@ -67,6 +67,7 @@ func (mr *MockWorkingSetMockRecorder) UpdateBlockLevelInfo(blockHeight interface
 
 // RunActions mocks base method
 func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.SealedEnvelope) ([]*action.Receipt, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]*action.Receipt)
 	ret1, _ := ret[1].(error)
