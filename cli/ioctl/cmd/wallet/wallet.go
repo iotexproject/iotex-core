@@ -22,3 +22,8 @@ var WalletCmd = &cobra.Command{
 		fmt.Println("Print: " + strings.Join(args, " "))
 	},
 }
+
+func init() {
+	WalletCmd.AddCommand(walletCreateCmd)
+	WalletCmd.AddCommand(walletListCmd)
+}
