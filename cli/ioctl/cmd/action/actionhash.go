@@ -11,17 +11,14 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
-
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
-
-// TODO: use config later
-var hostAddress string
 
 // actionHashCmd represents the account balance command
 var actionHashCmd = &cobra.Command{
@@ -34,13 +31,17 @@ var actionHashCmd = &cobra.Command{
 }
 
 func init() {
-	actionHashCmd.Flags().StringVarP(&hostAddress, "host", "s", "127.0.0.1:8080", "host address of node")
 	ActionCmd.AddCommand(actionHashCmd)
 }
 
 // getActionByHash gets balance of an IoTex Blockchain address
 func getActionByHash(args []string) string {
-	conn, err := grpc.Dial(hostAddress, grpc.WithInsecure())
+	endpoint := config.GetEndpoint()
+	if endpoint == config.ErrEmptyEndpoint {
+		log.L().Error(config.ErrEmptyEndpoint)
+		return "use \"ioctl config set endpoint\" to config endpoint first."
+	}
+	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
 	if err != nil {
 		log.L().Error("failed to connect to server", zap.Error(err))
 		return err.Error()

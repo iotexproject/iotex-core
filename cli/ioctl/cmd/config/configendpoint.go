@@ -17,6 +17,9 @@ import (
 
 const endpointPrefix = "endpoint:"
 
+// ErrEmptyEndpoint indicates error for empty endpoint
+var ErrEmptyEndpoint = "no endpoint has been set"
+
 // configGetEndpointCmd represents the config get endpoint command
 var configGetEndpointCmd = &cobra.Command{
 	Use:       "get",
@@ -32,7 +35,7 @@ var configGetEndpointCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(getEndpoint())
+		fmt.Println(GetEndpoint())
 	},
 }
 
@@ -51,7 +54,8 @@ func init() {
 	ConfigCmd.AddCommand(configSetEndpointCmd)
 }
 
-func getEndpoint() string {
+// GetEndpoint gets the endpoint
+func GetEndpoint() string {
 	file, err := ioutil.ReadFile(configFileName)
 	if err != nil {
 		return fmt.Sprintf("failed to open config file %s", configFileName)
@@ -66,7 +70,7 @@ func getEndpoint() string {
 		}
 	}
 	if endpoint == "" {
-		return fmt.Sprintf("no endpoint has been set")
+		return ErrEmptyEndpoint
 	}
 	return endpoint
 }
