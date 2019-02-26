@@ -42,12 +42,14 @@ func TestInitialize(t *testing.T) {
 	committee := mock_committee.NewMockCommittee(ctrl)
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).Times(1)
-	p := NewProtocol(
+	p, err := NewGovernanceChainCommitteeProtocol(
+		committee,
+		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		func(uint64) uint64 { return 1 },
-		committee,
 	)
-	require.NoError(p.Initialize(ctx, ws, uint64(123456), []string{}))
+	require.NoError(err)
+	require.NoError(p.Initialize(ctx, ws))
 	var sc state.CandidateList
 	require.NoError(ws.State(candidatesutil.ConstructKey(1), &sc))
 	candidates, err := state.CandidatesToMap(sc)
