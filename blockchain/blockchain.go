@@ -27,7 +27,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -44,13 +46,16 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-var blockMtc = prometheus.NewGaugeVec(
-	prometheus.GaugeOpts{
-		Name: "iotex_block_metrics",
+var (
+	blockMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_block_metrics",
 
-		Help: "Block metrics.",
-	},
-	[]string{"type"},
+			Help: "Block metrics.",
+		},
+		[]string{"type"},
+	)
+	errDelegatesNotExist = errors.New("delegates cannot be found")
 )
 
 func init() {
@@ -365,7 +370,7 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 
 // CandidatesByHeight returns the candidate list by a given height
 func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	return bc.sf.CandidatesByHeight(height)
+	return bc.candidatesByHeight(height)
 }
 
 // GetHeightByHash returns block's height by hash
@@ -911,6 +916,26 @@ func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
 //======================================
 // private functions
 //=====================================
+func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, error) {
+	if bc.config.Genesis.EnableBeaconChainVoting {
+		epochNum := rolldpos.GetEpochNum(height, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
+		return bc.sf.CandidatesByHeight(rolldpos.GetEpochHeight(
+			epochNum,
+			bc.config.Genesis.NumDelegates,
+			bc.config.Genesis.NumSubEpochs,
+		))
+	}
+	for {
+		candidates, err := bc.sf.CandidatesByHeight(height)
+		if err == nil {
+			return candidates, nil
+		}
+		if height == 0 {
+			return nil, err
+		}
+		height--
+	}
+}
 
 func (bc *blockchain) getBlockByHeight(height uint64) (*block.Block, error) {
 	hash, err := bc.dao.getBlockHash(height)
@@ -1171,7 +1196,38 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			break
 		}
 	}
-
+	epochNum := rolldpos.GetEpochNum(raCtx.BlockHeight, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
+	lastBlkHeight := rolldpos.GetEpochLastBlockHeight(
+		epochNum,
+		bc.config.Genesis.NumDelegates,
+		bc.config.Genesis.NumSubEpochs,
+	)
+	// generate delegates for next round
+	skip, putPollResult, err := bc.createPutPollResultAction(raCtx.BlockHeight)
+	switch errors.Cause(err) {
+	case nil:
+		if !skip {
+			receipt, err := ws.RunAction(ctx, putPollResult)
+			if err != nil {
+				return hash.ZeroHash256, nil, nil, err
+			}
+			if receipt != nil {
+				receipts = append(receipts, receipt)
+			}
+			executedActions = append(executedActions, putPollResult)
+		}
+	case errDelegatesNotExist:
+		if raCtx.BlockHeight == lastBlkHeight {
+			// TODO (zhi): if some bp by pass this condition, we need to reject block in validation step
+			return hash.ZeroHash256, nil, nil, errors.Wrapf(
+				err,
+				"failed to prepare delegates for next epoch %d",
+				epochNum+1,
+			)
+		}
+	default:
+		return hash.ZeroHash256, nil, nil, err
+	}
 	// Process grant block reward action
 	grant, err := bc.createGrantRewardAction(action.BlockReward)
 	if err != nil {
@@ -1187,8 +1243,6 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	executedActions = append(executedActions, grant)
 
 	// Process grant epoch reward action if the block is the last one in an epoch
-	epochNum := rolldpos.GetEpochNum(raCtx.BlockHeight, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
-	lastBlkHeight := rolldpos.GetEpochLastBlockHeight(epochNum, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
 	if raCtx.BlockHeight == lastBlkHeight {
 		grant, err = bc.createGrantRewardAction(action.EpochReward)
 		if err != nil {
@@ -1205,6 +1259,77 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	}
 
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
+}
+
+func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se action.SealedEnvelope, err error) {
+	skip = true
+	if !bc.config.Genesis.EnableBeaconChainVoting {
+		return
+	}
+	if bc.registry == nil {
+		log.L().Panic("registry cannot be nil")
+	}
+	pl, ok := bc.registry.Find(poll.ProtocolID)
+	if !ok {
+		log.L().Panic("protocol poll has not been registered")
+	}
+	pp, ok := pl.(*poll.Protocol)
+	if !ok {
+		log.L().Panic("Failed to cast to poll.Protocol")
+	}
+	epochNum := rolldpos.GetEpochNum(height, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
+	epochHeight := rolldpos.GetEpochHeight(epochNum, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
+	nextEpochHeight := rolldpos.GetEpochHeight(epochNum+1, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
+	if height < epochHeight+(nextEpochHeight-epochHeight)/2 {
+		return
+	}
+	log.L().Debug(
+		"createPutPollResultAction",
+		zap.Uint64("height", height),
+		zap.Uint64("epochNum", epochNum),
+		zap.Uint64("epochHeight", epochHeight),
+		zap.Uint64("nextEpochHeight", nextEpochHeight),
+	)
+	_, err = bc.candidatesByHeight(nextEpochHeight)
+	switch errors.Cause(err) {
+	case nil:
+		return
+	case state.ErrStateNotExist:
+		skip = false
+	default:
+		return
+	}
+	l, err := pp.DelegatesByHeight(epochHeight)
+	switch errors.Cause(err) {
+	case nil:
+		if len(l) == 0 {
+			err = errors.Wrapf(
+				errDelegatesNotExist,
+				"failed to fetch delegates by epoch height %d, empty list",
+				epochHeight,
+			)
+			return
+		}
+	case db.ErrNotExist:
+		err = errors.Wrapf(
+			errDelegatesNotExist,
+			"failed to fetch delegates by epoch height %d, original error %v",
+			epochHeight,
+			err,
+		)
+		return
+	default:
+		return
+	}
+	_, sk, err := bc.config.KeyPair()
+	if err != nil {
+		log.L().Panic("Failed to get block producer private key.", zap.Error(err))
+	}
+	nonce := uint64(0)
+	pollAction := action.NewPutPollResult(nonce, nextEpochHeight, l)
+	builder := action.EnvelopeBuilder{}
+	se, err = action.Sign(builder.SetNonce(nonce).SetAction(pollAction).Build(), sk)
+	return skip, se, err
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {
@@ -1340,6 +1465,9 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
 		return err
 	}
+	if err := bc.createPollGenesisStates(ctx, ws); err != nil {
+		return err
+	}
 	if err := bc.createRewardingGenesisStates(ctx, ws); err != nil {
 		return err
 	}
@@ -1377,6 +1505,40 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 		bc.config.Genesis.EpochReward(),
 		bc.config.Genesis.NumDelegatesForEpochReward,
 	)
+}
+
+func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
+	if bc.config.Genesis.EnableBeaconChainVoting {
+		p, ok := bc.registry.Find(poll.ProtocolID)
+		if !ok {
+			return errors.Errorf("protocol %s is not found", poll.ProtocolID)
+		}
+		pp, ok := p.(*poll.Protocol)
+		if !ok {
+			return errors.Errorf("error when casting poll protocol")
+		}
+		return pp.Initialize(
+			ctx,
+			ws,
+			bc.config.Genesis.Poll.InitBeaconChainHeight,
+			bc.config.Genesis.Poll.DelegateAddresses,
+		)
+	}
+	p, ok := bc.registry.Find(vote.ProtocolID)
+	if !ok {
+		return errors.Errorf("protocol %s is not found", vote.ProtocolID)
+	}
+	actions := loadGenesisData(bc.config.Chain)
+	addrs := make([]string, len(actions.SelfNominators))
+	for i, nominator := range actions.SelfNominators {
+		pk, _ := decodeKey(nominator.PubKey, "")
+		addrs[i] = generateAddr(pk)
+	}
+	vp, ok := p.(*vote.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting vote protocol")
+	}
+	return vp.Initialize(ctx, ws, addrs)
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {

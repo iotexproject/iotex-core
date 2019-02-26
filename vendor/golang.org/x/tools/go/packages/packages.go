@@ -19,6 +19,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"golang.org/x/tools/go/gcexportdata"
@@ -773,6 +774,11 @@ func (ld *loader) parseFiles(filenames []string) ([]*ast.File, []error) {
 	parsed := make([]*ast.File, n)
 	errors := make([]error, n)
 	for i, file := range filenames {
+		if ld.Config.Context.Err() != nil {
+			parsed[i] = nil
+			errors[i] = ld.Config.Context.Err()
+			continue
+		}
 		wg.Add(1)
 		go func(i int, filename string) {
 			ioLimit <- true // wait
@@ -833,7 +839,7 @@ func sameFile(x, y string) bool {
 		// overlay case implies x==y.)
 		return true
 	}
-	if filepath.Base(x) == filepath.Base(y) { // (optimisation)
+	if strings.EqualFold(filepath.Base(x), filepath.Base(y)) { // (optimisation)
 		if xi, err := os.Stat(x); err == nil {
 			if yi, err := os.Stat(y); err == nil {
 				return os.SameFile(xi, yi)

@@ -9,7 +9,7 @@ env:
     - IPFS_REUSEPORT=false
 
 go:
-    - 1.9.x
+    - 1.11.x
 
 install:
   - make deps

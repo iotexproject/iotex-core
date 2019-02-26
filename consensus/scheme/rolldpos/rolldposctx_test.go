@@ -114,7 +114,7 @@ func TestRollDPoSCtx(t *testing.T) {
 			ctrl,
 			cfg,
 			func(blockchain *mock_blockchain.MockBlockchain) {
-				blockchain.EXPECT().GetBlockByHeight(blockHeight).Return(blk, nil).Times(4)
+				blockchain.EXPECT().GetBlockByHeight(gomock.Any()).Return(blk, nil).Times(4)
 				blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 					{Address: candidates[0]},
 					{Address: candidates[1]},

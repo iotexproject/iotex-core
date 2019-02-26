@@ -180,6 +180,19 @@ func TestSDBCandidates(t *testing.T) {
 	testCandidates(sdb, t, false)
 }
 
+func candidatesByHeight(sf Factory, height uint64) ([]*state.Candidate, error) {
+	for {
+		candidates, err := sf.CandidatesByHeight(height)
+		if err == nil {
+			return candidates, err
+		}
+		if height == 0 {
+			return nil, errors.New("not found")
+		}
+		height--
+	}
+}
+
 func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 
 	// Create three dummy iotex addresses
@@ -294,7 +307,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":70", b + ":210"}))
 	// a(a):70(+0=70) b(b):210(+0=210) !c:320
 
@@ -317,7 +330,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
@@ -340,7 +353,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):90(0) b(b):190(+90=280) !c:320
 
@@ -363,7 +376,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
@@ -382,7 +395,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":210", b + ":70"}))
 	// a(b):70(210) b(a):210(70) !c:320
 
@@ -401,7 +414,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
@@ -420,7 +433,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
@@ -439,7 +452,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":300"}))
 	// a(b):90(0) b(b):210(+90=300) !c:300
 
@@ -458,7 +471,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":300"}))
 	// a(b):90(300) b(b):210(+90=300) !c(a):300
 
@@ -477,7 +490,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":90"}))
 	// a(b):90(300) b(c):210(90) !c(a):300
 
@@ -496,7 +509,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
@@ -515,7 +528,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
@@ -534,7 +547,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", d + ":100"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510) d(d): 100(100)
 
@@ -553,7 +566,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
@@ -572,7 +585,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":210", d + ":300"}))
 	// a(b):90(100) b(c):210(90) c(d):300(210) d(a): 100(300)
 
@@ -591,7 +604,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
@@ -619,7 +632,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", a + ":100"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) !e:500
 
@@ -638,7 +651,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", e + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500)
 
@@ -657,7 +670,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{f + ":300", e + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500) f(f):300(+0=300)
 
@@ -691,7 +704,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{d + ":300", e + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(300) e(e):500(+0=500) f(d):300(0)
 
@@ -710,7 +723,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":310", e + ":500"}))
 	// a(b):90(100) b(c):210(90) c(c):100(+210=310) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 	//fmt.Printf("%v \n", voteForm(sf.candidatesBuffer()))
@@ -730,7 +743,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", e + ":500"}))
 	// a(b):100(100) b(c):200(100) c(c):100(+200=300) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 
@@ -751,7 +764,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	h, err = sf.Height()
 	require.Equal(t, uint64(23), h)
 	require.NoError(t, err)
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", a + ":400"}))
 	// a(b):100(400) b(c):200(100) c(c):100(+200=300) d(a): 400(100) e(e):200(+0=200) f(d):100(0)
 
@@ -781,7 +794,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	h, err = sf.Height()
 	require.Equal(t, uint64(24), h)
 	require.NoError(t, err)
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", b + ":500"}))
 	// a(b):100(0) b(c):200(500) c(c):100(+200=300) d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
@@ -802,7 +815,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	h, _ = sf.Height()
 	require.Equal(t, uint64(25), h)
 	require.NoError(t, err)
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
@@ -823,7 +836,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	h, _ = sf.Height()
 	require.Equal(t, uint64(26), h)
 	require.NoError(t, err)
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 	stateA, err := accountutil.LoadOrCreateAccount(ws, a, big.NewInt(0))

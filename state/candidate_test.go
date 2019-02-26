@@ -23,19 +23,16 @@ func TestCandidate(t *testing.T) {
 	require := require.New(t)
 
 	cand1 := &Candidate{
-		Address:   testaddress.Addrinfo["alfa"].String(),
-		PublicKey: testaddress.Keyinfo["alfa"].PubKey,
-		Votes:     big.NewInt(1),
+		Address: testaddress.Addrinfo["alfa"].String(),
+		Votes:   big.NewInt(1),
 	}
 	cand2 := &Candidate{
-		Address:   testaddress.Addrinfo["bravo"].String(),
-		PublicKey: testaddress.Keyinfo["bravo"].PubKey,
-		Votes:     big.NewInt(2),
+		Address: testaddress.Addrinfo["bravo"].String(),
+		Votes:   big.NewInt(2),
 	}
 	cand3 := &Candidate{
-		Address:   testaddress.Addrinfo["charlie"].String(),
-		PublicKey: testaddress.Keyinfo["charlie"].PubKey,
-		Votes:     big.NewInt(3),
+		Address: testaddress.Addrinfo["charlie"].String(),
+		Votes:   big.NewInt(3),
 	}
 
 	cand1Addr, err := address.FromString(cand1.Address)
