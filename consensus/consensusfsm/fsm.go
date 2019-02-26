@@ -177,7 +177,9 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 	// Add the backdoor transition so that we could unit test the transition from any given state
 	for _, state := range consensusStates {
 		b = b.AddTransition(state, BackdoorEvent, cm.handleBackdoorEvt, consensusStates)
-		b = b.AddTransition(state, eCalibrate, cm.calibrate, []fsm.State{sPrepare, state})
+		if state != sPrepare {
+			b = b.AddTransition(state, eCalibrate, cm.calibrate, []fsm.State{sPrepare, state})
+		}
 	}
 	m, err := b.Build()
 	if err != nil {
@@ -197,43 +199,10 @@ func (m *ConsensusFSM) Start(c context.Context) error {
 			case <-m.close:
 				running = false
 			case evt := <-m.evtq:
-				if m.ctx.IsStaleEvent(evt) {
-					m.ctx.Logger().Debug("stale event", zap.Any("event", evt))
-					continue
-				}
-				if m.ctx.IsFutureEvent(evt) {
-					m.ctx.Logger().Debug("future event", zap.Any("event", evt))
-					// TODO: find a more appropriate delay
-					m.produce(evt, m.cfg.UnmatchedEventInterval)
-					continue
-				}
-				src := m.fsm.CurrentState()
-				if err := m.fsm.Handle(evt); err != nil {
-					if errors.Cause(err) == fsm.ErrTransitionNotFound {
-						if !m.ctx.IsStaleUnmatchedEvent(evt) {
-							m.produce(evt, m.cfg.UnmatchedEventInterval)
-							m.ctx.Logger().Debug(
-								"consensus state transition could find the match",
-								zap.String("src", string(src)),
-								zap.String("evt", string(evt.Type())),
-								zap.Error(err),
-							)
-						}
-					} else {
-						m.ctx.Logger().Error(
-							"consensus state transition fails",
-							zap.String("src", string(src)),
-							zap.String("evt", string(evt.Type())),
-							zap.Error(err),
-						)
-					}
-				} else {
-					dst := m.fsm.CurrentState()
-					m.ctx.Logger().Debug(
-						"consensus state transition happens",
-						zap.String("src", string(src)),
-						zap.String("dst", string(dst)),
-						zap.String("evt", string(evt.Type())),
+				if err := m.handle(evt); err != nil {
+					m.ctx.Logger().Error(
+						"consensus state transition fails",
+						zap.Error(err),
 					)
 				}
 			}
@@ -262,11 +231,6 @@ func (m *ConsensusFSM) NumPendingEvents() int {
 
 // Calibrate calibrates the state if necessary
 func (m *ConsensusFSM) Calibrate(height uint64) {
-	// If the fsm is already at prepare state, there's no need to calibrate
-	// TODO: revisit if calibrate should be replaced by timeout
-	if m.fsm.CurrentState() == sPrepare {
-		return
-	}
 	m.produce(m.ctx.NewConsensusEvent(eCalibrate, height), 0)
 }
 
@@ -315,6 +279,50 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 	} else {
 		m.evtq <- evt
 	}
+}
+
+func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
+	if m.ctx.IsStaleEvent(evt) {
+		m.ctx.Logger().Debug("stale event", zap.Any("event", evt))
+		return nil
+	}
+	if m.ctx.IsFutureEvent(evt) {
+		m.ctx.Logger().Debug("future event", zap.Any("event", evt))
+		// TODO: find a more appropriate delay
+		m.produce(evt, m.cfg.UnmatchedEventInterval)
+		return nil
+	}
+	src := m.fsm.CurrentState()
+	err := m.fsm.Handle(evt)
+	switch errors.Cause(err) {
+	case nil:
+		m.ctx.Logger().Debug(
+			"consensus state transition happens",
+			zap.String("src", string(src)),
+			zap.String("dst", string(m.fsm.CurrentState())),
+			zap.String("evt", string(evt.Type())),
+		)
+	case fsm.ErrTransitionNotFound:
+		if m.ctx.IsStaleUnmatchedEvent(evt) {
+			break
+		}
+		m.produce(evt, m.cfg.UnmatchedEventInterval)
+		m.ctx.Logger().Debug(
+			"consensus state transition could find the match",
+			zap.String("src", string(src)),
+			zap.String("evt", string(evt.Type())),
+			zap.Error(err),
+		)
+		return err
+	default:
+		return errors.Wrapf(
+			err,
+			"failed to handle event %s with src %s",
+			string(evt.Type()),
+			string(src),
+		)
+	}
+	return nil
 }
 
 func (m *ConsensusFSM) calibrate(evt fsm.Event) (fsm.State, error) {
