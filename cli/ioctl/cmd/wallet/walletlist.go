@@ -8,6 +8,7 @@ package wallet
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
@@ -16,30 +17,23 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 )
 
-var password string
-
-// walletCreateCmd represents the wallet create command
-var walletCreateCmd = &cobra.Command{
-	Use:   "create",
-	Short: "Create new wallet for ioctl",
+// walletListCmd represents the wallet list command
+var walletListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List existing wallet for ioctl",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(walletCreate())
+		fmt.Println(walletList())
 	},
 }
 
-func init() {
-	walletCreateCmd.Flags().StringVarP(&password, "password", "p", "", "password for wallet")
-	walletCreateCmd.MarkFlagRequired("password")
-}
-
-func walletCreate() string {
+func walletList() string {
 	ks := keystore.NewKeyStore(config.ConfigDir, keystore.StandardScryptN, keystore.StandardScryptP)
-	account, err := ks.NewAccount(password)
-	if err != nil {
-		return err.Error()
+	var lines []string
+	for _, v := range ks.Accounts() {
+		addr, _ := address.FromBytes(v.Address.Bytes())
+		lines = append(lines, addr.String())
 	}
-	addr, _ := address.FromBytes(account.Address.Bytes())
-	return "New wallet \"" + addr.String() + "\" created, password = " + password +
-		"\n**Remember to save your password. The wallet will be lost if you forgot the password!!"
+	output := strings.Join(lines, "\n")
+	return output
 }

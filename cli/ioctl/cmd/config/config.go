@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	// ConfigDir is the directory to store config file
 	ConfigDir      string
 	configFileName string
 )
