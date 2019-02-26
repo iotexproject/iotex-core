@@ -117,6 +117,32 @@ func (mr *MockBlockchainMockRecorder) CandidatesByHeight(height interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockBlockchain)(nil).CandidatesByHeight), height)
 }
 
+// BlockProducersByHeight mocks base method
+func (m *MockBlockchain) BlockProducersByHeight(height uint64) ([]string, error) {
+	ret := m.ctrl.Call(m, "BlockProducersByHeight", height)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockProducersByHeight indicates an expected call of BlockProducersByHeight
+func (mr *MockBlockchainMockRecorder) BlockProducersByHeight(height interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockProducersByHeight", reflect.TypeOf((*MockBlockchain)(nil).BlockProducersByHeight), height)
+}
+
+// ActiveBlockProducersByHeight mocks base method
+func (m *MockBlockchain) ActiveBlockProducersByHeight(height uint64) ([]string, error) {
+	ret := m.ctrl.Call(m, "ActiveBlockProducersByHeight", height)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ActiveBlockProducersByHeight indicates an expected call of ActiveBlockProducersByHeight
+func (mr *MockBlockchainMockRecorder) ActiveBlockProducersByHeight(height interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveBlockProducersByHeight", reflect.TypeOf((*MockBlockchain)(nil).ActiveBlockProducersByHeight), height)
+}
+
 // GetHeightByHash mocks base method
 func (m *MockBlockchain) GetHeightByHash(h hash.Hash256) (uint64, error) {
 	ret := m.ctrl.Call(m, "GetHeightByHash", h)

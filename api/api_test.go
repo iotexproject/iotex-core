@@ -42,6 +42,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const (
@@ -343,6 +344,47 @@ var (
 			methodName: "Wrong Method",
 			addr:       ta.Addrinfo["producer"].String(),
 			returnErr:  true,
+		},
+	}
+
+	readBlockProducersByHeightTests = []struct {
+		// Arguments
+		methodName string
+		height uint64
+		// Expected Values
+		numBlockProducers int
+	} {
+		{
+			methodName: "BlockProducersByHeight",
+			height: 0,
+			numBlockProducers: 24,
+		},
+		{
+			methodName: "BlockProducersByHeight",
+			height: 4,
+			numBlockProducers: 26,
+		},
+	}
+
+	readActiveProducersByHeightTests = []struct {
+		// Arguments
+		methodName string
+		numDelegates uint64
+		height uint64
+		// Expected Values
+		numActiveBlockProducers int
+	} {
+		{
+			methodName: "ActiveBlockProducersByHeight",
+			numDelegates: 25,
+			height: 0,
+			numActiveBlockProducers: 24,
+		},
+		{
+			methodName: "ActiveBlockProducersByHeight",
+			numDelegates: 21,
+			height: 4,
+			numActiveBlockProducers: 21,
 		},
 	}
 )
@@ -749,6 +791,54 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 		val, ok := big.NewInt(0).SetString(string(out.Data), 10)
 		require.True(t, ok)
 		assert.Equal(t, test.balance, val)
+	}
+}
+
+func TestServer_ReadBlockProducersByHeight(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
+
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+
+	for _, test := range readBlockProducersByHeightTests {
+		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+			MethodName: []byte(test.methodName),
+			Arguments: [][]byte{byteutil.Uint64ToBytes(test.height)},
+		})
+		require.NoError(err)
+		var blockProducers iotextypes.BlockProducerList
+		require.NoError(proto.Unmarshal(res.Data, &blockProducers))
+		require.Equal(test.numBlockProducers, len(blockProducers.BlockProducers))
+	}
+}
+
+func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
+
+	for _, test := range readActiveProducersByHeightTests {
+		cfg.Genesis.NumDelegates = test.numDelegates
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+			MethodName: []byte(test.methodName),
+			Arguments: [][]byte{byteutil.Uint64ToBytes(test.height)},
+		})
+		require.NoError(err)
+		var activeBlockProducers iotextypes.BlockProducerList
+		require.NoError(proto.Unmarshal(res.Data, &activeBlockProducers))
+		require.Equal(test.numActiveBlockProducers, len(activeBlockProducers.BlockProducers))
 	}
 }
 

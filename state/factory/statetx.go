@@ -64,6 +64,7 @@ func (stx *stateTX) RunActions(
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
+	stx.blkHeight = blockHeight
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {

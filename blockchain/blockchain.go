@@ -74,6 +74,10 @@ type Blockchain interface {
 	CreateState(addr string, init *big.Int) (*state.Account, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
+	// BlockProducersByHeight returns block producers by given height
+	BlockProducersByHeight(height uint64) ([]string, error)
+	// ActiveDelegatesByHeight returns active block producers by a given height
+	ActiveBlockProducersByHeight(height uint64) ([]string, error)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(h hash.Hash256) (uint64, error)
@@ -368,6 +372,25 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 // CandidatesByHeight returns the candidate list by a given height
 func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	return bc.candidatesByHeight(height)
+}
+
+// BlockProducersByHeight returns all block producers by a given height
+func (bc *blockchain) BlockProducersByHeight(height uint64) ([]string, error) {
+	return bc.blockProducersByHeight(height)
+}
+
+// ActiveBlockProducersByHeight returns all active block producers by a given height
+func (bc *blockchain) ActiveBlockProducersByHeight(height uint64) ([]string, error) {
+	blockProducers, err := bc.blockProducersByHeight(height)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get block producers on height %d", height)
+	}
+	epochNum := rolldpos.GetEpochNum(height, bc.config.Genesis.NumDelegates, bc.config.Genesis.NumSubEpochs)
+	crypto.SortCandidates(blockProducers, epochNum, crypto.CryptoSeed)
+	if uint64(len(blockProducers)) < bc.config.Genesis.NumDelegates {
+		return blockProducers, nil
+	}
+	return blockProducers[:bc.config.Genesis.NumDelegates], nil
 }
 
 // GetHeightByHash returns block's height by hash
@@ -943,6 +966,21 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 		}
 		height--
 	}
+}
+
+func (bc *blockchain) blockProducersByHeight(height uint64) ([]string, error) {
+	candidates, err := bc.candidatesByHeight(height)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get block producers on height %d", height)
+	}
+	blockProducers := make([]string, 0)
+	for i, candidate := range candidates {
+		if uint64(i) >= bc.config.Genesis.NumCandidateDelegates {
+			break
+		}
+		blockProducers = append(blockProducers, candidate.Address)
+	}
+	return blockProducers, nil
 }
 
 func (bc *blockchain) getBlockByHeight(height uint64) (*block.Block, error) {
