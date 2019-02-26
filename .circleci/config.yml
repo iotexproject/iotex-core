@@ -30,6 +30,7 @@ jobs:
       - run: make minicluster
       - store_test_results:
           path: /tmp/test_report_upload
+      - run: ls -l /tmp/test_report_upload    
   nightly:
     docker:
       # specify the version
