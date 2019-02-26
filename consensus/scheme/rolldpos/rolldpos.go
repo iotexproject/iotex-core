@@ -106,8 +106,9 @@ func (ew *endorsementWrapper) Topic() endorsement.ConsensusVoteTopic {
 
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
-	cfsm *consensusfsm.ConsensusFSM
-	ctx  *rollDPoSCtx
+	cfsm  *consensusfsm.ConsensusFSM
+	ctx   *rollDPoSCtx
+	ready chan interface{}
 }
 
 // Start starts RollDPoS consensus
@@ -117,6 +118,7 @@ func (r *RollDPoS) Start(ctx context.Context) error {
 	}
 	r.ctx.round = &roundCtx{height: 0}
 	r.cfsm.ProducePrepareEvent(r.ctx.cfg.Delay)
+	close(r.ready)
 	return nil
 }
 
@@ -127,6 +129,7 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 
 // HandleConsensusMsg handles incoming consensus message
 func (r *RollDPoS) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
+	<-r.ready
 	consensusHeight := r.ctx.Height()
 	if consensusHeight != 0 && msg.Height < consensusHeight {
 		log.L().Debug(
@@ -375,7 +378,8 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
 	}
 	return &RollDPoS{
-		cfsm: cfsm,
-		ctx:  &ctx,
+		cfsm:  cfsm,
+		ctx:   &ctx,
+		ready: make(chan interface{}),
 	}, nil
 }
