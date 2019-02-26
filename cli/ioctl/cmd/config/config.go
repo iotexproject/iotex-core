@@ -14,7 +14,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var configFileName string
+var (
+	ConfigDir      string
+	configFileName string
+)
 
 // ConfigCmd represents the config command
 var ConfigCmd = &cobra.Command{
@@ -28,10 +31,10 @@ var ConfigCmd = &cobra.Command{
 }
 
 func init() {
-	dir := os.Getenv("HOME") + "/.config/ioctl"
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	ConfigDir = os.Getenv("HOME") + "/.config/ioctl"
+	if err := os.MkdirAll(ConfigDir, 0700); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	configFileName = dir + "/config.default"
+	configFileName = ConfigDir + "/config.default"
 }
