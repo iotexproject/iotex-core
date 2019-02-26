@@ -95,6 +95,11 @@ func NewCommittee(kvstore db.KVStore, cfg Config) (Committee, error) {
 		common.HexToAddress(cfg.RegisterContractAddress),
 		common.HexToAddress(cfg.StakingContractAddress),
 	)
+	zap.L().Info(
+		"Carrier created",
+		zap.String("registerContractAddress", cfg.RegisterContractAddress),
+		zap.String("stakingContractAddress", cfg.StakingContractAddress),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +189,7 @@ func (ec *committee) Stop(ctx context.Context) error {
 	defer ec.mutex.Unlock()
 	ec.terminate <- true
 	ec.carrier.Close()
-	return nil
+	return ec.db.Stop(ctx)
 }
 
 func (ec *committee) OnNewBlock(tipHeight uint64) {
