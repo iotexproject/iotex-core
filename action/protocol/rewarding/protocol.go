@@ -10,11 +10,13 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/pkg/errors"
+
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -38,20 +40,27 @@ var (
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
+	cm        protocol.ChainManager
 	keyPrefix []byte
 	addr      address.Address
+	// TODO: these should be migrate to rolldpos protocol
+	numDelegates uint64
+	numSubEpochs uint64
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol() *Protocol {
+func NewProtocol(cm protocol.ChainManager, numDelegates uint64, numSubEpochs uint64) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
 	}
 	return &Protocol{
-		keyPrefix: h[:],
-		addr:      addr,
+		cm:           cm,
+		keyPrefix:    h[:],
+		addr:         addr,
+		numDelegates: numDelegates,
+		numSubEpochs: numSubEpochs,
 	}
 }
 
@@ -112,6 +121,32 @@ func (p *Protocol) Validate(
 	return nil
 }
 
+// ReadState read the state on blockchain via protocol
+func (p *Protocol) ReadState(
+	ctx context.Context,
+	sm protocol.StateManager,
+	method []byte,
+	args ...[]byte,
+) ([]byte, error) {
+	switch string(method) {
+	case "UnclaimedBalance":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		addr, err := address.FromString(string(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		balance, err := p.UnclaimedBalance(ctx, sm, addr)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(balance.String()), nil
+	default:
+		return nil, errors.New("corresponding method isn't found")
+	}
+}
+
 func (p *Protocol) state(sm protocol.StateManager, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	return sm.State(keyHash, value)
@@ -144,7 +179,7 @@ func (p *Protocol) settleAction(
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := util.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
+	acc, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
 	if err != nil {
 		return err
 	}
@@ -152,10 +187,7 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 	if nonce > acc.Nonce {
 		acc.Nonce = nonce
 	}
-	if err := util.StoreAccount(sm, addr.String(), acc); err != nil {
-		return err
-	}
-	return nil
+	return accountutil.StoreAccount(sm, addr.String(), acc)
 }
 
 func (p *Protocol) createReceipt(status uint64, actHash hash.Hash256, gasConsumed uint64) *action.Receipt {

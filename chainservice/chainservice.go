@@ -11,14 +11,15 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-election/committee"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -26,12 +27,12 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/explorer"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
@@ -39,15 +40,16 @@ import (
 
 // ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
-	actpool      actpool.ActPool
-	blocksync    blocksync.BlockSync
-	consensus    consensus.Consensus
-	chain        blockchain.Blockchain
-	explorer     *explorer.Server
-	api          *api.Server
-	indexBuilder *blockchain.IndexBuilder
-	indexservice *indexservice.Server
-	registry     *protocol.Registry
+	actpool           actpool.ActPool
+	blocksync         blocksync.BlockSync
+	consensus         consensus.Consensus
+	chain             blockchain.Blockchain
+	electionCommittee committee.Committee
+	explorer          *explorer.Server
+	api               *api.Server
+	indexBuilder      *blockchain.IndexBuilder
+	indexservice      *indexservice.Server
+	registry          *protocol.Registry
 }
 
 type optionParams struct {
@@ -90,9 +92,10 @@ func New(
 	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
 ) (*ChainService, error) {
+	var err error
 	var ops optionParams
 	for _, opt := range opts {
-		if err := opt(&ops); err != nil {
+		if err = opt(&ops); err != nil {
 			return nil, err
 		}
 	}
@@ -110,8 +113,19 @@ func New(
 		}
 	}
 	registry := protocol.Registry{}
-	chainOpts = append(chainOpts, blockchain.GenesisOption(ops.genesisConfig), blockchain.RegistryOption(&registry))
-
+	chainOpts = append(chainOpts, blockchain.RegistryOption(&registry))
+	var electionCommittee committee.Committee
+	if cfg.Genesis.EnableBeaconChainVoting {
+		committeeConfig := cfg.Genesis.Poll.CommitteeConfig
+		committeeConfig.BeaconChainAPI = cfg.Chain.BeaconChainAPI
+		kvstore := db.NewOnDiskDB(cfg.Chain.BeaconChainDB)
+		if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
+			kvstore,
+			committeeConfig,
+		); err != nil {
+			return nil, err
+		}
+	}
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
 	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
@@ -126,7 +140,6 @@ func New(
 	}
 
 	var indexBuilder *blockchain.IndexBuilder
-	var err error
 	if cfg.Chain.EnableIndex && cfg.Chain.EnableAsyncIndexWrite {
 		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
@@ -205,6 +218,7 @@ func New(
 			dispatcher,
 			actPool,
 			idx,
+			&registry,
 			api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 				ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 				return p2pAgent.BroadcastOutbound(ctx, msg)
@@ -216,15 +230,16 @@ func New(
 	}
 
 	return &ChainService{
-		actpool:      actPool,
-		chain:        chain,
-		blocksync:    bs,
-		consensus:    consensus,
-		indexservice: idx,
-		indexBuilder: indexBuilder,
-		explorer:     exp,
-		api:          apiSvr,
-		registry:     &registry,
+		actpool:           actPool,
+		chain:             chain,
+		blocksync:         bs,
+		consensus:         consensus,
+		electionCommittee: electionCommittee,
+		indexservice:      idx,
+		indexBuilder:      indexBuilder,
+		explorer:          exp,
+		api:               apiSvr,
+		registry:          &registry,
 	}, nil
 }
 
@@ -233,6 +248,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if cs.indexservice != nil {
 		if err := cs.indexservice.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when starting indexservice")
+		}
+	}
+	if cs.electionCommittee != nil {
+		if err := cs.electionCommittee.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting election committee")
 		}
 	}
 	if err := cs.chain.Start(ctx); err != nil {
@@ -303,15 +323,6 @@ func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action
 		return err
 	}
 	if err := cs.actpool.Add(act); err != nil {
-		callerPKHash := keypair.HashPubKey(act.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
-		if err != nil {
-			return err
-		}
-		log.L().Debug("Failed to add action.",
-			zap.Error(err),
-			zap.String("src", callerAddr.String()),
-			zap.Uint64("nonce", act.Nonce()))
 		return err
 	}
 	return nil
@@ -366,6 +377,11 @@ func (cs *ChainService) Consensus() consensus.Consensus {
 // BlockSync returns the block syncer
 func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
+}
+
+// ElectionCommittee returns the election committee
+func (cs *ChainService) ElectionCommittee() committee.Committee {
+	return cs.electionCommittee
 }
 
 // IndexService returns the indexservice instance

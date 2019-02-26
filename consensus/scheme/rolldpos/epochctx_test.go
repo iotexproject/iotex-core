@@ -17,46 +17,11 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-func TestGetEpochHeight(t *testing.T) {
-	require := require.New(t)
-	numDelegates := uint(4)
-	numSubEpochs := uint(3)
-	epochNums := []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	expectedHeights := []uint64{1, 13, 25, 37, 49, 61, 73, 85, 97, 109}
-	for i, epochNum := range epochNums {
-		height := getEpochHeight(epochNum, numDelegates, numSubEpochs)
-		require.Equal(expectedHeights[i], height)
-	}
-}
-
-func TestGetEpochNum(t *testing.T) {
-	require := require.New(t)
-	numDelegates := uint(4)
-	numSubEpochs := uint(3)
-	epochHeights := []uint64{1, 12, 25, 38, 53, 59, 80, 90, 93, 120}
-	expectedNums := []uint64{1, 1, 3, 4, 5, 5, 7, 8, 8, 10}
-	for i, epochHeight := range epochHeights {
-		num := getEpochNum(epochHeight, numDelegates, numSubEpochs)
-		require.Equal(expectedNums[i], num)
-	}
-}
-
-func TestGetSubEpochNum(t *testing.T) {
-	require := require.New(t)
-	numDelegates := uint(4)
-	numSubEpochs := uint(3)
-	epochHeights := []uint64{1, 12, 25, 38, 53, 59, 80, 90, 93, 120}
-	expectedSubEpochNums := []uint64{0, 2, 0, 0, 1, 2, 1, 1, 2, 2}
-	for i, epochHeight := range epochHeights {
-		subEpochNum := getSubEpochNum(epochHeight, numDelegates, numSubEpochs)
-		require.Equal(expectedSubEpochNums[i], subEpochNum)
-	}
-}
-
 func TestNewEpochCtx(t *testing.T) {
 	require := require.New(t)
-	numDelegates := uint(24)
-	numSubEpochs := uint(360)
+	numDelegates := uint64(24)
+	numCandidateDelegates := uint64(36)
+	numSubEpochs := uint64(360)
 	candidates := []*state.Candidate{}
 	addrs := []string{}
 	for i := 0; i < 24; i++ {
@@ -66,19 +31,19 @@ func TestNewEpochCtx(t *testing.T) {
 	f := func(uint64) ([]*state.Candidate, error) {
 		return candidates, errors.New("some error")
 	}
-	epoch, err := newEpochCtx(numDelegates, numSubEpochs, 1, f)
+	epoch, err := newEpochCtx(numCandidateDelegates, numDelegates, numSubEpochs, 1, f)
 	require.Error(err)
 	require.Nil(epoch)
 	f = func(uint64) ([]*state.Candidate, error) {
 		return candidates[:20], nil
 	}
-	epoch, err = newEpochCtx(numDelegates, numSubEpochs, 1, f)
+	epoch, err = newEpochCtx(numCandidateDelegates, numDelegates, numSubEpochs, 1, f)
 	require.Error(err)
 	require.Nil(epoch)
 	f = func(uint64) ([]*state.Candidate, error) {
 		return candidates[:24], nil
 	}
-	epoch, err = newEpochCtx(numDelegates, numSubEpochs, 1, f)
+	epoch, err = newEpochCtx(numCandidateDelegates, numDelegates, numSubEpochs, 1, f)
 	require.NoError(err)
 	require.NotNil(epoch)
 	require.Equal(uint64(1), epoch.num)

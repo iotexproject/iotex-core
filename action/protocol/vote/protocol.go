@@ -14,10 +14,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -39,6 +40,25 @@ type Protocol struct {
 // NewProtocol instantiates the protocol of vote
 func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} }
 
+// Initialize initializes the rewarding protocol by setting the original admin, block and epoch reward
+func (p *Protocol) Initialize(ctx context.Context, sm protocol.StateManager, addrs []string) error {
+	for _, addr := range addrs {
+		selfNominator, err := accountutil.LoadOrCreateAccount(sm, addr, big.NewInt(0))
+		if err != nil {
+			return errors.Wrapf(err, "failed to load or create the account of self nominator %s", addr)
+		}
+		selfNominator.IsCandidate = true
+		if err := candidatesutil.LoadAndAddCandidates(sm, addr); err != nil {
+			return err
+		}
+		if err := accountutil.StoreAccount(sm, addr, selfNominator); err != nil {
+			return errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+
+	}
+	return nil
+}
+
 // Handle handles a vote
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
@@ -47,7 +67,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, nil
 	}
 
-	voteFrom, err := util.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
+	voteFrom, err := accountutil.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", raCtx.Caller.String())
 	}
@@ -74,7 +94,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 	*raCtx.GasLimit -= raCtx.IntrinsicGas
 	// Update voteFrom Nonce
-	util.SetNonce(vote, voteFrom)
+	accountutil.SetNonce(vote, voteFrom)
 	prevVotee := voteFrom.Votee
 	voteFrom.Votee = vote.Votee()
 	if vote.Votee() == "" {
@@ -87,25 +107,31 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	} else if raCtx.Caller.String() == vote.Votee() {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
-		if err := candidatesutil.LoadAndAddCandidates(sm, vote); err != nil {
+		votePubkey := vote.VoterPublicKey()
+		callerPKHash := keypair.HashPubKey(votePubkey)
+		addr, err := address.FromBytes(callerPKHash[:])
+		if err != nil {
+			return nil, err
+		}
+		if err := candidatesutil.LoadAndAddCandidates(sm, addr.String()); err != nil {
 			return nil, errors.Wrap(err, "failed to load and add candidates")
 		}
 	}
 	// Put updated voter's state to trie
-	if err := util.StoreAccount(sm, raCtx.Caller.String(), voteFrom); err != nil {
+	if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), voteFrom); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
 	// Update old votee's weight
 	if len(prevVotee) > 0 {
 		// voter already voted
-		oldVotee, err := util.LoadOrCreateAccount(sm, prevVotee, big.NewInt(0))
+		oldVotee, err := accountutil.LoadOrCreateAccount(sm, prevVotee, big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of voter's old votee %s", prevVotee)
 		}
 		oldVotee.VotingWeight.Sub(oldVotee.VotingWeight, voteFrom.Balance)
 		// Put updated state of voter's old votee to trie
-		if err := util.StoreAccount(sm, prevVotee, oldVotee); err != nil {
+		if err := accountutil.StoreAccount(sm, prevVotee, oldVotee); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
@@ -117,7 +143,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 
 	if vote.Votee() != "" {
-		voteTo, err := util.LoadOrCreateAccount(sm, vote.Votee(), big.NewInt(0))
+		voteTo, err := accountutil.LoadOrCreateAccount(sm, vote.Votee(), big.NewInt(0))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load or create the account of votee %s", vote.Votee())
 		}
@@ -125,7 +151,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		voteTo.VotingWeight.Add(voteTo.VotingWeight, voteFrom.Balance)
 
 		// Put updated votee's state to trie
-		if err := util.StoreAccount(sm, vote.Votee(), voteTo); err != nil {
+		if err := accountutil.StoreAccount(sm, vote.Votee(), voteTo); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		// Update candidate map
@@ -148,6 +174,9 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 
 	vote, ok := act.(*action.Vote)
 	if !ok {
+		if _, ok := act.(*action.PutPollResult); ok {
+			return errors.New("with vote protocol, put poll result action cannot be processed")
+		}
 		return nil
 	}
 	// Reject oversized vote
@@ -171,4 +200,9 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 		}
 	}
 	return nil
+}
+
+// ReadState read the state on blockchain via protocol
+func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error) {
+	return nil, protocol.ErrUnimplemented
 }

@@ -9,26 +9,28 @@ package blockchain
 import (
 	"io/ioutil"
 	"math/big"
+	"os"
+
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 const (
-	testnetActionPath = "testnet_actions.yaml"
+	testnetActionPath       = "testnet_actions.yaml"
+	systemTestnetActionPath = "/etc/iotex/testnet_actions.yaml"
 	// GenesisProducerPublicKey is only used for test
-	GenesisProducerPublicKey = "0444b7ac782c60e90b1aa263fe4d61dbe73bf8260d3e773ce9f4f0dbc181e8e5f2e3b6f6d4cf47f1d53af95cf24b88b92037125c7bf6f63b55bebbb8579b3a9b24"
+	GenesisProducerPublicKey = "04e93b5b1c8fba69263652a483ad55318e4eed5b5122314cb7fdb077d8c7295097cec92ee50b1108dc7495a9720e5921e56d3048e37abe6a6716d7c9b913e9f2e6"
 	// GenesisProducerPrivateKey is only used for test
 	GenesisProducerPrivateKey = "bace9b2435db45b119e1570b4ea9c57993b2311e0c408d743d87cd22838ae892"
 	// TODO: Gensis block producer's keypair should be a config. Note genesis block producer is not the creator
@@ -102,47 +104,7 @@ func (g *Genesis) CreatorPKHash() hash.Hash160 {
 // NewGenesisActions creates a new genesis block
 func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.SealedEnvelope {
 	actions := loadGenesisData(chainCfg)
-	// add initial allocation
-	alloc := big.NewInt(0)
-	for _, transfer := range actions.Transfers {
-		rpk, _ := decodeKey(transfer.RecipientPK, "")
-		recipientAddr := generateAddr(rpk)
-		amount := unit.ConvertIotxToRau(transfer.Amount)
-		_, err := util.LoadOrCreateAccount(ws, recipientAddr, amount)
-		if err != nil {
-			log.L().Panic("Failed to add initial allocation.", zap.Error(err))
-		}
-		alloc.Add(alloc, amount)
-	}
-	// add creator
-	Gen.CreatorPubKey = actions.Creation.PubKey
-	creatorAddr := Gen.CreatorAddr()
-	_, err := util.LoadOrCreateAccount(ws, creatorAddr, alloc.Sub(Gen.TotalSupply, alloc))
-	if err != nil {
-		log.L().Panic("Failed to add creator.", zap.Error(err))
-	}
-
-	// TODO: convert vote to state operation as well
 	acts := make([]action.SealedEnvelope, 0)
-	for _, nominator := range actions.SelfNominators {
-		pk, _ := decodeKey(nominator.PubKey, "")
-		address := generateAddr(pk)
-		vote, err := action.NewVote(
-			0,
-			address,
-			0,
-			big.NewInt(0),
-		)
-		if err != nil {
-			log.L().Panic("Fail to create the new vote action.", zap.Error(err))
-		}
-		bd := action.EnvelopeBuilder{}
-		elp := bd.SetDestinationAddress(address).
-			SetAction(vote).Build()
-		selp := action.FakeSeal(elp, pk)
-		acts = append(acts, selp)
-	}
-
 	// TODO: decouple start sub-chain from genesis block
 	if chainCfg.EnableSubChainStartInGenesis {
 		for _, sc := range actions.SubChains {
@@ -158,7 +120,7 @@ func NewGenesisActions(chainCfg config.Chain, ws factory.WorkingSet) []action.Se
 			)
 			bd := action.EnvelopeBuilder{}
 			elp := bd.SetAction(start).Build()
-			pk, _ := decodeKey(Gen.CreatorPubKey, "")
+			pk, _ := decodeKey(actions.Creation.PubKey, "")
 			selp := action.FakeSeal(elp, pk)
 			acts = append(acts, selp)
 		}
@@ -198,10 +160,11 @@ func loadGenesisData(chainCfg config.Chain) GenesisAction {
 	var filePath string
 	if chainCfg.GenesisActionsPath != "" {
 		filePath = chainCfg.GenesisActionsPath
-	} else {
+	} else if _, err := os.Stat(fileutil.GetFileAbsPath(testnetActionPath)); err == nil {
 		filePath = fileutil.GetFileAbsPath(testnetActionPath)
+	} else if _, err := os.Stat(systemTestnetActionPath); err == nil {
+		filePath = systemTestnetActionPath
 	}
-
 	actionsBytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		log.L().Panic("Fail to load genesis data.", zap.Error(err))

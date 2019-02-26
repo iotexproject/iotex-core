@@ -49,7 +49,7 @@ func newSyncWorker(
 		targetHeight:     0,
 		rrIdx:            0,
 	}
-	if interval := syncTaskInterval(cfg); interval != 0 {
+	if cfg.BlockSync.Interval != 0 {
 		w.task = routine.NewRecurringTask(w.Sync, cfg.BlockSync.Interval)
 	}
 	return w

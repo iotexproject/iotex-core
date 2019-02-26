@@ -121,7 +121,7 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 			if err != nil {
 				return err
 			}
-			p.nonces.Store(addr, resp.GetAccountMeta().GetNonce())
+			p.nonces.Store(addr, resp.GetAccountMeta().GetPendingNonce())
 			return nil
 		}, backoff.NewExponentialBackOff())
 		if err != nil {
@@ -286,7 +286,8 @@ func inject(args []string) string {
 
 func init() {
 	flag := injectCmd.Flags()
-	flag.StringVar(&injectCfg.configPath, "injector-config-path", "./tools/actioninjector/gentsfaddrs.yaml", "path of config file of genesis transfer addresses")
+	flag.StringVar(&injectCfg.configPath, "injector-config-path", "./tools/actioninjector.v2/gentsfaddrs.yaml",
+		"path of config file of genesis transfer addresses")
 	flag.StringVar(&injectCfg.serverAddr, "addr", "127.0.0.1:14004", "target ip:port for grpc connection")
 	flag.Uint64Var(&injectCfg.transferGasLimit, "transfer-gas-limit", 20000, "transfer gas limit")
 	flag.Int64Var(&injectCfg.rawTransferGasPrice, "transfer-gas-price", 10, "transfer gas price")

@@ -13,18 +13,21 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/util"
@@ -72,9 +75,9 @@ func main() {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
 		networkPort := 4689 + i
-		explorerPort := 14004 + i
+		apiPort := 14014 + i
 		config := newConfig(genesisConfigPath, chainDBPath, trieDBPath, chainAddrs[i].PriKey,
-			networkPort, explorerPort)
+			networkPort, apiPort)
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
 			config.Network.MasterKey = "bootnode"
@@ -91,20 +94,42 @@ func main() {
 		}
 		svrs[i] = svr
 	}
+
+	// Create and start probe servers
+	probeSvrs := make([]*probe.Server, numNodes)
+	for i := 0; i < numNodes; i++ {
+		probeSvrs[i] = probe.New(7788 + i)
+	}
+	for i := 0; i < numNodes; i++ {
+		err = probeSvrs[i].Start(context.Background())
+		if err != nil {
+			log.L().Panic("Failed to start probe server")
+		}
+	}
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(context.Background(), svrs[i], probe.New(7788), configs[i])
+		go itx.StartServer(context.Background(), svrs[i], probeSvrs[i], configs[i])
 	}
 
-	if err := testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		return svrs[0].ChainService(uint32(1)).Explorer().Port() == 14004, nil
+	if err := testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+		ret := true
+		for i := 0; i < numNodes; i++ {
+			resp, err := http.Get("http://localhost:" + strconv.Itoa(7788+i) + "/readiness")
+			if err != nil || http.StatusOK != resp.StatusCode {
+				ret = false
+			}
+		}
+		return ret, nil
 	}); err != nil {
-		log.L().Fatal("Failed to start explorer JSON-RPC server", zap.Error(err))
+		log.L().Fatal("Failed to start API server", zap.Error(err))
 	}
-
-	// target address for jrpc connection. Default is "127.0.0.1:14004"
-	jrpcAddr := "127.0.0.1:14004"
-	client := explorer.NewExplorerProxy("http://" + jrpcAddr)
+	// target address for grpc connection. Default is "127.0.0.1:14014"
+	grpcAddr := "127.0.0.1:14014"
+	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
+	if err != nil {
+		log.L().Error("Failed to connect to API server.")
+	}
+	client := iotexapi.NewAPIServiceClient(conn)
 
 	counter, err := util.InitCounter(client, chainAddrs)
 	if err != nil {
@@ -175,13 +200,12 @@ func main() {
 				log.S().Errorf("Node %d: Can not get State height", i)
 			}
 			bcHeights[i] = chains[i].TipHeight()
-			cfg := configs[i].Consensus.RollDPoS
-			minTimeout = int(cfg.Delay/time.Second - cfg.DelegateInterval/time.Second)
+			minTimeout = int(configs[i].Consensus.RollDPoS.Delay/time.Second - configs[i].Genesis.BlockInterval/time.Second)
 			netTimeout = 0
 			if timeout > minTimeout {
 				netTimeout = timeout - minTimeout
 			}
-			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / cfg.DelegateInterval)
+			idealHeight[i] = uint64((time.Duration(netTimeout) * time.Second) / configs[i].Genesis.BlockInterval)
 
 			log.S().Infof("Node#%d blockchain height: %d", i, bcHeights[i])
 			log.S().Infof("Node#%d state      height: %d", i, stateHeights[i])
@@ -214,11 +238,9 @@ func newConfig(
 	trieDBPath string,
 	producerPriKey keypair.PrivateKey,
 	networkPort,
-	explorerPort int,
+	apiPort int,
 ) config.Config {
 	cfg := config.Default
-
-	cfg.NodeType = config.DelegateType
 
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
@@ -236,7 +258,6 @@ func newConfig(
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(producerPriKey)
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Consensus.RollDPoS.DelegateInterval = 10 * time.Second
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 4 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 3 * time.Second
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 3 * time.Second
@@ -244,16 +265,18 @@ func newConfig(
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
-	cfg.Consensus.RollDPoS.NumSubEpochs = 2
-	cfg.Consensus.RollDPoS.NumDelegates = numNodes
-	cfg.Consensus.RollDPoS.TimeBasedRotation = true
 
 	cfg.ActPool.MaxNumActsToPick = 2000
 
 	cfg.System.HTTPMetricsPort = 0
 
-	cfg.Explorer.Enabled = true
-	cfg.Explorer.Port = explorerPort
+	cfg.API.Enabled = true
+	cfg.API.Port = apiPort
+
+	cfg.Genesis.Blockchain.BlockInterval = 10 * time.Second
+	cfg.Genesis.Blockchain.NumSubEpochs = 2
+	cfg.Genesis.Blockchain.NumDelegates = numNodes
+	cfg.Genesis.Blockchain.TimeBasedRotation = true
 
 	return cfg
 }

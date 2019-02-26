@@ -15,10 +15,9 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BUILD_TARGET_SERVER=server
-BUILD_TARGET_ACTINJ=actioninjector
 BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
-BUILD_TARGET_IOTC=iotc
+BUILD_TARGET_IOCTL=ioctl
 BUILD_TARGET_MINICLUSTER=minicluster
 
 # Pkgs
@@ -55,10 +54,9 @@ all: clean build test
 .PHONY: build
 build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJ) -v ./tools/actioninjector
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOTC) -v ./cli/iotc
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 
 .PHONY: fmt
@@ -123,7 +121,6 @@ dev-deps:
 clean:
 	@echo "Cleaning..."
 	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_SERVER)
-	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_ACTINJ)
 	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_ADDRGEN)
 	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_IOTC)
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
@@ -149,13 +146,6 @@ run:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER) 
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
 	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
-
-.PHONY: fullnode
-fullnode:
-	$(ECHO_V)rm -rf ./e2etest/*chain*.db
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
-	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_fullnode.yaml
 
 .PHONY: docker
 docker:

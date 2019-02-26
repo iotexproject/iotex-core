@@ -161,7 +161,7 @@ func (b *badgerDB) batchPutForceFail(namespace string, key [][]byte, value [][]b
 		}
 		for i := 0; i < len(key); i++ {
 			k := []byte(namespace)
-			k = append(k, []byte(key[i])...)
+			k = append(k, key[i]...)
 			if err := txn.Set(k, value[i]); err != nil {
 				return err
 			}

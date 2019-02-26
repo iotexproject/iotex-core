@@ -1,0 +1,43 @@
+// Copyright (c) 2019 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
+syntax = "proto3";
+package election;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+message Vote {
+	bytes voter = 1;
+	bytes candidate = 2;
+	bytes amount = 3;
+	bytes weightedAmount = 4;
+    google.protobuf.Timestamp startTime = 5;
+	google.protobuf.Duration duration = 6;
+	bool decay = 7;
+}
+
+message VoteList {
+	repeated Vote votes = 1;
+}
+
+message Candidate {
+	bytes name = 1;
+	bytes address = 2;
+	bytes operatorAddress = 3;
+	bytes rewardAddress = 4;
+	uint64 selfStakingWeight = 5;
+	bytes score = 6;
+	bytes selfStakingScore = 7;
+}
+
+message ElectionResult {
+	google.protobuf.Timestamp timestamp = 1;
+    repeated Candidate delegates = 2;
+    repeated VoteList delegateVotes = 3;
+}

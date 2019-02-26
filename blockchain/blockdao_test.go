@@ -13,13 +13,14 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -30,15 +31,14 @@ import (
 func TestBlockDAO(t *testing.T) {
 
 	getBlocks := func() []*block.Block {
-		genesisConfig := genesis.Default
 		amount := uint64(50 << 22)
-		tsf1, err := testutil.SignedTransfer(testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, big.NewInt(int64(amount)), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
+		tsf1, err := testutil.SignedTransfer(testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		tsf2, err := testutil.SignedTransfer(testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey, 2, big.NewInt(int64(amount)), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
+		tsf2, err := testutil.SignedTransfer(testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey, 2, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		tsf3, err := testutil.SignedTransfer(testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 3, big.NewInt(int64(amount)), nil, genesisConfig.Blockchain.ActionGasLimit, big.NewInt(0))
+		tsf3, err := testutil.SignedTransfer(testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 3, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
 		// create testing votes
@@ -437,61 +437,63 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, executionHash3, contractExecutions[2])
 
 		return
-		// TODO: enable the tests bellow after we deprecate the old index ways and conform to index everything in the
-		// generic way
+		/*
+			// TODO: enable the tests bellow after we deprecate the old index ways and conform to index everything in the
+			// generic way
 
-		// Test get actions
-		senderActionCount, err := getActionCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].String())
-		require.NoError(t, err)
-		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err := getActionsBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].String())
-		require.NoError(t, err)
-		require.Equal(t, 4, len(senderActions))
-		require.Equal(t, depositHash1, senderActions[3])
-		recipientActionCount, err := getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].String())
-		require.NoError(t, err)
-		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err := getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].String())
-		require.NoError(t, err)
-		require.Equal(t, 2, len(recipientActions))
+			// Test get actions
+			senderActionCount, err := getActionCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].String())
+			require.NoError(t, err)
+			require.Equal(t, uint64(4), senderActionCount)
+			senderActions, err := getActionsBySenderAddress(dao.kvstore, testaddress.Addrinfo["alfa"].String())
+			require.NoError(t, err)
+			require.Equal(t, 4, len(senderActions))
+			require.Equal(t, depositHash1, senderActions[3])
+			recipientActionCount, err := getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].String())
+			require.NoError(t, err)
+			require.Equal(t, uint64(2), recipientActionCount)
+			recipientActions, err := getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["alfa"].String())
+			require.NoError(t, err)
+			require.Equal(t, 2, len(recipientActions))
 
-		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].String())
-		require.NoError(t, err)
-		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = getActionsBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].String())
-		require.NoError(t, err)
-		require.Equal(t, 4, len(senderActions))
-		require.Equal(t, depositHash2, senderActions[3])
-		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].String())
-		require.NoError(t, err)
-		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].String())
-		require.NoError(t, err)
-		require.Equal(t, 2, len(recipientActions))
+			senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].String())
+			require.NoError(t, err)
+			require.Equal(t, uint64(4), senderActionCount)
+			senderActions, err = getActionsBySenderAddress(dao.kvstore, testaddress.Addrinfo["bravo"].String())
+			require.NoError(t, err)
+			require.Equal(t, 4, len(senderActions))
+			require.Equal(t, depositHash2, senderActions[3])
+			recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].String())
+			require.NoError(t, err)
+			require.Equal(t, uint64(2), recipientActionCount)
+			recipientActions, err = getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["bravo"].String())
+			require.NoError(t, err)
+			require.Equal(t, 2, len(recipientActions))
 
-		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].String())
-		require.NoError(t, err)
-		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = getActionsBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].String())
-		require.NoError(t, err)
-		require.Equal(t, 4, len(senderActions))
-		require.Equal(t, depositHash3, senderActions[3])
-		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].String())
-		require.NoError(t, err)
-		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].String())
-		require.NoError(t, err)
-		require.Equal(t, 2, len(recipientActions))
+			senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].String())
+			require.NoError(t, err)
+			require.Equal(t, uint64(4), senderActionCount)
+			senderActions, err = getActionsBySenderAddress(dao.kvstore, testaddress.Addrinfo["charlie"].String())
+			require.NoError(t, err)
+			require.Equal(t, 4, len(senderActions))
+			require.Equal(t, depositHash3, senderActions[3])
+			recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].String())
+			require.NoError(t, err)
+			require.Equal(t, uint64(2), recipientActionCount)
+			recipientActions, err = getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["charlie"].String())
+			require.NoError(t, err)
+			require.Equal(t, 2, len(recipientActions))
 
-		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["delta"].String())
-		require.NoError(t, err)
-		require.Equal(t, uint64(6), recipientActionCount)
-		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["delta"].String())
-		require.NoError(t, err)
-		require.Equal(t, 6, len(recipientActions))
-		require.Equal(t, depositHash1, recipientActions[1])
-		require.Equal(t, depositHash2, recipientActions[3])
-		require.Equal(t, depositHash3, recipientActions[5])
+			recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, testaddress.Addrinfo["delta"].String())
+			require.NoError(t, err)
+			require.Equal(t, uint64(6), recipientActionCount)
+			recipientActions, err = getActionsByRecipientAddress(dao.kvstore, testaddress.Addrinfo["delta"].String())
+			require.NoError(t, err)
+			require.Equal(t, 6, len(recipientActions))
+			require.Equal(t, depositHash1, recipientActions[1])
+			require.Equal(t, depositHash2, recipientActions[3])
+			require.Equal(t, depositHash3, recipientActions[5])
+		*/
 	}
 
 	testDeleteDao := func(kvstore db.KVStore, t *testing.T) {

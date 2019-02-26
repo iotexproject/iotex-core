@@ -13,9 +13,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 
-	"github.com/iotexproject/go-ethereum/common"
-	"github.com/iotexproject/go-ethereum/core/vm"
-	"github.com/iotexproject/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -78,6 +78,13 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		contractAddrPointer = &contractAddr
 	}
 	producer := common.BytesToAddress(raCtx.Producer.Bytes())
+
+	gasLimit := execution.GasLimit()
+	// Reset gas limit to the system wide action gas limit cap if it's greater than it
+	if gasLimit > raCtx.ActionGasLimit {
+		gasLimit = raCtx.ActionGasLimit
+	}
+
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
@@ -87,7 +94,7 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    raCtx.ActionGasLimit,
+		GasLimit:    gasLimit,
 		GasPrice:    execution.GasPrice(),
 	}
 

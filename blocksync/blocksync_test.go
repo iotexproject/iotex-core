@@ -41,37 +41,6 @@ var opts = []Option{
 	WithNeighbors(func(_ context.Context) ([]peerstore.PeerInfo, error) { return nil, nil }),
 }
 
-func TestSyncTaskInterval(t *testing.T) {
-	assert := assert.New(t)
-
-	interval := time.Duration(0)
-
-	cfgLightWeight := config.Config{
-		NodeType: config.LightweightType,
-	}
-	lightWeight := syncTaskInterval(cfgLightWeight)
-	assert.Equal(interval, lightWeight)
-
-	cfgDelegate := config.Config{
-		NodeType: config.DelegateType,
-		BlockSync: config.BlockSync{
-			Interval: interval,
-		},
-	}
-	delegate := syncTaskInterval(cfgDelegate)
-	assert.Equal(interval, delegate)
-
-	cfgFullNode := config.Config{
-		NodeType: config.FullNodeType,
-		BlockSync: config.BlockSync{
-			Interval: interval,
-		},
-	}
-	interval <<= 2
-	fullNode := syncTaskInterval(cfgFullNode)
-	assert.Equal(interval, fullNode)
-}
-
 func TestNewBlockSyncer(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
@@ -100,31 +69,7 @@ func TestNewBlockSyncer(t *testing.T) {
 
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	// Lightweight
-	cfgLightWeight := config.Config{
-		NodeType: config.LightweightType,
-	}
-
-	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, mBc, ap, cs, opts...)
-	assert.NoError(err)
-	assert.NotNil(bsLightWeight)
-
-	// Delegate
-	cfgDelegate := config.Config{
-		NodeType: config.DelegateType,
-	}
-	cfgDelegate.Network.BootstrapNodes = []string{"123"}
-
-	_, err = NewBlockSyncer(cfgDelegate, mBc, ap, cs)
-	assert.Nil(err)
-
-	// FullNode
-	cfgFullNode := config.Config{
-		NodeType: config.FullNodeType,
-	}
-	cfgFullNode.Network.BootstrapNodes = []string{"123"}
-
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, cs, opts...)
+	bs, err := NewBlockSyncer(cfg, mBc, ap, cs, opts...)
 	assert.Nil(err)
 	assert.NotNil(bs)
 }
@@ -173,28 +118,19 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	ap, err := actpool.NewActPool(mBc, cfg.ActPool)
 	assert.NoError(err)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	cfgFullNode := config.Config{
-		NodeType: config.FullNodeType,
-	}
-	cfgFullNode.Network.BootstrapNodes = []string{"123"}
-
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, cs, opts...)
-	assert.Nil(err)
+	bs, err := NewBlockSyncer(cfg, mBc, ap, cs, opts...)
+	assert.NoError(err)
 
 	pbBs := &iotexrpc.BlockSync{
 		Start: 1,
 		End:   1,
 	}
-
-	bs.(*blockSyncer).ackSyncReq = false
-	assert.Nil(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
-	bs.(*blockSyncer).ackSyncReq = true
-	assert.Nil(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
+	assert.NoError(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
 }
 
 func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
@@ -222,8 +158,6 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 		Start: 1,
 		End:   5,
 	}
-
-	bs.(*blockSyncer).ackSyncReq = true
 	require.Error(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
 }
 
@@ -233,7 +167,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
@@ -242,9 +175,8 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.GenesisOption(genesisCfg),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesisCfg.ActionGasLimit))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
@@ -275,19 +207,17 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	)
 	require.NotNil(blk)
 	require.NoError(err)
-	bs.(*blockSyncer).ackBlockCommit = false
-	require.Nil(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk))
 	h2 := chain.TipHeight()
-	assert.Equal(t, h, h2)
+	assert.Equal(t, h+1, h2)
 
 	// commit top
-	bs.(*blockSyncer).ackBlockCommit = true
-	require.Nil(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk))
 	h3 := chain.TipHeight()
 	assert.Equal(t, h+1, h3)
 
 	// commit same block again
-	require.Nil(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk))
 	h4 := chain.TipHeight()
 	assert.Equal(t, h3, h4)
 }
@@ -298,7 +228,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
@@ -307,9 +236,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.GenesisOption(genesisCfg),
 	)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesisCfg.ActionGasLimit))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesis.Default.ActionGasLimit))
 	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
@@ -326,9 +254,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.GenesisOption(genesisCfg),
 	)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesisCfg.ActionGasLimit))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesis.Default.ActionGasLimit))
 	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
@@ -397,7 +324,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
@@ -406,9 +332,8 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.GenesisOption(genesisCfg),
 	)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesisCfg.ActionGasLimit))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesis.Default.ActionGasLimit))
 	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
@@ -424,9 +349,8 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.GenesisOption(genesisCfg),
 	)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesisCfg.ActionGasLimit))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesis.Default.ActionGasLimit))
 	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
@@ -494,12 +418,11 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	genesisCfg := genesis.Default
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
-	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.GenesisOption(genesisCfg))
+	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
@@ -567,10 +490,9 @@ func TestBlockSyncerChaser(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	genesisCfg := genesis.Default
 	require.NoError(err)
 
-	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.GenesisOption(genesisCfg))
+	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
 	require.NoError(chain.Start(ctx))
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
 	require.NoError(err)
