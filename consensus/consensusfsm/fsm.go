@@ -262,6 +262,11 @@ func (m *ConsensusFSM) NumPendingEvents() int {
 
 // Calibrate calibrates the state if necessary
 func (m *ConsensusFSM) Calibrate(height uint64) {
+	// If the fsm is already at prepare state, there's no need to calibrate
+	// TODO: revisit if calibrate should be replaced by timeout
+	if m.fsm.CurrentState() == sPrepare {
+		return
+	}
 	m.produce(m.ctx.NewConsensusEvent(eCalibrate, height), 0)
 }
 
