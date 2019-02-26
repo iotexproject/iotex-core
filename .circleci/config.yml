@@ -22,7 +22,7 @@ jobs:
       - checkout
 
       # specify any bash command here prefixed with `run: `
-      - run: mkdir -p /tmp/test_report_upload/this.xml
+      - run: mkdir -p /tmp/test_report_upload
       - run: echo '<?xml version="1.0" encoding="utf-8"?><testsuite errors="0" failures="0" name="pytest" skips="0" tests="1" time="0.009"><testcase classname="test_quick_start" file="test_quick_start.py" line="3" name="test_reverse" time="0.000499725341797"></testcase></testsuite>'> /tmp/test_report_upload/this.xml
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
       - run: ./go.test.sh
