@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 
 	"github.com/golang/protobuf/proto"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -205,11 +206,16 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if len(blks) == 0 {
 		return nil, errors.New("get 0 blocks! not able to calculate aps")
 	}
-	epoch, err := api.getEpochData(tipHeight)
-	if err != nil {
-		return nil, err
+	p, ok := api.registry.Find(rolldpos.ProtocolID)
+	if !ok {
+		return nil, errors.New("rolldpos protocol is not registered")
 	}
-
+	rp, ok := p.(*rolldpos.Protocol)
+	if !ok {
+		return nil, errors.New("fail to cast rolldpos protocol")
+	}
+	epochNum := rp.GetEpochNum(tipHeight)
+	epochHeight := rp.GetEpochHeight(epochNum)
 	timeDuration := blks[0].Timestamp - blks[len(blks)-1].Timestamp
 	// if time duration is less than 1 second, we set it to be 1 second
 	if timeDuration == 0 {
@@ -219,8 +225,11 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	tps := int64(totalActions) / timeDuration
 
 	chainMeta := &iotextypes.ChainMeta{
-		Height:     tipHeight,
-		Epoch:      epoch,
+		Height: tipHeight,
+		Epoch: &iotextypes.EpochData{
+			Num:    epochNum,
+			Height: epochHeight,
+		},
 		Supply:     blockchain.Gen.TotalSupply.String(),
 		NumActions: int64(totalActions),
 		Tps:        tps,
@@ -574,19 +583,6 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 		Data: data,
 	}
 	return &out, nil
-}
-
-// getEpochData is the API to get epoch data
-func (api *Server) getEpochData(height uint64) (*iotextypes.EpochData, error) {
-	if height == 0 {
-		return nil, errors.New("epoch data is not available to block 0")
-	}
-	// TODO: fill with real epoch data
-	return &iotextypes.EpochData{
-		Num:               0,
-		Height:            0,
-		BeaconChainHeight: 0,
-	}, nil
 }
 
 func toHash256(hashString string) (hash.Hash256, error) {

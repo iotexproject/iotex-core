@@ -23,6 +23,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -66,7 +67,11 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			Votes:   unit.ConvertIotxToRau(500000),
 		},
 	}, nil).AnyTimes()
-	p := NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
+	p := NewProtocol(chain, rolldpos.NewProtocol(
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
+	))
 
 	// Initialize the protocol
 	ctx := protocol.WithRunActionsCtx(
@@ -129,7 +134,12 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(t, stateDB.Stop(context.Background()))
 	}()
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
-	p := NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
+	rp := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
+	p := NewProtocol(chain, rp)
 
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),

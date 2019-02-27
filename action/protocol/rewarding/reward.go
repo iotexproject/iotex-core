@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/state"
@@ -89,7 +88,7 @@ func (p *Protocol) GrantEpochReward(
 	sm protocol.StateManager,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	epochNum := rolldpos.GetEpochNum(raCtx.BlockHeight, p.numDelegates, p.numSubEpochs)
+	epochNum := p.rp.GetEpochNum(raCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return err
 	}
@@ -275,7 +274,7 @@ func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, in
 }
 
 func (p *Protocol) assertLastBlockInEpoch(blkHeight uint64, epochNum uint64) error {
-	lastBlkHeight := rolldpos.GetEpochLastBlockHeight(epochNum, p.numDelegates, p.numSubEpochs)
+	lastBlkHeight := p.rp.GetEpochLastBlockHeight(epochNum)
 	if blkHeight != lastBlkHeight {
 		return errors.Errorf("current block %d is not the last block of epoch %d", blkHeight, epochNum)
 	}

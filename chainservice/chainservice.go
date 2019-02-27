@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -45,6 +46,7 @@ type ChainService struct {
 	consensus         consensus.Consensus
 	chain             blockchain.Blockchain
 	electionCommittee committee.Committee
+	rDPoSProtocol     *rolldpos.Protocol
 	explorer          *explorer.Server
 	api               *api.Server
 	indexBuilder      *blockchain.IndexBuilder
@@ -156,11 +158,16 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
 	}
-
+	rDPoSProtocol := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
 		}),
+		consensus.WithRollDPoSProtocol(rDPoSProtocol),
 	}
 	if ops.rootChainAPI != nil {
 		copts = append(copts, consensus.WithRootChainAPI(ops.rootChainAPI))
@@ -236,6 +243,7 @@ func New(
 		chain:             chain,
 		blocksync:         bs,
 		consensus:         consensus,
+		rDPoSProtocol:     rDPoSProtocol,
 		electionCommittee: electionCommittee,
 		indexservice:      idx,
 		indexBuilder:      indexBuilder,
@@ -384,6 +392,11 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 // ElectionCommittee returns the election committee
 func (cs *ChainService) ElectionCommittee() committee.Committee {
 	return cs.electionCommittee
+}
+
+// RollDPoSProtocol returns the roll dpos protocol
+func (cs *ChainService) RollDPoSProtocol() *rolldpos.Protocol {
+	return cs.rDPoSProtocol
 }
 
 // IndexService returns the indexservice instance
