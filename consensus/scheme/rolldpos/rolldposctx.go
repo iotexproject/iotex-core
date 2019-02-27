@@ -161,9 +161,6 @@ func (ctx *rollDPoSCtx) MintBlock() (consensusfsm.Endorsement, error) {
 		log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
 		b, err := ctx.chain.MintNewBlock(
 			actionMap,
-			ctx.pubKey,
-			ctx.priKey,
-			ctx.encodedAddr,
 			ctx.round.timestamp.Unix(),
 		)
 		if err != nil {
