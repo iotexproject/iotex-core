@@ -44,11 +44,11 @@ func (f *fund) Deserialize(data []byte) error {
 	}
 	totalBalance, ok := big.NewInt(0).SetString(gen.TotalBalance, 10)
 	if !ok {
-		errors.New("failed to set total balance")
+		return errors.New("failed to set total balance")
 	}
 	unclaimedBalance, ok := big.NewInt(0).SetString(gen.UnclaimedBalance, 10)
 	if !ok {
-		errors.New("failed to set unclaimed balance")
+		return errors.New("failed to set unclaimed balance")
 	}
 	f.totalBalance = totalBalance
 	f.unclaimedBalance = unclaimedBalance
