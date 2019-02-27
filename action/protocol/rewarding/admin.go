@@ -31,8 +31,8 @@ type admin struct {
 func (a admin) Serialize() ([]byte, error) {
 	gen := rewardingpb.Admin{
 		Admin:                      a.admin.Bytes(),
-		BlockReward:                a.blockReward.Bytes(),
-		EpochReward:                a.epochReward.Bytes(),
+		BlockReward:                a.blockReward.String(),
+		EpochReward:                a.epochReward.String(),
 		NumDelegatesForEpochReward: a.numDelegatesForEpochReward,
 	}
 	return proto.Marshal(&gen)
@@ -48,8 +48,16 @@ func (a *admin) Deserialize(data []byte) error {
 	if a.admin, err = address.FromBytes(gen.Admin); err != nil {
 		return err
 	}
-	a.blockReward = big.NewInt(0).SetBytes(gen.BlockReward)
-	a.epochReward = big.NewInt(0).SetBytes(gen.EpochReward)
+	blockReward, ok := big.NewInt(0).SetString(gen.BlockReward, 10)
+	if !ok {
+		errors.New("failed to set block reward")
+	}
+	epochReward, ok := big.NewInt(0).SetString(gen.EpochReward, 10)
+	if !ok {
+		errors.New("failed to set epoch reward")
+	}
+	a.blockReward = blockReward
+	a.epochReward = epochReward
 	a.numDelegatesForEpochReward = gen.NumDelegatesForEpochReward
 	return nil
 }

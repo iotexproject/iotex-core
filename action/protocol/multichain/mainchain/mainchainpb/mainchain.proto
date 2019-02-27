@@ -11,8 +11,8 @@ package mainchainpb;
 
 message SubChain {
     uint32 chainID = 1;
-    bytes securityDeposit = 2;
-    bytes operationDeposit = 3;
+    string securityDeposit = 2;
+    string operationDeposit = 3;
     uint64 startHeight = 4;
     uint64 stopHeight = 5;
     uint64 parentHeightOffset = 6;
@@ -44,7 +44,7 @@ message SubChainsInOperation {
 }
 
 message Deposit {
-    bytes amount = 1;
+    string amount = 1;
     bytes address = 2;
     bool confirmed = 3;
 }

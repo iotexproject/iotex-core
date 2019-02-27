@@ -113,7 +113,7 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		GasLimit: elp.gasLimit,
 	}
 	if elp.gasPrice != nil {
-		actCore.GasPrice = elp.gasPrice.Bytes()
+		actCore.GasPrice = elp.gasPrice.String()
 	}
 
 	// TODO assert each action
@@ -164,7 +164,7 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
 	elp.gasPrice = &big.Int{}
-	elp.gasPrice.SetBytes(pbAct.GetGasPrice())
+	elp.gasPrice.SetString(pbAct.GetGasPrice(), 10)
 
 	switch {
 	case pbAct.GetTransfer() != nil:

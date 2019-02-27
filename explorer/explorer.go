@@ -1112,7 +1112,7 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 			Version:  uint32(voteJSON.Version),
 			Nonce:    uint64(voteJSON.Nonce),
 			GasLimit: uint64(voteJSON.GasLimit),
-			GasPrice: gasPrice.Bytes(),
+			GasPrice: gasPrice.String(),
 		},
 		SenderPubKey: selfPubKey,
 		Signature:    signature,
@@ -1180,7 +1180,7 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 			Version:  uint32(putBlockJSON.Version),
 			Nonce:    uint64(putBlockJSON.Nonce),
 			GasLimit: uint64(putBlockJSON.GasLimit),
-			GasPrice: gasPrice.Bytes(),
+			GasPrice: gasPrice.String(),
 		},
 		SenderPubKey: senderPubKey,
 		Signature:    signature,
@@ -1283,7 +1283,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_Execution{
 				Execution: &iotextypes.Execution{
-					Amount:   amount.Bytes(),
+					Amount:   amount.String(),
 					Contract: execution.Contract,
 					Data:     data,
 				},
@@ -1291,7 +1291,7 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 			Version:  uint32(execution.Version),
 			Nonce:    uint64(execution.Nonce),
 			GasLimit: uint64(execution.GasLimit),
-			GasPrice: gasPrice.Bytes(),
+			GasPrice: gasPrice.String(),
 		},
 		SenderPubKey: executorPubKey,
 		Signature:    signature,
@@ -1396,14 +1396,14 @@ func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explor
 			Action: &iotextypes.ActionCore_CreateDeposit{
 				CreateDeposit: &iotextypes.CreateDeposit{
 					ChainID:   uint32(req.ChainID),
-					Amount:    amount.Bytes(),
+					Amount:    amount.String(),
 					Recipient: req.Recipient,
 				},
 			},
 			Version:  uint32(req.Version),
 			Nonce:    uint64(req.Nonce),
 			GasLimit: uint64(req.GasLimit),
-			GasPrice: gasPrice.Bytes(),
+			GasPrice: gasPrice.String(),
 		},
 		SenderPubKey: senderPubKey,
 		Signature:    signature,
@@ -1506,7 +1506,7 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_SettleDeposit{
 				SettleDeposit: &iotextypes.SettleDeposit{
-					Amount:    amount.Bytes(),
+					Amount:    amount.String(),
 					Index:     uint64(req.Index),
 					Recipient: req.Recipient,
 				},
@@ -1514,7 +1514,7 @@ func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explor
 			Version:  uint32(req.Version),
 			Nonce:    uint64(req.Nonce),
 			GasLimit: uint64(req.GasLimit),
-			GasPrice: gasPrice.Bytes(),
+			GasPrice: gasPrice.String(),
 		},
 		SenderPubKey: senderPubKey,
 		Signature:    signature,
@@ -1947,7 +1947,7 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iotexty
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_Execution{
 				Execution: &iotextypes.Execution{
-					Amount:   amount.Bytes(),
+					Amount:   amount.String(),
 					Contract: execution.Contract,
 					Data:     data,
 				},
@@ -1955,7 +1955,7 @@ func convertExplorerExecutionToActionPb(execution *explorer.Execution) (*iotexty
 			Version:  uint32(execution.Version),
 			Nonce:    uint64(execution.Nonce),
 			GasLimit: uint64(execution.GasLimit),
-			GasPrice: gasPrice.Bytes(),
+			GasPrice: gasPrice.String(),
 		},
 		SenderPubKey: executorPubKey,
 		Signature:    signature,
@@ -1997,7 +1997,7 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_Transfer{
 				Transfer: &iotextypes.Transfer{
-					Amount:    amount.Bytes(),
+					Amount:    amount.String(),
 					Recipient: tsfJSON.Recipient,
 					Payload:   payload,
 				},
@@ -2005,7 +2005,7 @@ func convertExplorerTransferToActionPb(tsfJSON *explorer.SendTransferRequest,
 			Version:  uint32(tsfJSON.Version),
 			Nonce:    uint64(tsfJSON.Nonce),
 			GasLimit: uint64(tsfJSON.GasLimit),
-			GasPrice: gasPrice.Bytes(),
+			GasPrice: gasPrice.String(),
 		},
 		SenderPubKey: senderPubKey,
 		Signature:    signature,

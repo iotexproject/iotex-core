@@ -99,8 +99,8 @@ func (ex *Execution) Proto() *iotextypes.Execution {
 		Contract: ex.contract,
 		Data:     ex.data,
 	}
-	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
-		act.Amount = ex.amount.Bytes()
+	if ex.amount != nil && len(ex.amount.String()) > 0 {
+		act.Amount = ex.amount.String()
 	}
 	return act
 }
@@ -117,7 +117,7 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 
 	ex.contract = pbAct.GetContract()
 	ex.amount = &big.Int{}
-	ex.amount.SetBytes(pbAct.GetAmount())
+	ex.amount.SetString(pbAct.GetAmount(), 10)
 	ex.data = pbAct.GetData()
 	return nil
 }

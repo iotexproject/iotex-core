@@ -44,7 +44,7 @@ func (c *ClaimFromRewardingFund) ByteStream() []byte {
 // Proto converts a claim action struct to a claim action protobuf
 func (c *ClaimFromRewardingFund) Proto() *iotextypes.ClaimFromRewardingFund {
 	return &iotextypes.ClaimFromRewardingFund{
-		Amount: c.amount.Bytes(),
+		Amount: c.amount.String(),
 		Data:   c.data,
 	}
 }
@@ -52,7 +52,11 @@ func (c *ClaimFromRewardingFund) Proto() *iotextypes.ClaimFromRewardingFund {
 // LoadProto converts a claim action protobuf to a claim action struct
 func (c *ClaimFromRewardingFund) LoadProto(claim *iotextypes.ClaimFromRewardingFund) error {
 	*c = ClaimFromRewardingFund{}
-	c.amount = big.NewInt(0).SetBytes(claim.Amount)
+	amount, ok := big.NewInt(0).SetString(claim.Amount, 10)
+	if !ok {
+		errors.New("failed to set claim amount")
+	}
+	c.amount = amount
 	c.data = claim.Data
 	return nil
 }

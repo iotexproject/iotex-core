@@ -74,9 +74,9 @@ func (start *StartSubChain) LoadProto(startPb *iotextypes.StartSubChain) error {
 	start.startHeight = startPb.StartHeight
 	start.parentHeightOffset = startPb.ParentHeightOffset
 	start.securityDeposit = big.NewInt(0)
-	start.securityDeposit.SetBytes(startPb.GetSecurityDeposit())
+	start.securityDeposit.SetString(startPb.GetSecurityDeposit(), 10)
 	start.operationDeposit = big.NewInt(0)
-	start.operationDeposit.SetBytes(startPb.GetOperationDeposit())
+	start.operationDeposit.SetString(startPb.GetOperationDeposit(), 10)
 	return nil
 }
 
@@ -112,11 +112,11 @@ func (start *StartSubChain) Proto() *iotextypes.StartSubChain {
 		ParentHeightOffset: start.parentHeightOffset,
 	}
 
-	if start.securityDeposit != nil && len(start.securityDeposit.Bytes()) > 0 {
-		act.SecurityDeposit = start.securityDeposit.Bytes()
+	if start.securityDeposit != nil && len(start.securityDeposit.String()) > 0 {
+		act.SecurityDeposit = start.securityDeposit.String()
 	}
-	if start.operationDeposit != nil && len(start.operationDeposit.Bytes()) > 0 {
-		act.OperationDeposit = start.operationDeposit.Bytes()
+	if start.operationDeposit != nil && len(start.operationDeposit.String()) > 0 {
+		act.OperationDeposit = start.operationDeposit.String()
 	}
 	return act
 }
