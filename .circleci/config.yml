@@ -30,7 +30,7 @@ jobs:
       - run: go test -run=XXX -bench=. $(go list ./crypto) | go2xunit > /tmp/test_report_upload/bench.xml
       - run: make minicluster
       - store_test_results:
-	  path: /tmp/test_report_upload
+          path: /tmp/test_report_upload
   nightly:
     docker:
       # specify the version
