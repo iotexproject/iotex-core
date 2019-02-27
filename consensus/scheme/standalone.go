@@ -33,7 +33,6 @@ type standaloneHandler struct {
 }
 
 func (s *standaloneHandler) Run() {
-	log.L().Info("Created a new block.", zap.String("at", time.Now().String()))
 	blk, err := s.createCb()
 	if err != nil {
 		log.L().Error("Failed to create.", zap.Error(err))

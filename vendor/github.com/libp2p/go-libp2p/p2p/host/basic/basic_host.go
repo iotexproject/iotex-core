@@ -59,9 +59,10 @@ type BasicHost struct {
 	ids        *identify.IDService
 	pings      *ping.PingService
 	natmgr     NATManager
-	addrs      AddrsFactory
 	maResolver *madns.Resolver
 	cmgr       ifconnmgr.ConnManager
+
+	AddrsFactory AddrsFactory
 
 	negtimeout time.Duration
 
@@ -106,11 +107,11 @@ type HostOpts struct {
 // NewHost constructs a new *BasicHost and activates it by attaching its stream and connection handlers to the given inet.Network.
 func NewHost(ctx context.Context, net inet.Network, opts *HostOpts) (*BasicHost, error) {
 	h := &BasicHost{
-		network:    net,
-		mux:        msmux.NewMultistreamMuxer(),
-		negtimeout: DefaultNegotiationTimeout,
-		addrs:      DefaultAddrsFactory,
-		maResolver: madns.DefaultResolver,
+		network:      net,
+		mux:          msmux.NewMultistreamMuxer(),
+		negtimeout:   DefaultNegotiationTimeout,
+		AddrsFactory: DefaultAddrsFactory,
+		maResolver:   madns.DefaultResolver,
 	}
 
 	h.proc = goprocessctx.WithContextAndTeardown(ctx, func() error {
@@ -136,7 +137,7 @@ func NewHost(ctx context.Context, net inet.Network, opts *HostOpts) (*BasicHost,
 	}
 
 	if opts.AddrsFactory != nil {
-		h.addrs = opts.AddrsFactory
+		h.AddrsFactory = opts.AddrsFactory
 	}
 
 	if opts.NATManager != nil {
@@ -254,6 +255,12 @@ func (h *BasicHost) newStreamHandler(s inet.Stream) {
 	log.Debugf("protocol negotiation took %s", took)
 
 	go handle(protoID, s)
+}
+
+// PushIdentify pushes an identify update through the identify push protocol
+// Warning: this interface is unstable and may disappear in the future.
+func (h *BasicHost) PushIdentify() {
+	h.ids.Push()
 }
 
 // ID returns the (local) peer.ID associated with this Host
@@ -474,7 +481,7 @@ func (h *BasicHost) ConnManager() ifconnmgr.ConnManager {
 // Addrs returns listening addresses that are safe to announce to the network.
 // The output is the same as AllAddrs, but processed by AddrsFactory.
 func (h *BasicHost) Addrs() []ma.Multiaddr {
-	return h.addrs(h.AllAddrs())
+	return h.AddrsFactory(h.AllAddrs())
 }
 
 // mergeAddrs merges input address lists, leave only unique addresses

@@ -44,7 +44,7 @@ func (d *DepositToRewardingFund) ByteStream() []byte {
 // Proto converts a deposit action struct to a deposit action protobuf
 func (d *DepositToRewardingFund) Proto() *iotextypes.DepositToRewardingFund {
 	return &iotextypes.DepositToRewardingFund{
-		Amount: d.amount.Bytes(),
+		Amount: d.amount.String(),
 		Data:   d.data,
 	}
 }
@@ -52,7 +52,11 @@ func (d *DepositToRewardingFund) Proto() *iotextypes.DepositToRewardingFund {
 // LoadProto converts a deposit action protobuf to a deposit action struct
 func (d *DepositToRewardingFund) LoadProto(deposit *iotextypes.DepositToRewardingFund) error {
 	*d = DepositToRewardingFund{}
-	d.amount = big.NewInt(0).SetBytes(deposit.Amount)
+	amount, ok := big.NewInt(0).SetString(deposit.Amount, 10)
+	if !ok {
+		return errors.New("failed to set deposit amount")
+	}
+	d.amount = amount
 	d.data = deposit.Data
 	return nil
 }

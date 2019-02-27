@@ -42,7 +42,7 @@ type rewardAccount struct {
 // Serialize serializes account state into bytes
 func (a rewardAccount) Serialize() ([]byte, error) {
 	gen := rewardingpb.Account{
-		Balance: a.balance.Bytes(),
+		Balance: a.balance.String(),
 	}
 	return proto.Marshal(&gen)
 }
@@ -53,7 +53,11 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	a.balance = big.NewInt(0).SetBytes(gen.Balance)
+	balance, ok := big.NewInt(0).SetString(gen.Balance, 10)
+	if !ok {
+		errors.New("failed to set reward account balance")
+	}
+	a.balance = balance
 	return nil
 }
 
@@ -70,10 +74,10 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateAvailableBalance(sm, a.BlockReward); err != nil {
+	if err := p.updateAvailableBalance(sm, a.blockReward); err != nil {
 		return err
 	}
-	if err := p.grantToAccount(sm, raCtx.Producer, a.BlockReward); err != nil {
+	if err := p.grantToAccount(sm, raCtx.Producer, a.blockReward); err != nil {
 		return err
 	}
 	return p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight)
@@ -96,10 +100,10 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateAvailableBalance(sm, a.EpochReward); err != nil {
+	if err := p.updateAvailableBalance(sm, a.epochReward); err != nil {
 		return err
 	}
-	addrs, amounts, err := p.splitEpochReward(raCtx.BlockHeight, a.EpochReward)
+	addrs, amounts, err := p.splitEpochReward(raCtx.BlockHeight, a.epochReward, a.numDelegatesForEpochReward)
 	if err != nil {
 		return err
 	}
@@ -220,10 +224,18 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 	return p.putState(sm, append(prefix, indexBytes[:]...), &rewardHistory{})
 }
 
-func (p *Protocol) splitEpochReward(blkHeight uint64, totalAmount *big.Int) ([]address.Address, []*big.Int, error) {
+func (p *Protocol) splitEpochReward(
+	blkHeight uint64,
+	totalAmount *big.Int,
+	numDelegatesForEpochReward uint64,
+) ([]address.Address, []*big.Int, error) {
 	candidates, err := p.cm.CandidatesByHeight(blkHeight)
 	if err != nil {
 		return nil, nil, err
+	}
+	// We at most allow numDelegatesForEpochReward delegates to get the epoch reward
+	if uint64(len(candidates)) > numDelegatesForEpochReward {
+		candidates = candidates[:numDelegatesForEpochReward]
 	}
 	totalWeight := big.NewInt(0)
 	for _, candidate := range candidates {
@@ -237,7 +249,12 @@ func (p *Protocol) splitEpochReward(blkHeight uint64, totalAmount *big.Int) ([]a
 			return nil, nil, err
 		}
 		addrs = append(addrs, addr)
-		amountPerAddr := big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
+		var amountPerAddr *big.Int
+		if totalWeight.Cmp(big.NewInt(0)) == 0 {
+			amountPerAddr = big.NewInt(0)
+		} else {
+			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
+		}
 		amounts = append(amounts, amountPerAddr)
 	}
 	return addrs, amounts, nil

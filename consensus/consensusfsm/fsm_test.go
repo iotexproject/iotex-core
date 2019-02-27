@@ -406,24 +406,56 @@ func TestStateTransitions(t *testing.T) {
 		mockCtx.EXPECT().Height().Return(uint64(2)).Times(2)
 		state, err := cfsm.calibrate(nil)
 		require.Error(err)
-		require.Equal(sPrepare, state)
 		state, err = cfsm.calibrate(&ConsensusEvent{
 			eventType: eCalibrate,
 			data:      nil,
 		})
 		require.Error(err)
-		require.Equal(sPrepare, state)
 		state, err = cfsm.calibrate(&ConsensusEvent{
 			eventType: eCalibrate,
 			data:      uint64(1),
 		})
 		require.Error(err)
-		require.Equal(sPrepare, state)
 		state, err = cfsm.calibrate(&ConsensusEvent{
 			eventType: eCalibrate,
 			data:      uint64(2),
 		})
 		require.NoError(err)
 		require.Equal(sPrepare, state)
+	})
+	t.Run("handle", func(t *testing.T) {
+		t.Run("is-stale-event", func(t *testing.T) {
+
+		})
+		t.Run("is-future-event", func(t *testing.T) {
+
+		})
+		t.Run("transition-not-found", func(t *testing.T) {
+			mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(false).Times(1)
+			mockCtx.EXPECT().IsFutureEvent(gomock.Any()).Return(false).Times(1)
+			mockCtx.EXPECT().IsStaleUnmatchedEvent(gomock.Any()).Return(false).Times(1)
+			err := cfsm.handle(&ConsensusEvent{
+				eventType: eCalibrate,
+				data:      uint64(1),
+			})
+			require.Equal(fsm.ErrTransitionNotFound, errors.Cause(err))
+		})
+		t.Run("transition-success", func(t *testing.T) {
+			mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(false).Times(2)
+			mockCtx.EXPECT().IsFutureEvent(gomock.Any()).Return(false).Times(2)
+			mockCtx.EXPECT().Height().Return(uint64(0)).Times(1)
+			require.NoError(cfsm.handle(
+				&ConsensusEvent{eventType: BackdoorEvent, data: sAcceptBlockProposal},
+			))
+			require.NoError(err)
+			require.Equal(sAcceptBlockProposal, cfsm.CurrentState())
+			require.NoError(cfsm.handle(&ConsensusEvent{
+				eventType: eCalibrate,
+				data:      uint64(1),
+			}))
+		})
+		t.Run("other-errors", func(t *testing.T) {
+
+		})
 	})
 }

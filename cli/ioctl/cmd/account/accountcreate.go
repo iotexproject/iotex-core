@@ -49,7 +49,7 @@ func accountCreate(args []string) string {
 		pubKeyBytes := keypair.PublicKeyToBytes(&private.PublicKey)
 		priKeyBytes := keypair.PrivateKeyToBytes(private)
 		items[i] = fmt.Sprintf(
-			"{\"Address\": \"%s\", \"PublicKey\": \"%x\", \"PrivateKey\": \"%x\"}",
+			"{\"Address\": \"%s\", \"PublicKey\": \"%x\", \"PrivateKey\": \"%x\"}\n",
 			addr.String(),
 			pubKeyBytes,
 			priKeyBytes,

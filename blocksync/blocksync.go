@@ -68,9 +68,6 @@ type BlockSync interface {
 
 // blockSyncer implements BlockSync interface
 type blockSyncer struct {
-	ackBlockCommit   bool   // acknowledges latest committed block
-	ackBlockSync     bool   // acknowledges old block from sync request
-	ackSyncReq       bool   // acknowledges incoming Sync request
 	commitHeight     uint64 // last commit block height
 	buf              *blockBuffer
 	worker           *syncWorker
@@ -89,9 +86,6 @@ func NewBlockSyncer(
 	opts ...Option,
 ) (BlockSync, error) {
 	bufSize := cfg.BlockSync.BufferSize
-	if cfg.IsFullnode() {
-		bufSize <<= 3
-	}
 	buf := &blockBuffer{
 		blocks: make(map[uint64]*block.Block),
 		bc:     chain,
@@ -106,9 +100,6 @@ func NewBlockSyncer(
 		}
 	}
 	bs := &blockSyncer{
-		ackBlockCommit:   cfg.IsDelegate() || cfg.IsFullnode(),
-		ackBlockSync:     cfg.IsDelegate() || cfg.IsFullnode(),
-		ackSyncReq:       cfg.IsDelegate() || cfg.IsFullnode(),
 		bc:               chain,
 		buf:              buf,
 		unicastHandler:   bsCfg.unicastHandler,
@@ -147,11 +138,6 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 
 // ProcessBlock processes an incoming latest committed block
 func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
-	if !bs.ackBlockCommit {
-		// node is not meant to handle latest committed block, simply exit
-		return nil
-	}
-
 	var needSync bool
 	moved, re := bs.buf.Flush(blk)
 	switch re {
@@ -174,10 +160,6 @@ func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
 }
 
 func (bs *blockSyncer) ProcessBlockSync(_ context.Context, blk *block.Block) error {
-	if !bs.ackBlockSync {
-		// node is not meant to handle sync block, simply exit
-		return nil
-	}
 	bs.buf.Flush(blk)
 	if bs.bc.TipHeight() == bs.TargetHeight() {
 		bs.worker.SetTargetHeight(bs.TargetHeight() + bs.buf.bufSize())
@@ -187,11 +169,6 @@ func (bs *blockSyncer) ProcessBlockSync(_ context.Context, blk *block.Block) err
 
 // ProcessSyncRequest processes a block sync request
 func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
-	if !bs.ackSyncReq {
-		// node is not meant to handle sync request, simply exit
-		return nil
-	}
-
 	end := bs.bc.TipHeight()
 	switch {
 	case sync.End < end:

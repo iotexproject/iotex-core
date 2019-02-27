@@ -50,20 +50,6 @@ message Receipts {
   repeated Receipt receipts = 1;
 }
 
-
-// Candidates and list of candidates
-message Candidate {
-  string address = 1;
-  bytes votes = 2;
-  bytes pubKey = 3;
-  uint64 creationHeight = 4;
-  uint64 lastUpdateHeight = 5;
-}
-
-message CandidateList {
-  repeated Candidate candidates = 1;
-}
-
 message EpochData {
   uint64 num = 1;
   uint64 height = 2;

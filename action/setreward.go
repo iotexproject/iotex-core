@@ -48,7 +48,7 @@ func (s *SetReward) ByteStream() []byte {
 // Proto converts a set reward action struct to a set reward action protobuf
 func (s *SetReward) Proto() *iotextypes.SetReward {
 	sProto := iotextypes.SetReward{
-		Amount: s.amount.Bytes(),
+		Amount: s.amount.String(),
 		Data:   s.data,
 	}
 	switch s.t {
@@ -63,7 +63,11 @@ func (s *SetReward) Proto() *iotextypes.SetReward {
 // LoadProto converts a set block rewarding reward action protobuf to a set reward action struct
 func (s *SetReward) LoadProto(sProto *iotextypes.SetReward) error {
 	*s = SetReward{}
-	s.amount = big.NewInt(0).SetBytes(sProto.Amount)
+	amount, ok := big.NewInt(0).SetString(sProto.Amount, 10)
+	if !ok {
+		errors.New("failed to set reward amount")
+	}
+	s.amount = amount
 	s.data = sProto.Data
 	switch sProto.Type {
 	case iotextypes.RewardType_BlockReward:

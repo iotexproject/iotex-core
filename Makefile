@@ -140,13 +140,6 @@ run:
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
 	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
 
-.PHONY: fullnode
-fullnode:
-	$(ECHO_V)rm -rf ./e2etest/*chain*.db
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib:$(PWD)/crypto/lib/blslib
-	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_fullnode.yaml
-
 .PHONY: docker
 docker:
 	$(DOCKERCMD) build -t $(USER)/iotex-core:latest .
