@@ -29,6 +29,7 @@ jobs:
       - run: mkdir -p /tmp/test_report_upload
       - run: cat /go/src/github.com/wanlibing/go2xunit/lib/parsers.go | grep -i "errorf"
       - run: which go2xunit
+      - run: date
       - run: ls -l /go/bin/go2xunit
       - run: go list ./... | grep -v 'vender\|accountpb\|util\|subchainpb\|rewardingpb\|candidatesutil\|chainservice\|cli\|consensus\|triepb\|idl\|p2p\|log\|unit\|protogen\|server\|identityset\|mock\|tools'
       - run: echo '<?xml version="1.0" encoding="utf-8"?><testsuite errors="0" failures="0" name="pytest" skips="0" tests="1" time="0.009"><testcase classname="test_quick_start" file="test_quick_start.py" line="3" name="test_reverse" time="0.000499725341797"></testcase></testsuite>'> /tmp/test_report_upload/this.xml
