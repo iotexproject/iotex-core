@@ -108,8 +108,8 @@ func main() {
 func initLogger(cfg config.Config) {
 	addr := cfg.ProducerAddress()
 	if err := log.InitGlobal(cfg.Log, zap.Fields(
-		zap.String("iotexAddress", addr.String()),
-		zap.String("networkAddress", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
+		zap.String("ioAddr", addr.String()),
+		zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
 	)); err != nil {
 		glog.Println("Cannot config global logger, use default one: ", err)
 	}
