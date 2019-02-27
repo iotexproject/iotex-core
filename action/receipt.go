@@ -14,6 +14,13 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
+const (
+	// FailureReceiptStatus is the status that contract execution failed
+	FailureReceiptStatus = uint64(0)
+	// SuccessReceiptStatus is the status that contract execution success
+	SuccessReceiptStatus = uint64(1)
+)
+
 // Receipt represents the result of a contract
 type Receipt struct {
 	ReturnValue     []byte
