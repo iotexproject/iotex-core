@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -320,14 +321,14 @@ var (
 		{
 			protocolID: rewarding.ProtocolID,
 			methodName: "UnclaimedBalance",
-			addr:       ta.Addrinfo["producer"].String(),
+			addr:       identityset.Address(0).String(),
 			returnErr:  false,
 			balance:    unit.ConvertIotxToRau(144), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
 		{
 			protocolID: rewarding.ProtocolID,
 			methodName: "UnclaimedBalance",
-			addr:       ta.Addrinfo["alfa"].String(),
+			addr:       identityset.Address(1).String(),
 			returnErr:  false,
 			balance:    unit.ConvertIotxToRau(0), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
@@ -792,9 +793,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	)
 	if err != nil {
@@ -836,9 +834,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr3] = selps
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -854,9 +849,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Empty actions
 	if blk, err = bc.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -897,9 +889,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -945,6 +934,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 }
 
 func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, error) {
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(keypair.PrivateKeyToBytes(identityset.PrivateKey(0)))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	if err != nil {
 		return nil, nil, err

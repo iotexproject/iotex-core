@@ -101,9 +101,6 @@ func runExecution(
 	actionMap[ecfg.executor] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		testaddress.Keyinfo["producer"].PubKey,
-		testaddress.Keyinfo["producer"].PriKey,
-		testaddress.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -279,9 +276,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -337,9 +331,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -377,9 +368,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -407,9 +395,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["alfa"].PubKey,
-			testaddress.Keyinfo["alfa"].PriKey,
-			testaddress.Addrinfo["alfa"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -488,9 +473,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -519,9 +501,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -550,9 +529,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -588,9 +564,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["bravo"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -671,9 +644,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -749,9 +719,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp, selp2}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -782,9 +749,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["alfa"].String()] = []action.SealedEnvelope{selp3}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["alfa"].PubKey,
-			testaddress.Keyinfo["alfa"].PriKey,
-			testaddress.Addrinfo["alfa"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -809,9 +773,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)

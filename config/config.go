@@ -75,7 +75,6 @@ var (
 			ChainDBPath:                  "/tmp/chain.db",
 			TrieDBPath:                   "/tmp/trie.db",
 			ID:                           1,
-			Address:                      "",
 			ProducerPrivKey:              keypair.EncodePrivateKey(PrivateKey),
 			GenesisActionsPath:           "",
 			EmptyGenesis:                 false,
