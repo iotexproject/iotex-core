@@ -25,7 +25,7 @@ jobs:
       - run: echo $PATH
       - run: go env
       - run: go get -u github.com/wanlibing/go2xunit
-      - run: go build github.com/wanlibing/go2xunit
+      - run: go build -o /go/bin/go2xml github.com/wanlibing/go2xunit
       - run: mkdir -p /tmp/test_report_upload
       - run: cat /go/src/github.com/wanlibing/go2xunit/lib/parsers.go | grep -i "errorf"
       - run: which go2xunit
