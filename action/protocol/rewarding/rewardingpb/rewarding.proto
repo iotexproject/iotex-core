@@ -11,19 +11,19 @@ package rewardingpb;
 
 message Admin {
     bytes admin = 1;
-    bytes blockReward = 2;
-    bytes epochReward = 3;
+    string blockReward = 2;
+    string epochReward = 3;
     uint64 numDelegatesForEpochReward = 4;
 }
 
 message Fund {
-    bytes totalBalance = 1;
-    bytes unclaimedBalance = 2;
+    string totalBalance = 1;
+    string unclaimedBalance = 2;
 }
 
 message RewardHistory {
 }
 
 message Account {
-    bytes balance = 2;
+    string balance = 2;
 }

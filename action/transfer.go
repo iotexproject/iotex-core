@@ -102,7 +102,7 @@ func (tsf *Transfer) Proto() *iotextypes.Transfer {
 	}
 
 	if tsf.amount != nil {
-		act.Amount = tsf.amount.Bytes()
+		act.Amount = tsf.amount.String()
 	}
 	return act
 }
@@ -120,7 +120,7 @@ func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 	tsf.recipient = pbAct.GetRecipient()
 	tsf.payload = pbAct.GetPayload()
 	tsf.amount = big.NewInt(0)
-	tsf.amount.SetBytes(pbAct.GetAmount())
+	tsf.amount.SetString(pbAct.GetAmount(), 10)
 	return nil
 }
 

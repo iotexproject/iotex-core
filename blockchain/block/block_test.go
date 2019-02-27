@@ -75,7 +75,7 @@ func TestMerkle(t *testing.T) {
 		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
 	)
 	hash := block.CalculateTxRoot()
-	require.Equal("27708bd46b8ea8026db2eb764d19ae5c4213d20b035290f1e799d2298717887d", hex.EncodeToString(hash[:]))
+	require.Equal("3450ed72e006daad3997e612b2a2a288486859ca6eed74810125ebcf92a5cfba", hex.EncodeToString(hash[:]))
 
 	t.Log("Merkle root match pass\n")
 }

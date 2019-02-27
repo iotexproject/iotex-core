@@ -42,7 +42,7 @@ type rewardAccount struct {
 // Serialize serializes account state into bytes
 func (a rewardAccount) Serialize() ([]byte, error) {
 	gen := rewardingpb.Account{
-		Balance: a.balance.Bytes(),
+		Balance: a.balance.String(),
 	}
 	return proto.Marshal(&gen)
 }
@@ -53,7 +53,11 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	a.balance = big.NewInt(0).SetBytes(gen.Balance)
+	balance, ok := big.NewInt(0).SetString(gen.Balance, 10)
+	if !ok {
+		errors.New("failed to set reward account balance")
+	}
+	a.balance = balance
 	return nil
 }
 

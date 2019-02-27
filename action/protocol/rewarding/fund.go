@@ -30,8 +30,8 @@ type fund struct {
 // Serialize serializes fund state into bytes
 func (f fund) Serialize() ([]byte, error) {
 	gen := rewardingpb.Fund{
-		TotalBalance:     f.totalBalance.Bytes(),
-		UnclaimedBalance: f.unclaimedBalance.Bytes(),
+		TotalBalance:     f.totalBalance.String(),
+		UnclaimedBalance: f.unclaimedBalance.String(),
 	}
 	return proto.Marshal(&gen)
 }
@@ -42,8 +42,16 @@ func (f *fund) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	f.totalBalance = big.NewInt(0).SetBytes(gen.TotalBalance)
-	f.unclaimedBalance = big.NewInt(0).SetBytes(gen.UnclaimedBalance)
+	totalBalance, ok := big.NewInt(0).SetString(gen.TotalBalance, 10)
+	if !ok {
+		errors.New("failed to set total balance")
+	}
+	unclaimedBalance, ok := big.NewInt(0).SetString(gen.UnclaimedBalance, 10)
+	if !ok {
+		errors.New("failed to set unclaimed balance")
+	}
+	f.totalBalance = totalBalance
+	f.unclaimedBalance = unclaimedBalance
 	return nil
 }
 
