@@ -16,8 +16,9 @@ import (
 
 var (
 	// ConfigDir is the directory to store config file
-	ConfigDir      string
-	configFileName string
+	ConfigDir         string
+	// DefaultConfigFile is the default config file name
+	DefaultConfigFile string
 )
 
 // ConfigCmd represents the config command
@@ -37,5 +38,8 @@ func init() {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	configFileName = ConfigDir + "/config.default"
+	DefaultConfigFile = ConfigDir + "/config.default"
+
+	ConfigCmd.AddCommand(configGetEndpointCmd)
+	ConfigCmd.AddCommand(configSetEndpointCmd)
 }

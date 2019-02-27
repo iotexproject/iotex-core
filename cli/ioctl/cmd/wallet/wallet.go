@@ -13,6 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	walletPrefix = "wallet:"
+	walletEnd    = "endWallet"
+)
+
 // WalletCmd represents the wallet command
 var WalletCmd = &cobra.Command{
 	Use:   "wallet",
@@ -26,4 +31,27 @@ var WalletCmd = &cobra.Command{
 func init() {
 	WalletCmd.AddCommand(walletCreateCmd)
 	WalletCmd.AddCommand(walletListCmd)
+}
+
+func parseConfig(file []byte, start, end, name string) (int, int, bool, bool) {
+	var startLine, endLine int
+	find := false
+	exist := false
+	lines := strings.Split(string(file), "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, end) {
+			endLine = i
+			break
+		}
+		if !find && strings.HasPrefix(line, start) {
+			find = true
+			startLine = i
+			continue
+		}
+		// detect name collision
+		if find && name != "" && strings.HasPrefix(line, name) {
+			exist = true
+		}
+	}
+	return startLine, endLine, find, exist
 }
