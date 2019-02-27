@@ -304,7 +304,7 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	if err != nil {
 		log.L().Panic("Failed to get block producer address.", zap.Error(err))
 	}
-	chain.validator = &validator{sf: chain.sf, validatorAddr: producerAddress(cfg).String()}
+	chain.validator = &validator{sf: chain.sf, validatorAddr: cfg.ProducerAddress().String()}
 
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
@@ -727,14 +727,14 @@ func (bc *blockchain) MintNewBlock(
 		SetHeight(newblockHeight).
 		SetTimeStamp(timestamp).
 		AddActions(actions...).
-		Build(producerAddr, producerPubKey)
+		Build(producerPubKey)
 
 	blk, err := block.NewBuilder(ra).
 		SetPrevBlockHash(bc.tipHash).
 		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
 		SetReceiptRoot(calculateReceiptRoot(rc)).
-		SignAndBuild(producerPubKey, producerPriKey)
+		SignAndBuild(producerPriKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
@@ -951,7 +951,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		ws      factory.WorkingSet
 		err     error
 	)
-	pk, sk, addr, err := bc.genesisProducer()
+	pk, sk, _, err := bc.genesisProducer()
 	if err != nil {
 		return errors.Wrap(err, "failed to get the key and address of producer")
 	}
@@ -973,7 +973,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
 			AddActions(acts...).
-			Build(addr, pk)
+			Build(pk)
 		// run execution and update state trie root hash
 		receipts, err := bc.runActions(racts, ws)
 		if err != nil {
@@ -985,7 +985,7 @@ func (bc *blockchain) startEmptyBlockchain() error {
 			SetDeltaStateDigest(ws.Digest()).
 			SetReceipts(receipts).
 			SetReceiptRoot(calculateReceiptRoot(receipts)).
-			SignAndBuild(pk, sk)
+			SignAndBuild(sk)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -993,10 +993,10 @@ func (bc *blockchain) startEmptyBlockchain() error {
 		racts := block.NewRunnableActionsBuilder().
 			SetHeight(0).
 			SetTimeStamp(Gen.Timestamp).
-			Build(addr, pk)
+			Build(pk)
 		genesis, err = block.NewBuilder(racts).
 			SetPrevBlockHash(hash.ZeroHash256).
-			SignAndBuild(pk, sk)
+			SignAndBuild(sk)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create block")
 		}
@@ -1139,7 +1139,8 @@ func (bc *blockchain) runActions(
 	}
 	gasLimit := bc.config.Genesis.BlockGasLimit
 	// update state factory
-	producer, err := address.FromString(acts.BlockProducerAddr())
+	pkHash := keypair.HashPubKey(acts.BlockProducerPubKey())
+	producer, err := address.FromBytes(pkHash[:])
 	if err != nil {
 		return nil, err
 	}
@@ -1321,10 +1322,7 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 	default:
 		return
 	}
-	_, sk, err := bc.config.KeyPair()
-	if err != nil {
-		log.L().Panic("Failed to get block producer private key.", zap.Error(err))
-	}
+	sk := bc.config.ProducerPrivateKey()
 	nonce := uint64(0)
 	pollAction := action.NewPutPollResult(nonce, nextEpochHeight, l)
 	builder := action.EnvelopeBuilder{}
@@ -1402,7 +1400,7 @@ func (bc *blockchain) refreshStateDB() error {
 }
 
 func (bc *blockchain) buildStateInGenesis() error {
-	pk, _, addr, err := bc.genesisProducer()
+	pk, _, _, err := bc.genesisProducer()
 	if err != nil {
 		return errors.Wrap(err, "failed to get the key and address of producer")
 	}
@@ -1415,7 +1413,7 @@ func (bc *blockchain) buildStateInGenesis() error {
 		SetHeight(0).
 		SetTimeStamp(Gen.Timestamp).
 		AddActions(acts...).
-		Build(addr, pk)
+		Build(pk)
 	// run execution and update state trie root hash
 	if _, err := bc.runActions(racts, ws); err != nil {
 		return errors.Wrap(err, "failed to update state changes in Genesis block")
@@ -1439,10 +1437,7 @@ func (bc *blockchain) createGrantRewardAction(rewardType int) (action.SealedEnve
 		SetGasLimit(grant.GasLimit()).
 		SetAction(&grant).
 		Build()
-	_, sk, err := bc.config.KeyPair()
-	if err != nil {
-		log.L().Panic("Failed to get block producer private key.", zap.Error(err))
-	}
+	sk := bc.config.ProducerPrivateKey()
 	return action.Sign(envelope, sk)
 }
 
@@ -1549,17 +1544,4 @@ func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
 	}
 	res := crypto.NewMerkleTree(h).HashTree()
 	return res
-}
-
-func producerAddress(cfg config.Config) address.Address {
-	pubKey, _, err := cfg.KeyPair()
-	if err != nil {
-		log.L().Panic("Failed to get block producer public key.", zap.Error(err))
-	}
-	pkHash := keypair.HashPubKey(pubKey)
-	address, err := address.FromBytes(pkHash[:])
-	if err != nil {
-		log.L().Panic("Failed to get block producer address.", zap.Error(err))
-	}
-	return address
 }

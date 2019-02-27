@@ -28,6 +28,7 @@ func NewBuilder(ra RunnableActions) *Builder {
 				height:    ra.blockHeight,
 				timestamp: ra.blockTimeStamp,
 				txRoot:    ra.txHash,
+				pubkey:    ra.blockProducerPubKey,
 			},
 			Actions: ra.actions,
 		},
@@ -65,12 +66,15 @@ func (b *Builder) SetReceiptRoot(h hash.Hash256) *Builder {
 }
 
 // SignAndBuild signs and then builds a block.
-func (b *Builder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
-	b.blk.Header.pubkey = signerPubKey
+func (b *Builder) SignAndBuild(signerPriKey keypair.PrivateKey) (Block, error) {
+	if keypair.EncodePublicKey(b.blk.Header.pubkey) != keypair.EncodePublicKey(&signerPriKey.PublicKey) {
+		return Block{}, errors.New("public key from the signer doesn't match that from runnable actions")
+	}
+
 	h := b.blk.Header.HashHeaderCore()
 	sig, err := crypto.Sign(h[:], signerPriKey)
 	if err != nil {
-		return Block{}, errors.New("Failed to sign block")
+		return Block{}, errors.New("failed to sign block")
 	}
 	b.blk.Header.blockSig = sig
 	return b.blk, nil

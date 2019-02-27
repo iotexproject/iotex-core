@@ -438,7 +438,7 @@ func TestStateTransitions(t *testing.T) {
 				eventType: eCalibrate,
 				data:      uint64(1),
 			})
-			require.Equal(fsm.ErrTransitionNotFound, errors.Cause(err))
+			require.NoError(err)
 		})
 		t.Run("transition-success", func(t *testing.T) {
 			mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(false).Times(2)

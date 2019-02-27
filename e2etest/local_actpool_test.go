@@ -182,7 +182,6 @@ func newActPoolConfig() (config.Config, error) {
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&sk.PublicKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	return cfg, nil
 }

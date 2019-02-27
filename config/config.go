@@ -7,10 +7,11 @@
 package config
 
 import (
-	"encoding/hex"
 	"flag"
 	"os"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -19,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -76,7 +76,6 @@ var (
 			TrieDBPath:                   "/tmp/trie.db",
 			ID:                           1,
 			Address:                      "",
-			ProducerPubKey:               keypair.EncodePublicKey(&PrivateKey.PublicKey),
 			ProducerPrivKey:              keypair.EncodePrivateKey(PrivateKey),
 			GenesisActionsPath:           "",
 			EmptyGenesis:                 false,
@@ -171,7 +170,6 @@ var (
 
 	// Validates is the collection config validation functions
 	Validates = []Validate{
-		ValidateKeyPair,
 		ValidateRollDPoS,
 		ValidateDispatcher,
 		ValidateExplorer,
@@ -201,7 +199,6 @@ type (
 		TrieDBPath                   string `yaml:"trieDBPath"`
 		ID                           uint32 `yaml:"id"`
 		Address                      string `yaml:"address"`
-		ProducerPubKey               string `yaml:"producerPubKey"`
 		ProducerPrivKey              string `yaml:"producerPrivKey"`
 		GenesisActionsPath           string `yaml:"genesisActionsPath"`
 		EmptyGenesis                 bool   `yaml:"emptyGenesis"`
@@ -440,50 +437,31 @@ func NewSub(validates ...Validate) (Config, error) {
 	return cfg, nil
 }
 
-// BlockchainAddress returns the address derived from the configured chain ID and public key
-func (cfg Config) BlockchainAddress() (address.Address, error) {
-	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+// ProducerAddress returns the configured producer address derived from key
+func (cfg Config) ProducerAddress() address.Address {
+	sk := cfg.ProducerPrivateKey()
+	pkHash := keypair.HashPubKey(&sk.PublicKey)
+	addr, err := address.FromBytes(pkHash[:])
 	if err != nil {
-		return nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
+		log.L().Panic(
+			"Error when constructing producer address",
+			zap.Error(err),
+		)
 	}
-	pkHash := keypair.HashPubKey(pk)
-	return address.FromBytes(pkHash[:])
+	return addr
 }
 
-// KeyPair returns the decoded public and private key pair
-func (cfg Config) KeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
-	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
-	}
+// ProducerPrivateKey returns the configured private key
+func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
 	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
+		log.L().Panic(
+			"Error when decoding private key",
+			zap.String("key", cfg.Chain.ProducerPrivKey),
+			zap.Error(err),
+		)
 	}
-	return pk, sk, nil
-}
-
-// ValidateKeyPair validates the block producer address
-func ValidateKeyPair(cfg Config) error {
-	pkBytes, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
-	if err != nil {
-		return err
-	}
-	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
-	if err != nil {
-		return err
-	}
-	// Validate producer pubkey and prikey by signing a dummy message and verify it
-	validationMsg := "connecting the physical world block by block"
-	msgHash := hash.Hash256b([]byte(validationMsg))
-	sig, err := crypto.Sign(msgHash[:], priKey)
-	if err != nil {
-		return err
-	}
-	if !crypto.VerifySignature(pkBytes, msgHash[:], sig[:64]) {
-		return errors.Wrap(ErrInvalidCfg, "block producer has unmatched pubkey and prikey")
-	}
-	return nil
+	return sk
 }
 
 // ValidateChain validates the chain configure

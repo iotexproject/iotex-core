@@ -16,7 +16,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -49,14 +48,11 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 func TestNewConfigWithOverride(t *testing.T) {
 	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
-	pk := &sk.PublicKey
 	cfgStr := fmt.Sprintf(`
 chain:
     producerPrivKey: "%s"
-    producerPubKey: "%s"
 `,
 		keypair.EncodePrivateKey(sk),
-		keypair.EncodePublicKey(pk),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -71,20 +67,16 @@ chain:
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, keypair.EncodePrivateKey(sk), cfg.Chain.ProducerPrivKey)
-	require.Equal(t, keypair.EncodePublicKey(pk), cfg.Chain.ProducerPubKey)
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
 	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
-	pk := &sk.PublicKey
 	cfgStr := fmt.Sprintf(`
 chain:
     producerPrivKey: "%s"
-    producerPubKey: "%s"
 `,
 		keypair.EncodePrivateKey(sk),
-		keypair.EncodePublicKey(pk),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -95,10 +87,8 @@ chain:
 	cfgStr = fmt.Sprintf(`
 chain:
     producerPrivKey: "%s"
-    producerPubKey: "%s"
 `,
 		keypair.EncodePrivateKey(sk),
-		keypair.EncodePublicKey(pk),
 	)
 	_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
 	err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
@@ -117,7 +107,6 @@ chain:
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, keypair.EncodePrivateKey(sk), cfg.Chain.ProducerPrivKey)
-	require.Equal(t, keypair.EncodePublicKey(pk), cfg.Chain.ProducerPubKey)
 }
 
 func TestNewConfigWithLookupEnv(t *testing.T) {
@@ -125,15 +114,11 @@ func TestNewConfigWithLookupEnv(t *testing.T) {
 
 	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
-	pk := &sk.PublicKey
-
 	cfgStr := fmt.Sprintf(`
 chain:
     producerPrivKey: "%s"
-    producerPubKey: "%s"
 `,
 		keypair.EncodePrivateKey(sk),
-		keypair.EncodePublicKey(pk),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -161,31 +146,6 @@ chain:
 	cfg, err = New()
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
-}
-
-func TestValidateKeyPair(t *testing.T) {
-	cfg := Default
-	cfg.Chain.ProducerPubKey = "hello world"
-	cfg.Chain.ProducerPrivKey = "world hello"
-	err := ValidateKeyPair(cfg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "encoding/hex:"), err.Error())
-
-	sk, err := crypto.GenerateKey()
-	require.Nil(t, err)
-	sk2, err := crypto.GenerateKey()
-	require.Nil(t, err)
-	pk := &sk2.PublicKey
-	require.Nil(t, err)
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
-	err = ValidateKeyPair(cfg)
-	assert.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "block producer has unmatched pubkey and prikey"),
-	)
 }
 
 func TestValidateExplorer(t *testing.T) {
