@@ -55,7 +55,7 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	}
 	balance, ok := big.NewInt(0).SetString(gen.Balance, 10)
 	if !ok {
-		errors.New("failed to set reward account balance")
+		return errors.New("failed to set reward account balance")
 	}
 	a.balance = balance
 	return nil
