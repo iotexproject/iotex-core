@@ -23,6 +23,7 @@ jobs:
 
       # specify any bash command here prefixed with `run: `
       - run: echo $PATH
+      - run: rm -rf /go/src/github.com/wanlibing
       - run: go get -u github.com/wanlibing/go2xunit
       - run: which go2xunit
       - run: mkdir -p /tmp/test_report_upload
