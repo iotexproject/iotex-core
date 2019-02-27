@@ -25,6 +25,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -235,11 +236,16 @@ var (
 		height     uint64
 		numActions int64
 		tps        int64
+		epoch      iotextypes.EpochData
 	}{
 		{
 			4,
 			15,
 			15,
+			iotextypes.EpochData{
+				Num:    1,
+				Height: 1,
+			},
 		},
 	}
 
@@ -598,6 +604,8 @@ func TestServer_GetChainMeta(t *testing.T) {
 		require.Equal(test.height, chainMetaPb.Height)
 		require.Equal(test.numActions, chainMetaPb.NumActions)
 		require.Equal(test.tps, chainMetaPb.Tps)
+		require.Equal(test.epoch.Num, chainMetaPb.Epoch.Num)
+		require.Equal(test.epoch.Height, chainMetaPb.Epoch.Height)
 	}
 }
 
@@ -957,11 +965,27 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	acc := account.NewProtocol()
 	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
-	r := rewarding.NewProtocol(bc, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
-	registry.Register(account.ProtocolID, acc)
-	registry.Register(vote.ProtocolID, v)
-	registry.Register(execution.ProtocolID, evm)
-	registry.Register(rewarding.ProtocolID, r)
+	rolldposProtocol := rolldpos.NewProtocol(
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
+	)
+	r := rewarding.NewProtocol(bc, rolldposProtocol)
+	if err := registry.Register(rolldpos.ProtocolID, rolldposProtocol); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(account.ProtocolID, acc); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(vote.ProtocolID, v); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(execution.ProtocolID, evm); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(rewarding.ProtocolID, r); err != nil {
+		return nil, nil, err
+	}
 	sf.AddActionHandlers(acc, v, evm, r)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(acc, v, evm, r)

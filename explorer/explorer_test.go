@@ -29,6 +29,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -233,12 +234,18 @@ func TestExplorerApi(t *testing.T) {
 
 	// create chain
 	ctx := context.Background()
+	registry := protocol.Registry{}
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
+		blockchain.RegistryOption(&registry),
 	)
 	require.NotNil(bc)
+	vp := vote.NewProtocol(bc)
+	require.NoError(registry.Register(vote.ProtocolID, vp))
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
@@ -944,11 +951,17 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 
 	// create chain
 	ctx := context.Background()
+	registry := protocol.Registry{}
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
+		blockchain.RegistryOption(&registry),
 	)
+	vp := vote.NewProtocol(bc)
+	require.NoError(registry.Register(vote.ProtocolID, vp))
 	require.NoError(bc.Start(ctx))
 	defer func() {
 		require.NoError(bc.Stop(ctx))

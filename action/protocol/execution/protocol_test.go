@@ -25,6 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -123,12 +125,19 @@ func (sct *smartContractTest) prepareBlockchain(
 ) blockchain.Blockchain {
 	cfg := config.Default
 	cfg.Chain.EnableIndex = true
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	registry.Register(rolldpos.ProtocolID, rp)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemDaoOption(),
 		blockchain.InMemStateFactoryOption(),
+		blockchain.RegistryOption(&registry),
 	)
 	r.NotNil(bc)
+	registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 	sf := bc.GetFactory()
@@ -216,11 +225,18 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
+		registry := protocol.Registry{}
+		acc := account.NewProtocol()
+		registry.Register(account.ProtocolID, acc)
+		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+		registry.Register(rolldpos.ProtocolID, rp)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
+			blockchain.RegistryOption(&registry),
 		)
+		registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
@@ -415,11 +431,18 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
+		registry := protocol.Registry{}
+		acc := account.NewProtocol()
+		registry.Register(account.ProtocolID, acc)
+		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+		registry.Register(rolldpos.ProtocolID, rp)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
+			blockchain.RegistryOption(&registry),
 		)
+		registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
@@ -591,11 +614,18 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
+		registry := protocol.Registry{}
+		acc := account.NewProtocol()
+		registry.Register(account.ProtocolID, acc)
+		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+		registry.Register(rolldpos.ProtocolID, rp)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
+			blockchain.RegistryOption(&registry),
 		)
+		registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		require.NoError(bc.Start(ctx))

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -48,6 +49,7 @@ type IotxConsensus struct {
 type optionParams struct {
 	rootChainAPI     explorerapi.Explorer
 	broadcastHandler scheme.Broadcast
+	rp               *rp.Protocol
 }
 
 // Option sets Consensus construction parameter.
@@ -65,6 +67,14 @@ func WithRootChainAPI(exp explorerapi.Explorer) Option {
 func WithBroadcast(broadcastHandler scheme.Broadcast) Option {
 	return func(ops *optionParams) error {
 		ops.broadcastHandler = broadcastHandler
+		return nil
+	}
+}
+
+// WithRollDPoSProtocol is an option to register rolldpos protocol
+func WithRollDPoSProtocol(rp *rp.Protocol) Option {
+	return func(ops *optionParams) error {
+		ops.rp = rp
 		return nil
 	}
 }
@@ -130,7 +140,8 @@ func NewConsensus(
 			SetBlockchain(bc).
 			SetActPool(ap).
 			SetClock(clock).
-			SetBroadcast(ops.broadcastHandler)
+			SetBroadcast(ops.broadcastHandler).
+			RegisterProtocol(ops.rp)
 		if ops.rootChainAPI != nil {
 			bd = bd.SetCandidatesByHeightFunc(func(h uint64) ([]*state.Candidate, error) {
 				rawcs, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))
