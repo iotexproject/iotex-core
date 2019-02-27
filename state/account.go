@@ -41,7 +41,7 @@ func (st *Account) ToProto() *accountpb.Account {
 	acPb := &accountpb.Account{}
 	acPb.Nonce = st.Nonce
 	if st.Balance != nil {
-		acPb.Balance = st.Balance.Bytes()
+		acPb.Balance = st.Balance.String()
 	}
 	acPb.Root = make([]byte, len(st.Root))
 	copy(acPb.Root, st.Root[:])
@@ -64,8 +64,8 @@ func (st Account) Serialize() ([]byte, error) {
 func (st *Account) FromProto(acPb *accountpb.Account) {
 	st.Nonce = acPb.Nonce
 	st.Balance = big.NewInt(0)
-	if acPb.Balance != nil {
-		st.Balance.SetBytes(acPb.Balance)
+	if acPb.Balance != "" {
+		st.Balance.SetString(acPb.Balance, 10)
 	}
 	copy(st.Root[:], acPb.Root)
 	st.CodeHash = nil

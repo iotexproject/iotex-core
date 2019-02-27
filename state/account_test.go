@@ -29,7 +29,7 @@ func TestEncodeDecode(t *testing.T) {
 	ss, err := s1.Serialize()
 	require.NoError(err)
 	require.NotEmpty(ss)
-	require.Equal(81, len(ss))
+	require.Equal(85, len(ss))
 
 	s2 := Account{}
 	require.NoError(s2.Deserialize(ss))
@@ -43,7 +43,7 @@ func TestEncodeDecode(t *testing.T) {
 
 func TestProto(t *testing.T) {
 	require := require.New(t)
-	raw := "12012d1a200000000000000000000000000000000000000000000000000000000000000000"
+	raw := "1201301a200000000000000000000000000000000000000000000000000000000000000000"
 	ss, _ := hex.DecodeString(raw)
 	s1 := Account{}
 	require.NoError(Deserialize(&s1, ss))

@@ -43,10 +43,10 @@ func (bs SubChain) Serialize() ([]byte, error) {
 		DepositCount:       bs.DepositCount,
 	}
 	if bs.SecurityDeposit != nil {
-		gen.SecurityDeposit = bs.SecurityDeposit.Bytes()
+		gen.SecurityDeposit = bs.SecurityDeposit.String()
 	}
 	if bs.OperationDeposit != nil {
-		gen.OperationDeposit = bs.OperationDeposit.Bytes()
+		gen.OperationDeposit = bs.OperationDeposit.String()
 	}
 	return proto.Marshal(gen)
 }
@@ -73,8 +73,8 @@ func (bs *SubChain) Deserialize(data []byte) error {
 		CurrentHeight:      gen.CurrentHeight,
 		DepositCount:       gen.DepositCount,
 	}
-	bs.SecurityDeposit.SetBytes(gen.SecurityDeposit)
-	bs.OperationDeposit.SetBytes(gen.OperationDeposit)
+	bs.SecurityDeposit.SetString(gen.SecurityDeposit, 10)
+	bs.OperationDeposit.SetString(gen.OperationDeposit, 10)
 	return nil
 }
 
@@ -237,7 +237,7 @@ func (bs Deposit) Serialize() ([]byte, error) {
 		Confirmed: bs.Confirmed,
 	}
 	if bs.Amount != nil {
-		gen.Amount = bs.Amount.Bytes()
+		gen.Amount = bs.Amount.String()
 	}
 	return proto.Marshal(gen)
 }
@@ -254,6 +254,6 @@ func (bs *Deposit) Deserialize(data []byte) error {
 		Addr:      gen.Address,
 		Confirmed: gen.Confirmed,
 	}
-	bs.Amount.SetBytes(gen.Amount)
+	bs.Amount.SetString(gen.Amount, 10)
 	return nil
 }

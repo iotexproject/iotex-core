@@ -14,7 +14,7 @@ import "google/protobuf/timestamp.proto";
 
 message Transfer {
   // used by state-based model
-  bytes amount  = 1;
+  string amount  = 1;
   string recipient = 2;
   bytes payload  = 3;
 }
@@ -44,7 +44,7 @@ message PutPollResult {
 }
 
 message Execution {
-  bytes amount  = 1;
+  string amount  = 1;
   string contract = 2;
   bytes data = 3;
 }
@@ -52,8 +52,8 @@ message Execution {
 message StartSubChain {
   // TODO: chainID chould be assigned by system and returned via a receipt
   uint32 chainID = 1;
-  bytes securityDeposit = 2;
-  bytes operationDeposit = 3;
+  string securityDeposit = 2;
+  string operationDeposit = 3;
   uint64 startHeight = 4;
   uint64 parentHeightOffset = 5;
 }
@@ -77,12 +77,12 @@ message PutBlock {
 
 message CreateDeposit {
   uint32 chainID = 1;
-  bytes amount  = 2;
+  string amount  = 2;
   string recipient = 3;
 }
 
 message SettleDeposit {
-  bytes amount  = 1;
+  string amount  = 1;
   string recipient = 2;
   uint64 index = 3;
 }
@@ -103,7 +103,7 @@ message PlumPutBlock {
 
 message PlumCreateDeposit {
   string subChainAddress = 1;
-  bytes amount = 2;
+  string amount = 2;
   string recipient = 3;
 }
 
@@ -155,7 +155,7 @@ message ActionCore {
   uint32 version = 1;
   uint64 nonce = 2;
   uint64 gasLimit = 3;
-  bytes gasPrice = 4;
+  string gasPrice = 4;
   oneof action {
     Transfer transfer = 10;
     Vote vote = 11;
@@ -219,12 +219,12 @@ message Log{
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 message DepositToRewardingFund {
-  bytes amount = 1;
+  string amount = 1;
   bytes data = 2;
 }
 
 message ClaimFromRewardingFund {
-  bytes amount = 1;
+  string amount = 1;
   bytes data = 2;
 }
 
@@ -234,7 +234,7 @@ enum RewardType {
 }
 
 message SetReward {
-  bytes amount = 1;
+  string amount = 1;
   bytes data = 2;
   RewardType type = 3;
 }
