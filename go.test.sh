@@ -7,7 +7,7 @@ for d in $(go list ./... | grep -v vendor); do
     go test -short -v -coverprofile=profile.out -covermode=count "$d" 
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt
-        cat profile.out | go2xunit >> /tmp/test_report_upload/coverage_"$d".xml
+        cat profile.out | go2xunit >> /tmp/test_report_upload/coverage_`basename "$d"`_`date +"%H_%M_%S"`.xml
         rm profile.out
     fi
 done
