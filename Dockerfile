@@ -15,7 +15,6 @@ RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
     cp ./crypto/lib/libsect283k1_ubuntu.so /usr/lib/ && \
     cp ./crypto/lib/blslib/libtblsmnt_ubuntu.so /usr/lib/ && \
     mkdir -p /etc/iotex/ && \
-    cp $GOPATH/src/github.com/iotexproject/iotex-core/blockchain/testnet_actions.yaml /etc/iotex/testnet_actions.yaml && \
     rm -rf $GOPATH/src/github.com/iotexproject/iotex-core/
 
 CMD [ "iotex-server"]

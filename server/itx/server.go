@@ -334,10 +334,11 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 				return
 			}
 		} else {
-			if uint64(len(genesisConfig.Delegates)) < genesisConfig.NumDelegates {
+			addrs := genesisConfig.InitDelegateAddrs()
+			if uint64(len(addrs)) < genesisConfig.NumDelegates {
 				return errors.New("invalid delegate address in genesis block")
 			}
-			pollProtocol = poll.NewLifeLongDelegatesProtocol(genesisConfig.Delegates)
+			pollProtocol = poll.NewLifeLongDelegatesProtocol(addrs)
 		}
 		if err = cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
 			return

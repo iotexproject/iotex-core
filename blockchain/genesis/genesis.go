@@ -51,7 +51,6 @@ func initDefaultConfig() {
 		},
 		Poll: Poll{
 			EnableBeaconChainVoting: false,
-			Delegates:               []Delegate{},
 			CommitteeConfig: committee.Config{
 				BeaconChainAPIs: []string{},
 			},
@@ -65,7 +64,11 @@ func initDefaultConfig() {
 		},
 	}
 	for i := 0; i < identityset.Size(); i++ {
-		Default.InitBalanceMap[identityset.Address(i).String()] = unit.ConvertIotxToRau(100000000).String()
+		addr := identityset.Address(i).String()
+		Default.InitBalanceMap[addr] = unit.ConvertIotxToRau(100000000).String()
+		if uint64(i) < Default.NumDelegates {
+			Default.InitDelegateAddrStrs = append(Default.InitDelegateAddrStrs, addr)
+		}
 	}
 }
 
@@ -111,13 +114,7 @@ type (
 		// CommitteeConfig is the config for committee
 		CommitteeConfig committee.Config `yaml:"committeeConfig"`
 		// Delegates is a list of delegates with votes
-		Delegates []Delegate `yaml:"delegates"`
-	}
-	// Delegate defines a delegate with address and votes
-	Delegate struct {
-		Address       string `yaml:"address"`
-		Votes         uint64 `yaml:"votes"`
-		RewardAddress string `yaml:"rewardAddress"`
+		InitDelegateAddrStrs []string `yaml:"initDelegateAddrs"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
@@ -178,6 +175,19 @@ func (a *Account) InitBalances() ([]address.Address, []*big.Int) {
 		amounts = append(amounts, amount)
 	}
 	return addrs, amounts
+}
+
+// InitDelegateAddrs returns the initial delegate address
+func (p *Poll) InitDelegateAddrs() []address.Address {
+	addrs := make([]address.Address, 0)
+	for _, addrStr := range p.InitDelegateAddrStrs {
+		addr, err := address.FromString(addrStr)
+		if err != nil {
+			log.L().Panic("Error when decoding the poll protocol init delegate address from string.", zap.Error(err))
+		}
+		addrs = append(addrs, addr)
+	}
+	return addrs
 }
 
 // InitAdminAddr returns the address of the initial rewarding protocol admin

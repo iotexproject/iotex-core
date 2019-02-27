@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -831,8 +830,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Delete state db and recover to tip
 	testutil.CleanupPath(t, testTriePath)
 	require.NoError(svr.Stop(ctx))
-	err = svr.Start(ctx)
-	require.True(strings.Contains(err.Error(), "invalid state DB"))
+	require.Error(svr.Start(ctx))
 	// Refresh state DB
 	require.NoError(bc.RecoverChainAndState(0))
 	require.NoError(svr.Stop(ctx))
