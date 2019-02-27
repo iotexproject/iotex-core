@@ -14,7 +14,7 @@ for d in $(go list ./... | grep -v 'vender' ); do
     echo "!!!!!!!!!!!!!!!"
     cat go_test.txt
     echo "#################"
-    cat go_test.txt |  go2xunit >> /tmp/test_report_upload/coverage_`basename "$d"`_`date +"%H_%M_%S"`.xml
+    cat go_test.txt |  go2xunit 
     fi
     rm -f go_test.txt
 done
