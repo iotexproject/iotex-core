@@ -245,7 +245,12 @@ func (p *Protocol) splitEpochReward(
 			return nil, nil, err
 		}
 		addrs = append(addrs, addr)
-		amountPerAddr := big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
+		var amountPerAddr *big.Int
+		if totalWeight.Cmp(big.NewInt(0)) == 0 {
+			amountPerAddr = big.NewInt(0)
+		} else {
+			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
+		}
 		amounts = append(amounts, amountPerAddr)
 	}
 	return addrs, amounts, nil

@@ -119,11 +119,13 @@ func New(
 		committeeConfig := cfg.Genesis.Poll.CommitteeConfig
 		committeeConfig.BeaconChainAPI = cfg.Chain.BeaconChainAPI
 		kvstore := db.NewOnDiskDB(cfg.Chain.BeaconChainDB)
-		if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
-			kvstore,
-			committeeConfig,
-		); err != nil {
-			return nil, err
+		if cfg.Genesis.Poll.InitBeaconChainHeight != 0 {
+			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
+				kvstore,
+				committeeConfig,
+			); err != nil {
+				return nil, err
+			}
 		}
 	}
 	// create Blockchain

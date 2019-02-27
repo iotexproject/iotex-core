@@ -1273,7 +1273,7 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 	if !ok {
 		log.L().Panic("protocol poll has not been registered")
 	}
-	pp, ok := pl.(*poll.Protocol)
+	pp, ok := pl.(poll.Protocol)
 	if !ok {
 		log.L().Panic("Failed to cast to poll.Protocol")
 	}
@@ -1513,15 +1513,13 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 		if !ok {
 			return errors.Errorf("protocol %s is not found", poll.ProtocolID)
 		}
-		pp, ok := p.(*poll.Protocol)
+		pp, ok := p.(poll.Protocol)
 		if !ok {
 			return errors.Errorf("error when casting poll protocol")
 		}
 		return pp.Initialize(
 			ctx,
 			ws,
-			bc.config.Genesis.Poll.InitBeaconChainHeight,
-			bc.config.Genesis.Poll.DelegateAddresses,
 		)
 	}
 	p, ok := bc.registry.Find(vote.ProtocolID)
