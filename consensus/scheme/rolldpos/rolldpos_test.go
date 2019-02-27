@@ -30,6 +30,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -92,7 +94,11 @@ func TestNewRollDPoS(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := config.Default
-
+	rp := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
 	t.Run("normal", func(t *testing.T) {
 		addr := newTestAddr()
 		r, err := NewRollDPoSBuilder().
@@ -105,6 +111,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
+			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
@@ -122,6 +129,7 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetClock(clock.NewMock()).
+			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
@@ -143,6 +151,7 @@ func TestNewRollDPoS(t *testing.T) {
 			}).
 			SetClock(clock.NewMock()).
 			SetRootChainAPI(mock_explorer.NewMockExplorer(ctrl)).
+			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
@@ -159,6 +168,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
+			RegisterProtocol(rp).
 			Build()
 		assert.Error(t, err)
 		assert.Nil(t, r)
@@ -217,6 +227,11 @@ func TestRollDPoS_Metrics(t *testing.T) {
 			return nil
 		}).
 		SetClock(clock).
+		RegisterProtocol(rolldpos.NewProtocol(
+			cfg.Genesis.NumCandidateDelegates,
+			cfg.Genesis.NumDelegates,
+			cfg.Genesis.NumSubEpochs,
+		)).
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
@@ -262,6 +277,11 @@ func makeTestRollDPoSCtx(
 		actPool:          actPool,
 		broadcastHandler: broadcastCB,
 		clock:            clock,
+		rp: rolldpos.NewProtocol(
+			cfg.Genesis.NumCandidateDelegates,
+			cfg.Genesis.NumDelegates,
+			cfg.Genesis.NumSubEpochs,
+		),
 	}
 }
 
@@ -364,11 +384,18 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
+			registry := protocol.Registry{}
+			acc := account.NewProtocol()
+			require.NoError(t, registry.Register(account.ProtocolID, acc))
+			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+			require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 			chain := blockchain.NewBlockchain(
 				cfg,
 				blockchain.InMemDaoOption(),
 				blockchain.PrecreatedStateFactoryOption(sf),
+				blockchain.RegistryOption(&registry),
 			)
+			require.NoError(t, registry.Register(vote.ProtocolID, vote.NewProtocol(chain)))
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
@@ -391,6 +418,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetActPool(actPool).
 				SetBroadcast(p2p.Broadcast).
 				SetCandidatesByHeightFunc(candidatesByHeightFunc).
+				RegisterProtocol(rp).
 				Build()
 			require.NoError(t, err)
 

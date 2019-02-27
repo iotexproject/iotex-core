@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -160,7 +161,13 @@ func TestLocalCommit(t *testing.T) {
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
-	rewardingProtocol := rewarding.NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
+	rolldposProtocol := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
@@ -543,7 +550,13 @@ func TestVoteLocalCommit(t *testing.T) {
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
-	rewardingProtocol := rewarding.NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
+	rolldposProtocol := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
