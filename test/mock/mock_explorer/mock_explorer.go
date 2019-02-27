@@ -722,18 +722,3 @@ func (mr *MockExplorerMockRecorder) GetStateRootHash(blockHeight interface{}) *g
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateRootHash", reflect.TypeOf((*MockExplorer)(nil).GetStateRootHash), blockHeight)
 }
-
-// GetMeta mocks base method
-func (m *MockExplorer) GetMeta() (explorer.Meta, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMeta")
-	ret0, _ := ret[0].(explorer.Meta)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetMeta indicates an expected call of GetMeta
-func (mr *MockExplorerMockRecorder) GetMeta() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMeta", reflect.TypeOf((*MockExplorer)(nil).GetMeta))
-}

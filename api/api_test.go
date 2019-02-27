@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/pkg/version"
-
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -35,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -757,7 +756,6 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
-
 	require.NoError(t, err)
 
 	for _, test := range readUnclaimedBalanceTests {

@@ -306,13 +306,6 @@ struct SettleDeposit {
     isPending bool
 }
 
-struct Meta {
-    protocolVersion int
-    chainID int
-    packageVersion string
-    packageCommitID string
-}
-
 interface Explorer {
     // get the blockchain tip height
     getBlockchainHeight() int
@@ -451,7 +444,4 @@ interface Explorer {
 
     // get the state root hash of a given block height
     getStateRootHash(blockHeight int) string
-
-    // get the meta data of a blockchain
-    getMeta() Meta
 }

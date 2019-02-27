@@ -9,8 +9,8 @@ import (
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "c342aa7b1d5a5ab555ae659c2e2c2b2d"
-const BarristerDateGenerated int64 = 1550889795972000000
+const BarristerChecksum string = "b249705486499e2349dada85df166f2f"
+const BarristerDateGenerated int64 = 1551230904752000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -303,13 +303,6 @@ type SettleDeposit struct {
 	IsPending    bool   `json:"isPending"`
 }
 
-type Meta struct {
-	ProtocolVersion int64  `json:"protocolVersion"`
-	ChainID         int64  `json:"chainID"`
-	PackageVersion  string `json:"packageVersion"`
-	PackageCommitID string `json:"packageCommitID"`
-}
-
 type Explorer interface {
 	GetBlockchainHeight() (int64, error)
 	GetAddressBalance(address string) (string, error)
@@ -357,7 +350,6 @@ type Explorer interface {
 	EstimateGasForVote() (int64, error)
 	EstimateGasForSmartContract(request Execution) (int64, error)
 	GetStateRootHash(blockHeight int64) (string, error)
-	GetMeta() (Meta, error)
 }
 
 func NewExplorerProxy(c barrister.Client) Explorer {
@@ -1195,24 +1187,6 @@ func (_p ExplorerProxy) GetStateRootHash(blockHeight int64) (string, error) {
 		return _cast, nil
 	}
 	return "", _err
-}
-
-func (_p ExplorerProxy) GetMeta() (Meta, error) {
-	_res, _err := _p.client.Call("Explorer.getMeta")
-	if _err == nil {
-		_retType := _p.idl.Method("Explorer.getMeta").Returns
-		_res, _err = barrister.Convert(_p.idl, &_retType, reflect.TypeOf(Meta{}), _res, "")
-	}
-	if _err == nil {
-		_cast, _ok := _res.(Meta)
-		if !_ok {
-			_t := reflect.TypeOf(_res)
-			_msg := fmt.Sprintf("Explorer.getMeta returned invalid type: %v", _t)
-			return Meta{}, &barrister.JsonRpcError{Code: -32000, Message: _msg}
-		}
-		return _cast, nil
-	}
-	return Meta{}, _err
 }
 
 func NewJSONServer(idl *barrister.Idl, forceASCII bool, explorer Explorer) barrister.Server {
@@ -3085,48 +3059,6 @@ var IdlJsonRaw = `[
         "checksum": ""
     },
     {
-        "type": "struct",
-        "name": "Meta",
-        "comment": "",
-        "value": "",
-        "extends": "",
-        "fields": [
-            {
-                "name": "protocolVersion",
-                "type": "int",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "chainID",
-                "type": "int",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "packageVersion",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "packageCommitID",
-                "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            }
-        ],
-        "values": null,
-        "functions": null,
-        "barrister_version": "",
-        "date_generated": 0,
-        "checksum": ""
-    },
-    {
         "type": "interface",
         "name": "Explorer",
         "comment": "",
@@ -4222,18 +4154,6 @@ var IdlJsonRaw = `[
                     "is_array": false,
                     "comment": ""
                 }
-            },
-            {
-                "name": "getMeta",
-                "comment": "get the meta data of a blockchain",
-                "params": [],
-                "returns": {
-                    "name": "",
-                    "type": "Meta",
-                    "optional": false,
-                    "is_array": false,
-                    "comment": ""
-                }
             }
         ],
         "barrister_version": "",
@@ -4250,7 +4170,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1550889795972,
-        "checksum": "c342aa7b1d5a5ab555ae659c2e2c2b2d"
+        "date_generated": 1551230904752,
+        "checksum": "b249705486499e2349dada85df166f2f"
     }
 ]`
