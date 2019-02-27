@@ -20,11 +20,11 @@ func TestBuilder(t *testing.T) {
 	ra := NewRunnableActionsBuilder().
 		SetHeight(1).
 		SetTimeStamp(testutil.TimestampNow()).
-		Build(ta.Addrinfo["bravo"].String(), ta.Keyinfo["bravo"].PubKey)
+		Build(ta.Keyinfo["bravo"].PubKey)
 
 	nblk, err := NewBuilder(ra).
 		SetPrevBlockHash(hash.ZeroHash256).
-		SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(t, err)
 
 	require.True(t, nblk.VerifySignature())

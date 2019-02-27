@@ -32,7 +32,6 @@ func TestBlockReward(t *testing.T) {
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Genesis.BlockInterval = time.Second
 	cfg.Chain.ProducerPrivKey = "507f8c8b08358d7ab1d020889a4fa0b8a123b41b6459cb436df4d0d02d8f0ca6"
-	cfg.Chain.ProducerPubKey = "044f22cfc4cf0b417fe7a5ba7205fd7743d26f6b53901a5fa5e61b555af834e98717a1537bdd18b9cded6020fa8cacff1db0520ca32debcbd4468cea79a7114561"
 	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
 	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
 	cfg.Network.Port = testutil.RandomPort()

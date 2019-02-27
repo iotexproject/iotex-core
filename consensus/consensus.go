@@ -230,17 +230,7 @@ func (c *IotxConsensus) Scheme() scheme.Scheme {
 
 // GetAddr returns the iotex address
 func GetAddr(cfg config.Config) (keypair.PublicKey, keypair.PrivateKey, string) {
-	addr, err := cfg.BlockchainAddress()
-	if err != nil {
-		log.L().Panic("Fail to create new consensus.", zap.Error(err))
-	}
-	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
-	if err != nil {
-		log.L().Panic("Fail to create new consensus.", zap.Error(err))
-	}
-	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
-	if err != nil {
-		log.L().Panic("Fail to create new consensus.", zap.Error(err))
-	}
-	return pk, sk, addr.String()
+	addr := cfg.ProducerAddress()
+	sk := cfg.ProducerPrivateKey()
+	return &sk.PublicKey, sk, addr.String()
 }
