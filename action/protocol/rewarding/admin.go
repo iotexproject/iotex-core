@@ -50,11 +50,11 @@ func (a *admin) Deserialize(data []byte) error {
 	}
 	blockReward, ok := big.NewInt(0).SetString(gen.BlockReward, 10)
 	if !ok {
-		errors.New("failed to set block reward")
+		return errors.New("failed to set block reward")
 	}
 	epochReward, ok := big.NewInt(0).SetString(gen.EpochReward, 10)
 	if !ok {
-		errors.New("failed to set epoch reward")
+		return errors.New("failed to set epoch reward")
 	}
 	a.blockReward = blockReward
 	a.epochReward = epochReward

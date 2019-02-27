@@ -65,7 +65,7 @@ func (s *SetReward) LoadProto(sProto *iotextypes.SetReward) error {
 	*s = SetReward{}
 	amount, ok := big.NewInt(0).SetString(sProto.Amount, 10)
 	if !ok {
-		errors.New("failed to set reward amount")
+		return errors.New("failed to set reward amount")
 	}
 	s.amount = amount
 	s.data = sProto.Data

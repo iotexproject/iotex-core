@@ -54,7 +54,7 @@ func (c *ClaimFromRewardingFund) LoadProto(claim *iotextypes.ClaimFromRewardingF
 	*c = ClaimFromRewardingFund{}
 	amount, ok := big.NewInt(0).SetString(claim.Amount, 10)
 	if !ok {
-		errors.New("failed to set claim amount")
+		return errors.New("failed to set claim amount")
 	}
 	c.amount = amount
 	c.data = claim.Data
