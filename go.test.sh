@@ -9,7 +9,7 @@ for d in $(go list ./... | grep -v 'vender'); do
         cat profile.out >> coverage.txt
         rm profile.out
     fi
-    LINE=`cat go_test.txt | grep -v "no test"`
+    LINE=`cat go_test.txt | grep -v "no test" | wc -l`
     if [[ $LINE -gt 0 ]];then
     cat go_test.txt |  go2xunit >> /tmp/test_report_upload/coverage_`basename "$d"`_`date +"%H_%M_%S"`.xml
     fi
