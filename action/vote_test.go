@@ -24,8 +24,7 @@ func TestVoteSignVerify(t *testing.T) {
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetDestinationAddress(recipientAddr.String()).
-		SetGasPrice(big.NewInt(10)).
+	elp := bd.SetGasPrice(big.NewInt(10)).
 		SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 

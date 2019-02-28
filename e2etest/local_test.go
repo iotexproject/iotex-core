@@ -17,7 +17,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -750,7 +750,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	vote7, err := action.NewVote(uint64(2), "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(vote7).SetNonce(2).SetDestinationAddress("").SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
+	elp := bd.SetAction(vote7).SetNonce(2).SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 

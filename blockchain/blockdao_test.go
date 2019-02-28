@@ -68,7 +68,6 @@ func TestBlockDAO(t *testing.T) {
 		)
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetNonce(4).
-			SetDestinationAddress(testaddress.Addrinfo["delta"].String()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit1).Build()
 		sdeposit1, err := action.Sign(elp, testaddress.Keyinfo["alfa"].PriKey)
@@ -84,7 +83,6 @@ func TestBlockDAO(t *testing.T) {
 		)
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetNonce(5).
-			SetDestinationAddress(testaddress.Addrinfo["delta"].String()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit2).Build()
 		sdeposit2, err := action.Sign(elp, testaddress.Keyinfo["bravo"].PriKey)
@@ -100,7 +98,6 @@ func TestBlockDAO(t *testing.T) {
 		)
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetNonce(6).
-			SetDestinationAddress(testaddress.Addrinfo["delta"].String()).
 			SetGasLimit(testutil.TestGasLimit).
 			SetAction(deposit3).Build()
 		sdeposit3, err := action.Sign(elp, testaddress.Keyinfo["charlie"].PriKey)
