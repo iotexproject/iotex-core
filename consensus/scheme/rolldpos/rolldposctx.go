@@ -12,19 +12,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/config"
-
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-
 	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -53,7 +51,6 @@ type rollDPoSCtx struct {
 	cfg              config.RollDPoS
 	genesisCfg       genesis.Blockchain
 	encodedAddr      string
-	pubKey           keypair.PublicKey
 	priKey           keypair.PrivateKey
 	chain            blockchain.Blockchain
 	actPool          actpool.ActPool
@@ -142,7 +139,7 @@ func (ctx *rollDPoSCtx) OnConsensusReached() {
 		}
 		// putblock to parent chain if the current node is proposer and current chain is a sub chain
 		if ctx.round.proposer == ctx.encodedAddr && ctx.chain.ChainAddress() != "" {
-			putBlockToParentChain(ctx.rootChainAPI, ctx.chain.ChainAddress(), ctx.pubKey, ctx.priKey, ctx.encodedAddr, pendingBlock.Block)
+			putBlockToParentChain(ctx.rootChainAPI, ctx.chain.ChainAddress(), ctx.priKey, ctx.encodedAddr, pendingBlock.Block)
 		}
 	} else {
 		ctx.logger().Panic(
@@ -515,7 +512,6 @@ func (ctx *rollDPoSCtx) newEndorsement(topic endorsement.ConsensusVoteTopic) (co
 			ctx.round.number,
 			topic,
 		),
-		ctx.pubKey,
 		ctx.priKey,
 		ctx.encodedAddr,
 	)
