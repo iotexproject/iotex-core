@@ -9,11 +9,12 @@ package action
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/crypto"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -311,17 +312,17 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 }
 
 // Sign signs the action using sender's private key
-func Sign(act Envelope, sk keypair.PrivateKey) (SealedEnvelope, error) {
-	sealed := SealedEnvelope{Envelope: act}
-
-	sealed.srcPubkey = &sk.PublicKey
-
-	hash := act.Hash()
-	sig, err := crypto.Sign(hash[:], sk)
+func Sign(act Envelope, signer crypto.Signer) (SealedEnvelope, error) {
+	sig, pk, err := signer.Sign(act.Hash())
 	if err != nil {
-		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
+		return SealedEnvelope{}, errors.Wrapf(ErrAction, "failed to sign action hash = %x", act.Hash())
 	}
-	sealed.signature = sig
+
+	sealed := SealedEnvelope{
+		Envelope:  act,
+		signature: sig,
+		srcPubkey: pk,
+	}
 	sealed.payload.SetEnvelopeContext(sealed)
 	return sealed, nil
 }
@@ -355,7 +356,7 @@ func Verify(sealed SealedEnvelope) error {
 	if len(sealed.Signature()) != SignatureLength {
 		return errors.New("incorrect length of signature")
 	}
-	if success := crypto.VerifySignature(keypair.PublicKeyToBytes(sealed.SrcPubkey()), hash[:],
+	if success := ethcrypto.VerifySignature(keypair.PublicKeyToBytes(sealed.SrcPubkey()), hash[:],
 		sealed.Signature()[:SignatureLength-1]); success {
 		return nil
 	}
