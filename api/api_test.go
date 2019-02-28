@@ -87,19 +87,16 @@ var (
 var (
 	delegates = []genesis.Delegate{
 		{
-			Address:       ta.Addrinfo["alfa"].String(),
-			Votes:         10,
-			RewardAddress: ta.Addrinfo["alfa"].String(),
+			OperatorAddrStr: identityset.Address(0).String(),
+			VotesStr:        "10",
 		},
 		{
-			Address:       ta.Addrinfo["bravo"].String(),
-			Votes:         10,
-			RewardAddress: ta.Addrinfo["bravo"].String(),
+			OperatorAddrStr: identityset.Address(1).String(),
+			VotesStr:        "10",
 		},
 		{
-			Address:       ta.Addrinfo["charlie"].String(),
-			Votes:         10,
-			RewardAddress: ta.Addrinfo["charlie"].String(),
+			OperatorAddrStr: identityset.Address(2).String(),
+			VotesStr:        "10",
 		},
 	}
 )
