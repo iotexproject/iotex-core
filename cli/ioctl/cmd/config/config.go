@@ -42,7 +42,7 @@ type Config struct {
 }
 
 func init() {
-	ConfigDir = os.Getenv("HOME") + "/.config/ioctl"
+	ConfigDir = os.Getenv("HOME") + "/.config/ioctl/default"
 	if err := os.MkdirAll(ConfigDir, 0700); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)

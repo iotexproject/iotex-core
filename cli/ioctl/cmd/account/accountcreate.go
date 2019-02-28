@@ -33,11 +33,9 @@ var accountCreateCmd = &cobra.Command{
 
 func init() {
 	accountCreateCmd.Flags().IntVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
-
-	AccountCmd.AddCommand(accountCreateCmd)
 }
 
-func accountCreate(_ []string) string {
+func accountCreate(args []string) string {
 	items := make([]string, numAccounts)
 	for i := 0; i < numAccounts; i++ {
 		private, err := crypto.GenerateKey()
@@ -47,11 +45,10 @@ func accountCreate(_ []string) string {
 		pkHash := keypair.HashPubKey(&private.PublicKey)
 		addr, _ := address.FromBytes(pkHash[:])
 		priKeyBytes := keypair.PrivateKeyToBytes(private)
+		pubKeyBytes := keypair.PublicKeyToBytes(&private.PublicKey)
 		items[i] = fmt.Sprintf(
-			"{\"Address\": \"%s\", \"PrivateKey\": \"%x\"}\n",
-			addr.String(),
-			priKeyBytes,
-		)
+			"{\"Address\": \"%s\", \"PrivateKey\": \"%x\", \"PrivateKey\": \"%x\"}\n",
+			addr.String(), priKeyBytes, pubKeyBytes)
 	}
-	return "[" + strings.Join(items, ",") + "]"
+	return strings.Join(items, "")
 }

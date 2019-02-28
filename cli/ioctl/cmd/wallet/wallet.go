@@ -35,7 +35,6 @@ var WalletCmd = &cobra.Command{
 }
 
 func init() {
-	WalletCmd.AddCommand(walletCreateCmd)
 	WalletCmd.AddCommand(walletListCmd)
 }
 
@@ -61,4 +60,14 @@ func Sign(name, password string, hash []byte) ([]byte, error) {
 		}
 	}
 	return nil, errors.Errorf("wallet %s's address does not match with keys in keystore", name)
+}
+
+// AliasToAddress returns the address corresponding to name/alias
+func AliasToAddress(name string) (string, error) {
+	// parse the wallet section from config file
+	config, err := config.LoadConfig()
+	if err != nil {
+		return "", err
+	}
+	return config.WalletList[name], nil
 }

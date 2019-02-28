@@ -17,21 +17,17 @@ import (
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 // actionHashCmd represents the account balance command
 var actionHashCmd = &cobra.Command{
-	Use:   "hash",
+	Use:   "hash []hash",
 	Short: "Get action by hash",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(getActionByHash(args))
 	},
-}
-
-func init() {
-	ActionCmd.AddCommand(actionHashCmd)
 }
 
 // getActionByHash gets balance of an IoTex Blockchain address
@@ -47,14 +43,14 @@ func getActionByHash(args []string) string {
 		return err.Error()
 	}
 	defer conn.Close()
-	cli := pb.NewAPIServiceClient(conn)
+	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
-	requestByHash := pb.GetActionByHashRequest{}
-	request := pb.GetActionsRequest{}
+	requestByHash := iotexapi.GetActionByHashRequest{}
+	request := iotexapi.GetActionsRequest{}
 	var res string
 	for _, hash := range args {
 		requestByHash.ActionHash = hash
-		request.Lookup = &pb.GetActionsRequest_ByHash{ByHash: &requestByHash}
+		request.Lookup = &iotexapi.GetActionsRequest_ByHash{ByHash: &requestByHash}
 		response, err := cli.GetActions(ctx, &request)
 		if err != nil {
 			log.L().Error("cannot get action from "+requestByHash.ActionHash, zap.Error(err))

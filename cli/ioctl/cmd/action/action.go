@@ -13,6 +13,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	alias           string
+	bytecode        string
+	gasLimit        uint64
+	gasPrice        int64
+	pushTransaction bool
+)
+
 // ActionCmd represents the account command
 var ActionCmd = &cobra.Command{
 	Use:   "action",
@@ -21,4 +29,9 @@ var ActionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Print: " + strings.Join(args, " "))
 	},
+}
+
+func init() {
+	ActionCmd.AddCommand(actionHashCmd)
+	ActionCmd.AddCommand(actionTransferCmd)
 }

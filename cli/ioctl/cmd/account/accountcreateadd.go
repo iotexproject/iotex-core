@@ -4,42 +4,36 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package wallet
+package account
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-var (
-	name, password string
-)
-
-// walletCreateCmd represents the wallet create command
-var walletCreateCmd = &cobra.Command{
-	Use:   "create",
-	Short: "Create new wallet for ioctl",
-	Args:  cobra.ExactArgs(0),
+// accountCreateAddCmd represents the account create command
+var accountCreateAddCmd = &cobra.Command{
+	Use:   "createadd name",
+	Short: "Create new account for ioctl",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(walletCreate())
+		fmt.Println(accountCreateAdd(args))
 	},
 }
 
-func init() {
-	walletCreateCmd.Flags().StringVarP(&name, "name", "n", "", "name for wallet")
-	walletCreateCmd.Flags().StringVarP(&password, "password", "p", "", "password for wallet")
-	walletCreateCmd.MarkFlagRequired("name")
-	walletCreateCmd.MarkFlagRequired("password")
-}
-
-func walletCreate() string {
+func accountCreateAdd(args []string) string {
+	name := args[0]
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return err.Error()
@@ -47,7 +41,7 @@ func walletCreate() string {
 	if _, ok := cfg.WalletList[name]; ok {
 		return fmt.Sprintf("A wallet named \"%s\" already exists.", name)
 	}
-	addr, err := newWallet()
+	addr, err := newAccount(name)
 	if err != nil {
 		return err.Error()
 	}
@@ -60,12 +54,28 @@ func walletCreate() string {
 		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
 	}
 	return fmt.Sprintf(
-		"New wallet \"%s\" is created. Keep your password, or the wallet will not be able to unlock.",
+		"New wallet \"%s\" is created. Keep your password, or your will lose your private key.",
 		name,
 	)
 }
 
-func newWallet() (string, error) {
+func newAccount(name string) (string, error) {
+	fmt.Printf("#%s: Set password\n", name)
+	passwordBytes, err := gopass.GetPasswd()
+	if err != nil {
+		log.L().Error("fail to get password", zap.Error(err))
+		return "", err
+	}
+	password := string(passwordBytes)
+	fmt.Printf("#%s: Enter password again\n", name)
+	passwordCheck, err := gopass.GetPasswd()
+	if err != nil {
+		log.L().Error("fail to get password", zap.Error(err))
+		return "", err
+	}
+	if password != string(passwordCheck) {
+		return "", errors.New("password doesn't match")
+	}
 	ks := keystore.NewKeyStore(config.ConfigDir, keystore.StandardScryptN, keystore.StandardScryptP)
 	account, err := ks.NewAccount(password)
 	if err != nil {
