@@ -16,7 +16,7 @@ import (
 
 var (
 	// ConfigDir is the directory to store config file
-	ConfigDir         string
+	ConfigDir string
 	// DefaultConfigFile is the default config file name
 	DefaultConfigFile string
 )
