@@ -12,19 +12,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/config"
-
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-
 	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -702,30 +700,15 @@ func (ctx *rollDPoSCtx) rotatedProposer(epoch *epochCtx, height uint64, round ui
 	err error,
 ) {
 	delegates := epoch.delegates
-	numDelegates := len(delegates)
+	numDelegates := uint64(len(delegates))
 	if numDelegates == 0 {
 		return "", ErrZeroDelegate
 	}
-	if !ctx.genesisCfg.TimeBasedRotation {
-		return delegates[(height)%uint64(numDelegates)], nil
+	idx := height
+	if ctx.genesisCfg.TimeBasedRotation {
+		idx += uint64(round)
 	}
-	return delegates[(height+uint64(round))%uint64(numDelegates)], nil
-}
-
-func (ctx *rollDPoSCtx) getProposer(
-	height uint64,
-	round uint32,
-	delegates []string,
-) (string, error) {
-	numDelegates := ctx.genesisCfg.NumDelegates
-	if int(numDelegates) != len(delegates) {
-		return "", errors.New("delegates number is different from config")
-	}
-	if !ctx.genesisCfg.TimeBasedRotation {
-		return delegates[(height)%numDelegates], nil
-	}
-
-	return delegates[(height+uint64(round))%numDelegates], nil
+	return delegates[idx%numDelegates], nil
 }
 
 func (ctx *rollDPoSCtx) epochCtxByHeight(height uint64) (*epochCtx, error) {

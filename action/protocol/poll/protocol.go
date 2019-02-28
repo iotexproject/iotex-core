@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -163,10 +164,30 @@ func (p *governanceChainCommitteeProtocol) delegatesByBeaconChainHeight(height u
 	}
 	l := state.CandidateList{}
 	for _, c := range r.Delegates() {
+		operatorAddress := string(c.OperatorAddress())
+		if _, err := address.FromString(operatorAddress); err != nil {
+			log.L().Error(
+				"candidate's operator address is invalid",
+				zap.String("operatorAddress", operatorAddress),
+				zap.String("name", string(c.Name())),
+				zap.Error(err),
+			)
+			continue
+		}
+		rewardAddress := string(c.RewardAddress())
+		if _, err := address.FromString(rewardAddress); err != nil {
+			log.L().Error(
+				"candidate's reward address is invalid",
+				zap.String("name", string(c.Name())),
+				zap.String("rewardAddress", rewardAddress),
+				zap.Error(err),
+			)
+			continue
+		}
 		l = append(l, &state.Candidate{
-			Address:       string(c.OperatorAddress()),
+			Address:       operatorAddress,
 			Votes:         c.Score(),
-			RewardAddress: string(c.RewardAddress()),
+			RewardAddress: rewardAddress,
 		})
 	}
 	return l, nil

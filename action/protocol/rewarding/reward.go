@@ -237,17 +237,17 @@ func (p *Protocol) splitEpochReward(
 		candidates = candidates[:numDelegatesForEpochReward]
 	}
 	totalWeight := big.NewInt(0)
+	rewardAddrs := make([]address.Address, 0)
 	for _, candidate := range candidates {
-		totalWeight = big.NewInt(0).Add(totalWeight, candidate.Votes)
-	}
-	addrs := make([]address.Address, 0)
-	amounts := make([]*big.Int, 0)
-	for _, candidate := range candidates {
-		addr, err := address.FromString(candidate.Address)
+		rewardAddr, err := address.FromString(candidate.RewardAddress)
 		if err != nil {
 			return nil, nil, err
 		}
-		addrs = append(addrs, addr)
+		rewardAddrs = append(rewardAddrs, rewardAddr)
+		totalWeight = big.NewInt(0).Add(totalWeight, candidate.Votes)
+	}
+	amounts := make([]*big.Int, 0)
+	for _, candidate := range candidates {
 		var amountPerAddr *big.Int
 		if totalWeight.Cmp(big.NewInt(0)) == 0 {
 			amountPerAddr = big.NewInt(0)
@@ -256,7 +256,7 @@ func (p *Protocol) splitEpochReward(
 		}
 		amounts = append(amounts, amountPerAddr)
 	}
-	return addrs, amounts, nil
+	return rewardAddrs, amounts, nil
 }
 
 func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, index uint64) error {
