@@ -3,7 +3,7 @@
 set -e
 echo "" > coverage.txt
 
-for d in $(go list ./... | grep -v 'vendor' ); do
+for d in $(go list ./... | grep -v vendor ); do
     go test -short -v -coverprofile=profile.out -covermode=count "$d" > go_test.txt
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt
