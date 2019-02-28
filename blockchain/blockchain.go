@@ -1008,7 +1008,11 @@ func (bc *blockchain) startExistingBlockchain() error {
 
 func (bc *blockchain) validateBlock(blk *block.Block) error {
 	validateTimer := bc.timerFactory.NewTimer("validate")
-	err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash)
+	prevBlkHash := bc.tipHash
+	if blk.Height() == 1 {
+		prevBlkHash = bc.config.Genesis.Digest
+	}
+	err := bc.validator.Validate(blk, bc.tipHeight, prevBlkHash)
 	validateTimer.End()
 	if err != nil {
 		return errors.Wrapf(err, "error when validating block %d", blk.Height())
