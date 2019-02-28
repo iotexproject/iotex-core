@@ -48,13 +48,13 @@ func (p *Protocol) Initialize(ctx context.Context, sm protocol.StateManager, add
 			return errors.Wrapf(err, "failed to load or create the account of self nominator %s", addr)
 		}
 		selfNominator.IsCandidate = true
-		if err := candidatesutil.LoadAndAddCandidates(sm, addr.String()); err != nil {
+		if err := candidatesutil.LoadAndAddCandidates(sm, 0, addr.String()); err != nil {
 			return err
 		}
 		if err := accountutil.StoreAccount(sm, addr.String(), selfNominator); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
-		if err := candidatesutil.LoadAndUpdateCandidates(sm, addr.String(), selfNominator.Balance); err != nil {
+		if err := candidatesutil.LoadAndUpdateCandidates(sm, 0, addr.String(), selfNominator.Balance); err != nil {
 			return errors.Wrap(err, "failed to load and update candidates")
 		}
 
@@ -104,7 +104,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		// unvote operation
 		voteFrom.IsCandidate = false
 		// Remove the candidate from candidateMap if the person is not a candidate anymore
-		if err := candidatesutil.LoadAndDeleteCandidates(sm, raCtx.Caller.String()); err != nil {
+		if err := candidatesutil.LoadAndDeleteCandidates(sm, raCtx.BlockHeight, raCtx.Caller.String()); err != nil {
 			return nil, errors.Wrap(err, "failed to load and delete candidates")
 		}
 	} else if raCtx.Caller.String() == vote.Votee() {
@@ -116,7 +116,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		if err != nil {
 			return nil, err
 		}
-		if err := candidatesutil.LoadAndAddCandidates(sm, addr.String()); err != nil {
+		if err := candidatesutil.LoadAndAddCandidates(sm, raCtx.BlockHeight, addr.String()); err != nil {
 			return nil, errors.Wrap(err, "failed to load and add candidates")
 		}
 	}
@@ -139,7 +139,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		}
 		// Update candidate map
 		if oldVotee.IsCandidate {
-			if err := candidatesutil.LoadAndUpdateCandidates(sm, prevVotee, oldVotee.VotingWeight); err != nil {
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, raCtx.BlockHeight, prevVotee, oldVotee.VotingWeight); err != nil {
 				return nil, errors.Wrap(err, "failed to load and update candidates")
 			}
 		}
@@ -159,7 +159,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		}
 		// Update candidate map
 		if voteTo.IsCandidate {
-			if err := candidatesutil.LoadAndUpdateCandidates(sm, vote.Votee(), voteTo.VotingWeight); err != nil {
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, raCtx.BlockHeight, vote.Votee(), voteTo.VotingWeight); err != nil {
 				return nil, errors.Wrap(err, "failed to load and update candidates")
 			}
 		}

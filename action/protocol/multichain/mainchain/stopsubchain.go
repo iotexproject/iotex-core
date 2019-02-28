@@ -56,8 +56,8 @@ func (p *Protocol) handleStopSubChain(ctx context.Context, stop *action.StopSubC
 	}
 
 	stopHeight := stop.StopHeight()
-	if stopHeight <= sm.Height() {
-		return errors.Errorf("stop height %d should not be lower than chain height %d", stopHeight, sm.Height())
+	if stopHeight <= raCtx.BlockHeight {
+		return errors.Errorf("stop height %d should not be lower than chain height %d", stopHeight, raCtx.BlockHeight)
 	}
 	subChainAddr := stop.ChainAddress()
 	subChain, err := p.subChainToStop(subChainAddr)
