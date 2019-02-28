@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/test/identityset"
+
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -84,18 +86,19 @@ func TestRollDPoSCtx(t *testing.T) {
 	t.Run("calculate-ctx", func(t *testing.T) {
 		candidates := make([]string, 4)
 		for i := 0; i < len(candidates); i++ {
-			candidates[i] = testAddrs[i].encodedAddr
+			candidates[i] = identityset.Address(i).String()
 		}
 
 		blockHeight := uint64(8)
 		clock := clock.NewMock()
 		var prevHash hash.Hash256
+		sk := identityset.PrivateKey(0)
 		blk := block.NewBlockDeprecated(
 			1,
 			blockHeight,
 			prevHash,
 			testutil.TimestampNowFromClock(clock),
-			testAddrs[0].pubKey,
+			&sk.PublicKey,
 			make([]action.SealedEnvelope, 0),
 		)
 		cfg := config.Default
@@ -109,8 +112,14 @@ func TestRollDPoSCtx(t *testing.T) {
 		cfg.Genesis.NumDelegates = 4
 		cfg.Genesis.NumSubEpochs = 1
 
+		sk0 := identityset.PrivateKey(0)
+		addr0 := addrKeyPair{
+			encodedAddr: identityset.Address(0).String(),
+			pubKey:      &sk0.PublicKey,
+			priKey:      sk0,
+		}
 		ctx := makeTestRollDPoSCtx(
-			testAddrs[0],
+			&addr0,
 			ctrl,
 			cfg,
 			func(blockchain *mock_blockchain.MockBlockchain) {

@@ -1,11 +1,6 @@
 package rolldpos
 
-import (
-	"testing"
-
-	"github.com/stretchr/testify/require"
-)
-
+/*
 func TestGetEpochNum(t *testing.T) {
 	require := require.New(t)
 	numDelegates := uint64(4)
@@ -53,3 +48,4 @@ func TestGetSubEpochNum(t *testing.T) {
 		require.Equal(expectedSubEpochNums[i], subEpochNum)
 	}
 }
+*/

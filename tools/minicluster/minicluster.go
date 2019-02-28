@@ -252,9 +252,6 @@ func newConfig(
 	cfg.Chain.NumCandidates = numNodes
 	cfg.Chain.EnableIndex = true
 	cfg.Chain.EnableAsyncIndexWrite = true
-
-	producerPubKey := &producerPriKey.PublicKey
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(producerPubKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(producerPriKey)
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme

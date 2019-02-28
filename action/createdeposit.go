@@ -83,8 +83,8 @@ func (d *CreateDeposit) Proto() *iotextypes.CreateDeposit {
 		ChainID:   d.chainID,
 		Recipient: d.recipient,
 	}
-	if d.amount != nil && len(d.amount.Bytes()) > 0 {
-		act.Amount = d.amount.Bytes()
+	if d.amount != nil && len(d.amount.String()) > 0 {
+		act.Amount = d.amount.String()
 	}
 	return act
 }
@@ -102,7 +102,7 @@ func (d *CreateDeposit) LoadProto(pbDpst *iotextypes.CreateDeposit) error {
 
 	d.chainID = pbDpst.GetChainID()
 	d.amount = big.NewInt(0)
-	d.amount.SetBytes(pbDpst.GetAmount())
+	d.amount.SetString(pbDpst.GetAmount(), 10)
 	d.recipient = pbDpst.GetRecipient()
 	return nil
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -43,24 +44,21 @@ type Protocol struct {
 	cm        protocol.ChainManager
 	keyPrefix []byte
 	addr      address.Address
-	// TODO: these should be migrate to rolldpos protocol
-	numDelegates uint64
-	numSubEpochs uint64
+	rp        *rolldpos.Protocol
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(cm protocol.ChainManager, numDelegates uint64, numSubEpochs uint64) *Protocol {
+func NewProtocol(cm protocol.ChainManager, rp *rolldpos.Protocol) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
 	}
 	return &Protocol{
-		cm:           cm,
-		keyPrefix:    h[:],
-		addr:         addr,
-		numDelegates: numDelegates,
-		numSubEpochs: numSubEpochs,
+		cm:        cm,
+		keyPrefix: h[:],
+		addr:      addr,
+		rp:        rp,
 	}
 }
 
@@ -75,38 +73,44 @@ func (p *Protocol) Handle(
 	case *action.SetReward:
 		switch act.RewardType() {
 		case action.BlockReward:
+			si := sm.Snapshot()
 			if err := p.SetBlockReward(ctx, sm, act.Amount()); err != nil {
-				return p.settleAction(ctx, sm, 1), nil
+				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 			}
-			return p.settleAction(ctx, sm, 0), nil
+			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
 		case action.EpochReward:
+			si := sm.Snapshot()
 			if err := p.SetEpochReward(ctx, sm, act.Amount()); err != nil {
-				return p.settleAction(ctx, sm, 1), nil
+				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 			}
-			return p.settleAction(ctx, sm, 0), nil
+			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
 		}
 	case *action.DepositToRewardingFund:
+		si := sm.Snapshot()
 		if err := p.Deposit(ctx, sm, act.Amount()); err != nil {
-			return p.settleAction(ctx, sm, 1), nil
+			return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 		}
-		return p.settleAction(ctx, sm, 0), nil
+		return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
 	case *action.ClaimFromRewardingFund:
+		si := sm.Snapshot()
 		if err := p.Claim(ctx, sm, act.Amount()); err != nil {
-			return p.settleAction(ctx, sm, 1), nil
+			return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 		}
-		return p.settleAction(ctx, sm, 0), nil
+		return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
+			si := sm.Snapshot()
 			if err := p.GrantBlockReward(ctx, sm); err != nil {
-				return p.settleAction(ctx, sm, 1), nil
+				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 			}
-			return p.settleAction(ctx, sm, 0), nil
+			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
 		case action.EpochReward:
+			si := sm.Snapshot()
 			if err := p.GrantEpochReward(ctx, sm); err != nil {
-				return p.settleAction(ctx, sm, 1), nil
+				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 			}
-			return p.settleAction(ctx, sm, 0), nil
+			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
 		}
 	}
 	return nil, nil
@@ -166,16 +170,22 @@ func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
 	status uint64,
-) *action.Receipt {
+	si int,
+) (*action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if status == action.FailureReceiptStatus {
+		if err := sm.Revert(si); err != nil {
+			return nil, err
+		}
+	}
 	gasFee := big.NewInt(0).Mul(raCtx.GasPrice, big.NewInt(0).SetUint64(raCtx.IntrinsicGas))
 	if err := DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
-		p.createReceipt(1, raCtx.ActionHash, raCtx.IntrinsicGas)
+		return nil, err
 	}
 	if err := p.increaseNonce(sm, raCtx.Caller, raCtx.Nonce); err != nil {
-		return p.createReceipt(1, raCtx.ActionHash, raCtx.IntrinsicGas)
+		return nil, err
 	}
-	return p.createReceipt(status, raCtx.ActionHash, raCtx.IntrinsicGas)
+	return p.createReceipt(status, raCtx.ActionHash, raCtx.IntrinsicGas), nil
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
@@ -194,7 +204,7 @@ func (p *Protocol) createReceipt(status uint64, actHash hash.Hash256, gasConsume
 	// TODO: need to review the fields
 	return &action.Receipt{
 		ReturnValue:     nil,
-		Status:          0,
+		Status:          status,
 		ActHash:         actHash,
 		GasConsumed:     gasConsumed,
 		ContractAddress: p.addr.String(),

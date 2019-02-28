@@ -30,8 +30,8 @@ type fund struct {
 // Serialize serializes fund state into bytes
 func (f fund) Serialize() ([]byte, error) {
 	gen := rewardingpb.Fund{
-		TotalBalance:     f.totalBalance.Bytes(),
-		UnclaimedBalance: f.unclaimedBalance.Bytes(),
+		TotalBalance:     f.totalBalance.String(),
+		UnclaimedBalance: f.unclaimedBalance.String(),
 	}
 	return proto.Marshal(&gen)
 }
@@ -42,8 +42,16 @@ func (f *fund) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	f.totalBalance = big.NewInt(0).SetBytes(gen.TotalBalance)
-	f.unclaimedBalance = big.NewInt(0).SetBytes(gen.UnclaimedBalance)
+	totalBalance, ok := big.NewInt(0).SetString(gen.TotalBalance, 10)
+	if !ok {
+		return errors.New("failed to set total balance")
+	}
+	unclaimedBalance, ok := big.NewInt(0).SetString(gen.UnclaimedBalance, 10)
+	if !ok {
+		return errors.New("failed to set unclaimed balance")
+	}
+	f.totalBalance = totalBalance
+	f.unclaimedBalance = unclaimedBalance
 	return nil
 }
 
@@ -53,10 +61,7 @@ func (p *Protocol) Deposit(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertEnoughBalance(raCtx, sm, amount); err != nil {
 		return err
 	}
@@ -118,6 +123,10 @@ func (p *Protocol) assertEnoughBalance(
 
 // DepositGas deposits gas into the rewarding fund
 func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, registry *protocol.Registry) error {
+	// If the gas fee is 0, return immediately
+	if amount.Cmp(big.NewInt(0)) == 0 {
+		return nil
+	}
 	// TODO: we bypass the gas deposit for the actions in genesis block. Later we should remove this after we remove
 	// genesis actions
 	raCtx := protocol.MustGetRunActionsCtx(ctx)

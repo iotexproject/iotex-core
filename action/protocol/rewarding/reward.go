@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/state"
@@ -42,7 +41,7 @@ type rewardAccount struct {
 // Serialize serializes account state into bytes
 func (a rewardAccount) Serialize() ([]byte, error) {
 	gen := rewardingpb.Account{
-		Balance: a.balance.Bytes(),
+		Balance: a.balance.String(),
 	}
 	return proto.Marshal(&gen)
 }
@@ -53,7 +52,11 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, &gen); err != nil {
 		return err
 	}
-	a.balance = big.NewInt(0).SetBytes(gen.Balance)
+	balance, ok := big.NewInt(0).SetString(gen.Balance, 10)
+	if !ok {
+		return errors.New("failed to set reward account balance")
+	}
+	a.balance = balance
 	return nil
 }
 
@@ -70,10 +73,10 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateAvailableBalance(sm, a.BlockReward); err != nil {
+	if err := p.updateAvailableBalance(sm, a.blockReward); err != nil {
 		return err
 	}
-	if err := p.grantToAccount(sm, raCtx.Producer, a.BlockReward); err != nil {
+	if err := p.grantToAccount(sm, raCtx.Producer, a.blockReward); err != nil {
 		return err
 	}
 	return p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight)
@@ -85,7 +88,7 @@ func (p *Protocol) GrantEpochReward(
 	sm protocol.StateManager,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	epochNum := rolldpos.GetEpochNum(raCtx.BlockHeight, p.numDelegates, p.numSubEpochs)
+	epochNum := p.rp.GetEpochNum(raCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return err
 	}
@@ -96,10 +99,10 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateAvailableBalance(sm, a.EpochReward); err != nil {
+	if err := p.updateAvailableBalance(sm, a.epochReward); err != nil {
 		return err
 	}
-	addrs, amounts, err := p.splitEpochReward(raCtx.BlockHeight, a.EpochReward)
+	addrs, amounts, err := p.splitEpochReward(raCtx.BlockHeight, a.epochReward, a.numDelegatesForEpochReward)
 	if err != nil {
 		return err
 	}
@@ -220,27 +223,40 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 	return p.putState(sm, append(prefix, indexBytes[:]...), &rewardHistory{})
 }
 
-func (p *Protocol) splitEpochReward(blkHeight uint64, totalAmount *big.Int) ([]address.Address, []*big.Int, error) {
+func (p *Protocol) splitEpochReward(
+	blkHeight uint64,
+	totalAmount *big.Int,
+	numDelegatesForEpochReward uint64,
+) ([]address.Address, []*big.Int, error) {
 	candidates, err := p.cm.CandidatesByHeight(blkHeight)
 	if err != nil {
 		return nil, nil, err
 	}
-	totalWeight := big.NewInt(0)
-	for _, candidate := range candidates {
-		totalWeight = big.NewInt(0).Add(totalWeight, candidate.Votes)
+	// We at most allow numDelegatesForEpochReward delegates to get the epoch reward
+	if uint64(len(candidates)) > numDelegatesForEpochReward {
+		candidates = candidates[:numDelegatesForEpochReward]
 	}
-	addrs := make([]address.Address, 0)
-	amounts := make([]*big.Int, 0)
+	totalWeight := big.NewInt(0)
+	rewardAddrs := make([]address.Address, 0)
 	for _, candidate := range candidates {
-		addr, err := address.FromString(candidate.Address)
+		rewardAddr, err := address.FromString(candidate.RewardAddress)
 		if err != nil {
 			return nil, nil, err
 		}
-		addrs = append(addrs, addr)
-		amountPerAddr := big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
+		rewardAddrs = append(rewardAddrs, rewardAddr)
+		totalWeight = big.NewInt(0).Add(totalWeight, candidate.Votes)
+	}
+	amounts := make([]*big.Int, 0)
+	for _, candidate := range candidates {
+		var amountPerAddr *big.Int
+		if totalWeight.Cmp(big.NewInt(0)) == 0 {
+			amountPerAddr = big.NewInt(0)
+		} else {
+			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
+		}
 		amounts = append(amounts, amountPerAddr)
 	}
-	return addrs, amounts, nil
+	return rewardAddrs, amounts, nil
 }
 
 func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, index uint64) error {
@@ -258,7 +274,7 @@ func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, in
 }
 
 func (p *Protocol) assertLastBlockInEpoch(blkHeight uint64, epochNum uint64) error {
-	lastBlkHeight := rolldpos.GetEpochLastBlockHeight(epochNum, p.numDelegates, p.numSubEpochs)
+	lastBlkHeight := p.rp.GetEpochLastBlockHeight(epochNum)
 	if blkHeight != lastBlkHeight {
 		return errors.Errorf("current block %d is not the last block of epoch %d", blkHeight, epochNum)
 	}

@@ -8,13 +8,21 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/spf13/cobra"
 )
 
-var configFileName string
+var (
+	// ConfigDir is the directory to store config file
+	ConfigDir string
+	// DefaultConfigFile is the default config file name
+	DefaultConfigFile string
+)
 
 // ConfigCmd represents the config command
 var ConfigCmd = &cobra.Command{
@@ -27,11 +35,36 @@ var ConfigCmd = &cobra.Command{
 	},
 }
 
+// Config defines the config schema
+type Config struct {
+	Endpoint   string            `yaml:"endpoint""`
+	WalletList map[string]string `yaml:"walletList"`
+}
+
 func init() {
-	dir := os.Getenv("HOME") + "/.config/ioctl"
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	ConfigDir = os.Getenv("HOME") + "/.config/ioctl"
+	if err := os.MkdirAll(ConfigDir, 0700); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-	configFileName = dir + "/config.default"
+	DefaultConfigFile = ConfigDir + "/config.default"
+
+	ConfigCmd.AddCommand(configGetEndpointCmd)
+	ConfigCmd.AddCommand(configSetEndpointCmd)
+}
+
+// LoadConfig loads config file in yaml format
+func LoadConfig() (Config, error) {
+	w := Config{
+		WalletList: make(map[string]string),
+	}
+	in, err := ioutil.ReadFile(DefaultConfigFile)
+	if err == nil {
+		if err := yaml.Unmarshal(in, &w); err != nil {
+			return w, err
+		}
+	} else if !os.IsNotExist(err) {
+		return w, err
+	}
+	return w, nil
 }

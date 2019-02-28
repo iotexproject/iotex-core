@@ -60,7 +60,7 @@
 
 [[constraint]]
   name = "github.com/iotexproject/iotex-election"
-  revision = "f11d9cd8583b5cb21c088f57f449d4afb80ab53a"
+  revision = "2ee8cbc6b077b40ee98c497c1b03fb750f91ae3e"
 
 [prune]
   go-tests = true

@@ -51,7 +51,7 @@ func initDefaultConfig() {
 		},
 		Poll: Poll{
 			EnableBeaconChainVoting: false,
-			DelegateAddresses:       []string{},
+			Delegates:               []Delegate{},
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr:           identityset.Address(0).String(),
@@ -107,8 +107,14 @@ type (
 		InitBeaconChainHeight uint64 `yaml:"initBeaconChainHeight"`
 		// CommitteeConfig is the config for committee
 		CommitteeConfig committee.Config `yaml:"committeeConfig"`
-		// DelegateAddresses is a list of delegate's addresses
-		DelegateAddresses []string `yaml:"delegateAddresses"`
+		// Delegates is a list of delegates with votes
+		Delegates []Delegate `yaml:"delegates"`
+	}
+	// Delegate defines a delegate with address and votes
+	Delegate struct {
+		Address       string `yaml:"address"`
+		Votes         uint64 `yaml:"votes"`
+		RewardAddress string `yaml:"rewardAddress"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {

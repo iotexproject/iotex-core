@@ -80,8 +80,8 @@ func (sd *SettleDeposit) Proto() *iotextypes.SettleDeposit {
 		Recipient: sd.recipient,
 		Index:     sd.index,
 	}
-	if sd.amount != nil && len(sd.amount.Bytes()) > 0 {
-		act.Amount = sd.amount.Bytes()
+	if sd.amount != nil && len(sd.amount.String()) > 0 {
+		act.Amount = sd.amount.String()
 	}
 	return act
 }
@@ -98,7 +98,7 @@ func (sd *SettleDeposit) LoadProto(pbDpst *iotextypes.SettleDeposit) error {
 
 	sd.recipient = pbDpst.GetRecipient()
 	sd.amount = big.NewInt(0)
-	sd.amount.SetBytes(pbDpst.GetAmount())
+	sd.amount.SetString(pbDpst.GetAmount(), 10)
 	sd.index = pbDpst.GetIndex()
 	return nil
 }

@@ -14,12 +14,9 @@ import (
 	"go.uber.org/zap"
 	grpc "google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
-)
-
-var (
-	address string
 )
 
 // heightCmd represents the account height command
@@ -32,13 +29,17 @@ var heightCmd = &cobra.Command{
 }
 
 func init() {
-	heightCmd.Flags().StringVarP(&address, "host", "s", "127.0.0.1:8080", "host of api server")
 	BCCmd.AddCommand(heightCmd)
 }
 
 // getCurrentBlockHeigh get current height of block chain from server
 func getCurrentBlockHeigh(args []string) string {
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	endpoint := config.GetEndpoint()
+	if endpoint == config.ErrEmptyEndpoint {
+		log.L().Error(config.ErrEmptyEndpoint)
+		return "use \"ioctl config set endpoint\" to config endpoint first."
+	}
+	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
 	if err != nil {
 		log.L().Error("failed to connect to server", zap.Error(err))
 		return err.Error()
