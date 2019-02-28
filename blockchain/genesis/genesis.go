@@ -8,9 +8,12 @@ package genesis
 
 import (
 	"flag"
+	"io/ioutil"
 	"math/big"
 	"sort"
 	"time"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
 
 	"github.com/pkg/errors"
 	"go.uber.org/config"
@@ -85,6 +88,8 @@ type (
 		Account    `ymal:"account"`
 		Poll       `yaml:"poll"`
 		Rewarding  `yaml:"rewarding"`
+		// Digest is the digest of genesis config file
+		Digest hash.Hash256
 	}
 	// Blockchain contains blockchain level configs
 	Blockchain struct {
@@ -150,8 +155,14 @@ type (
 func New() (Genesis, error) {
 	opts := make([]config.YAMLOption, 0)
 	opts = append(opts, config.Static(Default))
+	genesisDigest := hash.ZeroHash256
 	if genesisPath != "" {
 		opts = append(opts, config.File(genesisPath))
+		genesisCfgBytes, err := ioutil.ReadFile(genesisPath)
+		if err != nil {
+			return Genesis{}, err
+		}
+		genesisDigest = hash.Hash256b(genesisCfgBytes)
 	}
 	yaml, err := config.NewYAML(opts...)
 	if err != nil {
@@ -162,6 +173,7 @@ func New() (Genesis, error) {
 	if err := yaml.Get(config.Root).Populate(&genesis); err != nil {
 		return Genesis{}, errors.Wrap(err, "failed to unmarshal yaml genesis to struct")
 	}
+	genesis.Digest = genesisDigest
 	return genesis, nil
 }
 

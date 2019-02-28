@@ -716,8 +716,14 @@ func (bc *blockchain) MintNewBlock(
 		AddActions(actions...).
 		Build(&sk.PublicKey)
 
+	prevBlkHash := bc.tipHash
+	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
+	// could verify that they start from the same genesis
+	if newblockHeight == 1 {
+		prevBlkHash = bc.config.Genesis.Digest
+	}
 	blk, err := block.NewBuilder(ra).
-		SetPrevBlockHash(bc.tipHash).
+		SetPrevBlockHash(prevBlkHash).
 		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
 		SetReceiptRoot(calculateReceiptRoot(rc)).
