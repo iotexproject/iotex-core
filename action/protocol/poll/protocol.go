@@ -11,18 +11,21 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-
-	"github.com/iotexproject/iotex-election/committee"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -38,7 +41,10 @@ var ErrNoElectionCommittee = errors.New("no election committee specified")
 type GetBlockTime func(uint64) (time.Time, error)
 
 // GetEpochHeight defines a function to get the corresponding epoch height
-type GetEpochHeight func(height uint64) uint64
+type GetEpochHeight func(uint64) uint64
+
+// GetEpochNum defines a function to get epoch number
+type GetEpochNum func(uint64) uint64
 
 // Protocol defines the protocol of handling votes
 type Protocol interface {
@@ -96,15 +102,38 @@ func (p *lifeLongDelegatesProtocol) DelegatesByHeight(height uint64) (state.Cand
 	return p.delegates, nil
 }
 
-func (p *lifeLongDelegatesProtocol) ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error) {
-	return nil, protocol.ErrUnimplemented
+func (p *lifeLongDelegatesProtocol) ReadState(
+	ctx context.Context,
+	sm protocol.StateManager,
+	method []byte,
+	args ...[]byte,
+) ([]byte, error) {
+	switch string(method) {
+	case "BlockProducersByHeight":
+		fallthrough
+	case "ActiveBlockProducersByHeight":
+		return p.readBlockProducers()
+	default:
+		return nil, errors.New("corresponding method isn't found")
+	}
+}
+
+func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
+	blockProducers := make([]string, 0)
+	for _, delegate := range p.delegates {
+		blockProducers = append(blockProducers, delegate.Address)
+	}
+	return serializeBlockProducers(blockProducers)
 }
 
 type governanceChainCommitteeProtocol struct {
 	getBlockTime          GetBlockTime
 	getEpochHeight        GetEpochHeight
+	getEpochNum           GetEpochNum
 	electionCommittee     committee.Committee
 	initBeaconChainHeight uint64
+	numCandidateDelegates uint64
+	numDelegates          uint64
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
@@ -113,6 +142,9 @@ func NewGovernanceChainCommitteeProtocol(
 	initBeaconChainHeight uint64,
 	getBlockTime GetBlockTime,
 	getEpochHeight GetEpochHeight,
+	getEpochNum GetEpochNum,
+	numCandidateDelegates uint64,
+	numDelegates uint64,
 ) (Protocol, error) {
 	if electionCommittee == nil {
 		return nil, ErrNoElectionCommittee
@@ -124,11 +156,18 @@ func NewGovernanceChainCommitteeProtocol(
 		return nil, errors.New("getEpochHeight api is not provided")
 	}
 
+	if getEpochNum == nil {
+		return nil, errors.New("getEpochNum api is not provided")
+	}
+
 	return &governanceChainCommitteeProtocol{
 		electionCommittee:     electionCommittee,
 		initBeaconChainHeight: initBeaconChainHeight,
 		getBlockTime:          getBlockTime,
 		getEpochHeight:        getEpochHeight,
+		getEpochNum:           getEpochNum,
+		numCandidateDelegates: numCandidateDelegates,
+		numDelegates:          numDelegates,
 	}, nil
 }
 
@@ -194,25 +233,91 @@ func (p *governanceChainCommitteeProtocol) delegatesByBeaconChainHeight(height u
 }
 
 func (p *governanceChainCommitteeProtocol) DelegatesByHeight(height uint64) (state.CandidateList, error) {
-	epochHeight := p.getEpochHeight(height)
-	blkTime, err := p.getBlockTime(epochHeight)
+	beaconHeight, err := p.getBeaconHeight(height)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get beacon chain height")
 	}
-	beaconHeight, err := p.electionCommittee.HeightByTime(blkTime)
 	log.L().Debug(
-		"fetch delegates from beacon chain by time",
+		"fetch delegates from beacon chain",
 		zap.Uint64("beaconChainHeight", beaconHeight),
-		zap.Time("time", blkTime),
 	)
-	if err != nil {
-		return nil, err
-	}
 	return p.delegatesByBeaconChainHeight(beaconHeight)
 }
 
-func (p *governanceChainCommitteeProtocol) ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error) {
-	return nil, protocol.ErrUnimplemented
+func (p *governanceChainCommitteeProtocol) ReadState(
+	ctx context.Context,
+	sm protocol.StateManager,
+	method []byte,
+	args ...[]byte,
+) ([]byte, error) {
+	switch string(method) {
+	case "BlockProducersByHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		blockProducers, err := p.readBlockProducersByHeight(byteutil.BytesToUint64(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		return serializeBlockProducers(blockProducers)
+	case "ActiveBlockProducersByHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		activeBlockProducers, err := p.readActiveProducersByHeight(byteutil.BytesToUint64(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		return serializeBlockProducers(activeBlockProducers)
+	default:
+		return nil, errors.New("corresponding method isn't found")
+
+	}
+}
+
+func (p *governanceChainCommitteeProtocol) readBlockProducersByHeight(height uint64) ([]string, error) {
+	beaconHeight, err := p.getBeaconHeight(height)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get beacon chain height")
+	}
+	delegates, err := p.delegatesByBeaconChainHeight(beaconHeight)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get delegates on height %d", height)
+	}
+	blockProducers := make([]string, 0)
+	for i, delegate := range delegates {
+		if uint64(i) >= p.numCandidateDelegates {
+			break
+		}
+		blockProducers = append(blockProducers, delegate.Address)
+	}
+	return blockProducers, nil
+}
+
+func (p *governanceChainCommitteeProtocol) readActiveProducersByHeight(height uint64) ([]string, error) {
+	blockProducers, err := p.readBlockProducersByHeight(height)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get block producers on height %d", height)
+	}
+	epochNum := p.getEpochNum(height)
+	crypto.SortCandidates(blockProducers, epochNum, crypto.CryptoSeed)
+	if uint64(len(blockProducers)) < p.numDelegates {
+		return blockProducers, nil
+	}
+	return blockProducers[:p.numDelegates], nil
+}
+
+func (p *governanceChainCommitteeProtocol) getBeaconHeight(height uint64) (uint64, error) {
+	epochHeight := p.getEpochHeight(height)
+	blkTime, err := p.getBlockTime(epochHeight)
+	if err != nil {
+		return 0, err
+	}
+	log.L().Debug(
+		"get beacon chain height by time",
+		zap.Time("time", blkTime),
+	)
+	return p.electionCommittee.HeightByTime(blkTime)
 }
 
 func validateDelegates(cs state.CandidateList) error {
@@ -312,4 +417,9 @@ func setCandidates(
 		)
 	}
 	return sm.PutState(candidatesutil.ConstructKey(height), &candidates)
+}
+
+func serializeBlockProducers(blockProducers []string) ([]byte, error) {
+	blockProducersPb := &pollpb.BlockProducerList{BlockProducers: blockProducers}
+	return proto.Marshal(blockProducersPb)
 }
