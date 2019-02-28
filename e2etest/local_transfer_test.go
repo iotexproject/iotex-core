@@ -1,0 +1,510 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+package e2etest
+
+import (
+	"context"
+	"encoding/hex"
+	"math/big"
+	"math/rand"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/cenkalti/backoff"
+	"github.com/iotexproject/go-ethereum/crypto"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil"
+)
+
+type TransferState int
+
+const (
+	//This transfer should fail to be accepted into action pool
+	TsfFail TransferState = iota
+	//This transfer should be accepted into action pool,
+	//and later on be minted into block chain after block creating interval
+	TsfSuccess
+	//This transfer should be accepted into action pool,
+	//but will stay in action pool (not minted yet)
+	//untill all the blocks with preceeding nonces arrive
+	TsfPending
+	//This transfer should enable all the pending transfer in action pool be accepted
+	//into block chain. This happens when a transfer with the missing nouce arrives,
+	//filling the gap between minted blocks and pending blocks.
+	TsfFinal
+)
+
+type AccountState int
+
+const (
+	//This account should be created on blockchain in run time with the given balance
+	AcntCreate AccountState = iota
+	//This account already exist, need to load the the key, address, balance to this test case
+	AcntExist
+	//This account doesnt exist on blockchain, but have a valid key and address
+	AcntNotRegistered
+	//This account doesnt exist, the address is not valid (a random byte string)
+	AcntBadAddr
+)
+
+type simpleTransferTestCfg struct {
+	senderAcntState AccountState
+	senderPriKey    keypair.PrivateKey
+	senderBalance   *big.Int
+	recvAcntState   AccountState
+	recvPriKey      keypair.PrivateKey
+	recvBalance     *big.Int
+	nonce           uint64
+	amount          *big.Int
+	payload         []byte
+	gasLimit        uint64
+	gasPrice        *big.Int
+	expectedResult  TransferState
+	message         string
+}
+
+var (
+	localKeys = []string{
+		"fd26207d4657c422da8242686ba4f5066be11ffe9d342d37967f9538c44cebbf",
+		"012d7c684388ca7508fb3483f58e29a8de327b28097dd1d207116225307c98bf",
+		"0a653365c521592062fbbd3b8e1fc64a80b6199bce2b1dbac091955b5fe14125",
+		"0b3eb204a1641ea072505eec5161043e8c19bd039fad7f61e2180d4d396af45b",
+		"affad54ae2fd6f139c235439bebb9810ccdd016911113b220af6fd87c952b5bd",
+		"d260035a571390213c8521b73fff47b6fd8ce2474e37a2421bf1d4657e06e3ea",
+		"dee8d3dab8fbf36990608936241d1cc6f7d51663285919806eb05b1365dd62a3",
+		"d08769fb91911eed6156b1ea7dbb8adf3a68b1ed3b4b173074e7a67996d76c5d",
+		"29945a86884def518347585caaddcc9ac08c5d6ca614b8547625541b43adffe7",
+		"c8018d8a2ed602831c3435b03e33669d0f59e29c939764f1b11591175f2fe615",
+	}
+	// In the test case:
+	//  - an account with "nil" private key will be created with
+	//    keys, address, and initialized with the given balance.
+	// - an account with exiting private key will load exiting
+	//   balance into test case.
+	getSimpleTransferTests = []simpleTransferTestCfg{
+		{
+			AcntCreate, nil, big.NewInt(1000000),
+			AcntCreate, nil, big.NewInt(1000000),
+			1, big.NewInt(100), // nonce, amount
+			make([]byte, 100),             //payload
+			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
+			TsfSuccess, "Normal transfer from an account with enough balance and gas",
+		},
+		{
+			AcntCreate, nil, big.NewInt(1000000),
+			AcntBadAddr, nil, big.NewInt(1000000),
+			1, big.NewInt(100), // nonce, amount
+			make([]byte, 100),             //payload
+			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
+			TsfFail, "Normal transfer to a bad address",
+		},
+		{
+			AcntNotRegistered, nil, big.NewInt(1000000),
+			AcntCreate, nil, big.NewInt(1000000),
+			1, big.NewInt(100), // nonce, amount
+			make([]byte, 100),             //payload
+			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
+			TsfFail, "Normal transfer from an address not created on block chain",
+		},
+		{
+			AcntCreate, nil, big.NewInt(1000000),
+			AcntNotRegistered, nil, big.NewInt(1000000),
+			1, big.NewInt(100), // nonce, amount
+			make([]byte, 100),             //payload
+			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
+			TsfSuccess, "Normal transfer to an address not created on block chain",
+		},
+		{
+			AcntCreate, nil, big.NewInt(1000000),
+			AcntCreate, nil, big.NewInt(1000000),
+			1, big.NewInt(100),
+			make([]byte, 0),
+			uint64(1000), big.NewInt(1),
+			TsfFail, "Transfer with not enough gas limit",
+		},
+		{
+			AcntCreate, nil, big.NewInt(232222),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(222222),
+			make([]byte, 0),
+			uint64(200000), big.NewInt(1),
+			TsfSuccess, "Transfer with just enough balance",
+		},
+		{
+			AcntCreate, nil, big.NewInt(232221),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(222222),
+			make([]byte, 0),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with not enough balance",
+		},
+		{
+			AcntCreate, nil, big.NewInt(232222),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(222222),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with not enough balance with payload",
+		},
+		{
+			AcntCreate, nil, big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(0),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfSuccess, "Transfer with 0 amount",
+		},
+		{
+			AcntCreate, nil, big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(-100),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with negtive amount",
+		},
+		{
+			AcntCreate, nil, big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			0, big.NewInt(0),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with nonce 0",
+		},
+		{
+			AcntExist, identityset.PrivateKey(0), big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(100),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfSuccess, "Transfer with same nonce from a single sender 1",
+		},
+		{
+			AcntExist, identityset.PrivateKey(0), big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(100),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with same nonce from a single sender 2",
+		},
+		{
+			AcntExist, identityset.PrivateKey(1), big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			2, big.NewInt(100),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfPending, "Transfer with a sequence of nonce from a single sender 1",
+		},
+		{
+			AcntExist, identityset.PrivateKey(1), big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			3, big.NewInt(100),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfPending, "Transfer with a sequence of nonce from a single sender 2",
+		},
+		{
+			AcntExist, identityset.PrivateKey(1), big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(100),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFinal, "Transfer with a sequence of nonce from a single sender 3",
+		},
+		{
+			AcntExist, getLocalKey(0), big.NewInt(30000),
+			AcntCreate, nil, big.NewInt(100000),
+			2, big.NewInt(20000),
+			make([]byte, 0),
+			uint64(200000), big.NewInt(0),
+			TsfPending, "Transfer to multiple accounts with not enough total balance 1",
+		},
+		{
+			AcntExist, getLocalKey(0), big.NewInt(30000),
+			AcntCreate, nil, big.NewInt(100000),
+			3, big.NewInt(20000),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(0),
+			TsfPending, "Transfer to multiple accounts with not enough total balance 2",
+		},
+		{
+			AcntExist, getLocalKey(0), big.NewInt(30000),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(20000),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(0),
+			TsfFinal, "Transfer to multiple accounts with not enough total balance 3",
+		},
+	}
+)
+
+func TestLocalTransfer(t *testing.T) {
+	require := require.New(t)
+
+	testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+
+	networkPort := 4689
+	apiPort := 14014
+	sk, err := crypto.GenerateKey()
+	require.NoError(err)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, sk, networkPort, apiPort)
+	require.NoError(err)
+
+	// create server
+	ctx := context.Background()
+	svr, err := itx.NewServer(cfg)
+	require.Nil(err)
+
+	// Create and start probe server
+	probeSvr := probe.New(7788)
+	require.NoError(probeSvr.Start(context.Background()))
+
+	// Start server
+	go itx.StartServer(context.Background(), svr, probeSvr, cfg)
+
+	chainID := cfg.Chain.ID
+	require.NotNil(svr.ChainService(chainID).ActionPool())
+
+	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
+		ret := true
+		resp, err := http.Get("http://localhost:7788/readiness")
+		if err != nil || http.StatusOK != resp.StatusCode {
+			ret = false
+		}
+
+		return ret, nil
+	})
+	require.NoError(err)
+
+	// target address for grpc connection. Default is "127.0.0.1:14014"
+	grpcAddr := "127.0.0.1:14014"
+	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
+	require.NoError(err)
+
+	client := iotexapi.NewAPIServiceClient(conn)
+
+	defer func() {
+		require.Nil(svr.Stop(ctx))
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+	}()
+
+	bc := svr.ChainService(chainID).Blockchain()
+	ap := svr.ChainService(chainID).ActionPool()
+
+	initTestAccounts(big.NewInt(30000), bc)
+
+	for _, tsfTest := range getSimpleTransferTests {
+		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc)
+		require.NoError(err, tsfTest.message)
+
+		_, recvAddr, err := initStateKeyAddr(tsfTest.recvAcntState, tsfTest.recvPriKey, tsfTest.recvBalance, bc)
+		require.NoError(err, tsfTest.message)
+
+		tsf, err := testutil.SignedTransfer(recvAddr, senderPriKey, tsfTest.nonce, tsfTest.amount,
+			tsfTest.payload, tsfTest.gasLimit, tsfTest.gasPrice)
+		require.NoError(err, tsfTest.message)
+
+		retryNum := 5
+		retryInterval := 1
+		bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
+		err = backoff.Retry(func() error {
+			_, err := client.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: tsf.Proto()})
+			return err
+		}, bo)
+		require.NoError(err, tsfTest.message)
+
+		switch tsfTest.expectedResult {
+		case TsfSuccess:
+			//Wait long enough for a block to be minted, and check the balance of both
+			//sender and receiver.
+			time.Sleep(genesis.Default.BlockInterval + time.Second)
+			selp, err := bc.GetActionByActionHash(tsf.Hash())
+			require.NoError(err, tsfTest.message)
+			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
+			require.Equal(keypair.EncodePublicKey(&senderPriKey.PublicKey),
+				hex.EncodeToString(selp.Proto().SenderPubKey), tsfTest.message)
+
+			newSenderBalance, _ := bc.Balance(senderAddr)
+			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
+			gasUnitPayloadConsumed := big.NewInt(0).Mul(big.NewInt(int64(action.TransferPayloadGas)),
+				big.NewInt(int64(len(tsfTest.payload))))
+			gasUnitTransferConsumed := big.NewInt(int64(action.TransferBaseIntrinsicGas))
+			gasUnitConsumed := big.NewInt(0).Add(gasUnitPayloadConsumed, gasUnitTransferConsumed)
+			gasConsumed := big.NewInt(0).Mul(gasUnitConsumed, tsfTest.gasPrice)
+			expectedSenderBalance := big.NewInt(0).Sub(minusAmount, gasConsumed)
+			require.Equal(expectedSenderBalance.String(), newSenderBalance.String(), tsfTest.message)
+
+			newRecvBalance, err := bc.Balance(recvAddr)
+			require.NoError(err)
+			expectedRecvrBalance := big.NewInt(0)
+			if tsfTest.recvAcntState == AcntNotRegistered {
+				expectedRecvrBalance.Set(tsfTest.amount)
+			} else {
+				expectedRecvrBalance.Add(tsfTest.recvBalance, tsfTest.amount)
+			}
+			require.Equal(expectedRecvrBalance.String(), newRecvBalance.String(), tsfTest.message)
+		case TsfFail:
+			//The transfer should be rejected right after we inject it
+			time.Sleep(1 * time.Second)
+			//In case of failed transfer, the transfer should not exit in either action pool or blockchain
+			_, err := ap.GetActionByHash(tsf.Hash())
+			require.Error(err, tsfTest.message)
+			_, err = bc.GetActionByActionHash(tsf.Hash())
+			require.Error(err, tsfTest.message)
+
+			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
+				newSenderBalance, _ := bc.Balance(senderAddr)
+				require.Equal(tsfTest.senderBalance.String(), newSenderBalance.String())
+			}
+
+		case TsfPending:
+			//Need to wait long enough to make sure the pending transfer is not minted, only stay in action pool
+			time.Sleep(genesis.Default.BlockInterval + time.Second)
+			_, err := ap.GetActionByHash(tsf.Hash())
+			require.NoError(err, tsfTest.message)
+			_, err = bc.GetActionByActionHash(tsf.Hash())
+			require.Error(err, tsfTest.message)
+		case TsfFinal:
+			//After a blocked is minted, check all the pending transfers in action pool are cleared
+			//This checking procedue is simplied for this test case, because of the complexity of
+			//handling pending transfers.
+			time.Sleep(genesis.Default.BlockInterval + time.Second)
+			acts := ap.PickActs()
+			require.Equal(len(acts), 0, tsfTest.message)
+
+		default:
+			require.True(false, tsfTest.message)
+
+		}
+	}
+
+}
+
+// initStateKeyAddr, if the given privatekey is nil,
+// creates key, address, and init the new account with given balance
+// otherwise, calulate the the address, and load test with exsiting
+// balance state.
+func initStateKeyAddr(
+	accountState AccountState,
+	privateKey keypair.PrivateKey,
+	initBalance *big.Int,
+	bc blockchain.Blockchain,
+) (keypair.PrivateKey, string, error) {
+	retKey := privateKey
+	retAddr := ""
+	switch accountState {
+	case AcntCreate:
+		sk, err := crypto.GenerateKey()
+		if err != nil {
+			return nil, "", err
+		}
+		pk := &sk.PublicKey
+		pkHash := keypair.HashPubKey(pk)
+		addr, err := address.FromBytes(pkHash[:])
+		retAddr = addr.String()
+		_, err = bc.CreateState(
+			retAddr,
+			initBalance,
+		)
+		if err != nil {
+			return nil, "", err
+		}
+		retKey = sk
+
+	case AcntExist:
+		pk := &retKey.PublicKey
+		pkHash := keypair.HashPubKey(pk)
+		addr, err := address.FromBytes(pkHash[:])
+		retAddr = addr.String()
+		existBalance, err := bc.Balance(retAddr)
+		if err != nil {
+			return nil, "", err
+		}
+		initBalance.Set(existBalance)
+	case AcntNotRegistered:
+		sk, err := crypto.GenerateKey()
+		if err != nil {
+			return nil, "", err
+		}
+		pk := &sk.PublicKey
+		pkHash := keypair.HashPubKey(pk)
+		addr, err := address.FromBytes(pkHash[:])
+		retAddr = addr.String()
+		retKey = sk
+	case AcntBadAddr:
+		rand.Seed(time.Now().UnixNano())
+		b := make([]byte, 41)
+		for i := range b {
+			b[i] = byte(65 + rand.Intn(26))
+		}
+		retAddr = string(b)
+	}
+	return retKey, retAddr, nil
+}
+
+func initTestAccounts(
+	initBalance *big.Int,
+	bc blockchain.Blockchain,
+) error {
+	for i := 0; i < len(localKeys); i++ {
+		sk := getLocalKey(i)
+		pk := &sk.PublicKey
+		pkHash := keypair.HashPubKey(pk)
+		addr, err := address.FromBytes(pkHash[:])
+		_, err = bc.CreateState(
+			addr.String(),
+			initBalance,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getLocalKey(i int) keypair.PrivateKey {
+	sk, _ := keypair.DecodePrivateKey(localKeys[i])
+	return sk
+}
+
+func newTransferConfig(
+	chainDBPath,
+	trieDBPath string,
+	producerPriKey keypair.PrivateKey,
+	networkPort,
+	apiPort int,
+) (config.Config, error) {
+
+	cfg := config.Default
+
+	//cfg.NodeType = config.DelegateType
+	cfg.Network.Port = networkPort
+	cfg.Chain.ID = 1
+	cfg.Chain.ChainDBPath = chainDBPath
+	cfg.Chain.TrieDBPath = trieDBPath
+	cfg.Chain.EnableIndex = true
+	cfg.Chain.EnableAsyncIndexWrite = true
+	cfg.Consensus.Scheme = config.StandaloneScheme
+	cfg.API.Enabled = true
+	cfg.API.Port = apiPort
+
+	return cfg, nil
+}

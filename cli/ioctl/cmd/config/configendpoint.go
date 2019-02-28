@@ -49,16 +49,11 @@ var configSetEndpointCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	ConfigCmd.AddCommand(configGetEndpointCmd)
-	ConfigCmd.AddCommand(configSetEndpointCmd)
-}
-
 // GetEndpoint gets the endpoint
 func GetEndpoint() string {
-	file, err := ioutil.ReadFile(configFileName)
+	file, err := ioutil.ReadFile(DefaultConfigFile)
 	if err != nil {
-		return fmt.Sprintf("failed to open config file %s", configFileName)
+		return fmt.Sprintf("failed to open config file %s", DefaultConfigFile)
 	}
 	// find the line that specifies endpoint
 	var endpoint string
@@ -76,17 +71,17 @@ func GetEndpoint() string {
 }
 
 func setEndpoint(args []string) string {
-	file, err := ioutil.ReadFile(configFileName)
+	file, err := ioutil.ReadFile(DefaultConfigFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// special case of empty config file just being created
 			line := endpointPrefix + args[1]
-			if err := ioutil.WriteFile(configFileName, []byte(line), 0644); err != nil {
-				return fmt.Sprintf("failed to create config file %s", configFileName)
+			if err := ioutil.WriteFile(DefaultConfigFile, []byte(line), 0644); err != nil {
+				return fmt.Sprintf("failed to create config file %s", DefaultConfigFile)
 			}
 			return "endpoint set to " + args[1]
 		}
-		return fmt.Sprintf("failed to open config file %s", configFileName)
+		return fmt.Sprintf("failed to open config file %s", DefaultConfigFile)
 	}
 	// find the line that specifies endpoint
 	findEndpoint := false
@@ -102,8 +97,8 @@ func setEndpoint(args []string) string {
 		lines = append(lines, endpointPrefix+args[1])
 	}
 	output := strings.Join(lines, "\n")
-	if err := ioutil.WriteFile(configFileName, []byte(output), 0644); err != nil {
-		return fmt.Sprintf("failed to write to config file %s", configFileName)
+	if err := ioutil.WriteFile(DefaultConfigFile, []byte(output), 0644); err != nil {
+		return fmt.Sprintf("failed to write to config file %s", DefaultConfigFile)
 	}
 	return "endpoint set to " + args[1]
 }

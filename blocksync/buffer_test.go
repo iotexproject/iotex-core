@@ -79,9 +79,6 @@ func TestBlockBufferFlush(t *testing.T) {
 
 	blk, err := chain.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -275,9 +272,6 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 
 	blk, err = chain.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)

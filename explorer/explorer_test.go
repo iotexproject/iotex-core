@@ -75,9 +75,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	)
 	if err != nil {
@@ -121,9 +118,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -138,9 +132,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 3
 	if blk, err = bc.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -175,9 +166,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -988,9 +976,6 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	actionMap[ta.Addrinfo["producer"].String()] = []action.SealedEnvelope{execution}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 

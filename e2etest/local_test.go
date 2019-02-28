@@ -203,9 +203,6 @@ func TestLocalCommit(t *testing.T) {
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
 	blk1, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -222,9 +219,6 @@ func TestLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["foxtrot"].String()] = []action.SealedEnvelope{tsf2}
 	blk2, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -251,9 +245,6 @@ func TestLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["bravo"].String()] = []action.SealedEnvelope{tsf3}
 	blk3, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -280,9 +271,6 @@ func TestLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["producer"].String()] = []action.SealedEnvelope{tsf4}
 	blk4, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -640,9 +628,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
 	blk1, err := chain.MintNewBlock(
-		actionMap, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
+		actionMap,
 		0,
 	)
 	require.Nil(err)
@@ -670,9 +656,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["charlie"].String()] = []action.SealedEnvelope{vote5}
 	blk2, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -723,9 +706,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["delta"].String()] = []action.SealedEnvelope{vote6}
 	blk3, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -778,9 +758,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["bravo"].String()] = []action.SealedEnvelope{selp}
 	blk4, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)

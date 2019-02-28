@@ -145,9 +145,6 @@ type Blockchain interface {
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
 		actionMap map[string][]action.SealedEnvelope,
-		producerPubKey keypair.PublicKey,
-		producerPriKey keypair.PrivateKey,
-		producerAddr string,
 		timestamp int64,
 	) (*block.Block, error)
 	// CommitBlock validates and appends a block to the chain
@@ -684,9 +681,6 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 
 func (bc *blockchain) MintNewBlock(
 	actionMap map[string][]action.SealedEnvelope,
-	producerPubKey keypair.PublicKey,
-	producerPriKey keypair.PrivateKey,
-	producerAddr string,
 	timestamp int64,
 ) (*block.Block, error) {
 	bc.mu.RLock()
@@ -700,17 +694,13 @@ func (bc *blockchain) MintNewBlock(
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	producer, err := address.FromString(producerAddr)
-	if err != nil {
-		return nil, err
-	}
 
 	gasLimitForContext := bc.config.Genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight:    newblockHeight,
 			BlockTimeStamp: bc.now(),
-			Producer:       producer,
+			Producer:       bc.config.ProducerAddress(),
 			GasLimit:       &gasLimitForContext,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
@@ -723,18 +713,19 @@ func (bc *blockchain) MintNewBlock(
 	blockMtc.WithLabelValues("numActions").Set(float64(len(actions)))
 	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - gasLimitForContext))
 
+	sk := bc.config.ProducerPrivateKey()
 	ra := block.NewRunnableActionsBuilder().
 		SetHeight(newblockHeight).
 		SetTimeStamp(timestamp).
 		AddActions(actions...).
-		Build(producerPubKey)
+		Build(&sk.PublicKey)
 
 	blk, err := block.NewBuilder(ra).
 		SetPrevBlockHash(bc.tipHash).
 		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
 		SetReceiptRoot(calculateReceiptRoot(rc)).
-		SignAndBuild(producerPriKey)
+		SignAndBuild(sk)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}

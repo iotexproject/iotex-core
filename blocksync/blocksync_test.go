@@ -207,9 +207,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	h := chain.TipHeight()
 	blk, err := chain.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk)
@@ -296,9 +293,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	// commit top
 	blk1, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk1)
@@ -306,9 +300,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.Nil(bs1.ProcessBlock(ctx, blk1))
 	blk2, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk2)
@@ -316,9 +307,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.Nil(bs1.ProcessBlock(ctx, blk2))
 	blk3, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk3)
@@ -405,9 +393,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	// commit top
 	blk1, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk1)
@@ -415,9 +400,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.Nil(bs1.ProcessBlock(ctx, blk1))
 	blk2, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk2)
@@ -425,9 +407,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.Nil(bs1.ProcessBlock(ctx, blk2))
 	blk3, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk3)
@@ -483,9 +462,6 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	blk, err := chain.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk)
@@ -494,9 +470,6 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	blk, err = chain.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk)
