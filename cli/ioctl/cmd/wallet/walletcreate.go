@@ -9,11 +9,10 @@ package wallet
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
@@ -41,48 +40,29 @@ func init() {
 }
 
 func walletCreate() string {
-	success := "New wallet \"" + name + "\" created, password = " + password +
-		"\n**Remember to save your password. The wallet will be lost if you forgot the password!!"
-	file, err := ioutil.ReadFile(config.DefaultConfigFile)
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		if os.IsNotExist(err) {
-			// special case of empty config file just being created
-			addr, err := newWallet()
-			if err != nil {
-				return err.Error()
-			}
-			line := walletPrefix + "\n" + name + ":" + addr + "\n" + walletEnd
-			if err := ioutil.WriteFile(config.DefaultConfigFile, []byte(line), 0600); err != nil {
-				return fmt.Sprintf("failed to create config file %s", config.DefaultConfigFile)
-			}
-			return success
-		}
-		return fmt.Sprintf("failed to open config file %s", config.DefaultConfigFile)
+		return err.Error()
 	}
-	// parse the wallet section from config file
-	_, end, find, exist := parseConfig(file, walletPrefix, walletEnd, name)
-	if exist {
-		return "A wallet named " + name + " already exists"
+	if _, ok := cfg.WalletList[name]; ok {
+		return fmt.Sprintf("A wallet named \"%s\" already exists.", name)
 	}
 	addr, err := newWallet()
 	if err != nil {
 		return err.Error()
 	}
-	// insert a line for the new wallet
-	lines := strings.Split(string(file), "\n")
-	if !find {
-		lines = append(lines, walletPrefix, name+":"+addr, walletEnd)
-	} else {
-		after := make([]string, len(lines)-end)
-		copy(after, lines[end:])
-		lines[end] = name + ":" + addr
-		lines = append(lines[:end+1], after...)
+	cfg.WalletList[name] = addr
+	out, err := yaml.Marshal(&cfg)
+	if err != nil {
+		return err.Error()
 	}
-	output := strings.Join(lines, "\n")
-	if err := ioutil.WriteFile(config.DefaultConfigFile, []byte(output), 0644); err != nil {
-		return fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile)
+	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
 	}
-	return success
+	return fmt.Sprintf(
+		"New wallet \"%s\" is created. Keep your password, or the wallet will not be able to unlock.",
+		name,
+	)
 }
 
 func newWallet() (string, error) {
