@@ -9,7 +9,6 @@ package wallet
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -40,48 +39,17 @@ func init() {
 	WalletCmd.AddCommand(walletListCmd)
 }
 
-func parseConfig(file []byte, start, end, name string) (int, int, bool, bool) {
-	var startLine, endLine int
-	find := false
-	exist := false
-	lines := strings.Split(string(file), "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, end) {
-			endLine = i
-			break
-		}
-		if !find && strings.HasPrefix(line, start) {
-			find = true
-			startLine = i
-			continue
-		}
-		// detect name collision
-		if find && name != "" && strings.HasPrefix(line, name) {
-			exist = true
-		}
-	}
-	return startLine, endLine, find, exist
-}
-
 // Sign use the password to unlock key associated with name, and signs the hash
 func Sign(name, password string, hash []byte) ([]byte, error) {
-	file, err := ioutil.ReadFile(config.DefaultConfigFile)
+	w, err := config.LoadConfig()
 	if err != nil {
-		return nil, errors.Errorf("failed to open config file %s", config.DefaultConfigFile)
+		return nil, err
 	}
-	// parse the wallet section from config file
-	start, end, _, exist := parseConfig(file, walletPrefix, walletEnd, name)
-	if !exist {
+	addrStr, ok := w.WalletList[name]
+	if !ok {
 		return nil, errors.Errorf("wallet %s does not exist", name)
 	}
-	var bech32 string
-	lines := strings.Split(string(file), "\n")
-	for i := start + 1; i < end; i++ {
-		if strings.HasPrefix(lines[i], name) {
-			bech32 = strings.TrimPrefix(lines[i], name+":")
-		}
-	}
-	addr, err := address.FromString(bech32)
+	addr, err := address.FromString(addrStr)
 	if err != nil {
 		return nil, err
 	}
