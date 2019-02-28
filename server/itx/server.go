@@ -300,6 +300,10 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err = cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return
 	}
+	rolldposProtocol := cs.RollDPoSProtocol()
+	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
+		return
+	}
 	if genesisConfig.EnableBeaconChainVoting {
 		electionCommittee := cs.ElectionCommittee()
 		initBeaconChainHeight := genesisConfig.InitBeaconChainHeight
@@ -319,15 +323,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 					return time.Unix(blk.Header.Timestamp(), 0), nil
 				},
 				func(height uint64) uint64 {
-					return rolldpos.GetEpochHeight(
-						rolldpos.GetEpochNum(
-							height,
-							genesisConfig.NumDelegates,
-							genesisConfig.NumSubEpochs,
-						),
-						genesisConfig.NumDelegates,
-						genesisConfig.NumSubEpochs,
-					)
+					return rolldposProtocol.GetEpochHeight(rolldposProtocol.GetEpochNum(height))
 				},
 			); err != nil {
 				return
@@ -351,6 +347,6 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err = cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
 		return
 	}
-	rewardingProtocol := rewarding.NewProtocol(cs.Blockchain(), genesisConfig.NumDelegates, genesisConfig.NumSubEpochs)
+	rewardingProtocol := rewarding.NewProtocol(cs.Blockchain(), rolldposProtocol)
 	return cs.RegisterProtocol(rewarding.ProtocolID, rewardingProtocol)
 }

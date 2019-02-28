@@ -13,15 +13,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 func TestNewEpochCtx(t *testing.T) {
 	require := require.New(t)
-	numDelegates := uint64(24)
-	numCandidateDelegates := uint64(36)
-	numSubEpochs := uint64(360)
+	rp := rolldpos.NewProtocol(uint64(36), uint64(24), uint64(360))
 	candidates := []*state.Candidate{}
 	addrs := []string{}
 	for i := 0; i < 24; i++ {
@@ -31,19 +30,19 @@ func TestNewEpochCtx(t *testing.T) {
 	f := func(uint64) ([]*state.Candidate, error) {
 		return candidates, errors.New("some error")
 	}
-	epoch, err := newEpochCtx(numCandidateDelegates, numDelegates, numSubEpochs, 1, f)
+	epoch, err := newEpochCtx(rp, 1, f)
 	require.Error(err)
 	require.Nil(epoch)
 	f = func(uint64) ([]*state.Candidate, error) {
 		return candidates[:20], nil
 	}
-	epoch, err = newEpochCtx(numCandidateDelegates, numDelegates, numSubEpochs, 1, f)
+	epoch, err = newEpochCtx(rp, 1, f)
 	require.Error(err)
 	require.Nil(epoch)
 	f = func(uint64) ([]*state.Candidate, error) {
 		return candidates[:24], nil
 	}
-	epoch, err = newEpochCtx(numCandidateDelegates, numDelegates, numSubEpochs, 1, f)
+	epoch, err = newEpochCtx(rp, 1, f)
 	require.NoError(err)
 	require.NotNil(epoch)
 	require.Equal(uint64(1), epoch.num)

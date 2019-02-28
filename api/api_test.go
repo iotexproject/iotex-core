@@ -25,6 +25,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -36,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -235,11 +237,16 @@ var (
 		height     uint64
 		numActions int64
 		tps        int64
+		epoch      iotextypes.EpochData
 	}{
 		{
 			4,
 			15,
 			15,
+			iotextypes.EpochData{
+				Num:    1,
+				Height: 1,
+			},
 		},
 	}
 
@@ -314,14 +321,14 @@ var (
 		{
 			protocolID: rewarding.ProtocolID,
 			methodName: "UnclaimedBalance",
-			addr:       ta.Addrinfo["producer"].String(),
+			addr:       identityset.Address(0).String(),
 			returnErr:  false,
 			balance:    unit.ConvertIotxToRau(144), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
 		{
 			protocolID: rewarding.ProtocolID,
 			methodName: "UnclaimedBalance",
-			addr:       ta.Addrinfo["alfa"].String(),
+			addr:       identityset.Address(1).String(),
 			returnErr:  false,
 			balance:    unit.ConvertIotxToRau(0), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
@@ -598,6 +605,8 @@ func TestServer_GetChainMeta(t *testing.T) {
 		require.Equal(test.height, chainMetaPb.Height)
 		require.Equal(test.numActions, chainMetaPb.NumActions)
 		require.Equal(test.tps, chainMetaPb.Tps)
+		require.Equal(test.epoch.Num, chainMetaPb.Epoch.Num)
+		require.Equal(test.epoch.Height, chainMetaPb.Epoch.Height)
 	}
 }
 
@@ -784,9 +793,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	)
 	if err != nil {
@@ -828,9 +834,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr3] = selps
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -846,9 +849,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Empty actions
 	if blk, err = bc.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -889,9 +889,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -937,6 +934,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 }
 
 func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, error) {
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(keypair.PrivateKeyToBytes(identityset.PrivateKey(0)))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	if err != nil {
 		return nil, nil, err
@@ -957,11 +955,27 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	acc := account.NewProtocol()
 	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
-	r := rewarding.NewProtocol(bc, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
-	registry.Register(account.ProtocolID, acc)
-	registry.Register(vote.ProtocolID, v)
-	registry.Register(execution.ProtocolID, evm)
-	registry.Register(rewarding.ProtocolID, r)
+	rolldposProtocol := rolldpos.NewProtocol(
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
+	)
+	r := rewarding.NewProtocol(bc, rolldposProtocol)
+	if err := registry.Register(rolldpos.ProtocolID, rolldposProtocol); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(account.ProtocolID, acc); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(vote.ProtocolID, v); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(execution.ProtocolID, evm); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(rewarding.ProtocolID, r); err != nil {
+		return nil, nil, err
+	}
 	sf.AddActionHandlers(acc, v, evm, r)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(acc, v, evm, r)

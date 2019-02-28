@@ -35,11 +35,11 @@ func TestGenesis(t *testing.T) {
 		SetHeight(0).
 		SetTimeStamp(Gen.Timestamp).
 		AddActions(acts...).
-		Build(testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PubKey)
+		Build(testaddress.Keyinfo["producer"].PubKey)
 
 	genesisBlk, err := block.NewBuilder(racts).
 		SetPrevBlockHash(Gen.ParentHash).
-		SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
+		SignAndBuild(testaddress.Keyinfo["producer"].PriKey)
 	assert.NoError(err)
 
 	t.Log("The Genesis Block has the following header:")

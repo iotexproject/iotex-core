@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -22,7 +23,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
@@ -62,6 +62,7 @@ type rollDPoSCtx struct {
 	round            *roundCtx
 	clock            clock.Clock
 	rootChainAPI     explorer.Explorer
+	rp               *rolldpos.Protocol
 	// candidatesByHeightFunc is only used for testing purpose
 	candidatesByHeightFunc CandidatesByHeightFunc
 	mutex                  sync.RWMutex
@@ -160,9 +161,6 @@ func (ctx *rollDPoSCtx) MintBlock() (consensusfsm.Endorsement, error) {
 		log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
 		b, err := ctx.chain.MintNewBlock(
 			actionMap,
-			ctx.pubKey,
-			ctx.priKey,
-			ctx.encodedAddr,
 			ctx.round.timestamp.Unix(),
 		)
 		if err != nil {
@@ -586,7 +584,7 @@ func (ctx *rollDPoSCtx) updateEpoch(height uint64) error {
 	if ctx.epoch != nil {
 		epochNum = ctx.epoch.num
 	}
-	if epochNum < rolldpos.GetEpochNum(height, ctx.genesisCfg.NumDelegates, ctx.genesisCfg.NumSubEpochs) {
+	if epochNum < ctx.rp.GetEpochNum(height) {
 		epoch, err := ctx.epochCtxByHeight(height)
 		if err != nil {
 			return err
@@ -738,11 +736,5 @@ func (ctx *rollDPoSCtx) epochCtxByHeight(height uint64) (*epochCtx, error) {
 		}
 	}
 
-	return newEpochCtx(
-		ctx.genesisCfg.NumCandidateDelegates,
-		ctx.genesisCfg.NumDelegates,
-		ctx.genesisCfg.NumSubEpochs,
-		height,
-		f,
-	)
+	return newEpochCtx(ctx.rp, height, f)
 }

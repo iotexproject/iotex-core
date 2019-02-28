@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
@@ -14,24 +15,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
-
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
@@ -39,9 +37,10 @@ import (
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
@@ -55,36 +54,6 @@ type addrKeyPair struct {
 	encodedAddr string
 }
 
-var testAddrs = []*addrKeyPair{
-	newTestAddr(),
-	newTestAddr(),
-	newTestAddr(),
-	newTestAddr(),
-	newTestAddr(),
-}
-
-func newTestAddr() *addrKeyPair {
-	sk, err := crypto.GenerateKey()
-	if err != nil {
-		log.L().Panic("Error when creating private key.", zap.Error(err))
-	}
-	pk := &sk.PublicKey
-	pkHash := keypair.HashPubKey(pk)
-	addr, err := address.FromBytes(pkHash[:])
-	if err != nil {
-		log.L().Panic("Error when creating address.", zap.Error(err))
-	}
-	return &addrKeyPair{pubKey: pk, priKey: sk, encodedAddr: addr.String()}
-}
-
-func test24Addrs() []*addrKeyPair {
-	addrs := make([]*addrKeyPair, 0)
-	for i := 0; i < 24; i++ {
-		addrs = append(addrs, newTestAddr())
-	}
-	return addrs
-}
-
 func TestNewRollDPoS(t *testing.T) {
 	t.Parallel()
 
@@ -92,36 +61,42 @@ func TestNewRollDPoS(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := config.Default
-
+	rp := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
 	t.Run("normal", func(t *testing.T) {
-		addr := newTestAddr()
+		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(cfg).
-			SetAddr(addr.encodedAddr).
-			SetPubKey(addr.pubKey).
-			SetPriKey(addr.priKey).
+			SetAddr(identityset.Address(0).String()).
+			SetPubKey(&sk.PublicKey).
+			SetPriKey(sk).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
+			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
 	})
 	t.Run("mock-clock", func(t *testing.T) {
-		addr := newTestAddr()
+		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(cfg).
-			SetAddr(addr.encodedAddr).
-			SetPubKey(addr.pubKey).
-			SetPriKey(addr.priKey).
+			SetAddr(identityset.Address(0).String()).
+			SetPubKey(&sk.PublicKey).
+			SetPriKey(sk).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
 			SetClock(clock.NewMock()).
+			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
@@ -130,12 +105,12 @@ func TestNewRollDPoS(t *testing.T) {
 	})
 
 	t.Run("root chain API", func(t *testing.T) {
-		addr := newTestAddr()
+		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(cfg).
-			SetAddr(addr.encodedAddr).
-			SetPubKey(addr.pubKey).
-			SetPriKey(addr.priKey).
+			SetAddr(identityset.Address(0).String()).
+			SetPubKey(&sk.PublicKey).
+			SetPriKey(sk).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
@@ -143,22 +118,24 @@ func TestNewRollDPoS(t *testing.T) {
 			}).
 			SetClock(clock.NewMock()).
 			SetRootChainAPI(mock_explorer.NewMockExplorer(ctrl)).
+			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
 		assert.NotNil(t, r.ctx.rootChainAPI)
 	})
 	t.Run("missing-dep", func(t *testing.T) {
-		addr := newTestAddr()
+		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
 			SetConfig(cfg).
-			SetAddr(addr.encodedAddr).
-			SetPubKey(addr.pubKey).
-			SetPriKey(addr.priKey).
+			SetAddr(identityset.Address(0).String()).
+			SetPubKey(&sk.PublicKey).
+			SetPriKey(sk).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
+			RegisterProtocol(rp).
 			Build()
 		assert.Error(t, err)
 		assert.Nil(t, r)
@@ -177,17 +154,18 @@ func TestRollDPoS_Metrics(t *testing.T) {
 
 	candidates := make([]string, 5)
 	for i := 0; i < len(candidates); i++ {
-		candidates[i] = testAddrs[i].encodedAddr
+		candidates[i] = identityset.Address(i).String()
 	}
 
 	clock := clock.NewMock()
 	blockHeight := uint64(8)
+	sk := identityset.PrivateKey(0)
 	blk := block.NewBlockDeprecated(
 		1,
 		blockHeight,
 		hash.Hash256{},
 		testutil.TimestampNowFromClock(clock),
-		testAddrs[0].pubKey,
+		&sk.PublicKey,
 		make([]action.SealedEnvelope, 0),
 	)
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
@@ -201,22 +179,27 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		{Address: candidates[4]},
 	}, nil).AnyTimes()
 
-	addr := newTestAddr()
+	sk1 := identityset.PrivateKey(1)
 	cfg := config.Default
 	cfg.Genesis.NumDelegates = 4
 	cfg.Genesis.NumSubEpochs = 1
 	cfg.Genesis.BlockInterval = 10 * time.Second
 	r, err := NewRollDPoSBuilder().
 		SetConfig(cfg).
-		SetAddr(addr.encodedAddr).
-		SetPubKey(addr.pubKey).
-		SetPriKey(addr.priKey).
+		SetAddr(identityset.Address(1).String()).
+		SetPubKey(&sk1.PublicKey).
+		SetPriKey(sk1).
 		SetBlockchain(blockchain).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
 		SetClock(clock).
+		RegisterProtocol(rolldpos.NewProtocol(
+			cfg.Genesis.NumCandidateDelegates,
+			cfg.Genesis.NumDelegates,
+			cfg.Genesis.NumSubEpochs,
+		)).
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
@@ -262,6 +245,11 @@ func makeTestRollDPoSCtx(
 		actPool:          actPool,
 		broadcastHandler: broadcastCB,
 		clock:            clock,
+		rp: rolldpos.NewProtocol(
+			cfg.Genesis.NumCandidateDelegates,
+			cfg.Genesis.NumDelegates,
+			cfg.Genesis.NumSubEpochs,
+		),
 	}
 }
 
@@ -318,7 +306,13 @@ func TestRollDPoSConsensus(t *testing.T) {
 		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
-			chainAddrs = append(chainAddrs, newTestAddr())
+			sk := identityset.PrivateKey(i)
+			addr := addrKeyPair{
+				encodedAddr: identityset.Address(i).String(),
+				pubKey:      &sk.PublicKey,
+				priKey:      sk,
+			}
+			chainAddrs = append(chainAddrs, &addr)
 			networkAddrs = append(networkAddrs, node.NewTCPNode(fmt.Sprintf("127.0.0.%d:4689", i+1)))
 		}
 
@@ -346,6 +340,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cs := make([]*RollDPoS, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
 			ctx := context.Background()
+			cfg.Chain.ProducerPrivKey = hex.EncodeToString(keypair.PrivateKeyToBytes(chainAddrs[i].priKey))
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(ctx))
@@ -364,11 +359,18 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
+			registry := protocol.Registry{}
+			acc := account.NewProtocol()
+			require.NoError(t, registry.Register(account.ProtocolID, acc))
+			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+			require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 			chain := blockchain.NewBlockchain(
 				cfg,
 				blockchain.InMemDaoOption(),
 				blockchain.PrecreatedStateFactoryOption(sf),
+				blockchain.RegistryOption(&registry),
 			)
+			require.NoError(t, registry.Register(vote.ProtocolID, vote.NewProtocol(chain)))
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
@@ -391,6 +393,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetActPool(actPool).
 				SetBroadcast(p2p.Broadcast).
 				SetCandidatesByHeightFunc(candidatesByHeightFunc).
+				RegisterProtocol(rp).
 				Build()
 			require.NoError(t, err)
 

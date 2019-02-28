@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -276,6 +277,7 @@ type Builder struct {
 	broadcastHandler       scheme.Broadcast
 	clock                  clock.Clock
 	rootChainAPI           explorer.Explorer
+	rp                     *rolldpos.Protocol
 	candidatesByHeightFunc CandidatesByHeightFunc
 }
 
@@ -346,6 +348,12 @@ func (b *Builder) SetCandidatesByHeightFunc(
 	return b
 }
 
+// RegisterProtocol sets the rolldpos protocol
+func (b *Builder) RegisterProtocol(rp *rolldpos.Protocol) *Builder {
+	b.rp = rp
+	return b
+}
+
 // Build builds a RollDPoS consensus module
 func (b *Builder) Build() (*RollDPoS, error) {
 	if b.chain == nil {
@@ -371,6 +379,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		broadcastHandler:       b.broadcastHandler,
 		clock:                  b.clock,
 		rootChainAPI:           b.rootChainAPI,
+		rp:                     b.rp,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,
 	}
 	cfsm, err := consensusfsm.NewConsensusFSM(b.cfg.Consensus.RollDPoS.FSM, &ctx, b.clock)

@@ -12,7 +12,6 @@ import (
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
-	keypair "github.com/iotexproject/iotex-core/pkg/keypair"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -529,16 +528,16 @@ func (mr *MockBlockchainMockRecorder) RecoverChainAndState(targetHeight interfac
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, producerPubKey keypair.PublicKey, producerPriKey keypair.PrivateKey, producerAddr string, timestamp int64) (*block.Block, error) {
-	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, producerPubKey, producerPriKey, producerAddr, timestamp)
+func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp int64) (*block.Block, error) {
+	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, timestamp)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(actionMap, producerPubKey, producerPriKey, producerAddr, timestamp interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), actionMap, producerPubKey, producerPriKey, producerAddr, timestamp)
+func (mr *MockBlockchainMockRecorder) MintNewBlock(actionMap, timestamp interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), actionMap, timestamp)
 }
 
 // CommitBlock mocks base method
