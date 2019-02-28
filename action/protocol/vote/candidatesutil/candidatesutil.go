@@ -109,7 +109,7 @@ func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr st
 
 // updateCandidate updates a candidate state
 func updateCandidate(
-	candiateMap map[hash.Hash160]*state.Candidate,
+	candidateMap map[hash.Hash160]*state.Candidate,
 	encodedAddr string,
 	totalWeight *big.Int,
 	blockHeight uint64,
@@ -120,7 +120,7 @@ func updateCandidate(
 	}
 	addrHash := byteutil.BytesTo20B(addr.Bytes())
 	// Candidate was added when self-nomination, always exist in cachedCandidates
-	candidate := candiateMap[addrHash]
+	candidate := candidateMap[addrHash]
 	candidate.Votes = totalWeight
 	candidate.LastUpdateHeight = blockHeight
 

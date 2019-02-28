@@ -14,7 +14,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-election/types"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
@@ -47,6 +46,9 @@ func TestInitialize(t *testing.T) {
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		func(uint64) uint64 { return 1 },
+		func(uint64) uint64 { return 1 },
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
 	)
 	require.NoError(err)
 	require.NoError(p.Initialize(ctx, ws))

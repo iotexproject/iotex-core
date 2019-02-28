@@ -38,10 +38,6 @@ message CandidateList {
   repeated Candidate candidates = 1;
 }
 
-message BlockProducerList {
-  repeated string blockProducers = 1;
-}
-
 message PutPollResult {
   uint64 height = 1;
 	CandidateList	candidates = 2;

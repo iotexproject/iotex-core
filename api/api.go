@@ -13,9 +13,6 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-
 	"github.com/golang/protobuf/proto"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
@@ -24,6 +21,8 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -37,7 +36,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
@@ -564,9 +562,6 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
 	p, ok := api.registry.Find(string(in.ProtocolID))
 	if !ok {
-		if string(in.MethodName) == "BlockProducersByHeight" || string(in.MethodName) == "ActiveBlockProducersByHeight" {
-			return api.getBlockProducersFromChain(in)
-		}
 		return nil, errors.Errorf("protocol %s isn't registered", string(in.ProtocolID))
 	}
 	// TODO: need to complete the context
@@ -589,33 +584,6 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	return &out, nil
 }
 
-func (api *Server) getBlockProducersFromChain(in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
-	if len(in.Arguments) != 1 {
-		return nil, errors.Errorf("invalid number of arguments %d", len(in.Arguments))
-	}
-	height := byteutil.BytesToUint64(in.Arguments[0])
-	var blockProducers []string
-	var err error
-	if string(in.MethodName) == "BlockProducersByHeight" {
-		blockProducers, err = api.bc.BlockProducersByHeight(height)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		blockProducers, err = api.bc.ActiveBlockProducersByHeight(height)
-		if err != nil {
-			return nil, err
-		}
-	}
-	blockProducersPb := &iotextypes.BlockProducerList{BlockProducers: blockProducers}
-	data, err := proto.Marshal(blockProducersPb)
-	if err != nil {
-		return nil, err
-	}
-	return &iotexapi.ReadStateResponse{Data: data}, nil
-}
-
->>>>>>> Support BP/Active BP display in ReadState API
 func toHash256(hashString string) (hash.Hash256, error) {
 	bytes, err := hex.DecodeString(hashString)
 	if err != nil {
