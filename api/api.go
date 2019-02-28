@@ -13,9 +13,6 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-
 	"github.com/golang/protobuf/proto"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
@@ -24,6 +21,8 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"

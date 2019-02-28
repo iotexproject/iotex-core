@@ -14,10 +14,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,10 +21,12 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
