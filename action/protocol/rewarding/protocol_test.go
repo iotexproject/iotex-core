@@ -47,24 +47,29 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
 	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{
-			Address: testaddress.Addrinfo["producer"].String(),
-			Votes:   unit.ConvertIotxToRau(4000000),
+			Address:       testaddress.Addrinfo["producer"].String(),
+			Votes:         unit.ConvertIotxToRau(4000000),
+			RewardAddress: testaddress.Addrinfo["producer"].String(),
 		},
 		{
-			Address: testaddress.Addrinfo["alfa"].String(),
-			Votes:   unit.ConvertIotxToRau(3000000),
+			Address:       testaddress.Addrinfo["alfa"].String(),
+			Votes:         unit.ConvertIotxToRau(3000000),
+			RewardAddress: testaddress.Addrinfo["alfa"].String(),
 		},
 		{
-			Address: testaddress.Addrinfo["bravo"].String(),
-			Votes:   unit.ConvertIotxToRau(2000000),
+			Address:       testaddress.Addrinfo["bravo"].String(),
+			Votes:         unit.ConvertIotxToRau(2000000),
+			RewardAddress: testaddress.Addrinfo["bravo"].String(),
 		},
 		{
-			Address: testaddress.Addrinfo["charlie"].String(),
-			Votes:   unit.ConvertIotxToRau(1000000),
+			Address:       testaddress.Addrinfo["charlie"].String(),
+			Votes:         unit.ConvertIotxToRau(1000000),
+			RewardAddress: testaddress.Addrinfo["charlie"].String(),
 		},
 		{
-			Address: testaddress.Addrinfo["delta"].String(),
-			Votes:   unit.ConvertIotxToRau(500000),
+			Address:       testaddress.Addrinfo["delta"].String(),
+			Votes:         unit.ConvertIotxToRau(500000),
+			RewardAddress: testaddress.Addrinfo["delta"].String(),
 		},
 	}, nil).AnyTimes()
 	p := NewProtocol(chain, rolldpos.NewProtocol(
