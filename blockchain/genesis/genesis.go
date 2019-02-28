@@ -65,9 +65,14 @@ func initDefaultConfig() {
 	}
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
-		Default.InitBalanceMap[addr] = unit.ConvertIotxToRau(100000000).String()
+		value := unit.ConvertIotxToRau(100000000).String()
+		Default.InitBalanceMap[addr] = value
 		if uint64(i) < Default.NumDelegates {
-			Default.InitDelegateAddrStrs = append(Default.InitDelegateAddrStrs, addr)
+			Default.Delegates = append(Default.Delegates, Delegate{
+				OperatorAddrStr: addr,
+				RewardAddrStr:   addr,
+				VotesStr:        value,
+			})
 		}
 	}
 }
@@ -114,7 +119,16 @@ type (
 		// CommitteeConfig is the config for committee
 		CommitteeConfig committee.Config `yaml:"committeeConfig"`
 		// Delegates is a list of delegates with votes
-		InitDelegateAddrStrs []string `yaml:"initDelegateAddrs"`
+		Delegates []Delegate `yaml:"delegates"`
+	}
+	// Delegate defines a delegate with address and votes
+	Delegate struct {
+		// OperatorAddrStr is the address who will operate the node
+		OperatorAddrStr string `yaml:"operatorAddr"`
+		// RewardAddrStr is the address who will get the reward when operator produces blocks
+		RewardAddrStr string `yaml:"rewardAddr"`
+		// VotesStr is the score for the operator to rank and weight for rewardee to split epoch reward
+		VotesStr string `yaml:"votes"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
@@ -177,17 +191,34 @@ func (a *Account) InitBalances() ([]address.Address, []*big.Int) {
 	return addrs, amounts
 }
 
-// InitDelegateAddrs returns the initial delegate address
-func (p *Poll) InitDelegateAddrs() []address.Address {
-	addrs := make([]address.Address, 0)
-	for _, addrStr := range p.InitDelegateAddrStrs {
-		addr, err := address.FromString(addrStr)
-		if err != nil {
-			log.L().Panic("Error when decoding the poll protocol init delegate address from string.", zap.Error(err))
-		}
-		addrs = append(addrs, addr)
+// OperatorAddr is the address of operator
+func (d *Delegate) OperatorAddr() address.Address {
+	addr, err := address.FromString(d.OperatorAddrStr)
+	if err != nil {
+		log.L().Panic("Error when decoding the poll protocol operator address from string.", zap.Error(err))
 	}
-	return addrs
+	return addr
+}
+
+// RewardAddr is the address of rewardee, which is allowed to be nil
+func (d *Delegate) RewardAddr() address.Address {
+	if d.RewardAddrStr == "" {
+		return nil
+	}
+	addr, err := address.FromString(d.RewardAddrStr)
+	if err != nil {
+		log.L().Panic("Error when decoding the poll protocol rewardee address from string.", zap.Error(err))
+	}
+	return addr
+}
+
+// Votes returns the votes
+func (d *Delegate) Votes() *big.Int {
+	val, ok := big.NewInt(0).SetString(d.VotesStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting votes string %s into big int", d.VotesStr)
+	}
+	return val
 }
 
 // InitAdminAddr returns the address of the initial rewarding protocol admin

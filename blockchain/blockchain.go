@@ -1425,7 +1425,11 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 	if !ok {
 		return errors.Errorf("error when casting vote protocol")
 	}
-	return vp.Initialize(ctx, ws, bc.config.Genesis.InitDelegateAddrs())
+	addrs := make([]address.Address, 0)
+	for _, d := range bc.config.Genesis.Delegates {
+		addrs = append(addrs, d.OperatorAddr())
+	}
+	return vp.Initialize(ctx, ws, addrs)
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {

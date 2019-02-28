@@ -23,8 +23,8 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, Default.NumSubEpochs, cfg.NumSubEpochs)
 	assert.Equal(t, Default.NumDelegates, cfg.NumDelegates)
 	// Validate poll protocol
-	assert.Equal(t, Default.InitDelegateAddrs(), cfg.InitDelegateAddrs())
-	assert.Equal(t, cfg.NumDelegates, uint64(len(cfg.InitDelegateAddrs())))
+	assert.Equal(t, Default.Delegates, cfg.Delegates)
+	assert.Equal(t, cfg.NumDelegates, uint64(len(cfg.Delegates)))
 	// Validate account protocol
 	eAddrs, eBalances := Default.InitBalances()
 	aAddrs, aBalances := cfg.InitBalances()

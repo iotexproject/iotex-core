@@ -273,7 +273,7 @@ func newConfig(
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
-	cfg.Genesis.InitDelegateAddrStrs = cfg.Genesis.InitDelegateAddrStrs[3 : numNodes+3]
+	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
 
 	return cfg
 }

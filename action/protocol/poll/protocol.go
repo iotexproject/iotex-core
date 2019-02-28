@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -64,13 +65,18 @@ type lifeLongDelegatesProtocol struct {
 }
 
 // NewLifeLongDelegatesProtocol creates a poll protocol with life long delegates
-func NewLifeLongDelegatesProtocol(addrs []address.Address) Protocol {
+func NewLifeLongDelegatesProtocol(delegates []genesis.Delegate) Protocol {
 	var l state.CandidateList
-	for _, addr := range addrs {
+	for _, delegate := range delegates {
+		rewardAddress := delegate.RewardAddr()
+		if rewardAddress == nil {
+			rewardAddress = delegate.OperatorAddr()
+		}
 		l = append(l, &state.Candidate{
-			Address:       addr.String(),
-			Votes:         big.NewInt(1),
-			RewardAddress: addr.String(),
+			Address: delegate.OperatorAddr().String(),
+			// TODO: load votes from genesis
+			Votes:         delegate.Votes(),
+			RewardAddress: rewardAddress.String(),
 		})
 	}
 	return &lifeLongDelegatesProtocol{delegates: l}
