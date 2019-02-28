@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 )
 
 // walletListCmd represents the wallet list command
@@ -24,7 +26,7 @@ var walletListCmd = &cobra.Command{
 }
 
 func walletList() string {
-	w, err := loadWallets()
+	w, err := config.LoadConfig()
 	if err != nil {
 		return err.Error()
 	}

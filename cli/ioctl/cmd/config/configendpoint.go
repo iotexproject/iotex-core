@@ -9,8 +9,8 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
-	"strings"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/spf13/cobra"
 )
@@ -51,54 +51,28 @@ var configSetEndpointCmd = &cobra.Command{
 
 // GetEndpoint gets the endpoint
 func GetEndpoint() string {
-	file, err := ioutil.ReadFile(DefaultConfigFile)
+	cfg, err := LoadConfig()
 	if err != nil {
-		return fmt.Sprintf("failed to open config file %s", DefaultConfigFile)
+		return err.Error()
 	}
-	// find the line that specifies endpoint
-	var endpoint string
-	lines := strings.Split(string(file), "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, endpointPrefix) {
-			endpoint = strings.TrimPrefix(line, endpointPrefix)
-			break
-		}
-	}
-	if endpoint == "" {
+	if cfg.Endpoint == "" {
 		return ErrEmptyEndpoint
 	}
-	return endpoint
+	return cfg.Endpoint
 }
 
 func setEndpoint(args []string) string {
-	file, err := ioutil.ReadFile(DefaultConfigFile)
+	cfg, err := LoadConfig()
 	if err != nil {
-		if os.IsNotExist(err) {
-			// special case of empty config file just being created
-			line := endpointPrefix + args[1]
-			if err := ioutil.WriteFile(DefaultConfigFile, []byte(line), 0644); err != nil {
-				return fmt.Sprintf("failed to create config file %s", DefaultConfigFile)
-			}
-			return "endpoint set to " + args[1]
-		}
-		return fmt.Sprintf("failed to open config file %s", DefaultConfigFile)
+		return err.Error()
 	}
-	// find the line that specifies endpoint
-	findEndpoint := false
-	lines := strings.Split(string(file), "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, endpointPrefix) {
-			lines[i] = endpointPrefix + args[1]
-			findEndpoint = true
-			break
-		}
+	cfg.Endpoint = args[1]
+	out, err := yaml.Marshal(&cfg)
+	if err != nil {
+		return err.Error()
 	}
-	if !findEndpoint {
-		lines = append(lines, endpointPrefix+args[1])
+	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
+		return fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile)
 	}
-	output := strings.Join(lines, "\n")
-	if err := ioutil.WriteFile(DefaultConfigFile, []byte(output), 0644); err != nil {
-		return fmt.Sprintf("failed to write to config file %s", DefaultConfigFile)
-	}
-	return "endpoint set to " + args[1]
+	return "Endpoint is set to " + args[1]
 }

@@ -9,11 +9,7 @@ package wallet
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
-
-	"gopkg.in/yaml.v2"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
@@ -38,56 +34,14 @@ var WalletCmd = &cobra.Command{
 	},
 }
 
-type wallets struct {
-	WalletList map[string]string `yaml:"walletList"`
-}
-
 func init() {
 	WalletCmd.AddCommand(walletCreateCmd)
 	WalletCmd.AddCommand(walletListCmd)
 }
 
-func parseConfig(file []byte, start, end, name string) (int, int, bool, bool) {
-	var startLine, endLine int
-	find := false
-	exist := false
-	lines := strings.Split(string(file), "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, end) {
-			endLine = i
-			break
-		}
-		if !find && strings.HasPrefix(line, start) {
-			find = true
-			startLine = i
-			continue
-		}
-		// detect name collision
-		if find && name != "" && strings.HasPrefix(line, name) {
-			exist = true
-		}
-	}
-	return startLine, endLine, find, exist
-}
-
-func loadWallets() (wallets, error) {
-	w := wallets{
-		WalletList: make(map[string]string),
-	}
-	in, err := ioutil.ReadFile(config.DefaultConfigFile)
-	if err == nil {
-		if err := yaml.Unmarshal(in, &w); err != nil {
-			return w, err
-		}
-	} else if !os.IsNotExist(err) {
-		return w, err
-	}
-	return w, nil
-}
-
 // Sign use the password to unlock key associated with name, and signs the hash
 func Sign(name, password string, hash []byte) ([]byte, error) {
-	w, err := loadWallets()
+	w, err := config.LoadConfig()
 	if err != nil {
 		return nil, err
 	}

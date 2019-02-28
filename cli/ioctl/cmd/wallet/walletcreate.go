@@ -40,23 +40,23 @@ func init() {
 }
 
 func walletCreate() string {
-	w, err := loadWallets()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		return err.Error()
 	}
-	if _, ok := w.WalletList[name]; ok {
+	if _, ok := cfg.WalletList[name]; ok {
 		return fmt.Sprintf("A wallet named \"%s\" already exists.", name)
 	}
 	addr, err := newWallet()
 	if err != nil {
 		return err.Error()
 	}
-	w.WalletList[name] = addr
-	out, err := yaml.Marshal(&w)
+	cfg.WalletList[name] = addr
+	out, err := yaml.Marshal(&cfg)
 	if err != nil {
 		return err.Error()
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, []byte(out), 0600); err != nil {
+	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
 	}
 	return fmt.Sprintf(
