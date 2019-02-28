@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -43,24 +44,21 @@ type Protocol struct {
 	cm        protocol.ChainManager
 	keyPrefix []byte
 	addr      address.Address
-	// TODO: these should be migrate to rolldpos protocol
-	numDelegates uint64
-	numSubEpochs uint64
+	rp        *rolldpos.Protocol
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(cm protocol.ChainManager, numDelegates uint64, numSubEpochs uint64) *Protocol {
+func NewProtocol(cm protocol.ChainManager, rp *rolldpos.Protocol) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
 	}
 	return &Protocol{
-		cm:           cm,
-		keyPrefix:    h[:],
-		addr:         addr,
-		numDelegates: numDelegates,
-		numSubEpochs: numSubEpochs,
+		cm:        cm,
+		keyPrefix: h[:],
+		addr:      addr,
+		rp:        rp,
 	}
 }
 

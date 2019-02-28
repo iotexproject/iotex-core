@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -65,9 +66,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	actionMap[Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -123,9 +121,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	blk, err = bc.MintNewBlock(
 		accMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -164,9 +159,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	blk, err = bc.MintNewBlock(
 		accMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -203,9 +195,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	blk, err = bc.MintNewBlock(
 		accMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 
@@ -260,9 +249,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	blk, err = bc.MintNewBlock(
 		accMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -289,10 +275,12 @@ func TestCreateBlockchain(t *testing.T) {
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	v := vote.NewProtocol(bc)
-	registry.Register(vote.ProtocolID, v)
+	require.NoError(registry.Register(vote.ProtocolID, v))
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(bc.Start(ctx))
@@ -344,11 +332,13 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	cfg := config.Default
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	registry.Register(account.ProtocolID, acc)
+	require.NoError(t, registry.Register(account.ProtocolID, acc))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	v := vote.NewProtocol(bc)
-	registry.Register(vote.ProtocolID, v)
+	require.NoError(t, registry.Register(vote.ProtocolID, v))
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
@@ -376,9 +366,6 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	actionMap[Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
 	_, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NoError(t, err)
@@ -389,11 +376,13 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	cfg := config.Default
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	registry.Register(account.ProtocolID, acc)
+	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	v := vote.NewProtocol(bc)
-	registry.Register(vote.ProtocolID, v)
+	require.NoError(t, registry.Register(vote.ProtocolID, v))
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
@@ -427,9 +416,6 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NoError(t, err)
@@ -485,15 +471,17 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// Create a blockchain from scratch
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	registry.Register(account.ProtocolID, acc)
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	bc := NewBlockchain(
 		cfg,
 		PrecreatedStateFactoryOption(sf),
 		BoltDBDaoOption(),
 		RegistryOption(&registry),
 	)
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	v := vote.NewProtocol(bc)
-	registry.Register(vote.ProtocolID, v)
+	require.NoError(registry.Register(vote.ProtocolID, v))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(acc, v)
 	sf.AddActionHandlers(acc, v)
@@ -526,11 +514,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	)
 	voteProtocol := vote.NewProtocol(bc)
 	require.NoError(registry.Register(vote.ProtocolID, voteProtocol))
-	rewardingProtocol := rewarding.NewProtocol(
-		bc,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
+	rolldposProtocol := rolldpos.NewProtocol(
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
 	)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
 	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
 	bc.Validator().AddActionValidators(accountProtocol, voteProtocol)
@@ -736,7 +726,9 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	// Create a blockchain from scratch
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	registry.Register(account.ProtocolID, acc)
+	require.NoError(registry.Register(account.ProtocolID, acc))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(
 		cfg,
 		PrecreatedStateFactoryOption(sf),
@@ -744,7 +736,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 		RegistryOption(&registry),
 	)
 	v := vote.NewProtocol(bc)
-	registry.Register(vote.ProtocolID, v)
+	require.NoError(registry.Register(vote.ProtocolID, v))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(acc, v)
 	sf.AddActionHandlers(acc, v)
@@ -962,11 +954,13 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		BoltDBDaoOption(),
 		RegistryOption(&registry),
 	)
-	rewardingProtocol := rewarding.NewProtocol(
-		bc,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
+	rolldposProtocol := rolldpos.NewProtocol(
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
 	)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
 	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
@@ -1060,9 +1054,6 @@ func TestBlocks(t *testing.T) {
 		}
 		blk, _ := bc.MintNewBlock(
 			actionMap,
-			ta.Keyinfo["producer"].PubKey,
-			ta.Keyinfo["producer"].PriKey,
-			ta.Addrinfo["producer"].String(),
 			0,
 		)
 		require.Nil(bc.ValidateBlock(blk))
@@ -1128,9 +1119,6 @@ func TestActions(t *testing.T) {
 	}
 	blk, _ := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(val.Validate(blk, 0, blk.PrevHash()))

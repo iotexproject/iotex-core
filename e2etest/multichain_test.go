@@ -51,8 +51,6 @@ func TestTwoChains(t *testing.T) {
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Genesis.BlockInterval = time.Second
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(identityset.PrivateKey(1))
-	pk := identityset.PrivateKey(1).PublicKey
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&pk)
 	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
 	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
 	cfg.Chain.EnableSubChainStartInGenesis = true

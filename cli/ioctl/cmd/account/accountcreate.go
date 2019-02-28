@@ -37,7 +37,7 @@ func init() {
 	AccountCmd.AddCommand(accountCreateCmd)
 }
 
-func accountCreate(args []string) string {
+func accountCreate(_ []string) string {
 	items := make([]string, numAccounts)
 	for i := 0; i < numAccounts; i++ {
 		private, err := crypto.GenerateKey()
@@ -46,12 +46,10 @@ func accountCreate(args []string) string {
 		}
 		pkHash := keypair.HashPubKey(&private.PublicKey)
 		addr, _ := address.FromBytes(pkHash[:])
-		pubKeyBytes := keypair.PublicKeyToBytes(&private.PublicKey)
 		priKeyBytes := keypair.PrivateKeyToBytes(private)
 		items[i] = fmt.Sprintf(
-			"{\"Address\": \"%s\", \"PublicKey\": \"%x\", \"PrivateKey\": \"%x\"}\n",
+			"{\"Address\": \"%s\", \"PrivateKey\": \"%x\"}\n",
 			addr.String(),
-			pubKeyBytes,
 			priKeyBytes,
 		)
 	}

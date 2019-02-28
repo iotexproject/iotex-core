@@ -304,7 +304,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 		)
 	case fsm.ErrTransitionNotFound:
 		if m.ctx.IsStaleUnmatchedEvent(evt) {
-			break
+			return nil
 		}
 		m.produce(evt, m.cfg.UnmatchedEventInterval)
 		m.ctx.Logger().Debug(
@@ -313,7 +313,6 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 			zap.String("evt", string(evt.Type())),
 			zap.Error(err),
 		)
-		return err
 	default:
 		return errors.Wrapf(
 			err,
