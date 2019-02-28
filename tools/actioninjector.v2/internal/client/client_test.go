@@ -37,7 +37,7 @@ func TestClient(t *testing.T) {
 	tx, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).SetDestinationAddress(b).SetAction(tx).Build()
+	elp := bd.SetNonce(1).SetAction(tx).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 

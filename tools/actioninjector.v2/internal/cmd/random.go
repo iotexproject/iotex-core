@@ -202,7 +202,6 @@ func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 		}
 		elp = bd.SetNonce(nonce).
 			SetGasPrice(injectCfg.transferGasPrice).
-			SetDestinationAddress(recipient.EncodedAddr).
 			SetGasLimit(injectCfg.transferGasLimit).
 			SetAction(transfer).Build()
 	case 1:
@@ -212,7 +211,6 @@ func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 		}
 		elp = bd.SetNonce(nonce).
 			SetGasPrice(injectCfg.executionGasPrice).
-			SetDestinationAddress(injectCfg.contract).
 			SetGasLimit(injectCfg.executionGasLimit).
 			SetAction(execution).Build()
 	}

@@ -96,7 +96,6 @@ func constructPutSubChainBlockRequest(
 
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(uint64(senderPCAddrDetails.PendingNonce)).
-		SetDestinationAddress(subChainAddr).
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(1000000).
 		SetAction(pb).Build()

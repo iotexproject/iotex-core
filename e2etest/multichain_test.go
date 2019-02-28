@@ -125,7 +125,6 @@ func TestTwoChains(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(createDeposit).
 		SetNonce(uint64(details.Nonce) + 1).
-		SetDestinationAddress(addr2.String()).
 		SetGasLimit(testutil.TestGasLimit).Build()
 	selp, err := action.Sign(elp, sk1)
 	require.NoError(t, err)
@@ -183,7 +182,6 @@ func TestTwoChains(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(settleDeposit).
 		SetNonce(nonce).
-		SetDestinationAddress(addr2.String()).
 		SetGasLimit(testutil.TestGasLimit).Build()
 	selp, err = action.Sign(elp, sk1)
 	require.NoError(t, err)

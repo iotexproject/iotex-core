@@ -90,12 +90,6 @@ func (b *EnvelopeBuilder) SetNonce(n uint64) *EnvelopeBuilder {
 	return b
 }
 
-// SetDestinationAddress sets action's destination address.
-// To Be Depercated
-func (b *EnvelopeBuilder) SetDestinationAddress(addr string) *EnvelopeBuilder {
-	return b
-}
-
 // SetGasLimit sets action's gas limit.
 func (b *EnvelopeBuilder) SetGasLimit(l uint64) *EnvelopeBuilder {
 	b.elp.gasLimit = l

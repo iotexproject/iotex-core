@@ -87,8 +87,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetAction(unsignedTsf).
-		SetGasLimit(100000).
-		SetDestinationAddress(addr1).Build()
+		SetGasLimit(100000).Build()
 	selp := action.FakeSeal(elp, pubKey1)
 	err = validator.Validate(ctx, selp)
 	require.True(strings.Contains(err.Error(), "incorrect length of signature"))
@@ -230,8 +229,7 @@ func TestActPool_AddActs(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(4).
 		SetAction(replaceVote).
-		SetGasLimit(100000).
-		SetDestinationAddress("").Build()
+		SetGasLimit(100000).Build()
 	selp, err := action.Sign(elp, priKey1)
 
 	require.NoError(err)
@@ -263,8 +261,7 @@ func TestActPool_AddActs(t *testing.T) {
 	elp = bd.SetNonce(5).
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(genesis.Default.ActionGasLimit + 1).
-		SetAction(creationExecution).
-		SetDestinationAddress(action.EmptyAddress).Build()
+		SetAction(creationExecution).Build()
 	selp, err = action.Sign(elp, priKey1)
 	require.NoError(err)
 
@@ -286,8 +283,7 @@ func TestActPool_AddActs(t *testing.T) {
 	elp = bd.SetNonce(5).
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(10).
-		SetAction(creationExecution).
-		SetDestinationAddress(action.EmptyAddress).Build()
+		SetAction(creationExecution).Build()
 	selp, err = action.Sign(elp, priKey1)
 	require.NoError(err)
 
@@ -751,8 +747,7 @@ func TestActPool_Reset(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(3).
 		SetGasLimit(20000).
-		SetAction(vote23).
-		SetDestinationAddress("").Build()
+		SetAction(vote23).Build()
 	selp23, err := action.Sign(elp, priKey4)
 	require.NoError(err)
 
@@ -766,8 +761,7 @@ func TestActPool_Reset(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(3).
 		SetGasLimit(20000).
-		SetAction(vote26).
-		SetDestinationAddress("").Build()
+		SetAction(vote26).Build()
 	selp26, err := action.Sign(elp, priKey5)
 	require.NoError(err)
 
