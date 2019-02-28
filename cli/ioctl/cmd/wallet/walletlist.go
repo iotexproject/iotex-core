@@ -8,13 +8,9 @@ package wallet
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 )
 
 // walletListCmd represents the wallet list command
@@ -28,19 +24,13 @@ var walletListCmd = &cobra.Command{
 }
 
 func walletList() string {
-	file, err := ioutil.ReadFile(config.DefaultConfigFile)
+	w, err := loadWallets()
 	if err != nil {
-		if os.IsNotExist(err) {
-			// special case of empty config file just being created
-			return "No wallet found"
-		}
-		return fmt.Sprintf("failed to open config file %s", config.DefaultConfigFile)
+		return err.Error()
 	}
-	// parse the wallet section from config file
-	start, end, find, _ := parseConfig(file, walletPrefix, walletEnd, "")
-	if !find {
-		return "No wallet found"
+	lines := make([]string, 0)
+	for n, addr := range w.WalletList {
+		lines = append(lines, fmt.Sprintf("name: %s, address:%s", n, addr))
 	}
-	lines := strings.Split(string(file), "\n")
-	return strings.Join(lines[start+1:end], "\n")
+	return strings.Join(lines, "\n")
 }

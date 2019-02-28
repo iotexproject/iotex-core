@@ -10,7 +10,10 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
@@ -33,6 +36,10 @@ var WalletCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Print: " + strings.Join(args, " "))
 	},
+}
+
+type wallets struct {
+	WalletList map[string]string `yaml:"walletList"`
 }
 
 func init() {
@@ -63,25 +70,32 @@ func parseConfig(file []byte, start, end, name string) (int, int, bool, bool) {
 	return startLine, endLine, find, exist
 }
 
+func loadWallets() (wallets, error) {
+	w := wallets{
+		WalletList: make(map[string]string),
+	}
+	in, err := ioutil.ReadFile(config.DefaultConfigFile)
+	if err == nil {
+		if err := yaml.Unmarshal(in, &w); err != nil {
+			return w, err
+		}
+	} else if !os.IsNotExist(err) {
+		return w, err
+	}
+	return w, nil
+}
+
 // Sign use the password to unlock key associated with name, and signs the hash
 func Sign(name, password string, hash []byte) ([]byte, error) {
-	file, err := ioutil.ReadFile(config.DefaultConfigFile)
+	w, err := loadWallets()
 	if err != nil {
-		return nil, errors.Errorf("failed to open config file %s", config.DefaultConfigFile)
+		return nil, err
 	}
-	// parse the wallet section from config file
-	start, end, _, exist := parseConfig(file, walletPrefix, walletEnd, name)
-	if !exist {
+	addrStr, ok := w.WalletList[name]
+	if !ok {
 		return nil, errors.Errorf("wallet %s does not exist", name)
 	}
-	var bech32 string
-	lines := strings.Split(string(file), "\n")
-	for i := start + 1; i < end; i++ {
-		if strings.HasPrefix(lines[i], name) {
-			bech32 = strings.TrimPrefix(lines[i], name+":")
-		}
-	}
-	addr, err := address.FromString(bech32)
+	addr, err := address.FromString(addrStr)
 	if err != nil {
 		return nil, err
 	}
