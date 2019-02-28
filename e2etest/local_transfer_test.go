@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -335,7 +334,7 @@ func TestLocalTransfer(t *testing.T) {
 		case TsfSuccess:
 			//Wait long enough for a block to be minted, and check the balance of both
 			//sender and receiver.
-			time.Sleep(genesis.Default.BlockInterval + time.Second)
+			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
 			selp, err := bc.GetActionByActionHash(tsf.Hash())
 			require.NoError(err, tsfTest.message)
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
@@ -377,7 +376,7 @@ func TestLocalTransfer(t *testing.T) {
 
 		case TsfPending:
 			//Need to wait long enough to make sure the pending transfer is not minted, only stay in action pool
-			time.Sleep(genesis.Default.BlockInterval + time.Second)
+			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
 			_, err := ap.GetActionByHash(tsf.Hash())
 			require.NoError(err, tsfTest.message)
 			_, err = bc.GetActionByActionHash(tsf.Hash())
@@ -386,7 +385,7 @@ func TestLocalTransfer(t *testing.T) {
 			//After a blocked is minted, check all the pending transfers in action pool are cleared
 			//This checking procedue is simplied for this test case, because of the complexity of
 			//handling pending transfers.
-			time.Sleep(genesis.Default.BlockInterval + time.Second)
+			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
 			acts := ap.PickActs()
 			require.Equal(len(acts), 0, tsfTest.message)
 
@@ -505,6 +504,7 @@ func newTransferConfig(
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.Enabled = true
 	cfg.API.Port = apiPort
+	cfg.Genesis.BlockInterval = 1 * time.Second
 
 	return cfg, nil
 }
