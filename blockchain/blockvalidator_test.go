@@ -248,7 +248,7 @@ func TestWrongAddress(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
-		SetNonce(1).SetDestinationAddress(invalidRecipient).Build()
+		SetNonce(1).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	blk1, err := block.NewTestingBuilder().
@@ -272,7 +272,7 @@ func TestWrongAddress(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
-		SetNonce(1).SetDestinationAddress(invalidVotee).Build()
+		SetNonce(1).Build()
 	selp, err = action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	blk2, err := block.NewTestingBuilder().
@@ -297,7 +297,7 @@ func TestWrongAddress(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(execution).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
-		SetNonce(1).SetDestinationAddress(invalidContract).Build()
+		SetNonce(1).Build()
 	selp, err = action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	blk3, err := block.NewTestingBuilder().
