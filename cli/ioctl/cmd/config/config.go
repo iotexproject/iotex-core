@@ -37,7 +37,7 @@ var ConfigCmd = &cobra.Command{
 
 // Config defines the config schema
 type Config struct {
-	Endpoint   string            `yaml:endpoint`
+	Endpoint   string            `yaml:"endpoint""`
 	WalletList map[string]string `yaml:"walletList"`
 }
 
