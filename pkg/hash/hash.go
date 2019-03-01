@@ -29,7 +29,7 @@ func Hash160b(input []byte) Hash160 {
 	// use sha3 algorithm
 	digest := crypto.Keccak256(input)
 	var hash Hash160
-	copy(hash[:], digest[7:27])
+	copy(hash[:], digest[12:])
 	return hash
 }
 

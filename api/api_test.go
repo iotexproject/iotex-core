@@ -110,14 +110,14 @@ var (
 		pendingNonce uint64
 	}{
 		{ta.Addrinfo["charlie"].String(),
-			"io1f44xes4nlpyd7quhh75st3wp77n9ltfkeq54tu",
+			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 			"3",
 			8,
 			9,
 		},
 		{
 			ta.Addrinfo["producer"].String(),
-			"io1g3hwze27yja039x6z57uqk8aspnfv4aqk4vxkq",
+			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
 			"9999999999999999999999999991",
 			1,
 			6,
