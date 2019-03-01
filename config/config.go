@@ -79,7 +79,7 @@ var (
 			ProducerPrivKey:         keypair.EncodePrivateKey(PrivateKey),
 			EmptyGenesis:            false,
 			NumCandidates:           101,
-			BeaconChainAPI:          "",
+			BeaconChainAPIs:         []string{},
 			BeaconChainDB:           DB{DbPath: "/tmp/poll.db", NumRetries: 10},
 			EnableFallBackToFreshDB: false,
 			EnableTrielessStateDB:   true,
@@ -193,17 +193,17 @@ type (
 
 	// Chain is the config struct for blockchain package
 	Chain struct {
-		ChainDBPath             string `yaml:"chainDBPath"`
-		TrieDBPath              string `yaml:"trieDBPath"`
-		ID                      uint32 `yaml:"id"`
-		Address                 string `yaml:"address"`
-		ProducerPrivKey         string `yaml:"producerPrivKey"`
-		EmptyGenesis            bool   `yaml:"emptyGenesis"`
-		NumCandidates           uint   `yaml:"numCandidates"`
-		BeaconChainAPIs              []string `yaml:"beaconChainAPIs"`
-		BeaconChainDB           DB     `yaml:"beaconChainDB"`
-		EnableFallBackToFreshDB bool   `yaml:"enableFallbackToFreshDb"`
-		EnableTrielessStateDB   bool   `yaml:"enableTrielessStateDB"`
+		ChainDBPath             string   `yaml:"chainDBPath"`
+		TrieDBPath              string   `yaml:"trieDBPath"`
+		ID                      uint32   `yaml:"id"`
+		Address                 string   `yaml:"address"`
+		ProducerPrivKey         string   `yaml:"producerPrivKey"`
+		EmptyGenesis            bool     `yaml:"emptyGenesis"`
+		NumCandidates           uint     `yaml:"numCandidates"`
+		BeaconChainAPIs         []string `yaml:"beaconChainAPIs"`
+		BeaconChainDB           DB       `yaml:"beaconChainDB"`
+		EnableFallBackToFreshDB bool     `yaml:"enableFallbackToFreshDb"`
+		EnableTrielessStateDB   bool     `yaml:"enableTrielessStateDB"`
 		// enable index the block actions and receipts
 		EnableIndex bool `yaml:"enableIndex"`
 		// enable writing the block actions' and receipts' index asynchronously
