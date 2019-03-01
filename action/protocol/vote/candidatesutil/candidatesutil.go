@@ -23,20 +23,20 @@ import (
 const CandidatesPrefix = "Candidates."
 
 // LoadAndAddCandidates loads candidates from trie and adds a new candidate
-func LoadAndAddCandidates(sm protocol.StateManager, addr string) error {
-	candidateMap, err := GetMostRecentCandidateMap(sm)
+func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr string) error {
+	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
 	if err != nil {
 		return errors.Wrap(err, "failed to get most recent candidates from trie")
 	}
-	if err := addCandidate(candidateMap, addr, sm.Height()); err != nil {
+	if err := addCandidate(candidateMap, addr, blkHeight); err != nil {
 		return errors.Wrap(err, "failed to add candidate to candidate map")
 	}
-	return storeCandidates(candidateMap, sm)
+	return storeCandidates(candidateMap, sm, blkHeight)
 }
 
 // LoadAndDeleteCandidates loads candidates from trie and deletes a candidate if exists
-func LoadAndDeleteCandidates(sm protocol.StateManager, encodedAddr string) error {
-	candidateMap, err := GetMostRecentCandidateMap(sm)
+func LoadAndDeleteCandidates(sm protocol.StateManager, blkHeight uint64, encodedAddr string) error {
+	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
 	if err != nil {
 		return errors.Wrap(err, "failed to get most recent candidates from trie")
 	}
@@ -48,25 +48,25 @@ func LoadAndDeleteCandidates(sm protocol.StateManager, encodedAddr string) error
 	if _, ok := candidateMap[addrHash]; ok {
 		delete(candidateMap, addrHash)
 	}
-	return storeCandidates(candidateMap, sm)
+	return storeCandidates(candidateMap, sm, blkHeight)
 }
 
 // LoadAndUpdateCandidates loads candidates from trie and updates an existing candidate
-func LoadAndUpdateCandidates(sm protocol.StateManager, addr string, votingWeight *big.Int) error {
-	candidateMap, err := GetMostRecentCandidateMap(sm)
+func LoadAndUpdateCandidates(sm protocol.StateManager, blkHeight uint64, addr string, votingWeight *big.Int) error {
+	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
 	if err != nil {
 		return errors.Wrap(err, "failed to get most recent candidates from trie")
 	}
-	if err := updateCandidate(candidateMap, addr, votingWeight, sm.Height()); err != nil {
+	if err := updateCandidate(candidateMap, addr, votingWeight, blkHeight); err != nil {
 		return errors.Wrapf(err, "failed to update candidate %s", addr)
 	}
-	return storeCandidates(candidateMap, sm)
+	return storeCandidates(candidateMap, sm, blkHeight)
 }
 
 // GetMostRecentCandidateMap gets the most recent candidateMap from trie
-func GetMostRecentCandidateMap(sm protocol.StateManager) (map[hash.Hash160]*state.Candidate, error) {
+func GetMostRecentCandidateMap(sm protocol.StateManager, blkHeight uint64) (map[hash.Hash160]*state.Candidate, error) {
 	var sc state.CandidateList
-	for h := int(sm.Height()); h >= 0; h-- {
+	for h := int(blkHeight); h >= 0; h-- {
 		candidatesKey := ConstructKey(uint64(h))
 		var err error
 		if err = sm.State(candidatesKey, &sc); err == nil {
@@ -76,7 +76,7 @@ func GetMostRecentCandidateMap(sm protocol.StateManager) (map[hash.Hash160]*stat
 			return nil, errors.Wrap(err, "failed to get most recent state of candidateList")
 		}
 	}
-	if sm.Height() == uint64(0) {
+	if blkHeight == uint64(0) || blkHeight == uint64(1) {
 		return make(map[hash.Hash160]*state.Candidate), nil
 	}
 	return nil, errors.Wrap(state.ErrStateNotExist, "failed to get most recent state of candidateList")
@@ -128,12 +128,12 @@ func updateCandidate(
 }
 
 // storeCandidates puts updated candidates to trie
-func storeCandidates(candidateMap map[hash.Hash160]*state.Candidate, sm protocol.StateManager) error {
+func storeCandidates(candidateMap map[hash.Hash160]*state.Candidate, sm protocol.StateManager, blkHeight uint64) error {
 	candidateList, err := state.MapToCandidates(candidateMap)
 	if err != nil {
 		return errors.Wrap(err, "failed to convert candidate map to candidate list")
 	}
 	sort.Sort(candidateList)
-	candidatesKey := ConstructKey(sm.Height())
+	candidatesKey := ConstructKey(blkHeight)
 	return sm.PutState(candidatesKey, &candidateList)
 }
