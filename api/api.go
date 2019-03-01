@@ -196,7 +196,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if int64(tipHeight) < blockLimit {
 		blockLimit = int64(tipHeight)
 	}
-	r, err := api.getBlockMetas(tipHeight, uint64(blockLimit))
+	r, err := api.getBlockMetas(0, uint64(blockLimit))
 	if err != nil {
 		return nil, err
 	}
