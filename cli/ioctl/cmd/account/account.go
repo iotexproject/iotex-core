@@ -73,7 +73,11 @@ func AliasToAddress(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return config.AccountList[name], nil
+	addr, ok := config.AccountList[name]
+	if !ok {
+		return "", errors.Errorf("can't find address from " + name)
+	}
+	return addr, nil
 }
 
 // GetAccountMeta gets account metadata

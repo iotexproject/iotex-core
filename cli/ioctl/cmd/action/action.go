@@ -14,11 +14,10 @@ import (
 )
 
 var (
-	alias           string
-	bytecode        string
-	gasLimit        uint64
-	gasPrice        int64
-	pushTransaction bool
+	alias    string
+	bytecode string
+	gasLimit uint64
+	gasPrice int64
 )
 
 // ActionCmd represents the account command
