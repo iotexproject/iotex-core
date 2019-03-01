@@ -13,9 +13,6 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-
 	"github.com/golang/protobuf/proto"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
@@ -24,6 +21,8 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -231,7 +230,6 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			Num:    epochNum,
 			Height: epochHeight,
 		},
-		Supply:     blockchain.Gen.TotalSupply.String(),
 		NumActions: int64(totalActions),
 		Tps:        tps,
 	}
@@ -351,7 +349,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	var actionCount uint64
 
 	tipHeight := api.bc.TipHeight()
-	for height := int64(tipHeight); height >= 0; height-- {
+	for height := int64(tipHeight); height > 0; height-- {
 		blk, err := api.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
 			return nil, err
@@ -495,7 +493,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 
 	startHeight := api.bc.TipHeight()
 	var blkCount uint64
-	for height := int(startHeight); height >= 0; height-- {
+	for height := int(startHeight); height > 0; height-- {
 		blkCount++
 
 		if blkCount <= start {

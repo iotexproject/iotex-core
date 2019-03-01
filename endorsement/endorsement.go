@@ -72,7 +72,7 @@ type Endorsement struct {
 }
 
 // NewEndorsement creates an Endorsement for an consensus vote
-func NewEndorsement(object *ConsensusVote, endorserPubKey keypair.PublicKey, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
+func NewEndorsement(object *ConsensusVote, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
 	hash := object.Hash()
 	sig, err := crypto.Sign(hash[:], endorserPriKey)
 	if err != nil {
@@ -82,7 +82,7 @@ func NewEndorsement(object *ConsensusVote, endorserPubKey keypair.PublicKey, end
 	return &Endorsement{
 		object:         object,
 		endorser:       endorserAddr,
-		endorserPubkey: endorserPubKey,
+		endorserPubkey: &endorserPriKey.PublicKey,
 		signature:      sig,
 	}
 }

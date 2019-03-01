@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -89,7 +90,6 @@ func runExecution(
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
-		SetDestinationAddress(exec.Contract()).
 		SetNonce(exec.Nonce()).
 		SetGasLimit(exec.GasLimit()).
 		Build()
@@ -248,7 +248,7 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
@@ -266,7 +266,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetAction(execution).
-			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(1).
 			SetGasLimit(100000).Build()
 		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -319,7 +318,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(2).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -357,7 +355,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(3).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -385,7 +382,6 @@ func TestProtocol_Handle(t *testing.T) {
 		bd = &action.EnvelopeBuilder{}
 
 		elp = bd.SetAction(execution1).
-			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(4).
 			SetGasLimit(100000).SetGasPrice(big.NewInt(10)).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -441,7 +437,7 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
@@ -463,7 +459,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetAction(execution).
-			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(1).
 			SetGasLimit(1000000).Build()
 		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -490,7 +485,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(2).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -518,7 +512,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(3).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -553,7 +546,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(1).
 			SetGasLimit(120000).SetGasPrice(big.NewInt(10)).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["bravo"].PriKey)
@@ -612,7 +604,7 @@ func TestProtocol_Handle(t *testing.T) {
 		sf.AddActionHandlers(NewProtocol(bc))
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
@@ -634,7 +626,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetAction(execution).
-			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(1).
 			SetGasLimit(5000000).Build()
 		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -686,7 +677,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contract).
 			SetNonce(2).
 			SetGasLimit(1000000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -709,7 +699,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp2 := bd.SetAction(ex2).
-			SetDestinationAddress(contract).
 			SetNonce(3).
 			SetGasLimit(1000000).Build()
 		selp2, err := action.Sign(elp2, testaddress.Keyinfo["producer"].PriKey)
@@ -739,7 +728,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(ex3).
-			SetDestinationAddress(contract).
 			SetNonce(1).
 			SetGasLimit(1000000).Build()
 		selp3, err := action.Sign(elp, testaddress.Keyinfo["alfa"].PriKey)
@@ -763,7 +751,6 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contract).
 			SetNonce(4).
 			SetGasLimit(1000000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -840,7 +827,7 @@ func TestProtocol_Validate(t *testing.T) {
 func TestERC20(t *testing.T) {
 	sct := &smartContractTest{
 		prepare: map[string]*big.Int{
-			testaddress.Addrinfo["producer"].String(): blockchain.Gen.TotalSupply,
+			testaddress.Addrinfo["producer"].String(): unit.ConvertIotxToRau(1000000000),
 			testaddress.Addrinfo["alfa"].String():     big.NewInt(0),
 			testaddress.Addrinfo["bravo"].String():    big.NewInt(0),
 		},

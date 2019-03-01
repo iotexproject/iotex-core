@@ -85,7 +85,6 @@ func TestHandlePutBlock(t *testing.T) {
 
 	bd := action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
-		SetDestinationAddress(addr.String()).
 		SetGasLimit(10003).
 		SetAction(pb).Build()
 	selp, err := action.Sign(elp, key2.PriKey)
@@ -120,7 +119,6 @@ func TestHandlePutBlock(t *testing.T) {
 	)
 
 	elp = bd.SetNonce(1).
-		SetDestinationAddress(addr.String()).
 		SetGasLimit(10003).
 		SetAction(pb2).Build()
 	selp, err = action.Sign(elp, key2.PriKey)

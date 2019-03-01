@@ -58,10 +58,9 @@ message EpochData {
 // Blockchain Metadata
 message ChainMeta {
   uint64 height = 1;
-  string supply = 2;
-  int64 numActions = 3;
-  int64 tps = 4;
-  EpochData epoch = 5;
+  int64 numActions = 2;
+  int64 tps = 3;
+  EpochData epoch = 4;
 }
 
 // Block Metadata

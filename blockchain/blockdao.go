@@ -144,6 +144,9 @@ func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnSt
 
 // getBlockHash returns the block hash by height
 func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash256, error) {
+	if height == 0 {
+		return hash.ZeroHash256, nil
+	}
 	key := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
 	hash := hash.ZeroHash256

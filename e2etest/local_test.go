@@ -11,13 +11,12 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -750,7 +749,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	vote7, err := action.NewVote(uint64(2), "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(vote7).SetNonce(2).SetDestinationAddress("").SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
+	elp := bd.SetAction(vote7).SetNonce(2).SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
@@ -831,8 +830,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Delete state db and recover to tip
 	testutil.CleanupPath(t, testTriePath)
 	require.NoError(svr.Stop(ctx))
-	err = svr.Start(ctx)
-	require.True(strings.Contains(err.Error(), "invalid state DB"))
+	require.Error(svr.Start(ctx))
 	// Refresh state DB
 	require.NoError(bc.RecoverChainAndState(0))
 	require.NoError(svr.Stop(ctx))

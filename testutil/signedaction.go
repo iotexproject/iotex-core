@@ -24,7 +24,6 @@ func SignedTransfer(recipientAddr string, senderPriKey keypair.PrivateKey, nonce
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
-		SetDestinationAddress(recipientAddr).
 		SetGasLimit(gasLimit).
 		SetAction(transfer).Build()
 	selp, err := action.Sign(elp, senderPriKey)
@@ -43,7 +42,6 @@ func SignedVote(voteeAddr string, voterPriKey keypair.PrivateKey, nonce uint64, 
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
-		SetDestinationAddress(voteeAddr).
 		SetGasLimit(gasLimit).
 		SetAction(vote).Build()
 	selp, err := action.Sign(elp, voterPriKey)
@@ -62,7 +60,6 @@ func SignedExecution(contractAddr string, executorPriKey keypair.PrivateKey, non
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
-		SetDestinationAddress(contractAddr).
 		SetGasLimit(gasLimit).
 		SetAction(execution).Build()
 	selp, err := action.Sign(elp, executorPriKey)
