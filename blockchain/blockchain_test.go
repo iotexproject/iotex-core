@@ -13,8 +13,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/test/identityset"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -28,8 +26,9 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -53,16 +52,12 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
-	genSK, err := keypair.DecodePrivateKey(GenesisProducerPrivateKey)
-	if err != nil {
-		return err
-	}
-	selp, err := action.Sign(elp, genSK)
+	selp, err := action.Sign(elp, identityset.PrivateKey(0))
 	if err != nil {
 		return err
 	}
 	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
+	actionMap[identityset.Address(0).String()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
 		0,
@@ -292,34 +287,6 @@ func TestCreateBlockchain(t *testing.T) {
 		require.NoError(err)
 	}()
 
-	// verify Genesis block
-	genesis, _ := bc.GetBlockByHeight(0)
-	require.NotNil(genesis)
-	// serialize
-	data, err := genesis.Serialize()
-	require.NoError(err)
-
-	transfers, votes, _ := action.ClassifyActions(genesis.Actions)
-	require.Equal(0, len(transfers))
-	require.Equal(0, len(votes))
-
-	fmt.Printf("Block size match pass\n")
-	fmt.Printf("Marshaling Block pass\n")
-
-	// deserialize
-	deserialize := block.Block{}
-	err = deserialize.Deserialize(data)
-	require.NoError(err)
-	fmt.Printf("Unmarshaling Block pass\n")
-
-	blkhash := genesis.HashBlock()
-	require.Equal(blkhash, deserialize.HashBlock())
-	fmt.Printf("Serialize/Deserialize Block hash = %x match\n", blkhash)
-
-	blkhash = genesis.CalculateTxRoot()
-	require.Equal(blkhash, deserialize.CalculateTxRoot())
-	fmt.Printf("Serialize/Deserialize Block merkle = %x match\n", blkhash)
-
 	// add 4 sample blocks
 	require.NoError(addTestingTsfBlocks(bc))
 	height = bc.TipHeight()
@@ -356,12 +323,10 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
-	genSK, err := keypair.DecodePrivateKey(GenesisProducerPrivateKey)
-	require.NoError(t, err)
-	selp, err := action.Sign(elp, genSK)
+	selp, err := action.Sign(elp, identityset.PrivateKey(0))
 	require.NoError(t, err)
 	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
+	actionMap[identityset.Address(0).String()] = []action.SealedEnvelope{selp}
 	_, err = bc.MintNewBlock(
 		actionMap,
 		0,
@@ -527,23 +492,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(bc.Stop(ctx))
 	}()
 
-	// check hash<-->height mapping
-	blkhash, err := bc.GetHashByHeight(0)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(blkhash)
-	require.NoError(err)
-	require.Equal(uint64(0), height)
-	blk, err := bc.GetBlockByHash(blkhash)
-	require.NoError(err)
-	require.Equal(blkhash, blk.HashBlock())
-	fmt.Printf("Genesis hash = %x\n", blkhash)
-
 	hash1, err := bc.GetHashByHeight(1)
 	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash1)
 	require.NoError(err)
 	require.Equal(uint64(1), height)
-	blk, err = bc.GetBlockByHash(hash1)
+	blk, err := bc.GetBlockByHash(hash1)
 	require.NoError(err)
 	require.Equal(hash1, blk.HashBlock())
 	fmt.Printf("block 1 hash = %x\n", hash1)
@@ -598,7 +552,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	// add wrong blocks
 	h := bc.TipHeight()
-	blkhash = bc.TipHash()
+	blkhash := bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
 	require.NoError(err)
 	require.Equal(blkhash, blk.HashBlock())
@@ -771,21 +725,12 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	}()
 	require.NotNil(bc)
 	// check hash<-->height mapping
-	blkhash, err := bc.GetHashByHeight(0)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(blkhash)
-	require.NoError(err)
-	require.Equal(uint64(0), height)
-	blk, err := bc.GetBlockByHash(blkhash)
-	require.NoError(err)
-	require.Equal(blkhash, blk.HashBlock())
-	fmt.Printf("Genesis hash = %x\n", blkhash)
 	hash1, err := bc.GetHashByHeight(1)
 	require.NoError(err)
 	height, err = bc.GetHeightByHash(hash1)
 	require.NoError(err)
 	require.Equal(uint64(1), height)
-	blk, err = bc.GetBlockByHash(hash1)
+	blk, err := bc.GetBlockByHash(hash1)
 	require.NoError(err)
 	require.Equal(hash1, blk.HashBlock())
 	fmt.Printf("block 1 hash = %x\n", hash1)
@@ -824,7 +769,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Error(err)
 	// add wrong blocks
 	h := bc.TipHeight()
-	blkhash = bc.TipHash()
+	blkhash := bc.TipHash()
 	blk, err = bc.GetBlockByHeight(h)
 	require.NoError(err)
 	require.Equal(blkhash, blk.HashBlock())
@@ -964,11 +909,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
 	}()
-	// TODO: change the value when Candidates size is changed
-	height, err := sf.Height()
-	require.NoError(err)
-	require.Equal(uint64(0), height)
-	candidate, err := sf.CandidatesByHeight(height)
+	candidate, err := sf.CandidatesByHeight(0)
 	require.NoError(err)
 	require.True(len(candidate) == 2)
 }
@@ -1127,7 +1068,11 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = accountutil.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(), Gen.TotalSupply); err != nil {
+	if _, err = accountutil.LoadOrCreateAccount(
+		ws,
+		ta.Addrinfo["producer"].String(),
+		unit.ConvertIotxToRau(10000000000),
+	); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit

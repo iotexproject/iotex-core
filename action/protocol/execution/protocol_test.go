@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -247,7 +248,7 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
@@ -436,7 +437,7 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
@@ -603,7 +604,7 @@ func TestProtocol_Handle(t *testing.T) {
 		sf.AddActionHandlers(NewProtocol(bc))
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
@@ -826,7 +827,7 @@ func TestProtocol_Validate(t *testing.T) {
 func TestERC20(t *testing.T) {
 	sct := &smartContractTest{
 		prepare: map[string]*big.Int{
-			testaddress.Addrinfo["producer"].String(): blockchain.Gen.TotalSupply,
+			testaddress.Addrinfo["producer"].String(): unit.ConvertIotxToRau(1000000000),
 			testaddress.Addrinfo["alfa"].String():     big.NewInt(0),
 			testaddress.Addrinfo["bravo"].String():    big.NewInt(0),
 		},

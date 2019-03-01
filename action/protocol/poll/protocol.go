@@ -18,7 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
@@ -68,15 +68,15 @@ type lifeLongDelegatesProtocol struct {
 func NewLifeLongDelegatesProtocol(delegates []genesis.Delegate) Protocol {
 	var l state.CandidateList
 	for _, delegate := range delegates {
-		rewardAddress := delegate.RewardAddress
-		if rewardAddress == "" {
-			rewardAddress = delegate.Address
+		rewardAddress := delegate.RewardAddr()
+		if rewardAddress == nil {
+			rewardAddress = delegate.OperatorAddr()
 		}
 		l = append(l, &state.Candidate{
-			Address: delegate.Address,
+			Address: delegate.OperatorAddr().String(),
 			// TODO: load votes from genesis
-			Votes:         new(big.Int).SetUint64(delegate.Votes),
-			RewardAddress: rewardAddress,
+			Votes:         delegate.Votes(),
+			RewardAddress: rewardAddress.String(),
 		})
 	}
 	return &lifeLongDelegatesProtocol{delegates: l}

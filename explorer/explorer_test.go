@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/pkg/unit"
+
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -340,7 +342,7 @@ func TestExplorerApi(t *testing.T) {
 
 	blks, getBlkErr := svc.GetLastBlocksByRange(3, 4)
 	require.Nil(getBlkErr)
-	require.Equal(4, len(blks))
+	require.Equal(3, len(blks))
 
 	transfers, err = svc.GetTransfersByBlockID(blks[2].ID, 0, 10)
 	require.Nil(err)
@@ -420,7 +422,6 @@ func TestExplorerApi(t *testing.T) {
 
 	stats, err := svc.GetCoinStatistic()
 	require.Nil(err)
-	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
 	require.Equal(int64(5), stats.Transfers)
 	require.Equal(int64(3), stats.Votes)
@@ -1217,8 +1218,11 @@ func addCreatorToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = accountutil.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(),
-		blockchain.Gen.TotalSupply); err != nil {
+	if _, err = accountutil.LoadOrCreateAccount(
+		ws,
+		ta.Addrinfo["producer"].String(),
+		unit.ConvertIotxToRau(10000000000),
+	); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
