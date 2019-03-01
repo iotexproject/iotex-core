@@ -246,7 +246,6 @@ func newConfig(
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
-	cfg.Chain.GenesisActionsPath = genesisConfigPath
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.NumCandidates = numNodes
@@ -274,6 +273,7 @@ func newConfig(
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
+	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
 
 	return cfg
 }

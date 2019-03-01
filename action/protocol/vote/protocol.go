@@ -41,20 +41,20 @@ type Protocol struct {
 func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} }
 
 // Initialize initializes the rewarding protocol by setting the original admin, block and epoch reward
-func (p *Protocol) Initialize(ctx context.Context, sm protocol.StateManager, addrs []string) error {
+func (p *Protocol) Initialize(ctx context.Context, sm protocol.StateManager, addrs []address.Address) error {
 	for _, addr := range addrs {
-		selfNominator, err := accountutil.LoadOrCreateAccount(sm, addr, big.NewInt(0))
+		selfNominator, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account of self nominator %s", addr)
 		}
 		selfNominator.IsCandidate = true
-		if err := candidatesutil.LoadAndAddCandidates(sm, addr); err != nil {
+		if err := candidatesutil.LoadAndAddCandidates(sm, addr.String()); err != nil {
 			return err
 		}
-		if err := accountutil.StoreAccount(sm, addr, selfNominator); err != nil {
+		if err := accountutil.StoreAccount(sm, addr.String(), selfNominator); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
-		if err := candidatesutil.LoadAndUpdateCandidates(sm, addr, selfNominator.Balance); err != nil {
+		if err := candidatesutil.LoadAndUpdateCandidates(sm, addr.String(), selfNominator.Balance); err != nil {
 			return errors.Wrap(err, "failed to load and update candidates")
 		}
 

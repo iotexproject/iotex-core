@@ -8,9 +8,12 @@ package genesis
 
 import (
 	"flag"
+	"io/ioutil"
 	"math/big"
 	"sort"
 	"time"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
 
 	"github.com/pkg/errors"
 	"go.uber.org/config"
@@ -51,7 +54,6 @@ func initDefaultConfig() {
 		},
 		Poll: Poll{
 			EnableBeaconChainVoting: false,
-			Delegates:               []Delegate{},
 			CommitteeConfig: committee.Config{
 				BeaconChainAPIs: []string{},
 			},
@@ -65,7 +67,16 @@ func initDefaultConfig() {
 		},
 	}
 	for i := 0; i < identityset.Size(); i++ {
-		Default.InitBalanceMap[identityset.Address(i).String()] = unit.ConvertIotxToRau(100000000).String()
+		addr := identityset.Address(i).String()
+		value := unit.ConvertIotxToRau(100000000).String()
+		Default.InitBalanceMap[addr] = value
+		if uint64(i) < Default.NumDelegates {
+			Default.Delegates = append(Default.Delegates, Delegate{
+				OperatorAddrStr: addr,
+				RewardAddrStr:   addr,
+				VotesStr:        value,
+			})
+		}
 	}
 }
 
@@ -77,6 +88,8 @@ type (
 		Account    `ymal:"account"`
 		Poll       `yaml:"poll"`
 		Rewarding  `yaml:"rewarding"`
+		// Digest is the digest of genesis config file
+		Digest hash.Hash256
 	}
 	// Blockchain contains blockchain level configs
 	Blockchain struct {
@@ -115,9 +128,12 @@ type (
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {
-		Address       string `yaml:"address"`
-		Votes         uint64 `yaml:"votes"`
-		RewardAddress string `yaml:"rewardAddress"`
+		// OperatorAddrStr is the address who will operate the node
+		OperatorAddrStr string `yaml:"operatorAddr"`
+		// RewardAddrStr is the address who will get the reward when operator produces blocks
+		RewardAddrStr string `yaml:"rewardAddr"`
+		// VotesStr is the score for the operator to rank and weight for rewardee to split epoch reward
+		VotesStr string `yaml:"votes"`
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
@@ -139,8 +155,14 @@ type (
 func New() (Genesis, error) {
 	opts := make([]config.YAMLOption, 0)
 	opts = append(opts, config.Static(Default))
+	genesisDigest := hash.ZeroHash256
 	if genesisPath != "" {
 		opts = append(opts, config.File(genesisPath))
+		genesisCfgBytes, err := ioutil.ReadFile(genesisPath)
+		if err != nil {
+			return Genesis{}, err
+		}
+		genesisDigest = hash.Hash256b(genesisCfgBytes)
 	}
 	yaml, err := config.NewYAML(opts...)
 	if err != nil {
@@ -151,6 +173,7 @@ func New() (Genesis, error) {
 	if err := yaml.Get(config.Root).Populate(&genesis); err != nil {
 		return Genesis{}, errors.Wrap(err, "failed to unmarshal yaml genesis to struct")
 	}
+	genesis.Digest = genesisDigest
 	return genesis, nil
 }
 
@@ -178,6 +201,36 @@ func (a *Account) InitBalances() ([]address.Address, []*big.Int) {
 		amounts = append(amounts, amount)
 	}
 	return addrs, amounts
+}
+
+// OperatorAddr is the address of operator
+func (d *Delegate) OperatorAddr() address.Address {
+	addr, err := address.FromString(d.OperatorAddrStr)
+	if err != nil {
+		log.L().Panic("Error when decoding the poll protocol operator address from string.", zap.Error(err))
+	}
+	return addr
+}
+
+// RewardAddr is the address of rewardee, which is allowed to be nil
+func (d *Delegate) RewardAddr() address.Address {
+	if d.RewardAddrStr == "" {
+		return nil
+	}
+	addr, err := address.FromString(d.RewardAddrStr)
+	if err != nil {
+		log.L().Panic("Error when decoding the poll protocol rewardee address from string.", zap.Error(err))
+	}
+	return addr
+}
+
+// Votes returns the votes
+func (d *Delegate) Votes() *big.Int {
+	val, ok := big.NewInt(0).SetString(d.VotesStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting votes string %s into big int", d.VotesStr)
+	}
+	return val
 }
 
 // InitAdminAddr returns the address of the initial rewarding protocol admin

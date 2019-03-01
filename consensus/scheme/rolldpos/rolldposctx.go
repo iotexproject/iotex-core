@@ -626,11 +626,16 @@ func (ctx *rollDPoSCtx) roundCtxByTime(
 	height uint64,
 	timestamp time.Time,
 ) (*roundCtx, error) {
-	lastBlock, err := ctx.chain.GetBlockByHeight(height - 1)
-	if err != nil {
-		return nil, err
+	var lastBlockTime time.Time
+	if height == 1 {
+		lastBlockTime = time.Unix(ctx.genesisCfg.Timestamp, 0)
+	} else {
+		lastBlock, err := ctx.chain.GetBlockByHeight(height - 1)
+		if err != nil {
+			return nil, err
+		}
+		lastBlockTime = time.Unix(lastBlock.Timestamp(), 0)
 	}
-	lastBlockTime := time.Unix(lastBlock.Timestamp(), 0)
 	// proposer interval should be always larger than 0
 	interval := ctx.genesisCfg.BlockInterval
 	if interval <= 0 {
