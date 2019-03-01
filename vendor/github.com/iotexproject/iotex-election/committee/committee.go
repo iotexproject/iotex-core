@@ -32,17 +32,17 @@ type CalcBeaconChainHeight func(uint64) (uint64, error)
 
 // Config defines the config of the committee
 type Config struct {
-	NumOfRetries              uint8  `yaml:"numOfRetries"`
-	BeaconChainAPI            string `yaml:"beaconChainAPI"`
-	BeaconChainHeightInterval uint64 `yaml:"beaconChainHeightInterval"`
-	BeaconChainStartHeight    uint64 `yaml:"beaconChainStartHeight"`
-	RegisterContractAddress   string `yaml:"registerContractAddress"`
-	StakingContractAddress    string `yaml:"stakingContractAddress"`
-	PaginationSize            uint8  `yaml:"paginationSize"`
-	VoteThreshold             string `yaml:"voteThreshold"`
-	ScoreThreshold            string `yaml:"scoreThreshold"`
-	SelfStakingThreshold      string `yaml:"selfStakingThreshold"`
-	CacheSize                 uint32 `yaml:"cacheSize"`
+	NumOfRetries              uint8    `yaml:"numOfRetries"`
+	BeaconChainAPIs           []string `yaml:"beaconChainAPIs"`
+	BeaconChainHeightInterval uint64   `yaml:"beaconChainHeightInterval"`
+	BeaconChainStartHeight    uint64   `yaml:"beaconChainStartHeight"`
+	RegisterContractAddress   string   `yaml:"registerContractAddress"`
+	StakingContractAddress    string   `yaml:"stakingContractAddress"`
+	PaginationSize            uint8    `yaml:"paginationSize"`
+	VoteThreshold             string   `yaml:"voteThreshold"`
+	ScoreThreshold            string   `yaml:"scoreThreshold"`
+	SelfStakingThreshold      string   `yaml:"selfStakingThreshold"`
+	CacheSize                 uint32   `yaml:"cacheSize"`
 }
 
 // Committee defines an interface of an election committee
@@ -91,7 +91,7 @@ func NewCommittee(kvstore db.KVStore, cfg Config) (Committee, error) {
 		return nil, errors.New("Invalid staking contract address")
 	}
 	carrier, err := carrier.NewEthereumVoteCarrier(
-		cfg.BeaconChainAPI,
+		cfg.BeaconChainAPIs,
 		common.HexToAddress(cfg.RegisterContractAddress),
 		common.HexToAddress(cfg.StakingContractAddress),
 	)
@@ -174,14 +174,15 @@ func (ec *committee) Start(ctx context.Context) (err error) {
 		}
 		return err
 	}
-	for i := uint8(0); i < ec.retryLimit; i++ {
+	for {
 		if err = ec.carrier.SubscribeNewBlock(ec.OnNewBlock, ec.terminate); err == nil {
 			return
 		}
-		zap.L().Warn("retry new block subscription", zap.Error(err))
-		time.Sleep(time.Duration(i) * time.Second)
+		zap.L().Warn("retry new block subscription by rotating client", zap.Error(err))
+		if err := ec.carrier.RotateClient(); err != nil {
+			return errors.Wrap(err, "failed to rotate carrier client")
+		}
 	}
-	return
 }
 
 func (ec *committee) Stop(ctx context.Context) error {
@@ -204,17 +205,14 @@ func (ec *committee) OnNewBlock(tipHeight uint64) {
 		}
 		var result *types.ElectionResult
 		var err error
-		for i := uint8(0); i < ec.retryLimit; i++ {
-			if result, err = ec.fetchResultByHeight(ec.nextHeight); err != nil {
-				zap.L().Error(
-					"failed to fetch result by height",
-					zap.Error(err),
-					zap.Uint64("height", ec.nextHeight),
-					zap.Uint8("tried", i+1),
-				)
-				continue
+		for {
+			if result, err = ec.retryFetchResultByHeight(); err == nil {
+				break
 			}
-			break
+			if err := ec.carrier.RotateClient(); err != nil {
+				zap.L().Error("failed to rotate carrier client", zap.Error(err))
+				return
+			}
 		}
 		if result == nil {
 			zap.L().Error("failed to fetch result", zap.Uint64("height", ec.nextHeight))
@@ -261,7 +259,7 @@ func (ec *committee) ResultByHeight(height uint64) (*types.ElectionResult, error
 func (ec *committee) resultByHeight(height uint64) (*types.ElectionResult, error) {
 	if height < ec.startHeight {
 		return nil, errors.Errorf(
-			"height %d is higher than start height %d",
+			"height %d is lower than start height %d",
 			height,
 			ec.startHeight,
 		)
@@ -378,4 +376,21 @@ func (ec *committee) storeResult(height uint64, result *types.ElectionResult) er
 	ec.cache.insert(height, result)
 
 	return ec.heightManager.add(height, result.MintTime())
+}
+
+func (ec *committee) retryFetchResultByHeight() (*types.ElectionResult, error) {
+	var result *types.ElectionResult
+	var err error
+	for i := uint8(0); i < ec.retryLimit; i++ {
+		if result, err = ec.fetchResultByHeight(ec.nextHeight); err == nil {
+			return result, nil
+		}
+		zap.L().Error(
+			"failed to fetch result by height",
+			zap.Error(err),
+			zap.Uint64("height", ec.nextHeight),
+			zap.Uint8("tried", i+1),
+		)
+	}
+	return result, err
 }

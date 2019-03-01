@@ -52,6 +52,9 @@ func initDefaultConfig() {
 		Poll: Poll{
 			EnableBeaconChainVoting: false,
 			Delegates:               []Delegate{},
+			CommitteeConfig: committee.Config{
+				BeaconChainAPIs: []string{},
+			},
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr:           identityset.Address(0).String(),

@@ -119,7 +119,7 @@ func New(
 	var electionCommittee committee.Committee
 	if cfg.Genesis.EnableBeaconChainVoting {
 		committeeConfig := cfg.Genesis.Poll.CommitteeConfig
-		committeeConfig.BeaconChainAPI = cfg.Chain.BeaconChainAPI
+		committeeConfig.BeaconChainAPIs = cfg.Chain.BeaconChainAPIs
 		kvstore := db.NewOnDiskDB(cfg.Chain.BeaconChainDB)
 		if cfg.Genesis.Poll.InitBeaconChainHeight != 0 {
 			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
