@@ -29,6 +29,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -74,9 +75,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	)
 	if err != nil {
@@ -120,9 +118,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -137,9 +132,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 3
 	if blk, err = bc.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -174,9 +166,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		time.Now().Unix(),
 	); err != nil {
 		return err
@@ -233,12 +222,18 @@ func TestExplorerApi(t *testing.T) {
 
 	// create chain
 	ctx := context.Background()
+	registry := protocol.Registry{}
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
+		blockchain.RegistryOption(&registry),
 	)
 	require.NotNil(bc)
+	vp := vote.NewProtocol(bc)
+	require.NoError(registry.Register(vote.ProtocolID, vp))
 	ap, err := actpool.NewActPool(bc, cfg.ActPool)
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
@@ -321,13 +316,13 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 
 	votes, err = svc.GetLastVotesByRange(4, 0, 10)
-	require.Equal(10, len(votes))
+	require.Equal(3, len(votes))
 	require.Nil(err)
 	for i := 0; i < len(votes)-1; i++ {
 		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
 	}
 	votes, err = svc.GetLastVotesByRange(3, 0, 50)
-	require.Equal(25, len(votes))
+	require.Equal(1, len(votes))
 	require.Nil(err)
 	for i := 0; i < len(votes)-1; i++ {
 		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
@@ -428,7 +423,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(blockchain.Gen.TotalSupply.String(), stats.Supply)
 	require.Equal(int64(4), stats.Height)
 	require.Equal(int64(5), stats.Transfers)
-	require.Equal(int64(27), stats.Votes)
+	require.Equal(int64(3), stats.Votes)
 	require.Equal(int64(3), stats.Executions)
 	require.Equal(int64(11), stats.Aps)
 
@@ -823,7 +818,6 @@ func TestServiceSendAction(t *testing.T) {
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(pb).
-		SetDestinationAddress("").
 		SetGasLimit(10000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
@@ -944,11 +938,17 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 
 	// create chain
 	ctx := context.Background()
+	registry := protocol.Registry{}
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
+		blockchain.RegistryOption(&registry),
 	)
+	vp := vote.NewProtocol(bc)
+	require.NoError(registry.Register(vote.ProtocolID, vp))
 	require.NoError(bc.Start(ctx))
 	defer func() {
 		require.NoError(bc.Stop(ctx))
@@ -975,9 +975,6 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	actionMap[ta.Addrinfo["producer"].String()] = []action.SealedEnvelope{execution}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 
@@ -1028,7 +1025,7 @@ func TestService_CreateDeposit(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(deposit).
 		SetGasLimit(1000).
-		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].String()).
+		SetGasPrice(big.NewInt(100)).
 		SetNonce(10).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
@@ -1087,7 +1084,7 @@ func TestService_SettleDeposit(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(deposit).
 		SetGasLimit(1000).
-		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].String()).
+		SetGasPrice(big.NewInt(100)).
 		SetNonce(10).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)

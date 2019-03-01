@@ -7,8 +7,6 @@
 package indexservice
 
 import (
-	"encoding/hex"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -52,11 +50,7 @@ func NewServer(
 func (s *Server) Start(ctx context.Context) error {
 	addr := s.cfg.Indexer.NodeAddr
 	if addr == "" {
-		blockAddr, err := s.cfg.BlockchainAddress()
-		if err != nil {
-			return errors.Wrap(err, "error when get the blockchain address")
-		}
-		addr = hex.EncodeToString(blockAddr.Bytes())
+		addr = s.cfg.ProducerAddress().String()
 	}
 	s.idx.hexEncodedNodeAddr = addr
 

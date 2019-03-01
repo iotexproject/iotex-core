@@ -12,7 +12,7 @@ package accountpb;
 message Account {
     // used by state-based model
     uint64 nonce  = 1;
-    bytes balance  = 2;
+    string balance  = 2;
     bytes root  = 3;
     bytes codeHash  = 4;
     bool isCandidate = 5;

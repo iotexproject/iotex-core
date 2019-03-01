@@ -170,7 +170,6 @@ func TestPressureActPool(t *testing.T) {
 
 func newActPoolConfig() (config.Config, error) {
 	cfg := config.Default
-	cfg.NodeType = config.DelegateType
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
@@ -183,7 +182,6 @@ func newActPoolConfig() (config.Config, error) {
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&sk.PublicKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	return cfg, nil
 }

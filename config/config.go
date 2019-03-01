@@ -7,10 +7,11 @@
 package config
 
 import (
-	"encoding/hex"
 	"flag"
 	"os"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -19,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -42,13 +42,6 @@ var (
 )
 
 const (
-	// DelegateType represents the delegate node type
-	DelegateType = "delegate"
-	// FullNodeType represents the full node type
-	FullNodeType = "full_node"
-	// LightweightType represents the lightweight type
-	LightweightType = "lightweight"
-
 	// RollDPoSScheme means randomized delegated proof of stake
 	RollDPoSScheme = "ROLLDPOS"
 	// StandaloneScheme means that the node creates a block periodically regardless of others (if there is any)
@@ -70,7 +63,6 @@ const (
 var (
 	// Default is the default config
 	Default = Config{
-		NodeType: FullNodeType,
 		Network: Network{
 			Host:           "0.0.0.0",
 			Port:           4689,
@@ -83,12 +75,12 @@ var (
 			ChainDBPath:                  "/tmp/chain.db",
 			TrieDBPath:                   "/tmp/trie.db",
 			ID:                           1,
-			Address:                      "",
-			ProducerPubKey:               keypair.EncodePublicKey(&PrivateKey.PublicKey),
 			ProducerPrivKey:              keypair.EncodePrivateKey(PrivateKey),
 			GenesisActionsPath:           "",
 			EmptyGenesis:                 false,
 			NumCandidates:                101,
+			BeaconChainAPI:               "",
+			BeaconChainDB:                DB{DbPath: "/tmp/poll.db", NumRetries: 10},
 			EnableFallBackToFreshDB:      false,
 			EnableSubChainStartInGenesis: false,
 			EnableTrielessStateDB:        true,
@@ -103,7 +95,7 @@ var (
 			ActionExpiry:      10 * time.Minute,
 		},
 		Consensus: Consensus{
-			Scheme: NOOPScheme,
+			Scheme: StandaloneScheme,
 			RollDPoS: RollDPoS{
 				FSM: consensusfsm.Config{
 					UnmatchedEventTTL:            3 * time.Second,
@@ -116,7 +108,6 @@ var (
 				ToleratedOvertime: 2 * time.Second,
 				Delay:             5 * time.Second,
 			},
-			BlockCreationInterval: 10 * time.Second,
 		},
 		BlockSync: BlockSync{
 			Interval:   10 * time.Second,
@@ -178,8 +169,6 @@ var (
 
 	// Validates is the collection config validation functions
 	Validates = []Validate{
-		ValidateKeyPair,
-		ValidateConsensusScheme,
 		ValidateRollDPoS,
 		ValidateDispatcher,
 		ValidateExplorer,
@@ -209,11 +198,12 @@ type (
 		TrieDBPath                   string `yaml:"trieDBPath"`
 		ID                           uint32 `yaml:"id"`
 		Address                      string `yaml:"address"`
-		ProducerPubKey               string `yaml:"producerPubKey"`
 		ProducerPrivKey              string `yaml:"producerPrivKey"`
 		GenesisActionsPath           string `yaml:"genesisActionsPath"`
 		EmptyGenesis                 bool   `yaml:"emptyGenesis"`
 		NumCandidates                uint   `yaml:"numCandidates"`
+		BeaconChainAPI               string `yaml:"beaconChainAPI"`
+		BeaconChainDB                DB     `yaml:"beaconChainDB"`
 		EnableFallBackToFreshDB      bool   `yaml:"enableFallbackToFreshDb"`
 		EnableSubChainStartInGenesis bool   `yaml:"enableSubChainStartInGenesis"`
 		EnableTrielessStateDB        bool   `yaml:"enableTrielessStateDB"`
@@ -228,9 +218,8 @@ type (
 	// Consensus is the config struct for consensus package
 	Consensus struct {
 		// There are three schemes that are supported
-		Scheme                string        `yaml:"scheme"`
-		RollDPoS              RollDPoS      `yaml:"rollDPoS"`
-		BlockCreationInterval time.Duration `yaml:"blockCreationInterval"`
+		Scheme   string   `yaml:"scheme"`
+		RollDPoS RollDPoS `yaml:"rollDPoS"`
 	}
 
 	// BlockSync is the config struct for the BlockSync
@@ -354,7 +343,6 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		NodeType   string           `yaml:"nodeType"`
 		Network    Network          `yaml:"network"`
 		Chain      Chain            `yaml:"chain"`
 		ActPool    ActPool          `yaml:"actPool"`
@@ -448,89 +436,37 @@ func NewSub(validates ...Validate) (Config, error) {
 	return cfg, nil
 }
 
-// IsDelegate returns true if the node type is Delegate
-func (cfg Config) IsDelegate() bool {
-	return cfg.NodeType == DelegateType
-}
-
-// IsFullnode returns true if the node type is Fullnode
-func (cfg Config) IsFullnode() bool {
-	return cfg.NodeType == FullNodeType
-}
-
-// IsLightweight returns true if the node type is Lightweight
-func (cfg Config) IsLightweight() bool {
-	return cfg.NodeType == LightweightType
-}
-
-// BlockchainAddress returns the address derived from the configured chain ID and public key
-func (cfg Config) BlockchainAddress() (address.Address, error) {
-	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
+// ProducerAddress returns the configured producer address derived from key
+func (cfg Config) ProducerAddress() address.Address {
+	sk := cfg.ProducerPrivateKey()
+	pkHash := keypair.HashPubKey(&sk.PublicKey)
+	addr, err := address.FromBytes(pkHash[:])
 	if err != nil {
-		return nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
+		log.L().Panic(
+			"Error when constructing producer address",
+			zap.Error(err),
+		)
 	}
-	pkHash := keypair.HashPubKey(pk)
-	return address.FromBytes(pkHash[:])
+	return addr
 }
 
-// KeyPair returns the decoded public and private key pair
-func (cfg Config) KeyPair() (keypair.PublicKey, keypair.PrivateKey, error) {
-	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "error when decoding public key %s", cfg.Chain.ProducerPubKey)
-	}
+// ProducerPrivateKey returns the configured private key
+func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
 	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "error when decoding private key %s", cfg.Chain.ProducerPrivKey)
+		log.L().Panic(
+			"Error when decoding private key",
+			zap.String("key", cfg.Chain.ProducerPrivKey),
+			zap.Error(err),
+		)
 	}
-	return pk, sk, nil
-}
-
-// ValidateKeyPair validates the block producer address
-func ValidateKeyPair(cfg Config) error {
-	pkBytes, err := hex.DecodeString(cfg.Chain.ProducerPubKey)
-	if err != nil {
-		return err
-	}
-	priKey, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
-	if err != nil {
-		return err
-	}
-	// Validate producer pubkey and prikey by signing a dummy message and verify it
-	validationMsg := "connecting the physical world block by block"
-	msgHash := hash.Hash256b([]byte(validationMsg))
-	sig, err := crypto.Sign(msgHash[:], priKey)
-	if err != nil {
-		return err
-	}
-	if !crypto.VerifySignature(pkBytes, msgHash[:], sig[:64]) {
-		return errors.Wrap(ErrInvalidCfg, "block producer has unmatched pubkey and prikey")
-	}
-	return nil
+	return sk
 }
 
 // ValidateChain validates the chain configure
 func ValidateChain(cfg Config) error {
 	if cfg.Chain.NumCandidates <= 0 {
 		return errors.Wrapf(ErrInvalidCfg, "candidate number should be greater than 0")
-	}
-	return nil
-}
-
-// ValidateConsensusScheme validates the if scheme and node type match
-func ValidateConsensusScheme(cfg Config) error {
-	switch cfg.NodeType {
-	case DelegateType:
-	case FullNodeType:
-		if cfg.Consensus.Scheme != NOOPScheme {
-			return errors.Wrap(ErrInvalidCfg, "consensus scheme of fullnode should be NOOP")
-		}
-	case LightweightType:
-		if cfg.Consensus.Scheme != NOOPScheme {
-			return errors.Wrap(ErrInvalidCfg, "consensus scheme of lightweight node should be NOOP")
-		}
-	default:
-		return errors.Wrapf(ErrInvalidCfg, "unknown node type %s", cfg.NodeType)
 	}
 	return nil
 }

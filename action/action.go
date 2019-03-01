@@ -113,7 +113,7 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		GasLimit: elp.gasLimit,
 	}
 	if elp.gasPrice != nil {
-		actCore.GasPrice = elp.gasPrice.Bytes()
+		actCore.GasPrice = elp.gasPrice.String()
 	}
 
 	// TODO assert each action
@@ -143,6 +143,8 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_ClaimFromRewardingFund{ClaimFromRewardingFund: act.Proto()}
 	case *DepositToRewardingFund:
 		actCore.Action = &iotextypes.ActionCore_DepositToRewardingFund{DepositToRewardingFund: act.Proto()}
+	case *PutPollResult:
+		actCore.Action = &iotextypes.ActionCore_PutPollResult{PutPollResult: act.Proto()}
 	default:
 		log.S().Panicf("Cannot convert type of action %T.\r\n", act)
 	}
@@ -162,7 +164,7 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
 	elp.gasPrice = &big.Int{}
-	elp.gasPrice.SetBytes(pbAct.GetGasPrice())
+	elp.gasPrice.SetString(pbAct.GetGasPrice(), 10)
 
 	switch {
 	case pbAct.GetTransfer() != nil:
@@ -236,8 +238,15 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 		if err := act.LoadProto(pbAct.GetDepositToRewardingFund()); err != nil {
 			return err
 		}
+		elp.payload = act
+	case pbAct.GetPutPollResult() != nil:
+		act := &PutPollResult{}
+		if err := act.LoadProto(pbAct.GetPutPollResult()); err != nil {
+			return err
+		}
+		elp.payload = act
 	default:
-		return errors.New("no applicable action to handle in action proto")
+		return errors.Errorf("no applicable action to handle in action proto %+v", pbAct)
 	}
 	return nil
 }
@@ -330,7 +339,7 @@ func FakeSeal(act Envelope, pubk keypair.PublicKey) SealedEnvelope {
 
 // AssembleSealedEnvelope assembles a SealedEnvelope use Envelope, Sender Address and Signature.
 // This method should be only used in tests.
-func AssembleSealedEnvelope(act Envelope, addr string, pk keypair.PublicKey, sig []byte) SealedEnvelope {
+func AssembleSealedEnvelope(act Envelope, pk keypair.PublicKey, sig []byte) SealedEnvelope {
 	sealed := SealedEnvelope{
 		Envelope:  act,
 		srcPubkey: pk,

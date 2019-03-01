@@ -283,25 +283,29 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	var candidates state.CandidateList
-	for h := int(height); h >= 0; h-- {
-		// Load Candidates on the given height from underlying db
-		candidatesKey := candidatesutil.ConstructKey(uint64(h))
-		var err error
-		if err = sf.state(candidatesKey, &candidates); err == nil {
-			break
+	// Load Candidates on the given height from underlying db
+	candidatesKey := candidatesutil.ConstructKey(height)
+	err := sf.state(candidatesKey, &candidates)
+	log.L().Debug(
+		"CandidatesByHeight",
+		zap.Uint64("height", height),
+		zap.Any("candidates", candidates),
+		zap.Error(err),
+	)
+	if errors.Cause(err) == nil {
+		if len(candidates) > 0 {
+			if len(candidates) > int(sf.numCandidates) {
+				candidates = candidates[:sf.numCandidates]
+			}
+			return candidates, nil
 		}
-		if errors.Cause(err) != state.ErrStateNotExist {
-			return nil, errors.Wrap(err, "failed to get most recent state of candidateList")
-		}
+		err = state.ErrStateNotExist
 	}
-	if len(candidates) == 0 {
-		return nil, errors.Wrap(state.ErrStateNotExist, "failed to get most recent state of candidateList")
-	}
-
-	if len(candidates) > int(sf.numCandidates) {
-		candidates = candidates[:sf.numCandidates]
-	}
-	return candidates, nil
+	return nil, errors.Wrapf(
+		err,
+		"failed to get state of candidateList for height %d",
+		height,
+	)
 }
 
 // State returns a confirmed state in the state factory

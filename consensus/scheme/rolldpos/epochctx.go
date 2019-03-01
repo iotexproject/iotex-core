@@ -26,13 +26,13 @@ type epochCtx struct {
 }
 
 func newEpochCtx(
-	numDelegates uint64,
-	numSubEpochs uint64,
+	rp *rolldpos.Protocol,
 	blockHeight uint64,
 	candidatesByHeight func(uint64) ([]*state.Candidate, error),
 ) (*epochCtx, error) {
-	epochNum := rolldpos.GetEpochNum(blockHeight, numDelegates, numSubEpochs)
-	epochHeight := rolldpos.GetEpochHeight(epochNum, numDelegates, numSubEpochs)
+	epochNum := rp.GetEpochNum(blockHeight)
+	epochHeight := rp.GetEpochHeight(epochNum)
+	numDelegates := rp.NumDelegates()
 	candidates, err := candidatesByHeight(epochHeight - 1)
 	if err != nil {
 		return nil, errors.Wrapf(
@@ -49,7 +49,10 @@ func newEpochCtx(
 		)
 	}
 	addrs := []string{}
-	for _, candidate := range candidates {
+	for i, candidate := range candidates {
+		if uint64(i) >= rp.NumCandidateDelegates() {
+			break
+		}
 		addrs = append(addrs, candidate.Address)
 	}
 	crypto.SortCandidates(addrs, epochNum, crypto.CryptoSeed)
@@ -57,7 +60,7 @@ func newEpochCtx(
 	return &epochCtx{
 		num:         epochNum,
 		delegates:   addrs[:numDelegates],
-		subEpochNum: (blockHeight - epochHeight) / numDelegates,
+		subEpochNum: rp.GetSubEpochNum(blockHeight),
 		height:      epochHeight,
 	}, nil
 }

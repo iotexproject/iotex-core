@@ -180,6 +180,19 @@ func TestSDBCandidates(t *testing.T) {
 	testCandidates(sdb, t, false)
 }
 
+func candidatesByHeight(sf Factory, height uint64) ([]*state.Candidate, error) {
+	for {
+		candidates, err := sf.CandidatesByHeight(height)
+		if err == nil {
+			return candidates, err
+		}
+		if height == 0 {
+			return nil, errors.New("not found")
+		}
+		height--
+	}
+}
+
 func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 
 	// Create three dummy iotex addresses
@@ -219,7 +232,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).SetDestinationAddress(b).SetAction(tx1).Build()
+	elp := bd.SetNonce(1).SetAction(tx1).Build()
 	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -227,7 +240,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(2).SetDestinationAddress(c).SetAction(tx2).Build()
+	elp = bd.SetNonce(2).SetAction(tx2).Build()
 	selp2, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -254,8 +267,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	vote, err := action.NewVote(0, a, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote).
-		SetDestinationAddress(a).SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote).SetGasLimit(20000).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	zeroGasLimit := uint64(0)
@@ -282,8 +294,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote2).
-		SetDestinationAddress(b).SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote2).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 	_, err = ws.RunAction(ctx, selp)
@@ -294,7 +305,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":70", b + ":210"}))
 	// a(a):70(+0=70) b(b):210(+0=210) !c:320
 
@@ -304,8 +315,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote3).SetNonce(1).
-		SetDestinationAddress(b).SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote3).SetNonce(1).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -317,7 +327,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
@@ -327,8 +337,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx3).SetNonce(2).
-		SetDestinationAddress(a).Build()
+	elp = bd.SetAction(tx3).SetNonce(2).Build()
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
@@ -340,7 +349,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):90(0) b(b):190(+90=280) !c:320
 
@@ -350,8 +359,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx4).SetNonce(2).
-		SetDestinationAddress(b).Build()
+	elp = bd.SetAction(tx4).SetNonce(2).Build()
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -363,7 +371,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
@@ -373,8 +381,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote4).SetNonce(1).
-		SetDestinationAddress(a).SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote4).SetNonce(1).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
@@ -382,7 +389,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":210", b + ":70"}))
 	// a(b):70(210) b(a):210(70) !c:320
 
@@ -392,8 +399,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote5).SetNonce(2).
-		SetDestinationAddress(b).SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote5).SetNonce(2).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
@@ -401,7 +407,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
@@ -411,8 +417,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote6).SetNonce(3).
-		SetDestinationAddress(b).SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote6).SetNonce(3).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
@@ -420,7 +425,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
 	// a(b):70(0) b(b):210(+70=280) !c:320
 
@@ -430,8 +435,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx5).SetNonce(2).
-		SetDestinationAddress(a).Build()
+	elp = bd.SetAction(tx5).SetNonce(2).Build()
 	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
@@ -439,7 +443,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":300"}))
 	// a(b):90(0) b(b):210(+90=300) !c:300
 
@@ -449,8 +453,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote7).SetNonce(0).
-		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote7).SetNonce(0).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
@@ -458,7 +461,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":300"}))
 	// a(b):90(300) b(b):210(+90=300) !c(a):300
 
@@ -468,8 +471,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote8).SetNonce(4).
-		SetDestinationAddress(c).Build()
+	elp = bd.SetAction(vote8).SetNonce(4).Build()
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
@@ -477,7 +479,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":90"}))
 	// a(b):90(300) b(c):210(90) !c(a):300
 
@@ -488,7 +490,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote9).SetNonce(1).
-		SetDestinationAddress(c).SetGasLimit(100000).Build()
+		SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
@@ -496,7 +498,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
@@ -507,7 +509,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote10).SetNonce(0).
-		SetDestinationAddress(e).SetGasLimit(100000).Build()
+		SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
@@ -515,7 +517,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
 
@@ -525,8 +527,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote11).SetNonce(1).
-		SetDestinationAddress(d).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote11).SetNonce(1).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
@@ -534,7 +535,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", d + ":100"}))
 	// a(b):90(0) b(c):210(90) c(c):300(+210=510) d(d): 100(100)
 
@@ -544,8 +545,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote12).SetNonce(2).
-		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote12).SetNonce(2).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
@@ -553,7 +553,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
@@ -563,8 +563,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote13).SetNonce(2).
-		SetDestinationAddress(d).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote13).SetNonce(2).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
@@ -572,7 +571,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":210", d + ":300"}))
 	// a(b):90(100) b(c):210(90) c(d):300(210) d(a): 100(300)
 
@@ -582,8 +581,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote14).SetNonce(3).
-		SetDestinationAddress(c).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote14).SetNonce(3).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
@@ -591,7 +589,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
 	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
 
@@ -601,8 +599,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx6).SetNonce(1).
-		SetDestinationAddress(e).Build()
+	elp = bd.SetAction(tx6).SetNonce(1).Build()
 	selp1, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
@@ -610,8 +607,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx7).SetNonce(2).
-		SetDestinationAddress(e).Build()
+	elp = bd.SetAction(tx7).SetNonce(2).Build()
 	selp2, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
@@ -619,7 +615,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", a + ":100"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) !e:500
 
@@ -629,8 +625,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote15).SetNonce(0).
-		SetDestinationAddress(e).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote15).SetNonce(0).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyE)
 	require.NoError(t, err)
 
@@ -638,7 +633,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", e + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500)
 
@@ -648,8 +643,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote16).SetNonce(0).
-		SetDestinationAddress(f).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote16).SetNonce(0).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
@@ -657,7 +651,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{f + ":300", e + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500) f(f):300(+0=300)
 
@@ -668,7 +662,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote17).SetNonce(0).
-		SetDestinationAddress(d).SetGasLimit(100000).Build()
+		SetGasLimit(100000).Build()
 	selp1, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
@@ -677,7 +671,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(vote18).SetNonce(1).
-		SetDestinationAddress(d).SetGasLimit(100000).Build()
+		SetGasLimit(100000).Build()
 	selp2, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
@@ -691,7 +685,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	}
 	require.NoError(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{d + ":300", e + ":500"}))
 	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(300) e(e):500(+0=500) f(d):300(0)
 
@@ -701,8 +695,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx8).SetNonce(1).
-		SetDestinationAddress(b).Build()
+	elp = bd.SetAction(tx8).SetNonce(1).Build()
 	selp, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
@@ -710,7 +703,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":310", e + ":500"}))
 	// a(b):90(100) b(c):210(90) c(c):100(+210=310) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 	//fmt.Printf("%v \n", voteForm(sf.candidatesBuffer()))
@@ -721,8 +714,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx9).SetNonce(1).
-		SetDestinationAddress(a).Build()
+	elp = bd.SetAction(tx9).SetNonce(1).Build()
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
@@ -730,7 +722,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", e + ":500"}))
 	// a(b):100(100) b(c):200(100) c(c):100(+200=300) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
 
@@ -740,8 +732,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx10).SetNonce(1).
-		SetDestinationAddress(d).Build()
+	elp = bd.SetAction(tx10).SetNonce(1).Build()
 	selp, err = action.Sign(elp, priKeyE)
 	require.NoError(t, err)
 
@@ -751,7 +742,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	h, err = sf.Height()
 	require.Equal(t, uint64(23), h)
 	require.NoError(t, err)
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", a + ":400"}))
 	// a(b):100(400) b(c):200(100) c(c):100(+200=300) d(a): 400(100) e(e):200(+0=200) f(d):100(0)
 
@@ -761,8 +752,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote19).SetNonce(0).
-		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote19).SetNonce(0).SetGasLimit(100000).Build()
 	selp1, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
@@ -770,8 +760,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote20).SetNonce(3).
-		SetDestinationAddress(b).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote20).SetNonce(3).SetGasLimit(100000).Build()
 	selp2, err = action.Sign(elp, priKeyD)
 	require.NoError(t, err)
 
@@ -781,7 +770,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	h, err = sf.Height()
 	require.Equal(t, uint64(24), h)
 	require.NoError(t, err)
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", b + ":500"}))
 	// a(b):100(0) b(c):200(500) c(c):100(+200=300) d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
@@ -791,8 +780,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote21).SetNonce(4).
-		SetDestinationAddress("").SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote21).SetNonce(4).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyC)
 	require.NoError(t, err)
 
@@ -802,7 +790,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	h, _ = sf.Height()
 	require.Equal(t, uint64(25), h)
 	require.NoError(t, err)
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 
@@ -812,8 +800,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote22).SetNonce(4).
-		SetDestinationAddress("").SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote22).SetNonce(4).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
@@ -823,7 +810,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	h, _ = sf.Height()
 	require.Equal(t, uint64(26), h)
 	require.NoError(t, err)
-	cand, _ = sf.CandidatesByHeight(h)
+	cand, _ = candidatesByHeight(sf, h)
 	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
 	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
 	stateA, err := accountutil.LoadOrCreateAccount(ws, a, big.NewInt(0))
@@ -873,8 +860,7 @@ func testState(sf Factory, t *testing.T) {
 	vote, err := action.NewVote(0, a, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(vote).
-		SetDestinationAddress(a).SetGasLimit(20000).Build()
+	elp := bd.SetAction(vote).SetGasLimit(20000).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	gasLimit := uint64(1000000)
@@ -949,8 +935,7 @@ func testNonce(sf Factory, t *testing.T) {
 	tx, err := action.NewTransfer(0, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tx).SetNonce(0).
-		SetDestinationAddress(a).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tx).SetNonce(0).SetGasLimit(20000).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	gasLimit := uint64(1000000)
@@ -969,8 +954,7 @@ func testNonce(sf Factory, t *testing.T) {
 	tx, err = action.NewTransfer(1, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx).SetNonce(1).
-		SetDestinationAddress(a).SetGasLimit(20000).Build()
+	elp = bd.SetAction(tx).SetNonce(1).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -1029,8 +1013,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(vote1).SetNonce(0).
-		SetDestinationAddress("").SetGasLimit(100000).Build()
+	elp := bd.SetAction(vote1).SetNonce(0).SetGasLimit(100000).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -1051,8 +1034,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote2).SetNonce(0).
-		SetDestinationAddress(a).SetGasLimit(100000).Build()
+	elp = bd.SetAction(vote2).SetNonce(0).SetGasLimit(100000).Build()
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -1067,8 +1049,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote3).SetNonce(0).
-		SetDestinationAddress("").SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote3).SetNonce(0).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -1083,8 +1064,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote4).SetNonce(0).
-		SetDestinationAddress(b).SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote4).SetNonce(0).SetGasLimit(20000).Build()
 	selp1, err := action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
@@ -1092,8 +1072,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote5).SetNonce(0).
-		SetDestinationAddress(b).SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote5).SetNonce(0).SetGasLimit(20000).Build()
 	selp2, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -1101,8 +1080,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote6).SetNonce(0).
-		SetDestinationAddress("").SetGasLimit(20000).Build()
+	elp = bd.SetAction(vote6).SetNonce(0).SetGasLimit(20000).Build()
 	selp3, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -1237,14 +1215,14 @@ func testRunActions(ws WorkingSet, t *testing.T) {
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).SetDestinationAddress(b).SetAction(tx1).Build()
+	elp := bd.SetNonce(1).SetAction(tx1).Build()
 	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 
 	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).SetDestinationAddress(b).SetAction(tx2).Build()
+	elp = bd.SetNonce(1).SetAction(tx2).Build()
 	selp2, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
@@ -1466,7 +1444,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 				b.Fatal(err)
 			}
 			bd := &action.EnvelopeBuilder{}
-			elp := bd.SetNonce(nonces[senderIdx]).SetDestinationAddress(receiver).SetAction(tx).Build()
+			elp := bd.SetNonce(nonces[senderIdx]).SetAction(tx).Build()
 			selp := action.FakeSeal(elp, pubKeys[senderIdx])
 			acts = append(acts, selp)
 		}

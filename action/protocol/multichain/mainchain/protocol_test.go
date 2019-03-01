@@ -79,7 +79,6 @@ func TestAddSubChainActions(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	pbelp := bd.SetNonce(2).
 		SetGasPrice(big.NewInt(10004)).
-		SetDestinationAddress(testaddress.Addrinfo["alfa"].String()).
 		SetAction(putBlock).
 		SetGasLimit(10003).Build()
 	pbselp, err := action.Sign(pbelp, testaddress.Keyinfo["producer"].PriKey)
@@ -96,7 +95,6 @@ func TestAddSubChainActions(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	sscelp := bd.SetNonce(3).
 		SetGasPrice(big.NewInt(10006)).
-		SetDestinationAddress(testaddress.Addrinfo["alfa"].String()).
 		SetAction(stopSubChain).
 		SetGasLimit(10005).Build()
 	sscselp, err := action.Sign(sscelp, testaddress.Keyinfo["producer"].PriKey)

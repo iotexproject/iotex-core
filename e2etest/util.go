@@ -31,7 +31,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(tsf0).
-		SetDestinationAddress(ta.Addrinfo["producer"].String()).
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
@@ -47,9 +46,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[blockchain.Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -104,9 +100,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr0] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -146,9 +139,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -184,9 +174,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -230,9 +217,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr5] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {

@@ -17,13 +17,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -160,7 +161,13 @@ func TestLocalCommit(t *testing.T) {
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
-	rewardingProtocol := rewarding.NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
+	rolldposProtocol := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
@@ -196,9 +203,6 @@ func TestLocalCommit(t *testing.T) {
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
 	blk1, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -215,9 +219,6 @@ func TestLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["foxtrot"].String()] = []action.SealedEnvelope{tsf2}
 	blk2, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -244,9 +245,6 @@ func TestLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["bravo"].String()] = []action.SealedEnvelope{tsf3}
 	blk3, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -273,9 +271,6 @@ func TestLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["producer"].String()] = []action.SealedEnvelope{tsf4}
 	blk4, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -411,7 +406,6 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 
 	// Create client
-	cfg.NodeType = config.FullNodeType
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
@@ -544,7 +538,13 @@ func TestVoteLocalCommit(t *testing.T) {
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
-	rewardingProtocol := rewarding.NewProtocol(chain, genesis.Default.NumDelegates, genesis.Default.NumSubEpochs)
+	rolldposProtocol := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
@@ -628,9 +628,7 @@ func TestVoteLocalCommit(t *testing.T) {
 
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
 	blk1, err := chain.MintNewBlock(
-		actionMap, ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
+		actionMap,
 		0,
 	)
 	require.Nil(err)
@@ -658,9 +656,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["charlie"].String()] = []action.SealedEnvelope{vote5}
 	blk2, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -711,9 +706,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["delta"].String()] = []action.SealedEnvelope{vote6}
 	blk3, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -758,7 +750,7 @@ func TestVoteLocalCommit(t *testing.T) {
 	vote7, err := action.NewVote(uint64(2), "", uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(vote7).SetNonce(2).SetDestinationAddress("").SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
+	elp := bd.SetAction(vote7).SetNonce(2).SetGasLimit(100000).SetGasPrice(big.NewInt(0)).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
@@ -766,9 +758,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["bravo"].String()] = []action.SealedEnvelope{selp}
 	blk4, err := chain.MintNewBlock(
 		actionMap,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.Nil(err)
@@ -903,7 +892,6 @@ func newTestConfig() (config.Config, error) {
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&sk.PublicKey)
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
 	return cfg, nil
 }

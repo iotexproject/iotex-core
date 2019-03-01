@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -22,7 +23,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
@@ -292,19 +295,63 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 }
 
-func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) error {
+func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) (err error) {
 	accountProtocol := account.NewProtocol()
-	if err := cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
-		return err
+	if err = cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
+		return
 	}
-	voteProtocol := vote.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
-		return err
+	rolldposProtocol := cs.RollDPoSProtocol()
+	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
+		return
+	}
+	if genesisConfig.EnableBeaconChainVoting {
+		electionCommittee := cs.ElectionCommittee()
+		initBeaconChainHeight := genesisConfig.InitBeaconChainHeight
+		var pollProtocol poll.Protocol
+		if genesisConfig.InitBeaconChainHeight != 0 && electionCommittee != nil {
+			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
+				electionCommittee,
+				initBeaconChainHeight,
+				func(height uint64) (time.Time, error) {
+					blk, err := cs.Blockchain().GetBlockByHeight(height)
+					if err != nil {
+						return time.Now(), errors.Wrapf(
+							err, "error when getting the block at height: %d",
+							height,
+						)
+					}
+					return time.Unix(blk.Header.Timestamp(), 0), nil
+				},
+				func(height uint64) uint64 {
+					return rolldposProtocol.GetEpochHeight(rolldposProtocol.GetEpochNum(height))
+				},
+				func(height uint64) uint64 {
+					return rolldposProtocol.GetEpochNum(height)
+				},
+				genesisConfig.NumCandidateDelegates,
+				genesisConfig.NumDelegates,
+			); err != nil {
+				return
+			}
+		} else {
+			if uint64(len(genesisConfig.Delegates)) < genesisConfig.NumDelegates {
+				return errors.New("invalid delegate address in genesis block")
+			}
+			pollProtocol = poll.NewLifeLongDelegatesProtocol(genesisConfig.Delegates)
+		}
+		if err = cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
+			return
+		}
+	} else {
+		voteProtocol := vote.NewProtocol(cs.Blockchain())
+		if err = cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
+			return
+		}
 	}
 	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
-		return err
+	if err = cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
+		return
 	}
-	rewardingProtocol := rewarding.NewProtocol(cs.Blockchain(), genesisConfig.NumDelegates, genesisConfig.NumSubEpochs)
+	rewardingProtocol := rewarding.NewProtocol(cs.Blockchain(), rolldposProtocol)
 	return cs.RegisterProtocol(rewarding.ProtocolID, rewardingProtocol)
 }

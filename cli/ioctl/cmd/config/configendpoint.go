@@ -9,13 +9,16 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
-	"strings"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/spf13/cobra"
 )
 
 const endpointPrefix = "endpoint:"
+
+// ErrEmptyEndpoint indicates error for empty endpoint
+var ErrEmptyEndpoint = "no endpoint has been set"
 
 // configGetEndpointCmd represents the config get endpoint command
 var configGetEndpointCmd = &cobra.Command{
@@ -32,7 +35,7 @@ var configGetEndpointCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(getEndpoint())
+		fmt.Println(GetEndpoint())
 	},
 }
 
@@ -46,60 +49,30 @@ var configSetEndpointCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	ConfigCmd.AddCommand(configGetEndpointCmd)
-	ConfigCmd.AddCommand(configSetEndpointCmd)
-}
-
-func getEndpoint() string {
-	file, err := ioutil.ReadFile(configFileName)
+// GetEndpoint gets the endpoint
+func GetEndpoint() string {
+	cfg, err := LoadConfig()
 	if err != nil {
-		return fmt.Sprintf("failed to open config file %s", configFileName)
+		return err.Error()
 	}
-	// find the line that specifies endpoint
-	var endpoint string
-	lines := strings.Split(string(file), "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, endpointPrefix) {
-			endpoint = strings.TrimPrefix(line, endpointPrefix)
-			break
-		}
+	if cfg.Endpoint == "" {
+		return ErrEmptyEndpoint
 	}
-	if endpoint == "" {
-		return fmt.Sprintf("no endpoint has been set")
-	}
-	return endpoint
+	return cfg.Endpoint
 }
 
 func setEndpoint(args []string) string {
-	file, err := ioutil.ReadFile(configFileName)
+	cfg, err := LoadConfig()
 	if err != nil {
-		if os.IsNotExist(err) {
-			// special case of empty config file just being created
-			line := endpointPrefix + args[1]
-			if err := ioutil.WriteFile(configFileName, []byte(line), 0644); err != nil {
-				return fmt.Sprintf("failed to create config file %s", configFileName)
-			}
-			return "endpoint set to " + args[1]
-		}
-		return fmt.Sprintf("failed to open config file %s", configFileName)
+		return err.Error()
 	}
-	// find the line that specifies endpoint
-	findEndpoint := false
-	lines := strings.Split(string(file), "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, endpointPrefix) {
-			lines[i] = endpointPrefix + args[1]
-			findEndpoint = true
-			break
-		}
+	cfg.Endpoint = args[1]
+	out, err := yaml.Marshal(&cfg)
+	if err != nil {
+		return err.Error()
 	}
-	if !findEndpoint {
-		lines = append(lines, endpointPrefix+args[1])
+	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
+		return fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile)
 	}
-	output := strings.Join(lines, "\n")
-	if err := ioutil.WriteFile(configFileName, []byte(output), 0644); err != nil {
-		return fmt.Sprintf("failed to write to config file %s", configFileName)
-	}
-	return "endpoint set to " + args[1]
+	return "Endpoint is set to " + args[1]
 }

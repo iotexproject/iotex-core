@@ -24,8 +24,7 @@ func TestActionProto(t *testing.T) {
 	fmt.Println(v)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetDestinationAddress(testaddress.Addrinfo["bravo"].String()).
-		SetGasPrice(big.NewInt(10)).
+	elp := bd.SetGasPrice(big.NewInt(10)).
 		SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 

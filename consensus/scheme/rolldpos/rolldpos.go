@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -106,8 +107,9 @@ func (ew *endorsementWrapper) Topic() endorsement.ConsensusVoteTopic {
 
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
-	cfsm *consensusfsm.ConsensusFSM
-	ctx  *rollDPoSCtx
+	cfsm  *consensusfsm.ConsensusFSM
+	ctx   *rollDPoSCtx
+	ready chan interface{}
 }
 
 // Start starts RollDPoS consensus
@@ -117,6 +119,7 @@ func (r *RollDPoS) Start(ctx context.Context) error {
 	}
 	r.ctx.round = &roundCtx{height: 0}
 	r.cfsm.ProducePrepareEvent(r.ctx.cfg.Delay)
+	close(r.ready)
 	return nil
 }
 
@@ -127,6 +130,7 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 
 // HandleConsensusMsg handles incoming consensus message
 func (r *RollDPoS) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
+	<-r.ready
 	consensusHeight := r.ctx.Height()
 	if consensusHeight != 0 && msg.Height < consensusHeight {
 		log.L().Debug(
@@ -273,6 +277,7 @@ type Builder struct {
 	broadcastHandler       scheme.Broadcast
 	clock                  clock.Clock
 	rootChainAPI           explorer.Explorer
+	rp                     *rolldpos.Protocol
 	candidatesByHeightFunc CandidatesByHeightFunc
 }
 
@@ -335,11 +340,17 @@ func (b *Builder) SetRootChainAPI(api explorer.Explorer) *Builder {
 	return b
 }
 
-// SetCandidatesByHeightFunc sets candidatesByHeightFunc, which is only used by tests
+// SetCandidatesByHeightFunc sets candidatesByHeightFunc
 func (b *Builder) SetCandidatesByHeightFunc(
 	candidatesByHeightFunc CandidatesByHeightFunc,
 ) *Builder {
 	b.candidatesByHeightFunc = candidatesByHeightFunc
+	return b
+}
+
+// RegisterProtocol sets the rolldpos protocol
+func (b *Builder) RegisterProtocol(rp *rolldpos.Protocol) *Builder {
+	b.rp = rp
 	return b
 }
 
@@ -368,6 +379,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		broadcastHandler:       b.broadcastHandler,
 		clock:                  b.clock,
 		rootChainAPI:           b.rootChainAPI,
+		rp:                     b.rp,
 		candidatesByHeightFunc: b.candidatesByHeightFunc,
 	}
 	cfsm, err := consensusfsm.NewConsensusFSM(b.cfg.Consensus.RollDPoS.FSM, &ctx, b.clock)
@@ -375,7 +387,8 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
 	}
 	return &RollDPoS{
-		cfsm: cfsm,
-		ctx:  &ctx,
+		cfsm:  cfsm,
+		ctx:   &ctx,
+		ready: make(chan interface{}),
 	}, nil
 }

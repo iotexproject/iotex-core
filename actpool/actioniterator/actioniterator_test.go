@@ -31,8 +31,7 @@ func TestActionIterator(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).
 		SetGasPrice(big.NewInt(13)).
-		SetAction(vote1).
-		SetDestinationAddress(b.String()).Build()
+		SetAction(vote1).Build()
 	selp1, err := action.Sign(elp, priKeyA)
 	require.Nil(err)
 
@@ -41,8 +40,7 @@ func TestActionIterator(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(2).
 		SetGasPrice(big.NewInt(30)).
-		SetAction(vote2).
-		SetDestinationAddress(b.String()).Build()
+		SetAction(vote2).Build()
 	selp2, err := action.Sign(elp, priKeyA)
 	require.Nil(err)
 
@@ -53,8 +51,7 @@ func TestActionIterator(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetGasPrice(big.NewInt(15)).
-		SetAction(tsf1).
-		SetDestinationAddress(c.String()).Build()
+		SetAction(tsf1).Build()
 	selp3, err := action.Sign(elp, priKeyB)
 	require.Nil(err)
 
@@ -63,8 +60,7 @@ func TestActionIterator(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(2).
 		SetGasPrice(big.NewInt(10)).
-		SetAction(tsf2).
-		SetDestinationAddress(c.String()).Build()
+		SetAction(tsf2).Build()
 	selp4, err := action.Sign(elp, priKeyB)
 	require.Nil(err)
 
@@ -73,8 +69,7 @@ func TestActionIterator(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(3).
 		SetGasPrice(big.NewInt(20)).
-		SetAction(vote3).
-		SetDestinationAddress(c.String()).Build()
+		SetAction(vote3).Build()
 	selp5, err := action.Sign(elp, priKeyB)
 	require.Nil(err)
 
@@ -85,8 +80,7 @@ func TestActionIterator(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).
 		SetGasPrice(big.NewInt(5)).
-		SetAction(tsf3).
-		SetDestinationAddress(a.String()).Build()
+		SetAction(tsf3).Build()
 	selp6, err := action.Sign(elp, priKeyC)
 	require.Nil(err)
 

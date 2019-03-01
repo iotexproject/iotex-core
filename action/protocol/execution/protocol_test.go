@@ -25,6 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -87,7 +89,6 @@ func runExecution(
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
-		SetDestinationAddress(exec.Contract()).
 		SetNonce(exec.Nonce()).
 		SetGasLimit(exec.GasLimit()).
 		Build()
@@ -99,9 +100,6 @@ func runExecution(
 	actionMap[ecfg.executor] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		testaddress.Keyinfo["producer"].PubKey,
-		testaddress.Keyinfo["producer"].PriKey,
-		testaddress.Addrinfo["producer"].String(),
 		0,
 	)
 	if err != nil {
@@ -123,12 +121,19 @@ func (sct *smartContractTest) prepareBlockchain(
 ) blockchain.Blockchain {
 	cfg := config.Default
 	cfg.Chain.EnableIndex = true
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	registry.Register(rolldpos.ProtocolID, rp)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemDaoOption(),
 		blockchain.InMemStateFactoryOption(),
+		blockchain.RegistryOption(&registry),
 	)
 	r.NotNil(bc)
+	registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 	sf := bc.GetFactory()
@@ -216,11 +221,18 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
+		registry := protocol.Registry{}
+		acc := account.NewProtocol()
+		registry.Register(account.ProtocolID, acc)
+		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+		registry.Register(rolldpos.ProtocolID, rp)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
+			blockchain.RegistryOption(&registry),
 		)
+		registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
@@ -253,7 +265,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetAction(execution).
-			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(1).
 			SetGasLimit(100000).Build()
 		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -263,9 +274,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -309,7 +317,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(2).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -321,9 +328,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -350,7 +354,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(3).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -361,9 +364,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -381,7 +381,6 @@ func TestProtocol_Handle(t *testing.T) {
 		bd = &action.EnvelopeBuilder{}
 
 		elp = bd.SetAction(execution1).
-			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(4).
 			SetGasLimit(100000).SetGasPrice(big.NewInt(10)).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -391,9 +390,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["alfa"].PubKey,
-			testaddress.Keyinfo["alfa"].PriKey,
-			testaddress.Addrinfo["alfa"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -415,11 +411,18 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
+		registry := protocol.Registry{}
+		acc := account.NewProtocol()
+		registry.Register(account.ProtocolID, acc)
+		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+		registry.Register(rolldpos.ProtocolID, rp)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
+			blockchain.RegistryOption(&registry),
 		)
+		registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
@@ -455,7 +458,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetAction(execution).
-			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(1).
 			SetGasLimit(1000000).Build()
 		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -465,9 +467,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -485,7 +484,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(2).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -496,9 +494,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -516,7 +511,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(3).
 			SetGasLimit(120000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -527,9 +521,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -554,7 +545,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contractAddr).
 			SetNonce(1).
 			SetGasLimit(120000).SetGasPrice(big.NewInt(10)).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["bravo"].PriKey)
@@ -565,9 +555,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["bravo"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -591,11 +578,18 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
+		registry := protocol.Registry{}
+		acc := account.NewProtocol()
+		registry.Register(account.ProtocolID, acc)
+		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+		registry.Register(rolldpos.ProtocolID, rp)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
+			blockchain.RegistryOption(&registry),
 		)
+		registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		require.NoError(bc.Start(ctx))
@@ -631,7 +625,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd := &action.EnvelopeBuilder{}
 		elp := bd.SetAction(execution).
-			SetDestinationAddress(action.EmptyAddress).
 			SetNonce(1).
 			SetGasLimit(5000000).Build()
 		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -641,9 +634,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -686,7 +676,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contract).
 			SetNonce(2).
 			SetGasLimit(1000000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -709,7 +698,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp2 := bd.SetAction(ex2).
-			SetDestinationAddress(contract).
 			SetNonce(3).
 			SetGasLimit(1000000).Build()
 		selp2, err := action.Sign(elp2, testaddress.Keyinfo["producer"].PriKey)
@@ -719,9 +707,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp, selp2}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -742,7 +727,6 @@ func TestProtocol_Handle(t *testing.T) {
 
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(ex3).
-			SetDestinationAddress(contract).
 			SetNonce(1).
 			SetGasLimit(1000000).Build()
 		selp3, err := action.Sign(elp, testaddress.Keyinfo["alfa"].PriKey)
@@ -752,9 +736,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["alfa"].String()] = []action.SealedEnvelope{selp3}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["alfa"].PubKey,
-			testaddress.Keyinfo["alfa"].PriKey,
-			testaddress.Addrinfo["alfa"].String(),
 			0,
 		)
 		require.NoError(err)
@@ -769,7 +750,6 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		bd = &action.EnvelopeBuilder{}
 		elp = bd.SetAction(execution).
-			SetDestinationAddress(contract).
 			SetNonce(4).
 			SetGasLimit(1000000).Build()
 		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
@@ -779,9 +759,6 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			testaddress.Keyinfo["producer"].PubKey,
-			testaddress.Keyinfo["producer"].PriKey,
-			testaddress.Addrinfo["producer"].String(),
 			0,
 		)
 		require.NoError(err)

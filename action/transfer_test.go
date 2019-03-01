@@ -19,7 +19,6 @@ var chainid = []byte{0x00, 0x00, 0x00, 0x01}
 
 func TestTransferSignVerify(t *testing.T) {
 	require := require.New(t)
-	senderAddr := testaddress.Addrinfo["producer"]
 	recipientAddr := testaddress.Addrinfo["alfa"]
 	senderKey := testaddress.Keyinfo["producer"]
 
@@ -29,14 +28,13 @@ func TestTransferSignVerify(t *testing.T) {
 	tsf.Proto()
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetDestinationAddress(recipientAddr.String()).
-		SetGasLimit(uint64(100000)).
+	elp := bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
 
 	elp.ByteStream()
 
-	w := AssembleSealedEnvelope(elp, senderAddr.String(), senderKey.PubKey, []byte("lol"))
+	w := AssembleSealedEnvelope(elp, senderKey.PubKey, []byte("lol"))
 	require.Error(Verify(w))
 
 	// sign the transfer

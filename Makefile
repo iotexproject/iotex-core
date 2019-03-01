@@ -140,12 +140,6 @@ run:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	LD_LIBRARY_PATH=$(MY_LD_LIBRARY_PATH) ./bin/$(BUILD_TARGET_SERVER)  -config-path=e2etest/config_local_delegate.yaml
 
-.PHONY: fullnode
-fullnode:
-	$(ECHO_V)rm -rf ./e2etest/*chain*.db
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	LD_LIBRARY_PATH=$(MY_LD_LIBRARY_PATH) ./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_fullnode.yaml
-
 .PHONY: docker
 docker:
 	$(DOCKERCMD) build -t $(USER)/iotex-core:latest .

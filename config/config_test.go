@@ -16,7 +16,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -49,16 +48,11 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 func TestNewConfigWithOverride(t *testing.T) {
 	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
-	pk := &sk.PublicKey
 	cfgStr := fmt.Sprintf(`
-nodeType: %s
 chain:
     producerPrivKey: "%s"
-    producerPubKey: "%s"
 `,
-		DelegateType,
 		keypair.EncodePrivateKey(sk),
-		keypair.EncodePublicKey(pk),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -72,24 +66,17 @@ chain:
 	cfg, err := New()
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
-	require.Equal(t, DelegateType, cfg.NodeType)
 	require.Equal(t, keypair.EncodePrivateKey(sk), cfg.Chain.ProducerPrivKey)
-	require.Equal(t, keypair.EncodePublicKey(pk), cfg.Chain.ProducerPubKey)
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
 	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
-	pk := &sk.PublicKey
 	cfgStr := fmt.Sprintf(`
-nodeType: %s
 chain:
     producerPrivKey: "%s"
-    producerPubKey: "%s"
 `,
-		DelegateType,
 		keypair.EncodePrivateKey(sk),
-		keypair.EncodePublicKey(pk),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -100,10 +87,8 @@ chain:
 	cfgStr = fmt.Sprintf(`
 chain:
     producerPrivKey: "%s"
-    producerPubKey: "%s"
 `,
 		keypair.EncodePrivateKey(sk),
-		keypair.EncodePublicKey(pk),
 	)
 	_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
 	err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
@@ -121,28 +106,19 @@ chain:
 	cfg, err := New()
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
-	require.Equal(t, DelegateType, cfg.NodeType)
 	require.Equal(t, keypair.EncodePrivateKey(sk), cfg.Chain.ProducerPrivKey)
-	require.Equal(t, keypair.EncodePublicKey(pk), cfg.Chain.ProducerPubKey)
 }
 
 func TestNewConfigWithLookupEnv(t *testing.T) {
 	oldEnv, oldExist := os.LookupEnv("IOTEX_TEST_NODE_TYPE")
-	err := os.Setenv("IOTEX_TEST_NODE_TYPE", DelegateType)
-	require.Nil(t, err)
 
 	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
-	pk := &sk.PublicKey
-
 	cfgStr := fmt.Sprintf(`
-nodeType: ${IOTEX_TEST_NODE_TYPE:"lightweight"}
 chain:
     producerPrivKey: "%s"
-    producerPubKey: "%s"
 `,
 		keypair.EncodePrivateKey(sk),
-		keypair.EncodePublicKey(pk),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -163,7 +139,6 @@ chain:
 	cfg, err := New()
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
-	require.Equal(t, DelegateType, cfg.NodeType)
 
 	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
 	require.Nil(t, err)
@@ -171,32 +146,6 @@ chain:
 	cfg, err = New()
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
-	require.Equal(t, LightweightType, cfg.NodeType)
-}
-
-func TestValidateKeyPair(t *testing.T) {
-	cfg := Default
-	cfg.Chain.ProducerPubKey = "hello world"
-	cfg.Chain.ProducerPrivKey = "world hello"
-	err := ValidateKeyPair(cfg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "encoding/hex:"), err.Error())
-
-	sk, err := crypto.GenerateKey()
-	require.Nil(t, err)
-	sk2, err := crypto.GenerateKey()
-	require.Nil(t, err)
-	pk := &sk2.PublicKey
-	require.Nil(t, err)
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(pk)
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
-	err = ValidateKeyPair(cfg)
-	assert.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "block producer has unmatched pubkey and prikey"),
-	)
 }
 
 func TestValidateExplorer(t *testing.T) {
@@ -225,37 +174,6 @@ func TestValidateChain(t *testing.T) {
 	)
 }
 
-func TestValidateConsensusScheme(t *testing.T) {
-	cfg := Default
-	cfg.NodeType = FullNodeType
-	cfg.Consensus.Scheme = RollDPoSScheme
-	err := ValidateConsensusScheme(cfg)
-	require.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "consensus scheme of fullnode should be NOOP"),
-	)
-
-	cfg.NodeType = LightweightType
-	err = ValidateConsensusScheme(cfg)
-	assert.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "consensus scheme of lightweight node should be NOOP"),
-	)
-
-	cfg.NodeType = "Unknown"
-	err = ValidateConsensusScheme(cfg)
-	require.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "unknown node type"),
-	)
-}
-
 func TestValidateDispatcher(t *testing.T) {
 	cfg := Default
 	cfg.Dispatcher.EventChanSize = 0
@@ -270,7 +188,6 @@ func TestValidateDispatcher(t *testing.T) {
 
 func TestValidateRollDPoS(t *testing.T) {
 	cfg := Default
-	cfg.NodeType = DelegateType
 	cfg.Consensus.Scheme = RollDPoSScheme
 
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 0
@@ -321,21 +238,4 @@ func TestValidateActPool(t *testing.T) {
 			"maximum number of actions per pool cannot be less than maximum number of actions per account",
 		),
 	)
-}
-
-func TestCheckNodeType(t *testing.T) {
-	cfg := Default
-	require.True(t, cfg.IsFullnode())
-	require.False(t, cfg.IsDelegate())
-	require.False(t, cfg.IsLightweight())
-
-	cfg.NodeType = DelegateType
-	require.False(t, cfg.IsFullnode())
-	require.True(t, cfg.IsDelegate())
-	require.False(t, cfg.IsLightweight())
-
-	cfg.NodeType = LightweightType
-	require.False(t, cfg.IsFullnode())
-	require.False(t, cfg.IsDelegate())
-	require.True(t, cfg.IsLightweight())
 }

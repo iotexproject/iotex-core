@@ -1,5 +1,3 @@
-// Package dht implements a distributed hash table that satisfies the ipfs routing
-// interface. This DHT is modeled after kademlia with S/Kademlia modifications.
 package dht
 
 import (
@@ -330,7 +328,7 @@ func (dht *IpfsDHT) nearestPeersToQuery(pmes *pb.Message, count int) []peer.ID {
 	return closer
 }
 
-// betterPeerToQuery returns nearestPeersToQuery, but iff closer than self.
+// betterPeersToQuery returns nearestPeersToQuery, but if and only if closer than self.
 func (dht *IpfsDHT) betterPeersToQuery(pmes *pb.Message, p peer.ID, count int) []peer.ID {
 	closer := dht.nearestPeersToQuery(pmes, count)
 
@@ -368,6 +366,11 @@ func (dht *IpfsDHT) Context() context.Context {
 // Process return dht's process
 func (dht *IpfsDHT) Process() goprocess.Process {
 	return dht.proc
+}
+
+// RoutingTable return dht's routingTable
+func (dht *IpfsDHT) RoutingTable() *kb.RoutingTable {
+	return dht.routingTable
 }
 
 // Close calls Process Close

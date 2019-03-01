@@ -11,8 +11,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
@@ -20,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -37,13 +36,6 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
 }
-
-const (
-	// FailureStatus is the status that contract execution failed
-	FailureStatus = uint64(0)
-	// SuccessStatus is the status that contract execution success
-	SuccessStatus = uint64(1)
-)
 
 // Params is the context and parameters
 type Params struct {
@@ -161,9 +153,9 @@ func ExecuteContract(
 		ContractAddress: contractAddress,
 	}
 	if err != nil {
-		receipt.Status = FailureStatus
+		receipt.Status = action.FailureReceiptStatus
 	} else {
-		receipt.Status = SuccessStatus
+		receipt.Status = action.SuccessReceiptStatus
 	}
 	if remainingGas > 0 {
 		*raCtx.GasLimit += remainingGas

@@ -49,10 +49,8 @@ func TestTwoChains(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.StandaloneScheme
-	cfg.Consensus.BlockCreationInterval = time.Second
+	cfg.Genesis.BlockInterval = time.Second
 	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(identityset.PrivateKey(1))
-	pk := identityset.PrivateKey(1).PublicKey
-	cfg.Chain.ProducerPubKey = keypair.EncodePublicKey(&pk)
 	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
 	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
 	cfg.Chain.EnableSubChainStartInGenesis = true
@@ -127,7 +125,6 @@ func TestTwoChains(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(createDeposit).
 		SetNonce(uint64(details.Nonce) + 1).
-		SetDestinationAddress(addr2.String()).
 		SetGasLimit(testutil.TestGasLimit).Build()
 	selp, err := action.Sign(elp, sk1)
 	require.NoError(t, err)
@@ -185,7 +182,6 @@ func TestTwoChains(t *testing.T) {
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetAction(settleDeposit).
 		SetNonce(nonce).
-		SetDestinationAddress(addr2.String()).
 		SetGasLimit(testutil.TestGasLimit).Build()
 	selp, err = action.Sign(elp, sk1)
 	require.NoError(t, err)

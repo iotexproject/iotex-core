@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -48,6 +49,7 @@ type IotxConsensus struct {
 type optionParams struct {
 	rootChainAPI     explorerapi.Explorer
 	broadcastHandler scheme.Broadcast
+	rp               *rp.Protocol
 }
 
 // Option sets Consensus construction parameter.
@@ -65,6 +67,14 @@ func WithRootChainAPI(exp explorerapi.Explorer) Option {
 func WithBroadcast(broadcastHandler scheme.Broadcast) Option {
 	return func(ops *optionParams) error {
 		ops.broadcastHandler = broadcastHandler
+		return nil
+	}
+}
+
+// WithRollDPoSProtocol is an option to register rolldpos protocol
+func WithRollDPoSProtocol(rp *rp.Protocol) Option {
+	return func(ops *optionParams) error {
+		ops.rp = rp
 		return nil
 	}
 }
@@ -88,9 +98,7 @@ func NewConsensus(
 	mintBlockCB := func() (*block.Block, error) {
 		actionMap := ap.PendingActionMap()
 		log.L().Debug("Pick actions.", zap.Int("actions", len(actionMap)))
-
-		pk, sk, addr := GetAddr(cfg)
-		blk, err := bc.MintNewBlock(actionMap, pk, sk, addr, clock.Now().Unix())
+		blk, err := bc.MintNewBlock(actionMap, clock.Now().Unix())
 		if err != nil {
 			log.L().Error("Failed to mint a block.", zap.Error(err))
 			return nil, err
@@ -130,7 +138,8 @@ func NewConsensus(
 			SetBlockchain(bc).
 			SetActPool(ap).
 			SetClock(clock).
-			SetBroadcast(ops.broadcastHandler)
+			SetBroadcast(ops.broadcastHandler).
+			RegisterProtocol(ops.rp)
 		if ops.rootChainAPI != nil {
 			bd = bd.SetCandidatesByHeightFunc(func(h uint64) ([]*state.Candidate, error) {
 				rawcs, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))
@@ -145,17 +154,12 @@ func NewConsensus(
 					if err != nil {
 						return nil, errors.Wrapf(err, "error when converting address string")
 					}
-					pubKey, err := keypair.DecodePublicKey(rawc.PubKey)
-					if err != nil {
-						log.L().Error("Error when convert candidate PublicKey.", zap.Error(err))
-					}
 					votes, ok := big.NewInt(0).SetString(rawc.TotalVote, 10)
 					if !ok {
 						log.L().Error("Error when setting candidate total votes.", zap.Error(err))
 					}
 					cs = append(cs, &state.Candidate{
 						Address:          addr.String(),
-						PublicKey:        pubKey,
 						Votes:            votes,
 						CreationHeight:   uint64(rawc.CreationHeight),
 						LastUpdateHeight: uint64(rawc.LastUpdateHeight),
@@ -177,7 +181,7 @@ func NewConsensus(
 			commitBlockCB,
 			broadcastBlockCB,
 			bc,
-			cfg.Consensus.BlockCreationInterval,
+			cfg.Genesis.BlockInterval,
 		)
 	default:
 		return nil, errors.Errorf("unexpected IotxConsensus scheme %s", cfg.Consensus.Scheme)
@@ -235,17 +239,7 @@ func (c *IotxConsensus) Scheme() scheme.Scheme {
 
 // GetAddr returns the iotex address
 func GetAddr(cfg config.Config) (keypair.PublicKey, keypair.PrivateKey, string) {
-	addr, err := cfg.BlockchainAddress()
-	if err != nil {
-		log.L().Panic("Fail to create new consensus.", zap.Error(err))
-	}
-	pk, err := keypair.DecodePublicKey(cfg.Chain.ProducerPubKey)
-	if err != nil {
-		log.L().Panic("Fail to create new consensus.", zap.Error(err))
-	}
-	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
-	if err != nil {
-		log.L().Panic("Fail to create new consensus.", zap.Error(err))
-	}
-	return pk, sk, addr.String()
+	addr := cfg.ProducerAddress()
+	sk := cfg.ProducerPrivateKey()
+	return &sk.PublicKey, sk, addr.String()
 }

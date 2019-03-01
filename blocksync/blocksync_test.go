@@ -20,6 +20,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -39,37 +41,6 @@ var opts = []Option{
 		return nil
 	}),
 	WithNeighbors(func(_ context.Context) ([]peerstore.PeerInfo, error) { return nil, nil }),
-}
-
-func TestSyncTaskInterval(t *testing.T) {
-	assert := assert.New(t)
-
-	interval := time.Duration(0)
-
-	cfgLightWeight := config.Config{
-		NodeType: config.LightweightType,
-	}
-	lightWeight := syncTaskInterval(cfgLightWeight)
-	assert.Equal(interval, lightWeight)
-
-	cfgDelegate := config.Config{
-		NodeType: config.DelegateType,
-		BlockSync: config.BlockSync{
-			Interval: interval,
-		},
-	}
-	delegate := syncTaskInterval(cfgDelegate)
-	assert.Equal(interval, delegate)
-
-	cfgFullNode := config.Config{
-		NodeType: config.FullNodeType,
-		BlockSync: config.BlockSync{
-			Interval: interval,
-		},
-	}
-	interval <<= 2
-	fullNode := syncTaskInterval(cfgFullNode)
-	assert.Equal(interval, fullNode)
 }
 
 func TestNewBlockSyncer(t *testing.T) {
@@ -100,31 +71,7 @@ func TestNewBlockSyncer(t *testing.T) {
 
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	// Lightweight
-	cfgLightWeight := config.Config{
-		NodeType: config.LightweightType,
-	}
-
-	bsLightWeight, err := NewBlockSyncer(cfgLightWeight, mBc, ap, cs, opts...)
-	assert.NoError(err)
-	assert.NotNil(bsLightWeight)
-
-	// Delegate
-	cfgDelegate := config.Config{
-		NodeType: config.DelegateType,
-	}
-	cfgDelegate.Network.BootstrapNodes = []string{"123"}
-
-	_, err = NewBlockSyncer(cfgDelegate, mBc, ap, cs)
-	assert.Nil(err)
-
-	// FullNode
-	cfgFullNode := config.Config{
-		NodeType: config.FullNodeType,
-	}
-	cfgFullNode.Network.BootstrapNodes = []string{"123"}
-
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, cs, opts...)
+	bs, err := NewBlockSyncer(cfg, mBc, ap, cs, opts...)
 	assert.Nil(err)
 	assert.NotNil(bs)
 }
@@ -173,28 +120,19 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	ap, err := actpool.NewActPool(mBc, cfg.ActPool)
 	assert.NoError(err)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	cfgFullNode := config.Config{
-		NodeType: config.FullNodeType,
-	}
-	cfgFullNode.Network.BootstrapNodes = []string{"123"}
-
-	bs, err := NewBlockSyncer(cfgFullNode, mBc, ap, cs, opts...)
-	assert.Nil(err)
+	bs, err := NewBlockSyncer(cfg, mBc, ap, cs, opts...)
+	assert.NoError(err)
 
 	pbBs := &iotexrpc.BlockSync{
 		Start: 1,
 		End:   1,
 	}
-
-	bs.(*blockSyncer).ackSyncReq = false
-	assert.Nil(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
-	bs.(*blockSyncer).ackSyncReq = true
-	assert.Nil(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
+	assert.NoError(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
 }
 
 func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
@@ -222,8 +160,6 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 		Start: 1,
 		End:   5,
 	}
-
-	bs.(*blockSyncer).ackSyncReq = true
 	require.Error(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
 }
 
@@ -236,12 +172,17 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-
+	registry := protocol.Registry{}
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	chain := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
+		bc.RegistryOption(&registry),
 	)
+	vp := vote.NewProtocol(chain)
+	require.NoError(registry.Register(vote.ProtocolID, vp))
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
@@ -266,26 +207,21 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	h := chain.TipHeight()
 	blk, err := chain.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk)
 	require.NoError(err)
-	bs.(*blockSyncer).ackBlockCommit = false
-	require.Nil(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk))
 	h2 := chain.TipHeight()
-	assert.Equal(t, h, h2)
+	assert.Equal(t, h+1, h2)
 
 	// commit top
-	bs.(*blockSyncer).ackBlockCommit = true
-	require.Nil(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk))
 	h3 := chain.TipHeight()
 	assert.Equal(t, h+1, h3)
 
 	// commit same block again
-	require.Nil(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk))
 	h4 := chain.TipHeight()
 	assert.Equal(t, h3, h4)
 }
@@ -299,16 +235,21 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-
+	registry := protocol.Registry{}
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	chain1 := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
+		bc.RegistryOption(&registry),
 	)
+	require.NotNil(chain1)
+	vp := vote.NewProtocol(chain1)
+	require.NoError(registry.Register(vote.ProtocolID, vp))
 	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesis.Default.ActionGasLimit))
 	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
-	require.NotNil(chain1)
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
 	require.NoError(err)
@@ -318,15 +259,20 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
+	registry2 := protocol.Registry{}
+	require.NoError(registry2.Register(rolldpos.ProtocolID, rp))
 	chain2 := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
+		bc.RegistryOption(&registry2),
 	)
+	require.NotNil(chain2)
+	vp2 := vote.NewProtocol(chain2)
+	require.NoError(registry2.Register(vote.ProtocolID, vp2))
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesis.Default.ActionGasLimit))
 	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
-	require.NotNil(chain2)
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool)
 	require.NotNil(ap2)
 	require.Nil(err)
@@ -347,9 +293,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	// commit top
 	blk1, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk1)
@@ -357,9 +300,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.Nil(bs1.ProcessBlock(ctx, blk1))
 	blk2, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk2)
@@ -367,9 +307,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.Nil(bs1.ProcessBlock(ctx, blk2))
 	blk3, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk3)
@@ -395,12 +332,21 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-
+	registry := protocol.Registry{}
+	rolldposProtocol := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
 	chain1 := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
+		bc.RegistryOption(&registry),
 	)
+	vp := vote.NewProtocol(chain1)
+	require.NoError(registry.Register(vote.ProtocolID, vp))
 	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesis.Default.ActionGasLimit))
 	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
@@ -413,11 +359,16 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
+	registry2 := protocol.Registry{}
+	require.NoError(registry2.Register(rolldpos.ProtocolID, rolldposProtocol))
 	chain2 := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
+		bc.RegistryOption(&registry2),
 	)
+	vp2 := vote.NewProtocol(chain2)
+	require.NoError(registry2.Register(vote.ProtocolID, vp2))
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesis.Default.ActionGasLimit))
 	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
@@ -442,9 +393,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	// commit top
 	blk1, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk1)
@@ -452,9 +400,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.Nil(bs1.ProcessBlock(ctx, blk1))
 	blk2, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk2)
@@ -462,9 +407,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.Nil(bs1.ProcessBlock(ctx, blk2))
 	blk3, err := chain1.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk3)
@@ -489,8 +431,12 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.Nil(err)
 	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
 	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-
-	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
+	registry := protocol.Registry{}
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.RegistryOption(&registry))
+	vp := vote.NewProtocol(chain)
+	require.NoError(registry.Register(vote.ProtocolID, vp))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool)
@@ -516,9 +462,6 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	blk, err := chain.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk)
@@ -527,9 +470,6 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	blk, err = chain.MintNewBlock(
 		nil,
-		ta.Keyinfo["producer"].PubKey,
-		ta.Keyinfo["producer"].PriKey,
-		ta.Addrinfo["producer"].String(),
 		0,
 	)
 	require.NotNil(blk)

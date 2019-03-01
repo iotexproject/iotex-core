@@ -35,11 +35,11 @@ func TestGenesis(t *testing.T) {
 		SetHeight(0).
 		SetTimeStamp(Gen.Timestamp).
 		AddActions(acts...).
-		Build(testaddress.Addrinfo["producer"].String(), testaddress.Keyinfo["producer"].PubKey)
+		Build(testaddress.Keyinfo["producer"].PubKey)
 
 	genesisBlk, err := block.NewBuilder(racts).
 		SetPrevBlockHash(Gen.ParentHash).
-		SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
+		SignAndBuild(testaddress.Keyinfo["producer"].PriKey)
 	assert.NoError(err)
 
 	t.Log("The Genesis Block has the following header:")
@@ -55,5 +55,5 @@ func TestGenesis(t *testing.T) {
 
 	h := genesisBlk.HashBlock()
 	genesisHash := hex.EncodeToString(h[:])
-	assert.Equal("232709156aaa3ee4dd5585936a623bd369fb9ede17c9ce9820df6f9afda0bcd9", genesisHash)
+	assert.Equal("d7a7cb9a516ba0ed93ef42dde0c9b4acb4baaf41e5d545a043de6434277c20b8", genesisHash)
 }
