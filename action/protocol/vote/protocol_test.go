@@ -171,7 +171,7 @@ func TestProtocol_Handle(t *testing.T) {
 	require.Equal("0", account2.VotingWeight.String())
 	require.Equal("100", account3.VotingWeight.String())
 
-	canidateMap, err := candidatesutil.GetMostRecentCandidateMap(ws)
+	canidateMap, err := candidatesutil.GetMostRecentCandidateMap(ws, 0)
 	require.NoError(err)
 	require.Equal(1, len(canidateMap))
 }

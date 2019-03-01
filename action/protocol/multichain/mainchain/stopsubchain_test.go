@@ -65,7 +65,6 @@ func TestHandleStopSubChain(t *testing.T) {
 			}
 			return state.Deserialize(s, data)
 		}).Times(1)
-	ws.EXPECT().Height().Return(uint64(2)).Times(5)
 	subChainPKHash, err := createSubChainAddress(sender.String(), 2)
 	require.NoError(err)
 	subChain := &SubChain{
@@ -99,7 +98,8 @@ func TestHandleStopSubChain(t *testing.T) {
 		big.NewInt(0),
 	)
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		Caller: testaddress.Addrinfo["alfa"],
+		Caller:      testaddress.Addrinfo["alfa"],
+		BlockHeight: 2,
 	})
 	// wrong owner
 	require.Error(p.handleStopSubChain(ctx, stop, ws))
@@ -111,7 +111,8 @@ func TestHandleStopSubChain(t *testing.T) {
 		big.NewInt(0),
 	)
 	ctx = protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		Caller: sender,
+		Caller:      sender,
+		BlockHeight: 2,
 	})
 	// wrong stop height
 	require.Error(p.handleStopSubChain(ctx, stop, ws))

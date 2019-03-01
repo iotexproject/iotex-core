@@ -403,7 +403,7 @@ func setCandidates(
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
 		delegate.IsCandidate = true
-		if err := candidatesutil.LoadAndAddCandidates(sm, candidate.Address); err != nil {
+		if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
 			return err
 		}
 		if err := accountutil.StoreAccount(sm, candidate.Address, delegate); err != nil {
