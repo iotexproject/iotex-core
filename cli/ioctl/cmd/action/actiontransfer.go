@@ -13,10 +13,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
-
 	"github.com/howeyc/gopass"
-
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -27,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // actionTransferCmd transfers tokens on IoTex blockchain

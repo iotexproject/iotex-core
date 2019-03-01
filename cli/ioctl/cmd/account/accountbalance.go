@@ -11,9 +11,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // TODO: use wallet config later
@@ -34,7 +31,6 @@ func balance(args []string) string {
 	if len(args) == 0 {
 		accountMeta, err := GetAccountMeta(configAddress)
 		if err != nil {
-			log.L().Error("cannot get account from "+configAddress, zap.Error(err))
 			return err.Error()
 		}
 		lines = append(lines, fmt.Sprintf("%s: %s", configAddress, accountMeta.Balance))
@@ -42,10 +38,10 @@ func balance(args []string) string {
 		for _, addr := range args {
 			accountMeta, err := GetAccountMeta(addr)
 			if err != nil {
-				log.L().Error("cannot get account from "+addr, zap.Error(err))
-				return err.Error()
+				lines = append(lines, fmt.Sprintf("%s: %s", addr, err.Error()))
+			} else {
+				lines = append(lines, fmt.Sprintf("%s: %s", addr, accountMeta.Balance))
 			}
-			lines = append(lines, fmt.Sprintf("%s: %s", addr, accountMeta.Balance))
 		}
 	}
 

@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/address"
@@ -89,20 +88,17 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	}
 	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
 	if err != nil {
-		log.L().Error("failed to connect to server", zap.Error(err))
 		return nil, err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 
-	request := iotexapi.GetAccountRequest{}
-	request.Address = addr
+	request := iotexapi.GetAccountRequest{Address: addr}
 	response, err := cli.GetAccount(ctx, &request)
 	if err != nil {
 		return nil, err
 	}
 	accountMeta := response.AccountMeta
-	fmt.Println(accountMeta.Balance)
 	return accountMeta, nil
 }
