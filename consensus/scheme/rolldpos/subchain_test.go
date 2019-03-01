@@ -115,5 +115,5 @@ func TestPutBlockToParentChain(t *testing.T) {
 		assert.Equal(t, in.Height, req.Height)
 	})
 
-	putBlockToParentChain(exp, req.SubChainAddress, pubKey, priKey, addr, &blk)
+	putBlockToParentChain(exp, req.SubChainAddress, priKey, addr, &blk)
 }

@@ -270,7 +270,6 @@ type Builder struct {
 	cfg config.Config
 	// TODO: we should use keystore in the future
 	encodedAddr            string
-	pubKey                 keypair.PublicKey
 	priKey                 keypair.PrivateKey
 	chain                  blockchain.Blockchain
 	actPool                actpool.ActPool
@@ -295,12 +294,6 @@ func (b *Builder) SetConfig(cfg config.Config) *Builder {
 // SetAddr sets the address and key pair for signature
 func (b *Builder) SetAddr(encodedAddr string) *Builder {
 	b.encodedAddr = encodedAddr
-	return b
-}
-
-// SetPubKey sets the public key
-func (b *Builder) SetPubKey(pubKey keypair.PublicKey) *Builder {
-	b.pubKey = pubKey
 	return b
 }
 
@@ -372,7 +365,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		cfg:                    b.cfg.Consensus.RollDPoS,
 		genesisCfg:             b.cfg.Genesis.Blockchain,
 		encodedAddr:            b.encodedAddr,
-		pubKey:                 b.pubKey,
 		priKey:                 b.priKey,
 		chain:                  b.chain,
 		actPool:                b.actPool,

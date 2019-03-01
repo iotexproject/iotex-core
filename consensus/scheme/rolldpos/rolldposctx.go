@@ -51,7 +51,6 @@ type rollDPoSCtx struct {
 	cfg              config.RollDPoS
 	genesisCfg       genesis.Blockchain
 	encodedAddr      string
-	pubKey           keypair.PublicKey
 	priKey           keypair.PrivateKey
 	chain            blockchain.Blockchain
 	actPool          actpool.ActPool
@@ -140,7 +139,7 @@ func (ctx *rollDPoSCtx) OnConsensusReached() {
 		}
 		// putblock to parent chain if the current node is proposer and current chain is a sub chain
 		if ctx.round.proposer == ctx.encodedAddr && ctx.chain.ChainAddress() != "" {
-			putBlockToParentChain(ctx.rootChainAPI, ctx.chain.ChainAddress(), ctx.pubKey, ctx.priKey, ctx.encodedAddr, pendingBlock.Block)
+			putBlockToParentChain(ctx.rootChainAPI, ctx.chain.ChainAddress(), ctx.priKey, ctx.encodedAddr, pendingBlock.Block)
 		}
 	} else {
 		ctx.logger().Panic(
@@ -513,7 +512,6 @@ func (ctx *rollDPoSCtx) newEndorsement(topic endorsement.ConsensusVoteTopic) (co
 			ctx.round.number,
 			topic,
 		),
-		ctx.pubKey,
 		ctx.priKey,
 		ctx.encodedAddr,
 	)
