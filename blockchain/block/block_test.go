@@ -7,13 +7,11 @@
 package block
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -23,24 +21,6 @@ import (
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
-
-func TestBasicHash(t *testing.T) {
-	require := require.New(t)
-
-	// basic hash test
-	input := []byte("hello")
-	hash := sha256.Sum256(input)
-	hash = sha256.Sum256(hash[:])
-	hello, _ := hex.DecodeString("9595c9df90075148eb06860365df33584b75bff782a510c6cd4883a419833d50")
-	require.Equal(hello, hash[:])
-	t.Logf("sha256(sha256(\"hello\") = %x", hash)
-
-	hash = blake2b.Sum256(input)
-	hash = blake2b.Sum256(hash[:])
-	hello, _ = hex.DecodeString("901c60ffffd77f743729f8fea0233c0b00223428b5192c2015f853562b45ce59")
-	require.Equal(hello, hash[:])
-	t.Logf("blake2b(blake2b(\"hello\") = %x", hash)
-}
 
 func TestMerkle(t *testing.T) {
 	require := require.New(t)
@@ -75,7 +55,7 @@ func TestMerkle(t *testing.T) {
 		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
 	)
 	hash := block.CalculateTxRoot()
-	require.Equal("3450ed72e006daad3997e612b2a2a288486859ca6eed74810125ebcf92a5cfba", hex.EncodeToString(hash[:]))
+	require.Equal("ffb40146be8c00f781d802c8d2e8985a014b099d6d66a18c909df1ad94b382d3", hex.EncodeToString(hash[:]))
 
 	t.Log("Merkle root match pass\n")
 }
