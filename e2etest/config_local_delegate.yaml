@@ -9,7 +9,6 @@ chain:
     chainDBPath: "./chain.db"
     trieDBPath: "./trie.db"
     enableFallbackToFreshDb: true
-    enableSubChainStartInGenesis: true
 
 consensus:
     scheme: "STANDALONE"
