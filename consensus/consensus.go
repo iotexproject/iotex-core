@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
@@ -129,11 +128,9 @@ func NewConsensus(
 	var err error
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
-		pk, sk, addr := GetAddr(cfg)
 		bd := rolldpos.NewRollDPoSBuilder().
-			SetAddr(addr).
-			SetPubKey(pk).
-			SetPriKey(sk).
+			SetAddr(cfg.ProducerAddress().String()).
+			SetPriKey(cfg.ProducerPrivateKey()).
 			SetConfig(cfg).
 			SetBlockchain(bc).
 			SetActPool(ap).
@@ -235,11 +232,4 @@ func (c *IotxConsensus) ValidateBlockFooter(blk *block.Block) error {
 // Scheme returns the scheme instance
 func (c *IotxConsensus) Scheme() scheme.Scheme {
 	return c.scheme
-}
-
-// GetAddr returns the iotex address
-func GetAddr(cfg config.Config) (keypair.PublicKey, keypair.PrivateKey, string) {
-	addr := cfg.ProducerAddress()
-	sk := cfg.ProducerPrivateKey()
-	return &sk.PublicKey, sk, addr.String()
 }
