@@ -818,7 +818,6 @@ func TestServiceSendAction(t *testing.T) {
 	)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(pb).
-		SetDestinationAddress("").
 		SetGasLimit(10000).SetNonce(1).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
@@ -1026,7 +1025,7 @@ func TestService_CreateDeposit(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(deposit).
 		SetGasLimit(1000).
-		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].String()).
+		SetGasPrice(big.NewInt(100)).
 		SetNonce(10).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
@@ -1085,7 +1084,7 @@ func TestService_SettleDeposit(t *testing.T) {
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetAction(deposit).
 		SetGasLimit(1000).
-		SetGasPrice(big.NewInt(100)).SetDestinationAddress(ta.Addrinfo["alfa"].String()).
+		SetGasPrice(big.NewInt(100)).
 		SetNonce(10).Build()
 	selp, err := action.Sign(elp, ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)

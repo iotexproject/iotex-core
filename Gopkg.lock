@@ -299,7 +299,7 @@
   revision = "c26edc20f3d7c9ed16b6d996d162548cda979673"
 
 [[projects]]
-  digest = "1:9ea02a55790506d8d0b0b041c9acc091b8335444ba8fc53fb0b28a2124f38528"
+  digest = "1:3ee7e5f97219c5339fbce8b99caf1cc2598752da03383c851dd37a921c7ad037"
   name = "github.com/iotexproject/iotex-election"
   packages = [
     "carrier",
@@ -312,7 +312,7 @@
     "util",
   ]
   pruneopts = "UT"
-  revision = "2ee8cbc6b077b40ee98c497c1b03fb750f91ae3e"
+  revision = "7a4ae1ee8eadfa5126c3bc0f3215642fa2481e01"
 
 [[projects]]
   digest = "1:9999472bf9c934426d967c507d61f2de84affb8318b8d8c8bc38b3486edbd826"
@@ -1372,6 +1372,7 @@
     "github.com/cenkalti/backoff",
     "github.com/coopernurse/barrister-go",
     "github.com/dgraph-io/badger",
+    "github.com/ethereum/go-ethereum/accounts/keystore",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/core/types",
     "github.com/ethereum/go-ethereum/core/vm",

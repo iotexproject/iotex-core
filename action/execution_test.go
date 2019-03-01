@@ -18,7 +18,6 @@ import (
 
 func TestExecutionSignVerify(t *testing.T) {
 	require := require.New(t)
-	executorAddr := testaddress.Addrinfo["producer"]
 	contractAddr := testaddress.Addrinfo["alfa"]
 	executorKey := testaddress.Keyinfo["producer"]
 	data, err := hex.DecodeString("")
@@ -29,11 +28,10 @@ func TestExecutionSignVerify(t *testing.T) {
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(0).
 		SetGasLimit(uint64(10)).
-		SetDestinationAddress(contractAddr.String()).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(ex).Build()
 
-	w := AssembleSealedEnvelope(elp, executorAddr.String(), executorKey.PubKey, []byte("lol"))
+	w := AssembleSealedEnvelope(elp, executorKey.PubKey, []byte("lol"))
 	require.Error(Verify(w))
 
 	// sign the Execution
