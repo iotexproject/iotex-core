@@ -38,14 +38,14 @@ func accountCreateAdd(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	if _, ok := cfg.WalletList[name]; ok {
-		return fmt.Sprintf("A wallet named \"%s\" already exists.", name)
+	if _, ok := cfg.AccountList[name]; ok {
+		return fmt.Sprintf("A account named \"%s\" already exists.", name)
 	}
 	addr, err := newAccount(name)
 	if err != nil {
 		return err.Error()
 	}
-	cfg.WalletList[name] = addr
+	cfg.AccountList[name] = addr
 	out, err := yaml.Marshal(&cfg)
 	if err != nil {
 		return err.Error()
@@ -54,7 +54,7 @@ func accountCreateAdd(args []string) string {
 		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
 	}
 	return fmt.Sprintf(
-		"New wallet \"%s\" is created. Keep your password, or your will lose your private key.",
+		"New account \"%s\" is created. Keep your password, or your will lose your private key.",
 		name,
 	)
 }

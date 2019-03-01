@@ -23,13 +23,12 @@ var configAddress = "ioaddress"
 var accountBalanceCmd = &cobra.Command{
 	Use:   "balance []address",
 	Short: "Get balance of an account",
-	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(balance(args))
 	},
 }
 
-// Balance gets balance of an IoTex Blockchian address
+// Balance gets balance of an IoTex blockchain address
 func balance(args []string) string {
 	lines := make([]string, 0)
 	if len(args) == 0 {
@@ -39,7 +38,6 @@ func balance(args []string) string {
 			return err.Error()
 		}
 		lines = append(lines, fmt.Sprintf("%s: %s", configAddress, accountMeta.Balance))
-
 	} else {
 		for _, addr := range args {
 			accountMeta, err := GetAccountMeta(addr)

@@ -35,7 +35,7 @@ func init() {
 	accountCreateCmd.Flags().IntVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
 }
 
-func accountCreate(args []string) string {
+func accountCreate(_ []string) string {
 	items := make([]string, numAccounts)
 	for i := 0; i < numAccounts; i++ {
 		private, err := crypto.GenerateKey()

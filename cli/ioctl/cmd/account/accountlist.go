@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package wallet
+package account
 
 import (
 	"fmt"
@@ -15,23 +15,23 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 )
 
-// walletListCmd represents the wallet list command
-var walletListCmd = &cobra.Command{
+// accountListCmd represents the account list command
+var accountListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List existing wallet for ioctl",
+	Short: "List existing account for ioctl",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(walletList())
+		fmt.Println(accountList())
 	},
 }
 
-func walletList() string {
+func accountList() string {
 	w, err := config.LoadConfig()
 	if err != nil {
 		return err.Error()
 	}
 	lines := make([]string, 0)
-	for n, addr := range w.WalletList {
+	for n, addr := range w.AccountList {
 		lines = append(lines, fmt.Sprintf("name: %s, address:%s", n, addr))
 	}
 	return strings.Join(lines, "\n")

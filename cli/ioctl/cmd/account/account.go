@@ -7,15 +7,18 @@
 package account
 
 import (
+	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -37,6 +40,40 @@ func init() {
 	AccountCmd.AddCommand(accountCreateCmd)
 	AccountCmd.AddCommand(accountCreateAddCmd)
 	AccountCmd.AddCommand(accountImportCmd)
+	AccountCmd.AddCommand(accountListCmd)
+}
+
+// Sign use the password to unlock key associated with name, and signs the hash
+func Sign(name, password string, hash []byte) ([]byte, error) {
+	w, err := config.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	addrStr, ok := w.AccountList[name]
+	if !ok {
+		return nil, errors.Errorf("account %s does not exist", name)
+	}
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return nil, err
+	}
+	// find the key in keystore and sign
+	ks := keystore.NewKeyStore(config.ConfigDir, keystore.StandardScryptN, keystore.StandardScryptP)
+	for _, v := range ks.Accounts() {
+		if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
+			return ks.SignHashWithPassphrase(v, password, hash)
+		}
+	}
+	return nil, errors.Errorf("account %s's address does not match with keys in keystore", name)
+}
+
+// AliasToAddress returns the address corresponding to name/alias
+func AliasToAddress(name string) (string, error) {
+	config, err := config.LoadConfig()
+	if err != nil {
+		return "", err
+	}
+	return config.AccountList[name], nil
 }
 
 // GetAccountMeta gets account metadata
@@ -62,5 +99,6 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 		return nil, err
 	}
 	accountMeta := response.AccountMeta
+	fmt.Println(accountMeta.Balance)
 	return accountMeta, nil
 }

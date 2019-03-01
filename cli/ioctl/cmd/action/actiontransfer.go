@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 
 	"github.com/howeyc/gopass"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/wallet"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -60,7 +59,7 @@ func transfer(args []string) string {
 	payload := args[2]
 	// TODO: Check the validity of args
 
-	sender, err := wallet.AliasToAddress(alias)
+	sender, err := account.AliasToAddress(alias)
 	if err != nil {
 		return err.Error()
 	}
@@ -86,7 +85,7 @@ func transfer(args []string) string {
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
 	hash := elp.Hash()
-	sig, err := wallet.Sign(alias, string(password), hash[:])
+	sig, err := account.Sign(alias, string(password), hash[:])
 	if err != nil {
 		log.L().Error("fail to sign", zap.Error(err))
 		return err.Error()

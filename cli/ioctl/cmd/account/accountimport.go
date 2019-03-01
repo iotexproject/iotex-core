@@ -49,14 +49,14 @@ func accountImport(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	if _, ok := cfg.WalletList[name]; ok {
-		return fmt.Sprintf("A wallet named \"%s\" already exists.", name)
+	if _, ok := cfg.AccountList[name]; ok {
+		return fmt.Sprintf("A account named \"%s\" already exists.", name)
 	}
 	addr, err := newAccountByKey(name, privateKey)
 	if err != nil {
 		return err.Error()
 	}
-	cfg.WalletList[name] = addr
+	cfg.AccountList[name] = addr
 	out, err := yaml.Marshal(&cfg)
 	if err != nil {
 		return err.Error()
@@ -65,7 +65,7 @@ func accountImport(args []string) string {
 		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
 	}
 	return fmt.Sprintf(
-		"New wallet \"%s\" is created. Keep your password, or your will lose your private key.",
+		"New account \"%s\" is created. Keep your password, or your will lose your private key.",
 		name,
 	)
 }
@@ -96,6 +96,15 @@ func newAccountByKey(name string, privateKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	pkHash := keypair.HashPubKey(&priKey.PublicKey)
+	a, err := address.FromBytes(pkHash[:])
+	if err != nil {
+		log.L().Error(err.Error())
+		return "", err
+	}
 	addr, _ := address.FromBytes(account.Address.Bytes())
+	log.L().Info(addr.String())
+	log.L().Info(a.String())
 	return addr.String(), nil
 }

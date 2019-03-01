@@ -37,8 +37,8 @@ var ConfigCmd = &cobra.Command{
 
 // Config defines the config schema
 type Config struct {
-	Endpoint   string            `yaml:"endpoint""`
-	WalletList map[string]string `yaml:"walletList"`
+	Endpoint    string            `yaml:"endpoint""`
+	AccountList map[string]string `yaml:"walletList"`
 }
 
 func init() {
@@ -56,7 +56,7 @@ func init() {
 // LoadConfig loads config file in yaml format
 func LoadConfig() (Config, error) {
 	w := Config{
-		WalletList: make(map[string]string),
+		AccountList: make(map[string]string),
 	}
 	in, err := ioutil.ReadFile(DefaultConfigFile)
 	if err == nil {
