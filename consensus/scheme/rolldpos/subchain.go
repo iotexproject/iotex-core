@@ -26,11 +26,11 @@ import (
 func putBlockToParentChain(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPriKey keypair.PrivateKey,
+	senderPrvKey keypair.PrivateKey,
 	senderAddr string,
 	b *block.Block,
 ) {
-	if err := putBlockToParentChainTask(rootChainAPI, subChainAddr, senderPriKey, b); err != nil {
+	if err := putBlockToParentChainTask(rootChainAPI, subChainAddr, senderPrvKey, b); err != nil {
 		log.L().Error("Failed to put block merkle roots to parent chain.",
 			zap.String("subChainAddress", subChainAddr),
 			zap.String("senderAddress", senderAddr),
@@ -47,10 +47,10 @@ func putBlockToParentChain(
 func putBlockToParentChainTask(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPriKey keypair.PrivateKey,
+	senderPrvKey keypair.PrivateKey,
 	b *block.Block,
 ) error {
-	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, &senderPriKey.PublicKey, senderPriKey, b)
+	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, senderPrvKey.PubKey(), senderPrvKey, b)
 	if err != nil {
 		return errors.Wrap(err, "fail to construct PutSubChainBlockRequest")
 	}

@@ -73,13 +73,13 @@ func TestTwoChains(t *testing.T) {
 
 	sk1, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
-	pk1 := &sk1.PublicKey
+	pk1 := sk1.PubKey()
 	pkHash1 := keypair.HashPubKey(pk1)
 	addr1, err := address.FromBytes(pkHash1[:])
 	require.NoError(t, err)
 	sk2, err := keypair.DecodePrivateKey("82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90")
 	require.NoError(t, err)
-	pk2 := &sk2.PublicKey
+	pk2 := sk2.PubKey()
 	pkHash2 := keypair.HashPubKey(pk2)
 	addr2, err := address.FromBytes(pkHash2[:])
 	require.NoError(t, err)

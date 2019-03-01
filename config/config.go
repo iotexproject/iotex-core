@@ -13,7 +13,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 
@@ -177,7 +176,7 @@ var (
 	}
 
 	// PrivateKey is a randomly generated producer's key for testing purpose
-	PrivateKey, _ = crypto.GenerateKey()
+	PrivateKey, _ = keypair.GenerateKey()
 )
 
 // Network is the config struct for network package
@@ -436,7 +435,7 @@ func NewSub(validates ...Validate) (Config, error) {
 // ProducerAddress returns the configured producer address derived from key
 func (cfg Config) ProducerAddress() address.Address {
 	sk := cfg.ProducerPrivateKey()
-	pkHash := keypair.HashPubKey(&sk.PublicKey)
+	pkHash := keypair.HashPubKey(sk.PubKey())
 	addr, err := address.FromBytes(pkHash[:])
 	if err != nil {
 		log.L().Panic(

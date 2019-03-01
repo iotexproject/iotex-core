@@ -714,7 +714,7 @@ func (bc *blockchain) MintNewBlock(
 		SetHeight(newblockHeight).
 		SetTimeStamp(timestamp).
 		AddActions(actions...).
-		Build(&sk.PublicKey)
+		Build(sk.PubKey())
 
 	prevBlkHash := bc.tipHash
 	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes

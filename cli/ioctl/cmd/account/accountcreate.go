@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -38,14 +37,14 @@ func init() {
 func accountCreate(_ []string) string {
 	items := make([]string, numAccounts)
 	for i := 0; i < numAccounts; i++ {
-		private, err := crypto.GenerateKey()
+		private, err := keypair.GenerateKey()
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
-		pkHash := keypair.HashPubKey(&private.PublicKey)
+		pkHash := keypair.HashPubKey(private.PubKey())
 		addr, _ := address.FromBytes(pkHash[:])
-		priKeyBytes := keypair.PrivateKeyToBytes(private)
-		pubKeyBytes := keypair.PublicKeyToBytes(&private.PublicKey)
+		priKeyBytes := private.PrvKeyBytes()
+		pubKeyBytes := private.PubKey().PubKeyBytes()
 		items[i] = fmt.Sprintf(
 			"{\"Address\": \"%s\", \"PrivateKey\": \"%x\", \"PrivateKey\": \"%x\"}\n",
 			addr.String(), priKeyBytes, pubKeyBytes)

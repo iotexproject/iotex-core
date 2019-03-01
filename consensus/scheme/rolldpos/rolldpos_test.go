@@ -161,7 +161,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		blockHeight,
 		hash.Hash256{},
 		testutil.TimestampNowFromClock(clock),
-		&sk.PublicKey,
+		sk.PubKey(),
 		make([]action.SealedEnvelope, 0),
 	)
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
@@ -303,7 +303,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			sk := identityset.PrivateKey(i)
 			addr := addrKeyPair{
 				encodedAddr: identityset.Address(i).String(),
-				pubKey:      &sk.PublicKey,
+				pubKey:      sk.PubKey(),
 				priKey:      sk,
 			}
 			chainAddrs = append(chainAddrs, &addr)

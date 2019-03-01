@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
@@ -21,7 +22,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -89,7 +89,7 @@ func newAccountByKey(name string, privateKey string) (string, error) {
 		return "", errors.New("password doesn't match")
 	}
 	ks := keystore.NewKeyStore(config.ConfigDir, keystore.StandardScryptN, keystore.StandardScryptP)
-	priKey, err := keypair.DecodePrivateKey(privateKey)
+	priKey, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
 		return "", err
 	}

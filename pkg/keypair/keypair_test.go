@@ -65,7 +65,8 @@ func TestCompatibility(t *testing.T) {
 	sk, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	ethAddr := crypto.PubkeyToAddress(sk.PublicKey)
-	pkHash := HashPubKey(&sk.PublicKey)
+	nsk := &secp256k1PrvKey{PrivateKey: sk}
+	pkHash := HashPubKey(nsk.PubKey())
 	addr, err := address.FromBytes(pkHash[:])
 	require.NoError(t, err)
 	require.Equal(t, ethAddr.Bytes(), addr.Bytes())

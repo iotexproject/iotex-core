@@ -14,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -46,7 +45,7 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 }
 
 func TestNewConfigWithOverride(t *testing.T) {
-	sk, err := crypto.GenerateKey()
+	sk, err := keypair.GenerateKey()
 	require.Nil(t, err)
 	cfgStr := fmt.Sprintf(`
 chain:
@@ -70,7 +69,7 @@ chain:
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
-	sk, err := crypto.GenerateKey()
+	sk, err := keypair.GenerateKey()
 	require.Nil(t, err)
 	cfgStr := fmt.Sprintf(`
 chain:
@@ -112,7 +111,7 @@ chain:
 func TestNewConfigWithLookupEnv(t *testing.T) {
 	oldEnv, oldExist := os.LookupEnv("IOTEX_TEST_NODE_TYPE")
 
-	sk, err := crypto.GenerateKey()
+	sk, err := keypair.GenerateKey()
 	require.Nil(t, err)
 	cfgStr := fmt.Sprintf(`
 chain:

@@ -20,7 +20,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
@@ -94,7 +93,7 @@ func transfer(args []string) string {
 	}
 	selp := &iotextypes.Action{
 		Core:         elp.Proto(),
-		SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+		SenderPubKey: crypto.FromECDSAPub(pubKey),
 		Signature:    sig,
 	}
 	request := &iotexapi.SendActionRequest{Action: selp}
