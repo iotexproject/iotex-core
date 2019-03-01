@@ -793,8 +793,8 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.Equal(2, len(candidates))
 
 	sort.Sort(sort.StringSlice(candidatesAddr))
-	require.Equal(ta.Addrinfo["delta"].String(), candidatesAddr[1])
-	require.Equal(ta.Addrinfo["alfa"].String(), candidatesAddr[0])
+	require.Equal(ta.Addrinfo["delta"].String(), candidatesAddr[0])
+	require.Equal(ta.Addrinfo["alfa"].String(), candidatesAddr[1])
 }
 
 func TestStartExistingBlockchain(t *testing.T) {
