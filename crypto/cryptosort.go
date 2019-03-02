@@ -10,9 +10,8 @@ import (
 	"bytes"
 	"sort"
 
-	"golang.org/x/crypto/blake2b"
-
 	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 var (
@@ -20,26 +19,26 @@ var (
 	CryptoSeed = []byte{0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef}
 )
 
-// Sort sorts a given slices of hashes cryptographically using blake2b hash function
+// Sort sorts a given slices of hashes cryptographically using hash function
 func Sort(hashes [][]byte, nonce uint64) {
 	nb := make([]byte, 8)
 	enc.MachineEndian.PutUint64(nb, nonce)
 
 	sort.Slice(hashes, func(i, j int) bool {
-		hi := blake2b.Sum256(append(append(hashes[i], CryptoSeed...), nb...))
-		hj := blake2b.Sum256(append(append(hashes[j], CryptoSeed...), nb...))
+		hi := hash.Hash256b(append(append(hashes[i], CryptoSeed...), nb...))
+		hj := hash.Hash256b(append(append(hashes[j], CryptoSeed...), nb...))
 		return bytes.Compare(hi[:], hj[:]) < 0
 	})
 }
 
-// SortCandidates sorts a given slices of hashes cryptographically using blake2b hash function
+// SortCandidates sorts a given slices of hashes cryptographically using hash function
 func SortCandidates(candidates []string, epochNum uint64, cryptoSeed []byte) {
 	nb := make([]byte, 8)
 	enc.MachineEndian.PutUint64(nb, epochNum)
 
 	sort.Slice(candidates, func(i, j int) bool {
-		hi := blake2b.Sum256(append(append([]byte(candidates[i]), cryptoSeed...), nb...))
-		hj := blake2b.Sum256(append(append([]byte(candidates[j]), cryptoSeed...), nb...))
+		hi := hash.Hash256b(append(append([]byte(candidates[i]), cryptoSeed...), nb...))
+		hj := hash.Hash256b(append(append([]byte(candidates[j]), cryptoSeed...), nb...))
 		return bytes.Compare(hi[:], hj[:]) < 0
 	})
 }
