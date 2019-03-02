@@ -37,12 +37,12 @@ var ConfigCmd = &cobra.Command{
 
 // Config defines the config schema
 type Config struct {
-	Endpoint   string            `yaml:"endpoint""`
-	WalletList map[string]string `yaml:"walletList"`
+	Endpoint    string            `yaml:"endpoint"`
+	AccountList map[string]string `yaml:"walletList"`
 }
 
 func init() {
-	ConfigDir = os.Getenv("HOME") + "/.config/ioctl"
+	ConfigDir = os.Getenv("HOME") + "/.config/ioctl/default"
 	if err := os.MkdirAll(ConfigDir, 0700); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -56,7 +56,7 @@ func init() {
 // LoadConfig loads config file in yaml format
 func LoadConfig() (Config, error) {
 	w := Config{
-		WalletList: make(map[string]string),
+		AccountList: make(map[string]string),
 	}
 	in, err := ioutil.ReadFile(DefaultConfigFile)
 	if err == nil {

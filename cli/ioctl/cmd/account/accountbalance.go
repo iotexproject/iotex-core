@@ -7,16 +7,9 @@
 package account
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	grpc "google.golang.org/grpc"
-
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 // TODO: use wallet config later
@@ -24,56 +17,20 @@ var configAddress = "ioaddress"
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   "balance",
+	Use:   "balance address",
 	Short: "Get balance of an account",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(balance(args))
 	},
 }
 
-func init() {
-	AccountCmd.AddCommand(accountBalanceCmd)
-}
-
-// balance gets balance of an IoTex Blockchian address
+// Balance gets balance of an IoTeX blockchain address
 func balance(args []string) string {
-	endpoint := config.GetEndpoint()
-	if endpoint == config.ErrEmptyEndpoint {
-		log.L().Error(config.ErrEmptyEndpoint)
-		return "use \"ioctl config set endpoint\" to config endpoint first."
-	}
-	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+	address := args[0]
+	accountMeta, err := GetAccountMeta(address)
 	if err != nil {
-		log.L().Error("failed to connect to server", zap.Error(err))
 		return err.Error()
 	}
-	defer conn.Close()
-	cli := pb.NewAPIServiceClient(conn)
-	ctx := context.Background()
-
-	request := pb.GetAccountRequest{}
-	res := ""
-	if len(args) == 0 {
-		request.Address = configAddress
-		response, err := cli.GetAccount(ctx, &request)
-		if err != nil {
-			log.L().Error("cannot get account from "+request.Address, zap.Error(err))
-			return err.Error()
-		}
-		accountMeta := response.AccountMeta
-		res += fmt.Sprintf("%s: %s\n", request.Address, accountMeta.Balance)
-
-	} else {
-		for _, addr := range args {
-			request.Address = addr
-			response, err := cli.GetAccount(ctx, &request)
-			if err != nil {
-				log.L().Error("cannot get account from "+request.Address, zap.Error(err))
-				return err.Error()
-			}
-			accountMeta := response.AccountMeta
-			res += fmt.Sprintf("%s: %s\n", request.Address, accountMeta.Balance)
-		}
-	}
-	return res
+	return fmt.Sprintf("%s: %s", address, accountMeta.Balance)
 }
