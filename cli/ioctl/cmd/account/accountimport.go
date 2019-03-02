@@ -13,16 +13,15 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -33,7 +32,7 @@ var (
 // accountImportCmd represents the account create command
 var accountImportCmd = &cobra.Command{
 	Use:   "import",
-	Short: "import IoTex private key into wallet",
+	Short: "import IoTeX private key into wallet",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(accountImport(args))
@@ -74,14 +73,14 @@ func accountImport(args []string) string {
 
 func newAccountByKey(name string, privateKey string) (string, error) {
 	fmt.Printf("#%s: Enter password\n", name)
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
 	}
 	password := strings.TrimSpace(string(bytePassword))
 	fmt.Printf("#%s: Enter password again\n", name)
-	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
+	bytePassword, err = terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
@@ -98,15 +97,6 @@ func newAccountByKey(name string, privateKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	pkHash := keypair.HashPubKey(&priKey.PublicKey)
-	a, err := address.FromBytes(pkHash[:])
-	if err != nil {
-		log.L().Error(err.Error())
-		return "", err
-	}
 	addr, _ := address.FromBytes(account.Address.Bytes())
-	log.L().Info(addr.String())
-	log.L().Info(a.String())
 	return addr.String(), nil
 }

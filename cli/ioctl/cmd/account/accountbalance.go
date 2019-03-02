@@ -8,7 +8,6 @@ package account
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -18,32 +17,20 @@ var configAddress = "ioaddress"
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   "balance []address",
+	Use:   "balance address",
 	Short: "Get balance of an account",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(balance(args))
 	},
 }
 
-// Balance gets balance of an IoTex blockchain address
+// Balance gets balance of an IoTeX blockchain address
 func balance(args []string) string {
-	lines := make([]string, 0)
-	if len(args) == 0 {
-		accountMeta, err := GetAccountMeta(configAddress)
-		if err != nil {
-			return err.Error()
-		}
-		lines = append(lines, fmt.Sprintf("%s: %s", configAddress, accountMeta.Balance))
-	} else {
-		for _, addr := range args {
-			accountMeta, err := GetAccountMeta(addr)
-			if err != nil {
-				lines = append(lines, fmt.Sprintf("%s: %s", addr, err.Error()))
-			} else {
-				lines = append(lines, fmt.Sprintf("%s: %s", addr, accountMeta.Balance))
-			}
-		}
+	address := args[0]
+	accountMeta, err := GetAccountMeta(address)
+	if err != nil {
+		return err.Error()
 	}
-
-	return strings.Join(lines, "\n")
+	return fmt.Sprintf("%s: %s", address, accountMeta.Balance)
 }

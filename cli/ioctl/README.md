@@ -6,10 +6,10 @@
     Available Commands:
       account     Deal with accounts of IoTeX blockchain
       action      Deal with actions of IoTeX blockchain
-      bc          Deal with block chain of IoTex blockchain
+      bc          Deal with block chain of IoTeX blockchain
       help        Help about any command
       version     Print the version number of ioctl
-      wallet      Manage keystores of IoTex blockchain
+      wallet      Manage accounts of IoTeX blockchain
     
     Flags:
       -h, --help   help for ioctl

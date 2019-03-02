@@ -63,14 +63,14 @@ func accountCreateAdd(args []string) string {
 
 func newAccount(name string) (string, error) {
 	fmt.Printf("#%s: Set password\n", name)
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
 	}
 	password := strings.TrimSpace(string(bytePassword))
 	fmt.Printf("#%s: Enter password again\n", name)
-	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
+	bytePassword, err = terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
