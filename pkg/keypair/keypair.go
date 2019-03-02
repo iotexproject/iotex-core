@@ -90,5 +90,9 @@ func StringToPubKeyBytes(pubKey string) ([]byte, error) {
 
 // HashPubKey returns the hash of SECP256 public key
 func HashPubKey(pubKey PublicKey) hash.Hash160 {
-	return hash.Hash160b(PublicKeyToBytes(pubKey))
+	pkBytes := PublicKeyToBytes(pubKey)
+	if pkBytes == nil {
+		return hash.ZeroHash160
+	}
+	return hash.Hash160b(pkBytes[1:])
 }

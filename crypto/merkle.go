@@ -7,10 +7,7 @@
 package crypto
 
 import (
-	"golang.org/x/crypto/blake2b"
-
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Merkle tree struct
@@ -24,7 +21,6 @@ type Merkle struct {
 func NewMerkleTree(leaves []hash.Hash256) *Merkle {
 	size := len(leaves)
 	if size == 0 {
-		log.L().Warn("Try to create merkle tree with empty leaf list!")
 		return nil
 	}
 
@@ -62,7 +58,7 @@ func (mk *Merkle) HashTree() hash.Hash256 {
 	for i := 0; i < length; i++ {
 		h := mk.leaf[i<<1][:]
 		h = append(h, mk.leaf[i<<1+1][:]...)
-		merkle[i] = blake2b.Sum256(h)
+		merkle[i] = hash.Hash256b(h)
 	}
 
 	for length > 1 {
@@ -75,7 +71,7 @@ func (mk *Merkle) HashTree() hash.Hash256 {
 		for i := 0; i < length; i++ {
 			h := merkle[i<<1][:]
 			h = append(h, merkle[i<<1+1][:]...)
-			merkle[i] = blake2b.Sum256(h)
+			merkle[i] = hash.Hash256b(h)
 		}
 		merkle = merkle[0:length]
 	}

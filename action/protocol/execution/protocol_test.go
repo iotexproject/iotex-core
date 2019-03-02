@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -311,9 +312,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(blk.HashBlock(), blkHash)
 
 		// store to key 0
-		contractAddr := "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq"
 		data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
-		execution, err = action.NewExecution(contractAddr, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
+		execution, err = action.NewExecution(r.ContractAddress, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
 
 		bd = &action.EnvelopeBuilder{}
@@ -348,9 +348,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, r.ActHash)
 
 		// read from key 0
-		contractAddr = "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq"
 		data, _ = hex.DecodeString("6d4ce63c")
-		execution, err = action.NewExecution(contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
+		execution, err = action.NewExecution(r.ContractAddress, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
 
 		bd = &action.EnvelopeBuilder{}
@@ -506,7 +505,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(0, balance.Cmp(big.NewInt(500000000)))
 
 		log.S().Info("Roll Dice")
-		data, _ = hex.DecodeString("797d9fbd000000000000000000000000d950673630e2286adc157c35f2fd73a1ef49d40e")
+		h := keypair.HashPubKey(testaddress.Keyinfo["alfa"].PubKey)
+		data, _ = hex.DecodeString(fmt.Sprintf("797d9fbd000000000000000000000000%x", h))
 		execution, err = action.NewExecution(contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
 

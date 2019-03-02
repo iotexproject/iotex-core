@@ -11,7 +11,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 func BenchmarkEc283_Verify(b *testing.B) {
@@ -30,7 +31,7 @@ func VerifyEC283Signature(b *testing.B) {
 	require := require.New(b)
 
 	pk, sk, _ := EC283.NewKeyPair()
-	msg := blake2b.Sum256([]byte{1, 2, 3})
+	msg := hash.Hash256b([]byte{1, 2, 3})
 	sig := EC283.Sign(sk, msg[:])
 	require.True(EC283.Verify(pk, msg[:], sig))
 }
@@ -40,7 +41,7 @@ func VerifySECP256Signature(b *testing.B) {
 
 	sk, _ := crypto.GenerateKey()
 	pk := crypto.FromECDSAPub(&sk.PublicKey)
-	msg := blake2b.Sum256([]byte{1, 2, 3})
+	msg := hash.Hash256b([]byte{1, 2, 3})
 	sig, err := crypto.Sign(msg[:], sk)
 	require.NoError(err)
 	require.True(crypto.VerifySignature(pk, msg[:], sig[:64]))
