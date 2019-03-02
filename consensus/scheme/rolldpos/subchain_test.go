@@ -40,7 +40,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 				Version: version.ProtocolVersion,
 				Height:  123456789,
 			},
-			ProducerPubkey: keypair.PublicKeyToBytes(pubKey),
+			ProducerPubkey: pubKey.PubKeyBytes(),
 		},
 		Actions: []*iotextypes.Action{
 			{
@@ -51,7 +51,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   101,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+				SenderPubKey: pubKey.PubKeyBytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -61,7 +61,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   102,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+				SenderPubKey: pubKey.PubKeyBytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -71,7 +71,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   103,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+				SenderPubKey: pubKey.PubKeyBytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -81,7 +81,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   104,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+				SenderPubKey: pubKey.PubKeyBytes(),
 			},
 		},
 	}

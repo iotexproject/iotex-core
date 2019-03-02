@@ -69,12 +69,12 @@ func DecodePrivateKey(prvKey string) (PrivateKey, error) {
 
 // EncodePublicKey encodes a SECP256K1 PublicKey to string
 func EncodePublicKey(pubKey PublicKey) string {
-	return hex.EncodeToString(PublicKeyToBytes(pubKey))
+	return hex.EncodeToString(pubKey.PubKeyBytes())
 }
 
 // EncodePrivateKey encodes a SECP256K1 PrivateKey to string
 func EncodePrivateKey(priKey PrivateKey) string {
-	return hex.EncodeToString(PrivateKeyToBytes(priKey))
+	return hex.EncodeToString(priKey.PrvKeyBytes())
 }
 
 // BytesToPublicKey converts a byte slice to SECP256K1 PublicKey
@@ -85,16 +85,6 @@ func BytesToPublicKey(pubKey []byte) (PublicKey, error) {
 // BytesToPrivateKey converts a byte slice to SECP256K1 PrivateKey
 func BytesToPrivateKey(prvKey []byte) (PrivateKey, error) {
 	return NewSecp256k1PrvKeyFromBytes(prvKey)
-}
-
-// PublicKeyToBytes converts a SECP256K1 PublicKey to byte slice
-func PublicKeyToBytes(pubKey PublicKey) []byte {
-	return pubKey.PubKeyBytes()
-}
-
-// PrivateKeyToBytes converts a SECP256K1 PrivateKey to byte slice
-func PrivateKeyToBytes(prvKey PrivateKey) []byte {
-	return prvKey.PrvKeyBytes()
 }
 
 // StringToPubKeyBytes converts a string of public key to byte slice

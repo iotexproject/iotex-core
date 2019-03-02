@@ -22,7 +22,7 @@ func TestSecp256k1(t *testing.T) {
 
 	tests := []PrivateKey{k1, k2, k3, k4}
 
-	for _, sk := range tests {
+	for i, sk := range tests {
 		require.Equal(secp256prvKeyLength, len(sk.PrvKeyBytes()))
 		pk := sk.PubKey()
 		require.Equal(secp256pubKeyLength, len(pk.PubKeyBytes()))
@@ -36,9 +36,9 @@ func TestSecp256k1(t *testing.T) {
 		h := hash.Hash256b([]byte("test secp256k1 signature så∫jaç∂fla´´3jl©˙kl3∆˚83jl≈¥fjs2"))
 		sig, err := sk.Sign(h[:])
 		require.NoError(err)
-		require.True(sig[64] == 0 || sig[64] == 1)
+		require.True(sig[secp256pubKeyLength-1] == 0 || sig[secp256pubKeyLength-1] == 1)
 		require.True(pk.Verify(h[:], sig))
-		sig[3] = sig[3] - 1
+		sig[i]--
 		require.False(pk.Verify(h[:], sig))
 	}
 }

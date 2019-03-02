@@ -1139,7 +1139,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 }
 
 func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, error) {
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(keypair.PrivateKeyToBytes(identityset.PrivateKey(0)))
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).PrvKeyBytes())
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	if err != nil {
 		return nil, nil, err

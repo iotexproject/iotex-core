@@ -38,8 +38,8 @@ func TestKeypair(t *testing.T) {
 	require.Equal(publicKey, EncodePublicKey(pubKey))
 	require.Equal(privateKey, EncodePrivateKey(priKey))
 
-	pubKeyBytes := PublicKeyToBytes(pubKey)
-	priKeyBytes := PrivateKeyToBytes(priKey)
+	pubKeyBytes := pubKey.PubKeyBytes()
+	priKeyBytes := priKey.PrvKeyBytes()
 
 	_, err = BytesToPublicKey([]byte{1, 2, 3})
 	require.Error(err)

@@ -334,7 +334,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cs := make([]*RollDPoS, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
 			ctx := context.Background()
-			cfg.Chain.ProducerPrivKey = hex.EncodeToString(keypair.PrivateKeyToBytes(chainAddrs[i].priKey))
+			cfg.Chain.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.PrvKeyBytes())
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(ctx))
