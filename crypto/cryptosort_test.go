@@ -10,10 +10,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/blake2b"
-
 	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCryptoSort(t *testing.T) {
@@ -22,7 +21,7 @@ func TestCryptoSort(t *testing.T) {
 	for i := 100000; i < 100100; i++ {
 		ii := make([]byte, 8)
 		enc.MachineEndian.PutUint64(ii, uint64(i))
-		h := blake2b.Sum256(ii)
+		h := hash.Hash256b(ii)
 		hashes = append(hashes, h[:])
 		hashescp = append(hashescp, h[:])
 	}

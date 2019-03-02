@@ -10,8 +10,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/crypto/blake2b"
 )
 
 var (
@@ -36,9 +37,9 @@ var (
 	ErrNotExist = errors.New("not exist in trie")
 )
 
-// DefaultHashFunc implements a default hash function with blake2b.Sum256
+// DefaultHashFunc implements a default hash function
 func DefaultHashFunc(data []byte) []byte {
-	h := blake2b.Sum256(data)
+	h := hash.Hash256b(data)
 	return h[:]
 }
 

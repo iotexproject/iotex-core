@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -258,12 +257,12 @@ func (elp *Envelope) ByteStream() []byte {
 
 // Hash returns the hash value of SealedEnvelope.
 func (elp *Envelope) Hash() hash.Hash256 {
-	return blake2b.Sum256(elp.ByteStream())
+	return hash.Hash256b(elp.ByteStream())
 }
 
 // Hash returns the hash value of SealedEnvelope.
 func (sealed *SealedEnvelope) Hash() hash.Hash256 {
-	return blake2b.Sum256(byteutil.Must(proto.Marshal(sealed.Proto())))
+	return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto())))
 }
 
 // SrcPubkey returns the source public key
