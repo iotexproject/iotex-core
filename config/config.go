@@ -11,6 +11,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/iotexproject/iotex-election/committee"
+
 	"go.uber.org/zap"
 
 	"github.com/pkg/errors"
@@ -71,15 +73,17 @@ var (
 			MasterKey:      "",
 		},
 		Chain: Chain{
-			ChainDBPath:             "/tmp/chain.db",
-			TrieDBPath:              "/tmp/trie.db",
-			ID:                      1,
-			Address:                 "",
-			ProducerPrivKey:         PrivateKey.HexString(),
-			EmptyGenesis:            false,
-			NumCandidates:           101,
-			BeaconChainAPIs:         []string{},
-			BeaconChainDB:           DB{DbPath: "/tmp/poll.db", NumRetries: 10},
+			ChainDBPath:     "/tmp/chain.db",
+			TrieDBPath:      "/tmp/trie.db",
+			ID:              1,
+			Address:         "",
+			ProducerPrivKey: PrivateKey.HexString(),
+			EmptyGenesis:    false,
+			NumCandidates:   101,
+			GravityChainDB:  DB{DbPath: "/tmp/poll.db", NumRetries: 10},
+			Committee: committee.Config{
+				BeaconChainAPIs: []string{},
+			},
 			EnableFallBackToFreshDB: false,
 			EnableTrielessStateDB:   true,
 			EnableIndex:             false,
@@ -192,17 +196,18 @@ type (
 
 	// Chain is the config struct for blockchain package
 	Chain struct {
-		ChainDBPath             string   `yaml:"chainDBPath"`
-		TrieDBPath              string   `yaml:"trieDBPath"`
-		ID                      uint32   `yaml:"id"`
-		Address                 string   `yaml:"address"`
-		ProducerPrivKey         string   `yaml:"producerPrivKey"`
-		EmptyGenesis            bool     `yaml:"emptyGenesis"`
-		NumCandidates           uint     `yaml:"numCandidates"`
-		BeaconChainAPIs         []string `yaml:"beaconChainAPIs"`
-		BeaconChainDB           DB       `yaml:"beaconChainDB"`
-		EnableFallBackToFreshDB bool     `yaml:"enableFallbackToFreshDb"`
-		EnableTrielessStateDB   bool     `yaml:"enableTrielessStateDB"`
+		ChainDBPath     string           `yaml:"chainDBPath"`
+		TrieDBPath      string           `yaml:"trieDBPath"`
+		ID              uint32           `yaml:"id"`
+		Address         string           `yaml:"address"`
+		ProducerPrivKey string           `yaml:"producerPrivKey"`
+		EmptyGenesis    bool             `yaml:"emptyGenesis"`
+		NumCandidates   uint             `yaml:"numCandidates"`
+		GravityChainDB  DB               `yaml:"gravityChainDB"`
+		Committee       committee.Config `yaml:"committee"`
+
+		EnableFallBackToFreshDB bool `yaml:"enableFallbackToFreshDb"`
+		EnableTrielessStateDB   bool `yaml:"enableTrielessStateDB"`
 		// enable index the block actions and receipts
 		EnableIndex bool `yaml:"enableIndex"`
 		// enable writing the block actions' and receipts' index asynchronously
