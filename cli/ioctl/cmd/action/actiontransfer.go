@@ -11,11 +11,13 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -72,11 +74,12 @@ func transfer(args []string) string {
 		log.L().Error("cannot make a Transfer instance", zap.Error(err))
 	}
 	fmt.Printf("Enter password #%s:", alias)
-	password, err := gopass.GetPasswd()
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return err.Error()
 	}
+	password := strings.TrimSpace(string(bytePassword))
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(accountMeta.PendingNonce).
 		SetGasPrice(big.NewInt(gasPrice)).

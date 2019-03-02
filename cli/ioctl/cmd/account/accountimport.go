@@ -10,11 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
+	"syscall"
 
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -72,19 +74,19 @@ func accountImport(args []string) string {
 
 func newAccountByKey(name string, privateKey string) (string, error) {
 	fmt.Printf("#%s: Enter password\n", name)
-	passwordBytes, err := gopass.GetPasswd()
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
 	}
-	password := string(passwordBytes)
+	password := strings.TrimSpace(string(bytePassword))
 	fmt.Printf("#%s: Enter password again\n", name)
-	passwordCheck, err := gopass.GetPasswd()
+	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
 	}
-	if password != string(passwordCheck) {
+	if password != strings.TrimSpace(string(bytePassword)) {
 		return "", errors.New("password doesn't match")
 	}
 	ks := keystore.NewKeyStore(config.ConfigDir, keystore.StandardScryptN, keystore.StandardScryptP)
