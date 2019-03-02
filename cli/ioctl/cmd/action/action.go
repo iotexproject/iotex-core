@@ -40,6 +40,8 @@ var ActionCmd = &cobra.Command{
 func init() {
 	ActionCmd.AddCommand(actionHashCmd)
 	ActionCmd.AddCommand(actionTransferCmd)
+	ActionCmd.AddCommand(actionDeployCmd)
+	ActionCmd.AddCommand(actionInvokeCmd)
 }
 
 func sendAction(request *iotexapi.SendActionRequest) string {
