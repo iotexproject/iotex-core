@@ -82,7 +82,7 @@ func transfer(args []string) string {
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
 	hash := elp.Hash()
-	sig, err := account.Sign(alias, string(password), hash[:])
+	sig, err := account.Sign(alias, password, hash[:])
 	if err != nil {
 		log.L().Error("fail to sign", zap.Error(err))
 		return err.Error()
