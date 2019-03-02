@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -60,7 +59,7 @@ func (en *ConsensusVote) Hash() hash.Hash256 {
 	stream = append(stream, byteutil.Uint32ToBytes(en.Round)...)
 	stream = append(stream, en.BlkHash...)
 
-	return blake2b.Sum256(stream)
+	return hash.Hash256b(stream)
 }
 
 // Endorsement is a stamp on a consensus vote

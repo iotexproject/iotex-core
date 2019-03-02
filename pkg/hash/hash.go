@@ -6,7 +6,9 @@
 
 package hash
 
-import "golang.org/x/crypto/blake2b"
+import (
+	"github.com/ethereum/go-ethereum/crypto"
+)
 
 var (
 	// ZeroHash256 is 256-bit of all zero
@@ -24,17 +26,17 @@ type (
 
 // Hash160b returns 160-bit (20-byte) hash of input
 func Hash160b(input []byte) Hash160 {
-	// use Blake2b algorithm
-	digest := blake2b.Sum256(input)
+	// use sha3 algorithm
+	digest := crypto.Keccak256(input)
 	var hash Hash160
-	copy(hash[:], digest[7:27])
+	copy(hash[:], digest[12:])
 	return hash
 }
 
 // Hash256b returns 256-bit (32-byte) hash of input
 func Hash256b(input []byte) Hash256 {
-	// use Blake2b algorithm
-	digest := blake2b.Sum256(input)
+	// use sha3 algorithm
+	digest := crypto.Keccak256(input)
 	var hash Hash256
 	copy(hash[:], digest[:])
 	return hash

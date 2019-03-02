@@ -1408,7 +1408,6 @@
     "go.uber.org/config",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
-    "golang.org/x/crypto/blake2b",
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/net/context",
     "golang.org/x/sync/errgroup",

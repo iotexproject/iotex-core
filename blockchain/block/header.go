@@ -9,14 +9,12 @@ package block
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"go.uber.org/zap"
-	"golang.org/x/crypto/blake2b"
-
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"go.uber.org/zap"
 )
 
 // Header defines the struct of block header
@@ -93,12 +91,12 @@ func (h Header) ByteStream() []byte {
 
 // HashHeader hashes the header
 func (h Header) HashHeader() hash.Hash256 {
-	return blake2b.Sum256(h.ByteStream())
+	return hash.Hash256b(h.ByteStream())
 }
 
 // HashHeaderCore hahes the header core.
 func (h Header) HashHeaderCore() hash.Hash256 {
-	return blake2b.Sum256(h.CoreByteStream())
+	return hash.Hash256b(h.CoreByteStream())
 }
 
 // ByteStream returns a byte stream of the header.
