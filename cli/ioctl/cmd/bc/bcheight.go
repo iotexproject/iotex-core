@@ -12,11 +12,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	pb "github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 // heightCmd represents the account height command
@@ -26,10 +26,6 @@ var heightCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(getCurrentBlockHeigh(args))
 	},
-}
-
-func init() {
-	BCCmd.AddCommand(heightCmd)
 }
 
 // getCurrentBlockHeigh get current height of block chain from server
@@ -46,8 +42,8 @@ func getCurrentBlockHeigh(args []string) string {
 	}
 	defer conn.Close()
 
-	cli := pb.NewAPIServiceClient(conn)
-	request := pb.GetChainMetaRequest{}
+	cli := iotexapi.NewAPIServiceClient(conn)
+	request := iotexapi.GetChainMetaRequest{}
 	ctx := context.Background()
 	response, err := cli.GetChainMeta(ctx, &request)
 	if err != nil {

@@ -1179,7 +1179,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9d3dacca4307c2320b28717045a88eefe201fd29d87865965f3f0731a918606f"
+  digest = "1:51744966cb1a8ee986b72a695ece348c20fa5c7061bb97442111bef71e859005"
   name = "golang.org/x/crypto"
   packages = [
     "blake2b",
@@ -1191,6 +1191,7 @@
     "ripemd160",
     "scrypt",
     "sha3",
+    "ssh/terminal",
   ]
   pruneopts = "UT"
   revision = "a4c6cb3142f211c99e4bf4cd769535b29a9b616f"
@@ -1407,6 +1408,7 @@
     "go.uber.org/config",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
+    "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/net/context",
     "golang.org/x/sync/errgroup",
     "google.golang.org/grpc",
