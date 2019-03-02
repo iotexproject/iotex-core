@@ -693,9 +693,6 @@ func TestServer_GetBlockMeta(t *testing.T) {
 }
 
 func TestServer_GetChainMeta(t *testing.T) {
-	// TODO: GetChainMeta has problem
-	t.Skip()
-
 	require := require.New(t)
 	cfg := newConfig()
 
