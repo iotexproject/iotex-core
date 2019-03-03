@@ -1327,8 +1327,7 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 		return "", errors.New("not execution")
 	}
 
-	callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-	callerAddr, err := address.FromBytes(callerPKHash[:])
+	callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 	if err != nil {
 		return "", err
 	}

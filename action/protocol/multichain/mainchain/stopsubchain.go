@@ -16,8 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -31,7 +29,7 @@ func (p *Protocol) subChainToStop(subChainAddr string) (*SubChain, error) {
 }
 
 func (p *Protocol) validateSubChainOwnership(
-	ownerPKHash hash.Hash160,
+	ownerPKHash []byte,
 	sender string,
 	sm protocol.StateManager,
 ) (*state.Account, error) {
@@ -73,7 +71,7 @@ func (p *Protocol) handleStopSubChain(ctx context.Context, stop *action.StopSubC
 		return err
 	}
 	acct, err := p.validateSubChainOwnership(
-		keypair.HashPubKey(subChain.OwnerPublicKey),
+		subChain.OwnerPublicKey.Hash(),
 		raCtx.Caller.String(),
 		sm,
 	)

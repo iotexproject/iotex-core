@@ -40,7 +40,7 @@ func VerifySECP256Signature(b *testing.B) {
 	require := require.New(b)
 
 	sk, _ := keypair.GenerateKey()
-	pk := sk.PubKey()
+	pk := sk.PublicKey()
 	msg := hash.Hash256b([]byte{1, 2, 3})
 	sig, err := sk.Sign(msg[:])
 	require.NoError(err)

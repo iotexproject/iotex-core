@@ -22,11 +22,10 @@ func TestAddress(t *testing.T) {
 		sk, err := keypair.GenerateKey()
 		require.NoError(t, err)
 
-		pkHash := keypair.HashPubKey(sk.PubKey())
-
-		addr1, err := _v1.FromBytes(pkHash[:])
+		pkHash := sk.PublicKey().Hash()
+		addr1, err := _v1.FromBytes(pkHash)
 		require.NoError(t, err)
-		assert.Equal(t, pkHash[:], addr1.Bytes())
+		assert.Equal(t, pkHash, addr1.Bytes())
 
 		encodedAddr := addr1.String()
 		if isTestNet {
@@ -60,8 +59,7 @@ func TestAddressError(t *testing.T) {
 	sk, err := keypair.GenerateKey()
 	require.NoError(t, err)
 
-	pkHash := keypair.HashPubKey(sk.PubKey())
-	addr1, err := _v1.FromBytes(pkHash[:])
+	addr1, err := _v1.FromBytes(sk.PublicKey().Hash())
 	require.NoError(t, err)
 
 	encodedAddr := addr1.String()

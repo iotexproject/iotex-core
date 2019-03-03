@@ -41,9 +41,8 @@ func init() {
 	Keyinfo = make(map[string]*Key)
 	for name, skStr := range testSKs {
 		priKey, _ := keypair.DecodePrivateKey(skStr)
-		pubKey := priKey.PubKey()
-		pkHash := keypair.HashPubKey(pubKey)
-		Addrinfo[name], _ = address.FromBytes(pkHash[:])
+		pubKey := priKey.PublicKey()
+		Addrinfo[name], _ = address.FromBytes(pubKey.Hash())
 		Keyinfo[name] = &Key{PubKey: pubKey, PriKey: priKey}
 	}
 }

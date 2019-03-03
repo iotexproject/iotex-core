@@ -278,7 +278,7 @@ func (sealed *SealedEnvelope) Signature() []byte {
 func (sealed SealedEnvelope) Proto() *iotextypes.Action {
 	return &iotextypes.Action{
 		Core:         sealed.Envelope.Proto(),
-		SenderPubKey: sealed.srcPubkey.PubKeyBytes(),
+		SenderPubKey: sealed.srcPubkey.Bytes(),
 		Signature:    sealed.signature,
 	}
 }
@@ -312,7 +312,7 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 func Sign(act Envelope, sk keypair.PrivateKey) (SealedEnvelope, error) {
 	sealed := SealedEnvelope{Envelope: act}
 
-	sealed.srcPubkey = sk.PubKey()
+	sealed.srcPubkey = sk.PublicKey()
 
 	hash := act.Hash()
 	sig, err := sk.Sign(hash[:])

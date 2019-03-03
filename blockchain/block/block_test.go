@@ -68,7 +68,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Version: version.ProtocolVersion,
 				Height:  123456789,
 			},
-			ProducerPubkey: senderPubKey.PubKeyBytes(),
+			ProducerPubkey: senderPubKey.Bytes(),
 		},
 		Actions: []*iotextypes.Action{
 			{
@@ -79,7 +79,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   101,
 				},
-				SenderPubKey: senderPubKey.PubKeyBytes(),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -89,7 +89,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   102,
 				},
-				SenderPubKey: senderPubKey.PubKeyBytes(),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -99,7 +99,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   103,
 				},
-				SenderPubKey: senderPubKey.PubKeyBytes(),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -109,7 +109,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   104,
 				},
-				SenderPubKey: senderPubKey.PubKeyBytes(),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 		},
 	}))

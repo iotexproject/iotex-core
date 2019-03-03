@@ -50,7 +50,7 @@ func putBlockToParentChainTask(
 	senderPrvKey keypair.PrivateKey,
 	b *block.Block,
 ) error {
-	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, senderPrvKey.PubKey(), senderPrvKey, b)
+	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, senderPrvKey.PublicKey(), senderPrvKey, b)
 	if err != nil {
 		return errors.Wrap(err, "fail to construct PutSubChainBlockRequest")
 	}
@@ -68,8 +68,7 @@ func constructPutSubChainBlockRequest(
 	senderPriKey keypair.PrivateKey,
 	b *block.Block,
 ) (explorerapi.PutSubChainBlockRequest, error) {
-	senderPKHash := keypair.HashPubKey(senderPubKey)
-	senderPCAddr, err := address.FromBytes(senderPKHash[:])
+	senderPCAddr, err := address.FromBytes(senderPubKey.Hash())
 	if err != nil {
 		return explorerapi.PutSubChainBlockRequest{}, err
 	}

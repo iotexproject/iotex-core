@@ -435,8 +435,7 @@ func NewSub(validates ...Validate) (Config, error) {
 // ProducerAddress returns the configured producer address derived from key
 func (cfg Config) ProducerAddress() address.Address {
 	sk := cfg.ProducerPrivateKey()
-	pkHash := keypair.HashPubKey(sk.PubKey())
-	addr, err := address.FromBytes(pkHash[:])
+	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	if err != nil {
 		log.L().Panic(
 			"Error when constructing producer address",

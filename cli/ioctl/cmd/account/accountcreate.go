@@ -41,10 +41,9 @@ func accountCreate(_ []string) string {
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
-		pkHash := keypair.HashPubKey(private.PubKey())
-		addr, _ := address.FromBytes(pkHash[:])
-		priKeyBytes := private.PrvKeyBytes()
-		pubKeyBytes := private.PubKey().PubKeyBytes()
+		addr, _ := address.FromBytes(private.PublicKey().Hash())
+		priKeyBytes := private.Bytes()
+		pubKeyBytes := private.PublicKey().Bytes()
 		items[i] = fmt.Sprintf(
 			"{\"Address\": \"%s\", \"PrivateKey\": \"%x\", \"PublicKey\": \"%x\"}\n",
 			addr.String(), priKeyBytes, pubKeyBytes)

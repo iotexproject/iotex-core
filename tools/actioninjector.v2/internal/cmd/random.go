@@ -90,8 +90,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to decode private key")
 		}
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(pk.Hash())
 		if err != nil {
 			return err
 		}

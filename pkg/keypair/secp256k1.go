@@ -30,8 +30,8 @@ type (
 // PrivateKey function
 //======================================
 
-// NewSecp256k1PrvKey generates a new SECP256K1 private key
-func NewSecp256k1PrvKey() (PrivateKey, error) {
+// newSecp256k1PrvKey generates a new SECP256K1 private key
+func newSecp256k1PrvKey() (PrivateKey, error) {
 	sk, err := crypto.GenerateKey()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create secp256k1 private key")
@@ -41,8 +41,8 @@ func NewSecp256k1PrvKey() (PrivateKey, error) {
 	}, nil
 }
 
-// NewSecp256k1PrvKeyFromBytes converts bytes format to PrivateKey
-func NewSecp256k1PrvKeyFromBytes(b []byte) (CryptoKey, error) {
+// newSecp256k1PrvKeyFromBytes converts bytes format to PrivateKey
+func newSecp256k1PrvKeyFromBytes(b []byte) (PrivateKey, error) {
 	sk, err := crypto.ToECDSA(b)
 	if err != nil {
 		return nil, err
@@ -52,37 +52,21 @@ func NewSecp256k1PrvKeyFromBytes(b []byte) (CryptoKey, error) {
 	}, nil
 }
 
-// PrvKeyBytes returns the private key in bytes representation
-func (k *secp256k1PrvKey) PrvKeyBytes() []byte {
+// Bytes returns the private key in bytes representation
+func (k *secp256k1PrvKey) Bytes() []byte {
 	return crypto.FromECDSA(k.PrivateKey)
 }
 
-// PubKey returns the public key corresponding to private key
-func (k *secp256k1PrvKey) PubKey() PublicKey {
+// PublicKey returns the public key corresponding to private key
+func (k *secp256k1PrvKey) PublicKey() PublicKey {
 	return &secp256k1PubKey{
-		PublicKey: &k.PublicKey,
+		PublicKey: &k.PrivateKey.PublicKey,
 	}
 }
 
 // Sign signs the message/hash
 func (k *secp256k1PrvKey) Sign(hash []byte) ([]byte, error) {
 	return crypto.Sign(hash, k.PrivateKey)
-}
-
-// PubKeyBytes returns the public key in bytes representation
-func (k *secp256k1PrvKey) PubKeyBytes() []byte {
-	return crypto.FromECDSAPub(&k.PublicKey)
-}
-
-// PubKeyHash is the hash of the public key
-func (k *secp256k1PrvKey) PubKeyHash() []byte {
-	h := hash.Hash160b(k.PubKeyBytes())
-	return h[:]
-}
-
-// Verify verifies the signature
-func (k *secp256k1PrvKey) Verify(hash, sig []byte) bool {
-	return crypto.VerifySignature(k.PubKeyBytes(), hash, sig[:len(sig)-1])
 }
 
 //======================================
@@ -100,18 +84,26 @@ func NewSecp256k1PubKeyFromBytes(b []byte) (PublicKey, error) {
 	}, nil
 }
 
-// PubKeyBytes returns the public key in bytes representation
-func (k *secp256k1PubKey) PubKeyBytes() []byte {
+// Bytes returns the public key in bytes representation
+func (k *secp256k1PubKey) Bytes() []byte {
 	return crypto.FromECDSAPub(k.PublicKey)
 }
 
-// PubKeyHash is the hash of the public key
-func (k *secp256k1PubKey) PubKeyHash() []byte {
-	h := hash.Hash160b(k.PubKeyBytes())
+// Hash is the last 20-byte of keccak hash of public key bytes, same as Ethereum address generation
+func (k *secp256k1PubKey) Hash() []byte {
+	h := hash.Hash160b(k.Bytes()[1:])
 	return h[:]
 }
 
 // Verify verifies the signature
 func (k *secp256k1PubKey) Verify(hash, sig []byte) bool {
-	return crypto.VerifySignature(k.PubKeyBytes(), hash, sig[:len(sig)-1])
+	if len(sig) != secp256pubKeyLength {
+		return false
+	}
+	// signature must be in the [R || S || V] format where V is 0 or 1
+	v := sig[secp256pubKeyLength-1]
+	if !(v == 0 || v == 1) {
+		return false
+	}
+	return crypto.VerifySignature(k.Bytes(), hash, sig[:len(sig)-1])
 }

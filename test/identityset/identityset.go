@@ -63,8 +63,7 @@ func PrivateKey(i int) keypair.PrivateKey {
 // Address returns the i-th identity's address
 func Address(i int) address.Address {
 	sk := PrivateKey(i)
-	pkHash := keypair.HashPubKey(sk.PubKey())
-	addr, err := address.FromBytes(pkHash[:])
+	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	if err != nil {
 		log.L().Panic("Error when constructing the address", zap.Error(err))
 	}

@@ -36,8 +36,8 @@ func generate(args []string) string {
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
-		priKeyBytes := private.PrvKeyBytes()
-		pubKeyBytes := private.PubKey().PubKeyBytes()
+		priKeyBytes := private.Bytes()
+		pubKeyBytes := private.PublicKey().Bytes()
 		items[i] = fmt.Sprintf(
 			"{\"PublicKey\": \"%x\", \"PrivateKey\": \"%x\"}",
 			pubKeyBytes,

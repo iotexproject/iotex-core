@@ -69,8 +69,7 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decode private key")
 		}
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(pk.Hash())
 		if err != nil {
 			return nil, err
 		}

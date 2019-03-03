@@ -156,8 +156,7 @@ func (b *Block) VerifyReceiptRoot(root hash.Hash256) error {
 
 // ProducerAddress returns the address of producer
 func (b *Block) ProducerAddress() string {
-	pkHash := keypair.HashPubKey(b.Header.pubkey)
-	addr, _ := address.FromBytes(pkHash[:])
+	addr, _ := address.FromBytes(b.Header.pubkey.Hash())
 	return addr.String()
 }
 

@@ -68,7 +68,7 @@ func (b *Builder) SetReceiptRoot(h hash.Hash256) *Builder {
 
 // SignAndBuild signs and then builds a block.
 func (b *Builder) SignAndBuild(signerPrvKey keypair.PrivateKey) (Block, error) {
-	if !bytes.Equal(b.blk.Header.pubkey.PubKeyBytes(), signerPrvKey.PubKey().PubKeyBytes()) {
+	if !bytes.Equal(b.blk.Header.pubkey.Bytes(), signerPrvKey.PublicKey().Bytes()) {
 		return Block{}, errors.New("public key from the signer doesn't match that from runnable actions")
 	}
 

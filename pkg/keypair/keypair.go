@@ -10,8 +10,6 @@ import (
 	"encoding/hex"
 
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 const (
@@ -27,26 +25,21 @@ var (
 type (
 	// PublicKey represents a public key
 	PublicKey interface {
-		PubKeyBytes() []byte
-		PubKeyHash() []byte
+		Bytes() []byte
+		Hash() []byte
 		Verify([]byte, []byte) bool
 	}
 	// PrivateKey represents a private key
 	PrivateKey interface {
-		PrvKeyBytes() []byte
-		PubKey() PublicKey
+		Bytes() []byte
+		PublicKey() PublicKey
 		Sign([]byte) ([]byte, error)
-	}
-	// CryptoKey represents a unique key pair
-	CryptoKey interface {
-		PublicKey
-		PrivateKey
 	}
 )
 
 // GenerateKey generates a SECP256K1 PrivateKey
 func GenerateKey() (PrivateKey, error) {
-	return NewSecp256k1PrvKey()
+	return newSecp256k1PrvKey()
 }
 
 // DecodePublicKey decodes a string to SECP256K1 PublicKey
@@ -69,12 +62,12 @@ func DecodePrivateKey(prvKey string) (PrivateKey, error) {
 
 // EncodePublicKey encodes a SECP256K1 PublicKey to string
 func EncodePublicKey(pubKey PublicKey) string {
-	return hex.EncodeToString(pubKey.PubKeyBytes())
+	return hex.EncodeToString(pubKey.Bytes())
 }
 
 // EncodePrivateKey encodes a SECP256K1 PrivateKey to string
 func EncodePrivateKey(priKey PrivateKey) string {
-	return hex.EncodeToString(priKey.PrvKeyBytes())
+	return hex.EncodeToString(priKey.Bytes())
 }
 
 // BytesToPublicKey converts a byte slice to SECP256K1 PublicKey
@@ -84,7 +77,7 @@ func BytesToPublicKey(pubKey []byte) (PublicKey, error) {
 
 // BytesToPrivateKey converts a byte slice to SECP256K1 PrivateKey
 func BytesToPrivateKey(prvKey []byte) (PrivateKey, error) {
-	return NewSecp256k1PrvKeyFromBytes(prvKey)
+	return newSecp256k1PrvKeyFromBytes(prvKey)
 }
 
 // StringToPubKeyBytes converts a string of public key to byte slice
@@ -97,13 +90,4 @@ func StringToPubKeyBytes(pubKey string) ([]byte, error) {
 		return nil, errors.Wrap(ErrPublicKey, "Invalid public key length")
 	}
 	return pubKeyBytes, nil
-}
-
-// HashPubKey returns the hash of SECP256 public key
-func HashPubKey(pubKey PublicKey) hash.Hash160 {
-	pkBytes := pubKey.PubKeyBytes()
-	if pkBytes == nil {
-		return hash.ZeroHash160
-	}
-	return hash.Hash160b(pkBytes[1:])
 }

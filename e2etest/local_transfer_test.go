@@ -336,7 +336,7 @@ func TestLocalTransfer(t *testing.T) {
 			selp, err := bc.GetActionByActionHash(tsf.Hash())
 			require.NoError(err, tsfTest.message)
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
-			require.Equal(senderPriKey.PubKey().PubKeyBytes(), selp.Proto().SenderPubKey, tsfTest.message)
+			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
 
 			newSenderBalance, _ := bc.Balance(senderAddr)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
@@ -412,9 +412,7 @@ func initStateKeyAddr(
 		if err != nil {
 			return nil, "", err
 		}
-		pk := sk.PubKey()
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		retAddr = addr.String()
 		_, err = bc.CreateState(
 			retAddr,
@@ -426,9 +424,7 @@ func initStateKeyAddr(
 		retKey = sk
 
 	case AcntExist:
-		pk := retKey.PubKey()
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(retKey.PublicKey().Hash())
 		retAddr = addr.String()
 		existBalance, err := bc.Balance(retAddr)
 		if err != nil {
@@ -440,9 +436,7 @@ func initStateKeyAddr(
 		if err != nil {
 			return nil, "", err
 		}
-		pk := sk.PubKey()
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		retAddr = addr.String()
 		retKey = sk
 	case AcntBadAddr:
@@ -462,9 +456,7 @@ func initTestAccounts(
 ) error {
 	for i := 0; i < len(localKeys); i++ {
 		sk := getLocalKey(i)
-		pk := sk.PubKey()
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		_, err = bc.CreateState(
 			addr.String(),
 			initBalance,

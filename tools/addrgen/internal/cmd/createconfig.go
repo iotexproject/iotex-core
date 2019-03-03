@@ -27,8 +27,8 @@ var createConfigCmd = &cobra.Command{
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
-		priKeyBytes := private.PrvKeyBytes()
-		pubKeyBytes := private.PubKey().PubKeyBytes()
+		priKeyBytes := private.Bytes()
+		pubKeyBytes := private.PublicKey().Bytes()
 		cfgStr := fmt.Sprintf(
 			`chain:
   producerPrivKey: "%x"

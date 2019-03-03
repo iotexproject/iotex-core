@@ -32,7 +32,6 @@ import (
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
@@ -277,8 +276,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, errors.New("not execution")
 	}
 
-	callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-	callerAddr, err := address.FromBytes(callerPKHash[:])
+	callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
 	}

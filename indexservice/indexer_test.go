@@ -56,7 +56,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 				Version: version.ProtocolVersion,
 				Height:  123456789,
 			},
-			ProducerPubkey: pubKey1.PubKeyBytes(),
+			ProducerPubkey: pubKey1.Bytes(),
 		},
 		Actions: []*iotextypes.Action{
 			{
@@ -67,7 +67,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   101,
 				},
-				SenderPubKey: pubKey1.PubKeyBytes(),
+				SenderPubKey: pubKey1.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -77,7 +77,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   103,
 				},
-				SenderPubKey: pubKey1.PubKeyBytes(),
+				SenderPubKey: pubKey1.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -87,7 +87,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   104,
 				},
-				SenderPubKey: pubKey1.PubKeyBytes(),
+				SenderPubKey: pubKey1.Bytes(),
 			},
 		},
 	})

@@ -80,7 +80,7 @@ func NewEndorsement(object *ConsensusVote, endorserPriKey keypair.PrivateKey, en
 	return &Endorsement{
 		object:         object,
 		endorser:       endorserAddr,
-		endorserPubkey: endorserPriKey.PubKey(),
+		endorserPubkey: endorserPriKey.PublicKey(),
 		signature:      sig,
 	}
 }
@@ -133,7 +133,7 @@ func (en *Endorsement) ToProtoMsg() *iotextypes.Endorsement {
 		BlockHash:      vote.BlkHash,
 		Topic:          topic,
 		Endorser:       en.Endorser(),
-		EndorserPubKey: pubkey.PubKeyBytes(),
+		EndorserPubKey: pubkey.Bytes(),
 		Decision:       true,
 		Signature:      en.Signature(),
 	}

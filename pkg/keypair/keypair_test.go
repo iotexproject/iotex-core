@@ -38,8 +38,8 @@ func TestKeypair(t *testing.T) {
 	require.Equal(publicKey, EncodePublicKey(pubKey))
 	require.Equal(privateKey, EncodePrivateKey(priKey))
 
-	pubKeyBytes := pubKey.PubKeyBytes()
-	priKeyBytes := priKey.PrvKeyBytes()
+	pubKeyBytes := pubKey.Bytes()
+	priKeyBytes := priKey.Bytes()
 
 	_, err = BytesToPublicKey([]byte{1, 2, 3})
 	require.Error(err)
@@ -66,8 +66,7 @@ func TestCompatibility(t *testing.T) {
 	require.NoError(t, err)
 	ethAddr := crypto.PubkeyToAddress(sk.PublicKey)
 	nsk := &secp256k1PrvKey{PrivateKey: sk}
-	pkHash := HashPubKey(nsk.PubKey())
-	addr, err := address.FromBytes(pkHash[:])
+	addr, err := address.FromBytes(nsk.PublicKey().Hash())
 	require.NoError(t, err)
 	require.Equal(t, ethAddr.Bytes(), addr.Bytes())
 }
