@@ -889,6 +889,6 @@ func newTestConfig() (config.Config, error) {
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
+	cfg.Chain.ProducerPrivKey = sk.HexString()
 	return cfg, nil
 }

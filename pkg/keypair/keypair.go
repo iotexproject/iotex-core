@@ -26,12 +26,14 @@ type (
 	// PublicKey represents a public key
 	PublicKey interface {
 		Bytes() []byte
+		HexString() string
 		Hash() []byte
 		Verify([]byte, []byte) bool
 	}
 	// PrivateKey represents a private key
 	PrivateKey interface {
 		Bytes() []byte
+		HexString() string
 		PublicKey() PublicKey
 		Sign([]byte) ([]byte, error)
 	}
@@ -42,8 +44,8 @@ func GenerateKey() (PrivateKey, error) {
 	return newSecp256k1PrvKey()
 }
 
-// DecodePublicKey decodes a string to SECP256K1 PublicKey
-func DecodePublicKey(pubKey string) (PublicKey, error) {
+// HexStringToPublicKey decodes a string to SECP256K1 PublicKey
+func HexStringToPublicKey(pubKey string) (PublicKey, error) {
 	b, err := hex.DecodeString(pubKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode public key %s", pubKey)
@@ -51,8 +53,8 @@ func DecodePublicKey(pubKey string) (PublicKey, error) {
 	return BytesToPublicKey(b)
 }
 
-// DecodePrivateKey decodes a string to SECP256K1 PrivateKey
-func DecodePrivateKey(prvKey string) (PrivateKey, error) {
+// HexStringToPrivateKey decodes a string to SECP256K1 PrivateKey
+func HexStringToPrivateKey(prvKey string) (PrivateKey, error) {
 	b, err := hex.DecodeString(prvKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode public key %s", prvKey)
@@ -60,19 +62,9 @@ func DecodePrivateKey(prvKey string) (PrivateKey, error) {
 	return BytesToPrivateKey(b)
 }
 
-// EncodePublicKey encodes a SECP256K1 PublicKey to string
-func EncodePublicKey(pubKey PublicKey) string {
-	return hex.EncodeToString(pubKey.Bytes())
-}
-
-// EncodePrivateKey encodes a SECP256K1 PrivateKey to string
-func EncodePrivateKey(priKey PrivateKey) string {
-	return hex.EncodeToString(priKey.Bytes())
-}
-
 // BytesToPublicKey converts a byte slice to SECP256K1 PublicKey
 func BytesToPublicKey(pubKey []byte) (PublicKey, error) {
-	return NewSecp256k1PubKeyFromBytes(pubKey)
+	return newSecp256k1PubKeyFromBytes(pubKey)
 }
 
 // BytesToPrivateKey converts a byte slice to SECP256K1 PrivateKey

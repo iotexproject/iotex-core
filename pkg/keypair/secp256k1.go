@@ -8,6 +8,7 @@ package keypair
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -57,6 +58,11 @@ func (k *secp256k1PrvKey) Bytes() []byte {
 	return crypto.FromECDSA(k.PrivateKey)
 }
 
+// HexString returns the private key in hex string
+func (k *secp256k1PrvKey) HexString() string {
+	return hex.EncodeToString(k.Bytes())
+}
+
 // PublicKey returns the public key corresponding to private key
 func (k *secp256k1PrvKey) PublicKey() PublicKey {
 	return &secp256k1PubKey{
@@ -73,8 +79,8 @@ func (k *secp256k1PrvKey) Sign(hash []byte) ([]byte, error) {
 // PublicKey function
 //======================================
 
-// NewSecp256k1PubKeyFromBytes converts bytes format to PublicKey
-func NewSecp256k1PubKeyFromBytes(b []byte) (PublicKey, error) {
+// newSecp256k1PubKeyFromBytes converts bytes format to PublicKey
+func newSecp256k1PubKeyFromBytes(b []byte) (PublicKey, error) {
 	pk, err := crypto.UnmarshalPubkey(b)
 	if err != nil {
 		return nil, err
@@ -87,6 +93,11 @@ func NewSecp256k1PubKeyFromBytes(b []byte) (PublicKey, error) {
 // Bytes returns the public key in bytes representation
 func (k *secp256k1PubKey) Bytes() []byte {
 	return crypto.FromECDSAPub(k.PublicKey)
+}
+
+// HexString returns the public key in hex string
+func (k *secp256k1PubKey) HexString() string {
+	return hex.EncodeToString(k.Bytes())
 }
 
 // Hash is the last 20-byte of keccak hash of public key bytes, same as Ethereum address generation

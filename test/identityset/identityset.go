@@ -49,7 +49,7 @@ func Size() int { return len(keyPortfolio) }
 
 // PrivateKey returns the i-th identity's private key
 func PrivateKey(i int) keypair.PrivateKey {
-	sk, err := keypair.DecodePrivateKey(keyPortfolio[i])
+	sk, err := keypair.HexStringToPrivateKey(keyPortfolio[i])
 	if err != nil {
 		log.L().Panic(
 			"Error when decoding private key string",

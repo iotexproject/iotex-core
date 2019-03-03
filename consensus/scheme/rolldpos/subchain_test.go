@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
@@ -95,7 +94,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 		Version:         1,
 		Nonce:           100,
 		SenderAddress:   addr,
-		SenderPubKey:    keypair.EncodePublicKey(pubKey),
+		SenderPubKey:    pubKey.HexString(),
 		GasLimit:        1000000,
 		GasPrice:        "10",
 		SubChainAddress: subAddr,

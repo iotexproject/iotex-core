@@ -106,7 +106,7 @@ func constructPutSubChainBlockRequest(
 	req := explorerapi.PutSubChainBlockRequest{
 		Version:         int64(selp.Version()),
 		Nonce:           int64(selp.Nonce()),
-		SenderPubKey:    keypair.EncodePublicKey(senderPubKey),
+		SenderPubKey:    senderPubKey.HexString(),
 		GasLimit:        int64(selp.GasLimit()),
 		GasPrice:        selp.GasPrice().String(),
 		SubChainAddress: pb.SubChainAddress(),

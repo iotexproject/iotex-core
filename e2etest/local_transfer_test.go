@@ -469,7 +469,7 @@ func initTestAccounts(
 }
 
 func getLocalKey(i int) keypair.PrivateKey {
-	sk, _ := keypair.DecodePrivateKey(localKeys[i])
+	sk, _ := keypair.HexStringToPrivateKey(localKeys[i])
 	return sk
 }
 

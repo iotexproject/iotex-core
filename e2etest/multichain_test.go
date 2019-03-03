@@ -52,7 +52,7 @@ func TestTwoChains(t *testing.T) {
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Genesis.BlockInterval = time.Second
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(identityset.PrivateKey(1))
+	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(1).HexString()
 	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
 	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
 	cfg.Chain.EnableIndex = true
@@ -71,15 +71,13 @@ func TestTwoChains(t *testing.T) {
 		require.NoError(t, svr.Stop(ctx))
 	}()
 
-	sk1, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	sk1, err := keypair.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
-	pk1 := sk1.PublicKey()
-	addr1, err := address.FromBytes(pk1.Hash())
+	addr1, err := address.FromBytes(sk1.PublicKey().Hash())
 	require.NoError(t, err)
-	sk2, err := keypair.DecodePrivateKey("82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90")
+	sk2, err := keypair.HexStringToPrivateKey("82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90")
 	require.NoError(t, err)
-	pk2 := sk2.PublicKey()
-	addr2, err := address.FromBytes(pk2.Hash())
+	addr2, err := address.FromBytes(sk2.PublicKey().Hash())
 	require.NoError(t, err)
 
 	mainChainClient := exp.NewExplorerProxy(
@@ -132,7 +130,7 @@ func TestTwoChains(t *testing.T) {
 		Version:      int64(createDeposit.Version()),
 		Nonce:        int64(createDeposit.Nonce()),
 		ChainID:      int64(createDeposit.ChainID()),
-		SenderPubKey: keypair.EncodePublicKey(createDeposit.SenderPublicKey()),
+		SenderPubKey: createDeposit.SenderPublicKey().HexString(),
 		Recipient:    createDeposit.Recipient(),
 		Amount:       createDeposit.Amount().String(),
 		Signature:    hex.EncodeToString(selp.Signature()),
@@ -188,7 +186,7 @@ func TestTwoChains(t *testing.T) {
 	settleRes, err := subChainClient.SettleDeposit(explorer.SettleDepositRequest{
 		Version:      int64(settleDeposit.Version()),
 		Nonce:        int64(settleDeposit.Nonce()),
-		SenderPubKey: keypair.EncodePublicKey(settleDeposit.SenderPublicKey()),
+		SenderPubKey: settleDeposit.SenderPublicKey().HexString(),
 		Recipient:    settleDeposit.Recipient(),
 		Amount:       settleDeposit.Amount().String(),
 		Index:        int64(index),

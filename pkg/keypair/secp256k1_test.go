@@ -19,7 +19,7 @@ func TestSecp256k1(t *testing.T) {
 	nsk, err := newSecp256k1PrvKeyFromBytes(sk.Bytes())
 	require.NoError(err)
 	require.Equal(sk, nsk)
-	npk, err := NewSecp256k1PubKeyFromBytes(pk.Bytes())
+	npk, err := newSecp256k1PubKeyFromBytes(pk.Bytes())
 	require.NoError(err)
 	require.Equal(pk, npk)
 

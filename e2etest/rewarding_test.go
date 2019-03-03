@@ -58,7 +58,7 @@ func TestBlockReward(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 
-	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	sk, err := keypair.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
 	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	require.NoError(t, err)

@@ -75,7 +75,7 @@ var (
 			TrieDBPath:              "/tmp/trie.db",
 			ID:                      1,
 			Address:                 "",
-			ProducerPrivKey:         keypair.EncodePrivateKey(PrivateKey),
+			ProducerPrivKey:         PrivateKey.HexString(),
 			EmptyGenesis:            false,
 			NumCandidates:           101,
 			BeaconChainAPIs:         []string{},
@@ -447,7 +447,7 @@ func (cfg Config) ProducerAddress() address.Address {
 
 // ProducerPrivateKey returns the configured private key
 func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
-	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	sk, err := keypair.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		log.L().Panic(
 			"Error when decoding private key",

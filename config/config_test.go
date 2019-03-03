@@ -51,7 +51,7 @@ func TestNewConfigWithOverride(t *testing.T) {
 chain:
     producerPrivKey: "%s"
 `,
-		keypair.EncodePrivateKey(sk),
+		sk.HexString(),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -65,7 +65,7 @@ chain:
 	cfg, err := New()
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
-	require.Equal(t, keypair.EncodePrivateKey(sk), cfg.Chain.ProducerPrivKey)
+	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
@@ -75,7 +75,7 @@ func TestNewConfigWithSecret(t *testing.T) {
 chain:
     producerPrivKey: "%s"
 `,
-		keypair.EncodePrivateKey(sk),
+		sk.HexString(),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
@@ -87,7 +87,7 @@ chain:
 chain:
     producerPrivKey: "%s"
 `,
-		keypair.EncodePrivateKey(sk),
+		sk.HexString(),
 	)
 	_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
 	err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
@@ -105,7 +105,7 @@ chain:
 	cfg, err := New()
 	require.Nil(t, err)
 	require.NotNil(t, cfg)
-	require.Equal(t, keypair.EncodePrivateKey(sk), cfg.Chain.ProducerPrivKey)
+	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
 }
 
 func TestNewConfigWithLookupEnv(t *testing.T) {
@@ -117,7 +117,7 @@ func TestNewConfigWithLookupEnv(t *testing.T) {
 chain:
     producerPrivKey: "%s"
 `,
-		keypair.EncodePrivateKey(sk),
+		sk.HexString(),
 	)
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
