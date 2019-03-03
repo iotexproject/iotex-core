@@ -10,6 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/address"
+
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,4 +59,14 @@ func TestKeypair(t *testing.T) {
 
 	_, err = StringToPubKeyBytes(publicKey)
 	require.NoError(err)
+}
+
+func TestCompatibility(t *testing.T) {
+	sk, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	ethAddr := crypto.PubkeyToAddress(sk.PublicKey)
+	pkHash := HashPubKey(&sk.PublicKey)
+	addr, err := address.FromBytes(pkHash[:])
+	require.NoError(t, err)
+	require.Equal(t, ethAddr.Bytes(), addr.Bytes())
 }

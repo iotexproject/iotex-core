@@ -96,7 +96,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 
 		// Update candidate
 		if voteeOfSender.IsCandidate {
-			if err := candidatesutil.LoadAndUpdateCandidates(sm, sender.Votee, voteeOfSender.VotingWeight); err != nil {
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, raCtx.BlockHeight, sender.Votee, voteeOfSender.VotingWeight); err != nil {
 				return errors.Wrap(err, "failed to load and update candidates")
 			}
 		}
@@ -128,7 +128,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 
 		if voteeOfRecipient.IsCandidate {
-			if err := candidatesutil.LoadAndUpdateCandidates(sm, recipient.Votee, voteeOfRecipient.VotingWeight); err != nil {
+			if err := candidatesutil.LoadAndUpdateCandidates(sm, raCtx.BlockHeight, recipient.Votee, voteeOfRecipient.VotingWeight); err != nil {
 				return errors.Wrap(err, "failed to load and update candidates")
 			}
 		}

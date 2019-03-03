@@ -10,11 +10,12 @@ import (
 	"io/ioutil"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/test/identityset"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -34,16 +35,12 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
-	genSK, err := keypair.DecodePrivateKey(blockchain.GenesisProducerPrivateKey)
-	if err != nil {
-		return err
-	}
-	selp, err := action.Sign(elp, genSK)
+	selp, err := action.Sign(elp, identityset.PrivateKey(0))
 	if err != nil {
 		return err
 	}
 	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[blockchain.Gen.CreatorAddr()] = []action.SealedEnvelope{selp}
+	actionMap[identityset.Address(0).String()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
 		0,

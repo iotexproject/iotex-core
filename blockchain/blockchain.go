@@ -173,7 +173,6 @@ type blockchain struct {
 	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
 	dao           *blockDAO
 	config        config.Config
-	genesis       *Genesis
 	tipHeight     uint64
 	tipHash       hash.Hash256
 	validator     Validator
@@ -276,9 +275,8 @@ func RegistryOption(registry *protocol.Registry) Option {
 func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
-		config:  cfg,
-		genesis: Gen,
-		clk:     clock.New(),
+		config: cfg,
+		clk:    clock.New(),
 	}
 	for _, opt := range opts {
 		if err := opt(chain, cfg); err != nil {
@@ -718,8 +716,14 @@ func (bc *blockchain) MintNewBlock(
 		AddActions(actions...).
 		Build(&sk.PublicKey)
 
+	prevBlkHash := bc.tipHash
+	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
+	// could verify that they start from the same genesis
+	if newblockHeight == 1 {
+		prevBlkHash = bc.config.Genesis.Digest
+	}
 	blk, err := block.NewBuilder(ra).
-		SetPrevBlockHash(bc.tipHash).
+		SetPrevBlockHash(prevBlkHash).
 		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
 		SetReceiptRoot(calculateReceiptRoot(rc)).
@@ -848,22 +852,13 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}
-	genesisBlk, err := bc.GetBlockByHeight(0)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get genesis block")
-	}
 	gasLimit := bc.config.Genesis.BlockGasLimit
 	callerAddr, err := address.FromString(addr)
 	if err != nil {
 		return nil, err
 	}
-	producer, err := address.FromString(genesisBlk.ProducerAddress())
-	if err != nil {
-		return nil, err
-	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer:       producer,
 			GasLimit:       &gasLimit,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Caller:         callerAddr,
@@ -952,65 +947,21 @@ func (bc *blockchain) getBlockByHeight(height uint64) (*block.Block, error) {
 }
 
 func (bc *blockchain) startEmptyBlockchain() error {
-	var (
-		genesis block.Block
-		ws      factory.WorkingSet
-		err     error
-	)
-	pk, sk, _, err := bc.genesisProducer()
-	if err != nil {
-		return errors.Wrap(err, "failed to get the key and address of producer")
-	}
-
-	if bc.sf == nil {
-		return errors.New("statefactory cannot be nil")
-	}
+	var ws factory.WorkingSet
+	var err error
 	if ws, err = bc.sf.NewWorkingSet(); err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	if bc.config.Chain.GenesisActionsPath != "" || !bc.config.Chain.EmptyGenesis {
+	if !bc.config.Chain.EmptyGenesis {
 		// Initialize the states before any actions happen on the blockchain
 		if err := bc.createGenesisStates(ws); err != nil {
 			return err
 		}
-
-		acts := NewGenesisActions(bc.config.Chain, ws)
-		racts := block.NewRunnableActionsBuilder().
-			SetHeight(0).
-			SetTimeStamp(Gen.Timestamp).
-			AddActions(acts...).
-			Build(pk)
-		// run execution and update state trie root hash
-		receipts, err := bc.runActions(racts, ws)
-		if err != nil {
-			return errors.Wrap(err, "failed to update state changes in Genesis block")
-		}
-
-		genesis, err = block.NewBuilder(racts).
-			SetPrevBlockHash(Gen.ParentHash).
-			SetDeltaStateDigest(ws.Digest()).
-			SetReceipts(receipts).
-			SetReceiptRoot(calculateReceiptRoot(receipts)).
-			SignAndBuild(sk)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to create block")
-		}
-	} else {
-		racts := block.NewRunnableActionsBuilder().
-			SetHeight(0).
-			SetTimeStamp(Gen.Timestamp).
-			Build(pk)
-		genesis, err = block.NewBuilder(racts).
-			SetPrevBlockHash(hash.ZeroHash256).
-			SignAndBuild(sk)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to create block")
-		}
+		_ = ws.UpdateBlockLevelInfo(0)
 	}
-	genesis.WorkingSet = ws
-	// add Genesis block as very first block
-	if err := bc.commitBlock(&genesis); err != nil {
-		return errors.Wrap(err, "failed to commit Genesis block")
+	// add Genesis states
+	if err := bc.sf.Commit(ws); err != nil {
+		return errors.Wrap(err, "failed to commit Genesis states")
 	}
 	return nil
 }
@@ -1022,7 +973,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 
 	stateHeight, err := bc.sf.Height()
 	if err != nil {
-		return errors.New("invalid state DB")
+		return err
 	}
 	if stateHeight > bc.tipHeight {
 		return errors.New("factory is higher than blockchain")
@@ -1057,7 +1008,11 @@ func (bc *blockchain) startExistingBlockchain() error {
 
 func (bc *blockchain) validateBlock(blk *block.Block) error {
 	validateTimer := bc.timerFactory.NewTimer("validate")
-	err := bc.validator.Validate(blk, bc.tipHeight, bc.tipHash)
+	prevBlkHash := bc.tipHash
+	if blk.Height() == 1 {
+		prevBlkHash = bc.config.Genesis.Digest
+	}
+	err := bc.validator.Validate(blk, bc.tipHeight, prevBlkHash)
 	validateTimer.End()
 	if err != nil {
 		return errors.Wrapf(err, "error when validating block %d", blk.Height())
@@ -1346,23 +1301,6 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 
 func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
 
-func (bc *blockchain) genesisProducer() (keypair.PublicKey, keypair.PrivateKey, string, error) {
-	pk, err := keypair.DecodePublicKey(GenesisProducerPublicKey)
-	if err != nil {
-		return nil, nil, "", errors.Wrap(err, "failed to decode public key")
-	}
-	sk, err := keypair.DecodePrivateKey(GenesisProducerPrivateKey)
-	if err != nil {
-		return nil, nil, "", errors.Wrap(err, "failed to decode private key")
-	}
-	pkHash := keypair.HashPubKey(pk)
-	addr, err := address.FromBytes(pkHash[:])
-	if err != nil {
-		return nil, nil, "", errors.Wrap(err, "failed to create address")
-	}
-	return pk, sk, addr.String(), nil
-}
-
 // RecoverToHeight recovers the blockchain to target height
 func (bc *blockchain) recoverToHeight(targetHeight uint64) error {
 	for bc.tipHeight > targetHeight {
@@ -1391,40 +1329,11 @@ func (bc *blockchain) refreshStateDB() error {
 	if err := bc.sf.Start(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to start state factory")
 	}
-	if err := bc.buildStateInGenesis(); err != nil {
-		return errors.Wrap(err, "failed to build state for genesis block")
+	if err := bc.startEmptyBlockchain(); err != nil {
+		return err
 	}
 	if err := bc.sf.Stop(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to stop state factory")
-	}
-	return nil
-}
-
-func (bc *blockchain) buildStateInGenesis() error {
-	pk, _, _, err := bc.genesisProducer()
-	if err != nil {
-		return errors.Wrap(err, "failed to get the key and address of producer")
-	}
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	acts := NewGenesisActions(bc.config.Chain, ws)
-	racts := block.NewRunnableActionsBuilder().
-		SetHeight(0).
-		SetTimeStamp(Gen.Timestamp).
-		AddActions(acts...).
-		Build(pk)
-	// run execution and update state trie root hash
-	if _, err := bc.runActions(racts, ws); err != nil {
-		return errors.Wrap(err, "failed to update state changes in Genesis block")
-	}
-	// Initialize the states before any actions happen on the blockchain
-	if err := bc.createGenesisStates(ws); err != nil {
-		return err
-	}
-	if err := bc.sf.Commit(ws); err != nil {
-		return errors.Wrap(err, "failed to commit state changes in Genesis block")
 	}
 	return nil
 }
@@ -1522,15 +1431,13 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 	if !ok {
 		return errors.Errorf("protocol %s is not found", vote.ProtocolID)
 	}
-	actions := loadGenesisData(bc.config.Chain)
-	addrs := make([]string, len(actions.SelfNominators))
-	for i, nominator := range actions.SelfNominators {
-		pk, _ := decodeKey(nominator.PubKey, "")
-		addrs[i] = generateAddr(pk)
-	}
 	vp, ok := p.(*vote.Protocol)
 	if !ok {
 		return errors.Errorf("error when casting vote protocol")
+	}
+	addrs := make([]address.Address, 0)
+	for _, d := range bc.config.Genesis.Delegates {
+		addrs = append(addrs, d.OperatorAddr())
 	}
 	return vp.Initialize(ctx, ws, addrs)
 }

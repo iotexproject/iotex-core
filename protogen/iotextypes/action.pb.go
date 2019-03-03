@@ -39,13 +39,13 @@ func (x RewardType) String() string {
 	return proto.EnumName(RewardType_name, int32(x))
 }
 func (RewardType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{0}
+	return fileDescriptor_action_c09f1607755082be, []int{0}
 }
 
 type Transfer struct {
 	// used by state-based model
-	Amount               string   `protobuf:"bytes,1,opt,name=amount" json:"amount,omitempty"`
-	Recipient            string   `protobuf:"bytes,2,opt,name=recipient" json:"recipient,omitempty"`
+	Amount               string   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
+	Recipient            string   `protobuf:"bytes,2,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	Payload              []byte   `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -56,7 +56,7 @@ func (m *Transfer) Reset()         { *m = Transfer{} }
 func (m *Transfer) String() string { return proto.CompactTextString(m) }
 func (*Transfer) ProtoMessage()    {}
 func (*Transfer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{0}
+	return fileDescriptor_action_c09f1607755082be, []int{0}
 }
 func (m *Transfer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Transfer.Unmarshal(m, b)
@@ -98,8 +98,8 @@ func (m *Transfer) GetPayload() []byte {
 }
 
 type Vote struct {
-	Timestamp            *timestamp.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
-	VoteeAddress         string               `protobuf:"bytes,2,opt,name=voteeAddress" json:"voteeAddress,omitempty"`
+	Timestamp            *timestamp.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	VoteeAddress         string               `protobuf:"bytes,2,opt,name=voteeAddress,proto3" json:"voteeAddress,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -109,7 +109,7 @@ func (m *Vote) Reset()         { *m = Vote{} }
 func (m *Vote) String() string { return proto.CompactTextString(m) }
 func (*Vote) ProtoMessage()    {}
 func (*Vote) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{1}
+	return fileDescriptor_action_c09f1607755082be, []int{1}
 }
 func (m *Vote) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Vote.Unmarshal(m, b)
@@ -145,12 +145,12 @@ func (m *Vote) GetVoteeAddress() string {
 
 // Candidates and list of candidates
 type Candidate struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	Votes                []byte   `protobuf:"bytes,2,opt,name=votes,proto3" json:"votes,omitempty"`
 	PubKey               []byte   `protobuf:"bytes,3,opt,name=pubKey,proto3" json:"pubKey,omitempty"`
-	CreationHeight       uint64   `protobuf:"varint,4,opt,name=creationHeight" json:"creationHeight,omitempty"`
-	LastUpdateHeight     uint64   `protobuf:"varint,5,opt,name=lastUpdateHeight" json:"lastUpdateHeight,omitempty"`
-	RewardAddress        string   `protobuf:"bytes,6,opt,name=rewardAddress" json:"rewardAddress,omitempty"`
+	CreationHeight       uint64   `protobuf:"varint,4,opt,name=creationHeight,proto3" json:"creationHeight,omitempty"`
+	LastUpdateHeight     uint64   `protobuf:"varint,5,opt,name=lastUpdateHeight,proto3" json:"lastUpdateHeight,omitempty"`
+	RewardAddress        string   `protobuf:"bytes,6,opt,name=rewardAddress,proto3" json:"rewardAddress,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -160,7 +160,7 @@ func (m *Candidate) Reset()         { *m = Candidate{} }
 func (m *Candidate) String() string { return proto.CompactTextString(m) }
 func (*Candidate) ProtoMessage()    {}
 func (*Candidate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{2}
+	return fileDescriptor_action_c09f1607755082be, []int{2}
 }
 func (m *Candidate) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Candidate.Unmarshal(m, b)
@@ -223,7 +223,7 @@ func (m *Candidate) GetRewardAddress() string {
 }
 
 type CandidateList struct {
-	Candidates           []*Candidate `protobuf:"bytes,1,rep,name=candidates" json:"candidates,omitempty"`
+	Candidates           []*Candidate `protobuf:"bytes,1,rep,name=candidates,proto3" json:"candidates,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -233,7 +233,7 @@ func (m *CandidateList) Reset()         { *m = CandidateList{} }
 func (m *CandidateList) String() string { return proto.CompactTextString(m) }
 func (*CandidateList) ProtoMessage()    {}
 func (*CandidateList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{3}
+	return fileDescriptor_action_c09f1607755082be, []int{3}
 }
 func (m *CandidateList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CandidateList.Unmarshal(m, b)
@@ -261,8 +261,8 @@ func (m *CandidateList) GetCandidates() []*Candidate {
 }
 
 type PutPollResult struct {
-	Height               uint64         `protobuf:"varint,1,opt,name=height" json:"height,omitempty"`
-	Candidates           *CandidateList `protobuf:"bytes,2,opt,name=candidates" json:"candidates,omitempty"`
+	Height               uint64         `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	Candidates           *CandidateList `protobuf:"bytes,2,opt,name=candidates,proto3" json:"candidates,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -272,7 +272,7 @@ func (m *PutPollResult) Reset()         { *m = PutPollResult{} }
 func (m *PutPollResult) String() string { return proto.CompactTextString(m) }
 func (*PutPollResult) ProtoMessage()    {}
 func (*PutPollResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{4}
+	return fileDescriptor_action_c09f1607755082be, []int{4}
 }
 func (m *PutPollResult) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PutPollResult.Unmarshal(m, b)
@@ -307,8 +307,8 @@ func (m *PutPollResult) GetCandidates() *CandidateList {
 }
 
 type Execution struct {
-	Amount               string   `protobuf:"bytes,1,opt,name=amount" json:"amount,omitempty"`
-	Contract             string   `protobuf:"bytes,2,opt,name=contract" json:"contract,omitempty"`
+	Amount               string   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
+	Contract             string   `protobuf:"bytes,2,opt,name=contract,proto3" json:"contract,omitempty"`
 	Data                 []byte   `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -319,7 +319,7 @@ func (m *Execution) Reset()         { *m = Execution{} }
 func (m *Execution) String() string { return proto.CompactTextString(m) }
 func (*Execution) ProtoMessage()    {}
 func (*Execution) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{5}
+	return fileDescriptor_action_c09f1607755082be, []int{5}
 }
 func (m *Execution) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Execution.Unmarshal(m, b)
@@ -362,11 +362,11 @@ func (m *Execution) GetData() []byte {
 
 type StartSubChain struct {
 	// TODO: chainID chould be assigned by system and returned via a receipt
-	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID" json:"chainID,omitempty"`
-	SecurityDeposit      string   `protobuf:"bytes,2,opt,name=securityDeposit" json:"securityDeposit,omitempty"`
-	OperationDeposit     string   `protobuf:"bytes,3,opt,name=operationDeposit" json:"operationDeposit,omitempty"`
-	StartHeight          uint64   `protobuf:"varint,4,opt,name=startHeight" json:"startHeight,omitempty"`
-	ParentHeightOffset   uint64   `protobuf:"varint,5,opt,name=parentHeightOffset" json:"parentHeightOffset,omitempty"`
+	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID,proto3" json:"chainID,omitempty"`
+	SecurityDeposit      string   `protobuf:"bytes,2,opt,name=securityDeposit,proto3" json:"securityDeposit,omitempty"`
+	OperationDeposit     string   `protobuf:"bytes,3,opt,name=operationDeposit,proto3" json:"operationDeposit,omitempty"`
+	StartHeight          uint64   `protobuf:"varint,4,opt,name=startHeight,proto3" json:"startHeight,omitempty"`
+	ParentHeightOffset   uint64   `protobuf:"varint,5,opt,name=parentHeightOffset,proto3" json:"parentHeightOffset,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -376,7 +376,7 @@ func (m *StartSubChain) Reset()         { *m = StartSubChain{} }
 func (m *StartSubChain) String() string { return proto.CompactTextString(m) }
 func (*StartSubChain) ProtoMessage()    {}
 func (*StartSubChain) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{6}
+	return fileDescriptor_action_c09f1607755082be, []int{6}
 }
 func (m *StartSubChain) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StartSubChain.Unmarshal(m, b)
@@ -432,9 +432,9 @@ func (m *StartSubChain) GetParentHeightOffset() uint64 {
 }
 
 type StopSubChain struct {
-	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID" json:"chainID,omitempty"`
-	StopHeight           uint64   `protobuf:"varint,2,opt,name=stopHeight" json:"stopHeight,omitempty"`
-	SubChainAddress      string   `protobuf:"bytes,3,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
+	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID,proto3" json:"chainID,omitempty"`
+	StopHeight           uint64   `protobuf:"varint,2,opt,name=stopHeight,proto3" json:"stopHeight,omitempty"`
+	SubChainAddress      string   `protobuf:"bytes,3,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -444,7 +444,7 @@ func (m *StopSubChain) Reset()         { *m = StopSubChain{} }
 func (m *StopSubChain) String() string { return proto.CompactTextString(m) }
 func (*StopSubChain) ProtoMessage()    {}
 func (*StopSubChain) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{7}
+	return fileDescriptor_action_c09f1607755082be, []int{7}
 }
 func (m *StopSubChain) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_StopSubChain.Unmarshal(m, b)
@@ -486,7 +486,7 @@ func (m *StopSubChain) GetSubChainAddress() string {
 }
 
 type MerkleRoot struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -497,7 +497,7 @@ func (m *MerkleRoot) Reset()         { *m = MerkleRoot{} }
 func (m *MerkleRoot) String() string { return proto.CompactTextString(m) }
 func (*MerkleRoot) ProtoMessage()    {}
 func (*MerkleRoot) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{8}
+	return fileDescriptor_action_c09f1607755082be, []int{8}
 }
 func (m *MerkleRoot) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MerkleRoot.Unmarshal(m, b)
@@ -532,9 +532,9 @@ func (m *MerkleRoot) GetValue() []byte {
 }
 
 type PutBlock struct {
-	SubChainAddress      string        `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	Height               uint64        `protobuf:"varint,2,opt,name=height" json:"height,omitempty"`
-	Roots                []*MerkleRoot `protobuf:"bytes,3,rep,name=roots" json:"roots,omitempty"`
+	SubChainAddress      string        `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	Height               uint64        `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	Roots                []*MerkleRoot `protobuf:"bytes,3,rep,name=roots,proto3" json:"roots,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -544,7 +544,7 @@ func (m *PutBlock) Reset()         { *m = PutBlock{} }
 func (m *PutBlock) String() string { return proto.CompactTextString(m) }
 func (*PutBlock) ProtoMessage()    {}
 func (*PutBlock) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{9}
+	return fileDescriptor_action_c09f1607755082be, []int{9}
 }
 func (m *PutBlock) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PutBlock.Unmarshal(m, b)
@@ -586,9 +586,9 @@ func (m *PutBlock) GetRoots() []*MerkleRoot {
 }
 
 type CreateDeposit struct {
-	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID" json:"chainID,omitempty"`
-	Amount               string   `protobuf:"bytes,2,opt,name=amount" json:"amount,omitempty"`
-	Recipient            string   `protobuf:"bytes,3,opt,name=recipient" json:"recipient,omitempty"`
+	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID,proto3" json:"chainID,omitempty"`
+	Amount               string   `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Recipient            string   `protobuf:"bytes,3,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -598,7 +598,7 @@ func (m *CreateDeposit) Reset()         { *m = CreateDeposit{} }
 func (m *CreateDeposit) String() string { return proto.CompactTextString(m) }
 func (*CreateDeposit) ProtoMessage()    {}
 func (*CreateDeposit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{10}
+	return fileDescriptor_action_c09f1607755082be, []int{10}
 }
 func (m *CreateDeposit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateDeposit.Unmarshal(m, b)
@@ -640,9 +640,9 @@ func (m *CreateDeposit) GetRecipient() string {
 }
 
 type SettleDeposit struct {
-	Amount               string   `protobuf:"bytes,1,opt,name=amount" json:"amount,omitempty"`
-	Recipient            string   `protobuf:"bytes,2,opt,name=recipient" json:"recipient,omitempty"`
-	Index                uint64   `protobuf:"varint,3,opt,name=index" json:"index,omitempty"`
+	Amount               string   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
+	Recipient            string   `protobuf:"bytes,2,opt,name=recipient,proto3" json:"recipient,omitempty"`
+	Index                uint64   `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -652,7 +652,7 @@ func (m *SettleDeposit) Reset()         { *m = SettleDeposit{} }
 func (m *SettleDeposit) String() string { return proto.CompactTextString(m) }
 func (*SettleDeposit) ProtoMessage()    {}
 func (*SettleDeposit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{11}
+	return fileDescriptor_action_c09f1607755082be, []int{11}
 }
 func (m *SettleDeposit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SettleDeposit.Unmarshal(m, b)
@@ -704,7 +704,7 @@ func (m *CreatePlumChain) Reset()         { *m = CreatePlumChain{} }
 func (m *CreatePlumChain) String() string { return proto.CompactTextString(m) }
 func (*CreatePlumChain) ProtoMessage()    {}
 func (*CreatePlumChain) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{12}
+	return fileDescriptor_action_c09f1607755082be, []int{12}
 }
 func (m *CreatePlumChain) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreatePlumChain.Unmarshal(m, b)
@@ -725,7 +725,7 @@ func (m *CreatePlumChain) XXX_DiscardUnknown() {
 var xxx_messageInfo_CreatePlumChain proto.InternalMessageInfo
 
 type TerminatePlumChain struct {
-	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
+	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -735,7 +735,7 @@ func (m *TerminatePlumChain) Reset()         { *m = TerminatePlumChain{} }
 func (m *TerminatePlumChain) String() string { return proto.CompactTextString(m) }
 func (*TerminatePlumChain) ProtoMessage()    {}
 func (*TerminatePlumChain) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{13}
+	return fileDescriptor_action_c09f1607755082be, []int{13}
 }
 func (m *TerminatePlumChain) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TerminatePlumChain.Unmarshal(m, b)
@@ -763,9 +763,9 @@ func (m *TerminatePlumChain) GetSubChainAddress() string {
 }
 
 type PlumPutBlock struct {
-	SubChainAddress      string            `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	Height               uint64            `protobuf:"varint,2,opt,name=height" json:"height,omitempty"`
-	Roots                map[string][]byte `protobuf:"bytes,3,rep,name=roots" json:"roots,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	SubChainAddress      string            `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	Height               uint64            `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	Roots                map[string][]byte `protobuf:"bytes,3,rep,name=roots,proto3" json:"roots,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -775,7 +775,7 @@ func (m *PlumPutBlock) Reset()         { *m = PlumPutBlock{} }
 func (m *PlumPutBlock) String() string { return proto.CompactTextString(m) }
 func (*PlumPutBlock) ProtoMessage()    {}
 func (*PlumPutBlock) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{14}
+	return fileDescriptor_action_c09f1607755082be, []int{14}
 }
 func (m *PlumPutBlock) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PlumPutBlock.Unmarshal(m, b)
@@ -817,9 +817,9 @@ func (m *PlumPutBlock) GetRoots() map[string][]byte {
 }
 
 type PlumCreateDeposit struct {
-	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	Amount               string   `protobuf:"bytes,2,opt,name=amount" json:"amount,omitempty"`
-	Recipient            string   `protobuf:"bytes,3,opt,name=recipient" json:"recipient,omitempty"`
+	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	Amount               string   `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Recipient            string   `protobuf:"bytes,3,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -829,7 +829,7 @@ func (m *PlumCreateDeposit) Reset()         { *m = PlumCreateDeposit{} }
 func (m *PlumCreateDeposit) String() string { return proto.CompactTextString(m) }
 func (*PlumCreateDeposit) ProtoMessage()    {}
 func (*PlumCreateDeposit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{15}
+	return fileDescriptor_action_c09f1607755082be, []int{15}
 }
 func (m *PlumCreateDeposit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PlumCreateDeposit.Unmarshal(m, b)
@@ -871,13 +871,13 @@ func (m *PlumCreateDeposit) GetRecipient() string {
 }
 
 type PlumStartExit struct {
-	SubChainAddress             string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
+	SubChainAddress             string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
 	PreviousTransfer            []byte   `protobuf:"bytes,2,opt,name=previousTransfer,proto3" json:"previousTransfer,omitempty"`
 	PreviousTransferBlockProof  []byte   `protobuf:"bytes,3,opt,name=previousTransferBlockProof,proto3" json:"previousTransferBlockProof,omitempty"`
-	PreviousTransferBlockHeight uint64   `protobuf:"varint,4,opt,name=previousTransferBlockHeight" json:"previousTransferBlockHeight,omitempty"`
+	PreviousTransferBlockHeight uint64   `protobuf:"varint,4,opt,name=previousTransferBlockHeight,proto3" json:"previousTransferBlockHeight,omitempty"`
 	ExitTransfer                []byte   `protobuf:"bytes,5,opt,name=exitTransfer,proto3" json:"exitTransfer,omitempty"`
 	ExitTransferBlockProof      []byte   `protobuf:"bytes,6,opt,name=exitTransferBlockProof,proto3" json:"exitTransferBlockProof,omitempty"`
-	ExitTransferBlockHeight     uint64   `protobuf:"varint,7,opt,name=exitTransferBlockHeight" json:"exitTransferBlockHeight,omitempty"`
+	ExitTransferBlockHeight     uint64   `protobuf:"varint,7,opt,name=exitTransferBlockHeight,proto3" json:"exitTransferBlockHeight,omitempty"`
 	XXX_NoUnkeyedLiteral        struct{} `json:"-"`
 	XXX_unrecognized            []byte   `json:"-"`
 	XXX_sizecache               int32    `json:"-"`
@@ -887,7 +887,7 @@ func (m *PlumStartExit) Reset()         { *m = PlumStartExit{} }
 func (m *PlumStartExit) String() string { return proto.CompactTextString(m) }
 func (*PlumStartExit) ProtoMessage()    {}
 func (*PlumStartExit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{16}
+	return fileDescriptor_action_c09f1607755082be, []int{16}
 }
 func (m *PlumStartExit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PlumStartExit.Unmarshal(m, b)
@@ -957,11 +957,11 @@ func (m *PlumStartExit) GetExitTransferBlockHeight() uint64 {
 }
 
 type PlumChallengeExit struct {
-	SubChainAddress              string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	CoinID                       uint64   `protobuf:"varint,2,opt,name=coinID" json:"coinID,omitempty"`
+	SubChainAddress              string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	CoinID                       uint64   `protobuf:"varint,2,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	ChallengeTransfer            []byte   `protobuf:"bytes,3,opt,name=challengeTransfer,proto3" json:"challengeTransfer,omitempty"`
 	ChallengeTransferBlockProof  []byte   `protobuf:"bytes,4,opt,name=challengeTransferBlockProof,proto3" json:"challengeTransferBlockProof,omitempty"`
-	ChallengeTransferBlockHeight uint64   `protobuf:"varint,5,opt,name=challengeTransferBlockHeight" json:"challengeTransferBlockHeight,omitempty"`
+	ChallengeTransferBlockHeight uint64   `protobuf:"varint,5,opt,name=challengeTransferBlockHeight,proto3" json:"challengeTransferBlockHeight,omitempty"`
 	XXX_NoUnkeyedLiteral         struct{} `json:"-"`
 	XXX_unrecognized             []byte   `json:"-"`
 	XXX_sizecache                int32    `json:"-"`
@@ -971,7 +971,7 @@ func (m *PlumChallengeExit) Reset()         { *m = PlumChallengeExit{} }
 func (m *PlumChallengeExit) String() string { return proto.CompactTextString(m) }
 func (*PlumChallengeExit) ProtoMessage()    {}
 func (*PlumChallengeExit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{17}
+	return fileDescriptor_action_c09f1607755082be, []int{17}
 }
 func (m *PlumChallengeExit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PlumChallengeExit.Unmarshal(m, b)
@@ -1027,12 +1027,12 @@ func (m *PlumChallengeExit) GetChallengeTransferBlockHeight() uint64 {
 }
 
 type PlumResponseChallengeExit struct {
-	SubChainAddress             string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	CoinID                      uint64   `protobuf:"varint,2,opt,name=coinID" json:"coinID,omitempty"`
+	SubChainAddress             string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	CoinID                      uint64   `protobuf:"varint,2,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	ChallengeTransfer           []byte   `protobuf:"bytes,3,opt,name=challengeTransfer,proto3" json:"challengeTransfer,omitempty"`
 	ResponseTransfer            []byte   `protobuf:"bytes,4,opt,name=responseTransfer,proto3" json:"responseTransfer,omitempty"`
 	ResponseTransferBlockProof  []byte   `protobuf:"bytes,5,opt,name=responseTransferBlockProof,proto3" json:"responseTransferBlockProof,omitempty"`
-	PreviousTransferBlockHeight uint64   `protobuf:"varint,6,opt,name=previousTransferBlockHeight" json:"previousTransferBlockHeight,omitempty"`
+	PreviousTransferBlockHeight uint64   `protobuf:"varint,6,opt,name=previousTransferBlockHeight,proto3" json:"previousTransferBlockHeight,omitempty"`
 	XXX_NoUnkeyedLiteral        struct{} `json:"-"`
 	XXX_unrecognized            []byte   `json:"-"`
 	XXX_sizecache               int32    `json:"-"`
@@ -1042,7 +1042,7 @@ func (m *PlumResponseChallengeExit) Reset()         { *m = PlumResponseChallenge
 func (m *PlumResponseChallengeExit) String() string { return proto.CompactTextString(m) }
 func (*PlumResponseChallengeExit) ProtoMessage()    {}
 func (*PlumResponseChallengeExit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{18}
+	return fileDescriptor_action_c09f1607755082be, []int{18}
 }
 func (m *PlumResponseChallengeExit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PlumResponseChallengeExit.Unmarshal(m, b)
@@ -1105,8 +1105,8 @@ func (m *PlumResponseChallengeExit) GetPreviousTransferBlockHeight() uint64 {
 }
 
 type PlumFinalizeExit struct {
-	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	CoinID               uint64   `protobuf:"varint,2,opt,name=coinID" json:"coinID,omitempty"`
+	SubChainAddress      string   `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	CoinID               uint64   `protobuf:"varint,2,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1116,7 +1116,7 @@ func (m *PlumFinalizeExit) Reset()         { *m = PlumFinalizeExit{} }
 func (m *PlumFinalizeExit) String() string { return proto.CompactTextString(m) }
 func (*PlumFinalizeExit) ProtoMessage()    {}
 func (*PlumFinalizeExit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{19}
+	return fileDescriptor_action_c09f1607755082be, []int{19}
 }
 func (m *PlumFinalizeExit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PlumFinalizeExit.Unmarshal(m, b)
@@ -1152,7 +1152,7 @@ func (m *PlumFinalizeExit) GetCoinID() uint64 {
 
 // plum sub chain APIs
 type PlumSettleDeposit struct {
-	CoinID               uint64   `protobuf:"varint,1,opt,name=coinID" json:"coinID,omitempty"`
+	CoinID               uint64   `protobuf:"varint,1,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1162,7 +1162,7 @@ func (m *PlumSettleDeposit) Reset()         { *m = PlumSettleDeposit{} }
 func (m *PlumSettleDeposit) String() string { return proto.CompactTextString(m) }
 func (*PlumSettleDeposit) ProtoMessage()    {}
 func (*PlumSettleDeposit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{20}
+	return fileDescriptor_action_c09f1607755082be, []int{20}
 }
 func (m *PlumSettleDeposit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PlumSettleDeposit.Unmarshal(m, b)
@@ -1190,10 +1190,10 @@ func (m *PlumSettleDeposit) GetCoinID() uint64 {
 }
 
 type PlumTransfer struct {
-	CoinID               uint64   `protobuf:"varint,1,opt,name=coinID" json:"coinID,omitempty"`
+	CoinID               uint64   `protobuf:"varint,1,opt,name=coinID,proto3" json:"coinID,omitempty"`
 	Denomination         []byte   `protobuf:"bytes,2,opt,name=denomination,proto3" json:"denomination,omitempty"`
-	Owner                string   `protobuf:"bytes,3,opt,name=owner" json:"owner,omitempty"`
-	Recipient            string   `protobuf:"bytes,4,opt,name=recipient" json:"recipient,omitempty"`
+	Owner                string   `protobuf:"bytes,3,opt,name=owner,proto3" json:"owner,omitempty"`
+	Recipient            string   `protobuf:"bytes,4,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1203,7 +1203,7 @@ func (m *PlumTransfer) Reset()         { *m = PlumTransfer{} }
 func (m *PlumTransfer) String() string { return proto.CompactTextString(m) }
 func (*PlumTransfer) ProtoMessage()    {}
 func (*PlumTransfer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{21}
+	return fileDescriptor_action_c09f1607755082be, []int{21}
 }
 func (m *PlumTransfer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PlumTransfer.Unmarshal(m, b)
@@ -1252,10 +1252,10 @@ func (m *PlumTransfer) GetRecipient() string {
 }
 
 type ActionCore struct {
-	Version  uint32 `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
-	Nonce    uint64 `protobuf:"varint,2,opt,name=nonce" json:"nonce,omitempty"`
-	GasLimit uint64 `protobuf:"varint,3,opt,name=gasLimit" json:"gasLimit,omitempty"`
-	GasPrice string `protobuf:"bytes,4,opt,name=gasPrice" json:"gasPrice,omitempty"`
+	Version  uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Nonce    uint64 `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	GasLimit uint64 `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
+	GasPrice string `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
 	// Types that are valid to be assigned to Action:
 	//	*ActionCore_Transfer
 	//	*ActionCore_Vote
@@ -1290,7 +1290,7 @@ func (m *ActionCore) Reset()         { *m = ActionCore{} }
 func (m *ActionCore) String() string { return proto.CompactTextString(m) }
 func (*ActionCore) ProtoMessage()    {}
 func (*ActionCore) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{22}
+	return fileDescriptor_action_c09f1607755082be, []int{22}
 }
 func (m *ActionCore) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ActionCore.Unmarshal(m, b)
@@ -1309,111 +1309,6 @@ func (m *ActionCore) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_ActionCore proto.InternalMessageInfo
-
-type isActionCore_Action interface {
-	isActionCore_Action()
-}
-
-type ActionCore_Transfer struct {
-	Transfer *Transfer `protobuf:"bytes,10,opt,name=transfer,oneof"`
-}
-type ActionCore_Vote struct {
-	Vote *Vote `protobuf:"bytes,11,opt,name=vote,oneof"`
-}
-type ActionCore_Execution struct {
-	Execution *Execution `protobuf:"bytes,12,opt,name=execution,oneof"`
-}
-type ActionCore_StartSubChain struct {
-	StartSubChain *StartSubChain `protobuf:"bytes,13,opt,name=startSubChain,oneof"`
-}
-type ActionCore_StopSubChain struct {
-	StopSubChain *StopSubChain `protobuf:"bytes,14,opt,name=stopSubChain,oneof"`
-}
-type ActionCore_PutBlock struct {
-	PutBlock *PutBlock `protobuf:"bytes,15,opt,name=putBlock,oneof"`
-}
-type ActionCore_CreateDeposit struct {
-	CreateDeposit *CreateDeposit `protobuf:"bytes,16,opt,name=createDeposit,oneof"`
-}
-type ActionCore_SettleDeposit struct {
-	SettleDeposit *SettleDeposit `protobuf:"bytes,17,opt,name=settleDeposit,oneof"`
-}
-type ActionCore_CreatePlumChain struct {
-	CreatePlumChain *CreatePlumChain `protobuf:"bytes,18,opt,name=createPlumChain,oneof"`
-}
-type ActionCore_TerminatePlumChain struct {
-	TerminatePlumChain *TerminatePlumChain `protobuf:"bytes,19,opt,name=terminatePlumChain,oneof"`
-}
-type ActionCore_PlumPutBlock struct {
-	PlumPutBlock *PlumPutBlock `protobuf:"bytes,20,opt,name=plumPutBlock,oneof"`
-}
-type ActionCore_PlumCreateDeposit struct {
-	PlumCreateDeposit *PlumCreateDeposit `protobuf:"bytes,21,opt,name=plumCreateDeposit,oneof"`
-}
-type ActionCore_PlumStartExit struct {
-	PlumStartExit *PlumStartExit `protobuf:"bytes,22,opt,name=plumStartExit,oneof"`
-}
-type ActionCore_PlumChallengeExit struct {
-	PlumChallengeExit *PlumChallengeExit `protobuf:"bytes,23,opt,name=plumChallengeExit,oneof"`
-}
-type ActionCore_PlumResponseChallengeExit struct {
-	PlumResponseChallengeExit *PlumResponseChallengeExit `protobuf:"bytes,24,opt,name=plumResponseChallengeExit,oneof"`
-}
-type ActionCore_PlumFinalizeExit struct {
-	PlumFinalizeExit *PlumFinalizeExit `protobuf:"bytes,25,opt,name=plumFinalizeExit,oneof"`
-}
-type ActionCore_PlumSettleDeposit struct {
-	PlumSettleDeposit *PlumSettleDeposit `protobuf:"bytes,26,opt,name=plumSettleDeposit,oneof"`
-}
-type ActionCore_PlumTransfer struct {
-	PlumTransfer *PlumTransfer `protobuf:"bytes,27,opt,name=plumTransfer,oneof"`
-}
-type ActionCore_DepositToRewardingFund struct {
-	DepositToRewardingFund *DepositToRewardingFund `protobuf:"bytes,30,opt,name=depositToRewardingFund,oneof"`
-}
-type ActionCore_ClaimFromRewardingFund struct {
-	ClaimFromRewardingFund *ClaimFromRewardingFund `protobuf:"bytes,31,opt,name=claimFromRewardingFund,oneof"`
-}
-type ActionCore_SetReward struct {
-	SetReward *SetReward `protobuf:"bytes,32,opt,name=setReward,oneof"`
-}
-type ActionCore_GrantReward struct {
-	GrantReward *GrantReward `protobuf:"bytes,33,opt,name=grantReward,oneof"`
-}
-type ActionCore_PutPollResult struct {
-	PutPollResult *PutPollResult `protobuf:"bytes,50,opt,name=putPollResult,oneof"`
-}
-
-func (*ActionCore_Transfer) isActionCore_Action()                  {}
-func (*ActionCore_Vote) isActionCore_Action()                      {}
-func (*ActionCore_Execution) isActionCore_Action()                 {}
-func (*ActionCore_StartSubChain) isActionCore_Action()             {}
-func (*ActionCore_StopSubChain) isActionCore_Action()              {}
-func (*ActionCore_PutBlock) isActionCore_Action()                  {}
-func (*ActionCore_CreateDeposit) isActionCore_Action()             {}
-func (*ActionCore_SettleDeposit) isActionCore_Action()             {}
-func (*ActionCore_CreatePlumChain) isActionCore_Action()           {}
-func (*ActionCore_TerminatePlumChain) isActionCore_Action()        {}
-func (*ActionCore_PlumPutBlock) isActionCore_Action()              {}
-func (*ActionCore_PlumCreateDeposit) isActionCore_Action()         {}
-func (*ActionCore_PlumStartExit) isActionCore_Action()             {}
-func (*ActionCore_PlumChallengeExit) isActionCore_Action()         {}
-func (*ActionCore_PlumResponseChallengeExit) isActionCore_Action() {}
-func (*ActionCore_PlumFinalizeExit) isActionCore_Action()          {}
-func (*ActionCore_PlumSettleDeposit) isActionCore_Action()         {}
-func (*ActionCore_PlumTransfer) isActionCore_Action()              {}
-func (*ActionCore_DepositToRewardingFund) isActionCore_Action()    {}
-func (*ActionCore_ClaimFromRewardingFund) isActionCore_Action()    {}
-func (*ActionCore_SetReward) isActionCore_Action()                 {}
-func (*ActionCore_GrantReward) isActionCore_Action()               {}
-func (*ActionCore_PutPollResult) isActionCore_Action()             {}
-
-func (m *ActionCore) GetAction() isActionCore_Action {
-	if m != nil {
-		return m.Action
-	}
-	return nil
-}
 
 func (m *ActionCore) GetVersion() uint32 {
 	if m != nil {
@@ -1441,6 +1336,155 @@ func (m *ActionCore) GetGasPrice() string {
 		return m.GasPrice
 	}
 	return ""
+}
+
+type isActionCore_Action interface {
+	isActionCore_Action()
+}
+
+type ActionCore_Transfer struct {
+	Transfer *Transfer `protobuf:"bytes,10,opt,name=transfer,proto3,oneof"`
+}
+
+type ActionCore_Vote struct {
+	Vote *Vote `protobuf:"bytes,11,opt,name=vote,proto3,oneof"`
+}
+
+type ActionCore_Execution struct {
+	Execution *Execution `protobuf:"bytes,12,opt,name=execution,proto3,oneof"`
+}
+
+type ActionCore_StartSubChain struct {
+	StartSubChain *StartSubChain `protobuf:"bytes,13,opt,name=startSubChain,proto3,oneof"`
+}
+
+type ActionCore_StopSubChain struct {
+	StopSubChain *StopSubChain `protobuf:"bytes,14,opt,name=stopSubChain,proto3,oneof"`
+}
+
+type ActionCore_PutBlock struct {
+	PutBlock *PutBlock `protobuf:"bytes,15,opt,name=putBlock,proto3,oneof"`
+}
+
+type ActionCore_CreateDeposit struct {
+	CreateDeposit *CreateDeposit `protobuf:"bytes,16,opt,name=createDeposit,proto3,oneof"`
+}
+
+type ActionCore_SettleDeposit struct {
+	SettleDeposit *SettleDeposit `protobuf:"bytes,17,opt,name=settleDeposit,proto3,oneof"`
+}
+
+type ActionCore_CreatePlumChain struct {
+	CreatePlumChain *CreatePlumChain `protobuf:"bytes,18,opt,name=createPlumChain,proto3,oneof"`
+}
+
+type ActionCore_TerminatePlumChain struct {
+	TerminatePlumChain *TerminatePlumChain `protobuf:"bytes,19,opt,name=terminatePlumChain,proto3,oneof"`
+}
+
+type ActionCore_PlumPutBlock struct {
+	PlumPutBlock *PlumPutBlock `protobuf:"bytes,20,opt,name=plumPutBlock,proto3,oneof"`
+}
+
+type ActionCore_PlumCreateDeposit struct {
+	PlumCreateDeposit *PlumCreateDeposit `protobuf:"bytes,21,opt,name=plumCreateDeposit,proto3,oneof"`
+}
+
+type ActionCore_PlumStartExit struct {
+	PlumStartExit *PlumStartExit `protobuf:"bytes,22,opt,name=plumStartExit,proto3,oneof"`
+}
+
+type ActionCore_PlumChallengeExit struct {
+	PlumChallengeExit *PlumChallengeExit `protobuf:"bytes,23,opt,name=plumChallengeExit,proto3,oneof"`
+}
+
+type ActionCore_PlumResponseChallengeExit struct {
+	PlumResponseChallengeExit *PlumResponseChallengeExit `protobuf:"bytes,24,opt,name=plumResponseChallengeExit,proto3,oneof"`
+}
+
+type ActionCore_PlumFinalizeExit struct {
+	PlumFinalizeExit *PlumFinalizeExit `protobuf:"bytes,25,opt,name=plumFinalizeExit,proto3,oneof"`
+}
+
+type ActionCore_PlumSettleDeposit struct {
+	PlumSettleDeposit *PlumSettleDeposit `protobuf:"bytes,26,opt,name=plumSettleDeposit,proto3,oneof"`
+}
+
+type ActionCore_PlumTransfer struct {
+	PlumTransfer *PlumTransfer `protobuf:"bytes,27,opt,name=plumTransfer,proto3,oneof"`
+}
+
+type ActionCore_DepositToRewardingFund struct {
+	DepositToRewardingFund *DepositToRewardingFund `protobuf:"bytes,30,opt,name=depositToRewardingFund,proto3,oneof"`
+}
+
+type ActionCore_ClaimFromRewardingFund struct {
+	ClaimFromRewardingFund *ClaimFromRewardingFund `protobuf:"bytes,31,opt,name=claimFromRewardingFund,proto3,oneof"`
+}
+
+type ActionCore_SetReward struct {
+	SetReward *SetReward `protobuf:"bytes,32,opt,name=setReward,proto3,oneof"`
+}
+
+type ActionCore_GrantReward struct {
+	GrantReward *GrantReward `protobuf:"bytes,33,opt,name=grantReward,proto3,oneof"`
+}
+
+type ActionCore_PutPollResult struct {
+	PutPollResult *PutPollResult `protobuf:"bytes,50,opt,name=putPollResult,proto3,oneof"`
+}
+
+func (*ActionCore_Transfer) isActionCore_Action() {}
+
+func (*ActionCore_Vote) isActionCore_Action() {}
+
+func (*ActionCore_Execution) isActionCore_Action() {}
+
+func (*ActionCore_StartSubChain) isActionCore_Action() {}
+
+func (*ActionCore_StopSubChain) isActionCore_Action() {}
+
+func (*ActionCore_PutBlock) isActionCore_Action() {}
+
+func (*ActionCore_CreateDeposit) isActionCore_Action() {}
+
+func (*ActionCore_SettleDeposit) isActionCore_Action() {}
+
+func (*ActionCore_CreatePlumChain) isActionCore_Action() {}
+
+func (*ActionCore_TerminatePlumChain) isActionCore_Action() {}
+
+func (*ActionCore_PlumPutBlock) isActionCore_Action() {}
+
+func (*ActionCore_PlumCreateDeposit) isActionCore_Action() {}
+
+func (*ActionCore_PlumStartExit) isActionCore_Action() {}
+
+func (*ActionCore_PlumChallengeExit) isActionCore_Action() {}
+
+func (*ActionCore_PlumResponseChallengeExit) isActionCore_Action() {}
+
+func (*ActionCore_PlumFinalizeExit) isActionCore_Action() {}
+
+func (*ActionCore_PlumSettleDeposit) isActionCore_Action() {}
+
+func (*ActionCore_PlumTransfer) isActionCore_Action() {}
+
+func (*ActionCore_DepositToRewardingFund) isActionCore_Action() {}
+
+func (*ActionCore_ClaimFromRewardingFund) isActionCore_Action() {}
+
+func (*ActionCore_SetReward) isActionCore_Action() {}
+
+func (*ActionCore_GrantReward) isActionCore_Action() {}
+
+func (*ActionCore_PutPollResult) isActionCore_Action() {}
+
+func (m *ActionCore) GetAction() isActionCore_Action {
+	if m != nil {
+		return m.Action
+	}
+	return nil
 }
 
 func (m *ActionCore) GetTransfer() *Transfer {
@@ -2078,7 +2122,7 @@ func _ActionCore_OneofSizer(msg proto.Message) (n int) {
 }
 
 type Action struct {
-	Core                 *ActionCore `protobuf:"bytes,1,opt,name=core" json:"core,omitempty"`
+	Core                 *ActionCore `protobuf:"bytes,1,opt,name=core,proto3" json:"core,omitempty"`
 	SenderPubKey         []byte      `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
 	Signature            []byte      `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
@@ -2090,7 +2134,7 @@ func (m *Action) Reset()         { *m = Action{} }
 func (m *Action) String() string { return proto.CompactTextString(m) }
 func (*Action) ProtoMessage()    {}
 func (*Action) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{23}
+	return fileDescriptor_action_c09f1607755082be, []int{23}
 }
 func (m *Action) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Action.Unmarshal(m, b)
@@ -2133,11 +2177,11 @@ func (m *Action) GetSignature() []byte {
 
 type Receipt struct {
 	ReturnValue          []byte   `protobuf:"bytes,1,opt,name=returnValue,proto3" json:"returnValue,omitempty"`
-	Status               uint64   `protobuf:"varint,2,opt,name=status" json:"status,omitempty"`
+	Status               uint64   `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
 	ActHash              []byte   `protobuf:"bytes,3,opt,name=actHash,proto3" json:"actHash,omitempty"`
-	GasConsumed          uint64   `protobuf:"varint,4,opt,name=gasConsumed" json:"gasConsumed,omitempty"`
-	ContractAddress      string   `protobuf:"bytes,5,opt,name=contractAddress" json:"contractAddress,omitempty"`
-	Logs                 []*Log   `protobuf:"bytes,6,rep,name=logs" json:"logs,omitempty"`
+	GasConsumed          uint64   `protobuf:"varint,4,opt,name=gasConsumed,proto3" json:"gasConsumed,omitempty"`
+	ContractAddress      string   `protobuf:"bytes,5,opt,name=contractAddress,proto3" json:"contractAddress,omitempty"`
+	Logs                 []*Log   `protobuf:"bytes,6,rep,name=logs,proto3" json:"logs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2147,7 +2191,7 @@ func (m *Receipt) Reset()         { *m = Receipt{} }
 func (m *Receipt) String() string { return proto.CompactTextString(m) }
 func (*Receipt) ProtoMessage()    {}
 func (*Receipt) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{24}
+	return fileDescriptor_action_c09f1607755082be, []int{24}
 }
 func (m *Receipt) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Receipt.Unmarshal(m, b)
@@ -2210,12 +2254,12 @@ func (m *Receipt) GetLogs() []*Log {
 }
 
 type Log struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	Topics               [][]byte `protobuf:"bytes,2,rep,name=topics,proto3" json:"topics,omitempty"`
 	Data                 []byte   `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-	BlockNumber          uint64   `protobuf:"varint,4,opt,name=blockNumber" json:"blockNumber,omitempty"`
+	BlockNumber          uint64   `protobuf:"varint,4,opt,name=blockNumber,proto3" json:"blockNumber,omitempty"`
 	TxnHash              []byte   `protobuf:"bytes,5,opt,name=txnHash,proto3" json:"txnHash,omitempty"`
-	Index                uint32   `protobuf:"varint,6,opt,name=index" json:"index,omitempty"`
+	Index                uint32   `protobuf:"varint,6,opt,name=index,proto3" json:"index,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2225,7 +2269,7 @@ func (m *Log) Reset()         { *m = Log{} }
 func (m *Log) String() string { return proto.CompactTextString(m) }
 func (*Log) ProtoMessage()    {}
 func (*Log) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{25}
+	return fileDescriptor_action_c09f1607755082be, []int{25}
 }
 func (m *Log) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Log.Unmarshal(m, b)
@@ -2288,7 +2332,7 @@ func (m *Log) GetIndex() uint32 {
 }
 
 type DepositToRewardingFund struct {
-	Amount               string   `protobuf:"bytes,1,opt,name=amount" json:"amount,omitempty"`
+	Amount               string   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
 	Data                 []byte   `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2299,7 +2343,7 @@ func (m *DepositToRewardingFund) Reset()         { *m = DepositToRewardingFund{}
 func (m *DepositToRewardingFund) String() string { return proto.CompactTextString(m) }
 func (*DepositToRewardingFund) ProtoMessage()    {}
 func (*DepositToRewardingFund) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{26}
+	return fileDescriptor_action_c09f1607755082be, []int{26}
 }
 func (m *DepositToRewardingFund) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DepositToRewardingFund.Unmarshal(m, b)
@@ -2334,7 +2378,7 @@ func (m *DepositToRewardingFund) GetData() []byte {
 }
 
 type ClaimFromRewardingFund struct {
-	Amount               string   `protobuf:"bytes,1,opt,name=amount" json:"amount,omitempty"`
+	Amount               string   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
 	Data                 []byte   `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2345,7 +2389,7 @@ func (m *ClaimFromRewardingFund) Reset()         { *m = ClaimFromRewardingFund{}
 func (m *ClaimFromRewardingFund) String() string { return proto.CompactTextString(m) }
 func (*ClaimFromRewardingFund) ProtoMessage()    {}
 func (*ClaimFromRewardingFund) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{27}
+	return fileDescriptor_action_c09f1607755082be, []int{27}
 }
 func (m *ClaimFromRewardingFund) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ClaimFromRewardingFund.Unmarshal(m, b)
@@ -2380,9 +2424,9 @@ func (m *ClaimFromRewardingFund) GetData() []byte {
 }
 
 type SetReward struct {
-	Amount               string     `protobuf:"bytes,1,opt,name=amount" json:"amount,omitempty"`
+	Amount               string     `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
 	Data                 []byte     `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	Type                 RewardType `protobuf:"varint,3,opt,name=type,enum=iotextypes.RewardType" json:"type,omitempty"`
+	Type                 RewardType `protobuf:"varint,3,opt,name=type,proto3,enum=iotextypes.RewardType" json:"type,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -2392,7 +2436,7 @@ func (m *SetReward) Reset()         { *m = SetReward{} }
 func (m *SetReward) String() string { return proto.CompactTextString(m) }
 func (*SetReward) ProtoMessage()    {}
 func (*SetReward) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{28}
+	return fileDescriptor_action_c09f1607755082be, []int{28}
 }
 func (m *SetReward) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetReward.Unmarshal(m, b)
@@ -2434,7 +2478,7 @@ func (m *SetReward) GetType() RewardType {
 }
 
 type GrantReward struct {
-	Type                 RewardType `protobuf:"varint,1,opt,name=type,enum=iotextypes.RewardType" json:"type,omitempty"`
+	Type                 RewardType `protobuf:"varint,1,opt,name=type,proto3,enum=iotextypes.RewardType" json:"type,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -2444,7 +2488,7 @@ func (m *GrantReward) Reset()         { *m = GrantReward{} }
 func (m *GrantReward) String() string { return proto.CompactTextString(m) }
 func (*GrantReward) ProtoMessage()    {}
 func (*GrantReward) Descriptor() ([]byte, []int) {
-	return fileDescriptor_action_8c10d369479fda7c, []int{29}
+	return fileDescriptor_action_c09f1607755082be, []int{29}
 }
 func (m *GrantReward) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GrantReward.Unmarshal(m, b)
@@ -2506,9 +2550,9 @@ func init() {
 	proto.RegisterEnum("iotextypes.RewardType", RewardType_name, RewardType_value)
 }
 
-func init() { proto.RegisterFile("action.proto", fileDescriptor_action_8c10d369479fda7c) }
+func init() { proto.RegisterFile("action.proto", fileDescriptor_action_c09f1607755082be) }
 
-var fileDescriptor_action_8c10d369479fda7c = []byte{
+var fileDescriptor_action_c09f1607755082be = []byte{
 	// 1756 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x58, 0x5f, 0x6f, 0xdb, 0xc8,
 	0x11, 0x17, 0x25, 0x59, 0xb1, 0xc6, 0x52, 0x2c, 0x6f, 0x1d, 0x85, 0x76, 0xd2, 0xc4, 0x65, 0xda,

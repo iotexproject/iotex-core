@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -34,6 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -247,7 +249,7 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
@@ -310,9 +312,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(blk.HashBlock(), blkHash)
 
 		// store to key 0
-		contractAddr := "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq"
 		data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
-		execution, err = action.NewExecution(contractAddr, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
+		execution, err = action.NewExecution(r.ContractAddress, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
 
 		bd = &action.EnvelopeBuilder{}
@@ -347,9 +348,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, r.ActHash)
 
 		// read from key 0
-		contractAddr = "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq"
 		data, _ = hex.DecodeString("6d4ce63c")
-		execution, err = action.NewExecution(contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
+		execution, err = action.NewExecution(r.ContractAddress, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
 
 		bd = &action.EnvelopeBuilder{}
@@ -436,7 +436,7 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
@@ -505,7 +505,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(0, balance.Cmp(big.NewInt(500000000)))
 
 		log.S().Info("Roll Dice")
-		data, _ = hex.DecodeString("797d9fbd000000000000000000000000d950673630e2286adc157c35f2fd73a1ef49d40e")
+		h := keypair.HashPubKey(testaddress.Keyinfo["alfa"].PubKey)
+		data, _ = hex.DecodeString(fmt.Sprintf("797d9fbd000000000000000000000000%x", h))
 		execution, err = action.NewExecution(contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
 
@@ -603,7 +604,7 @@ func TestProtocol_Handle(t *testing.T) {
 		sf.AddActionHandlers(NewProtocol(bc))
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), blockchain.Gen.TotalSupply)
+		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(0))
 		require.NoError(err)
@@ -826,7 +827,7 @@ func TestProtocol_Validate(t *testing.T) {
 func TestERC20(t *testing.T) {
 	sct := &smartContractTest{
 		prepare: map[string]*big.Int{
-			testaddress.Addrinfo["producer"].String(): blockchain.Gen.TotalSupply,
+			testaddress.Addrinfo["producer"].String(): unit.ConvertIotxToRau(1000000000),
 			testaddress.Addrinfo["alfa"].String():     big.NewInt(0),
 			testaddress.Addrinfo["bravo"].String():    big.NewInt(0),
 		},

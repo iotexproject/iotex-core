@@ -71,7 +71,6 @@ func TestNewRollDPoS(t *testing.T) {
 		r, err := NewRollDPoSBuilder().
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
-			SetPubKey(&sk.PublicKey).
 			SetPriKey(sk).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
@@ -88,7 +87,6 @@ func TestNewRollDPoS(t *testing.T) {
 		r, err := NewRollDPoSBuilder().
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
-			SetPubKey(&sk.PublicKey).
 			SetPriKey(sk).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
@@ -109,7 +107,6 @@ func TestNewRollDPoS(t *testing.T) {
 		r, err := NewRollDPoSBuilder().
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
-			SetPubKey(&sk.PublicKey).
 			SetPriKey(sk).
 			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
@@ -129,7 +126,6 @@ func TestNewRollDPoS(t *testing.T) {
 		r, err := NewRollDPoSBuilder().
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
-			SetPubKey(&sk.PublicKey).
 			SetPriKey(sk).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
@@ -187,7 +183,6 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	r, err := NewRollDPoSBuilder().
 		SetConfig(cfg).
 		SetAddr(identityset.Address(1).String()).
-		SetPubKey(&sk1.PublicKey).
 		SetPriKey(sk1).
 		SetBlockchain(blockchain).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
@@ -239,7 +234,6 @@ func makeTestRollDPoSCtx(
 		cfg:              cfg.Consensus.RollDPoS,
 		genesisCfg:       cfg.Genesis.Blockchain,
 		encodedAddr:      addr.encodedAddr,
-		pubKey:           addr.pubKey,
 		priKey:           addr.priKey,
 		chain:            chain,
 		actPool:          actPool,
@@ -386,7 +380,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 
 			consensus, err := NewRollDPoSBuilder().
 				SetAddr(chainAddrs[i].encodedAddr).
-				SetPubKey(&chainAddrs[i].priKey.PublicKey).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(cfg).
 				SetBlockchain(chain).

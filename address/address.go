@@ -7,6 +7,7 @@
 package address
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"strings"
@@ -52,4 +53,15 @@ func prefix() string {
 		prefix = TestnetPrefix
 	}
 	return prefix
+}
+
+// Equal determine if two addresses are equal
+func Equal(addr1 Address, addr2 Address) bool {
+	if addr1 == nil && addr2 == nil {
+		return true
+	}
+	if addr1 != nil && addr2 == nil || addr1 == nil && addr2 != nil {
+		return false
+	}
+	return bytes.Equal(addr1.Bytes(), addr2.Bytes())
 }

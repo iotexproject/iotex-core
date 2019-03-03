@@ -51,7 +51,6 @@ type rollDPoSCtx struct {
 	cfg              config.RollDPoS
 	genesisCfg       genesis.Blockchain
 	encodedAddr      string
-	pubKey           keypair.PublicKey
 	priKey           keypair.PrivateKey
 	chain            blockchain.Blockchain
 	actPool          actpool.ActPool
@@ -140,7 +139,7 @@ func (ctx *rollDPoSCtx) OnConsensusReached() {
 		}
 		// putblock to parent chain if the current node is proposer and current chain is a sub chain
 		if ctx.round.proposer == ctx.encodedAddr && ctx.chain.ChainAddress() != "" {
-			putBlockToParentChain(ctx.rootChainAPI, ctx.chain.ChainAddress(), ctx.pubKey, ctx.priKey, ctx.encodedAddr, pendingBlock.Block)
+			putBlockToParentChain(ctx.rootChainAPI, ctx.chain.ChainAddress(), ctx.priKey, ctx.encodedAddr, pendingBlock.Block)
 		}
 	} else {
 		ctx.logger().Panic(
@@ -513,7 +512,6 @@ func (ctx *rollDPoSCtx) newEndorsement(topic endorsement.ConsensusVoteTopic) (co
 			ctx.round.number,
 			topic,
 		),
-		ctx.pubKey,
 		ctx.priKey,
 		ctx.encodedAddr,
 	)
@@ -628,11 +626,16 @@ func (ctx *rollDPoSCtx) roundCtxByTime(
 	height uint64,
 	timestamp time.Time,
 ) (*roundCtx, error) {
-	lastBlock, err := ctx.chain.GetBlockByHeight(height - 1)
-	if err != nil {
-		return nil, err
+	var lastBlockTime time.Time
+	if height == 1 {
+		lastBlockTime = time.Unix(ctx.genesisCfg.Timestamp, 0)
+	} else {
+		lastBlock, err := ctx.chain.GetBlockByHeight(height - 1)
+		if err != nil {
+			return nil, err
+		}
+		lastBlockTime = time.Unix(lastBlock.Timestamp(), 0)
 	}
-	lastBlockTime := time.Unix(lastBlock.Timestamp(), 0)
 	// proposer interval should be always larger than 0
 	interval := ctx.genesisCfg.BlockInterval
 	if interval <= 0 {

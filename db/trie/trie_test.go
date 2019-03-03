@@ -13,7 +13,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 var (
@@ -468,7 +469,7 @@ func Test4kEntries(t *testing.T) {
 	k[0] = byte(seed)
 	c := 0
 	for c = 0; c < 1<<12; c++ {
-		k = blake2b.Sum256(k[:])
+		k = hash.Hash256b(k[:])
 		v := testV[k[0]&7]
 		if _, err := tr.Get(k[:4]); err == nil {
 			t.Logf("Warning: collision on k %x", k[:4])
@@ -496,12 +497,12 @@ func Test4kEntries(t *testing.T) {
 	var d [32]byte
 	d[0] = byte(seed)
 	// save the first 3, delete them last
-	d1 := blake2b.Sum256(d[:])
-	d2 := blake2b.Sum256(d1[:])
-	d3 := blake2b.Sum256(d2[:])
+	d1 := hash.Hash256b(d[:])
+	d2 := hash.Hash256b(d1[:])
+	d3 := hash.Hash256b(d2[:])
 	d = d3
 	for i := 0; i < c-3; i++ {
-		d = blake2b.Sum256(d[:])
+		d = hash.Hash256b(d[:])
 		require.Nil(tr.Delete(d[:4]))
 		newRoot := tr.RootHash()
 		require.False(tr.isEmptyRootHash(newRoot))
@@ -538,7 +539,7 @@ func TestPressure(t *testing.T) {
 	k[0] = byte(seed)
 	c := 0
 	for c = 0; c < 1<<17; c++ {
-		k = blake2b.Sum256(k[:])
+		k = hash.Hash256b(k[:])
 		v := testV[k[0]&7]
 		if _, err := tr.Get(k[:4]); err == nil {
 			t.Logf("Warning: collision on k %x", k[:4])
@@ -560,12 +561,12 @@ func TestPressure(t *testing.T) {
 	var d [32]byte
 	d[0] = byte(seed)
 	// save the first 3, delete them last
-	d1 := blake2b.Sum256(d[:])
-	d2 := blake2b.Sum256(d1[:])
-	d3 := blake2b.Sum256(d2[:])
+	d1 := hash.Hash256b(d[:])
+	d2 := hash.Hash256b(d1[:])
+	d3 := hash.Hash256b(d2[:])
 	d = d3
 	for i := 0; i < c-3; i++ {
-		d = blake2b.Sum256(d[:])
+		d = hash.Hash256b(d[:])
 		require.Nil(tr.Delete(d[:4]))
 		newRoot := tr.RootHash()
 		require.False(tr.isEmptyRootHash(newRoot))

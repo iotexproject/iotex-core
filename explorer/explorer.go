@@ -135,7 +135,7 @@ func (exp *Service) GetLastTransfersByRange(startBlockHeight int64, offset int64
 	var res []explorer.Transfer
 	transferCount := int64(0)
 
-	for height := startBlockHeight; height >= 0; height-- {
+	for height := startBlockHeight; height > 0; height-- {
 		var blkID string
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
 		if err != nil {
@@ -318,7 +318,7 @@ func (exp *Service) GetLastVotesByRange(startBlockHeight int64, offset int64, li
 	var res []explorer.Vote
 	voteCount := uint64(0)
 
-	for height := startBlockHeight; height >= 0; height-- {
+	for height := startBlockHeight; height > 0; height-- {
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
 		if err != nil {
 			return []explorer.Vote{}, err
@@ -500,7 +500,7 @@ func (exp *Service) GetLastExecutionsByRange(startBlockHeight int64, offset int6
 	var res []explorer.Execution
 	executionCount := uint64(0)
 
-	for height := startBlockHeight; height >= 0; height-- {
+	for height := startBlockHeight; height > 0; height-- {
 		hash, err := exp.bc.GetHashByHeight(uint64(height))
 		if err != nil {
 			return []explorer.Execution{}, err
@@ -806,7 +806,7 @@ func (exp *Service) GetSettleDepositsByAddress(
 func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.Block, error) {
 	var res []explorer.Block
 
-	for height := offset; height >= 0 && int64(len(res)) < limit; height-- {
+	for height := offset; height > 0 && int64(len(res)) < limit; height-- {
 		blk, err := exp.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
 			return []explorer.Block{}, err
@@ -949,7 +949,6 @@ func (exp *Service) GetCoinStatistic() (explorer.CoinStatistic, error) {
 
 	explorerCoinStats := explorer.CoinStatistic{
 		Height:     int64(tipHeight),
-		Supply:     blockchain.Gen.TotalSupply.String(),
 		Transfers:  int64(totalTransfers),
 		Votes:      int64(totalVotes),
 		Executions: int64(totalExecutions),

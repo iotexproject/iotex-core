@@ -87,19 +87,16 @@ var (
 var (
 	delegates = []genesis.Delegate{
 		{
-			Address:       ta.Addrinfo["alfa"].String(),
-			Votes:         10,
-			RewardAddress: ta.Addrinfo["alfa"].String(),
+			OperatorAddrStr: identityset.Address(0).String(),
+			VotesStr:        "10",
 		},
 		{
-			Address:       ta.Addrinfo["bravo"].String(),
-			Votes:         10,
-			RewardAddress: ta.Addrinfo["bravo"].String(),
+			OperatorAddrStr: identityset.Address(1).String(),
+			VotesStr:        "10",
 		},
 		{
-			Address:       ta.Addrinfo["charlie"].String(),
-			Votes:         10,
-			RewardAddress: ta.Addrinfo["charlie"].String(),
+			OperatorAddrStr: identityset.Address(2).String(),
+			VotesStr:        "10",
 		},
 	}
 )
@@ -113,14 +110,14 @@ var (
 		pendingNonce uint64
 	}{
 		{ta.Addrinfo["charlie"].String(),
-			"io1hw79kmqxlp33h7t83wrf9gkduy58th4vmkkue4",
+			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 			"3",
 			8,
 			9,
 		},
 		{
 			ta.Addrinfo["producer"].String(),
-			"io14485vn8markfupgy86at5a0re78jll0pmq8fjv",
+			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
 			"9999999999999999999999999991",
 			1,
 			6,
@@ -133,7 +130,7 @@ var (
 		numActions int
 	}{
 		{
-			0,
+			1,
 			11,
 			11,
 		},
@@ -237,7 +234,7 @@ var (
 		{
 			1,
 			5,
-			4,
+			3,
 		},
 	}
 
@@ -962,8 +959,11 @@ func addProducerToFactory(sf factory.Factory) error {
 	if err != nil {
 		return err
 	}
-	if _, err = accountutil.LoadOrCreateAccount(ws, ta.Addrinfo["producer"].String(),
-		blockchain.Gen.TotalSupply); err != nil {
+	if _, err = accountutil.LoadOrCreateAccount(
+		ws,
+		ta.Addrinfo["producer"].String(),
+		unit.ConvertIotxToRau(10000000000),
+	); err != nil {
 		return err
 	}
 	gasLimit := testutil.TestGasLimit

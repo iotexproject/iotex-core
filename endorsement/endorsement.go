@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -60,7 +59,7 @@ func (en *ConsensusVote) Hash() hash.Hash256 {
 	stream = append(stream, byteutil.Uint32ToBytes(en.Round)...)
 	stream = append(stream, en.BlkHash...)
 
-	return blake2b.Sum256(stream)
+	return hash.Hash256b(stream)
 }
 
 // Endorsement is a stamp on a consensus vote
@@ -72,7 +71,7 @@ type Endorsement struct {
 }
 
 // NewEndorsement creates an Endorsement for an consensus vote
-func NewEndorsement(object *ConsensusVote, endorserPubKey keypair.PublicKey, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
+func NewEndorsement(object *ConsensusVote, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
 	hash := object.Hash()
 	sig, err := crypto.Sign(hash[:], endorserPriKey)
 	if err != nil {
@@ -82,7 +81,7 @@ func NewEndorsement(object *ConsensusVote, endorserPubKey keypair.PublicKey, end
 	return &Endorsement{
 		object:         object,
 		endorser:       endorserAddr,
-		endorserPubkey: endorserPubKey,
+		endorserPubkey: &endorserPriKey.PublicKey,
 		signature:      sig,
 	}
 }

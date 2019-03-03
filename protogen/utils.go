@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/testingpb"
 )
 
-// Magic header to identify IoTex traffic
+// Magic header to identify IoTeX traffic
 const (
 	MagicBroadcastMsgHeader uint32 = 4689
 )
