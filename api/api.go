@@ -195,7 +195,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if int64(tipHeight) < blockLimit {
 		blockLimit = int64(tipHeight)
 	}
-	r, err := api.getBlockMetas(0, uint64(blockLimit))
+	r, err := api.getBlockMetas(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
 	if err != nil {
 		return nil, err
 	}
@@ -337,13 +337,13 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	var actionCount uint64
 
 	tipHeight := api.bc.TipHeight()
-	for height := int64(tipHeight); height > 0; height-- {
+	for height := 1; height <= int(tipHeight); height++ {
 		blk, err := api.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
 			return nil, err
 		}
 		selps := blk.Actions
-		for i := len(selps) - 1; i >= 0; i-- {
+		for i := 0; i < len(selps); i++ {
 			actionCount++
 
 			if actionCount <= start {
@@ -399,7 +399,7 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 	}
 
 	var actionCount uint64
-	for i := len(actions) - 1; i >= 0; i-- {
+	for i := 0; i < len(actions); i++ {
 		actionCount++
 
 		if actionCount <= start {
@@ -427,7 +427,7 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 	var actionCount uint64
 
 	selps := api.ap.GetUnconfirmedActs(address)
-	for i := len(selps) - 1; i >= 0; i-- {
+	for i := 0; i < len(selps); i++ {
 		actionCount++
 
 		if actionCount <= start {
@@ -459,7 +459,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 	selps := blk.Actions
 	var actionCount uint64
-	for i := len(selps) - 1; i >= 0; i-- {
+	for i := 0; i < len(selps); i++ {
 		actionCount++
 
 		if actionCount <= start {
@@ -479,9 +479,8 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
 	var res []*iotextypes.BlockMeta
 
-	startHeight := api.bc.TipHeight()
 	var blkCount uint64
-	for height := int(startHeight); height > 0; height-- {
+	for height := 1; height <= int(api.bc.TipHeight()); height++ {
 		blkCount++
 
 		if blkCount <= start {

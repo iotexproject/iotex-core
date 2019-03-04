@@ -135,7 +135,7 @@ var (
 		},
 		{
 			11,
-			21,
+			5,
 			4,
 		},
 	}
@@ -651,10 +651,9 @@ func TestServer_GetBlockMetas(t *testing.T) {
 		var prevBlkPb *iotextypes.BlockMeta
 		for _, blkPb := range res.BlkMetas {
 			if prevBlkPb != nil {
-				require.True(blkPb.Timestamp < prevBlkPb.Timestamp)
-				require.True(blkPb.Height < prevBlkPb.Height)
-				prevBlkPb = blkPb
+				require.True(blkPb.Height > prevBlkPb.Height)
 			}
+			prevBlkPb = blkPb
 		}
 	}
 }
