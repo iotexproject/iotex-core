@@ -251,7 +251,7 @@ func newConfig(
 	cfg.Chain.NumCandidates = numNodes
 	cfg.Chain.EnableIndex = true
 	cfg.Chain.EnableAsyncIndexWrite = true
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(producerPriKey)
+	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 4 * time.Second

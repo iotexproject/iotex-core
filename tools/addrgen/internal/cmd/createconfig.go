@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -24,12 +23,12 @@ var createConfigCmd = &cobra.Command{
 	Short: "Creates a yaml config using generated pub/pri key pair.",
 	Long:  `Creates a yaml config using generated pub/pri key pair.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		private, err := crypto.GenerateKey()
+		private, err := keypair.GenerateKey()
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
-		priKeyBytes := keypair.PrivateKeyToBytes(private)
-		pubKeyBytes := keypair.PublicKeyToBytes(&private.PublicKey)
+		priKeyBytes := private.Bytes()
+		pubKeyBytes := private.PublicKey().Bytes()
 		cfgStr := fmt.Sprintf(
 			`chain:
   producerPrivKey: "%x"

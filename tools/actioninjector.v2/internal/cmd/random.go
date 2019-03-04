@@ -82,16 +82,15 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 	// Construct iotex addresses from loaded key pairs
 	addrKeys := make([]*AddressKey, 0)
 	for _, pair := range keypairs.Pairs {
-		pk, err := keypair.DecodePublicKey(pair.PK)
+		pk, err := keypair.HexStringToPublicKey(pair.PK)
 		if err != nil {
 			return errors.Wrap(err, "failed to decode public key")
 		}
-		sk, err := keypair.DecodePrivateKey(pair.SK)
+		sk, err := keypair.HexStringToPrivateKey(pair.SK)
 		if err != nil {
 			return errors.Wrap(err, "failed to decode private key")
 		}
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(pk.Hash())
 		if err != nil {
 			return err
 		}

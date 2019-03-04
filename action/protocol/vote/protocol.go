@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -110,9 +109,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	} else if raCtx.Caller.String() == vote.Votee() {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
-		votePubkey := vote.VoterPublicKey()
-		callerPKHash := keypair.HashPubKey(votePubkey)
-		addr, err := address.FromBytes(callerPKHash[:])
+		addr, err := address.FromBytes(vote.VoterPublicKey().Hash())
 		if err != nil {
 			return nil, err
 		}

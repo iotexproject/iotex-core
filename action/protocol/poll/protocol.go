@@ -109,9 +109,9 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "BlockProducersByHeight":
-		fallthrough
 	case "ActiveBlockProducersByHeight":
+		fallthrough
+	case "CommitteeBlockProducersByHeight":
 		return p.readBlockProducers()
 	default:
 		return nil, errors.New("corresponding method isn't found")
@@ -251,20 +251,20 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "BlockProducersByHeight":
-		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
-		}
-		blockProducers, err := p.readBlockProducersByHeight(byteutil.BytesToUint64(args[0]))
-		if err != nil {
-			return nil, err
-		}
-		return serializeBlockProducers(blockProducers)
 	case "ActiveBlockProducersByHeight":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		activeBlockProducers, err := p.readActiveProducersByHeight(byteutil.BytesToUint64(args[0]))
+		blockProducers, err := p.readActiveBlockProducersByHeight(byteutil.BytesToUint64(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		return serializeBlockProducers(blockProducers)
+	case "CommitteeBlockProducersByHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		activeBlockProducers, err := p.readCommitteeProducersByHeight(byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +275,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	}
 }
 
-func (p *governanceChainCommitteeProtocol) readBlockProducersByHeight(height uint64) ([]string, error) {
+func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(height uint64) ([]string, error) {
 	beaconHeight, err := p.getBeaconHeight(height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get beacon chain height")
@@ -294,10 +294,10 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByHeight(height uin
 	return blockProducers, nil
 }
 
-func (p *governanceChainCommitteeProtocol) readActiveProducersByHeight(height uint64) ([]string, error) {
-	blockProducers, err := p.readBlockProducersByHeight(height)
+func (p *governanceChainCommitteeProtocol) readCommitteeProducersByHeight(height uint64) ([]string, error) {
+	blockProducers, err := p.readActiveBlockProducersByHeight(height)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get block producers on height %d", height)
+		return nil, errors.Wrapf(err, "failed to get active block producers on height %d", height)
 	}
 	epochNum := p.getEpochNum(height)
 	crypto.SortCandidates(blockProducers, epochNum, crypto.CryptoSeed)

@@ -26,11 +26,11 @@ import (
 func putBlockToParentChain(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPriKey keypair.PrivateKey,
+	senderPrvKey keypair.PrivateKey,
 	senderAddr string,
 	b *block.Block,
 ) {
-	if err := putBlockToParentChainTask(rootChainAPI, subChainAddr, senderPriKey, b); err != nil {
+	if err := putBlockToParentChainTask(rootChainAPI, subChainAddr, senderPrvKey, b); err != nil {
 		log.L().Error("Failed to put block merkle roots to parent chain.",
 			zap.String("subChainAddress", subChainAddr),
 			zap.String("senderAddress", senderAddr),
@@ -47,10 +47,10 @@ func putBlockToParentChain(
 func putBlockToParentChainTask(
 	rootChainAPI explorerapi.Explorer,
 	subChainAddr string,
-	senderPriKey keypair.PrivateKey,
+	senderPrvKey keypair.PrivateKey,
 	b *block.Block,
 ) error {
-	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, &senderPriKey.PublicKey, senderPriKey, b)
+	req, err := constructPutSubChainBlockRequest(rootChainAPI, subChainAddr, senderPrvKey.PublicKey(), senderPrvKey, b)
 	if err != nil {
 		return errors.Wrap(err, "fail to construct PutSubChainBlockRequest")
 	}
@@ -68,8 +68,7 @@ func constructPutSubChainBlockRequest(
 	senderPriKey keypair.PrivateKey,
 	b *block.Block,
 ) (explorerapi.PutSubChainBlockRequest, error) {
-	senderPKHash := keypair.HashPubKey(senderPubKey)
-	senderPCAddr, err := address.FromBytes(senderPKHash[:])
+	senderPCAddr, err := address.FromBytes(senderPubKey.Hash())
 	if err != nil {
 		return explorerapi.PutSubChainBlockRequest{}, err
 	}
@@ -107,7 +106,7 @@ func constructPutSubChainBlockRequest(
 	req := explorerapi.PutSubChainBlockRequest{
 		Version:         int64(selp.Version()),
 		Nonce:           int64(selp.Nonce()),
-		SenderPubKey:    keypair.EncodePublicKey(senderPubKey),
+		SenderPubKey:    senderPubKey.HexString(),
 		GasLimit:        int64(selp.GasLimit()),
 		GasPrice:        selp.GasPrice().String(),
 		SubChainAddress: pb.SubChainAddress(),

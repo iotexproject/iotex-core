@@ -161,7 +161,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		blockHeight,
 		hash.Hash256{},
 		testutil.TimestampNowFromClock(clock),
-		&sk.PublicKey,
+		sk.PublicKey(),
 		make([]action.SealedEnvelope, 0),
 	)
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
@@ -303,7 +303,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			sk := identityset.PrivateKey(i)
 			addr := addrKeyPair{
 				encodedAddr: identityset.Address(i).String(),
-				pubKey:      &sk.PublicKey,
+				pubKey:      sk.PublicKey(),
 				priKey:      sk,
 			}
 			chainAddrs = append(chainAddrs, &addr)
@@ -334,7 +334,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cs := make([]*RollDPoS, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
 			ctx := context.Background()
-			cfg.Chain.ProducerPrivKey = hex.EncodeToString(keypair.PrivateKeyToBytes(chainAddrs[i].priKey))
+			cfg.Chain.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(ctx))
