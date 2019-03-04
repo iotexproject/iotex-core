@@ -21,11 +21,9 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Flags
@@ -79,25 +77,20 @@ func sendAction(elp action.Envelope) string {
 		return err.Error()
 	}
 	password := string(bytePassword)
-	ehash := elp.Hash()
-	sig, err := account.Sign(signer, password, ehash[:])
+	prvKey, err := account.KsAccountToPrivateKey(signer, password)
 	if err != nil {
-		log.L().Error("fail to sign", zap.Error(err))
+		log.L().Error("fail to generate key from keystore", zap.Error(err))
 		return err.Error()
 	}
-	pubKey, err := keypair.SigToPublicKey(ehash[:], sig)
+	defer prvKey.Zero()
+	selp, err := action.Sign(elp, prvKey)
 	if err != nil {
 		log.L().Error("fail to get public key", zap.Error(err))
 		return err.Error()
 	}
-	selp := &iotextypes.Action{
-		Core:         elp.Proto(),
-		SenderPubKey: pubKey.Bytes(),
-		Signature:    sig,
-	}
 
 	var confirm string
-	actionInfo, err := printActionProto(selp)
+	actionInfo, err := printActionProto(selp.Proto())
 	if err != nil {
 		return err.Error()
 	}
@@ -111,7 +104,7 @@ func sendAction(elp action.Envelope) string {
 	}
 	fmt.Println()
 
-	request := &iotexapi.SendActionRequest{Action: selp}
+	request := &iotexapi.SendActionRequest{Action: selp.Proto()}
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
@@ -123,7 +116,7 @@ func sendAction(elp action.Envelope) string {
 	if err != nil {
 		return err.Error()
 	}
-	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
+	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp.Proto())))
 	return "Action has been sent to blockchain.\n" +
 		"Wait for several seconds and query this action by hash:\n" +
 		hex.EncodeToString(shash[:])
