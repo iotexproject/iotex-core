@@ -15,7 +15,7 @@
 
 set -e
 
-RELEASES_URL="https://raw.githubusercontent.com/iotexproject/iotex-core/releases"
+RELEASES_URL="https://github.com/iotexproject/iotex-core/releases"
 
 downloadJSON() {
     url="$2"
