@@ -1,4 +1,7 @@
     ioctl is a command-line interface for interacting with IoTeX blockchains.
+
+    Intall:
+    curl https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-cli.sh | sh
     
     Usage:
       ioctl [command]
