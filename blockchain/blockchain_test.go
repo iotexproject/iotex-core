@@ -9,7 +9,9 @@ package blockchain
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"sync"
 	"testing"
 
@@ -31,11 +33,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testDBPath   = "db.test"
-	testTriePath = "trie.test"
 )
 
 func addTestingTsfBlocks(bc Blockchain) error {
@@ -417,10 +414,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -662,10 +659,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.DB.UseBadgerDB = false // test with boltDB
@@ -873,10 +872,10 @@ func TestBlockchain_Validator(t *testing.T) {
 func TestBlockchainInitialCandidate(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -943,10 +942,10 @@ func TestBlocks(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
@@ -1006,10 +1005,10 @@ func TestActions(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
