@@ -98,7 +98,7 @@ func TestRollDPoSCtx(t *testing.T) {
 			blockHeight,
 			prevHash,
 			testutil.TimestampNowFromClock(clock),
-			&sk.PublicKey,
+			sk.PublicKey(),
 			make([]action.SealedEnvelope, 0),
 		)
 		cfg := config.Default
@@ -115,7 +115,7 @@ func TestRollDPoSCtx(t *testing.T) {
 		sk0 := identityset.PrivateKey(0)
 		addr0 := addrKeyPair{
 			encodedAddr: identityset.Address(0).String(),
-			pubKey:      &sk0.PublicKey,
+			pubKey:      sk0.PublicKey(),
 			priKey:      sk0,
 		}
 		ctx := makeTestRollDPoSCtx(

@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/sql"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -57,7 +56,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 				Version: version.ProtocolVersion,
 				Height:  123456789,
 			},
-			ProducerPubkey: keypair.PublicKeyToBytes(pubKey1),
+			ProducerPubkey: pubKey1.Bytes(),
 		},
 		Actions: []*iotextypes.Action{
 			{
@@ -68,7 +67,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   101,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
+				SenderPubKey: pubKey1.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -78,7 +77,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   103,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
+				SenderPubKey: pubKey1.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -88,7 +87,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   104,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey1),
+				SenderPubKey: pubKey1.Bytes(),
 			},
 		},
 	})

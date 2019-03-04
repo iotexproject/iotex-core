@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -141,11 +140,10 @@ func (b *Block) VerifyDeltaStateDigest(digest hash.Hash256) error {
 func (b *Block) VerifySignature() bool {
 	h := b.Header.HashHeaderCore()
 
-	if len(b.Header.blockSig) != action.SignatureLength {
+	if b.Header.pubkey == nil || len(b.Header.blockSig) != action.SignatureLength {
 		return false
 	}
-	return crypto.VerifySignature(keypair.PublicKeyToBytes(b.Header.pubkey), h[:],
-		b.Header.blockSig[:action.SignatureLength-1])
+	return b.Header.pubkey.Verify(h[:], b.Header.blockSig)
 }
 
 // VerifyReceiptRoot verifies the receipt root in header
@@ -158,8 +156,7 @@ func (b *Block) VerifyReceiptRoot(root hash.Hash256) error {
 
 // ProducerAddress returns the address of producer
 func (b *Block) ProducerAddress() string {
-	pkHash := keypair.HashPubKey(b.Header.pubkey)
-	addr, _ := address.FromBytes(pkHash[:])
+	addr, _ := address.FromBytes(b.Header.pubkey.Hash())
 	return addr.String()
 }
 

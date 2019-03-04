@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,14 +19,13 @@ import (
 
 func TestAddress(t *testing.T) {
 	runTest := func(t *testing.T) {
-		sk, err := crypto.GenerateKey()
+		sk, err := keypair.GenerateKey()
 		require.NoError(t, err)
 
-		pkHash := keypair.HashPubKey(&sk.PublicKey)
-
-		addr1, err := _v1.FromBytes(pkHash[:])
+		pkHash := sk.PublicKey().Hash()
+		addr1, err := _v1.FromBytes(pkHash)
 		require.NoError(t, err)
-		assert.Equal(t, pkHash[:], addr1.Bytes())
+		assert.Equal(t, pkHash, addr1.Bytes())
 
 		encodedAddr := addr1.String()
 		if isTestNet {
@@ -58,11 +56,10 @@ func TestAddress(t *testing.T) {
 func TestAddressError(t *testing.T) {
 	t.Parallel()
 
-	sk, err := crypto.GenerateKey()
+	sk, err := keypair.GenerateKey()
 	require.NoError(t, err)
 
-	pkHash := keypair.HashPubKey(&sk.PublicKey)
-	addr1, err := _v1.FromBytes(pkHash[:])
+	addr1, err := _v1.FromBytes(sk.PublicKey().Hash())
 	require.NoError(t, err)
 
 	encodedAddr := addr1.String()

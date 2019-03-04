@@ -36,7 +36,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/gasstation"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -151,19 +150,19 @@ var (
 			false,
 			hex.EncodeToString(transferHash1[:]),
 			1,
-			keypair.EncodePublicKey(testTransfer1.SrcPubkey()),
+			testTransfer1.SrcPubkey().HexString(),
 		},
 		{
 			false,
 			hex.EncodeToString(voteHash1[:]),
 			5,
-			keypair.EncodePublicKey(testVote1.SrcPubkey()),
+			testVote1.SrcPubkey().HexString(),
 		},
 		{
 			true,
 			hex.EncodeToString(executionHash1[:]),
 			5,
-			keypair.EncodePublicKey(testExecution1.SrcPubkey()),
+			testExecution1.SrcPubkey().HexString(),
 		},
 	}
 
@@ -1139,7 +1138,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 }
 
 func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, error) {
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(keypair.PrivateKeyToBytes(identityset.PrivateKey(0)))
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	if err != nil {
 		return nil, nil, err

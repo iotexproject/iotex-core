@@ -38,7 +38,7 @@ func (bs SubChain) Serialize() ([]byte, error) {
 		StartHeight:        bs.StartHeight,
 		StopHeight:         bs.StopHeight,
 		ParentHeightOffset: bs.ParentHeightOffset,
-		OwnerPublicKey:     keypair.PublicKeyToBytes(bs.OwnerPublicKey),
+		OwnerPublicKey:     bs.OwnerPublicKey.Bytes(),
 		CurrentHeight:      bs.CurrentHeight,
 		DepositCount:       bs.DepositCount,
 	}
@@ -107,7 +107,7 @@ func (bp BlockProof) Serialize() ([]byte, error) {
 		SubChainAddress:   bp.SubChainAddress,
 		Height:            bp.Height,
 		Roots:             r,
-		ProducerPublicKey: keypair.PublicKeyToBytes(bp.ProducerPublicKey),
+		ProducerPublicKey: bp.ProducerPublicKey.Bytes(),
 		ProducerAddress:   bp.ProducerAddress,
 	}
 	return proto.Marshal(gen)

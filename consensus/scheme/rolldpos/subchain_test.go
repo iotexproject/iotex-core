@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
@@ -40,7 +39,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 				Version: version.ProtocolVersion,
 				Height:  123456789,
 			},
-			ProducerPubkey: keypair.PublicKeyToBytes(pubKey),
+			ProducerPubkey: pubKey.Bytes(),
 		},
 		Actions: []*iotextypes.Action{
 			{
@@ -51,7 +50,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   101,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+				SenderPubKey: pubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -61,7 +60,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   102,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+				SenderPubKey: pubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -71,7 +70,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   103,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+				SenderPubKey: pubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -81,7 +80,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   104,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+				SenderPubKey: pubKey.Bytes(),
 			},
 		},
 	}
@@ -95,7 +94,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 		Version:         1,
 		Nonce:           100,
 		SenderAddress:   addr,
-		SenderPubKey:    keypair.EncodePublicKey(pubKey),
+		SenderPubKey:    pubKey.HexString(),
 		GasLimit:        1000000,
 		GasPrice:        "10",
 		SubChainAddress: subAddr,

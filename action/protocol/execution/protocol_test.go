@@ -505,7 +505,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(0, balance.Cmp(big.NewInt(500000000)))
 
 		log.S().Info("Roll Dice")
-		h := keypair.HashPubKey(testaddress.Keyinfo["alfa"].PubKey)
+		h := testaddress.Keyinfo["alfa"].PubKey.Hash()
 		data, _ = hex.DecodeString(fmt.Sprintf("797d9fbd000000000000000000000000%x", h))
 		execution, err = action.NewExecution(contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)

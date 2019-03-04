@@ -144,16 +144,14 @@ func (v *validator) validateActions(
 	accountNonceMap map[string][]uint64,
 	errChan chan error,
 ) error {
-	producerPK := keypair.HashPubKey(pk)
-	producerAddr, err := address.FromBytes(producerPK[:])
+	producerAddr, err := address.FromBytes(pk.Hash())
 	if err != nil {
 		return err
 	}
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {
-		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-		caller, err := address.FromBytes(callerPKHash[:])
+		caller, err := address.FromBytes(selp.SrcPubkey().Hash())
 		if err != nil {
 			return err
 		}
