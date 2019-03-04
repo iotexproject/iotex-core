@@ -200,13 +200,17 @@ Default flag value:
 * number=10
 
 ### Use iotc to query the blockchain
+You can use install-cli.sh script to install ioctl:
+```shell
+curl https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-cli.sh | sh
+```
 Open a terminal window and run the command below to compile and start the test chain server with the configuration specified in "config_local_delegate.yaml" (This is optional, just in case you don't have a node running).
 
 `make; make run`
 
 Open a new terminal window and run iotc with the following command.
 
-`./bin/iotc [commands] [flags]`
+`iotc [commands] [flags]`
 
 The following is the complete current usage of iotc. More commands will be added in the future.
 
