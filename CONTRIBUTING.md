@@ -19,6 +19,12 @@ To contribute a patch, the workflow is as follows:
 In general commits should be atomic and diffs should be easy to read, and the [coding conventions](https://github.com/golang/go/wiki/CodeReviewComments)
 must be adhered to.
 
+Patch tags
+---------------------
+In some cases, your commit may bring big changes to the code base. It is better to tag out in your commit.
+`dependency update`: include this tag when you introduce a new dependency or update existing dependencies.
+`breaking change`: include this tag, if you are making a breaking change on protocal, client API or storage API.
+
 
 Copyright
 ---------
