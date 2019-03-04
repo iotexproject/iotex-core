@@ -367,55 +367,13 @@ var (
 		},
 	}
 
-	readBlockProducersByHeightTests = []struct {
+	readActiveBlockProducersByHeightTests = []struct {
 		// Arguments
 		protocolID            string
 		protocolType          string
 		methodName            string
 		height                uint64
 		numCandidateDelegates uint64
-		// Expected Values
-		numBlockProducers int
-	}{
-		{
-			protocolID:        "poll",
-			protocolType:      "lifeLongDelegates",
-			methodName:        "BlockProducersByHeight",
-			height:            1,
-			numBlockProducers: 3,
-		},
-		{
-			protocolID:        "poll",
-			protocolType:      "lifeLongDelegates",
-			methodName:        "BlockProducersByHeight",
-			height:            4,
-			numBlockProducers: 3,
-		},
-		{
-			protocolID:            "poll",
-			protocolType:          "governanceChainCommittee",
-			methodName:            "BlockProducersByHeight",
-			height:                1,
-			numCandidateDelegates: 2,
-			numBlockProducers:     2,
-		},
-		{
-			protocolID:            "poll",
-			protocolType:          "governanceChainCommittee",
-			methodName:            "BlockProducersByHeight",
-			height:                4,
-			numCandidateDelegates: 1,
-			numBlockProducers:     1,
-		},
-	}
-
-	readActiveProducersByHeightTests = []struct {
-		// Arguments
-		protocolID   string
-		protocolType string
-		methodName   string
-		height       uint64
-		numDelegates uint64
 		// Expected Values
 		numActiveBlockProducers int
 	}{
@@ -438,7 +396,7 @@ var (
 			protocolType:            "governanceChainCommittee",
 			methodName:              "ActiveBlockProducersByHeight",
 			height:                  1,
-			numDelegates:            2,
+			numCandidateDelegates:   2,
 			numActiveBlockProducers: 2,
 		},
 		{
@@ -446,8 +404,50 @@ var (
 			protocolType:            "governanceChainCommittee",
 			methodName:              "ActiveBlockProducersByHeight",
 			height:                  4,
-			numDelegates:            1,
+			numCandidateDelegates:   1,
 			numActiveBlockProducers: 1,
+		},
+	}
+
+	readCommitteeProducersByHeightTests = []struct {
+		// Arguments
+		protocolID   string
+		protocolType string
+		methodName   string
+		height       uint64
+		numDelegates uint64
+		// Expected Values
+		numCommitteeBlockProducers int
+	}{
+		{
+			protocolID:                 "poll",
+			protocolType:               "lifeLongDelegates",
+			methodName:                 "CommitteeBlockProducersByHeight",
+			height:                     1,
+			numCommitteeBlockProducers: 3,
+		},
+		{
+			protocolID:                 "poll",
+			protocolType:               "lifeLongDelegates",
+			methodName:                 "CommitteeBlockProducersByHeight",
+			height:                     4,
+			numCommitteeBlockProducers: 3,
+		},
+		{
+			protocolID:                 "poll",
+			protocolType:               "governanceChainCommittee",
+			methodName:                 "CommitteeBlockProducersByHeight",
+			height:                     1,
+			numDelegates:               2,
+			numCommitteeBlockProducers: 2,
+		},
+		{
+			protocolID:                 "poll",
+			protocolType:               "governanceChainCommittee",
+			methodName:                 "CommitteeBlockProducersByHeight",
+			height:                     4,
+			numDelegates:               1,
+			numCommitteeBlockProducers: 1,
 		},
 	}
 )
@@ -856,7 +856,7 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	}
 }
 
-func TestServer_ReadBlockProducersByHeight(t *testing.T) {
+func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -872,7 +872,7 @@ func TestServer_ReadBlockProducersByHeight(t *testing.T) {
 	committee.EXPECT().ResultByHeight(gomock.Any()).Return(r, nil).Times(2)
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 
-	for _, test := range readBlockProducersByHeightTests {
+	for _, test := range readActiveBlockProducersByHeightTests {
 		var pol poll.Protocol
 		if test.protocolType == "lifeLongDelegates" {
 			cfg.Genesis.Delegates = delegates
@@ -898,13 +898,13 @@ func TestServer_ReadBlockProducersByHeight(t *testing.T) {
 			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.height)},
 		})
 		require.NoError(err)
-		var blockProducers pollpb.BlockProducerList
-		require.NoError(proto.Unmarshal(res.Data, &blockProducers))
-		require.Equal(test.numBlockProducers, len(blockProducers.BlockProducers))
+		var activeBlockProducers pollpb.BlockProducerList
+		require.NoError(proto.Unmarshal(res.Data, &activeBlockProducers))
+		require.Equal(test.numActiveBlockProducers, len(activeBlockProducers.BlockProducers))
 	}
 }
 
-func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
+func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -920,7 +920,7 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 	committee.EXPECT().ResultByHeight(gomock.Any()).Return(r, nil).Times(2)
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 
-	for _, test := range readActiveProducersByHeightTests {
+	for _, test := range readCommitteeProducersByHeightTests {
 		var pol poll.Protocol
 		if test.protocolType == "lifeLongDelegates" {
 			cfg.Genesis.Delegates = delegates
@@ -946,9 +946,9 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.height)},
 		})
 		require.NoError(err)
-		var activeBlockProducers pollpb.BlockProducerList
-		require.NoError(proto.Unmarshal(res.Data, &activeBlockProducers))
-		require.Equal(test.numActiveBlockProducers, len(activeBlockProducers.BlockProducers))
+		var committeeBlockProducers pollpb.BlockProducerList
+		require.NoError(proto.Unmarshal(res.Data, &committeeBlockProducers))
+		require.Equal(test.numCommitteeBlockProducers, len(committeeBlockProducers.BlockProducers))
 	}
 }
 
