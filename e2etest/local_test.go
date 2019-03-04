@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
@@ -886,10 +885,10 @@ func newTestConfig() (config.Config, error) {
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = 0
 
-	sk, err := crypto.GenerateKey()
+	sk, err := keypair.GenerateKey()
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(sk)
+	cfg.Chain.ProducerPrivKey = sk.HexString()
 	return cfg, nil
 }

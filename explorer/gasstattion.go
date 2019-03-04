@@ -10,12 +10,10 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -109,8 +107,7 @@ func (gs *GasStation) estimateGasForSmartContract(execution explorer.Execution) 
 		return 0, errors.New("not execution")
 	}
 
-	callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-	callerAddr, err := address.FromBytes(callerPKHash[:])
+	callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 	if err != nil {
 		return 0, err
 	}

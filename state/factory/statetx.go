@@ -9,16 +9,14 @@ package factory
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/log"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -90,8 +88,7 @@ func (stx *stateTX) RunAction(
 	if !ok {
 		log.S().Panic("Miss context to run action")
 	}
-	callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
-	callerAddr, err := address.FromBytes(callerPKHash[:])
+	callerAddr, err := address.FromBytes(elp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
 	}

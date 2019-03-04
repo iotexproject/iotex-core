@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -69,7 +68,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Version: version.ProtocolVersion,
 				Height:  123456789,
 			},
-			ProducerPubkey: keypair.PublicKeyToBytes(senderPubKey),
+			ProducerPubkey: senderPubKey.Bytes(),
 		},
 		Actions: []*iotextypes.Action{
 			{
@@ -80,7 +79,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   101,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -90,7 +89,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   102,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -100,7 +99,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   103,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -110,7 +109,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   104,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 		},
 	}))

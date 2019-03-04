@@ -10,7 +10,6 @@ import (
 	"container/heap"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 
 	"github.com/iotexproject/iotex-core/action"
 )
@@ -74,8 +73,7 @@ func NewActionIterator(accountActs map[string][]action.SealedEnvelope) ActionIte
 // LoadNext load next action of account of top action
 func (ai *actionIterator) loadNextActionForTopAccount() {
 	sender := ai.heads[0].SrcPubkey()
-	callerPKHash := keypair.HashPubKey(sender)
-	callerAddr, _ := address.FromBytes(callerPKHash[:])
+	callerAddr, _ := address.FromBytes(sender.Hash())
 	callerAddrStr := callerAddr.String()
 	if actions, ok := ai.accountActs[callerAddrStr]; ok && len(actions) > 0 {
 		ai.heads[0], ai.accountActs[callerAddrStr] = actions[0], actions[1:]

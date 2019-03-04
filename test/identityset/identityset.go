@@ -49,7 +49,7 @@ func Size() int { return len(keyPortfolio) }
 
 // PrivateKey returns the i-th identity's private key
 func PrivateKey(i int) keypair.PrivateKey {
-	sk, err := keypair.DecodePrivateKey(keyPortfolio[i])
+	sk, err := keypair.HexStringToPrivateKey(keyPortfolio[i])
 	if err != nil {
 		log.L().Panic(
 			"Error when decoding private key string",
@@ -63,8 +63,7 @@ func PrivateKey(i int) keypair.PrivateKey {
 // Address returns the i-th identity's address
 func Address(i int) address.Address {
 	sk := PrivateKey(i)
-	pkHash := keypair.HashPubKey(&sk.PublicKey)
-	addr, err := address.FromBytes(pkHash[:])
+	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	if err != nil {
 		log.L().Panic("Error when constructing the address", zap.Error(err))
 	}

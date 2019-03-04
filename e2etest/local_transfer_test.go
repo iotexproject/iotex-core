@@ -8,7 +8,6 @@ package e2etest
 
 import (
 	"context"
-	"encoding/hex"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
@@ -261,7 +259,7 @@ func TestLocalTransfer(t *testing.T) {
 
 	networkPort := 4689
 	apiPort := 14014
-	sk, err := crypto.GenerateKey()
+	sk, err := keypair.GenerateKey()
 	require.NoError(err)
 	cfg, err := newTransferConfig(testDBPath, testTriePath, sk, networkPort, apiPort)
 	require.NoError(err)
@@ -338,8 +336,7 @@ func TestLocalTransfer(t *testing.T) {
 			selp, err := bc.GetActionByActionHash(tsf.Hash())
 			require.NoError(err, tsfTest.message)
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
-			require.Equal(keypair.EncodePublicKey(&senderPriKey.PublicKey),
-				hex.EncodeToString(selp.Proto().SenderPubKey), tsfTest.message)
+			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
 
 			newSenderBalance, _ := bc.Balance(senderAddr)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
@@ -411,13 +408,11 @@ func initStateKeyAddr(
 	retAddr := ""
 	switch accountState {
 	case AcntCreate:
-		sk, err := crypto.GenerateKey()
+		sk, err := keypair.GenerateKey()
 		if err != nil {
 			return nil, "", err
 		}
-		pk := &sk.PublicKey
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		retAddr = addr.String()
 		_, err = bc.CreateState(
 			retAddr,
@@ -429,9 +424,7 @@ func initStateKeyAddr(
 		retKey = sk
 
 	case AcntExist:
-		pk := &retKey.PublicKey
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(retKey.PublicKey().Hash())
 		retAddr = addr.String()
 		existBalance, err := bc.Balance(retAddr)
 		if err != nil {
@@ -439,13 +432,11 @@ func initStateKeyAddr(
 		}
 		initBalance.Set(existBalance)
 	case AcntNotRegistered:
-		sk, err := crypto.GenerateKey()
+		sk, err := keypair.GenerateKey()
 		if err != nil {
 			return nil, "", err
 		}
-		pk := &sk.PublicKey
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		retAddr = addr.String()
 		retKey = sk
 	case AcntBadAddr:
@@ -465,9 +456,7 @@ func initTestAccounts(
 ) error {
 	for i := 0; i < len(localKeys); i++ {
 		sk := getLocalKey(i)
-		pk := &sk.PublicKey
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		_, err = bc.CreateState(
 			addr.String(),
 			initBalance,
@@ -480,7 +469,7 @@ func initTestAccounts(
 }
 
 func getLocalKey(i int) keypair.PrivateKey {
-	sk, _ := keypair.DecodePrivateKey(localKeys[i])
+	sk, _ := keypair.HexStringToPrivateKey(localKeys[i])
 	return sk
 }
 

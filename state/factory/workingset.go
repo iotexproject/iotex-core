@@ -10,18 +10,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/log"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -162,8 +160,7 @@ func (ws *workingSet) RunAction(
 	if !ok {
 		log.S().Panic("Miss context to run action")
 	}
-	callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
-	caller, err := address.FromBytes(callerPKHash[:])
+	caller, err := address.FromBytes(elp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
 	}

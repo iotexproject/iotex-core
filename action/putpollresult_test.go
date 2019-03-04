@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -21,8 +20,7 @@ import (
 func TestPutPollResult(t *testing.T) {
 	candidates := state.CandidateList{}
 	pk := testaddress.Keyinfo["echo"].PubKey
-	pkHash := keypair.HashPubKey(pk)
-	addr, err := address.FromBytes(pkHash[:])
+	addr, err := address.FromBytes(pk.Hash())
 	assert.NoError(t, err)
 	candidates = append(candidates, &state.Candidate{
 		Address: addr.String(),

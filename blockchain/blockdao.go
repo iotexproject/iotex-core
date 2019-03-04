@@ -10,7 +10,6 @@ import (
 	"context"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 
 	"github.com/golang/protobuf/proto"
@@ -494,8 +493,7 @@ func deleteTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) err
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
 	for _, transfer := range transfers {
-		callerPKHash := keypair.HashPubKey(transfer.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(transfer.SrcPubkey().Hash())
 		callerAddrStr := callerAddr.String()
 		if err != nil {
 			return err
@@ -531,8 +529,7 @@ func deleteTransfers(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) err
 
 	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
-		callerPKHash := keypair.HashPubKey(transfer.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(transfer.SrcPubkey().Hash())
 		callerAddrStr := callerAddr.String()
 		if err != nil {
 			return err
@@ -575,8 +572,7 @@ func deleteVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
 	for _, vote := range votes {
-		callerPKHash := keypair.HashPubKey(vote.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(vote.SrcPubkey().Hash())
 		callerAddrStr := callerAddr.String()
 		if err != nil {
 			return err
@@ -612,8 +608,7 @@ func deleteVotes(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 
 	for _, vote := range votes {
 		voteHash := vote.Hash()
-		callerPKHash := keypair.HashPubKey(vote.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(vote.SrcPubkey().Hash())
 		callerAddrStr := callerAddr.String()
 		if err != nil {
 			return err
@@ -658,8 +653,7 @@ func deleteExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) er
 	executorCount := make(map[string]uint64)
 	contractCount := make(map[string]uint64)
 	for _, execution := range executions {
-		callerPKHash := keypair.HashPubKey(execution.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(execution.SrcPubkey().Hash())
 		callerAddrStr := callerAddr.String()
 		if err != nil {
 			return err
@@ -695,9 +689,7 @@ func deleteExecutions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) er
 
 	for _, execution := range executions {
 		executionHash := execution.Hash()
-
-		callerPKHash := keypair.HashPubKey(execution.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(execution.SrcPubkey().Hash())
 		callerAddrStr := callerAddr.String()
 		if err != nil {
 			return err
@@ -747,8 +739,7 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 	senderCount := make(map[string]uint64)
 	recipientCount := make(map[string]uint64)
 	for _, selp := range blk.Actions {
-		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 		if err != nil {
 			return err
 		}
@@ -786,8 +777,7 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
-		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 		callerAddrStr := callerAddr.String()
 		if err != nil {
 			return err
