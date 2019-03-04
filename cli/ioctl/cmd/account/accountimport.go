@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"strings"
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -78,14 +77,14 @@ func newAccountByKey(name string, privateKey string) (string, error) {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
 	}
-	password := strings.TrimSpace(string(bytePassword))
+	password := string(bytePassword)
 	fmt.Printf("#%s: Enter password again\n", name)
 	bytePassword, err = terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
 	}
-	if password != strings.TrimSpace(string(bytePassword)) {
+	if password != string(bytePassword) {
 		return "", errors.New("password doesn't match")
 	}
 	ks := keystore.NewKeyStore(config.ConfigDir, keystore.StandardScryptN, keystore.StandardScryptP)

@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/version"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/wallet"
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -40,5 +39,4 @@ func init() {
 	RootCmd.AddCommand(bc.BCCmd)
 	RootCmd.AddCommand(config.ConfigCmd)
 	RootCmd.AddCommand(version.VersionCmd)
-	RootCmd.AddCommand(wallet.WalletCmd)
 }

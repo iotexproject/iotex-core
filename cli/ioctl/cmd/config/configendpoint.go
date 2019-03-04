@@ -22,7 +22,7 @@ var ErrEmptyEndpoint = "no endpoint has been set"
 
 // configGetEndpointCmd represents the config get endpoint command
 var configGetEndpointCmd = &cobra.Command{
-	Use:       "get",
+	Use:       "get name",
 	Short:     "Get endpoint for ioctl",
 	ValidArgs: []string{"get", "endpoint"},
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -41,7 +41,7 @@ var configGetEndpointCmd = &cobra.Command{
 
 // configSetEndpointCmd represents the config set endpoint command
 var configSetEndpointCmd = &cobra.Command{
-	Use:   "set",
+	Use:   "set name value",
 	Short: "Set endpoint for ioctl",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {

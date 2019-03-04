@@ -10,19 +10,14 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // actionTransferCmd transfers tokens on IoTeX blockchain
@@ -35,17 +30,9 @@ var actionTransferCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	actionTransferCmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
-	actionTransferCmd.Flags().Int64VarP(&gasPrice, "gas-price", "p", 0, "set gas prize")
-	actionTransferCmd.Flags().StringVarP(&alias, "alias", "a", "", "choose signing key")
-	actionTransferCmd.MarkFlagRequired("gas-limit")
-	actionTransferCmd.MarkFlagRequired("gas-price")
-	actionTransferCmd.MarkFlagRequired("alias")
-}
-
 // transfer transfers tokens on IoTeX blockchain
 func transfer(args []string) string {
+	// TODO: Check the validity of args
 	recipient := args[0]
 	amount, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
@@ -53,7 +40,6 @@ func transfer(args []string) string {
 		return err.Error()
 	}
 	payload := args[2]
-	// TODO: Check the validity of args
 
 	sender, err := account.AliasToAddress(alias)
 	if err != nil {
@@ -68,34 +54,10 @@ func transfer(args []string) string {
 	if err != nil {
 		log.L().Error("cannot make a Transfer instance", zap.Error(err))
 	}
-	fmt.Printf("Enter password #%s:\n", alias)
-	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
-	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
-		return err.Error()
-	}
-	password := strings.TrimSpace(string(bytePassword))
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(accountMeta.PendingNonce).
 		SetGasPrice(big.NewInt(gasPrice)).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
-	hash := elp.Hash()
-	sig, err := account.Sign(alias, password, hash[:])
-	if err != nil {
-		log.L().Error("fail to sign", zap.Error(err))
-		return err.Error()
-	}
-	pubKey, err := keypair.SigToPublicKey(hash[:], sig)
-	if err != nil {
-		log.L().Error("fail to get public key", zap.Error(err))
-		return err.Error()
-	}
-	selp := &iotextypes.Action{
-		Core:         elp.Proto(),
-		SenderPubKey: pubKey.Bytes(),
-		Signature:    sig,
-	}
-	request := &iotexapi.SendActionRequest{Action: selp}
-	return sendAction(request)
+	return sendAction(elp)
 }
