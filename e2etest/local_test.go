@@ -9,7 +9,9 @@ package e2etest
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"sort"
 	"testing"
 	"time"
@@ -35,18 +37,13 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-const (
-	testDBPath    = "db.test"
-	testDBPath2   = "db.test2"
-	testTriePath  = "trie.test"
-	testTriePath2 = "trie.test2"
-)
-
 func TestLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -82,8 +79,6 @@ func TestLocalCommit(t *testing.T) {
 	defer func() {
 		require.Nil(p.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	// check balance
@@ -146,8 +141,11 @@ func TestLocalCommit(t *testing.T) {
 	require.True(5 == bc.TipHeight())
 
 	// create local chain
-	testutil.CleanupPath(t, testTriePath2)
-	testutil.CleanupPath(t, testDBPath2)
+	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), "trie2")
+	testTriePath2 := testTrieFile2.Name()
+	testDBFile2, _ := ioutil.TempFile(os.TempDir(), "db2")
+	testDBPath2 := testDBFile2.Name()
+
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
@@ -177,8 +175,6 @@ func TestLocalCommit(t *testing.T) {
 	require.True(5 == bc.TipHeight())
 	defer func() {
 		require.NoError(chain.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath2)
-		testutil.CleanupPath(t, testDBPath2)
 	}()
 
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
@@ -358,11 +354,6 @@ func TestLocalCommit(t *testing.T) {
 func TestLocalSync(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	testutil.CleanupPath(t, testTriePath2)
-	testutil.CleanupPath(t, testDBPath2)
-
 	cfg, err := newTestConfig()
 	require.Nil(err)
 
@@ -395,11 +386,13 @@ func TestLocalSync(t *testing.T) {
 	hash5 := blk.HashBlock()
 	require.NotNil(svr.P2PAgent())
 
-	testutil.CleanupPath(t, testTriePath2)
-	testutil.CleanupPath(t, testDBPath2)
-
 	cfg, err = newTestConfig()
 	require.Nil(err)
+
+	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), "trie2")
+	testTriePath2 := testTrieFile2.Name()
+	testDBFile2, _ := ioutil.TempFile(os.TempDir(), "db2")
+	testDBPath2 := testDBFile2.Name()
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 
@@ -415,10 +408,6 @@ func TestLocalSync(t *testing.T) {
 	defer func() {
 		require.Nil(cli.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testTriePath2)
-		testutil.CleanupPath(t, testDBPath2)
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
@@ -484,9 +473,6 @@ func TestLocalSync(t *testing.T) {
 func TestVoteLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-
 	cfg, err := newTestConfig()
 	cfg.Chain.NumCandidates = 2
 	require.Nil(err)
@@ -517,14 +503,20 @@ func TestVoteLocalCommit(t *testing.T) {
 	defer func() {
 		require.Nil(p.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 	require.True(5 == bc.TipHeight())
 
 	// create local chain
-	testutil.CleanupPath(t, testTriePath2)
-	testutil.CleanupPath(t, testDBPath2)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
+	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), "trie2")
+	testTriePath2 := testTrieFile2.Name()
+	testDBFile2, _ := ioutil.TempFile(os.TempDir(), "db2")
+	testDBPath2 := testDBFile2.Name()
+
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
@@ -800,11 +792,14 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
 
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
@@ -819,15 +814,12 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	defer func() {
 		require.NoError(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	require.NoError(addTestingTsfBlocks(bc))
 	require.Equal(uint64(5), bc.TipHeight())
 
 	// Delete state db and recover to tip
-	testutil.CleanupPath(t, testTriePath)
 	require.NoError(svr.Stop(ctx))
 	require.Error(svr.Start(ctx))
 	// Refresh state DB
@@ -878,6 +870,12 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 func newTestConfig() (config.Config, error) {
 	cfg := config.Default
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Consensus.Scheme = config.NOOPScheme
