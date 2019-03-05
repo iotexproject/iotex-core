@@ -13,7 +13,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 
@@ -76,7 +75,7 @@ var (
 			TrieDBPath:              "/tmp/trie.db",
 			ID:                      1,
 			Address:                 "",
-			ProducerPrivKey:         keypair.EncodePrivateKey(PrivateKey),
+			ProducerPrivKey:         PrivateKey.HexString(),
 			EmptyGenesis:            false,
 			NumCandidates:           101,
 			BeaconChainAPIs:         []string{},
@@ -177,7 +176,7 @@ var (
 	}
 
 	// PrivateKey is a randomly generated producer's key for testing purpose
-	PrivateKey, _ = crypto.GenerateKey()
+	PrivateKey, _ = keypair.GenerateKey()
 )
 
 // Network is the config struct for network package
@@ -436,8 +435,7 @@ func NewSub(validates ...Validate) (Config, error) {
 // ProducerAddress returns the configured producer address derived from key
 func (cfg Config) ProducerAddress() address.Address {
 	sk := cfg.ProducerPrivateKey()
-	pkHash := keypair.HashPubKey(&sk.PublicKey)
-	addr, err := address.FromBytes(pkHash[:])
+	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	if err != nil {
 		log.L().Panic(
 			"Error when constructing producer address",
@@ -449,7 +447,7 @@ func (cfg Config) ProducerAddress() address.Address {
 
 // ProducerPrivateKey returns the configured private key
 func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
-	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	sk, err := keypair.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		log.L().Panic(
 			"Error when decoding private key",

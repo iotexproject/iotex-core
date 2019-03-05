@@ -25,21 +25,21 @@ const (
 func TestKeypair(t *testing.T) {
 	require := require.New(t)
 
-	_, err := DecodePublicKey("")
+	_, err := HexStringToPublicKey("")
 	require.True(strings.Contains(err.Error(), "invalid secp256k1 public key"))
-	_, err = DecodePrivateKey("")
+	_, err = HexStringToPrivateKey("")
 	require.True(strings.Contains(err.Error(), "invalid length, need 256 bits"))
 
-	pubKey, err := DecodePublicKey(publicKey)
+	pubKey, err := HexStringToPublicKey(publicKey)
 	require.NoError(err)
-	priKey, err := DecodePrivateKey(privateKey)
+	priKey, err := HexStringToPrivateKey(privateKey)
 	require.NoError(err)
 
-	require.Equal(publicKey, EncodePublicKey(pubKey))
-	require.Equal(privateKey, EncodePrivateKey(priKey))
+	require.Equal(publicKey, pubKey.HexString())
+	require.Equal(privateKey, priKey.HexString())
 
-	pubKeyBytes := PublicKeyToBytes(pubKey)
-	priKeyBytes := PrivateKeyToBytes(priKey)
+	pubKeyBytes := pubKey.Bytes()
+	priKeyBytes := priKey.Bytes()
 
 	_, err = BytesToPublicKey([]byte{1, 2, 3})
 	require.Error(err)
@@ -51,8 +51,8 @@ func TestKeypair(t *testing.T) {
 	sk, err := BytesToPrivateKey(priKeyBytes)
 	require.NoError(err)
 
-	require.Equal(publicKey, EncodePublicKey(pk))
-	require.Equal(privateKey, EncodePrivateKey(sk))
+	require.Equal(publicKey, pk.HexString())
+	require.Equal(privateKey, sk.HexString())
 
 	_, err = StringToPubKeyBytes("")
 	require.Error(err)
@@ -65,8 +65,8 @@ func TestCompatibility(t *testing.T) {
 	sk, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	ethAddr := crypto.PubkeyToAddress(sk.PublicKey)
-	pkHash := HashPubKey(&sk.PublicKey)
-	addr, err := address.FromBytes(pkHash[:])
+	nsk := &secp256k1PrvKey{PrivateKey: sk}
+	addr, err := address.FromBytes(nsk.PublicKey().Hash())
 	require.NoError(t, err)
 	require.Equal(t, ethAddr.Bytes(), addr.Bytes())
 }

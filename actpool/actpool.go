@@ -10,14 +10,12 @@ import (
 	"context"
 	"sync"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -165,8 +163,7 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 		return errors.Errorf("reject existed action: %x", hash)
 	}
 
-	callerPKHash := keypair.HashPubKey(act.SrcPubkey())
-	caller, err := address.FromBytes(callerPKHash[:])
+	caller, err := address.FromBytes(act.SrcPubkey().Hash())
 	if err != nil {
 		return err
 	}

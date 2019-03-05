@@ -7,7 +7,6 @@
 package block
 
 import (
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -70,11 +69,11 @@ func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder
 }
 
 // SignAndBuild signs and then builds a block.
-func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPriKey keypair.PrivateKey) (Block, error) {
+func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPrvKey keypair.PrivateKey) (Block, error) {
 	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
 	b.blk.Header.pubkey = signerPubKey
 	h := b.blk.Header.HashHeaderCore()
-	sig, err := crypto.Sign(h[:], signerPriKey)
+	sig, err := signerPrvKey.Sign(h[:])
 	if err != nil {
 		return Block{}, errors.New("Failed to sign block")
 	}

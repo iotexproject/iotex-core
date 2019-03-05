@@ -35,7 +35,6 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -714,7 +713,7 @@ func (bc *blockchain) MintNewBlock(
 		SetHeight(newblockHeight).
 		SetTimeStamp(timestamp).
 		AddActions(actions...).
-		Build(&sk.PublicKey)
+		Build(sk.PublicKey())
 
 	prevBlkHash := bc.tipHash
 	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
@@ -1100,8 +1099,7 @@ func (bc *blockchain) runActions(
 	}
 	gasLimit := bc.config.Genesis.BlockGasLimit
 	// update state factory
-	pkHash := keypair.HashPubKey(acts.BlockProducerPubKey())
-	producer, err := address.FromBytes(pkHash[:])
+	producer, err := address.FromBytes(acts.BlockProducerPubKey().Hash())
 	if err != nil {
 		return nil, err
 	}

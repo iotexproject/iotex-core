@@ -839,7 +839,7 @@ func (exp *Service) GetLastBlocksByRange(offset int64, limit int64) ([]explorer.
 			Size:       int64(totalSize),
 			GenerateBy: explorer.BlockGenerator{
 				Name:    "",
-				Address: keypair.EncodePublicKey(blk.PublicKey()),
+				Address: blk.PublicKey().HexString(),
 			},
 			TxRoot:           hex.EncodeToString(txRoot[:]),
 			DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
@@ -888,7 +888,7 @@ func (exp *Service) GetBlockByID(blkID string) (explorer.Block, error) {
 		Size:       int64(totalSize),
 		GenerateBy: explorer.BlockGenerator{
 			Name:    "",
-			Address: keypair.EncodePublicKey(blk.PublicKey()),
+			Address: blk.PublicKey().HexString(),
 		},
 		TxRoot:           hex.EncodeToString(txRoot[:]),
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
@@ -1327,8 +1327,7 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 		return "", errors.New("not execution")
 	}
 
-	callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-	callerAddr, err := address.FromBytes(callerPKHash[:])
+	callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 	if err != nil {
 		return "", err
 	}
@@ -1856,7 +1855,7 @@ func convertVoteToExplorerVote(selp action.SealedEnvelope, isPending bool) (expl
 	explorerVote := explorer.Vote{
 		ID:          hex.EncodeToString(hash[:]),
 		Nonce:       int64(selp.Nonce()),
-		VoterPubKey: keypair.EncodePublicKey(voterPubkey),
+		VoterPubKey: voterPubkey.HexString(),
 		Votee:       vote.Votee(),
 		GasLimit:    int64(selp.GasLimit()),
 		GasPrice:    selp.GasPrice().String(),

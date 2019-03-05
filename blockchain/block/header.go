@@ -59,7 +59,7 @@ func (h Header) ReceiptRoot() hash.Hash256 { return h.receiptRoot }
 func (h Header) BlockHeaderProto() *iotextypes.BlockHeader {
 	return &iotextypes.BlockHeader{
 		Core:           h.BlockHeaderCoreProto(),
-		ProducerPubkey: keypair.PublicKeyToBytes(h.pubkey),
+		ProducerPubkey: h.pubkey.Bytes(),
 		Signature:      h.blockSig,
 	}
 }

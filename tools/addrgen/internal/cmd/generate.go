@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -33,12 +32,12 @@ var _addrNum int
 func generate(args []string) string {
 	items := make([]string, _addrNum)
 	for i := 0; i < _addrNum; i++ {
-		private, err := crypto.GenerateKey()
+		private, err := keypair.GenerateKey()
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
-		priKeyBytes := keypair.PrivateKeyToBytes(private)
-		pubKeyBytes := keypair.PublicKeyToBytes(&private.PublicKey)
+		priKeyBytes := private.Bytes()
+		pubKeyBytes := private.PublicKey().Bytes()
 		items[i] = fmt.Sprintf(
 			"{\"PublicKey\": \"%x\", \"PrivateKey\": \"%x\"}",
 			pubKeyBytes,

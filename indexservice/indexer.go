@@ -11,12 +11,10 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	s "github.com/iotexproject/iotex-core/db/sql"
@@ -67,8 +65,7 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 		transfers, votes, executions := action.ClassifyActions(blk.Actions)
 		// log transfer index
 		for _, transfer := range transfers {
-			callerPKHash := keypair.HashPubKey(transfer.SrcPubkey())
-			callerAddr, err := address.FromBytes(callerPKHash[:])
+			callerAddr, err := address.FromBytes(transfer.SrcPubkey().Hash())
 			if err != nil {
 				return err
 			}
@@ -88,8 +85,7 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 
 		// log vote index
 		for _, vote := range votes {
-			callerPKHash := keypair.HashPubKey(vote.SrcPubkey())
-			callerAddr, err := address.FromBytes(callerPKHash[:])
+			callerAddr, err := address.FromBytes(vote.SrcPubkey().Hash())
 			if err != nil {
 				return err
 			}
@@ -109,8 +105,7 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 
 		// log execution index
 		for _, execution := range executions {
-			callerPKHash := keypair.HashPubKey(execution.SrcPubkey())
-			callerAddr, err := address.FromBytes(callerPKHash[:])
+			callerAddr, err := address.FromBytes(execution.SrcPubkey().Hash())
 			if err != nil {
 				return err
 			}
@@ -130,8 +125,7 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 
 		// log action index
 		for _, selp := range blk.Actions {
-			callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-			callerAddr, err := address.FromBytes(callerPKHash[:])
+			callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 			if err != nil {
 				return err
 			}
