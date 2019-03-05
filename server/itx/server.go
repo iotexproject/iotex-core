@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -304,14 +304,14 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
 		return
 	}
-	if genesisConfig.EnableBeaconChainVoting {
+	if genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
-		initBeaconChainHeight := genesisConfig.InitBeaconChainHeight
+		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol
-		if genesisConfig.InitBeaconChainHeight != 0 && electionCommittee != nil {
+		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
 			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
 				electionCommittee,
-				initBeaconChainHeight,
+				gravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
 					blk, err := cs.Blockchain().GetBlockByHeight(height)
 					if err != nil {

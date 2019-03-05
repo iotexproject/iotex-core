@@ -293,7 +293,7 @@ func (ec *committee) calcWeightedVotes(v *types.Vote, now time.Time) *big.Int {
 	remainingTime := v.RemainingTime(now).Seconds()
 	weight := float64(1)
 	if remainingTime > 0 {
-		weight += math.Log(math.Ceil(remainingTime/86400)) / math.Log(1.2)
+		weight += math.Log(math.Ceil(remainingTime/86400)) / math.Log(1.2) / 100
 	}
 	amount := new(big.Float).SetInt(v.Amount())
 	weightedAmount, _ := amount.Mul(amount, big.NewFloat(weight)).Int(nil)
@@ -319,7 +319,7 @@ func (ec *committee) fetchResultByHeight(height uint64) (*types.ElectionResult, 
 		},
 		ec.calcWeightedVotes,
 		func(c *types.Candidate) bool {
-			return ec.selfStakingThreshold.Cmp(c.SelfStakingScore()) > 0 &&
+			return ec.selfStakingThreshold.Cmp(c.SelfStakingTokens()) > 0 &&
 				ec.scoreThreshold.Cmp(c.Score()) > 0
 		},
 	)

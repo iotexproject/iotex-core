@@ -7,8 +7,11 @@
 package keypair
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/hex"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
@@ -27,6 +30,7 @@ type (
 	PublicKey interface {
 		Bytes() []byte
 		HexString() string
+		EcdsaPublicKey() *ecdsa.PublicKey
 		Hash() []byte
 		Verify([]byte, []byte) bool
 	}
@@ -34,6 +38,7 @@ type (
 	PrivateKey interface {
 		Bytes() []byte
 		HexString() string
+		EcdsaPrivateKey() *ecdsa.PrivateKey
 		PublicKey() PublicKey
 		Sign([]byte) ([]byte, error)
 	}
@@ -70,6 +75,18 @@ func BytesToPublicKey(pubKey []byte) (PublicKey, error) {
 // BytesToPrivateKey converts a byte slice to SECP256K1 PrivateKey
 func BytesToPrivateKey(prvKey []byte) (PrivateKey, error) {
 	return newSecp256k1PrvKeyFromBytes(prvKey)
+}
+
+// SigToPublicKey returns the uncompressed public key that created the given signature
+func SigToPublicKey(hash, sig []byte) (PublicKey, error) {
+	pk, err := crypto.Ecrecover(hash, sig)
+	if err != nil {
+		return nil, err
+	}
+	x, y := elliptic.Unmarshal(crypto.S256(), pk)
+	return &secp256k1PubKey{
+		PublicKey: &ecdsa.PublicKey{Curve: crypto.S256(), X: x, Y: y},
+	}, nil
 }
 
 // StringToPubKeyBytes converts a string of public key to byte slice
