@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-election/committee"
 )
 
 var (
@@ -53,10 +52,7 @@ func initDefaultConfig() {
 			InitBalanceMap: make(map[string]string),
 		},
 		Poll: Poll{
-			EnableBeaconChainVoting: false,
-			CommitteeConfig: committee.Config{
-				BeaconChainAPIs: []string{},
-			},
+			EnableGravityChainVoting: false,
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr:           identityset.Address(0).String(),
@@ -117,12 +113,20 @@ type (
 	}
 	// Poll contains the configs for poll protocol
 	Poll struct {
-		// EnableBeaconChainVoting is a flag whether read voting from beacon chain
-		EnableBeaconChainVoting bool `yaml:"enableBeaconChainVoting"`
-		// InitBeaconChainHeight is the height in beacon chain where the init poll result stored
-		InitBeaconChainHeight uint64 `yaml:"initBeaconChainHeight"`
-		// CommitteeConfig is the config for committee
-		CommitteeConfig committee.Config `yaml:"committeeConfig"`
+		// EnableGravityChainVoting is a flag whether read voting from gravity chain
+		EnableGravityChainVoting bool `yaml:"enableGravityChainVoting"`
+		// GravityChainStartHeight is the height in gravity chain where the init poll result stored
+		GravityChainStartHeight uint64 `yaml:"gravityChainStartHeight"`
+		// RegisterContractAddress is the address of register contract
+		RegisterContractAddress string `yaml:"registerContractAddress"`
+		// StakingContractAddress is the address of staking contract
+		StakingContractAddress string `yaml:"stakingContractAddress"`
+		// VoteThreshold is the vote threshold amount in decimal string format
+		VoteThreshold string `yaml:"voteThreshold"`
+		// ScoreThreshold is the score threshold amount in decimal string format
+		ScoreThreshold string `yaml:"scoreThreshold"`
+		// SelfStakingThreshold is self-staking vote threshold amount in decimal string format
+		SelfStakingThreshold string `yaml:"selfStakingThreshold"`
 		// Delegates is a list of delegates with votes
 		Delegates []Delegate `yaml:"delegates"`
 	}

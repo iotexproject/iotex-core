@@ -127,19 +127,19 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 }
 
 type governanceChainCommitteeProtocol struct {
-	getBlockTime          GetBlockTime
-	getEpochHeight        GetEpochHeight
-	getEpochNum           GetEpochNum
-	electionCommittee     committee.Committee
-	initBeaconChainHeight uint64
-	numCandidateDelegates uint64
-	numDelegates          uint64
+	getBlockTime           GetBlockTime
+	getEpochHeight         GetEpochHeight
+	getEpochNum            GetEpochNum
+	electionCommittee      committee.Committee
+	initGravityChainHeight uint64
+	numCandidateDelegates  uint64
+	numDelegates           uint64
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
 func NewGovernanceChainCommitteeProtocol(
 	electionCommittee committee.Committee,
-	initBeaconChainHeight uint64,
+	initGravityChainHeight uint64,
 	getBlockTime GetBlockTime,
 	getEpochHeight GetEpochHeight,
 	getEpochNum GetEpochNum,
@@ -161,13 +161,13 @@ func NewGovernanceChainCommitteeProtocol(
 	}
 
 	return &governanceChainCommitteeProtocol{
-		electionCommittee:     electionCommittee,
-		initBeaconChainHeight: initBeaconChainHeight,
-		getBlockTime:          getBlockTime,
-		getEpochHeight:        getEpochHeight,
-		getEpochNum:           getEpochNum,
-		numCandidateDelegates: numCandidateDelegates,
-		numDelegates:          numDelegates,
+		electionCommittee:      electionCommittee,
+		initGravityChainHeight: initGravityChainHeight,
+		getBlockTime:           getBlockTime,
+		getEpochHeight:         getEpochHeight,
+		getEpochNum:            getEpochNum,
+		numCandidateDelegates:  numCandidateDelegates,
+		numDelegates:           numDelegates,
 	}, nil
 }
 
@@ -175,12 +175,12 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) (err error) {
-	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initBeaconChainHeight))
+	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initGravityChainHeight))
 	var ds state.CandidateList
-	if ds, err = p.delegatesByBeaconChainHeight(p.initBeaconChainHeight); err != nil {
+	if ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight); err != nil {
 		return
 	}
-	log.L().Info("Validating delegates from beacon chain", zap.Any("delegates", ds))
+	log.L().Info("Validating delegates from gravity chain", zap.Any("delegates", ds))
 	if err = validateDelegates(ds); err != nil {
 		return
 	}
@@ -196,7 +196,7 @@ func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act act
 	return validate(ctx, p, act)
 }
 
-func (p *governanceChainCommitteeProtocol) delegatesByBeaconChainHeight(height uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height uint64) (state.CandidateList, error) {
 	r, err := p.electionCommittee.ResultByHeight(height)
 	if err != nil {
 		return nil, err
@@ -233,15 +233,15 @@ func (p *governanceChainCommitteeProtocol) delegatesByBeaconChainHeight(height u
 }
 
 func (p *governanceChainCommitteeProtocol) DelegatesByHeight(height uint64) (state.CandidateList, error) {
-	beaconHeight, err := p.getBeaconHeight(height)
+	gravityHeight, err := p.getGravityHeight(height)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get beacon chain height")
+		return nil, errors.Wrap(err, "failed to get gravity chain height")
 	}
 	log.L().Debug(
-		"fetch delegates from beacon chain",
-		zap.Uint64("beaconChainHeight", beaconHeight),
+		"fetch delegates from gravity chain",
+		zap.Uint64("gravityChainHeight", gravityHeight),
 	)
-	return p.delegatesByBeaconChainHeight(beaconHeight)
+	return p.delegatesByGravityChainHeight(gravityHeight)
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(
@@ -276,11 +276,11 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 }
 
 func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(height uint64) ([]string, error) {
-	beaconHeight, err := p.getBeaconHeight(height)
+	gravityHeight, err := p.getGravityHeight(height)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get beacon chain height")
+		return nil, errors.Wrap(err, "failed to get gravity chain height")
 	}
-	delegates, err := p.delegatesByBeaconChainHeight(beaconHeight)
+	delegates, err := p.delegatesByGravityChainHeight(gravityHeight)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get delegates on height %d", height)
 	}
@@ -307,14 +307,14 @@ func (p *governanceChainCommitteeProtocol) readCommitteeProducersByHeight(height
 	return blockProducers[:p.numDelegates], nil
 }
 
-func (p *governanceChainCommitteeProtocol) getBeaconHeight(height uint64) (uint64, error) {
+func (p *governanceChainCommitteeProtocol) getGravityHeight(height uint64) (uint64, error) {
 	epochHeight := p.getEpochHeight(height)
 	blkTime, err := p.getBlockTime(epochHeight)
 	if err != nil {
 		return 0, err
 	}
 	log.L().Debug(
-		"get beacon chain height by time",
+		"get gravity chain height by time",
 		zap.Time("time", blkTime),
 	)
 	return p.electionCommittee.HeightByTime(blkTime)

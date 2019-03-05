@@ -304,14 +304,14 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
 		return
 	}
-	if genesisConfig.EnableBeaconChainVoting {
+	if genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
-		initBeaconChainHeight := genesisConfig.InitBeaconChainHeight
+		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol
-		if genesisConfig.InitBeaconChainHeight != 0 && electionCommittee != nil {
+		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
 			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
 				electionCommittee,
-				initBeaconChainHeight,
+				gravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
 					blk, err := cs.Blockchain().GetBlockByHeight(height)
 					if err != nil {
