@@ -48,7 +48,7 @@ type ethereumCarrier struct {
 
 // NewEthereumVoteCarrier defines a carrier to fetch votes from ethereum contract
 func NewEthereumVoteCarrier(
-	clientURLs              []string,
+	clientURLs []string,
 	registerContractAddress common.Address,
 	stakingContractAddress common.Address,
 ) (Carrier, error) {
@@ -177,12 +177,11 @@ func (evc *ethereumCarrier) Votes(
 		return nil, nil, err
 	}
 	votes := []*types.Vote{}
-	num := len(buckets.Indexes)
-	if num == 0 {
+	if buckets.Count.Cmp(big.NewInt(0)) == 0 {
 		return previousIndex, votes, nil
 	}
 	for i, index := range buckets.Indexes {
-		if big.NewInt(0).Cmp(index) == 0 { // back to start
+		if big.NewInt(0).Cmp(index) == 0 { // back to start, this is a redundant condition
 			break
 		}
 		v, err := types.NewVote(
