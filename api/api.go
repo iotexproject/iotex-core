@@ -128,11 +128,11 @@ func NewServer(
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
 	state, err := api.bc.StateByAddr(in.Address)
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	pendingNonce, err := api.ap.GetPendingNonce(in.Address)
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	accountMeta := &iotextypes.AccountMeta{
 		Address:      in.Address,
@@ -185,7 +185,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	tipHeight := api.bc.TipHeight()
 	totalActions, err := api.bc.GetTotalActions()
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	blockLimit := int64(api.cfg.TpsWindow)
@@ -199,7 +199,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	}
 	r, err := api.getBlockMetas(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	blks := r.BlkMetas
 
@@ -259,7 +259,7 @@ func (api *Server) GetReceiptByAction(ctx context.Context, in *iotexapi.GetRecei
 	}
 	receipt, err := api.bc.GetReceiptByActionHash(actHash)
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	return &iotexapi.GetReceiptByActionResponse{Receipt: receipt.ConvertToReceiptPb()}, nil
@@ -285,7 +285,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 
 	res, err := api.bc.ExecuteContractRead(callerAddr, sc)
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.ReadContractResponse{Data: hex.EncodeToString(res.ReturnValue)}, nil
 }
@@ -308,7 +308,7 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	data, err := p.ReadState(ctx, ws, in.MethodName, in.Arguments...)
 	// TODO: need to distinguish user error and system error
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	out := iotexapi.ReadStateResponse{
 		Data: data,
@@ -368,7 +368,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	for height := 1; height <= int(tipHeight); height++ {
 		blk, err := api.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		selps := blk.Actions
 		for i := 0; i < len(selps); i++ {
@@ -408,18 +408,18 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 	if api.cfg.UseRDS {
 		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
 		if err != nil {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		actions = append(actions, actionHistory...)
 	} else {
 		actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
 		if err != nil {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 
 		actionsToAddress, err := api.bc.GetActionsToAddress(address)
 		if err != nil {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 
 		actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
@@ -440,7 +440,7 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 		actPb, err := getAction(api.bc, api.ap, actions[i], false)
 		if err != nil {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 
 		res = append(res, actPb)
@@ -482,7 +482,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 	blk, err := api.bc.GetBlockByHash(hash)
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	selps := blk.Actions
@@ -521,7 +521,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 
 		blk, err := api.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		blockHeaderPb := blk.ConvertToBlockHeaderPb()
 
@@ -558,7 +558,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 
 	blk, err := api.bc.GetBlockByHash(hash)
 	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	blkHeaderPb := blk.ConvertToBlockHeaderPb()
