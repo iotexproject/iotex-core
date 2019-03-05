@@ -306,12 +306,12 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	}
 	if genesisConfig.EnableBeaconChainVoting {
 		electionCommittee := cs.ElectionCommittee()
-		initBeaconChainHeight := genesisConfig.InitBeaconChainHeight
+		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol
-		if genesisConfig.InitBeaconChainHeight != 0 && electionCommittee != nil {
+		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
 			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
 				electionCommittee,
-				initBeaconChainHeight,
+				gravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
 					blk, err := cs.Blockchain().GetBlockByHeight(height)
 					if err != nil {

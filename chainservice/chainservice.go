@@ -118,10 +118,16 @@ func New(
 	chainOpts = append(chainOpts, blockchain.RegistryOption(&registry))
 	var electionCommittee committee.Committee
 	if cfg.Genesis.EnableBeaconChainVoting {
-		committeeConfig := cfg.Genesis.Poll.CommitteeConfig
-		committeeConfig.BeaconChainAPIs = cfg.Chain.BeaconChainAPIs
-		kvstore := db.NewOnDiskDB(cfg.Chain.BeaconChainDB)
-		if cfg.Genesis.Poll.InitBeaconChainHeight != 0 {
+		committeeConfig := cfg.Chain.Committee
+		committeeConfig.BeaconChainStartHeight = cfg.Genesis.GravityChainStartHeight
+		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
+		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
+		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
+		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
+		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
+
+		kvstore := db.NewOnDiskDB(cfg.Chain.GravityChainDB)
+		if committeeConfig.BeaconChainStartHeight != 0 {
 			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
 				kvstore,
 				committeeConfig,
