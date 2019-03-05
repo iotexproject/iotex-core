@@ -13,13 +13,13 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
@@ -86,14 +86,14 @@ func transfer(args []string) string {
 		log.L().Error("fail to sign", zap.Error(err))
 		return err.Error()
 	}
-	pubKey, err := crypto.SigToPub(hash[:], sig)
+	pubKey, err := keypair.SigToPublicKey(hash[:], sig)
 	if err != nil {
 		log.L().Error("fail to get public key", zap.Error(err))
 		return err.Error()
 	}
 	selp := &iotextypes.Action{
 		Core:         elp.Proto(),
-		SenderPubKey: crypto.FromECDSAPub(pubKey),
+		SenderPubKey: pubKey.Bytes(),
 		Signature:    sig,
 	}
 	request := &iotexapi.SendActionRequest{Action: selp}

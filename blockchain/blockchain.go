@@ -1036,6 +1036,8 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 		return errors.Wrap(err, "Failed to verify receipt root")
 	}
 
+	blk.Receipts = receipts
+
 	// attach working set to be committed to state factory
 	blk.WorkingSet = ws
 	return nil
