@@ -34,18 +34,18 @@ func (p itemList) Len() int      { return len(p) }
 func (p itemList) Less(i, j int) bool {
 	switch p[i].Value.Cmp(p[j].Value) {
 	case -1:
-		return true
-	case 1:
 		return false
+	case 1:
+		return true
 	}
 	switch {
-	case p[i].Priority > p[j].Priority:
-		return false
 	case p[i].Priority < p[j].Priority:
+		return false
+	case p[i].Priority > p[j].Priority:
 		return true
 	}
 	// This is a corner case, which rarely happens.
-	return strings.Compare(p[i].Key, p[j].Key) < 0
+	return strings.Compare(p[i].Key, p[j].Key) > 0
 }
 
 // VoteFilterFunc defines the function to filter vote
@@ -129,10 +129,13 @@ func (calculator *ResultCalculator) AddVotes(votes []*Vote) error {
 		}
 		score := calculator.calcScore(v, calculator.mintTime)
 		if bytes.Equal(v.Voter(), candidate.address) {
-			score.Mul(score, big.NewInt(int64(candidate.selfStakingWeight)))
-			if err := candidate.addSelfStakingScore(score); err != nil {
+			amount := v.Amount()
+			selfStakingWeight := new(big.Int).SetUint64(candidate.selfStakingWeight)
+			amount.Mul(amount, selfStakingWeight)
+			if err := candidate.addSelfStakingTokens(amount); err != nil {
 				return err
 			}
+			score.Mul(score, selfStakingWeight)
 		}
 		cVote := v.Clone()
 		if err := cVote.SetWeightedAmount(score); err != nil {
@@ -179,7 +182,7 @@ func (calculator *ResultCalculator) filterAndSortCandidates() []string {
 			priority := blake2b.Sum256(append([]byte(name), tsBytes...))
 			p[num] = item{
 				Key:      name,
-				Value:    candidate.selfStakingScore,
+				Value:    candidate.score,
 				Priority: util.BytesToUint64(priority[:8]),
 			}
 			num++
