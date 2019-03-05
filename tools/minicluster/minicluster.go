@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -13,8 +13,6 @@ import (
 	"flag"
 	"fmt"
 	"math"
-	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -95,40 +93,24 @@ func main() {
 		svrs[i] = svr
 	}
 
-	// Create and start probe servers
-	probeSvrs := make([]*probe.Server, numNodes)
-	for i := 0; i < numNodes; i++ {
-		probeSvrs[i] = probe.New(7788 + i)
-	}
-	for i := 0; i < numNodes; i++ {
-		err = probeSvrs[i].Start(context.Background())
-		if err != nil {
-			log.L().Panic("Failed to start probe server")
-		}
-	}
+	// Create a probe server
+	probeSvr := probe.New(7788)
+
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(context.Background(), svrs[i], probeSvrs[i], configs[i])
+		go itx.StartServer(context.Background(), svrs[i], probeSvr, configs[i])
 	}
 
-	if err := testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		ret := true
-		for i := 0; i < numNodes; i++ {
-			resp, err := http.Get("http://localhost:" + strconv.Itoa(7788+i) + "/readiness")
-			if err != nil || http.StatusOK != resp.StatusCode {
-				ret = false
-			}
-		}
-		return ret, nil
-	}); err != nil {
-		log.L().Fatal("Failed to start API server", zap.Error(err))
-	}
 	// target address for grpc connection. Default is "127.0.0.1:14014"
 	grpcAddr := "127.0.0.1:14014"
-	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
+
+	grpcctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(grpcctx, grpcAddr, grpc.WithBlock(), grpc.WithInsecure())
 	if err != nil {
 		log.L().Error("Failed to connect to API server.")
 	}
+
 	client := iotexapi.NewAPIServiceClient(conn)
 
 	counter, err := util.InitCounter(client, chainAddrs)

@@ -63,6 +63,11 @@ func (k *secp256k1PrvKey) HexString() string {
 	return hex.EncodeToString(k.Bytes())
 }
 
+// EcdsaPrivateKey returns the embedded ecdsa private key
+func (k *secp256k1PrvKey) EcdsaPrivateKey() *ecdsa.PrivateKey {
+	return k.PrivateKey
+}
+
 // PublicKey returns the public key corresponding to private key
 func (k *secp256k1PrvKey) PublicKey() PublicKey {
 	return &secp256k1PubKey{
@@ -98,6 +103,11 @@ func (k *secp256k1PubKey) Bytes() []byte {
 // HexString returns the public key in hex string
 func (k *secp256k1PubKey) HexString() string {
 	return hex.EncodeToString(k.Bytes())
+}
+
+// EcdsaPublicKey returns the embedded ecdsa publick key
+func (k *secp256k1PubKey) EcdsaPublicKey() *ecdsa.PublicKey {
+	return k.PublicKey
 }
 
 // Hash is the last 20-byte of keccak hash of public key bytes, same as Ethereum address generation

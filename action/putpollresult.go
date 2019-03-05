@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// PutPollResult represents put the poll result from beacon chain.
+// PutPollResult represents put the poll result from gravity chain.
 type PutPollResult struct {
 	AbstractAction
 
