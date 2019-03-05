@@ -22,7 +22,3 @@ var BCCmd = &cobra.Command{
 		fmt.Println("Print: " + strings.Join(args, " "))
 	},
 }
-
-func init() {
-	BCCmd.AddCommand(heightCmd)
-}

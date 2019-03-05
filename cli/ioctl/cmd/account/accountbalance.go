@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account/validator"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/validator"
 )
 
 // accountBalanceCmd represents the account balance command

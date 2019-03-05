@@ -11,13 +11,12 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account/validator"
-
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 

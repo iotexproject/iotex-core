@@ -9,8 +9,9 @@ package account
 import (
 	"fmt"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account/validator"
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/validator"
 )
 
 // accountNonceCmd represents the account balance command
