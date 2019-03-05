@@ -7,21 +7,13 @@
 package account
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
-	"strings"
-	"syscall"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // accountCreateAddCmd represents the account create command
@@ -35,6 +27,10 @@ var accountCreateAddCmd = &cobra.Command{
 }
 
 func accountCreateAdd(args []string) string {
+	// varify name
+	if len(args[0]) > 40 {
+		return "account name no more than 40 chars"
+	}
 	name := args[0]
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -43,7 +39,8 @@ func accountCreateAdd(args []string) string {
 	if _, ok := cfg.AccountList[name]; ok {
 		return fmt.Sprintf("A account named \"%s\" already exists.", name)
 	}
-	addr, err := newAccount(name)
+	wallet := cfg.Wallet
+	addr, err := newAccount(name, wallet)
 	if err != nil {
 		return err.Error()
 	}
@@ -59,30 +56,4 @@ func accountCreateAdd(args []string) string {
 		"New account \"%s\" is created. Keep your password, or your will lose your private key.",
 		name,
 	)
-}
-
-func newAccount(name string) (string, error) {
-	fmt.Printf("#%s: Set password\n", name)
-	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
-	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
-		return "", err
-	}
-	password := strings.TrimSpace(string(bytePassword))
-	fmt.Printf("#%s: Enter password again\n", name)
-	bytePassword, err = terminal.ReadPassword(syscall.Stdin)
-	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
-		return "", err
-	}
-	if password != strings.TrimSpace(string(bytePassword)) {
-		return "", errors.New("password doesn't match")
-	}
-	ks := keystore.NewKeyStore(config.ConfigDir, keystore.StandardScryptN, keystore.StandardScryptP)
-	account, err := ks.NewAccount(password)
-	if err != nil {
-		return "", err
-	}
-	addr, _ := address.FromBytes(account.Address.Bytes())
-	return addr.String(), nil
 }
