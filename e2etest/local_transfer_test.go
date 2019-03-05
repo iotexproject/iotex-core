@@ -303,8 +303,6 @@ func TestLocalTransfer(t *testing.T) {
 
 	defer func() {
 		require.Nil(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	bc := svr.ChainService(chainID).Blockchain()
