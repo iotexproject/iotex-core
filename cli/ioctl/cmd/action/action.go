@@ -13,7 +13,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"golang.org/x/crypto/ssh/terminal"
@@ -24,8 +24,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
@@ -77,20 +79,20 @@ func sendAction(elp action.Envelope) string {
 		return err.Error()
 	}
 	password := string(bytePassword)
-	hash := elp.Hash()
-	sig, err := account.Sign(alias, password, hash[:])
+	ehash := elp.Hash()
+	sig, err := account.Sign(alias, password, ehash[:])
 	if err != nil {
 		log.L().Error("fail to sign", zap.Error(err))
 		return err.Error()
 	}
-	pubKey, err := crypto.SigToPub(hash[:], sig)
+	pubKey, err := keypair.SigToPublicKey(ehash[:], sig)
 	if err != nil {
 		log.L().Error("fail to get public key", zap.Error(err))
 		return err.Error()
 	}
 	selp := &iotextypes.Action{
 		Core:         elp.Proto(),
-		SenderPubKey: keypair.PublicKeyToBytes(pubKey),
+		SenderPubKey: pubKey.Bytes(),
 		Signature:    sig,
 	}
 	request := &iotexapi.SendActionRequest{Action: selp}
@@ -114,7 +116,8 @@ func sendAction(elp action.Envelope) string {
 		log.L().Error("server error", zap.Error(err))
 		return err.Error()
 	}
+	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	return "Action has been sent to blockchain.\n" +
 		"Wait for several seconds and query this action by hash:\n" +
-		hex.EncodeToString(hash[:])
+		hex.EncodeToString(shash[:])
 }
