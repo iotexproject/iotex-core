@@ -33,7 +33,7 @@ message Candidate {
 	bytes rewardAddress = 4;
 	uint64 selfStakingWeight = 5;
 	bytes score = 6;
-	bytes selfStakingScore = 7;
+	bytes selfStakingTokens = 7;
 }
 
 message ElectionResult {
