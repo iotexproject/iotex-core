@@ -30,7 +30,7 @@ var heightCmd = &cobra.Command{
 
 // getCurrentBlockHeigh get current height of block chain from server
 func getCurrentBlockHeigh(args []string) string {
-	endpoint := config.GetEndpoint()
+	endpoint := config.Get("endpoint")
 	if endpoint == config.ErrEmptyEndpoint {
 		log.L().Error(config.ErrEmptyEndpoint)
 		return "use \"ioctl config set endpoint\" to config endpoint first."

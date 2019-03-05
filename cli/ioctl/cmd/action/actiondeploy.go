@@ -9,7 +9,6 @@ package action
 import (
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -19,39 +18,30 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// actionTransferCmd transfers tokens on IoTeX blockchain
-var actionTransferCmd = &cobra.Command{
-	Use:   "transfer recipient amount data",
-	Short: "Transfer tokens on IoTeX blokchain",
-	Args:  cobra.ExactArgs(3),
+// actionDeployCmd deploys smart contract on IoTeX blockchain
+var actionDeployCmd = &cobra.Command{
+	Use:   "deploy",
+	Short: "Deploy smart contract on IoTeX blockchain",
+	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(transfer(args))
+		fmt.Println(deploy())
 	},
 }
 
-// transfer transfers tokens on IoTeX blockchain
-func transfer(args []string) string {
-	// TODO: Check the validity of args
-	recipient := args[0]
-	amount, err := strconv.ParseInt(args[1], 10, 64)
-	if err != nil {
-		log.L().Error("cannot convert "+args[1]+" into int64", zap.Error(err))
-		return err.Error()
-	}
-	payload := args[2]
-
-	sender, err := account.AliasToAddress(alias)
+// deploy deploys smart contract on IoTeX blockchain
+func deploy() string {
+	executor, err := account.AliasToAddress(alias)
 	if err != nil {
 		return err.Error()
 	}
-	accountMeta, err := account.GetAccountMeta(sender)
+	accountMeta, err := account.GetAccountMeta(executor)
 	if err != nil {
 		return err.Error()
 	}
-	tx, err := action.NewTransfer(accountMeta.PendingNonce, big.NewInt(amount),
-		recipient, []byte(payload), gasLimit, big.NewInt(gasPrice))
+	tx, err := action.NewExecution("", accountMeta.PendingNonce, big.NewInt(0),
+		gasLimit, big.NewInt(gasPrice), bytecode)
 	if err != nil {
-		log.L().Error("cannot make a Transfer instance", zap.Error(err))
+		log.L().Error("cannot make a Execution instance", zap.Error(err))
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(accountMeta.PendingNonce).

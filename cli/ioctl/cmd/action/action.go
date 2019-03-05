@@ -8,16 +8,26 @@ package action
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"strings"
+	"syscall"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -40,10 +50,53 @@ var ActionCmd = &cobra.Command{
 func init() {
 	ActionCmd.AddCommand(actionHashCmd)
 	ActionCmd.AddCommand(actionTransferCmd)
+	ActionCmd.AddCommand(actionDeployCmd)
+	ActionCmd.AddCommand(actionInvokeCmd)
+	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd)
 }
 
-func sendAction(request *iotexapi.SendActionRequest) string {
-	endpoint := config.GetEndpoint()
+func setActionFlags(cmds ...*cobra.Command) {
+	for _, cmd := range cmds {
+		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
+		cmd.Flags().Int64VarP(&gasPrice, "gas-price", "p", 0, "set gas prize")
+		cmd.Flags().StringVarP(&alias, "alias", "a", "", "choose signing key")
+		cmd.MarkFlagRequired("gas-limit")
+		cmd.MarkFlagRequired("gas-price")
+		cmd.MarkFlagRequired("alias")
+		if cmd == actionDeployCmd || cmd == actionInvokeCmd {
+			cmd.Flags().BytesHexVarP(&bytecode, "bytecode", "b", nil, "set the byte code")
+			actionInvokeCmd.MarkFlagRequired("bytecode")
+		}
+	}
+}
+
+func sendAction(elp action.Envelope) string {
+	fmt.Printf("Enter password #%s:\n", alias)
+	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+	if err != nil {
+		log.L().Error("fail to get password", zap.Error(err))
+		return err.Error()
+	}
+	password := string(bytePassword)
+	ehash := elp.Hash()
+	sig, err := account.Sign(alias, password, ehash[:])
+	if err != nil {
+		log.L().Error("fail to sign", zap.Error(err))
+		return err.Error()
+	}
+	pubKey, err := keypair.SigToPublicKey(ehash[:], sig)
+	if err != nil {
+		log.L().Error("fail to get public key", zap.Error(err))
+		return err.Error()
+	}
+	selp := &iotextypes.Action{
+		Core:         elp.Proto(),
+		SenderPubKey: pubKey.Bytes(),
+		Signature:    sig,
+	}
+	request := &iotexapi.SendActionRequest{Action: selp}
+
+	endpoint := config.Get("endpoint")
 	if endpoint == config.ErrEmptyEndpoint {
 		log.L().Error(config.ErrEmptyEndpoint)
 		return "use \"ioctl config set endpoint\" to config endpoint first."
@@ -62,5 +115,8 @@ func sendAction(request *iotexapi.SendActionRequest) string {
 		log.L().Error("server error", zap.Error(err))
 		return err.Error()
 	}
-	return "Action has been sent."
+	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
+	return "Action has been sent to blockchain.\n" +
+		"Wait for several seconds and query this action by hash:\n" +
+		hex.EncodeToString(shash[:])
 }
