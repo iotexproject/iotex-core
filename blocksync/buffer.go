@@ -35,7 +35,8 @@ type blockBuffer struct {
 	bc           blockchain.Blockchain
 	ap           actpool.ActPool
 	cs           consensus.Consensus
-	size         uint64
+	bufferSize   uint64
+	intervalSize uint64
 	commitHeight uint64 // last commit block height
 }
 
@@ -60,7 +61,7 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 	if _, ok := b.blocks[blkHeight]; ok {
 		return false, bCheckinExisting
 	}
-	if blkHeight > confirmedHeight+b.size {
+	if blkHeight > confirmedHeight+b.bufferSize {
 		return false, bCheckinHigher
 	}
 	b.blocks[blkHeight] = blk
@@ -69,7 +70,7 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 		zap.Uint64("confirmedHeight", confirmedHeight),
 		zap.String("source", "blockBuffer"))
 	var heightToSync uint64
-	for heightToSync = confirmedHeight + 1; heightToSync <= confirmedHeight+b.size; heightToSync++ {
+	for heightToSync = confirmedHeight + 1; heightToSync <= confirmedHeight+b.bufferSize; heightToSync++ {
 		blk, ok := b.blocks[heightToSync]
 		if !ok {
 			break
@@ -85,7 +86,7 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 	}
 
 	// clean up on memory leak
-	if len(b.blocks) > int(b.size)*2 {
+	if len(b.blocks) > int(b.bufferSize)*2 {
 		l.Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", len(b.blocks)))
 		for h := range b.blocks {
 			if h <= confirmedHeight {
@@ -113,35 +114,40 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 		return bi
 	}
 
-	if targetHeight > confirmedHeight+b.size {
-		targetHeight = confirmedHeight + b.size
+	if targetHeight > confirmedHeight+b.bufferSize {
+		targetHeight = confirmedHeight + b.bufferSize
 	}
 
+	var iLen uint64
 	for h := confirmedHeight + 1; h <= targetHeight; h++ {
 		if _, ok := b.blocks[h]; !ok {
+			iLen++
 			if !startSet {
 				start = h
 				startSet = true
+			}
+			if iLen >= b.intervalSize {
+				bi = append(bi, syncBlocksInterval{Start: start, End: h})
+				startSet = false
+				iLen = 0
 			}
 			continue
 		}
 		if startSet {
 			bi = append(bi, syncBlocksInterval{Start: start, End: h - 1})
 			startSet = false
+			iLen = 0
 		}
 	}
 
-	// handle last block
-	if _, ok := b.blocks[targetHeight]; !ok {
-		if !startSet {
-			start = targetHeight
-		}
+	// handle last interval
+	if startSet {
 		bi = append(bi, syncBlocksInterval{Start: start, End: targetHeight})
 	}
 	return bi
 }
 
-// bufSize return the size of buffer
+// bufSize return the bufferSize of buffer
 func (b *blockBuffer) bufSize() uint64 {
-	return b.size
+	return b.bufferSize
 }
