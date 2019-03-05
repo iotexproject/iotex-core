@@ -9,7 +9,9 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -46,11 +48,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testTriePath = "trie.test"
-	testDBPath   = "db.test"
 )
 
 var (
@@ -456,11 +453,6 @@ func TestServer_GetAccount(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
 
@@ -484,11 +476,6 @@ func TestServer_GetActions(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -510,11 +497,6 @@ func TestServer_GetActions(t *testing.T) {
 func TestServer_GetAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
@@ -541,11 +523,6 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -569,11 +546,6 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
 
@@ -596,11 +568,6 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 func TestServer_GetActionsByBlock(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -627,11 +594,6 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -662,11 +624,6 @@ func TestServer_GetBlockMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -693,11 +650,6 @@ func TestServer_GetBlockMeta(t *testing.T) {
 func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -743,11 +695,6 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -763,11 +710,6 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 func TestServer_ReadContract(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -789,11 +731,6 @@ func TestServer_SuggestGasPrice(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	for _, test := range suggestGasPriceTests {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
 		svr, err := createServer(cfg, false)
@@ -807,11 +744,6 @@ func TestServer_SuggestGasPrice(t *testing.T) {
 func TestServer_EstimateGasForAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -831,10 +763,6 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 
 func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	cfg := newConfig()
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(t, err)
@@ -859,11 +787,6 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -907,11 +830,6 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1200,6 +1118,12 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 
 func newConfig() config.Config {
 	cfg := config.Default
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
