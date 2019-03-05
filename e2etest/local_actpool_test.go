@@ -8,7 +8,9 @@ package e2etest
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -27,9 +29,6 @@ import (
 
 func TestLocalActPool(t *testing.T) {
 	require := require.New(t)
-
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
 
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
@@ -63,8 +62,6 @@ func TestLocalActPool(t *testing.T) {
 	defer func() {
 		require.Nil(cli.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	// Create three valid actions from "from" to "to"
@@ -106,9 +103,6 @@ func TestLocalActPool(t *testing.T) {
 func TestPressureActPool(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-
 	cfg, err := newActPoolConfig()
 	require.NoError(err)
 
@@ -139,8 +133,6 @@ func TestPressureActPool(t *testing.T) {
 	defer func() {
 		require.Nil(cli.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
@@ -169,6 +161,12 @@ func TestPressureActPool(t *testing.T) {
 
 func newActPoolConfig() (config.Config, error) {
 	cfg := config.Default
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true

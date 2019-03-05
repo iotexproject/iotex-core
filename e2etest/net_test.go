@@ -8,6 +8,8 @@ package e2etest
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -24,15 +26,16 @@ func TestNetSync(t *testing.T) {
 		t.Skip("Skipping TestNetSync in short mode.")
 	}
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	cfg := config.Default
 	cfg.Network.Host = "127.0.0.1"
 	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:4689"}
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.BlockSync.Interval = time.Second
