@@ -117,12 +117,13 @@ func New(
 	registry := protocol.Registry{}
 	chainOpts = append(chainOpts, blockchain.RegistryOption(&registry))
 	var electionCommittee committee.Committee
-	if cfg.Genesis.EnableBeaconChainVoting {
+	if cfg.Genesis.EnableGravityChainVoting {
 		committeeConfig := cfg.Chain.Committee
 		committeeConfig.BeaconChainStartHeight = cfg.Genesis.GravityChainStartHeight
 		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
+		committeeConfig.ScoreThreshold = cfg.Genesis.ScoreThreshold
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
