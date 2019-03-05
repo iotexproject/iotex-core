@@ -12,22 +12,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// accountBalanceCmd represents the account balance command
-var accountBalanceCmd = &cobra.Command{
-	Use:   "balance address",
-	Short: "Get balance of an account",
+// accountNonceCmd represents the account balance command
+var accountNonceCmd = &cobra.Command{
+	Use:   "nonce address",
+	Short: "Get nonce of an account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(getBalance(args))
+		fmt.Println(getNonce(args))
 	},
 }
 
 // Balance gets balance of an IoTeX blockchain address
-func getBalance(args []string) string {
+func getNonce(args []string) string {
 	address := args[0]
 	accountMeta, err := GetAccountMeta(address)
 	if err != nil {
 		return err.Error()
 	}
-	return fmt.Sprintf("%s: %s", address, accountMeta.Balance)
+	return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
+		address, accountMeta.Nonce, accountMeta.PendingNonce)
 }

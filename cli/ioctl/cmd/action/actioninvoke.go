@@ -45,18 +45,21 @@ func invoke(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	accountMeta, err := account.GetAccountMeta(executor)
-	if err != nil {
-		return err.Error()
+	if nonce == 0 {
+		accountMeta, err := account.GetAccountMeta(executor)
+		if err != nil {
+			return err.Error()
+		}
+		nonce = accountMeta.PendingNonce
 	}
-	tx, err := action.NewExecution(contract, accountMeta.PendingNonce, big.NewInt(amount),
+	tx, err := action.NewExecution(contract, nonce, big.NewInt(amount),
 		gasLimit, big.NewInt(gasPrice), bytecode)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return err.Error()
 	}
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(accountMeta.PendingNonce).
+	elp := bd.SetNonce(nonce).
 		SetGasPrice(big.NewInt(gasPrice)).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()

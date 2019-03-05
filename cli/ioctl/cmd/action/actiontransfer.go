@@ -44,17 +44,20 @@ func transfer(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	accountMeta, err := account.GetAccountMeta(sender)
-	if err != nil {
-		return err.Error()
+	if nonce == 0 {
+		accountMeta, err := account.GetAccountMeta(sender)
+		if err != nil {
+			return err.Error()
+		}
+		nonce = accountMeta.PendingNonce
 	}
-	tx, err := action.NewTransfer(accountMeta.PendingNonce, big.NewInt(amount),
+	tx, err := action.NewTransfer(nonce, big.NewInt(amount),
 		recipient, []byte(payload), gasLimit, big.NewInt(gasPrice))
 	if err != nil {
 		log.L().Error("cannot make a Transfer instance", zap.Error(err))
 	}
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(accountMeta.PendingNonce).
+	elp := bd.SetNonce(nonce).
 		SetGasPrice(big.NewInt(gasPrice)).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
