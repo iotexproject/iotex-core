@@ -10,21 +10,15 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
-const endpointPrefix = "endpoint:"
-
-// ErrEmptyEndpoint indicates error for empty endpoint
-var ErrEmptyEndpoint = "no endpoint has been set"
-
-// configGetEndpointCmd represents the config get endpoint command
-var configGetEndpointCmd = &cobra.Command{
-	Use:       "get",
-	Short:     "Get endpoint for ioctl",
-	ValidArgs: []string{"get", "endpoint"},
+// configGetCmd represents the config get endpoint command
+var configGetCmd = &cobra.Command{
+	Use:       "get name",
+	Short:     "Get config from ioctl",
+	ValidArgs: []string{"endpoint", "wallet"},
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("accepts 1 arg(s), received %d", len(args))
@@ -35,38 +29,52 @@ var configGetEndpointCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(GetEndpoint())
+		fmt.Println(Get(args[0]))
 	},
 }
 
-// configSetEndpointCmd represents the config set endpoint command
-var configSetEndpointCmd = &cobra.Command{
-	Use:   "set",
-	Short: "Set endpoint for ioctl",
+// configSetCmd represents the config set endpoint command
+var configSetCmd = &cobra.Command{
+	Use:   "set name value",
+	Short: "Set config for ioctl",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(setEndpoint(args))
+		fmt.Println(set(args))
 	},
 }
 
-// GetEndpoint gets the endpoint
-func GetEndpoint() string {
+// Get gets the endpoint
+func Get(arg string) string {
 	cfg, err := LoadConfig()
 	if err != nil {
 		return err.Error()
 	}
-	if cfg.Endpoint == "" {
-		return ErrEmptyEndpoint
+	switch arg {
+	case "endpoint":
+		if cfg.Endpoint == "" {
+			return ErrEmptyEndpoint
+		}
+		return cfg.Endpoint
+	case "wallet":
+		return cfg.Endpoint
+	default:
+		return ErrConfigNotMatch
 	}
-	return cfg.Endpoint
 }
 
-func setEndpoint(args []string) string {
+func set(args []string) string {
 	cfg, err := LoadConfig()
 	if err != nil {
 		return err.Error()
 	}
-	cfg.Endpoint = args[1]
+	switch args[0] {
+	case "endpoint":
+		cfg.Endpoint = args[1]
+	case "wallet":
+		cfg.Wallet = args[1]
+	default:
+		return ErrConfigNotMatch
+	}
 	out, err := yaml.Marshal(&cfg)
 	if err != nil {
 		return err.Error()
@@ -74,5 +82,5 @@ func setEndpoint(args []string) string {
 	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
 		return fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile)
 	}
-	return "Endpoint is set to " + args[1]
+	return args[0] + " is set to " + args[1]
 }
