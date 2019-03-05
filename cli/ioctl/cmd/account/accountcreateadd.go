@@ -10,10 +10,13 @@ import (
 	"fmt"
 	"io/ioutil"
 
+
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account/validator"
+
 )
 
 // accountCreateAddCmd represents the account create command
@@ -27,9 +30,9 @@ var accountCreateAddCmd = &cobra.Command{
 }
 
 func accountCreateAdd(args []string) string {
-	// varify name
-	if len(args[0]) > 40 {
-		return "account name no more than 40 chars"
+	// Validate inputs
+	if err := validator.ValidateName(args[0]); err != nil {
+		return err.Error()
 	}
 	name := args[0]
 	cfg, err := config.LoadConfig()

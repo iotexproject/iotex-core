@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -31,11 +32,17 @@ var actionTransferCmd = &cobra.Command{
 
 // transfer transfers tokens on IoTeX blockchain
 func transfer(args []string) string {
-	// TODO: Check the validity of args
+	// Validate inputs
+	if err := validator.ValidateAddress(args[0]); err != nil {
+		return err.Error()
+	}
 	recipient := args[0]
 	amount, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
 		log.L().Error("cannot convert "+args[1]+" into int64", zap.Error(err))
+		return err.Error()
+	}
+	if err := validator.ValidateAmount(amount); err != nil {
 		return err.Error()
 	}
 	payload := args[2]

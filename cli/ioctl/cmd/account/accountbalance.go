@@ -10,6 +10,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account/validator"
 )
 
 // accountBalanceCmd represents the account balance command
@@ -24,10 +26,14 @@ var accountBalanceCmd = &cobra.Command{
 
 // Balance gets balance of an IoTeX blockchain address
 func getBalance(args []string) string {
-	address := args[0]
-	accountMeta, err := GetAccountMeta(address)
+	// Validate inputs
+	if err := validator.ValidateAddress(args[0]); err != nil {
+		return err.Error()
+	}
+	addr := args[0]
+	accountMeta, err := GetAccountMeta(addr)
 	if err != nil {
 		return err.Error()
 	}
-	return fmt.Sprintf("%s: %s", address, accountMeta.Balance)
+	return fmt.Sprintf("%s: %s", addr, accountMeta.Balance)
 }

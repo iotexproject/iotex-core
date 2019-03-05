@@ -11,6 +11,8 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account/validator"
+
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -38,6 +40,9 @@ func invoke(args []string) string {
 		amount, err = strconv.ParseInt(args[1], 10, 64)
 		if err != nil {
 			log.L().Error("cannot convert "+args[1]+" into int64", zap.Error(err))
+			return err.Error()
+		}
+		if err := validator.ValidateAmount(amount); err != nil {
 			return err.Error()
 		}
 	}

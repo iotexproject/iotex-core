@@ -9,6 +9,7 @@ package account
 import (
 	"fmt"
 
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account/validator"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +25,10 @@ var accountNonceCmd = &cobra.Command{
 
 // Balance gets balance of an IoTeX blockchain address
 func getNonce(args []string) string {
+	// Validate inputs
+	if err := validator.ValidateAddress(args[0]); err != nil {
+		return err.Error()
+	}
 	address := args[0]
 	accountMeta, err := GetAccountMeta(address)
 	if err != nil {

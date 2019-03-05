@@ -39,7 +39,6 @@ func getActionByHash(args []string) string {
 	hash := args[0]
 	endpoint := config.Get("endpoint")
 	if endpoint == config.ErrEmptyEndpoint {
-		log.L().Error(config.ErrEmptyEndpoint)
 		return "use \"ioctl config set endpoint\" to config endpoint first."
 	}
 	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
