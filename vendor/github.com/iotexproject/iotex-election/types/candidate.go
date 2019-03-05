@@ -22,7 +22,7 @@ type Candidate struct {
 	operatorAddress   []byte
 	rewardAddress     []byte
 	score             *big.Int
-	selfStakingScore  *big.Int
+	selfStakingTokens *big.Int
 	selfStakingWeight uint64
 }
 
@@ -40,7 +40,7 @@ func NewCandidate(
 		operatorAddress:   util.CopyBytes(operatorAddress),
 		rewardAddress:     util.CopyBytes(rewardPubKey),
 		score:             big.NewInt(0),
-		selfStakingScore:  big.NewInt(0),
+		selfStakingTokens: big.NewInt(0),
 		selfStakingWeight: selfStakingWeight,
 	}
 }
@@ -53,7 +53,7 @@ func (c *Candidate) Clone() *Candidate {
 		operatorAddress:   c.OperatorAddress(),
 		rewardAddress:     c.RewardAddress(),
 		score:             c.Score(),
-		selfStakingScore:  c.SelfStakingScore(),
+		selfStakingTokens: c.SelfStakingTokens(),
 		selfStakingWeight: c.SelfStakingWeight(),
 	}
 }
@@ -80,14 +80,14 @@ func (c *Candidate) equal(candidate *Candidate) bool {
 	if c.score.Cmp(candidate.score) != 0 {
 		return false
 	}
-	if c.selfStakingScore.Cmp(candidate.selfStakingScore) != 0 {
+	if c.selfStakingTokens.Cmp(candidate.selfStakingTokens) != 0 {
 		return false
 	}
 	return c.selfStakingWeight == candidate.selfStakingWeight
 }
 
 func (c *Candidate) reset() *Candidate {
-	c.selfStakingScore.SetInt64(0)
+	c.selfStakingTokens.SetInt64(0)
 	c.score.SetInt64(0)
 	return c
 }
@@ -100,11 +100,11 @@ func (c *Candidate) addScore(s *big.Int) error {
 	return nil
 }
 
-func (c *Candidate) addSelfStakingScore(s *big.Int) error {
+func (c *Candidate) addSelfStakingTokens(s *big.Int) error {
 	if s.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("score cannot be negative")
 	}
-	c.selfStakingScore.Add(c.selfStakingScore, s)
+	c.selfStakingTokens.Add(c.selfStakingTokens, s)
 	return nil
 }
 
@@ -133,9 +133,9 @@ func (c *Candidate) Score() *big.Int {
 	return new(big.Int).Set(c.score)
 }
 
-// SelfStakingScore returns the total self votes (weighted)
-func (c *Candidate) SelfStakingScore() *big.Int {
-	return new(big.Int).Set(c.selfStakingScore)
+// SelfStakingTokens returns the total self votes (weighted)
+func (c *Candidate) SelfStakingTokens() *big.Int {
+	return new(big.Int).Set(c.selfStakingTokens)
 }
 
 // SelfStakingWeight returns the extra weight for self staking
@@ -151,7 +151,7 @@ func (c *Candidate) ToProtoMsg() (*pb.Candidate, error) {
 		OperatorAddress:   c.OperatorAddress(),
 		RewardAddress:     c.RewardAddress(),
 		Score:             c.score.Bytes(),
-		SelfStakingScore:  c.selfStakingScore.Bytes(),
+		SelfStakingTokens: c.selfStakingTokens.Bytes(),
 		SelfStakingWeight: c.selfStakingWeight,
 	}, nil
 }
@@ -163,7 +163,7 @@ func (c *Candidate) FromProtoMsg(msg *pb.Candidate) error {
 	c.operatorAddress = util.CopyBytes(msg.GetOperatorAddress())
 	c.rewardAddress = util.CopyBytes(msg.GetRewardAddress())
 	c.score = new(big.Int).SetBytes(msg.GetScore())
-	c.selfStakingScore = new(big.Int).SetBytes(msg.GetSelfStakingScore())
+	c.selfStakingTokens = new(big.Int).SetBytes(msg.GetSelfStakingTokens())
 	c.selfStakingWeight = msg.GetSelfStakingWeight()
 
 	return nil
