@@ -921,7 +921,7 @@ func (bc *blockchain) mustGetRollDPoSProtocol() *rolldpos.Protocol {
 }
 
 func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, error) {
-	if bc.config.Genesis.EnableBeaconChainVoting {
+	if bc.config.Genesis.EnableGravityChainVoting {
 		rp := bc.mustGetRollDPoSProtocol()
 		return bc.sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
 	}
@@ -1222,7 +1222,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se action.SealedEnvelope, err error) {
 	skip = true
-	if !bc.config.Genesis.EnableBeaconChainVoting {
+	if !bc.config.Genesis.EnableGravityChainVoting {
 		return
 	}
 	pl, ok := bc.protocol(poll.ProtocolID)
@@ -1413,7 +1413,7 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 }
 
 func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
-	if bc.config.Genesis.EnableBeaconChainVoting {
+	if bc.config.Genesis.EnableGravityChainVoting {
 		p, ok := bc.protocol(poll.ProtocolID)
 		if !ok {
 			return errors.Errorf("protocol %s is not found", poll.ProtocolID)
