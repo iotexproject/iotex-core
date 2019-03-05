@@ -103,7 +103,10 @@ func main() {
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
 	grpcAddr := "127.0.0.1:14014"
-	conn, err := grpc.Dial(grpcAddr, grpc.WithBlock(), grpc.WithTimeout(10*time.Second), grpc.WithInsecure())
+
+	grpcctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(grpcctx, grpcAddr, grpc.WithBlock(), grpc.WithInsecure())
 	if err != nil {
 		log.L().Error("Failed to connect to API server.")
 	}
