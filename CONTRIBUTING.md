@@ -1,30 +1,7 @@
 Contributing to IoTeX Core
 ============================
 
-The IoTeX Core project operates an open contributor model where anyone is welcome to contribute towards development in the form of peer review, testing and patches. This document explains the practical process and guidelines for contributing.
-
-Contributor Workflow
---------------------
-
-The codebase is maintained using the "contributor workflow" where everyone
-without exception contributes patch proposals using "pull requests". This
-facilitates social contribution, easy testing and peer review.
-
-To contribute a patch, the workflow is as follows:
-
-  1. Fork repository
-  1. Create topic branch
-  1. Commit patches
-
-In general commits should be atomic and diffs should be easy to read, and the [coding conventions](https://github.com/golang/go/wiki/CodeReviewComments)
-must be adhered to.
-
-Patch tags
----------------------
-In some cases, your commit may bring big changes to the code base. It is better to tag out in your commit.
-`dependency update`: include this tag when you introduce a new dependency or update existing dependencies.
-`breaking change`: include this tag, if you are making a breaking change on protocal, client API or storage API.
-
+The IoTeX Core project operates an open contributor model where anyone is welcome to contribute towards development in the form of peer review, testing and patches. If you are interested in contributing to the project then checkout the [Contributor's Guide](https://github.com/iotexproject/iotex-core/wiki/IoTex-Contributor-Guide)
 
 Copyright
 ---------
