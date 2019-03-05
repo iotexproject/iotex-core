@@ -13,15 +13,13 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
-	"golang.org/x/crypto/ssh/terminal"
-
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -29,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
