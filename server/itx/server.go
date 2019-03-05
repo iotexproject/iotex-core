@@ -304,7 +304,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
 		return
 	}
-	if genesisConfig.EnableBeaconChainVoting {
+	if genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
 		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol

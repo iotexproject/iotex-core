@@ -52,7 +52,7 @@ func initDefaultConfig() {
 			InitBalanceMap: make(map[string]string),
 		},
 		Poll: Poll{
-			EnableBeaconChainVoting: false,
+			EnableGravityChainVoting: false,
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr:           identityset.Address(0).String(),
@@ -113,9 +113,9 @@ type (
 	}
 	// Poll contains the configs for poll protocol
 	Poll struct {
-		// EnableBeaconChainVoting is a flag whether read voting from beacon chain
-		EnableBeaconChainVoting bool `yaml:"enableBeaconChainVoting"`
-		// GravityChainStartHeight is the height in beacon chain where the init poll result stored
+		// EnableGravityChainVoting is a flag whether read voting from gravity chain
+		EnableGravityChainVoting bool `yaml:"enableGravityChainVoting"`
+		// GravityChainStartHeight is the height in gravity chain where the init poll result stored
 		GravityChainStartHeight uint64 `yaml:"gravityChainStartHeight"`
 		// RegisterContractAddress is the address of register contract
 		RegisterContractAddress string `yaml:"registerContractAddress"`
