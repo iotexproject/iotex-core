@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/address"
-
 	"github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 const (
@@ -62,11 +62,27 @@ func TestKeypair(t *testing.T) {
 }
 
 func TestCompatibility(t *testing.T) {
+	require := require.New(t)
+
 	sk, err := crypto.GenerateKey()
-	require.NoError(t, err)
+	require.NoError(err)
 	ethAddr := crypto.PubkeyToAddress(sk.PublicKey)
 	nsk := &secp256k1PrvKey{PrivateKey: sk}
 	addr, err := address.FromBytes(nsk.PublicKey().Hash())
-	require.NoError(t, err)
-	require.Equal(t, ethAddr.Bytes(), addr.Bytes())
+	require.NoError(err)
+	require.Equal(ethAddr.Bytes(), addr.Bytes())
+}
+
+func TestSigToPublicKey(t *testing.T) {
+	require := require.New(t)
+
+	sk, err := GenerateKey()
+	require.NoError(err)
+	h := hash.Hash256b([]byte("TestSigToPublicKey"))
+	sig, err := sk.Sign(h[:])
+	require.NoError(err)
+	pk, err := SigToPublicKey(h[:], sig)
+	require.NoError(err)
+	require.True(pk.Verify(h[:], sig))
+	require.Equal(sk.PublicKey(), pk)
 }
