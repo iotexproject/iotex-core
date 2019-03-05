@@ -19,39 +19,41 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// actionTransferCmd transfers tokens on IoTeX blockchain
-var actionTransferCmd = &cobra.Command{
-	Use:   "transfer recipient amount data",
-	Short: "Transfer tokens on IoTeX blokchain",
-	Args:  cobra.ExactArgs(3),
+// actionInvokeCmd invokes smart contract on IoTeX blockchain
+var actionInvokeCmd = &cobra.Command{
+	Use:   "invoke contract [amount]",
+	Short: "Invoke smart contract on IoTeX blockchain",
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(transfer(args))
+		fmt.Println(invoke(args))
 	},
 }
 
-// transfer transfers tokens on IoTeX blockchain
-func transfer(args []string) string {
-	// TODO: Check the validity of args
-	recipient := args[0]
-	amount, err := strconv.ParseInt(args[1], 10, 64)
-	if err != nil {
-		log.L().Error("cannot convert "+args[1]+" into int64", zap.Error(err))
-		return err.Error()
+// invoke invokes smart contract on IoTeX blockchain
+func invoke(args []string) string {
+	contract := args[0]
+	amount := int64(0)
+	var err error
+	if len(args) == 2 {
+		amount, err = strconv.ParseInt(args[1], 10, 64)
+		if err != nil {
+			log.L().Error("cannot convert "+args[1]+" into int64", zap.Error(err))
+			return err.Error()
+		}
 	}
-	payload := args[2]
-
-	sender, err := account.AliasToAddress(alias)
-	if err != nil {
-		return err.Error()
-	}
-	accountMeta, err := account.GetAccountMeta(sender)
+	executor, err := account.AliasToAddress(alias)
 	if err != nil {
 		return err.Error()
 	}
-	tx, err := action.NewTransfer(accountMeta.PendingNonce, big.NewInt(amount),
-		recipient, []byte(payload), gasLimit, big.NewInt(gasPrice))
+	accountMeta, err := account.GetAccountMeta(executor)
 	if err != nil {
-		log.L().Error("cannot make a Transfer instance", zap.Error(err))
+		return err.Error()
+	}
+	tx, err := action.NewExecution(contract, accountMeta.PendingNonce, big.NewInt(amount),
+		gasLimit, big.NewInt(gasPrice), bytecode)
+	if err != nil {
+		log.L().Error("cannot make a Execution instance", zap.Error(err))
+		return err.Error()
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(accountMeta.PendingNonce).

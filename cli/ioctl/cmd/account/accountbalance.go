@@ -13,7 +13,6 @@ import (
 )
 
 // TODO: use wallet config later
-var configAddress = "ioaddress"
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
