@@ -18,7 +18,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNetSync(t *testing.T) {
@@ -53,8 +52,6 @@ func TestNetSync(t *testing.T) {
 
 	defer func() {
 		require.Nil(t, svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	select {}

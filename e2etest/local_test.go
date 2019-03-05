@@ -547,8 +547,6 @@ func TestVoteLocalCommit(t *testing.T) {
 	require.True(5 == bc.TipHeight())
 	defer func() {
 		require.NoError(chain.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath2)
-		testutil.CleanupPath(t, testDBPath2)
 	}()
 
 	_, err = chain.CreateState(ta.Addrinfo["galilei"].String(), unit.ConvertIotxToRau(2000000000))
@@ -837,7 +835,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.Equal(24, len(candidates))
 
 	// Recover to height 3 from empty state DB
-	testutil.CleanupPath(t, testTriePath)
 	require.NoError(bc.RecoverChainAndState(3))
 	require.NoError(svr.Stop(ctx))
 	svr, err = itx.NewServer(cfg)
