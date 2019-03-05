@@ -97,7 +97,7 @@ func sendAction(elp action.Envelope) string {
 	}
 	request := &iotexapi.SendActionRequest{Action: selp}
 
-	endpoint := config.GetEndpoint()
+	endpoint := config.Get("endpoint")
 	if endpoint == config.ErrEmptyEndpoint {
 		log.L().Error(config.ErrEmptyEndpoint)
 		return "use \"ioctl config set endpoint\" to config endpoint first."

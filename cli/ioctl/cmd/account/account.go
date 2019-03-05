@@ -11,14 +11,18 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
@@ -44,11 +48,12 @@ func init() {
 
 // Sign use the password to unlock key associated with name, and signs the hash
 func Sign(name, password string, hash []byte) ([]byte, error) {
-	w, err := config.LoadConfig()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		return nil, err
 	}
-	addrStr, ok := w.AccountList[name]
+	walletDir := cfg.Wallet
+	addrStr, ok := cfg.AccountList[name]
 	if !ok {
 		return nil, errors.Errorf("account %s does not exist", name)
 	}
@@ -57,7 +62,7 @@ func Sign(name, password string, hash []byte) ([]byte, error) {
 		return nil, err
 	}
 	// find the key in keystore and sign
-	ks := keystore.NewKeyStore(config.ConfigDir, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
 			return ks.SignHashWithPassphrase(v, password, hash)
@@ -81,7 +86,7 @@ func AliasToAddress(name string) (string, error) {
 
 // GetAccountMeta gets account metadata
 func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
-	endpoint := config.GetEndpoint()
+	endpoint := config.Get("endpoint")
 	if endpoint == config.ErrEmptyEndpoint {
 		log.L().Error(config.ErrEmptyEndpoint)
 		return nil, errors.New("use \"ioctl config set endpoint\" to config endpoint first")
@@ -101,4 +106,64 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	}
 	accountMeta := response.AccountMeta
 	return accountMeta, nil
+}
+
+func newAccount(name string, walletDir string) (string, error) {
+	fmt.Printf("#%s: Set password\n", name)
+	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+	if err != nil {
+		log.L().Error("fail to get password", zap.Error(err))
+		return "", err
+	}
+	password := string(bytePassword)
+	fmt.Printf("#%s: Enter password again\n", name)
+	bytePassword, err = terminal.ReadPassword(syscall.Stdin)
+	if err != nil {
+		log.L().Error("fail to get password", zap.Error(err))
+		return "", err
+	}
+	if password != string(bytePassword) {
+		return "", errors.New("password doesn't match")
+	}
+	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
+	account, err := ks.NewAccount(password)
+	if err != nil {
+		return "", err
+	}
+	addr, err := address.FromBytes(account.Address.Bytes())
+	if err != nil {
+		log.L().Error(err.Error(), zap.Error(err))
+		return "", err
+	}
+	return addr.String(), nil
+}
+
+func newAccountByKey(name string, privateKey string, walletDir string) (string, error) {
+	fmt.Printf("#%s: Enter password\n", name)
+	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+	if err != nil {
+		log.L().Error("fail to get password", zap.Error(err))
+		return "", err
+	}
+	password := string(bytePassword)
+	fmt.Printf("#%s: Enter password again\n", name)
+	bytePassword, err = terminal.ReadPassword(syscall.Stdin)
+	if err != nil {
+		log.L().Error("fail to get password", zap.Error(err))
+		return "", err
+	}
+	if password != string(bytePassword) {
+		return "", errors.New("password doesn't match")
+	}
+	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
+	priKey, err := keypair.HexStringToPrivateKey(privateKey)
+	if err != nil {
+		return "", err
+	}
+	account, err := ks.ImportECDSA(priKey.EcdsaPrivateKey(), password)
+	if err != nil {
+		return "", err
+	}
+	addr, _ := address.FromBytes(account.Address.Bytes())
+	return addr.String(), nil
 }

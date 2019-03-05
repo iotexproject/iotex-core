@@ -17,11 +17,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Directories
 var (
 	// ConfigDir is the directory to store config file
 	ConfigDir string
 	// DefaultConfigFile is the default config file name
 	DefaultConfigFile string
+)
+
+// Errors
+var (
+	// ErrConfigNotMatch indicates error for no config matchs
+	ErrConfigNotMatch = "no config matchs"
+	// ErrEmptyEndpoint indicates error for empty endpoint
+	ErrEmptyEndpoint = "no endpoint has been set"
 )
 
 // ConfigCmd represents the config command
@@ -38,6 +47,7 @@ var ConfigCmd = &cobra.Command{
 // Config defines the config schema
 type Config struct {
 	Endpoint    string            `yaml:"endpoint"`
+	Wallet      string            `yaml:"wallet"`
 	AccountList map[string]string `yaml:"walletList"`
 }
 
@@ -48,9 +58,23 @@ func init() {
 		os.Exit(1)
 	}
 	DefaultConfigFile = ConfigDir + "/config.default"
-
-	ConfigCmd.AddCommand(configGetEndpointCmd)
-	ConfigCmd.AddCommand(configSetEndpointCmd)
+	cfg, err := LoadConfig()
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	cfg.Wallet = ConfigDir
+	out, err := yaml.Marshal(&cfg)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
+		fmt.Printf("Failed to write to config file %s.", DefaultConfigFile)
+		os.Exit(1)
+	}
+	ConfigCmd.AddCommand(configGetCmd)
+	ConfigCmd.AddCommand(configSetCmd)
 }
 
 // LoadConfig loads config file in yaml format

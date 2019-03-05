@@ -35,7 +35,7 @@ var actionHashCmd = &cobra.Command{
 // getActionByHash gets balance of an IoTeX Blockchain address
 func getActionByHash(args []string) string {
 	hash := args[0]
-	endpoint := config.GetEndpoint()
+	endpoint := config.Get("endpoint")
 	if endpoint == config.ErrEmptyEndpoint {
 		log.L().Error(config.ErrEmptyEndpoint)
 		return "use \"ioctl config set endpoint\" to config endpoint first."
@@ -58,7 +58,6 @@ func getActionByHash(args []string) string {
 	}
 	response, err := cli.GetActions(ctx, &requestCheckPending)
 	if err != nil {
-		log.L().Error("cannot get action from "+hash, zap.Error(err))
 		return err.Error()
 	}
 	action := response.Actions[0]
@@ -70,12 +69,11 @@ func getActionByHash(args []string) string {
 			},
 		},
 	}
-	_, err = cli.GetActions(ctx, request)
-
 	output, err := printActionProto(action)
 	if err != nil {
 		return err.Error()
 	}
+	_, err = cli.GetActions(ctx, request)
 	if err != nil {
 		return output + "\n#This action is pending\n"
 	}
@@ -85,7 +83,6 @@ func getActionByHash(args []string) string {
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReciept, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
-		log.L().Error("cannot get reciept from "+hash, zap.Error(err))
 		return err.Error()
 	}
 
@@ -118,7 +115,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 
 func printRecieptProto(reciept *iotextypes.Receipt) string {
 	return fmt.Sprintf("returnValue %x\n", reciept.ReturnValue) +
-		fmt.Sprintf("status: %d", reciept.Status) +
+		fmt.Sprintf("status: %d\n", reciept.Status) +
 		fmt.Sprintf("actHash: %x\n", reciept.ActHash) +
 		fmt.Sprintf("gasConsumed: %d\n", reciept.GasConsumed) +
 		fmt.Sprintf("contractAddress: %s\n", reciept.ContractAddress)
