@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"syscall"
 
 	"github.com/golang/protobuf/proto"
@@ -35,6 +34,7 @@ var (
 	bytecode []byte
 	gasLimit uint64
 	gasPrice int64
+	nonce    uint64
 )
 
 // ActionCmd represents the account command
@@ -42,9 +42,6 @@ var ActionCmd = &cobra.Command{
 	Use:   "action",
 	Short: "Deal with actions of IoTeX blockchain",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Print: " + strings.Join(args, " "))
-	},
 }
 
 func init() {
@@ -60,6 +57,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
 		cmd.Flags().Int64VarP(&gasPrice, "gas-price", "p", 0, "set gas prize")
 		cmd.Flags().StringVarP(&alias, "alias", "a", "", "choose signing key")
+		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
 		cmd.MarkFlagRequired("gas-limit")
 		cmd.MarkFlagRequired("gas-price")
 		cmd.MarkFlagRequired("alias")
