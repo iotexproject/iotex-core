@@ -78,16 +78,16 @@ func getActionByHash(args []string) string {
 		return output + "\n#This action is pending\n"
 	}
 	if action.Core.GetTransfer() != nil {
-		return output + "\n#This action has been writen on blockchain\n"
+		return output + "\n#This action has been written on blockchain\n"
 	}
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
-	responseReciept, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
+	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
 		return err.Error()
 	}
 
-	return output + "\n#This action has been writen on blockchain\n" +
-		printRecieptProto(responseReciept.Receipt)
+	return output + "\n#This action has been written on blockchain\n" +
+		printReceiptProto(responseReceipt.Receipt)
 }
 
 func printActionProto(action *iotextypes.Action) (string, error) {
@@ -125,10 +125,10 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 	return "", errors.New("action can not match")
 }
 
-func printRecieptProto(reciept *iotextypes.Receipt) string {
-	return fmt.Sprintf("returnValue %x\n", reciept.ReturnValue) +
-		fmt.Sprintf("status: %d\n", reciept.Status) +
-		fmt.Sprintf("actHash: %x\n", reciept.ActHash) +
-		fmt.Sprintf("gasConsumed: %d\n", reciept.GasConsumed) +
-		fmt.Sprintf("contractAddress: %s\n", reciept.ContractAddress)
+func printReceiptProto(receipt *iotextypes.Receipt) string {
+	return fmt.Sprintf("returnValue %x\n", receipt.ReturnValue) +
+		fmt.Sprintf("status: %d\n", receipt.Status) +
+		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
+		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
+		fmt.Sprintf("contractAddress: %s\n", receipt.ContractAddress)
 }

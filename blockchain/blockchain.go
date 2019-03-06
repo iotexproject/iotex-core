@@ -1373,10 +1373,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	if err := bc.createPollGenesisStates(ctx, ws); err != nil {
 		return err
 	}
-	if err := bc.createRewardingGenesisStates(ctx, ws); err != nil {
-		return err
-	}
-	return nil
+	return bc.createRewardingGenesisStates(ctx, ws)
 }
 
 func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
