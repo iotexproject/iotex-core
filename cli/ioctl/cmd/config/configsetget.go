@@ -35,9 +35,18 @@ var configGetCmd = &cobra.Command{
 
 // configSetCmd represents the config set endpoint command
 var configSetCmd = &cobra.Command{
-	Use:   "set name value",
-	Short: "Set config for ioctl",
-	Args:  cobra.ExactArgs(2),
+	Use:       "set name value",
+	Short:     "Set config for ioctl",
+	ValidArgs: []string{"endpoint", "wallet"},
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) != 2 {
+			return fmt.Errorf("accepts 2 arg(s), received %d", len(args))
+		}
+		if err := cobra.OnlyValidArgs(cmd, args[:1]); err != nil {
+			return err
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(set(args))
 	},
@@ -56,7 +65,7 @@ func Get(arg string) string {
 		}
 		return cfg.Endpoint
 	case "wallet":
-		return cfg.Endpoint
+		return cfg.Wallet
 	default:
 		return ErrConfigNotMatch
 	}

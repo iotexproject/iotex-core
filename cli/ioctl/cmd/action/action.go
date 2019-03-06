@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"syscall"
 
 	"github.com/golang/protobuf/proto"
@@ -31,10 +30,11 @@ import (
 )
 
 var (
-	alias    string
 	bytecode []byte
 	gasLimit uint64
 	gasPrice int64
+	nonce    uint64
+	signer   string
 )
 
 // ActionCmd represents the account command
@@ -42,9 +42,6 @@ var ActionCmd = &cobra.Command{
 	Use:   "action",
 	Short: "Deal with actions of IoTeX blockchain",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Print: " + strings.Join(args, " "))
-	},
 }
 
 func init() {
@@ -59,10 +56,11 @@ func setActionFlags(cmds ...*cobra.Command) {
 	for _, cmd := range cmds {
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
 		cmd.Flags().Int64VarP(&gasPrice, "gas-price", "p", 0, "set gas prize")
-		cmd.Flags().StringVarP(&alias, "alias", "a", "", "choose signing key")
+		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing key")
+		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
 		cmd.MarkFlagRequired("gas-limit")
 		cmd.MarkFlagRequired("gas-price")
-		cmd.MarkFlagRequired("alias")
+		cmd.MarkFlagRequired("signer")
 		if cmd == actionDeployCmd || cmd == actionInvokeCmd {
 			cmd.Flags().BytesHexVarP(&bytecode, "bytecode", "b", nil, "set the byte code")
 			actionInvokeCmd.MarkFlagRequired("bytecode")
@@ -71,7 +69,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 }
 
 func sendAction(elp action.Envelope) string {
-	fmt.Printf("Enter password #%s:\n", alias)
+	fmt.Printf("Enter password #%s:\n", signer)
 	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
@@ -79,7 +77,7 @@ func sendAction(elp action.Envelope) string {
 	}
 	password := string(bytePassword)
 	ehash := elp.Hash()
-	sig, err := account.Sign(alias, password, ehash[:])
+	sig, err := account.Sign(signer, password, ehash[:])
 	if err != nil {
 		log.L().Error("fail to sign", zap.Error(err))
 		return err.Error()

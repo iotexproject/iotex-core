@@ -67,11 +67,11 @@ func TestBlockBufferFlush(t *testing.T) {
 	}()
 
 	b := blockBuffer{
-		bc:     chain,
-		ap:     ap,
-		cs:     cs,
-		blocks: make(map[uint64]*block.Block),
-		size:   16,
+		bc:         chain,
+		ap:         ap,
+		cs:         cs,
+		blocks:     make(map[uint64]*block.Block),
+		bufferSize: 16,
 	}
 	moved, re := b.Flush(nil)
 	assert.Equal(false, moved)
@@ -171,14 +171,24 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	}()
 
 	b := blockBuffer{
-		bc:     chain,
-		ap:     ap,
-		cs:     cs,
-		blocks: make(map[uint64]*block.Block),
-		size:   16,
+		bc:           chain,
+		ap:           ap,
+		cs:           cs,
+		blocks:       make(map[uint64]*block.Block),
+		bufferSize:   16,
+		intervalSize: 8,
 	}
 
 	out := b.GetBlocksIntervalsToSync(32)
+	require.Equal(2, len(out))
+	require.Equal(uint64(1), out[0].Start)
+	require.Equal(uint64(8), out[0].End)
+	require.Equal(uint64(9), out[1].Start)
+	require.Equal(uint64(16), out[1].End)
+
+	b.intervalSize = 16
+
+	out = b.GetBlocksIntervalsToSync(32)
 	require.Equal(1, len(out))
 	require.Equal(uint64(1), out[0].Start)
 	require.Equal(uint64(16), out[0].End)

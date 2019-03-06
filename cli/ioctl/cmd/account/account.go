@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strings"
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -33,9 +33,6 @@ var AccountCmd = &cobra.Command{
 	Use:   "account",
 	Short: "Deal with accounts of IoTeX blockchain",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Print: " + strings.Join(args, " "))
-	},
 }
 
 func init() {
@@ -44,42 +41,45 @@ func init() {
 	AccountCmd.AddCommand(accountCreateAddCmd)
 	AccountCmd.AddCommand(accountImportCmd)
 	AccountCmd.AddCommand(accountListCmd)
+	AccountCmd.AddCommand(accountNonceCmd)
 }
 
 // Sign use the password to unlock key associated with name, and signs the hash
-func Sign(name, password string, hash []byte) ([]byte, error) {
-	cfg, err := config.LoadConfig()
+func Sign(signer, password string, hash []byte) ([]byte, error) {
+	addr, err := Address(signer)
 	if err != nil {
 		return nil, err
 	}
-	walletDir := cfg.Wallet
-	addrStr, ok := cfg.AccountList[name]
-	if !ok {
-		return nil, errors.Errorf("account %s does not exist", name)
-	}
-	addr, err := address.FromString(addrStr)
+	address, err := address.FromString(addr)
 	if err != nil {
 		return nil, err
 	}
 	// find the key in keystore and sign
-	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(config.Get("wallet"), keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
-		if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
+		if bytes.Equal(address.Bytes(), v.Address.Bytes()) {
 			return ks.SignHashWithPassphrase(v, password, hash)
 		}
 	}
-	return nil, errors.Errorf("account %s's address does not match with keys in keystore", name)
+	return nil, errors.Errorf("account %s's address does not match with keys in keystore", signer)
 }
 
-// AliasToAddress returns the address corresponding to name/alias
-func AliasToAddress(name string) (string, error) {
+// Address returns the address corresponding to name
+func Address(in string) (string, error) {
+	if len(in) >= validator.IoAddrLen {
+		if err := validator.ValidateAddress(in); err != nil {
+			return "", err
+		}
+		return in, nil
+
+	}
 	config, err := config.LoadConfig()
 	if err != nil {
 		return "", err
 	}
-	addr, ok := config.AccountList[name]
+	addr, ok := config.AccountList[in]
 	if !ok {
-		return "", errors.Errorf("can't find address from " + name)
+		return "", errors.Errorf("can't find address from #" + in)
 	}
 	return addr, nil
 }
