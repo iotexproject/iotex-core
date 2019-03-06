@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/node"
+
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
@@ -38,5 +40,6 @@ func init() {
 	RootCmd.AddCommand(action.ActionCmd)
 	RootCmd.AddCommand(bc.BCCmd)
 	RootCmd.AddCommand(config.ConfigCmd)
+	RootCmd.AddCommand(node.NodeCmd)
 	RootCmd.AddCommand(version.VersionCmd)
 }
