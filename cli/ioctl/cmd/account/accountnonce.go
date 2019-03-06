@@ -10,8 +10,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 )
 
 // accountNonceCmd represents the account balance command
@@ -26,11 +24,10 @@ var accountNonceCmd = &cobra.Command{
 
 // nonce gets nonce and pending nonce of an IoTeX blockchain address
 func nonce(args []string) string {
-	// Validate inputs
-	if err := validator.ValidateAddress(args[0]); err != nil {
+	address, err := Address(args[0])
+	if err != nil {
 		return err.Error()
 	}
-	address := args[0]
 	accountMeta, err := GetAccountMeta(address)
 	if err != nil {
 		return err.Error()
