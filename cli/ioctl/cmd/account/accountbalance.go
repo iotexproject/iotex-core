@@ -20,12 +20,12 @@ var accountBalanceCmd = &cobra.Command{
 	Short: "Get balance of an account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(getBalance(args))
+		fmt.Println(balance(args))
 	},
 }
 
-// Balance gets balance of an IoTeX blockchain address
-func getBalance(args []string) string {
+// balance gets balance of an IoTeX blockchain address
+func balance(args []string) string {
 	// Validate inputs
 	if err := validator.ValidateAddress(args[0]); err != nil {
 		return err.Error()

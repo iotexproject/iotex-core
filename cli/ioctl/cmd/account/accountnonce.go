@@ -20,12 +20,12 @@ var accountNonceCmd = &cobra.Command{
 	Short: "Get nonce of an account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(getNonce(args))
+		fmt.Println(nonce(args))
 	},
 }
 
-// Balance gets balance of an IoTeX blockchain address
-func getNonce(args []string) string {
+// nonce gets nonce and pending nonce of an IoTeX blockchain address
+func nonce(args []string) string {
 	// Validate inputs
 	if err := validator.ValidateAddress(args[0]); err != nil {
 		return err.Error()
