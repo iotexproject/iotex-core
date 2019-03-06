@@ -7,9 +7,6 @@
 package node
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/spf13/cobra"
 )
 
@@ -18,9 +15,6 @@ var NodeCmd = &cobra.Command{
 	Use:   "node",
 	Short: "Deal with nodes of IoTeX blockchain",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Print: " + strings.Join(args, " "))
-	},
 }
 
 func init() {

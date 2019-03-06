@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strings"
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -33,9 +32,6 @@ var AccountCmd = &cobra.Command{
 	Use:   "account",
 	Short: "Deal with accounts of IoTeX blockchain",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Print: " + strings.Join(args, " "))
-	},
 }
 
 func init() {
