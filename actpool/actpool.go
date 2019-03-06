@@ -10,6 +10,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -55,6 +56,7 @@ type actPool struct {
 	allActions               map[hash.Hash256]action.SealedEnvelope
 	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
 	validators               []protocol.ActionValidator
+	timerFactory             *prometheustimer.TimerFactory
 }
 
 // NewActPool constructs a new actpool
@@ -68,6 +70,16 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		accountActs: make(map[string]ActQueue),
 		allActions:  make(map[hash.Hash256]action.SealedEnvelope),
 	}
+	timerFactory, err := prometheustimer.New(
+		"iotex_action_pool_perf",
+		"Performance of action pool",
+		[]string{"type"},
+		[]string{"default"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	ap.timerFactory = timerFactory
 	return ap, nil
 }
 
@@ -313,6 +325,9 @@ func (ap *actPool) updateAccount(sender string) {
 }
 
 func (ap *actPool) reset() {
+	timer := ap.timerFactory.NewTimer("reset")
+	defer timer.End()
+
 	// Remove confirmed actions in actpool
 	ap.removeConfirmedActs()
 	for from, queue := range ap.accountActs {
