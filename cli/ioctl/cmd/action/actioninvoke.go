@@ -45,7 +45,7 @@ func invoke(args []string) string {
 			return err.Error()
 		}
 	}
-	executor, err := account.AliasToAddress(alias)
+	executor, err := account.Address(signer)
 	if err != nil {
 		return err.Error()
 	}
