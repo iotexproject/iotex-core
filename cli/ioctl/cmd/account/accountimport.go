@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/validator"
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 )
 
 var (
