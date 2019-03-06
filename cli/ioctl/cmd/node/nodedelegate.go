@@ -63,6 +63,10 @@ func delegate() string {
 		return err.Error()
 	}
 	var activeBlockProducers pollpb.BlockProducerList
-	proto.Unmarshal(response.Data, &activeBlockProducers)
+	err = proto.Unmarshal(response.Data, &activeBlockProducers)
+	if err != nil {
+		log.L().Error("failed to unmarshal responce data", zap.Error(err))
+		return err.Error()
+	}
 	return proto.MarshalTextString(&activeBlockProducers)
 }
