@@ -24,7 +24,7 @@ var (
 	DefaultConfigFile string
 )
 
-// Errors
+// Error strings
 var (
 	// ErrConfigNotMatch indicates error for no config matchs
 	ErrConfigNotMatch = "no config matchs"

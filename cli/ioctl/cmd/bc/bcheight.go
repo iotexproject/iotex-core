@@ -23,6 +23,7 @@ import (
 var heightCmd = &cobra.Command{
 	Use:   "height",
 	Short: "Get current block height",
+	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(getCurrentBlockHeigh(args))
 	},
