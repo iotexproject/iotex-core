@@ -23,8 +23,8 @@ var (
 )
 
 const (
-	// IotxAddressLength defines length of IoTeX address
-	IotxAddressLength = 41
+	// IoAddrLen defines length of IoTeX address
+	IoAddrLen = 41
 )
 
 // ValidateAddress validates IoTeX address

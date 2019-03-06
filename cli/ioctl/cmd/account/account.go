@@ -66,7 +66,7 @@ func Sign(signer, password string, hash []byte) ([]byte, error) {
 
 // Address returns the address corresponding to name
 func Address(in string) (string, error) {
-	if len(in) >= validator.IotxAddressLength {
+	if len(in) >= validator.IoAddrLen {
 		if err := validator.ValidateAddress(in); err != nil {
 			return "", err
 		}
