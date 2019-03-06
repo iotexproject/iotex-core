@@ -14,26 +14,27 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/validator"
 )
 
-// accountBalanceCmd represents the account balance command
-var accountBalanceCmd = &cobra.Command{
-	Use:   "balance address",
-	Short: "Get balance of an account",
+// accountNonceCmd represents the account balance command
+var accountNonceCmd = &cobra.Command{
+	Use:   "nonce address",
+	Short: "Get nonce of an account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(balance(args))
+		fmt.Println(nonce(args))
 	},
 }
 
-// balance gets balance of an IoTeX blockchain address
-func balance(args []string) string {
+// nonce gets nonce and pending nonce of an IoTeX blockchain address
+func nonce(args []string) string {
 	// Validate inputs
 	if err := validator.ValidateAddress(args[0]); err != nil {
 		return err.Error()
 	}
-	addr := args[0]
-	accountMeta, err := GetAccountMeta(addr)
+	address := args[0]
+	accountMeta, err := GetAccountMeta(address)
 	if err != nil {
 		return err.Error()
 	}
-	return fmt.Sprintf("%s: %s", addr, accountMeta.Balance)
+	return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
+		address, accountMeta.Nonce, accountMeta.PendingNonce)
 }
