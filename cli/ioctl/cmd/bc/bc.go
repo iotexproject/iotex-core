@@ -7,9 +7,6 @@
 package bc
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/spf13/cobra"
 )
 
@@ -18,9 +15,6 @@ var BCCmd = &cobra.Command{
 	Use:   "bc",
 	Short: "Deal with block chain of IoTeX blockchain",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Print: " + strings.Join(args, " "))
-	},
 }
 
 func init() {

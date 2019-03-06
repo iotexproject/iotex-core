@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -38,9 +37,6 @@ var ConfigCmd = &cobra.Command{
 	Short:     "Set or get configuration for ioctl",
 	ValidArgs: []string{"set", "get"},
 	Args:      cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Print: " + strings.Join(args, " "))
-	},
 }
 
 // Config defines the config schema

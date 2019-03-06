@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"syscall"
 
 	"github.com/golang/protobuf/proto"
@@ -43,9 +42,6 @@ var ActionCmd = &cobra.Command{
 	Use:   "action",
 	Short: "Deal with actions of IoTeX blockchain",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Print: " + strings.Join(args, " "))
-	},
 }
 
 func init() {
