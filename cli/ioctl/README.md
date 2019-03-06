@@ -16,6 +16,7 @@
       action      Deal with actions of IoTeX blockchain
       bc          Deal with block chain of IoTeX blockchain
       help        Help about any command
+      node        Deal with nodes of IoTeX blockchain
       version     Print the version number of ioctl
       wallet      Manage accounts of IoTeX blockchain
     
