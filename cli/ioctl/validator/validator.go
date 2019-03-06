@@ -22,6 +22,11 @@ var (
 	ErrMinusAmount = errors.New("invalid amount that is minus")
 )
 
+const (
+	// IotxAddressLength defines length of IoTeX address
+	IotxAddressLength = 41
+)
+
 // ValidateAddress validates IoTeX address
 func ValidateAddress(addr string) error {
 	if _, err := address.FromString(addr); err != nil {
