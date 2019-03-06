@@ -25,7 +25,7 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type GetAccountRequest struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -35,7 +35,7 @@ func (m *GetAccountRequest) Reset()         { *m = GetAccountRequest{} }
 func (m *GetAccountRequest) String() string { return proto.CompactTextString(m) }
 func (*GetAccountRequest) ProtoMessage()    {}
 func (*GetAccountRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{0}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{0}
 }
 func (m *GetAccountRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetAccountRequest.Unmarshal(m, b)
@@ -63,7 +63,7 @@ func (m *GetAccountRequest) GetAddress() string {
 }
 
 type GetAccountResponse struct {
-	AccountMeta          *iotextypes.AccountMeta `protobuf:"bytes,1,opt,name=accountMeta,proto3" json:"accountMeta,omitempty"`
+	AccountMeta          *iotextypes.AccountMeta `protobuf:"bytes,1,opt,name=accountMeta" json:"accountMeta,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -73,7 +73,7 @@ func (m *GetAccountResponse) Reset()         { *m = GetAccountResponse{} }
 func (m *GetAccountResponse) String() string { return proto.CompactTextString(m) }
 func (*GetAccountResponse) ProtoMessage()    {}
 func (*GetAccountResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{1}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{1}
 }
 func (m *GetAccountResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetAccountResponse.Unmarshal(m, b)
@@ -117,7 +117,7 @@ func (m *GetActionsRequest) Reset()         { *m = GetActionsRequest{} }
 func (m *GetActionsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetActionsRequest) ProtoMessage()    {}
 func (*GetActionsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{2}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{2}
 }
 func (m *GetActionsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetActionsRequest.Unmarshal(m, b)
@@ -142,34 +142,26 @@ type isGetActionsRequest_Lookup interface {
 }
 
 type GetActionsRequest_ByIndex struct {
-	ByIndex *GetActionsByIndexRequest `protobuf:"bytes,1,opt,name=byIndex,proto3,oneof"`
+	ByIndex *GetActionsByIndexRequest `protobuf:"bytes,1,opt,name=byIndex,oneof"`
 }
-
 type GetActionsRequest_ByHash struct {
-	ByHash *GetActionByHashRequest `protobuf:"bytes,2,opt,name=byHash,proto3,oneof"`
+	ByHash *GetActionByHashRequest `protobuf:"bytes,2,opt,name=byHash,oneof"`
 }
-
 type GetActionsRequest_ByAddr struct {
-	ByAddr *GetActionsByAddressRequest `protobuf:"bytes,3,opt,name=byAddr,proto3,oneof"`
+	ByAddr *GetActionsByAddressRequest `protobuf:"bytes,3,opt,name=byAddr,oneof"`
 }
-
 type GetActionsRequest_UnconfirmedByAddr struct {
-	UnconfirmedByAddr *GetUnconfirmedActionsByAddressRequest `protobuf:"bytes,4,opt,name=unconfirmedByAddr,proto3,oneof"`
+	UnconfirmedByAddr *GetUnconfirmedActionsByAddressRequest `protobuf:"bytes,4,opt,name=unconfirmedByAddr,oneof"`
 }
-
 type GetActionsRequest_ByBlk struct {
-	ByBlk *GetActionsByBlockRequest `protobuf:"bytes,5,opt,name=byBlk,proto3,oneof"`
+	ByBlk *GetActionsByBlockRequest `protobuf:"bytes,5,opt,name=byBlk,oneof"`
 }
 
-func (*GetActionsRequest_ByIndex) isGetActionsRequest_Lookup() {}
-
-func (*GetActionsRequest_ByHash) isGetActionsRequest_Lookup() {}
-
-func (*GetActionsRequest_ByAddr) isGetActionsRequest_Lookup() {}
-
+func (*GetActionsRequest_ByIndex) isGetActionsRequest_Lookup()           {}
+func (*GetActionsRequest_ByHash) isGetActionsRequest_Lookup()            {}
+func (*GetActionsRequest_ByAddr) isGetActionsRequest_Lookup()            {}
 func (*GetActionsRequest_UnconfirmedByAddr) isGetActionsRequest_Lookup() {}
-
-func (*GetActionsRequest_ByBlk) isGetActionsRequest_Lookup() {}
+func (*GetActionsRequest_ByBlk) isGetActionsRequest_Lookup()             {}
 
 func (m *GetActionsRequest) GetLookup() isGetActionsRequest_Lookup {
 	if m != nil {
@@ -345,8 +337,8 @@ func _GetActionsRequest_OneofSizer(msg proto.Message) (n int) {
 }
 
 type GetActionsByIndexRequest struct {
-	Start                uint64   `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	Start                uint64   `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,2,opt,name=count" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -356,7 +348,7 @@ func (m *GetActionsByIndexRequest) Reset()         { *m = GetActionsByIndexReque
 func (m *GetActionsByIndexRequest) String() string { return proto.CompactTextString(m) }
 func (*GetActionsByIndexRequest) ProtoMessage()    {}
 func (*GetActionsByIndexRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{3}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{3}
 }
 func (m *GetActionsByIndexRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetActionsByIndexRequest.Unmarshal(m, b)
@@ -391,8 +383,8 @@ func (m *GetActionsByIndexRequest) GetCount() uint64 {
 }
 
 type GetActionByHashRequest struct {
-	ActionHash           string   `protobuf:"bytes,1,opt,name=actionHash,proto3" json:"actionHash,omitempty"`
-	CheckPending         bool     `protobuf:"varint,2,opt,name=checkPending,proto3" json:"checkPending,omitempty"`
+	ActionHash           string   `protobuf:"bytes,1,opt,name=actionHash" json:"actionHash,omitempty"`
+	CheckPending         bool     `protobuf:"varint,2,opt,name=checkPending" json:"checkPending,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -402,7 +394,7 @@ func (m *GetActionByHashRequest) Reset()         { *m = GetActionByHashRequest{}
 func (m *GetActionByHashRequest) String() string { return proto.CompactTextString(m) }
 func (*GetActionByHashRequest) ProtoMessage()    {}
 func (*GetActionByHashRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{4}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{4}
 }
 func (m *GetActionByHashRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetActionByHashRequest.Unmarshal(m, b)
@@ -437,9 +429,9 @@ func (m *GetActionByHashRequest) GetCheckPending() bool {
 }
 
 type GetActionsByAddressRequest struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	Start                uint64   `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Start                uint64   `protobuf:"varint,2,opt,name=start" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,3,opt,name=count" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -449,7 +441,7 @@ func (m *GetActionsByAddressRequest) Reset()         { *m = GetActionsByAddressR
 func (m *GetActionsByAddressRequest) String() string { return proto.CompactTextString(m) }
 func (*GetActionsByAddressRequest) ProtoMessage()    {}
 func (*GetActionsByAddressRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{5}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{5}
 }
 func (m *GetActionsByAddressRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetActionsByAddressRequest.Unmarshal(m, b)
@@ -491,9 +483,9 @@ func (m *GetActionsByAddressRequest) GetCount() uint64 {
 }
 
 type GetUnconfirmedActionsByAddressRequest struct {
-	Address              string   `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	Start                uint64   `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	Address              string   `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Start                uint64   `protobuf:"varint,2,opt,name=start" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,3,opt,name=count" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -503,7 +495,7 @@ func (m *GetUnconfirmedActionsByAddressRequest) Reset()         { *m = GetUnconf
 func (m *GetUnconfirmedActionsByAddressRequest) String() string { return proto.CompactTextString(m) }
 func (*GetUnconfirmedActionsByAddressRequest) ProtoMessage()    {}
 func (*GetUnconfirmedActionsByAddressRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{6}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{6}
 }
 func (m *GetUnconfirmedActionsByAddressRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetUnconfirmedActionsByAddressRequest.Unmarshal(m, b)
@@ -545,9 +537,9 @@ func (m *GetUnconfirmedActionsByAddressRequest) GetCount() uint64 {
 }
 
 type GetActionsByBlockRequest struct {
-	BlkHash              string   `protobuf:"bytes,1,opt,name=blkHash,proto3" json:"blkHash,omitempty"`
-	Start                uint64   `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	BlkHash              string   `protobuf:"bytes,1,opt,name=blkHash" json:"blkHash,omitempty"`
+	Start                uint64   `protobuf:"varint,2,opt,name=start" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,3,opt,name=count" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -557,7 +549,7 @@ func (m *GetActionsByBlockRequest) Reset()         { *m = GetActionsByBlockReque
 func (m *GetActionsByBlockRequest) String() string { return proto.CompactTextString(m) }
 func (*GetActionsByBlockRequest) ProtoMessage()    {}
 func (*GetActionsByBlockRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{7}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{7}
 }
 func (m *GetActionsByBlockRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetActionsByBlockRequest.Unmarshal(m, b)
@@ -599,7 +591,7 @@ func (m *GetActionsByBlockRequest) GetCount() uint64 {
 }
 
 type GetActionsResponse struct {
-	Actions              []*iotextypes.Action `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
+	Actions              []*iotextypes.Action `protobuf:"bytes,1,rep,name=actions" json:"actions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -609,7 +601,7 @@ func (m *GetActionsResponse) Reset()         { *m = GetActionsResponse{} }
 func (m *GetActionsResponse) String() string { return proto.CompactTextString(m) }
 func (*GetActionsResponse) ProtoMessage()    {}
 func (*GetActionsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{8}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{8}
 }
 func (m *GetActionsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetActionsResponse.Unmarshal(m, b)
@@ -650,7 +642,7 @@ func (m *GetBlockMetasRequest) Reset()         { *m = GetBlockMetasRequest{} }
 func (m *GetBlockMetasRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBlockMetasRequest) ProtoMessage()    {}
 func (*GetBlockMetasRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{9}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{9}
 }
 func (m *GetBlockMetasRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBlockMetasRequest.Unmarshal(m, b)
@@ -675,16 +667,14 @@ type isGetBlockMetasRequest_Lookup interface {
 }
 
 type GetBlockMetasRequest_ByIndex struct {
-	ByIndex *GetBlockMetasByIndexRequest `protobuf:"bytes,1,opt,name=byIndex,proto3,oneof"`
+	ByIndex *GetBlockMetasByIndexRequest `protobuf:"bytes,1,opt,name=byIndex,oneof"`
 }
-
 type GetBlockMetasRequest_ByHash struct {
-	ByHash *GetBlockMetaByHashRequest `protobuf:"bytes,2,opt,name=byHash,proto3,oneof"`
+	ByHash *GetBlockMetaByHashRequest `protobuf:"bytes,2,opt,name=byHash,oneof"`
 }
 
 func (*GetBlockMetasRequest_ByIndex) isGetBlockMetasRequest_Lookup() {}
-
-func (*GetBlockMetasRequest_ByHash) isGetBlockMetasRequest_Lookup() {}
+func (*GetBlockMetasRequest_ByHash) isGetBlockMetasRequest_Lookup()  {}
 
 func (m *GetBlockMetasRequest) GetLookup() isGetBlockMetasRequest_Lookup {
 	if m != nil {
@@ -782,8 +772,8 @@ func _GetBlockMetasRequest_OneofSizer(msg proto.Message) (n int) {
 }
 
 type GetBlockMetasByIndexRequest struct {
-	Start                uint64   `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
-	Count                uint64   `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	Start                uint64   `protobuf:"varint,1,opt,name=start" json:"start,omitempty"`
+	Count                uint64   `protobuf:"varint,2,opt,name=count" json:"count,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -793,7 +783,7 @@ func (m *GetBlockMetasByIndexRequest) Reset()         { *m = GetBlockMetasByInde
 func (m *GetBlockMetasByIndexRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBlockMetasByIndexRequest) ProtoMessage()    {}
 func (*GetBlockMetasByIndexRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{10}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{10}
 }
 func (m *GetBlockMetasByIndexRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBlockMetasByIndexRequest.Unmarshal(m, b)
@@ -828,7 +818,7 @@ func (m *GetBlockMetasByIndexRequest) GetCount() uint64 {
 }
 
 type GetBlockMetaByHashRequest struct {
-	BlkHash              string   `protobuf:"bytes,1,opt,name=blkHash,proto3" json:"blkHash,omitempty"`
+	BlkHash              string   `protobuf:"bytes,1,opt,name=blkHash" json:"blkHash,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -838,7 +828,7 @@ func (m *GetBlockMetaByHashRequest) Reset()         { *m = GetBlockMetaByHashReq
 func (m *GetBlockMetaByHashRequest) String() string { return proto.CompactTextString(m) }
 func (*GetBlockMetaByHashRequest) ProtoMessage()    {}
 func (*GetBlockMetaByHashRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{11}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{11}
 }
 func (m *GetBlockMetaByHashRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBlockMetaByHashRequest.Unmarshal(m, b)
@@ -866,7 +856,7 @@ func (m *GetBlockMetaByHashRequest) GetBlkHash() string {
 }
 
 type GetBlockMetasResponse struct {
-	BlkMetas             []*iotextypes.BlockMeta `protobuf:"bytes,1,rep,name=blkMetas,proto3" json:"blkMetas,omitempty"`
+	BlkMetas             []*iotextypes.BlockMeta `protobuf:"bytes,1,rep,name=blkMetas" json:"blkMetas,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -876,7 +866,7 @@ func (m *GetBlockMetasResponse) Reset()         { *m = GetBlockMetasResponse{} }
 func (m *GetBlockMetasResponse) String() string { return proto.CompactTextString(m) }
 func (*GetBlockMetasResponse) ProtoMessage()    {}
 func (*GetBlockMetasResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{12}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{12}
 }
 func (m *GetBlockMetasResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetBlockMetasResponse.Unmarshal(m, b)
@@ -913,7 +903,7 @@ func (m *GetChainMetaRequest) Reset()         { *m = GetChainMetaRequest{} }
 func (m *GetChainMetaRequest) String() string { return proto.CompactTextString(m) }
 func (*GetChainMetaRequest) ProtoMessage()    {}
 func (*GetChainMetaRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{13}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{13}
 }
 func (m *GetChainMetaRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetChainMetaRequest.Unmarshal(m, b)
@@ -934,7 +924,7 @@ func (m *GetChainMetaRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetChainMetaRequest proto.InternalMessageInfo
 
 type GetChainMetaResponse struct {
-	ChainMeta            *iotextypes.ChainMeta `protobuf:"bytes,1,opt,name=chainMeta,proto3" json:"chainMeta,omitempty"`
+	ChainMeta            *iotextypes.ChainMeta `protobuf:"bytes,1,opt,name=chainMeta" json:"chainMeta,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -944,7 +934,7 @@ func (m *GetChainMetaResponse) Reset()         { *m = GetChainMetaResponse{} }
 func (m *GetChainMetaResponse) String() string { return proto.CompactTextString(m) }
 func (*GetChainMetaResponse) ProtoMessage()    {}
 func (*GetChainMetaResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{14}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{14}
 }
 func (m *GetChainMetaResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetChainMetaResponse.Unmarshal(m, b)
@@ -972,7 +962,7 @@ func (m *GetChainMetaResponse) GetChainMeta() *iotextypes.ChainMeta {
 }
 
 type SendActionRequest struct {
-	Action               *iotextypes.Action `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
+	Action               *iotextypes.Action `protobuf:"bytes,1,opt,name=action" json:"action,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -982,7 +972,7 @@ func (m *SendActionRequest) Reset()         { *m = SendActionRequest{} }
 func (m *SendActionRequest) String() string { return proto.CompactTextString(m) }
 func (*SendActionRequest) ProtoMessage()    {}
 func (*SendActionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{15}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{15}
 }
 func (m *SendActionRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendActionRequest.Unmarshal(m, b)
@@ -1019,7 +1009,7 @@ func (m *SendActionResponse) Reset()         { *m = SendActionResponse{} }
 func (m *SendActionResponse) String() string { return proto.CompactTextString(m) }
 func (*SendActionResponse) ProtoMessage()    {}
 func (*SendActionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{16}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{16}
 }
 func (m *SendActionResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendActionResponse.Unmarshal(m, b)
@@ -1040,7 +1030,7 @@ func (m *SendActionResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_SendActionResponse proto.InternalMessageInfo
 
 type GetReceiptByActionRequest struct {
-	ActionHash           string   `protobuf:"bytes,1,opt,name=actionHash,proto3" json:"actionHash,omitempty"`
+	ActionHash           string   `protobuf:"bytes,1,opt,name=actionHash" json:"actionHash,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1050,7 +1040,7 @@ func (m *GetReceiptByActionRequest) Reset()         { *m = GetReceiptByActionReq
 func (m *GetReceiptByActionRequest) String() string { return proto.CompactTextString(m) }
 func (*GetReceiptByActionRequest) ProtoMessage()    {}
 func (*GetReceiptByActionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{17}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{17}
 }
 func (m *GetReceiptByActionRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetReceiptByActionRequest.Unmarshal(m, b)
@@ -1078,7 +1068,7 @@ func (m *GetReceiptByActionRequest) GetActionHash() string {
 }
 
 type GetReceiptByActionResponse struct {
-	Receipt              *iotextypes.Receipt `protobuf:"bytes,1,opt,name=receipt,proto3" json:"receipt,omitempty"`
+	Receipt              *iotextypes.Receipt `protobuf:"bytes,1,opt,name=receipt" json:"receipt,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -1088,7 +1078,7 @@ func (m *GetReceiptByActionResponse) Reset()         { *m = GetReceiptByActionRe
 func (m *GetReceiptByActionResponse) String() string { return proto.CompactTextString(m) }
 func (*GetReceiptByActionResponse) ProtoMessage()    {}
 func (*GetReceiptByActionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{18}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{18}
 }
 func (m *GetReceiptByActionResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetReceiptByActionResponse.Unmarshal(m, b)
@@ -1116,7 +1106,7 @@ func (m *GetReceiptByActionResponse) GetReceipt() *iotextypes.Receipt {
 }
 
 type ReadContractRequest struct {
-	Action               *iotextypes.Action `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
+	Action               *iotextypes.Action `protobuf:"bytes,1,opt,name=action" json:"action,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -1126,7 +1116,7 @@ func (m *ReadContractRequest) Reset()         { *m = ReadContractRequest{} }
 func (m *ReadContractRequest) String() string { return proto.CompactTextString(m) }
 func (*ReadContractRequest) ProtoMessage()    {}
 func (*ReadContractRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{19}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{19}
 }
 func (m *ReadContractRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReadContractRequest.Unmarshal(m, b)
@@ -1154,7 +1144,7 @@ func (m *ReadContractRequest) GetAction() *iotextypes.Action {
 }
 
 type ReadContractResponse struct {
-	Data                 string   `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	Data                 string   `protobuf:"bytes,1,opt,name=data" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1164,7 +1154,7 @@ func (m *ReadContractResponse) Reset()         { *m = ReadContractResponse{} }
 func (m *ReadContractResponse) String() string { return proto.CompactTextString(m) }
 func (*ReadContractResponse) ProtoMessage()    {}
 func (*ReadContractResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{20}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{20}
 }
 func (m *ReadContractResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReadContractResponse.Unmarshal(m, b)
@@ -1201,7 +1191,7 @@ func (m *SuggestGasPriceRequest) Reset()         { *m = SuggestGasPriceRequest{}
 func (m *SuggestGasPriceRequest) String() string { return proto.CompactTextString(m) }
 func (*SuggestGasPriceRequest) ProtoMessage()    {}
 func (*SuggestGasPriceRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{21}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{21}
 }
 func (m *SuggestGasPriceRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SuggestGasPriceRequest.Unmarshal(m, b)
@@ -1222,7 +1212,7 @@ func (m *SuggestGasPriceRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_SuggestGasPriceRequest proto.InternalMessageInfo
 
 type SuggestGasPriceResponse struct {
-	GasPrice             uint64   `protobuf:"varint,1,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
+	GasPrice             uint64   `protobuf:"varint,1,opt,name=gasPrice" json:"gasPrice,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1232,7 +1222,7 @@ func (m *SuggestGasPriceResponse) Reset()         { *m = SuggestGasPriceResponse
 func (m *SuggestGasPriceResponse) String() string { return proto.CompactTextString(m) }
 func (*SuggestGasPriceResponse) ProtoMessage()    {}
 func (*SuggestGasPriceResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{22}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{22}
 }
 func (m *SuggestGasPriceResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SuggestGasPriceResponse.Unmarshal(m, b)
@@ -1260,7 +1250,7 @@ func (m *SuggestGasPriceResponse) GetGasPrice() uint64 {
 }
 
 type EstimateGasForActionRequest struct {
-	Action               *iotextypes.Action `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`
+	Action               *iotextypes.Action `protobuf:"bytes,1,opt,name=action" json:"action,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -1270,7 +1260,7 @@ func (m *EstimateGasForActionRequest) Reset()         { *m = EstimateGasForActio
 func (m *EstimateGasForActionRequest) String() string { return proto.CompactTextString(m) }
 func (*EstimateGasForActionRequest) ProtoMessage()    {}
 func (*EstimateGasForActionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{23}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{23}
 }
 func (m *EstimateGasForActionRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EstimateGasForActionRequest.Unmarshal(m, b)
@@ -1298,7 +1288,7 @@ func (m *EstimateGasForActionRequest) GetAction() *iotextypes.Action {
 }
 
 type EstimateGasForActionResponse struct {
-	Gas                  uint64   `protobuf:"varint,1,opt,name=gas,proto3" json:"gas,omitempty"`
+	Gas                  uint64   `protobuf:"varint,1,opt,name=gas" json:"gas,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1308,7 +1298,7 @@ func (m *EstimateGasForActionResponse) Reset()         { *m = EstimateGasForActi
 func (m *EstimateGasForActionResponse) String() string { return proto.CompactTextString(m) }
 func (*EstimateGasForActionResponse) ProtoMessage()    {}
 func (*EstimateGasForActionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{24}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{24}
 }
 func (m *EstimateGasForActionResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EstimateGasForActionResponse.Unmarshal(m, b)
@@ -1348,7 +1338,7 @@ func (m *ReadStateRequest) Reset()         { *m = ReadStateRequest{} }
 func (m *ReadStateRequest) String() string { return proto.CompactTextString(m) }
 func (*ReadStateRequest) ProtoMessage()    {}
 func (*ReadStateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{25}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{25}
 }
 func (m *ReadStateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReadStateRequest.Unmarshal(m, b)
@@ -1400,7 +1390,7 @@ func (m *ReadStateResponse) Reset()         { *m = ReadStateResponse{} }
 func (m *ReadStateResponse) String() string { return proto.CompactTextString(m) }
 func (*ReadStateResponse) ProtoMessage()    {}
 func (*ReadStateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_31f956f676c94c85, []int{26}
+	return fileDescriptor_api_a7f47cc1460546c0, []int{26}
 }
 func (m *ReadStateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReadStateResponse.Unmarshal(m, b)
@@ -1423,6 +1413,82 @@ var xxx_messageInfo_ReadStateResponse proto.InternalMessageInfo
 func (m *ReadStateResponse) GetData() []byte {
 	if m != nil {
 		return m.Data
+	}
+	return nil
+}
+
+type GetProductivityRequest struct {
+	EpochNumber          uint64   `protobuf:"varint,1,opt,name=epochNumber" json:"epochNumber,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetProductivityRequest) Reset()         { *m = GetProductivityRequest{} }
+func (m *GetProductivityRequest) String() string { return proto.CompactTextString(m) }
+func (*GetProductivityRequest) ProtoMessage()    {}
+func (*GetProductivityRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_api_a7f47cc1460546c0, []int{27}
+}
+func (m *GetProductivityRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetProductivityRequest.Unmarshal(m, b)
+}
+func (m *GetProductivityRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetProductivityRequest.Marshal(b, m, deterministic)
+}
+func (dst *GetProductivityRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetProductivityRequest.Merge(dst, src)
+}
+func (m *GetProductivityRequest) XXX_Size() int {
+	return xxx_messageInfo_GetProductivityRequest.Size(m)
+}
+func (m *GetProductivityRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetProductivityRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetProductivityRequest proto.InternalMessageInfo
+
+func (m *GetProductivityRequest) GetEpochNumber() uint64 {
+	if m != nil {
+		return m.EpochNumber
+	}
+	return 0
+}
+
+type GetProductivityResponse struct {
+	Productivity         map[string]string `protobuf:"bytes,1,rep,name=productivity" json:"productivity,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *GetProductivityResponse) Reset()         { *m = GetProductivityResponse{} }
+func (m *GetProductivityResponse) String() string { return proto.CompactTextString(m) }
+func (*GetProductivityResponse) ProtoMessage()    {}
+func (*GetProductivityResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_api_a7f47cc1460546c0, []int{28}
+}
+func (m *GetProductivityResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetProductivityResponse.Unmarshal(m, b)
+}
+func (m *GetProductivityResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetProductivityResponse.Marshal(b, m, deterministic)
+}
+func (dst *GetProductivityResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetProductivityResponse.Merge(dst, src)
+}
+func (m *GetProductivityResponse) XXX_Size() int {
+	return xxx_messageInfo_GetProductivityResponse.Size(m)
+}
+func (m *GetProductivityResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetProductivityResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetProductivityResponse proto.InternalMessageInfo
+
+func (m *GetProductivityResponse) GetProductivity() map[string]string {
+	if m != nil {
+		return m.Productivity
 	}
 	return nil
 }
@@ -1455,6 +1521,9 @@ func init() {
 	proto.RegisterType((*EstimateGasForActionResponse)(nil), "iotexapi.EstimateGasForActionResponse")
 	proto.RegisterType((*ReadStateRequest)(nil), "iotexapi.ReadStateRequest")
 	proto.RegisterType((*ReadStateResponse)(nil), "iotexapi.ReadStateResponse")
+	proto.RegisterType((*GetProductivityRequest)(nil), "iotexapi.GetProductivityRequest")
+	proto.RegisterType((*GetProductivityResponse)(nil), "iotexapi.GetProductivityResponse")
+	proto.RegisterMapType((map[string]string)(nil), "iotexapi.GetProductivityResponse.ProductivityEntry")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1465,9 +1534,8 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// APIServiceClient is the client API for APIService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+// Client API for APIService service
+
 type APIServiceClient interface {
 	// get the address detail of an address
 	GetAccount(ctx context.Context, in *GetAccountRequest, opts ...grpc.CallOption) (*GetAccountResponse, error)
@@ -1496,6 +1564,8 @@ type APIServiceClient interface {
 	EstimateGasForAction(ctx context.Context, in *EstimateGasForActionRequest, opts ...grpc.CallOption) (*EstimateGasForActionResponse, error)
 	// read state from blockchain
 	ReadState(ctx context.Context, in *ReadStateRequest, opts ...grpc.CallOption) (*ReadStateResponse, error)
+	// get block producers' productivity metrics
+	GetProductivity(ctx context.Context, in *GetProductivityRequest, opts ...grpc.CallOption) (*GetProductivityResponse, error)
 }
 
 type aPIServiceClient struct {
@@ -1508,7 +1578,7 @@ func NewAPIServiceClient(cc *grpc.ClientConn) APIServiceClient {
 
 func (c *aPIServiceClient) GetAccount(ctx context.Context, in *GetAccountRequest, opts ...grpc.CallOption) (*GetAccountResponse, error) {
 	out := new(GetAccountResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetAccount", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetAccount", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1517,7 +1587,7 @@ func (c *aPIServiceClient) GetAccount(ctx context.Context, in *GetAccountRequest
 
 func (c *aPIServiceClient) GetActions(ctx context.Context, in *GetActionsRequest, opts ...grpc.CallOption) (*GetActionsResponse, error) {
 	out := new(GetActionsResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetActions", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetActions", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1526,7 +1596,7 @@ func (c *aPIServiceClient) GetActions(ctx context.Context, in *GetActionsRequest
 
 func (c *aPIServiceClient) GetBlockMetas(ctx context.Context, in *GetBlockMetasRequest, opts ...grpc.CallOption) (*GetBlockMetasResponse, error) {
 	out := new(GetBlockMetasResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetBlockMetas", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetBlockMetas", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1535,7 +1605,7 @@ func (c *aPIServiceClient) GetBlockMetas(ctx context.Context, in *GetBlockMetasR
 
 func (c *aPIServiceClient) GetChainMeta(ctx context.Context, in *GetChainMetaRequest, opts ...grpc.CallOption) (*GetChainMetaResponse, error) {
 	out := new(GetChainMetaResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetChainMeta", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetChainMeta", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1544,7 +1614,7 @@ func (c *aPIServiceClient) GetChainMeta(ctx context.Context, in *GetChainMetaReq
 
 func (c *aPIServiceClient) SendAction(ctx context.Context, in *SendActionRequest, opts ...grpc.CallOption) (*SendActionResponse, error) {
 	out := new(SendActionResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/SendAction", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/SendAction", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1553,7 +1623,7 @@ func (c *aPIServiceClient) SendAction(ctx context.Context, in *SendActionRequest
 
 func (c *aPIServiceClient) GetReceiptByAction(ctx context.Context, in *GetReceiptByActionRequest, opts ...grpc.CallOption) (*GetReceiptByActionResponse, error) {
 	out := new(GetReceiptByActionResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/GetReceiptByAction", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetReceiptByAction", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1562,7 +1632,7 @@ func (c *aPIServiceClient) GetReceiptByAction(ctx context.Context, in *GetReceip
 
 func (c *aPIServiceClient) ReadContract(ctx context.Context, in *ReadContractRequest, opts ...grpc.CallOption) (*ReadContractResponse, error) {
 	out := new(ReadContractResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/ReadContract", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/ReadContract", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1571,7 +1641,7 @@ func (c *aPIServiceClient) ReadContract(ctx context.Context, in *ReadContractReq
 
 func (c *aPIServiceClient) SuggestGasPrice(ctx context.Context, in *SuggestGasPriceRequest, opts ...grpc.CallOption) (*SuggestGasPriceResponse, error) {
 	out := new(SuggestGasPriceResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/SuggestGasPrice", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/SuggestGasPrice", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1580,7 +1650,7 @@ func (c *aPIServiceClient) SuggestGasPrice(ctx context.Context, in *SuggestGasPr
 
 func (c *aPIServiceClient) EstimateGasForAction(ctx context.Context, in *EstimateGasForActionRequest, opts ...grpc.CallOption) (*EstimateGasForActionResponse, error) {
 	out := new(EstimateGasForActionResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/EstimateGasForAction", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/EstimateGasForAction", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1589,14 +1659,24 @@ func (c *aPIServiceClient) EstimateGasForAction(ctx context.Context, in *Estimat
 
 func (c *aPIServiceClient) ReadState(ctx context.Context, in *ReadStateRequest, opts ...grpc.CallOption) (*ReadStateResponse, error) {
 	out := new(ReadStateResponse)
-	err := c.cc.Invoke(ctx, "/iotexapi.APIService/ReadState", in, out, opts...)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/ReadState", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// APIServiceServer is the server API for APIService service.
+func (c *aPIServiceClient) GetProductivity(ctx context.Context, in *GetProductivityRequest, opts ...grpc.CallOption) (*GetProductivityResponse, error) {
+	out := new(GetProductivityResponse)
+	err := grpc.Invoke(ctx, "/iotexapi.APIService/GetProductivity", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for APIService service
+
 type APIServiceServer interface {
 	// get the address detail of an address
 	GetAccount(context.Context, *GetAccountRequest) (*GetAccountResponse, error)
@@ -1625,6 +1705,8 @@ type APIServiceServer interface {
 	EstimateGasForAction(context.Context, *EstimateGasForActionRequest) (*EstimateGasForActionResponse, error)
 	// read state from blockchain
 	ReadState(context.Context, *ReadStateRequest) (*ReadStateResponse, error)
+	// get block producers' productivity metrics
+	GetProductivity(context.Context, *GetProductivityRequest) (*GetProductivityResponse, error)
 }
 
 func RegisterAPIServiceServer(s *grpc.Server, srv APIServiceServer) {
@@ -1811,6 +1893,24 @@ func _APIService_ReadState_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _APIService_GetProductivity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProductivityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServiceServer).GetProductivity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/iotexapi.APIService/GetProductivity",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServiceServer).GetProductivity(ctx, req.(*GetProductivityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _APIService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "iotexapi.APIService",
 	HandlerType: (*APIServiceServer)(nil),
@@ -1855,75 +1955,85 @@ var _APIService_serviceDesc = grpc.ServiceDesc{
 			MethodName: "ReadState",
 			Handler:    _APIService_ReadState_Handler,
 		},
+		{
+			MethodName: "GetProductivity",
+			Handler:    _APIService_GetProductivity_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api.proto",
 }
 
-func init() { proto.RegisterFile("api.proto", fileDescriptor_api_31f956f676c94c85) }
+func init() { proto.RegisterFile("api.proto", fileDescriptor_api_a7f47cc1460546c0) }
 
-var fileDescriptor_api_31f956f676c94c85 = []byte{
-	// 980 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0x6f, 0x6f, 0xdb, 0x44,
-	0x18, 0x4f, 0x9b, 0x36, 0x4d, 0x9e, 0x06, 0xd1, 0x5e, 0xd3, 0x2d, 0xb8, 0xa5, 0x94, 0x63, 0x83,
-	0x6a, 0xa2, 0x29, 0x74, 0x0c, 0x89, 0x21, 0x86, 0x92, 0x41, 0xb3, 0x30, 0xc1, 0x2a, 0x57, 0x48,
-	0x08, 0x21, 0xc1, 0xf9, 0x7c, 0x38, 0x26, 0x89, 0xcf, 0xd8, 0x17, 0xb4, 0x7c, 0x1d, 0xbe, 0x11,
-	0x5f, 0x86, 0xd7, 0xc8, 0x77, 0x67, 0xfb, 0x9c, 0xd8, 0x19, 0xab, 0xf6, 0x2e, 0xf7, 0xfc, 0xf9,
-	0x3d, 0x7f, 0x7f, 0x4f, 0x0c, 0x2d, 0x12, 0xfa, 0xbd, 0x30, 0xe2, 0x82, 0xa3, 0xa6, 0xcf, 0x05,
-	0x7b, 0x49, 0x42, 0xdf, 0x6a, 0x13, 0x2a, 0x7c, 0x1e, 0x28, 0xb9, 0xb5, 0xe7, 0x4c, 0x39, 0x9d,
-	0xd0, 0x31, 0xf1, 0xb5, 0x04, 0x9f, 0xc3, 0xfe, 0x90, 0x89, 0x3e, 0xa5, 0x7c, 0x1e, 0x08, 0x9b,
-	0xfd, 0x39, 0x67, 0xb1, 0x40, 0x5d, 0xd8, 0x21, 0xae, 0x1b, 0xb1, 0x38, 0xee, 0x6e, 0x9c, 0x6e,
-	0x9c, 0xb5, 0xec, 0xf4, 0x89, 0x5f, 0x00, 0x32, 0xcd, 0xe3, 0x90, 0x07, 0x31, 0x43, 0x5f, 0xc0,
-	0x2e, 0x51, 0xa2, 0xef, 0x99, 0x20, 0xd2, 0x67, 0xf7, 0xf2, 0x6e, 0x4f, 0x26, 0x21, 0x16, 0x21,
-	0x8b, 0x7b, 0xfd, 0x5c, 0x6d, 0x9b, 0xb6, 0xf8, 0xdf, 0x4d, 0x9d, 0x40, 0x92, 0x65, 0x9c, 0x26,
-	0xf0, 0x04, 0x76, 0x9c, 0xc5, 0x28, 0x70, 0xd9, 0x4b, 0x0d, 0x86, 0x7b, 0x69, 0x45, 0xbd, 0xdc,
-	0x7a, 0xa0, 0x4c, 0xb4, 0xd3, 0xb3, 0x9a, 0x9d, 0x3a, 0xa1, 0xc7, 0xd0, 0x70, 0x16, 0xcf, 0x48,
-	0x3c, 0xee, 0x6e, 0x4a, 0xf7, 0xd3, 0x12, 0xf7, 0x81, 0x34, 0xc8, 0x9d, 0xb5, 0x07, 0x7a, 0x92,
-	0xf8, 0xf6, 0x5d, 0x37, 0xea, 0xd6, 0xa5, 0xef, 0xbd, 0xf2, 0xd0, 0x7d, 0xd5, 0x91, 0x82, 0x7f,
-	0x22, 0x43, 0xbf, 0xc2, 0xfe, 0x3c, 0xa0, 0x3c, 0xf8, 0xdd, 0x8f, 0x66, 0xcc, 0x55, 0x86, 0xdd,
-	0x2d, 0x09, 0x75, 0x51, 0x80, 0xfa, 0x31, 0xb7, 0xaa, 0x46, 0x5d, 0xc5, 0x42, 0x8f, 0x61, 0xdb,
-	0x59, 0x0c, 0xa6, 0x93, 0xee, 0xf6, 0xba, 0xd6, 0x0c, 0x92, 0x49, 0xe7, 0x38, 0xca, 0x65, 0xd0,
-	0x84, 0xc6, 0x94, 0xf3, 0xc9, 0x3c, 0xc4, 0x57, 0xd0, 0xad, 0xea, 0x24, 0xea, 0xc0, 0x76, 0x2c,
-	0x48, 0x24, 0x64, 0xf3, 0xb7, 0x6c, 0xf5, 0x48, 0xa4, 0x72, 0x6e, 0xb2, 0xa7, 0x5b, 0xb6, 0x7a,
-	0xe0, 0x5f, 0xe0, 0x4e, 0x79, 0x4b, 0xd1, 0x09, 0x80, 0x5a, 0x3e, 0x39, 0x08, 0xb5, 0x48, 0x86,
-	0x04, 0x61, 0x68, 0xd3, 0x31, 0xa3, 0x93, 0x6b, 0x16, 0xb8, 0x7e, 0xe0, 0x49, 0xd8, 0xa6, 0x5d,
-	0x90, 0x61, 0x07, 0xac, 0xea, 0xa6, 0x57, 0xef, 0x69, 0x5e, 0xc1, 0x66, 0x69, 0x05, 0x75, 0xb3,
-	0x82, 0x19, 0xdc, 0xff, 0x5f, 0xd3, 0x78, 0x43, 0xe1, 0x7e, 0x2b, 0x36, 0xde, 0x9c, 0x53, 0x12,
-	0xc1, 0x99, 0x4e, 0x8c, 0x7e, 0xa5, 0xcf, 0xd7, 0x8a, 0x30, 0xd0, 0x24, 0xd5, 0x94, 0xd2, 0x24,
-	0xfd, 0x18, 0x76, 0x54, 0xf3, 0x93, 0xec, 0xeb, 0x67, 0xbb, 0x97, 0xa8, 0x48, 0xd0, 0x44, 0x65,
-	0xa7, 0x26, 0xf8, 0xef, 0x0d, 0xe8, 0x0c, 0x99, 0x90, 0xd9, 0x25, 0x44, 0xcd, 0x9a, 0xd0, 0x5f,
-	0xa6, 0xe6, 0xfd, 0xc2, 0xfe, 0xe5, 0x0e, 0xd5, 0xec, 0xfc, 0x6a, 0x89, 0x9d, 0x1f, 0x94, 0x23,
-	0x54, 0x10, 0xd4, 0xd8, 0xe1, 0x11, 0x1c, 0xad, 0x09, 0xf9, 0x5a, 0x6b, 0xfc, 0x08, 0xde, 0xa9,
-	0x8c, 0x5d, 0x3d, 0x16, 0xfc, 0x1d, 0x1c, 0x2e, 0x75, 0x49, 0x77, 0xfb, 0x53, 0x68, 0x3a, 0x53,
-	0x25, 0xd3, 0xed, 0x3e, 0x34, 0xdb, 0x9d, 0x79, 0xd8, 0x99, 0x19, 0x3e, 0x84, 0x83, 0x21, 0x13,
-	0x4f, 0x93, 0xe3, 0x2c, 0x35, 0x2a, 0x38, 0x7e, 0x2e, 0x07, 0x61, 0x88, 0x75, 0x84, 0x87, 0xd0,
-	0xa2, 0xa9, 0x50, 0x8f, 0xa2, 0x10, 0x22, 0xf7, 0xc8, 0xed, 0xf0, 0xd7, 0xb0, 0x7f, 0xc3, 0x02,
-	0xbd, 0xe1, 0x69, 0x79, 0x0f, 0xa0, 0xa1, 0xc6, 0xae, 0x61, 0xca, 0x16, 0x43, 0x5b, 0xe0, 0x0e,
-	0x20, 0x13, 0x40, 0xe5, 0x82, 0xbf, 0x94, 0xdd, 0xb3, 0x19, 0x65, 0x7e, 0x28, 0x06, 0x8b, 0x22,
-	0xfc, 0x2b, 0xee, 0x00, 0x7e, 0x2e, 0x39, 0xbe, 0xe2, 0xac, 0xcb, 0x3c, 0x87, 0x9d, 0x48, 0xa9,
-	0x74, 0x76, 0x07, 0x66, 0x76, 0xda, 0xcb, 0x4e, 0x6d, 0x70, 0x1f, 0x0e, 0x6c, 0x46, 0xdc, 0xa7,
-	0x3c, 0x10, 0x11, 0xa1, 0xe2, 0x36, 0x25, 0x3e, 0x80, 0x4e, 0x11, 0x42, 0x67, 0x82, 0x60, 0xcb,
-	0x25, 0xba, 0xd7, 0x2d, 0x5b, 0xfe, 0xc6, 0x5d, 0xb8, 0x73, 0x33, 0xf7, 0x3c, 0x16, 0x8b, 0x21,
-	0x89, 0xaf, 0x23, 0x9f, 0xb2, 0x74, 0x6c, 0x8f, 0xe0, 0xee, 0x8a, 0x46, 0x03, 0x59, 0xd0, 0xf4,
-	0xb4, 0x4c, 0xaf, 0x66, 0xf6, 0x4e, 0x56, 0xfa, 0xdb, 0x58, 0xf8, 0x33, 0x22, 0xd8, 0x90, 0xc4,
-	0x57, 0x3c, 0xba, 0xfd, 0xa8, 0x3e, 0x81, 0xe3, 0x72, 0x28, 0x9d, 0xc6, 0x1e, 0xd4, 0x3d, 0x12,
-	0xeb, 0x0c, 0x92, 0x9f, 0x38, 0x84, 0xbd, 0xa4, 0xf2, 0x1b, 0x41, 0x04, 0x33, 0xa6, 0x27, 0xbf,
-	0x14, 0x28, 0x9f, 0x8e, 0xbe, 0x91, 0xc6, 0x6d, 0xdb, 0x90, 0x24, 0xfa, 0x19, 0x13, 0x63, 0xee,
-	0xfe, 0x40, 0x66, 0x4c, 0x72, 0xaa, 0x6d, 0x1b, 0x12, 0x74, 0x0c, 0x2d, 0x12, 0x79, 0xf3, 0x19,
-	0x0b, 0x44, 0xdc, 0xad, 0x9f, 0xd6, 0xcf, 0xda, 0x76, 0x2e, 0xc0, 0x1f, 0xc1, 0xbe, 0x11, 0xb1,
-	0xa4, 0xd1, 0x6d, 0xd5, 0xe8, 0xcb, 0x7f, 0x1a, 0x00, 0xfd, 0xeb, 0xd1, 0x0d, 0x8b, 0xfe, 0xf2,
-	0x29, 0x43, 0x23, 0x80, 0xfc, 0x3b, 0x04, 0x1d, 0x2d, 0xfd, 0x05, 0x9a, 0x1f, 0x33, 0xd6, 0x71,
-	0xb9, 0x52, 0x6f, 0x6e, 0x2d, 0x83, 0x92, 0x77, 0x6f, 0x05, 0xca, 0xfc, 0x2c, 0x59, 0x81, 0x2a,
-	0x1c, 0x58, 0x5c, 0x43, 0x36, 0xbc, 0x55, 0xb8, 0x06, 0xe8, 0xa4, 0xe2, 0x36, 0xa6, 0x80, 0xef,
-	0x55, 0xea, 0x33, 0xcc, 0x17, 0xd0, 0x36, 0xe9, 0x8f, 0xde, 0x2d, 0xb8, 0x2c, 0x5f, 0x0b, 0xeb,
-	0xa4, 0x4a, 0x6d, 0xd6, 0x9b, 0x33, 0xd8, 0xac, 0x77, 0xe5, 0x30, 0x98, 0xf5, 0x96, 0x90, 0xbe,
-	0x86, 0x88, 0xfc, 0xa3, 0x59, 0x62, 0x2e, 0x2a, 0x9e, 0xf3, 0xf2, 0xa3, 0x60, 0xdd, 0x5b, 0x6f,
-	0x64, 0x96, 0x6f, 0x92, 0xd1, 0x2c, 0xbf, 0x84, 0xe7, 0x66, 0xf9, 0x65, 0x1c, 0xc6, 0x35, 0xf4,
-	0x13, 0xbc, 0xbd, 0xc4, 0x4b, 0x64, 0x7c, 0x1d, 0x96, 0x93, 0xd9, 0x7a, 0x7f, 0x8d, 0x45, 0x86,
-	0xec, 0x41, 0xa7, 0x8c, 0x6f, 0xc8, 0xf8, 0x83, 0x5c, 0x43, 0x6d, 0xeb, 0xc3, 0x57, 0x99, 0x65,
-	0x81, 0xae, 0xa0, 0x95, 0x91, 0x06, 0x59, 0xc5, 0x8a, 0x4d, 0xee, 0x5a, 0x47, 0xa5, 0xba, 0x14,
-	0x67, 0xf0, 0xf9, 0xcf, 0x9f, 0x79, 0xbe, 0x18, 0xcf, 0x9d, 0x1e, 0xe5, 0xb3, 0x0b, 0x69, 0x1a,
-	0x46, 0xfc, 0x0f, 0x46, 0x85, 0x7a, 0x9c, 0x53, 0x1e, 0xb1, 0x0b, 0xc9, 0x75, 0x8f, 0x05, 0x17,
-	0x29, 0x96, 0xd3, 0x90, 0xa2, 0x87, 0xff, 0x05, 0x00, 0x00, 0xff, 0xff, 0xc8, 0xf7, 0xf2, 0x30,
-	0x71, 0x0c, 0x00, 0x00,
+var fileDescriptor_api_a7f47cc1460546c0 = []byte{
+	// 1087 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0xff, 0x6f, 0xdb, 0x44,
+	0x14, 0x4f, 0x9a, 0xb6, 0x49, 0x5e, 0x83, 0x68, 0xae, 0xe9, 0x1a, 0xdc, 0x52, 0xc2, 0xb1, 0x41,
+	0x35, 0xd1, 0x14, 0x5a, 0x86, 0xa0, 0x88, 0x4d, 0xc9, 0x58, 0xb3, 0x30, 0xb1, 0x55, 0xae, 0x10,
+	0x08, 0x21, 0xc1, 0xd9, 0x3e, 0x12, 0x93, 0xc4, 0x67, 0xec, 0x73, 0xb5, 0xfc, 0x3b, 0xfc, 0xca,
+	0x8f, 0xfc, 0x6f, 0xfc, 0x8c, 0x7c, 0x77, 0x8e, 0xcf, 0x89, 0x9d, 0xb1, 0x89, 0xdf, 0x7c, 0xef,
+	0xde, 0xd7, 0xcf, 0x7b, 0xef, 0xe3, 0x83, 0x3a, 0xf1, 0xdd, 0xae, 0x1f, 0x30, 0xce, 0x50, 0xcd,
+	0x65, 0x9c, 0xbe, 0x24, 0xbe, 0x6b, 0x34, 0x88, 0xcd, 0x5d, 0xe6, 0x49, 0xb9, 0xb1, 0x6b, 0x4d,
+	0x99, 0x3d, 0xb1, 0xc7, 0xc4, 0x55, 0x12, 0x7c, 0x0a, 0xcd, 0x01, 0xe5, 0x3d, 0xdb, 0x66, 0x91,
+	0xc7, 0x4d, 0xfa, 0x47, 0x44, 0x43, 0x8e, 0xda, 0x50, 0x25, 0x8e, 0x13, 0xd0, 0x30, 0x6c, 0x97,
+	0x3b, 0xe5, 0x93, 0xba, 0x99, 0x1c, 0xf1, 0x0b, 0x40, 0xba, 0x7a, 0xe8, 0x33, 0x2f, 0xa4, 0xe8,
+	0x4b, 0xd8, 0x21, 0x52, 0xf4, 0x1d, 0xe5, 0x44, 0xd8, 0xec, 0x9c, 0x1f, 0x74, 0x45, 0x12, 0x7c,
+	0xee, 0xd3, 0xb0, 0xdb, 0x4b, 0xaf, 0x4d, 0x5d, 0x17, 0xff, 0xb3, 0xa1, 0x12, 0x88, 0xb3, 0x0c,
+	0x93, 0x04, 0x1e, 0x42, 0xd5, 0x9a, 0x0f, 0x3d, 0x87, 0xbe, 0x54, 0xce, 0x70, 0x37, 0xa9, 0xa8,
+	0x9b, 0x6a, 0xf7, 0xa5, 0x8a, 0x32, 0x7a, 0x5a, 0x32, 0x13, 0x23, 0x74, 0x09, 0xdb, 0xd6, 0xfc,
+	0x29, 0x09, 0xc7, 0xed, 0x0d, 0x61, 0xde, 0xc9, 0x31, 0xef, 0x0b, 0x85, 0xd4, 0x58, 0x59, 0xa0,
+	0x87, 0xb1, 0x6d, 0xcf, 0x71, 0x82, 0x76, 0x45, 0xd8, 0xde, 0xcd, 0x0f, 0xdd, 0x93, 0x88, 0x64,
+	0xec, 0x63, 0x19, 0xfa, 0x05, 0x9a, 0x91, 0x67, 0x33, 0xef, 0x37, 0x37, 0x98, 0x51, 0x47, 0x2a,
+	0xb6, 0x37, 0x85, 0xab, 0xb3, 0x8c, 0xab, 0xef, 0x53, 0xad, 0x62, 0xaf, 0xab, 0xbe, 0xd0, 0x25,
+	0x6c, 0x59, 0xf3, 0xfe, 0x74, 0xd2, 0xde, 0x5a, 0x07, 0x4d, 0x3f, 0xee, 0x74, 0xea, 0x47, 0x9a,
+	0xf4, 0x6b, 0xb0, 0x3d, 0x65, 0x6c, 0x12, 0xf9, 0xf8, 0x0a, 0xda, 0x45, 0x48, 0xa2, 0x16, 0x6c,
+	0x85, 0x9c, 0x04, 0x5c, 0x80, 0xbf, 0x69, 0xca, 0x43, 0x2c, 0x15, 0x7d, 0x13, 0x98, 0x6e, 0x9a,
+	0xf2, 0x80, 0x7f, 0x86, 0x3b, 0xf9, 0x90, 0xa2, 0x63, 0x00, 0x39, 0x7c, 0xa2, 0x11, 0x72, 0x90,
+	0x34, 0x09, 0xc2, 0xd0, 0xb0, 0xc7, 0xd4, 0x9e, 0x5c, 0x53, 0xcf, 0x71, 0xbd, 0x91, 0x70, 0x5b,
+	0x33, 0x33, 0x32, 0x6c, 0x81, 0x51, 0x0c, 0x7a, 0xf1, 0x9c, 0xa6, 0x15, 0x6c, 0xe4, 0x56, 0x50,
+	0xd1, 0x2b, 0x98, 0xc1, 0xbd, 0xff, 0xd4, 0x8d, 0xff, 0x29, 0xdc, 0xaf, 0x59, 0xe0, 0xf5, 0x3e,
+	0xc5, 0x11, 0xac, 0xe9, 0x44, 0xc3, 0x2b, 0x39, 0xbe, 0x56, 0x84, 0xbe, 0x5a, 0x52, 0xb5, 0x52,
+	0x6a, 0x49, 0x3f, 0x86, 0xaa, 0x04, 0x3f, 0xce, 0xbe, 0x72, 0xb2, 0x73, 0x8e, 0xb2, 0x0b, 0x1a,
+	0x5f, 0x99, 0x89, 0x0a, 0xfe, 0xb3, 0x0c, 0xad, 0x01, 0xe5, 0x22, 0xbb, 0x78, 0x51, 0x17, 0x20,
+	0xf4, 0x96, 0x57, 0xf3, 0x5e, 0x66, 0xfe, 0x52, 0x83, 0xe2, 0xed, 0xfc, 0x7a, 0x69, 0x3b, 0x3f,
+	0xc8, 0xf7, 0x50, 0xb0, 0xa0, 0xda, 0x0c, 0x0f, 0xe1, 0x70, 0x4d, 0xc8, 0xd7, 0x1a, 0xe3, 0x07,
+	0xf0, 0x4e, 0x61, 0xec, 0xe2, 0xb6, 0xe0, 0x6f, 0x61, 0x7f, 0x09, 0x25, 0x85, 0xf6, 0xa7, 0x50,
+	0xb3, 0xa6, 0x52, 0xa6, 0xe0, 0xde, 0xd7, 0xe1, 0x5e, 0x58, 0x98, 0x0b, 0x35, 0xbc, 0x0f, 0x7b,
+	0x03, 0xca, 0x1f, 0xc7, 0xe4, 0x2c, 0x6e, 0x64, 0x70, 0xfc, 0x4c, 0x34, 0x42, 0x13, 0xab, 0x08,
+	0x17, 0x50, 0xb7, 0x13, 0xa1, 0x6a, 0x45, 0x26, 0x44, 0x6a, 0x91, 0xea, 0xe1, 0x47, 0xd0, 0xbc,
+	0xa1, 0x9e, 0x9a, 0xf0, 0xa4, 0xbc, 0xfb, 0xb0, 0x2d, 0xdb, 0xae, 0xdc, 0xe4, 0x0d, 0x86, 0xd2,
+	0xc0, 0x2d, 0x40, 0xba, 0x03, 0x99, 0x0b, 0xfe, 0x4a, 0xa0, 0x67, 0x52, 0x9b, 0xba, 0x3e, 0xef,
+	0xcf, 0xb3, 0xee, 0x5f, 0xc1, 0x03, 0xf8, 0x99, 0xd8, 0xf1, 0x15, 0x63, 0x55, 0xe6, 0x29, 0x54,
+	0x03, 0x79, 0xa5, 0xb2, 0xdb, 0xd3, 0xb3, 0x53, 0x56, 0x66, 0xa2, 0x83, 0x7b, 0xb0, 0x67, 0x52,
+	0xe2, 0x3c, 0x66, 0x1e, 0x0f, 0x88, 0xcd, 0xdf, 0xa4, 0xc4, 0xfb, 0xd0, 0xca, 0xba, 0x50, 0x99,
+	0x20, 0xd8, 0x74, 0x88, 0xc2, 0xba, 0x6e, 0x8a, 0x6f, 0xdc, 0x86, 0x3b, 0x37, 0xd1, 0x68, 0x44,
+	0x43, 0x3e, 0x20, 0xe1, 0x75, 0xe0, 0xda, 0x34, 0x69, 0xdb, 0x03, 0x38, 0x58, 0xb9, 0x51, 0x8e,
+	0x0c, 0xa8, 0x8d, 0x94, 0x4c, 0x8d, 0xe6, 0xe2, 0x1c, 0x8f, 0xf4, 0x93, 0x90, 0xbb, 0x33, 0xc2,
+	0xe9, 0x80, 0x84, 0x57, 0x2c, 0x78, 0xf3, 0x56, 0x7d, 0x02, 0x47, 0xf9, 0xae, 0x54, 0x1a, 0xbb,
+	0x50, 0x19, 0x91, 0x50, 0x65, 0x10, 0x7f, 0x62, 0x1f, 0x76, 0xe3, 0xca, 0x6f, 0x38, 0xe1, 0x54,
+	0xeb, 0x9e, 0x78, 0x29, 0xd8, 0x6c, 0x3a, 0xfc, 0x46, 0x28, 0x37, 0x4c, 0x4d, 0x12, 0xdf, 0xcf,
+	0x28, 0x1f, 0x33, 0xe7, 0x39, 0x99, 0x51, 0xb1, 0x53, 0x0d, 0x53, 0x93, 0xa0, 0x23, 0xa8, 0x93,
+	0x60, 0x14, 0xcd, 0xa8, 0xc7, 0xc3, 0x76, 0xa5, 0x53, 0x39, 0x69, 0x98, 0xa9, 0x00, 0x7f, 0x04,
+	0x4d, 0x2d, 0x62, 0x0e, 0xd0, 0x0d, 0x05, 0xf4, 0xa5, 0xf8, 0xcd, 0x5c, 0x07, 0xcc, 0x89, 0x6c,
+	0xee, 0xde, 0xba, 0x7c, 0x9e, 0x24, 0xd8, 0x81, 0x1d, 0xea, 0x33, 0x7b, 0xfc, 0x3c, 0x9a, 0x59,
+	0x34, 0x50, 0xe5, 0xe8, 0x22, 0xfc, 0x77, 0x19, 0x0e, 0x56, 0x8c, 0x55, 0xac, 0x1f, 0xa0, 0xe1,
+	0x6b, 0x72, 0xb5, 0xab, 0x17, 0x19, 0x46, 0xca, 0x33, 0xec, 0xea, 0xc2, 0x27, 0x1e, 0x0f, 0xe6,
+	0x66, 0xc6, 0x91, 0xf1, 0x08, 0x9a, 0x2b, 0x2a, 0x31, 0xe4, 0x13, 0x3a, 0x57, 0x13, 0x14, 0x7f,
+	0xc6, 0x6c, 0x74, 0x4b, 0xa6, 0x91, 0x44, 0xae, 0x6e, 0xca, 0xc3, 0xe5, 0xc6, 0x17, 0xe5, 0xf3,
+	0xbf, 0xaa, 0x00, 0xbd, 0xeb, 0xe1, 0x0d, 0x0d, 0x6e, 0x5d, 0x9b, 0xa2, 0x21, 0x40, 0xfa, 0xf2,
+	0x42, 0x87, 0x4b, 0x3f, 0x7d, 0xfd, 0xf9, 0x66, 0x1c, 0xe5, 0x5f, 0xaa, 0x5d, 0x2d, 0x2d, 0x5c,
+	0x09, 0xa6, 0x5f, 0x71, 0xa5, 0x3f, 0xc4, 0x56, 0x5c, 0x65, 0x7e, 0x29, 0xb8, 0x84, 0x4c, 0x78,
+	0x2b, 0xc3, 0x7f, 0xe8, 0xb8, 0xe0, 0x6f, 0x90, 0x38, 0x7c, 0xaf, 0xf0, 0x7e, 0xe1, 0xf3, 0x05,
+	0x34, 0x74, 0xc2, 0x43, 0xef, 0x66, 0x4c, 0x96, 0xf9, 0xd1, 0x38, 0x2e, 0xba, 0xd6, 0xeb, 0x4d,
+	0x39, 0x4b, 0xaf, 0x77, 0x85, 0x0a, 0xf5, 0x7a, 0x73, 0x68, 0xae, 0x84, 0x88, 0xf8, 0xb5, 0x2e,
+	0x71, 0x15, 0xca, 0xfe, 0xc0, 0xf2, 0x69, 0xd0, 0xb8, 0xbb, 0x5e, 0x49, 0x2f, 0x5f, 0xa7, 0x1f,
+	0xbd, 0xfc, 0x1c, 0x66, 0xd3, 0xcb, 0xcf, 0x63, 0x2d, 0x5c, 0x42, 0x3f, 0xc2, 0xdb, 0x4b, 0x4c,
+	0x84, 0xb4, 0xf7, 0x70, 0x3e, 0x7d, 0x19, 0xef, 0xaf, 0xd1, 0x58, 0x78, 0x1e, 0x41, 0x2b, 0x8f,
+	0x61, 0x90, 0xf6, 0x24, 0x58, 0x43, 0x66, 0xc6, 0x87, 0xaf, 0x52, 0x5b, 0x04, 0xba, 0x82, 0xfa,
+	0x82, 0x26, 0x90, 0x91, 0xad, 0x58, 0x67, 0x2b, 0xe3, 0x30, 0xf7, 0x4e, 0x87, 0x62, 0x69, 0x9f,
+	0x51, 0x67, 0xcd, 0xaa, 0xaf, 0x40, 0x51, 0x40, 0x06, 0xb8, 0xd4, 0xff, 0xfc, 0xa7, 0xcf, 0x46,
+	0x2e, 0x1f, 0x47, 0x56, 0xd7, 0x66, 0xb3, 0x33, 0x61, 0xe0, 0x07, 0xec, 0x77, 0x6a, 0x73, 0x79,
+	0x38, 0xb5, 0x59, 0x40, 0xcf, 0x04, 0x6f, 0x8e, 0xa8, 0x77, 0x96, 0x78, 0xb4, 0xb6, 0x85, 0xe8,
+	0xe2, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0xfa, 0xcc, 0x16, 0x5a, 0xbd, 0x0d, 0x00, 0x00,
 }
