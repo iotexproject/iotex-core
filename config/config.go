@@ -112,8 +112,9 @@ var (
 			},
 		},
 		BlockSync: BlockSync{
-			Interval:   10 * time.Second,
-			BufferSize: 16,
+			Interval:     10 * time.Second,
+			BufferSize:   50,
+			IntervalSize: 10,
 		},
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
@@ -225,8 +226,9 @@ type (
 
 	// BlockSync is the config struct for the BlockSync
 	BlockSync struct {
-		Interval   time.Duration `yaml:"interval"` // update duration
-		BufferSize uint64        `yaml:"bufferSize"`
+		Interval     time.Duration `yaml:"interval"` // update duration
+		BufferSize   uint64        `yaml:"bufferSize"`
+		IntervalSize uint64        `yaml:"intervalSize"`
 	}
 
 	// RollDPoS is the config struct for RollDPoS consensus package
