@@ -30,7 +30,7 @@ var actionDeployCmd = &cobra.Command{
 
 // deploy deploys smart contract on IoTeX blockchain
 func deploy() string {
-	executor, err := account.AliasToAddress(alias)
+	executor, err := account.Address(signer)
 	if err != nil {
 		return err.Error()
 	}

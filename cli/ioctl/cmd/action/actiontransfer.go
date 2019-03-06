@@ -32,11 +32,10 @@ var actionTransferCmd = &cobra.Command{
 
 // transfer transfers tokens on IoTeX blockchain
 func transfer(args []string) string {
-	// Validate inputs
-	if err := validator.ValidateAddress(args[0]); err != nil {
+	recipient, err := account.Address(args[0])
+	if err != nil {
 		return err.Error()
 	}
-	recipient := args[0]
 	amount, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
 		log.L().Error("cannot convert "+args[1]+" into int64", zap.Error(err))
@@ -47,7 +46,7 @@ func transfer(args []string) string {
 	}
 	payload := args[2]
 
-	sender, err := account.AliasToAddress(alias)
+	sender, err := account.Address(signer)
 	if err != nil {
 		return err.Error()
 	}
