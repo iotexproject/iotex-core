@@ -365,15 +365,7 @@ func (api *Server) GetProductivity(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	shouldProduce := make(map[string]uint64)
-	for i, addr := range committeeBlockProducers.BlockProducers {
-		shouldProduce[addr] = numBlks / rp.NumDelegates()
-		if uint64(i) < numBlks%rp.NumDelegates() {
-			shouldProduce[addr]++
-		}
-	}
-
-	produce := make(map[string]float32)
+	produce := make(map[string]uint64)
 	getBlkMetasRes, err := api.getBlockMetas(epochStartHeight-1, numBlks)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
@@ -383,12 +375,7 @@ func (api *Server) GetProductivity(
 		produce[blk.ProducerAddress]++
 	}
 
-	productivity := make(map[string]string)
-	for addr, numProduce := range produce {
-		productivity[addr] = strconv.Itoa(int(numProduce/float32(shouldProduce[addr])*100)) + "%"
-	}
-
-	return &iotexapi.GetProductivityResponse{Productivity: productivity}, nil
+	return &iotexapi.GetProductivityResponse{TotalBlks: numBlks, BlksPerDelegate: produce}, nil
 }
 
 // Start starts the API server

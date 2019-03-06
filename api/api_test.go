@@ -471,7 +471,8 @@ var (
 		failedBlockProducer genesis.Delegate
 		epochNumber         uint64
 		// Expected Values
-		productivity []string
+		totalBlks       uint64
+		blksPerDelegate []uint64
 	}{
 		{
 			numSubEpochs:        2,
@@ -480,7 +481,8 @@ var (
 			blockProducerKeys:   delegateKeys[:2],
 			failedBlockProducer: delegates[0],
 			epochNumber:         1,
-			productivity:        []string{"150%", "50%"},
+			totalBlks:           4,
+			blksPerDelegate:     []uint64{1, 3},
 		},
 		{
 			numSubEpochs:        2,
@@ -489,7 +491,8 @@ var (
 			blockProducerKeys:   delegateKeys,
 			failedBlockProducer: genesis.Delegate{},
 			epochNumber:         1,
-			productivity:        []string{"100%", "100%", "100%"},
+			totalBlks:           6,
+			blksPerDelegate:     []uint64{2, 2, 2},
 		},
 	}
 )
@@ -1020,12 +1023,13 @@ func TestServer_GetProductivity(t *testing.T) {
 
 		res, err := svr.GetProductivity(context.Background(), &iotexapi.GetProductivityRequest{EpochNumber: test.epochNumber})
 		require.NoError(err)
-		productivityList := make([]string, 0)
-		for _, productivity := range res.Productivity {
-			productivityList = append(productivityList, productivity)
+		produceList := make([]uint64, 0)
+		for _, numBlks := range res.BlksPerDelegate {
+			produceList = append(produceList, numBlks)
 		}
-		sort.Strings(productivityList)
-		require.Equal(test.productivity, productivityList)
+		sort.Slice(produceList, func(i, j int) bool { return produceList[i] < produceList[j] })
+		require.Equal(test.blksPerDelegate, produceList)
+		require.Equal(test.totalBlks, res.TotalBlks)
 	}
 }
 

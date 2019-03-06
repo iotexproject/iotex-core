@@ -182,5 +182,6 @@ message GetProductivityRequest {
 }
 
 message GetProductivityResponse {
-     map<string, string> productivity = 1;
+    uint64 totalBlks = 1;
+    map<string, uint64> blksPerDelegate = 2;
 }
