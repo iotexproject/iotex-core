@@ -74,8 +74,8 @@ func TestLocalActPool(t *testing.T) {
 	// Wait until server receives the 1st action
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf1.Proto()))
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 1, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 1, nil
 	}))
 
 	vote2, err := testutil.SignedVote(identityset.Address(1).String(), identityset.PrivateKey(1), 2, uint64(100000), big.NewInt(0))
@@ -97,9 +97,9 @@ func TestLocalActPool(t *testing.T) {
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		// 2 valid transfers and 1 valid vote and 1 valid execution
-		return len(acts) == 4, nil
+		return lenPendingActionMap(acts) == 4, nil
 	}))
 }
 
@@ -149,8 +149,8 @@ func TestPressureActPool(t *testing.T) {
 	// Wait until server receives the 1st action
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf.Proto()))
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 1, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 1, nil
 	}))
 
 	for i := 2; i <= 1000; i++ {
@@ -161,8 +161,8 @@ func TestPressureActPool(t *testing.T) {
 
 	// Wait until committed blocks contain all broadcasted actions
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 1000, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 1000, nil
 	})
 	require.Nil(err)
 }
