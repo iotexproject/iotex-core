@@ -7,15 +7,9 @@
 package bc
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 // bcHeightCmd represents the account height command
@@ -30,23 +24,9 @@ var bcHeightCmd = &cobra.Command{
 
 // currentBlockHeigh get current height of block chain from server
 func currentBlockHeigh() string {
-	endpoint := config.Get("endpoint")
-	if endpoint == config.ErrEmptyEndpoint {
-		log.L().Error(config.ErrEmptyEndpoint)
-		return "use \"ioctl config set endpoint\" to config endpoint first."
-	}
-	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+	chainMeta, err := GetChainMeta()
 	if err != nil {
 		return err.Error()
 	}
-	defer conn.Close()
-
-	cli := iotexapi.NewAPIServiceClient(conn)
-	request := iotexapi.GetChainMetaRequest{}
-	ctx := context.Background()
-	response, err := cli.GetChainMeta(ctx, &request)
-	if err != nil {
-		return err.Error()
-	}
-	return fmt.Sprintf("%d", response.ChainMeta.Height)
+	return fmt.Sprintf("%d", chainMeta.Height)
 }
