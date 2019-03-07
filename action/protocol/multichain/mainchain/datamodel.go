@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain/mainchainpb"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 // SubChain represents the state of a sub-chain in the state factory
@@ -127,7 +126,7 @@ func (bp *BlockProof) Deserialize(data []byte) error {
 	for i, v := range gen.Roots {
 		r[i] = MerkleRoot{
 			Name:  v.Name,
-			Value: byteutil.BytesTo32B(v.Value),
+			Value: hash.BytesToHash256(v.Value),
 		}
 	}
 	*bp = BlockProof{

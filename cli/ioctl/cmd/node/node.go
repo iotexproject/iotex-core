@@ -25,5 +25,5 @@ var NodeCmd = &cobra.Command{
 func init() {
 	NodeCmd.AddCommand(nodeDelegateCmd)
 	NodeCmd.AddCommand(nodeProductivityCmd)
-	nodeProductivityCmd.Flags().Uint64VarP(&epochNum,"epoch-num","e",0,"query specific epoch")
+	nodeProductivityCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0, "query specific epoch")
 }
