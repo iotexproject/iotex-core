@@ -112,7 +112,7 @@ func NewWorkingSet(
 
 // RootHash returns the hash of the root node of the accountTrie
 func (ws *workingSet) RootHash() hash.Hash256 {
-	return byteutil.BytesTo32B(ws.accountTrie.RootHash())
+	return hash.BytesToHash256(ws.accountTrie.RootHash())
 }
 
 // Digest returns the delta state digest
@@ -214,7 +214,7 @@ func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
 
 func (ws *workingSet) Snapshot() int {
 	s := ws.cb.Snapshot()
-	ws.trieRoots[s] = byteutil.BytesTo32B(ws.accountTrie.RootHash())
+	ws.trieRoots[s] = hash.BytesToHash256(ws.accountTrie.RootHash())
 	return s
 }
 

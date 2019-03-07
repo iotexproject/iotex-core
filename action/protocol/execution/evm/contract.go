@@ -14,7 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -72,7 +71,7 @@ func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
 func (c *contract) SetState(key hash.Hash256, value []byte) error {
 	c.dirtyState = true
 	err := c.trie.Upsert(key[:], value)
-	c.Account.Root = byteutil.BytesTo32B(c.trie.RootHash())
+	c.Account.Root = hash.BytesToHash256(c.trie.RootHash())
 	return err
 }
 
@@ -100,7 +99,7 @@ func (c *contract) SelfState() *state.Account {
 func (c *contract) Commit() error {
 	if c.dirtyState {
 		// record the new root hash, global account trie will Commit all pending writes to DB
-		c.Account.Root = byteutil.BytesTo32B(c.trie.RootHash())
+		c.Account.Root = hash.BytesToHash256(c.trie.RootHash())
 		c.dirtyState = false
 	}
 	if c.dirtyCode {

@@ -42,10 +42,22 @@ func Hash256b(input []byte) Hash256 {
 	return hash
 }
 
-// SetBytes copies the byte slice into hash
-func (h *Hash256) SetBytes(b []byte) {
-	if len(b) > len(h) {
+// BytesToHash256 copies the byte slice into hash
+func BytesToHash256(b []byte) Hash256 {
+	var h Hash256
+	if len(b) > 32 {
 		b = b[len(b)-32:]
 	}
 	copy(h[32-len(b):], b)
+	return h
+}
+
+// BytesToHash160 copies the byte slice into hash
+func BytesToHash160(b []byte) Hash160 {
+	var h Hash160
+	if len(b) > 20 {
+		b = b[len(b)-20:]
+	}
+	copy(h[20-len(b):], b)
+	return h
 }

@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -39,7 +39,7 @@ func TestProtocol_Fund(t *testing.T) {
 		availableBalance, err := p.AvailableBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), availableBalance)
-		acc, err := accountutil.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
+		acc, err := accountutil.LoadAccount(ws, hash.BytesToHash160(raCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 

@@ -20,7 +20,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -206,9 +205,9 @@ func TestSnapshotAndRevert(t *testing.T) {
 	stateDB.SetCode(cntr1, code)
 	v := stateDB.GetCode(cntr1)
 	require.Equal(code, v)
-	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr1[:]), k1, v1))
-	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr1[:]), k2, v2))
-	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr3[:]), k3, v4))
+	require.NoError(stateDB.setContractState(hash.BytesToHash160(cntr1[:]), k1, v1))
+	require.NoError(stateDB.setContractState(hash.BytesToHash160(cntr1[:]), k2, v2))
+	require.NoError(stateDB.setContractState(hash.BytesToHash160(cntr3[:]), k3, v4))
 	require.False(stateDB.Suicide(cntr2))
 	require.False(stateDB.Exist(cntr2))
 	require.False(stateDB.Suicide(cntr4))
@@ -218,13 +217,13 @@ func TestSnapshotAndRevert(t *testing.T) {
 	require.Equal(0, stateDB.Snapshot())
 
 	stateDB.AddBalance(addr1, addAmount)
-	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr1[:]), k1, v3))
-	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr1[:]), k2, v4))
+	require.NoError(stateDB.setContractState(hash.BytesToHash160(cntr1[:]), k1, v3))
+	require.NoError(stateDB.setContractState(hash.BytesToHash160(cntr1[:]), k2, v4))
 	stateDB.SetCode(cntr2, code)
 	v = stateDB.GetCode(cntr2)
 	require.Equal(code, v)
-	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k3, v3))
-	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k4, v4))
+	require.NoError(stateDB.setContractState(hash.BytesToHash160(cntr2[:]), k3, v3))
+	require.NoError(stateDB.setContractState(hash.BytesToHash160(cntr2[:]), k4, v4))
 	// kill contract 1 and 3
 	require.True(stateDB.Suicide(cntr1))
 	require.True(stateDB.Exist(cntr1))
@@ -233,8 +232,8 @@ func TestSnapshotAndRevert(t *testing.T) {
 	stateDB.AddPreimage(common.BytesToHash(v3[:]), []byte("hen"))
 	require.Equal(1, stateDB.Snapshot())
 
-	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k3, v1))
-	require.NoError(stateDB.setContractState(byteutil.BytesTo20B(cntr2[:]), k4, v2))
+	require.NoError(stateDB.setContractState(hash.BytesToHash160(cntr2[:]), k3, v1))
+	require.NoError(stateDB.setContractState(hash.BytesToHash160(cntr2[:]), k4, v2))
 	require.True(stateDB.Suicide(addr1))
 	require.True(stateDB.Exist(addr1))
 	stateDB.AddPreimage(common.BytesToHash(v4[:]), []byte("fox"))
@@ -246,16 +245,16 @@ func TestSnapshotAndRevert(t *testing.T) {
 	require.True(stateDB.Exist(cntr1))
 	require.True(stateDB.HasSuicided(cntr3))
 	require.True(stateDB.Exist(cntr3))
-	w, _ := stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
+	w, _ := stateDB.getContractState(hash.BytesToHash160(cntr1[:]), k1)
 	require.Equal(v3, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
+	w, _ = stateDB.getContractState(hash.BytesToHash160(cntr1[:]), k2)
 	require.Equal(v4, w)
 	// cntr2 still normal
 	require.False(stateDB.HasSuicided(cntr2))
 	require.True(stateDB.Exist(cntr2))
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k3)
+	w, _ = stateDB.getContractState(hash.BytesToHash160(cntr2[:]), k3)
 	require.Equal(v1, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k4)
+	w, _ = stateDB.getContractState(hash.BytesToHash160(cntr2[:]), k4)
 	require.Equal(v2, w)
 	// addr1 also killed
 	require.True(stateDB.HasSuicided(addr1))
@@ -277,16 +276,16 @@ func TestSnapshotAndRevert(t *testing.T) {
 	require.True(stateDB.Exist(cntr1))
 	require.True(stateDB.HasSuicided(cntr3))
 	require.True(stateDB.Exist(cntr3))
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
+	w, _ = stateDB.getContractState(hash.BytesToHash160(cntr1[:]), k1)
 	require.Equal(v3, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
+	w, _ = stateDB.getContractState(hash.BytesToHash160(cntr1[:]), k2)
 	require.Equal(v4, w)
 	// cntr2 is normal
 	require.False(stateDB.HasSuicided(cntr2))
 	require.True(stateDB.Exist(cntr2))
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k3)
+	w, _ = stateDB.getContractState(hash.BytesToHash160(cntr2[:]), k3)
 	require.Equal(v3, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr2[:]), k4)
+	w, _ = stateDB.getContractState(hash.BytesToHash160(cntr2[:]), k4)
 	require.Equal(v4, w)
 	// addr1 has balance 80000
 	require.False(stateDB.HasSuicided(addr1))
@@ -308,9 +307,9 @@ func TestSnapshotAndRevert(t *testing.T) {
 	require.True(stateDB.Exist(cntr1))
 	require.False(stateDB.HasSuicided(cntr3))
 	require.True(stateDB.Exist(cntr3))
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k1)
+	w, _ = stateDB.getContractState(hash.BytesToHash160(cntr1[:]), k1)
 	require.Equal(v1, w)
-	w, _ = stateDB.getContractState(byteutil.BytesTo20B(cntr1[:]), k2)
+	w, _ = stateDB.getContractState(hash.BytesToHash160(cntr1[:]), k2)
 	require.Equal(v2, w)
 	// cntr2 and 4 does not exist
 	require.False(stateDB.Exist(cntr2))

@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -251,7 +250,7 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 	// clears the account balance
 	s.Balance = nil
 	s.Balance = big.NewInt(0)
-	addrHash := byteutil.BytesTo20B(evmAddr.Bytes())
+	addrHash := hash.BytesToHash160(evmAddr.Bytes())
 	if err := stateDB.sm.PutState(addrHash, s); err != nil {
 		log.L().Error("Failed to kill contract.", zap.Error(err))
 		return false
@@ -263,7 +262,7 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 
 // HasSuicided returns whether the contract has been killed
 func (stateDB *StateDBAdapter) HasSuicided(evmAddr common.Address) bool {
-	addrHash := byteutil.BytesTo20B(evmAddr.Bytes())
+	addrHash := hash.BytesToHash160(evmAddr.Bytes())
 	_, ok := stateDB.suicided[addrHash]
 	return ok
 }
@@ -276,7 +275,7 @@ func (stateDB *StateDBAdapter) Exist(evmAddr common.Address) bool {
 		return false
 	}
 	log.L().Debug("Check existence.", zap.String("address", addr.String()), log.Hex("addrHash", evmAddr[:]))
-	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	addrHash := hash.BytesToHash160(addr.Bytes())
 	if _, ok := stateDB.cachedContract[addrHash]; ok {
 		return true
 	}
@@ -407,7 +406,7 @@ func (stateDB *StateDBAdapter) AddPreimage(hash common.Hash, preimage []byte) {
 
 // ForEachStorage loops each storage
 func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(common.Hash, common.Hash) bool) {
-	ctt, err := stateDB.Contract(byteutil.BytesTo20B(addr[:]))
+	ctt, err := stateDB.Contract(hash.BytesToHash160(addr[:]))
 	if err != nil {
 		// stateDB.err = err
 		return
@@ -437,7 +436,7 @@ func (stateDB *StateDBAdapter) AccountState(encodedAddr string) (*state.Account,
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get public key hash from encoded address")
 	}
-	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	addrHash := hash.BytesToHash160(addr.Bytes())
 	if contract, ok := stateDB.cachedContract[addrHash]; ok {
 		return contract.SelfState(), nil
 	}
@@ -450,7 +449,7 @@ func (stateDB *StateDBAdapter) AccountState(encodedAddr string) (*state.Account,
 
 // GetCodeHash returns contract's code hash
 func (stateDB *StateDBAdapter) GetCodeHash(evmAddr common.Address) common.Hash {
-	addr := byteutil.BytesTo20B(evmAddr[:])
+	addr := hash.BytesToHash160(evmAddr[:])
 	codeHash := common.Hash{}
 	if contract, ok := stateDB.cachedContract[addr]; ok {
 		copy(codeHash[:], contract.SelfState().CodeHash)
@@ -469,7 +468,7 @@ func (stateDB *StateDBAdapter) GetCodeHash(evmAddr common.Address) common.Hash {
 
 // GetCode returns contract's code
 func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
-	addr := byteutil.BytesTo20B(evmAddr[:])
+	addr := hash.BytesToHash160(evmAddr[:])
 	if contract, ok := stateDB.cachedContract[addr]; ok {
 		code, err := contract.GetCode()
 		if err != nil {
@@ -504,7 +503,7 @@ func (stateDB *StateDBAdapter) GetCodeSize(evmAddr common.Address) int {
 
 // SetCode sets contract's code
 func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
-	addr := byteutil.BytesTo20B(evmAddr[:])
+	addr := hash.BytesToHash160(evmAddr[:])
 	if contract, ok := stateDB.cachedContract[addr]; ok {
 		contract.SetCode(hash.Hash256b(code), code)
 		return
@@ -519,7 +518,7 @@ func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 // GetState gets state
 func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) common.Hash {
 	storage := common.Hash{}
-	v, err := stateDB.getContractState(byteutil.BytesTo20B(evmAddr[:]), byteutil.BytesTo32B(k[:]))
+	v, err := stateDB.getContractState(hash.BytesToHash160(evmAddr[:]), hash.BytesToHash256(k[:]))
 	if err != nil {
 		log.L().Error("Failed to get state.", zap.Error(err))
 		return storage
@@ -531,7 +530,7 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 
 // SetState sets state
 func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash) {
-	if err := stateDB.setContractState(byteutil.BytesTo20B(evmAddr[:]), byteutil.BytesTo32B(k[:]), byteutil.BytesTo32B(v[:])); err != nil {
+	if err := stateDB.setContractState(hash.BytesToHash160(evmAddr[:]), hash.BytesToHash256(k[:]), hash.BytesToHash256(v[:])); err != nil {
 		log.L().Error("Failed to set state.", zap.Error(err))
 		return
 	}
@@ -542,14 +541,14 @@ func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash
 func (stateDB *StateDBAdapter) getContractState(addr hash.Hash160, key hash.Hash256) (hash.Hash256, error) {
 	if contract, ok := stateDB.cachedContract[addr]; ok {
 		v, err := contract.GetState(key)
-		return byteutil.BytesTo32B(v), err
+		return hash.BytesToHash256(v), err
 	}
 	contract, err := stateDB.getContract(addr)
 	if err != nil {
 		return hash.ZeroHash256, errors.Wrapf(err, "failed to GetContractState for contract %x", addr)
 	}
 	v, err := contract.GetState(key)
-	return byteutil.BytesTo32B(v), err
+	return hash.BytesToHash256(v), err
 }
 
 // setContractState writes contract's storage value
