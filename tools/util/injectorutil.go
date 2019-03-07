@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -167,31 +167,41 @@ loop:
 			}
 		case <-tick:
 			wg.Add(1)
-			//TODO Currently Vote is skipped because it will fail on balance test after running for a while
+			//TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
 			switch rand := rand.Intn(2); rand {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
-				err := updateTransferExpectedBalanceMap(expectedBalances, sender, recipient, amount, transferPayload,
-					uint64(transferGasLimit), big.NewInt(int64(transferGasPrice)))
-				if err != nil {
+				if err := updateTransferExpectedBalanceMap(
+					expectedBalances,
+					sender,
+					recipient,
+					amount,
+					transferPayload,
+					uint64(transferGasLimit),
+					big.NewInt(int64(transferGasPrice)),
+				); err != nil {
 					log.L().Info(err.Error())
 				}
 				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
 					big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
 			case 2:
-				sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
-				err := updateVoteExpectedBalanceMap(expectedBalances, sender, uint64(transferGasLimit),
-					big.NewInt(int64(transferGasPrice)))
-				if err != nil {
+				sender, recipient, nonce := createVoteInjection(counter, admins, admins)
+				if err := updateVoteExpectedBalanceMap(
+					expectedBalances,
+					sender,
+					uint64(voteGasLimit),
+					big.NewInt(int64(voteGasPrice)),
+				); err != nil {
 					log.L().Info(err.Error())
 				}
 				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit),
 					big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
 			case 1:
 				executor, nonce := createExecutionInjection(counter, delegates)
-				err := updateExecutionExpectedBalanceMap(expectedBalances, executor, uint64(transferGasLimit),
-					big.NewInt(int64(transferGasPrice)))
-				if err != nil {
+				if err := updateExecutionExpectedBalanceMap(expectedBalances,
+					executor, uint64(executionGasLimit),
+					big.NewInt(int64(executionGasPrice)),
+				); err != nil {
 					log.L().Info(err.Error())
 				}
 				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
@@ -579,12 +589,11 @@ func injectExecution(
 //GetAllBalanceMap returns a account balance map of all admins and delegates
 func GetAllBalanceMap(
 	client iotexapi.APIServiceClient,
-	admins []*AddressKey,
-	delegates []*AddressKey,
-) (map[string]*big.Int, error) {
+	chainaddrs []*AddressKey,
+) map[string]*big.Int {
 	balanceMap := make(map[string]*big.Int)
-	for _, admin := range admins {
-		addr := admin.EncodedAddr
+	for _, chainaddr := range chainaddrs {
+		addr := chainaddr.EncodedAddr
 		err := backoff.Retry(func() error {
 			acctDetails, err := client.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: addr})
 			if err != nil {
@@ -597,28 +606,10 @@ func GetAllBalanceMap(
 		if err != nil {
 			log.L().Fatal("Failed to Get account balance",
 				zap.Error(err),
-				zap.String("addr", admin.EncodedAddr))
+				zap.String("addr", chainaddr.EncodedAddr))
 		}
 	}
-	for _, delegate := range delegates {
-		addr := delegate.EncodedAddr
-		err := backoff.Retry(func() error {
-			acctDetails, err := client.GetAccount(context.Background(), &iotexapi.GetAccountRequest{Address: addr})
-			if err != nil {
-				return err
-			}
-			balanceMap[addr] = big.NewInt(0)
-			balanceMap[addr].SetString(acctDetails.GetAccountMeta().Balance, 10)
-			return nil
-		}, backoff.NewExponentialBackOff())
-		if err != nil {
-			log.L().Fatal("Failed to Get account balance",
-				zap.Error(err),
-				zap.String("addr", delegate.EncodedAddr))
-		}
-	}
-
-	return balanceMap, nil
+	return balanceMap
 }
 
 func updateTransferExpectedBalanceMap(
@@ -635,21 +626,21 @@ func updateTransferExpectedBalanceMap(
 
 	//calculate gas consumed by payload
 	transferPayload, _ := hex.DecodeString(payload)
-	gasUnitPayloadConsumed := big.NewInt(0).Mul(big.NewInt(int64(action.TransferPayloadGas)),
-		big.NewInt(int64(len(transferPayload))))
-	gasUnitTransferConsumed := big.NewInt(int64(action.TransferBaseIntrinsicGas))
+	gasUnitPayloadConsumed := new(big.Int).Mul(new(big.Int).SetUint64(action.TransferPayloadGas),
+		new(big.Int).SetUint64(uint64(len(transferPayload))))
+	gasUnitTransferConsumed := new(big.Int).SetUint64(action.TransferBaseIntrinsicGas)
 
 	//calculate total gas consumed by payload and transfer action
-	gasUnitConsumed := big.NewInt(0).Add(gasUnitPayloadConsumed, gasUnitTransferConsumed)
+	gasUnitConsumed := new(big.Int).Add(gasUnitPayloadConsumed, gasUnitTransferConsumed)
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
 		return errors.New("Not enough gas")
 	}
 
 	//convert to gas cost
-	gasConsumed := big.NewInt(0).Mul(gasUnitConsumed, gasPrice)
+	gasConsumed := new(big.Int).Mul(gasUnitConsumed, gasPrice)
 
 	//total cost of transferred amount, payload, transfer intrinsic
-	totalUsed := big.NewInt(0).Add(gasConsumed, amountRau)
+	totalUsed := new(big.Int).Add(gasConsumed, amountRau)
 
 	//update sender balance
 	senderBalance := (*balancemap)[sender.EncodedAddr]
@@ -670,12 +661,12 @@ func updateVoteExpectedBalanceMap(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) error {
-	gasLimitBig := big.NewInt(int64(gasLimit))
-	gasUnitVoteConsumed := big.NewInt(int64(action.VoteIntrinsicGas))
+	gasLimitBig := new(big.Int).SetUint64(gasLimit)
+	gasUnitVoteConsumed := new(big.Int).SetUint64(action.VoteIntrinsicGas)
 	if gasLimitBig.Cmp(gasUnitVoteConsumed) < 0 {
 		return errors.New("Not enough gas")
 	}
-	gasConsumed := big.NewInt(0).Mul(gasUnitVoteConsumed, gasPrice)
+	gasConsumed := new(big.Int).Mul(gasUnitVoteConsumed, gasPrice)
 
 	//update sender balance
 	senderBalance := (*balancemap)[sender.EncodedAddr]
@@ -692,15 +683,15 @@ func updateExecutionExpectedBalanceMap(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) error {
-	gasLimitBig := big.NewInt(int64(gasLimit))
+	gasLimitBig := new(big.Int).SetUint64(gasLimit)
 
 	//NOTE: This hard-coded gas comsumption value is precalculted on minicluster deployed test contract only
-	gasUnitConsumed := big.NewInt(24028)
+	gasUnitConsumed := new(big.Int).SetUint64(24028)
 
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
 		return errors.New("Not enough gas")
 	}
-	gasConsumed := big.NewInt(0).Mul(gasUnitConsumed, gasPrice)
+	gasConsumed := new(big.Int).Mul(gasUnitConsumed, gasPrice)
 
 	executorBalance := (*balancemap)[executor.EncodedAddr]
 	if executorBalance.Cmp(gasConsumed) < 0 {

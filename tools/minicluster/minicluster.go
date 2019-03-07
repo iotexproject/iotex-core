@@ -157,7 +157,7 @@ func main() {
 		}
 		contract := receipt.ContractAddress
 
-		expectedBalancesMap, _ := util.GetAllBalanceMap(client, admins, delegates)
+		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
 
 		wg := &sync.WaitGroup{}
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
@@ -221,21 +221,18 @@ func main() {
 			}
 		}
 
-		m, _ := util.GetAllBalanceMap(client, admins, delegates)
-		balancePass := true
+		m := util.GetAllBalanceMap(client, chainAddrs)
 		for k, v := range m {
 			if len(expectedBalancesMap) != 0 && v.Cmp(expectedBalancesMap[k]) != 0 {
 				log.S().Error("Balance mismatch:")
 				log.S().Info("Account ", k)
 				log.S().Info("Real balance: ", v.String(), " Expected balance: ", expectedBalancesMap[k].String())
-				balancePass = false
+				return
 			}
 		}
-		if balancePass {
-			log.S().Info("Balance Check PASS")
-		} else {
-			log.S().Error("Balance Check FAIL")
-		}
+
+		log.S().Info("Balance Check PASS")
+
 	}
 }
 
@@ -279,6 +276,6 @@ func newConfig(
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
-	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : 3+8]
+	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
 	return cfg
 }
