@@ -1,0 +1,59 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	glog "log"
+
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/server/itx"
+)
+
+// recoveryHeight is the blockchain height being recovered to
+var recoveryHeight int
+
+func init() {
+	flag.IntVar(&recoveryHeight, "recovery-height", 0, "Recovery height")
+	flag.Usage = func() {
+		_, _ = fmt.Fprintf(os.Stderr,
+			"usage: recover -config-path=[string]\n -recovery-height=[int]\n")
+		flag.PrintDefaults()
+		os.Exit(2)
+	}
+	flag.Parse()
+}
+
+func main() {
+	genesisCfg, err := genesis.New()
+	if err != nil {
+		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
+	}
+
+	cfg, err := config.New()
+	if err != nil {
+		glog.Fatalln("Failed to new config.", zap.Error(err))
+	}
+
+	cfg.Genesis = genesisCfg
+
+	log.S().Infof("Config in use: %+v", cfg)
+
+	// create server
+	svr, err := itx.NewServer(cfg)
+	if err != nil {
+		log.L().Fatal("Failed to create server.", zap.Error(err))
+	}
+
+	// recover chain and state
+	bc := svr.ChainService(cfg.Chain.ID).Blockchain()
+	bc.Start(context.Background())
+	if err := bc.RecoverChainAndState(uint64(recoveryHeight)); err != nil {
+		log.L().Fatal("Failed to recover chain and state.", zap.Error(err))
+	}
+}
