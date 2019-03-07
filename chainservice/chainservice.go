@@ -79,14 +79,6 @@ func WithTesting() Option {
 	}
 }
 
-// WithGenesis is an option to set genesis config
-func WithGenesis(genesisConfig genesis.Genesis) Option {
-	return func(ops *optionParams) error {
-		ops.genesisConfig = genesisConfig
-		return nil
-	}
-}
-
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(
 	cfg config.Config,

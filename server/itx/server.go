@@ -75,9 +75,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	opts := []chainservice.Option{
-		chainservice.WithGenesis(genesisConfig),
-	}
+	var opts []chainservice.Option
 	if testing {
 		opts = []chainservice.Option{
 			chainservice.WithTesting(),
@@ -174,11 +172,6 @@ func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Opti
 }
 
 func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
-	genesisConfig, err := genesis.New()
-	if err != nil {
-		return err
-	}
-	opts = append(opts, chainservice.WithGenesis(genesisConfig))
 	var mainChainAPI explorer.Explorer
 	if s.rootChainService.Explorer() != nil {
 		mainChainAPI = s.rootChainService.Explorer().Explorer()
@@ -190,13 +183,13 @@ func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Opti
 	}
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
-	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+	if err := registerDefaultProtocols(cs, cfg.Genesis); err != nil {
 		return err
 	}
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
