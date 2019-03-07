@@ -23,10 +23,7 @@ var configGetCmd = &cobra.Command{
 		if len(args) != 1 {
 			return fmt.Errorf("accepts 1 arg(s), received %d", len(args))
 		}
-		if err := cobra.OnlyValidArgs(cmd, args); err != nil {
-			return err
-		}
-		return nil
+		return cobra.OnlyValidArgs(cmd, args)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(Get(args[0]))
@@ -42,10 +39,7 @@ var configSetCmd = &cobra.Command{
 		if len(args) != 2 {
 			return fmt.Errorf("accepts 2 arg(s), received %d", len(args))
 		}
-		if err := cobra.OnlyValidArgs(cmd, args[:1]); err != nil {
-			return err
-		}
-		return nil
+		return cobra.OnlyValidArgs(cmd, args[:1])
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(set(args))
