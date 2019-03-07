@@ -101,5 +101,9 @@ func TestAddSubChainActions(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(sscselp))
 
-	assert.Equal(t, 3, len(ap.PickActs()))
+	l := 0
+	for _, part := range ap.PendingActionMap() {
+		l += len(part)
+	}
+	assert.Equal(t, 3, l)
 }
