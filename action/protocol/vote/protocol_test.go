@@ -19,7 +19,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -49,9 +49,9 @@ func TestProtocol_Handle(t *testing.T) {
 	k1 := testaddress.Keyinfo["alfa"]
 	k2 := testaddress.Keyinfo["bravo"]
 	k3 := testaddress.Keyinfo["charlie"]
-	pkHash1 := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
-	pkHash2 := byteutil.BytesTo20B(testaddress.Addrinfo["bravo"].Bytes())
-	pkHash3 := byteutil.BytesTo20B(testaddress.Addrinfo["charlie"].Bytes())
+	pkHash1 := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
+	pkHash2 := hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes())
+	pkHash3 := hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes())
 
 	_, err = accountutil.LoadOrCreateAccount(ws, addr1, big.NewInt(100))
 	require.NoError(err)
