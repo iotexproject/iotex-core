@@ -40,7 +40,7 @@ const (
 	TsfSuccess
 	//This transfer should be accepted into action pool,
 	//but will stay in action pool (not minted yet)
-	//untill all the blocks with preceeding nonces arrive
+	//untill all the blocks with preceding nonces arrive
 	TsfPending
 	//This transfer should enable all the pending transfer in action pool be accepted
 	//into block chain. This happens when a transfer with the missing nouce arrives,
@@ -380,7 +380,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			//After a blocked is minted, check all the pending transfers in action pool are cleared
-			//This checking procedue is simplied for this test case, because of the complexity of
+			//This checking procedure is simplied for this test case, because of the complexity of
 			//handling pending transfers.
 			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
 			require.Equal(0, lenPendingActionMap(ap.PendingActionMap()), tsfTest.message)
@@ -395,7 +395,7 @@ func TestLocalTransfer(t *testing.T) {
 
 // initStateKeyAddr, if the given privatekey is nil,
 // creates key, address, and init the new account with given balance
-// otherwise, calulate the the address, and load test with exsiting
+// otherwise, calculate the the address, and load test with existing
 // balance state.
 func initStateKeyAddr(
 	accountState AccountState,
@@ -412,18 +412,20 @@ func initStateKeyAddr(
 			return nil, "", err
 		}
 		addr, err := address.FromBytes(sk.PublicKey().Hash())
-		retAddr = addr.String()
-		_, err = bc.CreateState(
-			retAddr,
-			initBalance,
-		)
 		if err != nil {
+			return nil, "", err
+		}
+		retAddr = addr.String()
+		if _, err := bc.CreateState(retAddr, initBalance); err != nil {
 			return nil, "", err
 		}
 		retKey = sk
 
 	case AcntExist:
 		addr, err := address.FromBytes(retKey.PublicKey().Hash())
+		if err != nil {
+			return nil, "", err
+		}
 		retAddr = addr.String()
 		existBalance, err := bc.Balance(retAddr)
 		if err != nil {
@@ -436,6 +438,9 @@ func initStateKeyAddr(
 			return nil, "", err
 		}
 		addr, err := address.FromBytes(sk.PublicKey().Hash())
+		if err != nil {
+			return nil, "", err
+		}
 		retAddr = addr.String()
 		retKey = sk
 	case AcntBadAddr:
@@ -456,11 +461,10 @@ func initTestAccounts(
 	for i := 0; i < len(localKeys); i++ {
 		sk := getLocalKey(i)
 		addr, err := address.FromBytes(sk.PublicKey().Hash())
-		_, err = bc.CreateState(
-			addr.String(),
-			initBalance,
-		)
 		if err != nil {
+			return err
+		}
+		if _, err := bc.CreateState(addr.String(), initBalance); err != nil {
 			return err
 		}
 	}

@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -331,10 +331,7 @@ func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action
 	if err := act.LoadProto(actPb); err != nil {
 		return err
 	}
-	if err := cs.actpool.Add(act); err != nil {
-		return err
-	}
-	return nil
+	return cs.actpool.Add(act)
 }
 
 // HandleBlock handles incoming block request.

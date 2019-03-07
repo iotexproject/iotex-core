@@ -57,11 +57,7 @@ func (r *PutPollResult) LoadProto(putPollResultPb *iotextypes.PutPollResult) err
 
 	r.height = putPollResultPb.Height
 
-	if err := r.candidates.LoadProto(putPollResultPb.Candidates); err != nil {
-		return err
-	}
-
-	return nil
+	return r.candidates.LoadProto(putPollResultPb.Candidates)
 }
 
 // Proto converts put poll result action into a proto message.
