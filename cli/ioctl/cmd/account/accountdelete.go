@@ -51,20 +51,21 @@ func accountDelete(args []string) string {
 	var account address.Address
 	for name, addr = range cfg.AccountList {
 		if name == args[0] || addr == args[0] {
-			found = true
 			account, err = address.FromString(addr)
 			if err != nil {
-				log.L().Error("invalid address found in config", zap.Error(err))
+				log.L().Error(fmt.Sprintf("Account #%s:%s is not valid", name, addr),
+					zap.Error(err))
 				return err.Error()
 			}
 			delete(cfg.AccountList, name)
+			found = true
 			break
 		}
 	}
 	if !found {
 		account, err = address.FromString(args[0])
 		if err != nil {
-			return "No account found"
+			return fmt.Sprintf("Account #%s not found", args[0])
 		}
 	}
 	ksFound := false
@@ -72,7 +73,6 @@ func accountDelete(args []string) string {
 	ks := keystore.NewKeyStore(wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-			ksFound = true
 			fmt.Printf("Enter password #%s:\n", name)
 			bytePassword, err := terminal.ReadPassword(syscall.Stdin)
 			if err != nil {
@@ -83,6 +83,7 @@ func accountDelete(args []string) string {
 			if err := ks.Delete(v, password); err != nil {
 				return err.Error()
 			}
+			ksFound = true
 			break
 		}
 	}
@@ -97,7 +98,7 @@ func accountDelete(args []string) string {
 		return fmt.Sprintf("Account #%s:%s has been deleted.", name, addr)
 	}
 	if !ksFound {
-		return "No account found"
+		return fmt.Sprintf("Account #%s not found", args[0])
 	}
-	return fmt.Sprintf("Account #%s:%s has been deleted.", name, addr)
+	return fmt.Sprintf("Account #%s has been deleted.", args[0])
 }
