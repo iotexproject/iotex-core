@@ -24,6 +24,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -35,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
@@ -292,28 +295,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 
 // ReadState reads state on blockchain
 func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
-	p, ok := api.registry.Find(string(in.ProtocolID))
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "protocol %s isn't registered", string(in.ProtocolID))
-	}
-	// TODO: need to complete the context
-	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
-		BlockHeight: api.bc.TipHeight(),
-		Registry:    api.registry,
-	})
-	ws, err := api.bc.GetFactory().NewWorkingSet()
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	data, err := p.ReadState(ctx, ws, in.MethodName, in.Arguments...)
-	// TODO: need to distinguish user error and system error
-	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
-	}
-	out := iotexapi.ReadStateResponse{
-		Data: data,
-	}
-	return &out, nil
+	return api.readState(ctx, in)
 }
 
 // SuggestGasPrice suggests gas price
@@ -332,6 +314,68 @@ func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.Estima
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
+}
+
+// GetProductivity gets block producers' productivity
+func (api *Server) GetProductivity(
+	ctx context.Context,
+	in *iotexapi.GetProductivityRequest,
+) (*iotexapi.GetProductivityResponse, error) {
+	if in.EpochNumber < 1 {
+		return nil, status.Error(codes.InvalidArgument, "epoch number cannot be less than one")
+	}
+	p, ok := api.registry.Find(rolldpos.ProtocolID)
+	if !ok {
+		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
+	}
+	rp, ok := p.(*rolldpos.Protocol)
+	if !ok {
+		return nil, status.Error(codes.Internal, "fail to cast rolldpos protocol")
+	}
+
+	var isCurrentEpoch bool
+	currentEpochNum := rp.GetEpochNum(api.bc.TipHeight())
+	if in.EpochNumber > currentEpochNum {
+		return nil, status.Error(codes.InvalidArgument, "epoch number is larger than current epoch number")
+	}
+	if in.EpochNumber == currentEpochNum {
+		isCurrentEpoch = true
+	}
+
+	epochStartHeight := rp.GetEpochHeight(in.EpochNumber)
+	var epochEndHeight uint64
+	if isCurrentEpoch {
+		epochEndHeight = api.bc.TipHeight()
+	} else {
+		epochEndHeight = rp.GetEpochLastBlockHeight(in.EpochNumber)
+	}
+	numBlks := epochEndHeight - epochStartHeight + 1
+
+	readStateRequest := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte(poll.ProtocolID),
+		MethodName: []byte("CommitteeBlockProducersByHeight"),
+		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochStartHeight)},
+	}
+	res, err := api.readState(ctx, readStateRequest)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	var committeeBlockProducers pollpb.BlockProducerList
+	if err := proto.Unmarshal(res.Data, &committeeBlockProducers); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	produce := make(map[string]uint64)
+	getBlkMetasRes, err := api.getBlockMetas(epochStartHeight-1, numBlks)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	for _, blk := range getBlkMetasRes.BlkMetas {
+		produce[blk.ProducerAddress]++
+	}
+
+	return &iotexapi.GetProductivityResponse{TotalBlks: numBlks, BlksPerDelegate: produce}, nil
 }
 
 // Start starts the API server
@@ -357,6 +401,31 @@ func (api *Server) Stop() error {
 	api.grpcserver.Stop()
 	log.L().Info("API server stops.")
 	return nil
+}
+
+func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
+	p, ok := api.registry.Find(string(in.ProtocolID))
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "protocol %s isn't registered", string(in.ProtocolID))
+	}
+	// TODO: need to complete the context
+	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
+		BlockHeight: api.bc.TipHeight(),
+		Registry:    api.registry,
+	})
+	ws, err := api.bc.GetFactory().NewWorkingSet()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	data, err := p.ReadState(ctx, ws, in.MethodName, in.Arguments...)
+	// TODO: need to distinguish user error and system error
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	out := iotexapi.ReadStateResponse{
+		Data: data,
+	}
+	return &out, nil
 }
 
 // GetActions returns actions within the range
