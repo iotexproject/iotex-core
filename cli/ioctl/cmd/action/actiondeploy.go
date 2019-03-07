@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// actionDeployCmd deploys smart contract on IoTeX blockchain
+// actionDeployCmd represents the action deploy command
 var actionDeployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy smart contract on IoTeX blockchain",
