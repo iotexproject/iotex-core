@@ -22,10 +22,10 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
-// nodeDelegateCmd get delegates from IoTeX blockchain
+// nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
 	Use:   "delegate",
-	Short: "delegate",
+	Short: "get current delegates",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(delegate())
