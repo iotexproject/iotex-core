@@ -7,7 +7,16 @@
 package bc
 
 import (
+	"context"
+	"errors"
+
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // BCCmd represents the bc(block chain) command
@@ -19,4 +28,27 @@ var BCCmd = &cobra.Command{
 
 func init() {
 	BCCmd.AddCommand(bcHeightCmd)
+}
+
+// GetChainMeta gets block chain metadata
+func GetChainMeta() (*iotextypes.ChainMeta, error) {
+	endpoint := config.Get("endpoint")
+	if endpoint == config.ErrEmptyEndpoint {
+		log.L().Error(config.ErrEmptyEndpoint)
+		return nil, errors.New("use \"ioctl config set endpoint\" to config endpoint first")
+	}
+	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	cli := iotexapi.NewAPIServiceClient(conn)
+	request := iotexapi.GetChainMetaRequest{}
+	ctx := context.Background()
+	response, err := cli.GetChainMeta(ctx, &request)
+	if err != nil {
+		return nil, err
+	}
+	return response.ChainMeta, err
 }

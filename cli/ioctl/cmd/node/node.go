@@ -10,6 +10,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Flags
+var (
+	epochNum uint64
+)
+
 // NodeCmd represents the node command
 var NodeCmd = &cobra.Command{
 	Use:   "node",
@@ -19,4 +24,6 @@ var NodeCmd = &cobra.Command{
 
 func init() {
 	NodeCmd.AddCommand(nodeDelegateCmd)
+	NodeCmd.AddCommand(nodeProductivityCmd)
+	nodeProductivityCmd.Flags().Uint64VarP(&epochNum,"epoch-num","e",0,"query specific epoch")
 }
