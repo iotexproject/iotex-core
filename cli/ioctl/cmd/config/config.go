@@ -43,7 +43,7 @@ var ConfigCmd = &cobra.Command{
 type Config struct {
 	Endpoint    string            `yaml:"endpoint"`
 	Wallet      string            `yaml:"wallet"`
-	AccountList map[string]string `yaml:"walletList"`
+	AccountList map[string]string `yaml:"accountList"`
 }
 
 func init() {

@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// actionTransferCmd transfers tokens on IoTeX blockchain
+// actionTransferCmd represents the action transfer command
 var actionTransferCmd = &cobra.Command{
 	Use:   "transfer recipient amount data",
 	Short: "Transfer tokens on IoTeX blokchain",
