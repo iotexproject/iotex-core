@@ -366,6 +366,9 @@ func (api *Server) GetProductivity(
 	}
 
 	produce := make(map[string]uint64)
+	for _, bp := range committeeBlockProducers.BlockProducers {
+		produce[bp] = 0
+	}
 	getBlkMetasRes, err := api.getBlockMetas(epochStartHeight-1, numBlks)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
