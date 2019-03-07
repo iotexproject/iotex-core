@@ -45,7 +45,7 @@ func productivity(args []string) string {
 		}
 		epochNum = chainMeta.Epoch.Num
 	}
-	conn, err := util.Dial()
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
 	}

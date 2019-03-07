@@ -29,7 +29,7 @@ func init() {
 
 // GetChainMeta gets block chain metadata
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
-	conn, err := util.Dial()
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return nil, err
 	}

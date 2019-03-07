@@ -87,7 +87,7 @@ func Address(in string) (string, error) {
 
 // GetAccountMeta gets account metadata
 func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
-	conn, err := util.Dial()
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return nil, err
 	}

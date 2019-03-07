@@ -32,7 +32,7 @@ var nodeDelegateCmd = &cobra.Command{
 }
 
 func delegate() string {
-	conn, err := util.Dial()
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
 	}

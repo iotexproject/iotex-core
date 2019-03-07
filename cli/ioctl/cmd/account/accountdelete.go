@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -35,50 +34,70 @@ var accountDeleteCmd = &cobra.Command{
 }
 
 func accountDelete(args []string) string {
+	var confirm string
+	fmt.Println("** This is an irreversible action!\n" +
+		"Once an account is deleted, all the assets under this account may be lost!\n" +
+		"Type 'YES' to continue, quit for anything else.")
+	fmt.Scanf("%s", &confirm)
+	if confirm != "YES" && confirm != "yes" {
+		return "Quit"
+	}
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return err.Error()
 	}
+	found := false
 	name, addr := "", ""
-	for nameInList, addrInList := range cfg.AccountList {
-		if nameInList == args[0] || addrInList == args[0] {
-			name, addr = nameInList, addrInList
+	var account address.Address
+	for name, addr = range cfg.AccountList {
+		if name == args[0] || addr == args[0] {
+			found = true
+			account, err = address.FromString(addr)
+			if err != nil {
+				log.L().Error("invalid address found in config", zap.Error(err))
+				return err.Error()
+			}
 			delete(cfg.AccountList, name)
+			break
 		}
 	}
-	if len(addr) == 0 {
-		return "can't find account from #" + args[0]
+	if !found {
+		account, err = address.FromString(args[0])
+		if err != nil {
+			return "No account found"
+		}
 	}
-	account, err := address.FromString(addr)
-	if err != nil {
-		return err.Error()
-	}
-	wallet := config.Get("wallet")
-
-	fmt.Printf("Enter password #%s:\n", name)
-	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
-	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
-		return err.Error()
-	}
-	password := string(bytePassword)
+	ksFound := false
+	wallet := cfg.Wallet
 	ks := keystore.NewKeyStore(wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
+			ksFound = true
+			fmt.Printf("Enter password #%s:\n", name)
+			bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+			if err != nil {
+				log.L().Error("fail to get password", zap.Error(err))
+				return err.Error()
+			}
+			password := string(bytePassword)
 			if err := ks.Delete(v, password); err != nil {
 				return err.Error()
 			}
-			fmt.Printf("delete: %s \n", v.URL)
+			break
 		}
 	}
-	out, err := yaml.Marshal(&cfg)
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+	if found {
+		out, err := yaml.Marshal(&cfg)
+		if err != nil {
+			return err.Error()
+		}
+		if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+			return "Failed to write to config file %s." + config.DefaultConfigFile
+		}
+		return fmt.Sprintf("Account #%s:%s has been deleted.", name, addr)
 	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		fmt.Printf("Failed to write to config file %s.", config.DefaultConfigFile)
-		os.Exit(1)
+	if !ksFound {
+		return "No account found"
 	}
-	return fmt.Sprintf("Account #%s:%s has been deleted", name, addr)
+	return fmt.Sprintf("Account #%s:%s has been deleted.", name, addr)
 }

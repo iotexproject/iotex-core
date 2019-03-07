@@ -15,8 +15,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// Dial starts a new connection
-func Dial() (*grpc.ClientConn, error) {
+// ConnectToEndpoint starts a new connection
+func ConnectToEndpoint() (*grpc.ClientConn, error) {
 	endpoint := config.Get("endpoint")
 	if endpoint == config.ErrEmptyEndpoint {
 		log.L().Error(config.ErrEmptyEndpoint)

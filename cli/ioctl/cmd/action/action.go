@@ -94,7 +94,7 @@ func sendAction(elp action.Envelope) string {
 	}
 	request := &iotexapi.SendActionRequest{Action: selp}
 
-	conn, err := util.Dial()
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
 	}

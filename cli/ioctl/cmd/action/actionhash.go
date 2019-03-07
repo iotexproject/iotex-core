@@ -36,7 +36,7 @@ var actionHashCmd = &cobra.Command{
 // getActionByHash gets action of IoTeX Blockchain by hash
 func getActionByHash(args []string) string {
 	hash := args[0]
-	conn, err := util.Dial()
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
 	}
