@@ -277,14 +277,6 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:65525585b4cdef5b4067ba7aab4851da3ab7e57d6e1cad6a6ab7dd48dc8a0860"
-  name = "github.com/iotexproject/go-ethereum"
-  packages = ["crypto"]
-  pruneopts = "UT"
-  revision = "4bb3c89d44e372e6a9ab85a8be0c9345265c763a"
-  version = "v1.7.3"
-
-[[projects]]
   digest = "1:9adf8a325fcb0d2185fe93bbb740e011222ae8e8e4ba475924404fe6c1c323f3"
   name = "github.com/iotexproject/go-fsm"
   packages = ["."]
@@ -299,7 +291,7 @@
   revision = "c26edc20f3d7c9ed16b6d996d162548cda979673"
 
 [[projects]]
-  digest = "1:3ee7e5f97219c5339fbce8b99caf1cc2598752da03383c851dd37a921c7ad037"
+  digest = "1:1315ec61d3972f2bbb8c3c0fe8bfbeea752c4b28c9a24af25effcd3452c7668c"
   name = "github.com/iotexproject/iotex-election"
   packages = [
     "carrier",
@@ -312,7 +304,7 @@
     "util",
   ]
   pruneopts = "UT"
-  revision = "7a4ae1ee8eadfa5126c3bc0f3215642fa2481e01"
+  revision = "6d2ec35239e826d02fc0fb0bf3ba721364cb158f"
 
 [[projects]]
   digest = "1:9999472bf9c934426d967c507d61f2de84affb8318b8d8c8bc38b3486edbd826"
@@ -1387,7 +1379,6 @@
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/grpc-ecosystem/go-grpc-prometheus",
-    "github.com/iotexproject/go-ethereum/crypto",
     "github.com/iotexproject/go-fsm",
     "github.com/iotexproject/go-p2p",
     "github.com/iotexproject/iotex-election/committee",

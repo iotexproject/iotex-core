@@ -9,10 +9,10 @@ package crypto
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 func BenchmarkEc283_Verify(b *testing.B) {
@@ -39,10 +39,10 @@ func VerifyEC283Signature(b *testing.B) {
 func VerifySECP256Signature(b *testing.B) {
 	require := require.New(b)
 
-	sk, _ := crypto.GenerateKey()
-	pk := crypto.FromECDSAPub(&sk.PublicKey)
+	sk, _ := keypair.GenerateKey()
+	pk := sk.PublicKey()
 	msg := hash.Hash256b([]byte{1, 2, 3})
-	sig, err := crypto.Sign(msg[:], sk)
+	sig, err := sk.Sign(msg[:])
 	require.NoError(err)
-	require.True(crypto.VerifySignature(pk, msg[:], sig[:64]))
+	require.True(pk.Verify(msg[:], sig))
 }

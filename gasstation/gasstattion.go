@@ -14,7 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
@@ -80,8 +79,7 @@ func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, er
 	}
 	// Special handling for executions
 	if sc, ok := selp.Action().(*action.Execution); ok {
-		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 		if err != nil {
 			return 0, err
 		}

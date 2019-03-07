@@ -40,8 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -655,7 +653,7 @@ func TestService_SendTransfer(t *testing.T) {
 		Recipient:    ta.Addrinfo["alfa"].String(),
 		Amount:       big.NewInt(1).String(),
 		GasPrice:     big.NewInt(0).String(),
-		SenderPubKey: keypair.EncodePublicKey(ta.Keyinfo["producer"].PubKey),
+		SenderPubKey: ta.Keyinfo["producer"].PubKey.HexString(),
 		Signature:    "",
 		Payload:      "",
 	}
@@ -690,7 +688,7 @@ func TestService_SendVote(t *testing.T) {
 		Nonce:       1,
 		Voter:       ta.Addrinfo["producer"].String(),
 		Votee:       ta.Addrinfo["alfa"].String(),
-		VoterPubKey: keypair.EncodePublicKey(ta.Keyinfo["producer"].PubKey),
+		VoterPubKey: ta.Keyinfo["producer"].PubKey.HexString(),
 		GasPrice:    big.NewInt(0).String(),
 		Signature:   "",
 	}
@@ -724,7 +722,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	explorerExecution.Version = int64(execution.Version())
 
 	exe := execution.Action().(*action.Execution)
-	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(exe.ExecutorPublicKey())
+	explorerExecution.ExecutorPubKey = exe.ExecutorPublicKey().HexString()
 	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
 	chain.EXPECT().ExecuteContractRead(gomock.Any(), gomock.Any()).Return(&action.Receipt{GasConsumed: 1000}, nil)
 
@@ -773,7 +771,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 		Version:       0x1,
 		Nonce:         1,
 		SenderAddress: ta.Addrinfo["producer"].String(),
-		SenderPubKey:  keypair.EncodePublicKey(ta.Keyinfo["producer"].PubKey),
+		SenderPubKey:  ta.Keyinfo["producer"].PubKey.HexString(),
 		GasPrice:      big.NewInt(0).String(),
 		Signature:     "",
 		Roots:         roots,
@@ -808,7 +806,7 @@ func TestServiceSendAction(t *testing.T) {
 	require.NotNil(err)
 
 	roots := make(map[string]hash.Hash256)
-	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	roots["10002"] = hash.BytesToHash256([]byte("10002"))
 	pb := action.NewPutBlock(
 		1,
 		ta.Addrinfo["producer"].String(),
@@ -1035,7 +1033,7 @@ func TestService_CreateDeposit(t *testing.T) {
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
 		ChainID:      int64(deposit.ChainID()),
-		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
+		SenderPubKey: deposit.SenderPublicKey().HexString(),
 		Recipient:    deposit.Recipient(),
 		Amount:       deposit.Amount().String(),
 		Signature:    hex.EncodeToString(selp.Signature()),
@@ -1093,7 +1091,7 @@ func TestService_SettleDeposit(t *testing.T) {
 	res, error := svc.SettleDeposit(explorer.SettleDepositRequest{
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
-		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
+		SenderPubKey: deposit.SenderPublicKey().HexString(),
 		Recipient:    deposit.Recipient(),
 		Amount:       deposit.Amount().String(),
 		Index:        int64(deposit.Index()),
@@ -1134,7 +1132,7 @@ func TestService_GetDeposits(t *testing.T) {
 		},
 	))
 	require.NoError(ws.PutState(
-		byteutil.BytesTo20B(subChainAddr.Bytes()),
+		hash.BytesToHash160(subChainAddr.Bytes()),
 		&mainchain.SubChain{
 			DepositCount:   2,
 			OwnerPublicKey: ta.Keyinfo["producer"].PubKey,

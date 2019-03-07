@@ -8,19 +8,22 @@ package action
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
-// actionHashCmd represents the account balance command
+// actionHashCmd represents the action hash command
 var actionHashCmd = &cobra.Command{
 	Use:   "hash actionhash",
 	Short: "Get action by hash",
@@ -30,34 +33,98 @@ var actionHashCmd = &cobra.Command{
 	},
 }
 
-// getActionByHash gets balance of an IoTeX Blockchain address
+// getActionByHash gets action of IoTeX Blockchain by hash
 func getActionByHash(args []string) string {
 	hash := args[0]
-	endpoint := config.GetEndpoint()
-	if endpoint == config.ErrEmptyEndpoint {
-		log.L().Error(config.ErrEmptyEndpoint)
-		return "use \"ioctl config set endpoint\" to config endpoint first."
-	}
-	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
-		log.L().Error("failed to connect to server", zap.Error(err))
 		return err.Error()
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
-	requestByHash := iotexapi.GetActionByHashRequest{}
-	request := iotexapi.GetActionsRequest{
+	requestCheckPending := iotexapi.GetActionsRequest{
 		Lookup: &iotexapi.GetActionsRequest_ByHash{
 			ByHash: &iotexapi.GetActionByHashRequest{
-				ActionHash: hash,
+				ActionHash:   hash,
+				CheckPending: true,
 			},
 		},
 	}
-	response, err := cli.GetActions(ctx, &request)
+	response, err := cli.GetActions(ctx, &requestCheckPending)
 	if err != nil {
-		log.L().Error("cannot get action from "+requestByHash.ActionHash, zap.Error(err))
 		return err.Error()
 	}
-	return proto.MarshalTextString(response.Actions[0])
+	action := response.Actions[0]
+	request := &iotexapi.GetActionsRequest{
+		Lookup: &iotexapi.GetActionsRequest_ByHash{
+			ByHash: &iotexapi.GetActionByHashRequest{
+				ActionHash:   hash,
+				CheckPending: false,
+			},
+		},
+	}
+	output, err := printActionProto(action)
+	if err != nil {
+		return err.Error()
+	}
+	_, err = cli.GetActions(ctx, request)
+	if err != nil {
+		return output + "\n#This action is pending\n"
+	}
+	if action.Core.GetTransfer() != nil {
+		return output + "\n#This action has been written on blockchain\n"
+	}
+	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
+	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
+	if err != nil {
+		return err.Error()
+	}
+
+	return output + "\n#This action has been written on blockchain\n" +
+		printReceiptProto(responseReceipt.Receipt)
+}
+
+func printActionProto(action *iotextypes.Action) (string, error) {
+	pubKey, err := keypair.BytesToPublicKey(action.SenderPubKey)
+	if err != nil {
+		log.L().Error("failed to convert pubkey", zap.Error(err))
+		return "", err
+	}
+	senderAddress, err := address.FromBytes(pubKey.Hash())
+	if err != nil {
+		log.L().Error("failed to convert address", zap.Error(err))
+		return "", err
+	}
+	switch {
+	case action.Core.GetTransfer() != nil:
+		return fmt.Sprintf("senderAddress: %s\n", senderAddress.String()) +
+			proto.MarshalTextString(action.Core) +
+			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
+			fmt.Sprintf("signature: %x\n", action.Signature), nil
+	case action.Core.GetExecution() != nil:
+		execution := action.Core.GetExecution()
+		return fmt.Sprintf("senderAddress: %s\n", senderAddress.String()) +
+			fmt.Sprintf("version: %d\n", action.Core.GetVersion()) +
+			fmt.Sprintf("nonce: %d\n", action.Core.GetNonce()) +
+			fmt.Sprintf("gasLimit: %d\n", action.Core.GasLimit) +
+			fmt.Sprintf("gasPrice: %s\n", action.Core.GasPrice) +
+			"execution: <\n" +
+			fmt.Sprintf("  contract: %s\n", execution.Contract) +
+			fmt.Sprintf("  amount: %s\n", execution.Amount) +
+			fmt.Sprintf("  data: %x\n", execution.Data) +
+			">\n" +
+			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
+			fmt.Sprintf("signature: %x\n", action.Signature), nil
+	}
+	return "", errors.New("action can not match")
+}
+
+func printReceiptProto(receipt *iotextypes.Receipt) string {
+	return fmt.Sprintf("returnValue %x\n", receipt.ReturnValue) +
+		fmt.Sprintf("status: %d\n", receipt.Status) +
+		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
+		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
+		fmt.Sprintf("contractAddress: %s\n", receipt.ContractAddress)
+	//TODO: print logs
 }

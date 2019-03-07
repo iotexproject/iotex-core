@@ -11,9 +11,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/iotexproject/iotex-election/committee"
+
 	"go.uber.org/zap"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 
@@ -72,15 +73,17 @@ var (
 			MasterKey:      "",
 		},
 		Chain: Chain{
-			ChainDBPath:             "/tmp/chain.db",
-			TrieDBPath:              "/tmp/trie.db",
-			ID:                      1,
-			Address:                 "",
-			ProducerPrivKey:         keypair.EncodePrivateKey(PrivateKey),
-			EmptyGenesis:            false,
-			NumCandidates:           101,
-			BeaconChainAPIs:         []string{},
-			BeaconChainDB:           DB{DbPath: "/tmp/poll.db", NumRetries: 10},
+			ChainDBPath:     "/tmp/chain.db",
+			TrieDBPath:      "/tmp/trie.db",
+			ID:              1,
+			Address:         "",
+			ProducerPrivKey: PrivateKey.HexString(),
+			EmptyGenesis:    false,
+			NumCandidates:   101,
+			GravityChainDB:  DB{DbPath: "/tmp/poll.db", NumRetries: 10},
+			Committee: committee.Config{
+				BeaconChainAPIs: []string{},
+			},
 			EnableFallBackToFreshDB: false,
 			EnableTrielessStateDB:   true,
 			EnableIndex:             false,
@@ -90,7 +93,6 @@ var (
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
 			MaxNumActsPerAcct: 2000,
-			MaxNumActsToPick:  0,
 			ActionExpiry:      10 * time.Minute,
 		},
 		Consensus: Consensus{
@@ -109,8 +111,9 @@ var (
 			},
 		},
 		BlockSync: BlockSync{
-			Interval:   10 * time.Second,
-			BufferSize: 16,
+			Interval:     10 * time.Second,
+			BufferSize:   50,
+			IntervalSize: 10,
 		},
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
@@ -177,7 +180,7 @@ var (
 	}
 
 	// PrivateKey is a randomly generated producer's key for testing purpose
-	PrivateKey, _ = crypto.GenerateKey()
+	PrivateKey, _ = keypair.GenerateKey()
 )
 
 // Network is the config struct for network package
@@ -193,17 +196,18 @@ type (
 
 	// Chain is the config struct for blockchain package
 	Chain struct {
-		ChainDBPath             string   `yaml:"chainDBPath"`
-		TrieDBPath              string   `yaml:"trieDBPath"`
-		ID                      uint32   `yaml:"id"`
-		Address                 string   `yaml:"address"`
-		ProducerPrivKey         string   `yaml:"producerPrivKey"`
-		EmptyGenesis            bool     `yaml:"emptyGenesis"`
-		NumCandidates           uint     `yaml:"numCandidates"`
-		BeaconChainAPIs         []string `yaml:"beaconChainAPIs"`
-		BeaconChainDB           DB       `yaml:"beaconChainDB"`
-		EnableFallBackToFreshDB bool     `yaml:"enableFallbackToFreshDb"`
-		EnableTrielessStateDB   bool     `yaml:"enableTrielessStateDB"`
+		ChainDBPath     string           `yaml:"chainDBPath"`
+		TrieDBPath      string           `yaml:"trieDBPath"`
+		ID              uint32           `yaml:"id"`
+		Address         string           `yaml:"address"`
+		ProducerPrivKey string           `yaml:"producerPrivKey"`
+		EmptyGenesis    bool             `yaml:"emptyGenesis"`
+		NumCandidates   uint             `yaml:"numCandidates"`
+		GravityChainDB  DB               `yaml:"gravityChainDB"`
+		Committee       committee.Config `yaml:"committee"`
+
+		EnableFallBackToFreshDB bool `yaml:"enableFallbackToFreshDb"`
+		EnableTrielessStateDB   bool `yaml:"enableTrielessStateDB"`
 		// enable index the block actions and receipts
 		EnableIndex bool `yaml:"enableIndex"`
 		// enable writing the block actions' and receipts' index asynchronously
@@ -221,8 +225,9 @@ type (
 
 	// BlockSync is the config struct for the BlockSync
 	BlockSync struct {
-		Interval   time.Duration `yaml:"interval"` // update duration
-		BufferSize uint64        `yaml:"bufferSize"`
+		Interval     time.Duration `yaml:"interval"` // update duration
+		BufferSize   uint64        `yaml:"bufferSize"`
+		IntervalSize uint64        `yaml:"intervalSize"`
 	}
 
 	// RollDPoS is the config struct for RollDPoS consensus package
@@ -296,9 +301,6 @@ type (
 		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
 		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
-		// MaxNumActsToPick indicates maximum number of actions to pick to mint a block. Default is 0, which means no
-		// limit on the number of actions to pick.
-		MaxNumActsToPick uint64 `yaml:"maxNumActsToPick"`
 		// ActionExpiry defines how long an action will be kept in action pool.
 		ActionExpiry time.Duration `yaml:"actionExpiry"`
 	}
@@ -436,8 +438,7 @@ func NewSub(validates ...Validate) (Config, error) {
 // ProducerAddress returns the configured producer address derived from key
 func (cfg Config) ProducerAddress() address.Address {
 	sk := cfg.ProducerPrivateKey()
-	pkHash := keypair.HashPubKey(&sk.PublicKey)
-	addr, err := address.FromBytes(pkHash[:])
+	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	if err != nil {
 		log.L().Panic(
 			"Error when constructing producer address",
@@ -449,7 +450,7 @@ func (cfg Config) ProducerAddress() address.Address {
 
 // ProducerPrivateKey returns the configured private key
 func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
-	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	sk, err := keypair.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		log.L().Panic(
 			"Error when decoding private key",

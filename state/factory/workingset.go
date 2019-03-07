@@ -10,18 +10,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/log"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -114,7 +112,7 @@ func NewWorkingSet(
 
 // RootHash returns the hash of the root node of the accountTrie
 func (ws *workingSet) RootHash() hash.Hash256 {
-	return byteutil.BytesTo32B(ws.accountTrie.RootHash())
+	return hash.BytesToHash256(ws.accountTrie.RootHash())
 }
 
 // Digest returns the delta state digest
@@ -162,8 +160,7 @@ func (ws *workingSet) RunAction(
 	if !ok {
 		log.S().Panic("Miss context to run action")
 	}
-	callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
-	caller, err := address.FromBytes(callerPKHash[:])
+	caller, err := address.FromBytes(elp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +214,7 @@ func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
 
 func (ws *workingSet) Snapshot() int {
 	s := ws.cb.Snapshot()
-	ws.trieRoots[s] = byteutil.BytesTo32B(ws.accountTrie.RootHash())
+	ws.trieRoots[s] = hash.BytesToHash256(ws.accountTrie.RootHash())
 	return s
 }
 

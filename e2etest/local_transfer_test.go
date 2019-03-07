@@ -8,7 +8,6 @@ package e2etest
 
 import (
 	"context"
-	"encoding/hex"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	"github.com/iotexproject/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
@@ -42,7 +40,7 @@ const (
 	TsfSuccess
 	//This transfer should be accepted into action pool,
 	//but will stay in action pool (not minted yet)
-	//untill all the blocks with preceeding nonces arrive
+	//untill all the blocks with preceding nonces arrive
 	TsfPending
 	//This transfer should enable all the pending transfer in action pool be accepted
 	//into block chain. This happens when a transfer with the missing nouce arrives,
@@ -261,7 +259,7 @@ func TestLocalTransfer(t *testing.T) {
 
 	networkPort := 4689
 	apiPort := 14014
-	sk, err := crypto.GenerateKey()
+	sk, err := keypair.GenerateKey()
 	require.NoError(err)
 	cfg, err := newTransferConfig(testDBPath, testTriePath, sk, networkPort, apiPort)
 	require.NoError(err)
@@ -338,8 +336,7 @@ func TestLocalTransfer(t *testing.T) {
 			selp, err := bc.GetActionByActionHash(tsf.Hash())
 			require.NoError(err, tsfTest.message)
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
-			require.Equal(keypair.EncodePublicKey(&senderPriKey.PublicKey),
-				hex.EncodeToString(selp.Proto().SenderPubKey), tsfTest.message)
+			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
 
 			newSenderBalance, _ := bc.Balance(senderAddr)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
@@ -383,11 +380,10 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			//After a blocked is minted, check all the pending transfers in action pool are cleared
-			//This checking procedue is simplied for this test case, because of the complexity of
+			//This checking procedure is simplied for this test case, because of the complexity of
 			//handling pending transfers.
 			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
-			acts := ap.PickActs()
-			require.Equal(len(acts), 0, tsfTest.message)
+			require.Equal(0, lenPendingActionMap(ap.PendingActionMap()), tsfTest.message)
 
 		default:
 			require.True(false, tsfTest.message)
@@ -399,7 +395,7 @@ func TestLocalTransfer(t *testing.T) {
 
 // initStateKeyAddr, if the given privatekey is nil,
 // creates key, address, and init the new account with given balance
-// otherwise, calulate the the address, and load test with exsiting
+// otherwise, calculate the the address, and load test with existing
 // balance state.
 func initStateKeyAddr(
 	accountState AccountState,
@@ -411,27 +407,25 @@ func initStateKeyAddr(
 	retAddr := ""
 	switch accountState {
 	case AcntCreate:
-		sk, err := crypto.GenerateKey()
+		sk, err := keypair.GenerateKey()
 		if err != nil {
 			return nil, "", err
 		}
-		pk := &sk.PublicKey
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
-		retAddr = addr.String()
-		_, err = bc.CreateState(
-			retAddr,
-			initBalance,
-		)
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		if err != nil {
+			return nil, "", err
+		}
+		retAddr = addr.String()
+		if _, err := bc.CreateState(retAddr, initBalance); err != nil {
 			return nil, "", err
 		}
 		retKey = sk
 
 	case AcntExist:
-		pk := &retKey.PublicKey
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(retKey.PublicKey().Hash())
+		if err != nil {
+			return nil, "", err
+		}
 		retAddr = addr.String()
 		existBalance, err := bc.Balance(retAddr)
 		if err != nil {
@@ -439,13 +433,14 @@ func initStateKeyAddr(
 		}
 		initBalance.Set(existBalance)
 	case AcntNotRegistered:
-		sk, err := crypto.GenerateKey()
+		sk, err := keypair.GenerateKey()
 		if err != nil {
 			return nil, "", err
 		}
-		pk := &sk.PublicKey
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
+		if err != nil {
+			return nil, "", err
+		}
 		retAddr = addr.String()
 		retKey = sk
 	case AcntBadAddr:
@@ -465,14 +460,11 @@ func initTestAccounts(
 ) error {
 	for i := 0; i < len(localKeys); i++ {
 		sk := getLocalKey(i)
-		pk := &sk.PublicKey
-		pkHash := keypair.HashPubKey(pk)
-		addr, err := address.FromBytes(pkHash[:])
-		_, err = bc.CreateState(
-			addr.String(),
-			initBalance,
-		)
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		if err != nil {
+			return err
+		}
+		if _, err := bc.CreateState(addr.String(), initBalance); err != nil {
 			return err
 		}
 	}
@@ -480,7 +472,7 @@ func initTestAccounts(
 }
 
 func getLocalKey(i int) keypair.PrivateKey {
-	sk, _ := keypair.DecodePrivateKey(localKeys[i])
+	sk, _ := keypair.HexStringToPrivateKey(localKeys[i])
 	return sk
 }
 
@@ -507,4 +499,12 @@ func newTransferConfig(
 	cfg.Genesis.BlockInterval = 1 * time.Second
 
 	return cfg, nil
+}
+
+func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
+	l := 0
+	for _, part := range acts {
+		l += len(part)
+	}
+	return l
 }

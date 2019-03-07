@@ -16,8 +16,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
@@ -111,7 +111,7 @@ func (p *Protocol) assertEnoughBalance(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	acc, err := accountutil.LoadAccount(sm, byteutil.BytesTo20B(raCtx.Caller.Bytes()))
+	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(raCtx.Caller.Bytes()))
 	if err != nil {
 		return err
 	}

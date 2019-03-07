@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 func (p *Protocol) handlePutBlock(ctx context.Context, pb *action.PutBlock, sm protocol.StateManager) error {
@@ -36,7 +35,7 @@ func (p *Protocol) handlePutBlock(ctx context.Context, pb *action.PutBlock, sm p
 		return err
 	}
 	// Update the block producer's nonce
-	addrHash := byteutil.BytesTo20B(raCtx.Caller.Bytes())
+	addrHash := hash.BytesToHash160(raCtx.Caller.Bytes())
 	acct, err := accountutil.LoadAccount(sm, addrHash)
 	if err != nil {
 		return err

@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -75,9 +75,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	opts := []chainservice.Option{
-		chainservice.WithGenesis(genesisConfig),
-	}
+	var opts []chainservice.Option
 	if testing {
 		opts = []chainservice.Option{
 			chainservice.WithTesting(),
@@ -174,11 +172,6 @@ func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Opti
 }
 
 func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
-	genesisConfig, err := genesis.New()
-	if err != nil {
-		return err
-	}
-	opts = append(opts, chainservice.WithGenesis(genesisConfig))
 	var mainChainAPI explorer.Explorer
 	if s.rootChainService.Explorer() != nil {
 		mainChainAPI = s.rootChainService.Explorer().Explorer()
@@ -190,13 +183,13 @@ func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Opti
 	}
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
-	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+	if err := registerDefaultProtocols(cs, cfg.Genesis); err != nil {
 		return err
 	}
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
@@ -304,14 +297,14 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
 		return
 	}
-	if genesisConfig.EnableBeaconChainVoting {
+	if genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
-		initBeaconChainHeight := genesisConfig.InitBeaconChainHeight
+		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol
-		if genesisConfig.InitBeaconChainHeight != 0 && electionCommittee != nil {
+		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
 			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
 				electionCommittee,
-				initBeaconChainHeight,
+				gravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
 					blk, err := cs.Blockchain().GetBlockByHeight(height)
 					if err != nil {

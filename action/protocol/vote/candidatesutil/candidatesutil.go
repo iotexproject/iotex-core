@@ -44,7 +44,7 @@ func LoadAndDeleteCandidates(sm protocol.StateManager, blkHeight uint64, encoded
 	if err != nil {
 		return errors.Wrap(err, "failed to convert address to public key hash")
 	}
-	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	addrHash := hash.BytesToHash160(addr.Bytes())
 	if _, ok := candidateMap[addrHash]; ok {
 		delete(candidateMap, addrHash)
 	}
@@ -96,7 +96,7 @@ func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr st
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
 	}
-	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	addrHash := hash.BytesToHash160(addr.Bytes())
 	if _, ok := candidateMap[addrHash]; !ok {
 		candidateMap[addrHash] = &state.Candidate{
 			Address:        encodedAddr,
@@ -118,7 +118,7 @@ func updateCandidate(
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
 	}
-	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	addrHash := hash.BytesToHash160(addr.Bytes())
 	// Candidate was added when self-nomination, always exist in cachedCandidates
 	candidate := candidateMap[addrHash]
 	candidate.Votes = totalWeight

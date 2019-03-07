@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -110,7 +109,7 @@ func (p *Protocol) mutateDeposit(
 	}
 	depositIndex := subChain.DepositCount
 	subChain.DepositCount++
-	if err := sm.PutState(byteutil.BytesTo20B(addr.Bytes()), subChain); err != nil {
+	if err := sm.PutState(hash.BytesToHash160(addr.Bytes()), subChain); err != nil {
 		return nil, err
 	}
 

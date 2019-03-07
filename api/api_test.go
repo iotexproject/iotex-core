@@ -10,6 +10,8 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"math/rand"
+	"sort"
 	"testing"
 	"time"
 
@@ -33,9 +35,11 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/gasstation"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -99,6 +103,12 @@ var (
 			VotesStr:        "10",
 		},
 	}
+
+	delegateKeys = []keypair.PrivateKey{
+		identityset.PrivateKey(0),
+		identityset.PrivateKey(1),
+		identityset.PrivateKey(2),
+	}
 )
 
 var (
@@ -136,7 +146,7 @@ var (
 		},
 		{
 			11,
-			21,
+			5,
 			4,
 		},
 	}
@@ -151,19 +161,19 @@ var (
 			false,
 			hex.EncodeToString(transferHash1[:]),
 			1,
-			keypair.EncodePublicKey(testTransfer1.SrcPubkey()),
+			testTransfer1.SrcPubkey().HexString(),
 		},
 		{
 			false,
 			hex.EncodeToString(voteHash1[:]),
 			5,
-			keypair.EncodePublicKey(testVote1.SrcPubkey()),
+			testVote1.SrcPubkey().HexString(),
 		},
 		{
 			true,
 			hex.EncodeToString(executionHash1[:]),
 			5,
-			keypair.EncodePublicKey(testExecution1.SrcPubkey()),
+			testExecution1.SrcPubkey().HexString(),
 		},
 	}
 
@@ -368,55 +378,13 @@ var (
 		},
 	}
 
-	readBlockProducersByHeightTests = []struct {
+	readActiveBlockProducersByHeightTests = []struct {
 		// Arguments
 		protocolID            string
 		protocolType          string
 		methodName            string
 		height                uint64
 		numCandidateDelegates uint64
-		// Expected Values
-		numBlockProducers int
-	}{
-		{
-			protocolID:        "poll",
-			protocolType:      "lifeLongDelegates",
-			methodName:        "BlockProducersByHeight",
-			height:            1,
-			numBlockProducers: 3,
-		},
-		{
-			protocolID:        "poll",
-			protocolType:      "lifeLongDelegates",
-			methodName:        "BlockProducersByHeight",
-			height:            4,
-			numBlockProducers: 3,
-		},
-		{
-			protocolID:            "poll",
-			protocolType:          "governanceChainCommittee",
-			methodName:            "BlockProducersByHeight",
-			height:                1,
-			numCandidateDelegates: 2,
-			numBlockProducers:     2,
-		},
-		{
-			protocolID:            "poll",
-			protocolType:          "governanceChainCommittee",
-			methodName:            "BlockProducersByHeight",
-			height:                4,
-			numCandidateDelegates: 1,
-			numBlockProducers:     1,
-		},
-	}
-
-	readActiveProducersByHeightTests = []struct {
-		// Arguments
-		protocolID   string
-		protocolType string
-		methodName   string
-		height       uint64
-		numDelegates uint64
 		// Expected Values
 		numActiveBlockProducers int
 	}{
@@ -439,7 +407,7 @@ var (
 			protocolType:            "governanceChainCommittee",
 			methodName:              "ActiveBlockProducersByHeight",
 			height:                  1,
-			numDelegates:            2,
+			numCandidateDelegates:   2,
 			numActiveBlockProducers: 2,
 		},
 		{
@@ -447,8 +415,84 @@ var (
 			protocolType:            "governanceChainCommittee",
 			methodName:              "ActiveBlockProducersByHeight",
 			height:                  4,
-			numDelegates:            1,
+			numCandidateDelegates:   1,
 			numActiveBlockProducers: 1,
+		},
+	}
+
+	readCommitteeProducersByHeightTests = []struct {
+		// Arguments
+		protocolID   string
+		protocolType string
+		methodName   string
+		height       uint64
+		numDelegates uint64
+		// Expected Values
+		numCommitteeBlockProducers int
+	}{
+		{
+			protocolID:                 "poll",
+			protocolType:               "lifeLongDelegates",
+			methodName:                 "CommitteeBlockProducersByHeight",
+			height:                     1,
+			numCommitteeBlockProducers: 3,
+		},
+		{
+			protocolID:                 "poll",
+			protocolType:               "lifeLongDelegates",
+			methodName:                 "CommitteeBlockProducersByHeight",
+			height:                     4,
+			numCommitteeBlockProducers: 3,
+		},
+		{
+			protocolID:                 "poll",
+			protocolType:               "governanceChainCommittee",
+			methodName:                 "CommitteeBlockProducersByHeight",
+			height:                     1,
+			numDelegates:               2,
+			numCommitteeBlockProducers: 2,
+		},
+		{
+			protocolID:                 "poll",
+			protocolType:               "governanceChainCommittee",
+			methodName:                 "CommitteeBlockProducersByHeight",
+			height:                     4,
+			numDelegates:               1,
+			numCommitteeBlockProducers: 1,
+		},
+	}
+
+	getProductivityTests = []struct {
+		// Arguments
+		numSubEpochs        uint64
+		numDelegates        uint64
+		blockProducers      []genesis.Delegate
+		blockProducerKeys   []keypair.PrivateKey
+		failedBlockProducer genesis.Delegate
+		epochNumber         uint64
+		// Expected Values
+		totalBlks       uint64
+		blksPerDelegate []uint64
+	}{
+		{
+			numSubEpochs:        2,
+			numDelegates:        2,
+			blockProducers:      delegates[:2],
+			blockProducerKeys:   delegateKeys[:2],
+			failedBlockProducer: delegates[0],
+			epochNumber:         1,
+			totalBlks:           4,
+			blksPerDelegate:     []uint64{1, 3},
+		},
+		{
+			numSubEpochs:        2,
+			numDelegates:        3,
+			blockProducers:      delegates,
+			blockProducerKeys:   delegateKeys,
+			failedBlockProducer: genesis.Delegate{},
+			epochNumber:         1,
+			totalBlks:           6,
+			blksPerDelegate:     []uint64{2, 2, 2},
 		},
 	}
 )
@@ -652,10 +696,9 @@ func TestServer_GetBlockMetas(t *testing.T) {
 		var prevBlkPb *iotextypes.BlockMeta
 		for _, blkPb := range res.BlkMetas {
 			if prevBlkPb != nil {
-				require.True(blkPb.Timestamp < prevBlkPb.Timestamp)
-				require.True(blkPb.Height < prevBlkPb.Height)
-				prevBlkPb = blkPb
+				require.True(blkPb.Height > prevBlkPb.Height)
 			}
+			prevBlkPb = blkPb
 		}
 	}
 }
@@ -858,7 +901,7 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	}
 }
 
-func TestServer_ReadBlockProducersByHeight(t *testing.T) {
+func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -874,7 +917,7 @@ func TestServer_ReadBlockProducersByHeight(t *testing.T) {
 	committee.EXPECT().ResultByHeight(gomock.Any()).Return(r, nil).Times(2)
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 
-	for _, test := range readBlockProducersByHeightTests {
+	for _, test := range readActiveBlockProducersByHeightTests {
 		var pol poll.Protocol
 		if test.protocolType == "lifeLongDelegates" {
 			cfg.Genesis.Delegates = delegates
@@ -900,13 +943,13 @@ func TestServer_ReadBlockProducersByHeight(t *testing.T) {
 			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.height)},
 		})
 		require.NoError(err)
-		var blockProducers pollpb.BlockProducerList
-		require.NoError(proto.Unmarshal(res.Data, &blockProducers))
-		require.Equal(test.numBlockProducers, len(blockProducers.BlockProducers))
+		var activeBlockProducers pollpb.BlockProducerList
+		require.NoError(proto.Unmarshal(res.Data, &activeBlockProducers))
+		require.Equal(test.numActiveBlockProducers, len(activeBlockProducers.BlockProducers))
 	}
 }
 
-func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
+func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -922,7 +965,7 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 	committee.EXPECT().ResultByHeight(gomock.Any()).Return(r, nil).Times(2)
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 
-	for _, test := range readActiveProducersByHeightTests {
+	for _, test := range readCommitteeProducersByHeightTests {
 		var pol poll.Protocol
 		if test.protocolType == "lifeLongDelegates" {
 			cfg.Genesis.Delegates = delegates
@@ -948,9 +991,46 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.height)},
 		})
 		require.NoError(err)
-		var activeBlockProducers pollpb.BlockProducerList
-		require.NoError(proto.Unmarshal(res.Data, &activeBlockProducers))
-		require.Equal(test.numActiveBlockProducers, len(activeBlockProducers.BlockProducers))
+		var committeeBlockProducers pollpb.BlockProducerList
+		require.NoError(proto.Unmarshal(res.Data, &committeeBlockProducers))
+		require.Equal(test.numCommitteeBlockProducers, len(committeeBlockProducers.BlockProducers))
+	}
+}
+
+func TestServer_GetProductivity(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	testutil.CleanupPath(t, testTriePath)
+	defer testutil.CleanupPath(t, testTriePath)
+	testutil.CleanupPath(t, testDBPath)
+	defer testutil.CleanupPath(t, testDBPath)
+
+	for _, test := range getProductivityTests {
+		cfg.Genesis.Delegates = test.blockProducers
+		cfg.Genesis.NumSubEpochs = test.numSubEpochs
+		cfg.Genesis.NumDelegates = test.numDelegates
+		pol := poll.NewLifeLongDelegatesProtocol(test.blockProducers)
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		require.NoError(svr.registry.Register(poll.ProtocolID, pol))
+		bc, _, err := setupChain(cfg)
+		require.NoError(err)
+		require.NoError(bc.Start(context.Background()))
+		genesisDigest := cfg.Genesis.Hash()
+		require.NoError(addTestingDummyBlocks(bc, test.blockProducers, test.blockProducerKeys, test.numSubEpochs,
+			test.failedBlockProducer, genesisDigest))
+		svr.bc = bc
+
+		res, err := svr.GetProductivity(context.Background(), &iotexapi.GetProductivityRequest{EpochNumber: test.epochNumber})
+		require.NoError(err)
+		produceList := make([]uint64, 0)
+		for _, numBlks := range res.BlksPerDelegate {
+			produceList = append(produceList, numBlks)
+		}
+		sort.Slice(produceList, func(i, j int) bool { return produceList[i] < produceList[j] })
+		require.Equal(test.blksPerDelegate, produceList)
+		require.Equal(test.totalBlks, res.TotalBlks)
 	}
 }
 
@@ -1104,6 +1184,50 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	return bc.CommitBlock(blk)
 }
 
+func addTestingDummyBlocks(
+	bc blockchain.Blockchain,
+	blockProducers []genesis.Delegate,
+	blockProducerKeys []keypair.PrivateKey,
+	numSubEpochs uint64,
+	failedBlockProducer genesis.Delegate,
+	genesisDigest hash.Hash256,
+) error {
+	failedIndex := rand.Intn(int(numSubEpochs))
+	prevBlkHash := genesisDigest
+	var prevBlkHeight uint64
+	for i := 0; i < int(numSubEpochs); i++ {
+		for j, bp := range blockProducers {
+			priKey := blockProducerKeys[j]
+			pubKey := priKey.PublicKey()
+
+			if i == failedIndex && bp.OperatorAddrStr == failedBlockProducer.OperatorAddrStr {
+				priKey = blockProducerKeys[(j+1)%len(blockProducers)]
+				pubKey = priKey.PublicKey()
+			}
+			ra := block.NewRunnableActionsBuilder().
+				SetHeight(prevBlkHeight + 1).
+				SetTimeStamp(testutil.TimestampNow()).
+				Build(pubKey)
+
+			nblk, err := block.NewBuilder(ra).
+				SetPrevBlockHash(prevBlkHash).
+				SignAndBuild(priKey)
+			if err != nil {
+				return err
+			}
+			if err := bc.ValidateBlock(&nblk); err != nil {
+				return err
+			}
+			if err := bc.CommitBlock(&nblk); err != nil {
+				return err
+			}
+			prevBlkHash = nblk.HashBlock()
+			prevBlkHeight = nblk.Height()
+		}
+	}
+	return nil
+}
+
 func addActsToActPool(ap actpool.ActPool) error {
 	// Producer transfer--> A
 	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
@@ -1139,7 +1263,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 }
 
 func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, error) {
-	cfg.Chain.ProducerPrivKey = hex.EncodeToString(keypair.PrivateKeyToBytes(identityset.PrivateKey(0)))
+	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	if err != nil {
 		return nil, nil, err
@@ -1161,9 +1285,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
 	rolldposProtocol := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
 	)
 	r := rewarding.NewProtocol(bc, rolldposProtocol)
 

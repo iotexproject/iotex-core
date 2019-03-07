@@ -7,7 +7,8 @@
 package block
 
 import (
-	"github.com/ethereum/go-ethereum/crypto"
+	"bytes"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -66,13 +67,13 @@ func (b *Builder) SetReceiptRoot(h hash.Hash256) *Builder {
 }
 
 // SignAndBuild signs and then builds a block.
-func (b *Builder) SignAndBuild(signerPriKey keypair.PrivateKey) (Block, error) {
-	if keypair.EncodePublicKey(b.blk.Header.pubkey) != keypair.EncodePublicKey(&signerPriKey.PublicKey) {
+func (b *Builder) SignAndBuild(signerPrvKey keypair.PrivateKey) (Block, error) {
+	if !bytes.Equal(b.blk.Header.pubkey.Bytes(), signerPrvKey.PublicKey().Bytes()) {
 		return Block{}, errors.New("public key from the signer doesn't match that from runnable actions")
 	}
 
 	h := b.blk.Header.HashHeaderCore()
-	sig, err := crypto.Sign(h[:], signerPriKey)
+	sig, err := signerPrvKey.Sign(h[:])
 	if err != nil {
 		return Block{}, errors.New("failed to sign block")
 	}

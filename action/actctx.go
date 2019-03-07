@@ -51,7 +51,9 @@ func (act *AbstractAction) Hash() hash.Hash256 { return act.hash }
 func (act *AbstractAction) BasicActionSize() uint32 {
 	// VersionSizeInBytes + NonceSizeInBytes + GasSizeInBytes
 	size := 4 + 8 + 8
-	size += len(keypair.PublicKeyToBytes(act.srcPubkey))
+	if act.srcPubkey != nil {
+		size += len(act.srcPubkey.Bytes())
+	}
 	if act.gasPrice != nil && len(act.gasPrice.Bytes()) > 0 {
 		size += len(act.gasPrice.Bytes())
 	}

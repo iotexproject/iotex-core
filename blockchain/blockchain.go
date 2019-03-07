@@ -35,7 +35,6 @@ import (
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -714,13 +713,13 @@ func (bc *blockchain) MintNewBlock(
 		SetHeight(newblockHeight).
 		SetTimeStamp(timestamp).
 		AddActions(actions...).
-		Build(&sk.PublicKey)
+		Build(sk.PublicKey())
 
 	prevBlkHash := bc.tipHash
 	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
 	// could verify that they start from the same genesis
 	if newblockHeight == 1 {
-		prevBlkHash = bc.config.Genesis.Digest
+		prevBlkHash = bc.config.Genesis.Hash()
 	}
 	blk, err := block.NewBuilder(ra).
 		SetPrevBlockHash(prevBlkHash).
@@ -922,7 +921,7 @@ func (bc *blockchain) mustGetRollDPoSProtocol() *rolldpos.Protocol {
 }
 
 func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, error) {
-	if bc.config.Genesis.EnableBeaconChainVoting {
+	if bc.config.Genesis.EnableGravityChainVoting {
 		rp := bc.mustGetRollDPoSProtocol()
 		return bc.sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
 	}
@@ -1010,7 +1009,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 	validateTimer := bc.timerFactory.NewTimer("validate")
 	prevBlkHash := bc.tipHash
 	if blk.Height() == 1 {
-		prevBlkHash = bc.config.Genesis.Digest
+		prevBlkHash = bc.config.Genesis.Hash()
 	}
 	err := bc.validator.Validate(blk, bc.tipHeight, prevBlkHash)
 	validateTimer.End()
@@ -1036,6 +1035,8 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
 		return errors.Wrap(err, "Failed to verify receipt root")
 	}
+
+	blk.Receipts = receipts
 
 	// attach working set to be committed to state factory
 	blk.WorkingSet = ws
@@ -1100,8 +1101,7 @@ func (bc *blockchain) runActions(
 	}
 	gasLimit := bc.config.Genesis.BlockGasLimit
 	// update state factory
-	pkHash := keypair.HashPubKey(acts.BlockProducerPubKey())
-	producer, err := address.FromBytes(pkHash[:])
+	producer, err := address.FromBytes(acts.BlockProducerPubKey().Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -1222,7 +1222,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se action.SealedEnvelope, err error) {
 	skip = true
-	if !bc.config.Genesis.EnableBeaconChainVoting {
+	if !bc.config.Genesis.EnableGravityChainVoting {
 		return
 	}
 	pl, ok := bc.protocol(poll.ProtocolID)
@@ -1373,10 +1373,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	if err := bc.createPollGenesisStates(ctx, ws); err != nil {
 		return err
 	}
-	if err := bc.createRewardingGenesisStates(ctx, ws); err != nil {
-		return err
-	}
-	return nil
+	return bc.createRewardingGenesisStates(ctx, ws)
 }
 
 func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
@@ -1413,7 +1410,7 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 }
 
 func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
-	if bc.config.Genesis.EnableBeaconChainVoting {
+	if bc.config.Genesis.EnableGravityChainVoting {
 		p, ok := bc.protocol(poll.ProtocolID)
 		if !ok {
 			return errors.Errorf("protocol %s is not found", poll.ProtocolID)

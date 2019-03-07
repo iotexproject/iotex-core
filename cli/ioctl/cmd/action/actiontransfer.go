@@ -10,23 +10,17 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
-	"strings"
-	"syscall"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
-// actionTransferCmd transfers tokens on IoTeX blockchain
+// actionTransferCmd represents the action transfer command
 var actionTransferCmd = &cobra.Command{
 	Use:   "transfer recipient amount data",
 	Short: "Transfer tokens on IoTeX blokchain",
@@ -53,56 +47,40 @@ func init() {
 
 // transfer transfers tokens on IoTeX blockchain
 func transfer(args []string) string {
-	recipient := args[0]
+	recipient, err := account.Address(args[0])
+	if err != nil {
+		return err.Error()
+	}
 	amount, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
 		log.L().Error("cannot convert "+args[1]+" into int64", zap.Error(err))
 		return err.Error()
 	}
+	if err := validator.ValidateAmount(amount); err != nil {
+		return err.Error()
+	}
 	payload := args[2]
-	// TODO: Check the validity of args
 
-	sender, err := account.AliasToAddress(alias)
+	sender, err := account.Address(signer)
 	if err != nil {
 		return err.Error()
 	}
-	accountMeta, err := account.GetAccountMeta(sender)
-	if err != nil {
-		return err.Error()
+	if nonce == 0 {
+		accountMeta, err := account.GetAccountMeta(sender)
+		if err != nil {
+			return err.Error()
+		}
+		nonce = accountMeta.PendingNonce
 	}
-	tx, err := action.NewTransfer(accountMeta.PendingNonce, big.NewInt(amount),
+	tx, err := action.NewTransfer(nonce, big.NewInt(amount),
 		recipient, []byte(payload), gasLimit, big.NewInt(gasPrice))
 	if err != nil {
 		log.L().Error("cannot make a Transfer instance", zap.Error(err))
 	}
-	fmt.Printf("Enter password #%s:\n", alias)
-	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
-	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
-		return err.Error()
-	}
-	password := strings.TrimSpace(string(bytePassword))
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(accountMeta.PendingNonce).
+	elp := bd.SetNonce(nonce).
 		SetGasPrice(big.NewInt(gasPrice)).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
-	hash := elp.Hash()
-	sig, err := account.Sign(alias, password, hash[:])
-	if err != nil {
-		log.L().Error("fail to sign", zap.Error(err))
-		return err.Error()
-	}
-	pubKey, err := crypto.SigToPub(hash[:], sig)
-	if err != nil {
-		log.L().Error("fail to get public key", zap.Error(err))
-		return err.Error()
-	}
-	selp := &iotextypes.Action{
-		Core:         elp.Proto(),
-		SenderPubKey: keypair.PublicKeyToBytes(pubKey),
-		Signature:    sig,
-	}
-	request := &iotexapi.SendActionRequest{Action: selp}
-	return sendAction(request)
+	return sendAction(elp)
 }

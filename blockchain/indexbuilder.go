@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -211,9 +210,7 @@ func putTransfers(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) err
 	transfers, _, _ := action.ClassifyActions(blk.Actions)
 	for _, transfer := range transfers {
 		transferHash := transfer.Hash()
-
-		callerPKHash := keypair.HashPubKey(transfer.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(transfer.SrcPubkey().Hash())
 		if err != nil {
 			return err
 		}
@@ -284,8 +281,7 @@ func putVotes(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 			continue
 		}
 		voteHash := selp.Hash()
-		callerPKHash := keypair.HashPubKey(vote.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(vote.SrcPubkey().Hash())
 		if err != nil {
 			return err
 		}
@@ -353,8 +349,7 @@ func putExecutions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) er
 	_, _, executions := action.ClassifyActions(blk.Actions)
 	for _, execution := range executions {
 		executionHash := execution.Hash()
-		callerPKHash := keypair.HashPubKey(execution.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(execution.SrcPubkey().Hash())
 		if err != nil {
 			return err
 		}
@@ -417,8 +412,7 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
-		callerPKHash := keypair.HashPubKey(selp.SrcPubkey())
-		callerAddr, err := address.FromBytes(callerPKHash[:])
+		callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 		if err != nil {
 			return err
 		}

@@ -8,22 +8,21 @@ package genesis
 
 import (
 	"flag"
-	"io/ioutil"
 	"math/big"
 	"sort"
 	"time"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
-
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.uber.org/config"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-election/committee"
 )
 
 var (
@@ -53,10 +52,7 @@ func initDefaultConfig() {
 			InitBalanceMap: make(map[string]string),
 		},
 		Poll: Poll{
-			EnableBeaconChainVoting: false,
-			CommitteeConfig: committee.Config{
-				BeaconChainAPIs: []string{},
-			},
+			EnableGravityChainVoting: false,
 		},
 		Rewarding: Rewarding{
 			InitAdminAddrStr:           identityset.Address(0).String(),
@@ -88,8 +84,6 @@ type (
 		Account    `ymal:"account"`
 		Poll       `yaml:"poll"`
 		Rewarding  `yaml:"rewarding"`
-		// Digest is the digest of genesis config file
-		Digest hash.Hash256
 	}
 	// Blockchain contains blockchain level configs
 	Blockchain struct {
@@ -117,12 +111,20 @@ type (
 	}
 	// Poll contains the configs for poll protocol
 	Poll struct {
-		// EnableBeaconChainVoting is a flag whether read voting from beacon chain
-		EnableBeaconChainVoting bool `yaml:"enableBeaconChainVoting"`
-		// InitBeaconChainHeight is the height in beacon chain where the init poll result stored
-		InitBeaconChainHeight uint64 `yaml:"initBeaconChainHeight"`
-		// CommitteeConfig is the config for committee
-		CommitteeConfig committee.Config `yaml:"committeeConfig"`
+		// EnableGravityChainVoting is a flag whether read voting from gravity chain
+		EnableGravityChainVoting bool `yaml:"enableGravityChainVoting"`
+		// GravityChainStartHeight is the height in gravity chain where the init poll result stored
+		GravityChainStartHeight uint64 `yaml:"gravityChainStartHeight"`
+		// RegisterContractAddress is the address of register contract
+		RegisterContractAddress string `yaml:"registerContractAddress"`
+		// StakingContractAddress is the address of staking contract
+		StakingContractAddress string `yaml:"stakingContractAddress"`
+		// VoteThreshold is the vote threshold amount in decimal string format
+		VoteThreshold string `yaml:"voteThreshold"`
+		// ScoreThreshold is the score threshold amount in decimal string format
+		ScoreThreshold string `yaml:"scoreThreshold"`
+		// SelfStakingThreshold is self-staking vote threshold amount in decimal string format
+		SelfStakingThreshold string `yaml:"selfStakingThreshold"`
 		// Delegates is a list of delegates with votes
 		Delegates []Delegate `yaml:"delegates"`
 	}
@@ -155,14 +157,8 @@ type (
 func New() (Genesis, error) {
 	opts := make([]config.YAMLOption, 0)
 	opts = append(opts, config.Static(Default))
-	genesisDigest := hash.ZeroHash256
 	if genesisPath != "" {
 		opts = append(opts, config.File(genesisPath))
-		genesisCfgBytes, err := ioutil.ReadFile(genesisPath)
-		if err != nil {
-			return Genesis{}, err
-		}
-		genesisDigest = hash.Hash256b(genesisCfgBytes)
 	}
 	yaml, err := config.NewYAML(opts...)
 	if err != nil {
@@ -173,8 +169,75 @@ func New() (Genesis, error) {
 	if err := yaml.Get(config.Root).Populate(&genesis); err != nil {
 		return Genesis{}, errors.Wrap(err, "failed to unmarshal yaml genesis to struct")
 	}
-	genesis.Digest = genesisDigest
 	return genesis, nil
+}
+
+// Hash is the hash of genesis config
+func (g *Genesis) Hash() hash.Hash256 {
+	gbProto := iotextypes.GenesisBlockchain{
+		Timestamp:             g.Timestamp,
+		BlockGasLimit:         g.BlockGasLimit,
+		ActionGasLimit:        g.ActionGasLimit,
+		BlockInterval:         g.BlockInterval.Nanoseconds(),
+		NumSubEpochs:          g.NumSubEpochs,
+		NumDelegates:          g.NumDelegates,
+		NumCandidateDelegates: g.NumCandidateDelegates,
+		TimeBasedRotation:     g.TimeBasedRotation,
+	}
+
+	initBalanceAddrs := make([]string, 0)
+	for initBalanceAddr := range g.InitBalanceMap {
+		initBalanceAddrs = append(initBalanceAddrs, initBalanceAddr)
+	}
+	sort.Strings(initBalanceAddrs)
+	initBalances := make([]string, 0)
+	for _, initBalanceAddr := range initBalanceAddrs {
+		initBalances = append(initBalances, g.InitBalanceMap[initBalanceAddr])
+	}
+	aProto := iotextypes.GenesisAccount{
+		InitBalanceAddrs: initBalanceAddrs,
+		InitBalances:     initBalances,
+	}
+
+	dProtos := make([]*iotextypes.GenesisDelegate, 0)
+	for _, d := range g.Delegates {
+		dProto := iotextypes.GenesisDelegate{
+			OperatorAddr: d.OperatorAddrStr,
+			RewardAddr:   d.RewardAddrStr,
+			Votes:        d.VotesStr,
+		}
+		dProtos = append(dProtos, &dProto)
+	}
+	pProto := iotextypes.GenesisPoll{
+		EnableGravityChainVoting: g.EnableGravityChainVoting,
+		GravityChainStartHeight:  g.GravityChainStartHeight,
+		RegisterContractAddress:  g.RegisterContractAddress,
+		StakingContractAddress:   g.StakingContractAddress,
+		VoteThreshold:            g.VoteThreshold,
+		ScoreThreshold:           g.ScoreThreshold,
+		SelfStakingThreshold:     g.SelfStakingThreshold,
+		Delegates:                dProtos,
+	}
+
+	rProto := iotextypes.GenesisRewarding{
+		InitAdminAddr:              g.InitAdminAddrStr,
+		InitBalance:                g.InitBalanceStr,
+		BlockReward:                g.BlockRewardStr,
+		EpochReward:                g.EpochRewardStr,
+		NumDelegatesForEpochReward: g.NumDelegatesForEpochReward,
+	}
+
+	gProto := iotextypes.Genesis{
+		Blockchain: &gbProto,
+		Account:    &aProto,
+		Poll:       &pProto,
+		Rewarding:  &rProto,
+	}
+	b, err := proto.Marshal(&gProto)
+	if err != nil {
+		log.L().Panic("Error when marshaling genesis proto", zap.Error(err))
+	}
+	return hash.Hash256b(b)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
