@@ -33,12 +33,12 @@ func newEpochCtx(
 	epochNum := rp.GetEpochNum(blockHeight)
 	epochHeight := rp.GetEpochHeight(epochNum)
 	numDelegates := rp.NumDelegates()
-	candidates, err := candidatesByHeight(epochHeight - 1)
+	candidates, err := candidatesByHeight(epochHeight)
 	if err != nil {
 		return nil, errors.Wrapf(
 			err,
 			"failed to get candidates on height %d",
-			epochHeight-1,
+			epochHeight,
 		)
 	}
 	if len(candidates) < int(numDelegates) {
