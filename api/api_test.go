@@ -1017,8 +1017,9 @@ func TestServer_GetProductivity(t *testing.T) {
 		bc, _, err := setupChain(cfg)
 		require.NoError(err)
 		require.NoError(bc.Start(context.Background()))
+		genesisDigest := cfg.Genesis.Hash()
 		require.NoError(addTestingDummyBlocks(bc, test.blockProducers, test.blockProducerKeys, test.numSubEpochs,
-			test.failedBlockProducer))
+			test.failedBlockProducer, genesisDigest))
 		svr.bc = bc
 
 		res, err := svr.GetProductivity(context.Background(), &iotexapi.GetProductivityRequest{EpochNumber: test.epochNumber})
@@ -1189,9 +1190,10 @@ func addTestingDummyBlocks(
 	blockProducerKeys []keypair.PrivateKey,
 	numSubEpochs uint64,
 	failedBlockProducer genesis.Delegate,
+	genesisDigest hash.Hash256,
 ) error {
 	failedIndex := rand.Intn(int(numSubEpochs))
-	prevBlkHash := hash.ZeroHash256
+	prevBlkHash := genesisDigest
 	var prevBlkHeight uint64
 	for i := 0; i < int(numSubEpochs); i++ {
 		for j, bp := range blockProducers {
