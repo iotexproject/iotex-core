@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// actionInvokeCmd invokes smart contract on IoTeX blockchain
+// actionInvokeCmd represents the action invoke command
 var actionInvokeCmd = &cobra.Command{
 	Use:   "invoke contract [amount]",
 	Short: "Invoke smart contract on IoTeX blockchain",

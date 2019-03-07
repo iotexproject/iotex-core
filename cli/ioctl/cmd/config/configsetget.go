@@ -14,9 +14,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// configGetCmd represents the config get endpoint command
+// configGetCmd represents the config get command
 var configGetCmd = &cobra.Command{
-	Use:       "get name",
+	Use:       "get variable",
 	Short:     "Get config from ioctl",
 	ValidArgs: []string{"endpoint", "wallet"},
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -30,9 +30,9 @@ var configGetCmd = &cobra.Command{
 	},
 }
 
-// configSetCmd represents the config set endpoint command
+// configSetCmd represents the config set command
 var configSetCmd = &cobra.Command{
-	Use:       "set name value",
+	Use:       "set variable value",
 	Short:     "Set config for ioctl",
 	ValidArgs: []string{"endpoint", "wallet"},
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -46,7 +46,7 @@ var configSetCmd = &cobra.Command{
 	},
 }
 
-// Get gets the endpoint
+// Get gets config variable
 func Get(arg string) string {
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -65,6 +65,7 @@ func Get(arg string) string {
 	}
 }
 
+// set sets config variable
 func set(args []string) string {
 	cfg, err := LoadConfig()
 	if err != nil {

@@ -10,14 +10,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/node"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/node"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/version"
 )
 
