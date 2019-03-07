@@ -157,10 +157,12 @@ func main() {
 		}
 		contract := receipt.ContractAddress
 
+		expectedBalancesMap, _ := util.GetAllBalanceMap(client, admins, delegates)
+
 		wg := &sync.WaitGroup{}
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
 			contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, client, admins, delegates, d,
-			retryNum, retryInterval, resetInterval)
+			retryNum, retryInterval, resetInterval, &expectedBalancesMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
@@ -222,14 +224,14 @@ func main() {
 		m, _ := util.GetAllBalanceMap(client, admins, delegates)
 		balancePass := true
 		for k, v := range m {
-			if len(util.ExpectedBalances) != 0 && v.Cmp(util.ExpectedBalances[k]) != 0 {
+			if len(expectedBalancesMap) != 0 && v.Cmp(expectedBalancesMap[k]) != 0 {
 				log.S().Error("Balance mismatch:")
 				log.S().Info("Account ", k)
-				log.S().Info("Real balance: ", v.String(), " Expected balance: ", util.ExpectedBalances[k].String())
+				log.S().Info("Real balance: ", v.String(), " Expected balance: ", expectedBalancesMap[k].String())
 				balancePass = false
 			}
 		}
-		if balancePass == true {
+		if balancePass {
 			log.S().Info("Balance Check PASS")
 		} else {
 			log.S().Error("Balance Check FAIL")

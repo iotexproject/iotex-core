@@ -46,9 +46,6 @@ type AddressKey struct {
 	PriKey      keypair.PrivateKey
 }
 
-//ExpectedBalances records expectd balances of admins and delegates
-var ExpectedBalances map[string]*big.Int
-
 // LoadAddresses loads key pairs from key pair path and construct addresses
 func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 	// Load Senders' public/private key pairs
@@ -123,13 +120,12 @@ func InjectByAps(
 	retryNum int,
 	retryInterval int,
 	resetInterval int,
+	expectedBalances *map[string]*big.Int,
 ) {
 	timeout := time.After(duration)
 	tick := time.Tick(time.Duration(1/float64(aps)*1000000) * time.Microsecond)
 	reset := time.Tick(time.Duration(resetInterval) * time.Second)
 	rand.Seed(time.Now().UnixNano())
-
-	ExpectedBalances, _ = GetAllBalanceMap(client, admins, delegates)
 
 loop:
 	for {
@@ -175,18 +171,29 @@ loop:
 			switch rand := rand.Intn(2); rand {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
-				updateTransferExpectedBalanceMap(&ExpectedBalances, sender, recipient, amount, transferPayload,
+				err := updateTransferExpectedBalanceMap(expectedBalances, sender, recipient, amount, transferPayload,
 					uint64(transferGasLimit), big.NewInt(int64(transferGasPrice)))
+				if err != nil {
+					log.L().Info(err.Error())
+				}
 				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
 					big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
 			case 2:
 				sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
-				updateVoteExpectedBalanceMap(&ExpectedBalances, sender, recipient, uint64(transferGasLimit), big.NewInt(int64(transferGasPrice)))
+				err := updateVoteExpectedBalanceMap(expectedBalances, sender, uint64(transferGasLimit),
+					big.NewInt(int64(transferGasPrice)))
+				if err != nil {
+					log.L().Info(err.Error())
+				}
 				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit),
 					big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
 			case 1:
 				executor, nonce := createExecutionInjection(counter, delegates)
-				updateExecutionExpectedBalanceMap(&ExpectedBalances, executor, uint64(transferGasLimit), big.NewInt(int64(transferGasPrice)))
+				err := updateExecutionExpectedBalanceMap(expectedBalances, executor, uint64(transferGasLimit),
+					big.NewInt(int64(transferGasPrice)))
+				if err != nil {
+					log.L().Info(err.Error())
+				}
 				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 					uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)),
 					executionData, retryNum, retryInterval)
@@ -641,7 +648,7 @@ func updateTransferExpectedBalanceMap(
 	//convert to gas cost
 	gasConsumed := big.NewInt(0).Mul(gasUnitConsumed, gasPrice)
 
-	//total cost of transfered amount, payload, transfer intrinsic
+	//total cost of transferred amount, payload, transfer intrinsic
 	totalUsed := big.NewInt(0).Add(gasConsumed, amountRau)
 
 	//update sender balance
@@ -660,7 +667,6 @@ func updateTransferExpectedBalanceMap(
 func updateVoteExpectedBalanceMap(
 	balancemap *map[string]*big.Int,
 	sender *AddressKey,
-	recipient *AddressKey,
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) error {
