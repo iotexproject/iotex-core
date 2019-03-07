@@ -168,6 +168,13 @@ func (evc *ethereumCarrier) Votes(
 	if err != nil {
 		return nil, nil, evc.redial(err)
 	}
+	bucket, err := caller.Buckets(
+		&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(height)},
+		previousIndex,
+	)
+	if err != nil || bucket.Next.Cmp(big.NewInt(0)) <= 0 {
+		return previousIndex, nil, err
+	}
 	buckets, err := caller.GetActiveBuckets(
 		&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(height)},
 		previousIndex,
