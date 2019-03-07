@@ -193,8 +193,8 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(p2pCtx, act1); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 1, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 1, nil
 	})
 	require.Nil(err)
 
@@ -228,8 +228,8 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(p2pCtx, act2); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 2, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 2, nil
 	})
 	require.Nil(err)
 
@@ -254,8 +254,8 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(p2pCtx, act3); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 3, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 3, nil
 	})
 	require.Nil(err)
 
@@ -280,8 +280,8 @@ func TestLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(p2pCtx, act4); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 4, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 4, nil
 	})
 	require.Nil(err)
 	// wait 4 blocks being picked and committed
@@ -619,8 +619,8 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(p2pCtx, acttsf4); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 7, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 7, nil
 	})
 	require.Nil(err)
 
@@ -669,8 +669,8 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(p2pCtx, act5); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 2, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 2, nil
 	})
 	require.Nil(err)
 
@@ -715,8 +715,8 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(p2pCtx, act6); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 1, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 1, nil
 	})
 	require.Nil(err)
 
@@ -767,8 +767,8 @@ func TestVoteLocalCommit(t *testing.T) {
 		if err := p.BroadcastOutbound(p2pCtx, act7); err != nil {
 			return false, err
 		}
-		acts := svr.ChainService(chainID).ActionPool().PickActs()
-		return len(acts) == 1, nil
+		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
+		return lenPendingActionMap(acts) == 1, nil
 	})
 	require.Nil(err)
 

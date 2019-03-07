@@ -244,8 +244,6 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
 
-	cfg.ActPool.MaxNumActsToPick = 2000
-
 	cfg.System.HTTPMetricsPort = 0
 
 	cfg.API.Enabled = true

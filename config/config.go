@@ -93,7 +93,6 @@ var (
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
 			MaxNumActsPerAcct: 2000,
-			MaxNumActsToPick:  0,
 			ActionExpiry:      10 * time.Minute,
 		},
 		Consensus: Consensus{
@@ -302,9 +301,6 @@ type (
 		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
 		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
-		// MaxNumActsToPick indicates maximum number of actions to pick to mint a block. Default is 0, which means no
-		// limit on the number of actions to pick.
-		MaxNumActsToPick uint64 `yaml:"maxNumActsToPick"`
 		// ActionExpiry defines how long an action will be kept in action pool.
 		ActionExpiry time.Duration `yaml:"actionExpiry"`
 	}

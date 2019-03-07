@@ -383,8 +383,7 @@ func TestLocalTransfer(t *testing.T) {
 			//This checking procedue is simplied for this test case, because of the complexity of
 			//handling pending transfers.
 			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
-			acts := ap.PickActs()
-			require.Equal(len(acts), 0, tsfTest.message)
+			require.Equal(0, lenPendingActionMap(ap.PendingActionMap()), tsfTest.message)
 
 		default:
 			require.True(false, tsfTest.message)
@@ -496,4 +495,12 @@ func newTransferConfig(
 	cfg.Genesis.BlockInterval = 1 * time.Second
 
 	return cfg, nil
+}
+
+func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
+	l := 0
+	for _, part := range acts {
+		l += len(part)
+	}
+	return l
 }
