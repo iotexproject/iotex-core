@@ -17,8 +17,7 @@ import (
 )
 
 const (
-	secp256pubKeyLength  = 65
-	secp256privKeyLength = 32
+	secp256pubKeyLength = 65
 )
 
 type (

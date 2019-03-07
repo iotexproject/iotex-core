@@ -10,12 +10,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/spf13/cobra"
 )
-
-const endpointPrefix = "endpoint:"
 
 // ErrEmptyEndpoint indicates error for empty endpoint
 var ErrEmptyEndpoint = "no endpoint has been set"

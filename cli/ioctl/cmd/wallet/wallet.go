@@ -13,11 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	walletPrefix = "wallet:"
-	walletEnd    = "endWallet"
-)
-
 // WalletCmd represents the wallet command
 var WalletCmd = &cobra.Command{
 	Use:   "wallet",

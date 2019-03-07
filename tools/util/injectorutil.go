@@ -18,7 +18,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
@@ -123,15 +123,15 @@ func InjectByAps(
 	resetInterval int,
 ) {
 	timeout := time.After(duration)
-	tick := time.Tick(time.Duration(1/float64(aps)*1000000) * time.Microsecond)
-	reset := time.Tick(time.Duration(resetInterval) * time.Second)
+	tick := time.NewTicker(time.Duration(1/aps*1000000) * time.Microsecond)
+	reset := time.NewTicker(time.Duration(resetInterval) * time.Second)
 	rand.Seed(time.Now().UnixNano())
 loop:
 	for {
 		select {
 		case <-timeout:
 			break loop
-		case <-reset:
+		case <-reset.C:
 			for _, admin := range admins {
 				addr := admin.EncodedAddr
 				err := backoff.Retry(func() error {
@@ -164,7 +164,7 @@ loop:
 						zap.String("addr", delegate.EncodedAddr))
 				}
 			}
-		case <-tick:
+		case <-tick.C:
 			wg.Add(1)
 			switch rand := rand.Intn(3); rand {
 			case 0:
@@ -545,7 +545,7 @@ func createSignedExecution(
 
 func injectExecution(
 	selp action.SealedEnvelope,
-	execution *action.Execution,
+	_ *action.Execution,
 	c iotexapi.APIServiceClient,
 	retryNum int,
 	retryInterval int,

@@ -22,7 +22,6 @@ import (
 
 var (
 	alias    string
-	bytecode []byte
 	gasLimit uint64
 	gasPrice int64
 )

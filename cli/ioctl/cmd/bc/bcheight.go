@@ -29,7 +29,7 @@ var heightCmd = &cobra.Command{
 }
 
 // getCurrentBlockHeigh get current height of block chain from server
-func getCurrentBlockHeigh(args []string) string {
+func getCurrentBlockHeigh(_ []string) string {
 	endpoint := config.GetEndpoint()
 	if endpoint == config.ErrEmptyEndpoint {
 		log.L().Error(config.ErrEmptyEndpoint)

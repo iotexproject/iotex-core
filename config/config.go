@@ -462,7 +462,7 @@ func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
 
 // ValidateChain validates the chain configure
 func ValidateChain(cfg Config) error {
-	if cfg.Chain.NumCandidates <= 0 {
+	if cfg.Chain.NumCandidates == 0 {
 		return errors.Wrapf(ErrInvalidCfg, "candidate number should be greater than 0")
 	}
 	return nil
@@ -470,7 +470,7 @@ func ValidateChain(cfg Config) error {
 
 // ValidateDispatcher validates the dispatcher configs
 func ValidateDispatcher(cfg Config) error {
-	if cfg.Dispatcher.EventChanSize <= 0 {
+	if cfg.Dispatcher.EventChanSize == 0 {
 		return errors.Wrap(ErrInvalidCfg, "dispatcher event chan size should be greater than 0")
 	}
 	return nil
@@ -483,7 +483,7 @@ func ValidateRollDPoS(cfg Config) error {
 	}
 	rollDPoS := cfg.Consensus.RollDPoS
 	fsm := rollDPoS.FSM
-	if fsm.EventChanSize <= 0 {
+	if fsm.EventChanSize == 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
 	}
 	return nil
@@ -509,7 +509,7 @@ func ValidateAPI(cfg Config) error {
 func ValidateActPool(cfg Config) error {
 	maxNumActPerPool := cfg.ActPool.MaxNumActsPerPool
 	maxNumActPerAcct := cfg.ActPool.MaxNumActsPerAcct
-	if maxNumActPerPool <= 0 || maxNumActPerAcct <= 0 {
+	if maxNumActPerPool == 0 || maxNumActPerAcct == 0 {
 		return errors.Wrap(
 			ErrInvalidCfg,
 			"maximum number of actions per pool or per account cannot be zero or negative",
