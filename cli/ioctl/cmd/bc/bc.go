@@ -8,13 +8,10 @@ package bc
 
 import (
 	"context"
-	"errors"
 
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
@@ -32,17 +29,11 @@ func init() {
 
 // GetChainMeta gets block chain metadata
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
-	endpoint := config.Get("endpoint")
-	if endpoint == config.ErrEmptyEndpoint {
-		log.L().Error(config.ErrEmptyEndpoint)
-		return nil, errors.New("use \"ioctl config set endpoint\" to config endpoint first")
-	}
-	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
-
 	cli := iotexapi.NewAPIServiceClient(conn)
 	request := iotexapi.GetChainMetaRequest{}
 	ctx := context.Background()

@@ -14,17 +14,16 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
-// actionHashCmd represents the account balance command
+// actionHashCmd represents the action hash command
 var actionHashCmd = &cobra.Command{
 	Use:   "hash actionhash",
 	Short: "Get action by hash",
@@ -34,14 +33,10 @@ var actionHashCmd = &cobra.Command{
 	},
 }
 
-// getActionByHash gets balance of an IoTeX Blockchain address
+// getActionByHash gets action of IoTeX Blockchain by hash
 func getActionByHash(args []string) string {
 	hash := args[0]
-	endpoint := config.Get("endpoint")
-	if endpoint == config.ErrEmptyEndpoint {
-		return "use \"ioctl config set endpoint\" to config endpoint first."
-	}
-	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
 	}
@@ -131,4 +126,5 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		fmt.Sprintf("contractAddress: %s\n", receipt.ContractAddress)
+	//TODO: print logs
 }

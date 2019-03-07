@@ -16,11 +16,10 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
-	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -29,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
+// Flags
 var (
 	bytecode []byte
 	gasLimit uint64
@@ -94,18 +94,11 @@ func sendAction(elp action.Envelope) string {
 	}
 	request := &iotexapi.SendActionRequest{Action: selp}
 
-	endpoint := config.Get("endpoint")
-	if endpoint == config.ErrEmptyEndpoint {
-		log.L().Error(config.ErrEmptyEndpoint)
-		return "use \"ioctl config set endpoint\" to config endpoint first."
-	}
-	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+	conn, err := util.ConnectToEndpoint()
 	if err != nil {
-		log.L().Error("failed to connect to server", zap.Error(err))
 		return err.Error()
 	}
 	defer conn.Close()
-
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	_, err = cli.SendAction(ctx, request)
