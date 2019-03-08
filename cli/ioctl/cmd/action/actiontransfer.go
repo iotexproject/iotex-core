@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
-	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -29,21 +28,6 @@ var actionTransferCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	actionTransferCmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
-	actionTransferCmd.Flags().Int64VarP(&gasPrice, "gas-price", "p", 0, "set gas prize")
-	actionTransferCmd.Flags().StringVarP(&alias, "alias", "a", "", "choose signing key")
-	if err := actionTransferCmd.MarkFlagRequired("gas-limit"); err != nil {
-		log.L().Error(err.Error())
-	}
-	if err := actionTransferCmd.MarkFlagRequired("gas-price"); err != nil {
-		log.L().Error(err.Error())
-	}
-	if err := actionTransferCmd.MarkFlagRequired("alias"); err != nil {
-		log.L().Error(err.Error())
-	}
-}
-
 // transfer transfers tokens on IoTeX blockchain
 func transfer(args []string) string {
 	recipient, err := account.Address(args[0])
@@ -52,9 +36,6 @@ func transfer(args []string) string {
 	}
 	amount, err := util.IotxStringToRau(args[1])
 	if err != nil {
-		return err.Error()
-	}
-	if err := validator.ValidateAmount(amount.Int64()); err != nil {
 		return err.Error()
 	}
 	payload := args[2]

@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
-	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -38,9 +37,6 @@ func invoke(args []string) string {
 	if len(args) == 2 {
 		amount, err = util.IotxStringToRau(args[1])
 		if err != nil {
-			return err.Error()
-		}
-		if err := validator.ValidateAmount(amount.Int64()); err != nil {
 			return err.Error()
 		}
 	}
