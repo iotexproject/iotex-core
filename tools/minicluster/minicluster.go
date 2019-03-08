@@ -215,7 +215,7 @@ func main() {
 }
 
 func newConfig(
-	genesisConfigPath,
+	_,
 	chainDBPath,
 	trieDBPath string,
 	producerPriKey keypair.PrivateKey,

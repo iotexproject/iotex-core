@@ -30,11 +30,12 @@ import (
 
 // Flags
 var (
-	bytecode []byte
+	alias    string
 	gasLimit uint64
 	gasPrice int64
 	nonce    uint64
 	signer   string
+	bytecode []byte
 )
 
 // ActionCmd represents the account command

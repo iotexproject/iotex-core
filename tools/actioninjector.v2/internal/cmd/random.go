@@ -20,7 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
@@ -101,12 +101,12 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 }
 
 func (p *injectProcessor) syncNoncesProcess(ctx context.Context) {
-	reset := time.Tick(injectCfg.resetInterval)
+	reset := time.NewTicker(injectCfg.resetInterval)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-reset:
+		case <-reset.C:
 			p.syncNonces(context.Background())
 		}
 	}
@@ -255,7 +255,7 @@ var injectCfg = struct {
 	workers              uint64
 }{}
 
-func inject(args []string) string {
+func inject(_ []string) string {
 	var err error
 	injectCfg.transferPayload, err = hex.DecodeString(injectCfg.rawTransferPayload)
 	if err != nil {

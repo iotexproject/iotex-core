@@ -86,13 +86,7 @@ func (ib *IndexBuilder) Start(_ context.Context) error {
 					)
 				}
 				// index receipts
-				if err := putReceipts(blk.Height(), blk.Receipts, batch); err != nil {
-					log.L().Info(
-						"Error when indexing the block",
-						zap.Uint64("height", blk.Height()),
-						zap.Error(err),
-					)
-				}
+				putReceipts(blk.Height(), blk.Receipts, batch)
 				batchSizeMtc.WithLabelValues().Set(float64(batch.Size()))
 				if err := ib.store.Commit(batch); err != nil {
 					log.L().Info(
@@ -480,9 +474,9 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 }
 
 // putReceipts store receipt into db
-func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVStoreBatch) error {
+func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVStoreBatch) {
 	if blkReceipts == nil {
-		return nil
+		return
 	}
 	var heightBytes [8]byte
 	enc.MachineEndian.PutUint64(heightBytes[:], blkHeight)
@@ -495,7 +489,6 @@ func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVSto
 			r.ActHash[:],
 		)
 	}
-	return nil
 }
 
 // TODO: To be deprecated

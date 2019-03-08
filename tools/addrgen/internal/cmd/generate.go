@@ -29,7 +29,7 @@ var generateCmd = &cobra.Command{
 
 var _addrNum int
 
-func generate(args []string) string {
+func generate(_ []string) string {
 	items := make([]string, _addrNum)
 	for i := 0; i < _addrNum; i++ {
 		private, err := keypair.GenerateKey()
