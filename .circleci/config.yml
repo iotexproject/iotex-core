@@ -20,5 +20,5 @@ jobs:
 
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
-      - run: pwd; env|grep GO
+      - run: go env
       - run: sh -x go.test.sh
