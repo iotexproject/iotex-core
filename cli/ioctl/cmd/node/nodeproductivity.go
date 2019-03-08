@@ -64,7 +64,7 @@ func productivity(args []string) string {
 	lines := make([]string, 0)
 	for delegate, productivity := range response.BlksPerDelegate {
 		lines = append(lines, fmt.Sprintf("%s: %d (produced) / %d (total of epoch %d)",
-			delegate, productivity, productivity, epochNum))
+			delegate, productivity, response.TotalBlks, epochNum))
 	}
 	return strings.Join(lines, "\n")
 }
