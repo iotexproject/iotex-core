@@ -8,8 +8,11 @@ package account
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 // accountBalanceCmd represents the account balance command
@@ -32,5 +35,11 @@ func balance(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	return fmt.Sprintf("%s: %s", address, accountMeta.Balance)
+	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	if !ok {
+		return "failed to convert balance to big int"
+	}
+	balanceInt, balanceDec := big.NewInt(0), big.NewInt(0)
+	balanceInt.DivMod(balance, big.NewInt(unit.Iotx), balanceDec)
+	return fmt.Sprintf("%s: %s.%s Iotx", address, balanceInt.String(), balanceDec.String())
 }

@@ -9,14 +9,13 @@ package action
 import (
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -33,19 +32,19 @@ var actionInvokeCmd = &cobra.Command{
 // invoke invokes smart contract on IoTeX blockchain
 func invoke(args []string) string {
 	contract := args[0]
-	amount := int64(0)
+	amount := big.NewInt(0)
 	var err error
 	if len(args) == 2 {
-		amount, err = strconv.ParseInt(args[1], 10, 64)
+		amount, err = util.StringToRau(args[1], util.IotxDecimalNum)
 		if err != nil {
-			log.L().Error("cannot convert "+args[1]+" into int64", zap.Error(err))
-			return err.Error()
-		}
-		if err := validator.ValidateAmount(amount); err != nil {
 			return err.Error()
 		}
 	}
 	executor, err := account.Address(signer)
+	if err != nil {
+		return err.Error()
+	}
+	gasPriceRau, err := util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	if err != nil {
 		return err.Error()
 	}
@@ -56,15 +55,15 @@ func invoke(args []string) string {
 		}
 		nonce = accountMeta.PendingNonce
 	}
-	tx, err := action.NewExecution(contract, nonce, big.NewInt(amount),
-		gasLimit, big.NewInt(gasPrice), bytecode)
+	tx, err := action.NewExecution(contract, nonce, amount,
+		gasLimit, gasPriceRau, bytecode)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return err.Error()
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
-		SetGasPrice(big.NewInt(gasPrice)).
+		SetGasPrice(gasPriceRau).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
 	return sendAction(elp)
