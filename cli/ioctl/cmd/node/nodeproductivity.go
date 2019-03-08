@@ -21,7 +21,7 @@ import (
 
 // nodeProductivityCmd represents the node productivity command
 var nodeProductivityCmd = &cobra.Command{
-	Use:   "productivity [delegate]",
+	Use:   "productivity [DELEGATE]",
 	Short: "get productivity of delegates",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

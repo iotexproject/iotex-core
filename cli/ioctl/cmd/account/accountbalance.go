@@ -17,7 +17,7 @@ import (
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   "balance name/address",
+	Use:   "balance (NAME|ADDRESS)",
 	Short: "Get balance of an account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -41,5 +41,5 @@ func balance(args []string) string {
 	}
 	balanceInt, balanceDec := big.NewInt(0), big.NewInt(0)
 	balanceInt.DivMod(balance, big.NewInt(unit.Iotx), balanceDec)
-	return fmt.Sprintf("%s: %s.%s Iotx", address, balanceInt.String(), balanceDec.String())
+	return fmt.Sprintf("%s: %s.%s IOTX", address, balanceInt.String(), balanceDec.String())
 }

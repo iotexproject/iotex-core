@@ -14,7 +14,7 @@ import (
 
 // accountNonceCmd represents the account balance command
 var accountNonceCmd = &cobra.Command{
-	Use:   "nonce name/address",
+	Use:   "nonce (NAME|ADDRESS)",
 	Short: "Get nonce of an account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
