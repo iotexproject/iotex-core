@@ -34,7 +34,7 @@ func transfer(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	amount, err := util.IotxStringToRau(args[1])
+	amount, err := util.StringToRau(args[1], util.IotxDecimalNum)
 	if err != nil {
 		return err.Error()
 	}
@@ -43,7 +43,7 @@ func transfer(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	gasPriceRau, err := util.GasPriceStringToRau(gasPrice)
+	gasPriceRau, err := util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	if err != nil {
 		return err.Error()
 	}

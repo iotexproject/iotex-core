@@ -44,7 +44,7 @@ func deploy() string {
 		nonce = accountMeta.PendingNonce
 
 	}
-	gasPriceRau, err := util.GasPriceStringToRau(gasPrice)
+	gasPriceRau, err := util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	if err != nil {
 		return err.Error()
 	}

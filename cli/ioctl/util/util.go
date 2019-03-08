@@ -35,56 +35,28 @@ func ConnectToEndpoint() (*grpc.ClientConn, error) {
 	return grpc.Dial(endpoint, grpc.WithInsecure())
 }
 
-// IotxStringToRau convert Iotx string into Rau big int
-func IotxStringToRau(amount string) (*big.Int, error) {
+// StringToRau convert different unit string into Rau big int
+func StringToRau(amount string, numDecimals int) (*big.Int, error) {
 	amountStrings := strings.Split(amount, ".")
-	if len(amountStrings) == 1 {
-		for i := 0; i < IotxDecimalNum; i++ {
-			amountStrings[0] += "0"
-		}
-		amountRau, ok := big.NewInt(0).SetString(amountStrings[0], 10)
-		if !ok {
+	if len(amountStrings) != 1 {
+		if len(amountStrings) > 2 || len(amountStrings[1]) > numDecimals {
 			return nil, fmt.Errorf("failed to convert string into big int")
 		}
-		return amountRau, nil
+		amountStrings[0] += amountStrings[1]
+		numDecimals -= len(amountStrings[1])
 	}
-	if len(amountStrings) > 2 || len(amountStrings[1]) > IotxDecimalNum {
+	if len(amountStrings[0]) == 0 {
 		return nil, fmt.Errorf("failed to convert string into big int")
 	}
-	amountStrings[0] += amountStrings[1]
-	for i := 0; i < IotxDecimalNum-len(amountStrings[1]); i++ {
+	for i := 0; i < numDecimals; i++ {
 		amountStrings[0] += "0"
 	}
 	amountRau, ok := big.NewInt(0).SetString(amountStrings[0], 10)
 	if !ok {
 		return nil, fmt.Errorf("failed to convert string into big int")
 	}
-	return amountRau, nil
-}
-
-// GasPriceStringToRau convert GasPrice string into Rau big int
-func GasPriceStringToRau(amount string) (*big.Int, error) {
-	amountStrings := strings.Split(amount, ".")
-	if len(amountStrings) == 1 {
-		for i := 0; i < GasPriceDecimalNum; i++ {
-			amountStrings[0] += "0"
-		}
-		amountRau, ok := big.NewInt(0).SetString(amountStrings[0], 10)
-		if !ok {
-			return nil, fmt.Errorf("failed to convert string into big int")
-		}
-		return amountRau, nil
-	}
-	if len(amountStrings) > 2 || len(amountStrings[1]) > GasPriceDecimalNum {
-		return nil, fmt.Errorf("failed to convert string into big int")
-	}
-	amountStrings[0] += amountStrings[1]
-	for i := 0; i < GasPriceDecimalNum-len(amountStrings[1]); i++ {
-		amountStrings[0] += "0"
-	}
-	amountRau, ok := big.NewInt(0).SetString(amountStrings[0], 10)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert string into big int")
+	if amountRau.Sign() < 0 {
+		return nil, fmt.Errorf("invalid number that is minus")
 	}
 	return amountRau, nil
 }
