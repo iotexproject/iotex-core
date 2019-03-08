@@ -22,7 +22,8 @@ jobs:
       - run: mkdir -p $GOPATH $GOPATH/src $GOPATH/pkg $GOPATH/bin
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
+      - run: pwd; cat $BASH_ENV
       - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
-      - run: go test -run=XXX -bench=. $(go list ./crypto)
-      - run: make minicluster
+      #- run: go test -run=XXX -bench=. $(go list ./crypto)
+      #- run: make minicluster
