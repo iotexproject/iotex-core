@@ -64,9 +64,6 @@ func main() {
 	admins := chainAddrs[len(chainAddrs)-numAdmins:]
 	delegates := chainAddrs[:len(chainAddrs)-numAdmins]
 
-	// path of config file containing all the transfers and self-nominations in genesis block
-	genesisConfigPath := "./tools/minicluster/testnet_actions.yaml"
-
 	// Set mini-cluster configurations
 	configs := make([]config.Config, numNodes)
 	for i := 0; i < numNodes; i++ {
@@ -74,7 +71,7 @@ func main() {
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
-		config := newConfig(genesisConfigPath, chainDBPath, trieDBPath, chainAddrs[i].PriKey,
+		config := newConfig(chainDBPath, trieDBPath, chainAddrs[i].PriKey,
 			networkPort, apiPort)
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
@@ -160,11 +157,23 @@ func main() {
 		}
 		contract := receipt.ContractAddress
 
+		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
+
 		wg := &sync.WaitGroup{}
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
 			contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, client, admins, delegates, d,
-			retryNum, retryInterval, resetInterval)
+			retryNum, retryInterval, resetInterval, &expectedBalancesMap)
 		wg.Wait()
+
+		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+			actionCleared := true
+			for i := 0; i < numNodes; i++ {
+				if apsize := svrs[i].ChainService(configs[i].Chain.ID).ActionPool().GetSize(); apsize != 0 {
+					actionCleared = false
+				}
+			}
+			return actionCleared, nil
+		})
 
 		chains := make([]blockchain.Blockchain, numNodes)
 		stateHeights := make([]uint64, numNodes)
@@ -211,11 +220,22 @@ func main() {
 			}
 		}
 
+		m := util.GetAllBalanceMap(client, chainAddrs)
+		for k, v := range m {
+			if len(expectedBalancesMap) != 0 && v.Cmp(expectedBalancesMap[k]) != 0 {
+				log.S().Error("Balance mismatch:")
+				log.S().Info("Account ", k)
+				log.S().Info("Real balance: ", v.String(), " Expected balance: ", expectedBalancesMap[k].String())
+				return
+			}
+		}
+
+		log.S().Info("Balance Check PASS")
+
 	}
 }
 
 func newConfig(
-	_,
 	chainDBPath,
 	trieDBPath string,
 	producerPriKey keypair.PrivateKey,
@@ -254,6 +274,5 @@ func newConfig(
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
-
 	return cfg
 }
