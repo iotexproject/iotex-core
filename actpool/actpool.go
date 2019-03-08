@@ -10,6 +10,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -26,8 +27,6 @@ import (
 type ActPool interface {
 	// Reset resets actpool state
 	Reset()
-	// PickActs returns all currently accepted actions in actpool
-	PickActs() []action.SealedEnvelope
 	// PendingActionMap returns an action map with all accepted actions
 	PendingActionMap() map[string][]action.SealedEnvelope
 	// Add adds an action into the pool after passing validation
@@ -57,6 +56,7 @@ type actPool struct {
 	allActions               map[hash.Hash256]action.SealedEnvelope
 	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
 	validators               []protocol.ActionValidator
+	timerFactory             *prometheustimer.TimerFactory
 }
 
 // NewActPool constructs a new actpool
@@ -70,6 +70,16 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		accountActs: make(map[string]ActQueue),
 		allActions:  make(map[hash.Hash256]action.SealedEnvelope),
 	}
+	timerFactory, err := prometheustimer.New(
+		"iotex_action_pool_perf",
+		"Performance of action pool",
+		[]string{"type"},
+		[]string{"default"},
+	)
+	if err != nil {
+		return nil, err
+	}
+	ap.timerFactory = timerFactory
 	return ap, nil
 }
 
@@ -94,54 +104,16 @@ func (ap *actPool) Reset() {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
 
-	// Remove confirmed actions in actpool
-	ap.removeConfirmedActs()
-	for from, queue := range ap.accountActs {
-		// Reset pending balance for each account
-		balance, err := ap.bc.Balance(from)
-		if err != nil {
-			log.L().Error("Error when resetting actpool state.", zap.Error(err))
-			return
-		}
-		queue.SetPendingBalance(balance)
-
-		// Reset pending nonce and remove invalid actions for each account
-		confirmedNonce, err := ap.bc.Nonce(from)
-		if err != nil {
-			log.L().Error("Error when resetting actpool state.", zap.Error(err))
-			return
-		}
-		pendingNonce := confirmedNonce + 1
-		queue.SetPendingNonce(pendingNonce)
-		ap.updateAccount(from)
-	}
-}
-
-// PickActs returns all currently accepted transfers and votes for all accounts
-func (ap *actPool) PickActs() []action.SealedEnvelope {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
-
-	numActs := uint64(0)
-	actions := make([]action.SealedEnvelope, 0)
-	for _, queue := range ap.accountActs {
-		for _, act := range queue.PendingActs() {
-			actions = append(actions, act)
-			numActs++
-			if ap.cfg.MaxNumActsToPick > 0 && numActs >= ap.cfg.MaxNumActsToPick {
-				log.L().Debug("Reach the max number of actions to pick.",
-					zap.Uint64("limit", ap.cfg.MaxNumActsToPick))
-				return actions
-			}
-		}
-	}
-	return actions
+	ap.reset()
 }
 
 // PendingActionIterator returns an action interator with all accepted actions
 func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+
+	// Remove the actions that are already timeout
+	ap.reset()
 
 	actionMap := make(map[string][]action.SealedEnvelope)
 	for from, queue := range ap.accountActs {
@@ -349,5 +321,32 @@ func (ap *actPool) updateAccount(sender string) {
 	// Delete the queue entry if it becomes empty
 	if queue.Empty() {
 		delete(ap.accountActs, sender)
+	}
+}
+
+func (ap *actPool) reset() {
+	timer := ap.timerFactory.NewTimer("reset")
+	defer timer.End()
+
+	// Remove confirmed actions in actpool
+	ap.removeConfirmedActs()
+	for from, queue := range ap.accountActs {
+		// Reset pending balance for each account
+		balance, err := ap.bc.Balance(from)
+		if err != nil {
+			log.L().Error("Error when resetting actpool state.", zap.Error(err))
+			return
+		}
+		queue.SetPendingBalance(balance)
+
+		// Reset pending nonce and remove invalid actions for each account
+		confirmedNonce, err := ap.bc.Nonce(from)
+		if err != nil {
+			log.L().Error("Error when resetting actpool state.", zap.Error(err))
+			return
+		}
+		pendingNonce := confirmedNonce + 1
+		queue.SetPendingNonce(pendingNonce)
+		ap.updateAccount(from)
 	}
 }

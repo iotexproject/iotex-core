@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
@@ -155,7 +154,7 @@ func CandidatesToMap(candidates CandidateList) (map[hash.Hash160]*Candidate, err
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get the hash of the address")
 		}
-		pkHash := byteutil.BytesTo20B(addr.Bytes())
+		pkHash := hash.BytesToHash160(addr.Bytes())
 		candidateMap[pkHash] = candidate
 	}
 	return candidateMap, nil

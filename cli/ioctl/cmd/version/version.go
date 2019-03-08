@@ -16,6 +16,7 @@ import (
 var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version number of ioctl",
+	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("v0.1")
 	},

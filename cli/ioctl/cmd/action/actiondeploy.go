@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// actionDeployCmd deploys smart contract on IoTeX blockchain
+// actionDeployCmd represents the action deploy command
 var actionDeployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy smart contract on IoTeX blockchain",
@@ -30,21 +30,25 @@ var actionDeployCmd = &cobra.Command{
 
 // deploy deploys smart contract on IoTeX blockchain
 func deploy() string {
-	executor, err := account.AliasToAddress(alias)
+	executor, err := account.Address(signer)
 	if err != nil {
 		return err.Error()
 	}
-	accountMeta, err := account.GetAccountMeta(executor)
-	if err != nil {
-		return err.Error()
+	if nonce == 0 {
+		accountMeta, err := account.GetAccountMeta(executor)
+		if err != nil {
+			return err.Error()
+		}
+		nonce = accountMeta.PendingNonce
+
 	}
-	tx, err := action.NewExecution("", accountMeta.PendingNonce, big.NewInt(0),
+	tx, err := action.NewExecution("", nonce, big.NewInt(0),
 		gasLimit, big.NewInt(gasPrice), bytecode)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 	}
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(accountMeta.PendingNonce).
+	elp := bd.SetNonce(nonce).
 		SetGasPrice(big.NewInt(gasPrice)).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()

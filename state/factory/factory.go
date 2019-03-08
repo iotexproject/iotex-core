@@ -321,7 +321,7 @@ func (sf *factory) State(addr hash.Hash160, state interface{}) error {
 //======================================
 
 func (sf *factory) rootHash() hash.Hash256 {
-	return byteutil.BytesTo32B(sf.accountTrie.RootHash())
+	return hash.BytesToHash256(sf.accountTrie.RootHash())
 }
 
 func (sf *factory) state(addr hash.Hash160, s interface{}) error {
@@ -344,7 +344,7 @@ func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}
-	pkHash := byteutil.BytesTo20B(addr.Bytes())
+	pkHash := hash.BytesToHash160(addr.Bytes())
 	var account state.Account
 	if err := sf.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {

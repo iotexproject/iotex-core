@@ -16,10 +16,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// actionInvokeCmd invokes smart contract on IoTeX blockchain
+// actionInvokeCmd represents the action invoke command
 var actionInvokeCmd = &cobra.Command{
 	Use:   "invoke contract [amount]",
 	Short: "Invoke smart contract on IoTeX blockchain",
@@ -40,23 +41,29 @@ func invoke(args []string) string {
 			log.L().Error("cannot convert "+args[1]+" into int64", zap.Error(err))
 			return err.Error()
 		}
+		if err := validator.ValidateAmount(amount); err != nil {
+			return err.Error()
+		}
 	}
-	executor, err := account.AliasToAddress(alias)
+	executor, err := account.Address(signer)
 	if err != nil {
 		return err.Error()
 	}
-	accountMeta, err := account.GetAccountMeta(executor)
-	if err != nil {
-		return err.Error()
+	if nonce == 0 {
+		accountMeta, err := account.GetAccountMeta(executor)
+		if err != nil {
+			return err.Error()
+		}
+		nonce = accountMeta.PendingNonce
 	}
-	tx, err := action.NewExecution(contract, accountMeta.PendingNonce, big.NewInt(amount),
+	tx, err := action.NewExecution(contract, nonce, big.NewInt(amount),
 		gasLimit, big.NewInt(gasPrice), bytecode)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return err.Error()
 	}
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(accountMeta.PendingNonce).
+	elp := bd.SetNonce(nonce).
 		SetGasPrice(big.NewInt(gasPrice)).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()

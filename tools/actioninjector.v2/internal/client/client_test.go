@@ -61,8 +61,8 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 
 	// test GetAccount()
-	responce, err := cli.GetAccount(ctx, a)
-	require.NotNil(responce)
+	response, err := cli.GetAccount(ctx, a)
+	require.NotNil(response)
 	require.NoError(err)
 
 	// test SendAction

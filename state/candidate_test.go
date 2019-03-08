@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -37,15 +36,15 @@ func TestCandidate(t *testing.T) {
 
 	cand1Addr, err := address.FromString(cand1.Address)
 	require.NoError(err)
-	cand1Hash := byteutil.BytesTo20B(cand1Addr.Bytes())
+	cand1Hash := hash.BytesToHash160(cand1Addr.Bytes())
 
 	cand2Addr, err := address.FromString(cand2.Address)
 	require.NoError(err)
-	cand2Hash := byteutil.BytesTo20B(cand2Addr.Bytes())
+	cand2Hash := hash.BytesToHash160(cand2Addr.Bytes())
 
 	cand3Addr, err := address.FromString(cand3.Address)
 	require.NoError(err)
-	cand3Hash := byteutil.BytesTo20B(cand3Addr.Bytes())
+	cand3Hash := hash.BytesToHash160(cand3Addr.Bytes())
 
 	candidateMap := make(map[hash.Hash160]*Candidate)
 	candidateMap[cand1Hash] = cand1

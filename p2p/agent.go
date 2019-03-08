@@ -29,6 +29,11 @@ import (
 	"github.com/iotexproject/iotex-core/protogen"
 )
 
+const (
+	successStr = "success"
+	failureStr = "failure"
+)
+
 var (
 	p2pMsgCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -119,9 +124,9 @@ func (p *Agent) Start(ctx context.Context) error {
 			if skip {
 				return
 			}
-			status := "success"
+			status := successStr
 			if err != nil {
-				status = "failure"
+				status = failureStr
 			}
 			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
 			p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
@@ -165,9 +170,9 @@ func (p *Agent) Start(ctx context.Context) error {
 			latency int64
 		)
 		defer func() {
-			status := "success"
+			status := successStr
 			if err != nil {
-				status = "failure"
+				status = failureStr
 			}
 			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
 			p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
@@ -275,9 +280,9 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	var msgType uint32
 	var msgBody []byte
 	defer func() {
-		status := "success"
+		status := successStr
 		if err != nil {
-			status = "failure"
+			status = failureStr
 		}
 		p2pMsgCounter.WithLabelValues(
 			"broadcast",
@@ -306,13 +311,13 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 	data, err := proto.Marshal(&broadcast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling broadcast message")
-		return
+		return err
 	}
 	if err = p.host.Broadcast(broadcastTopic, data); err != nil {
 		err = errors.Wrap(err, "error when sending broadcast message")
-		return
+		return err
 	}
-	return
+	return err
 }
 
 // UnicastOutbound sends a unicast message to the given address
@@ -320,9 +325,9 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 	var msgType uint32
 	var msgBody []byte
 	defer func() {
-		status := "success"
+		status := successStr
 		if err != nil {
-			status = "failure"
+			status = failureStr
 		}
 		p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
 	}()
@@ -345,13 +350,13 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 	data, err := proto.Marshal(&unicast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling unicast message")
-		return
+		return err
 	}
 	if err = p.host.Unicast(ctx, peer, unicastTopic, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
-		return
+		return err
 	}
-	return
+	return err
 }
 
 // Info returns agents' peer info.

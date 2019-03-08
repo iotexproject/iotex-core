@@ -12,11 +12,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TODO: use wallet config later
-
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   "balance address",
+	Use:   "balance name/address",
 	Short: "Get balance of an account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -24,9 +22,12 @@ var accountBalanceCmd = &cobra.Command{
 	},
 }
 
-// Balance gets balance of an IoTeX blockchain address
+// balance gets balance of an IoTeX blockchain address
 func balance(args []string) string {
-	address := args[0]
+	address, err := Address(args[0])
+	if err != nil {
+		return err.Error()
+	}
 	accountMeta, err := GetAccountMeta(address)
 	if err != nil {
 		return err.Error()

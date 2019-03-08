@@ -18,7 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -144,7 +144,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, raCtx.Producer)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err := accountutil.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Producer.Bytes()))
+		primAcc, err := accountutil.LoadAccount(ws, hash.BytesToHash160(raCtx.Producer.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), primAcc.Balance)
 
@@ -162,7 +162,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, raCtx.Producer)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(ws, byteutil.BytesTo20B(raCtx.Producer.Bytes()))
+		primAcc, err = accountutil.LoadAccount(ws, hash.BytesToHash160(raCtx.Producer.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), primAcc.Balance)
 
