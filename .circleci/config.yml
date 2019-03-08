@@ -1,15 +1,9 @@
-# Golang CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
-  build-and-test:
+  build:
     macos:
-      xcode: "9.0"
+      xcode: "10.0.0"
     working_directory: /go/src/github.com/iotexproject/iotex-core
-    environment:
-      FL_OUTPUT_DIR: output
-
     steps:
       - checkout
 
@@ -19,9 +13,3 @@ jobs:
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
-
-workflows:
-  version: 2
-  build-and-test:
-    jobs:
-      - build-and-test
