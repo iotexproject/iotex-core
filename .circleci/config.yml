@@ -3,7 +3,7 @@ jobs:
   build:
     macos:
       xcode: "10.0.0"
-    working_directory: /go/src/github.com/iotexproject/iotex-core
+    #working_directory: /go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
 
