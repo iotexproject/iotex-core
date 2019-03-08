@@ -41,5 +41,5 @@ func balance(args []string) string {
 	}
 	balanceInt, balanceDec := big.NewInt(0), big.NewInt(0)
 	balanceInt.DivMod(balance, big.NewInt(unit.Iotx), balanceDec)
-	return fmt.Sprintf("%s: %s.%s Iotx", address, balanceInt.String(), balanceDec.String())
+	return fmt.Sprintf("%s: %s.%s IOTX", address, balanceInt.String(), balanceDec.String())
 }
