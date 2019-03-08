@@ -350,7 +350,7 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 func (d *IotxDispatcher) enqueueEvent(event interface{}) {
 	go func() {
 		if len(d.eventChan) == cap(d.eventChan) {
-			log.L().Warn("dispatcher event chan is full, drop an event.")
+			log.L().Debug("dispatcher event chan is full, drop an event.")
 			return
 		}
 		d.eventChan <- event

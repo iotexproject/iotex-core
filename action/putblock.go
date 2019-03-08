@@ -70,7 +70,7 @@ func (pb *PutBlock) LoadProto(putBlockPb *iotextypes.PutBlock) error {
 
 	pb.roots = make(map[string]hash.Hash256)
 	for _, r := range putBlockPb.Roots {
-		pb.roots[r.Name] = byteutil.BytesTo32B(r.Value)
+		pb.roots[r.Name] = hash.BytesToHash256(r.Value)
 	}
 	return nil
 }

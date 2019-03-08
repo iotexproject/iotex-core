@@ -14,36 +14,39 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// configGetCmd represents the config get endpoint command
+// configGetCmd represents the config get command
 var configGetCmd = &cobra.Command{
-	Use:       "get name",
+	Use:       "get variable",
 	Short:     "Get config from ioctl",
 	ValidArgs: []string{"endpoint", "wallet"},
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("accepts 1 arg(s), received %d", len(args))
 		}
-		if err := cobra.OnlyValidArgs(cmd, args); err != nil {
-			return err
-		}
-		return nil
+		return cobra.OnlyValidArgs(cmd, args)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(Get(args[0]))
 	},
 }
 
-// configSetCmd represents the config set endpoint command
+// configSetCmd represents the config set command
 var configSetCmd = &cobra.Command{
-	Use:   "set name value",
-	Short: "Set config for ioctl",
-	Args:  cobra.ExactArgs(2),
+	Use:       "set variable value",
+	Short:     "Set config for ioctl",
+	ValidArgs: []string{"endpoint", "wallet"},
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) != 2 {
+			return fmt.Errorf("accepts 2 arg(s), received %d", len(args))
+		}
+		return cobra.OnlyValidArgs(cmd, args[:1])
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(set(args))
 	},
 }
 
-// Get gets the endpoint
+// Get gets config variable
 func Get(arg string) string {
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -56,12 +59,13 @@ func Get(arg string) string {
 		}
 		return cfg.Endpoint
 	case "wallet":
-		return cfg.Endpoint
+		return cfg.Wallet
 	default:
 		return ErrConfigNotMatch
 	}
 }
 
+// set sets config variable
 func set(args []string) string {
 	cfg, err := LoadConfig()
 	if err != nil {

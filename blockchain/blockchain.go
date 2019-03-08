@@ -719,7 +719,7 @@ func (bc *blockchain) MintNewBlock(
 	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
 	// could verify that they start from the same genesis
 	if newblockHeight == 1 {
-		prevBlkHash = bc.config.Genesis.Digest
+		prevBlkHash = bc.config.Genesis.Hash()
 	}
 	blk, err := block.NewBuilder(ra).
 		SetPrevBlockHash(prevBlkHash).
@@ -1009,7 +1009,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 	validateTimer := bc.timerFactory.NewTimer("validate")
 	prevBlkHash := bc.tipHash
 	if blk.Height() == 1 {
-		prevBlkHash = bc.config.Genesis.Digest
+		prevBlkHash = bc.config.Genesis.Hash()
 	}
 	err := bc.validator.Validate(blk, bc.tipHeight, prevBlkHash)
 	validateTimer.End()
@@ -1373,10 +1373,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	if err := bc.createPollGenesisStates(ctx, ws); err != nil {
 		return err
 	}
-	if err := bc.createRewardingGenesisStates(ctx, ws); err != nil {
-		return err
-	}
-	return nil
+	return bc.createRewardingGenesisStates(ctx, ws)
 }
 
 func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory.WorkingSet) error {

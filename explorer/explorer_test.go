@@ -40,7 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -807,7 +806,7 @@ func TestServiceSendAction(t *testing.T) {
 	require.NotNil(err)
 
 	roots := make(map[string]hash.Hash256)
-	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	roots["10002"] = hash.BytesToHash256([]byte("10002"))
 	pb := action.NewPutBlock(
 		1,
 		ta.Addrinfo["producer"].String(),
@@ -1133,7 +1132,7 @@ func TestService_GetDeposits(t *testing.T) {
 		},
 	))
 	require.NoError(ws.PutState(
-		byteutil.BytesTo20B(subChainAddr.Bytes()),
+		hash.BytesToHash160(subChainAddr.Bytes()),
 		&mainchain.SubChain{
 			DepositCount:   2,
 			OwnerPublicKey: ta.Keyinfo["producer"].PubKey,

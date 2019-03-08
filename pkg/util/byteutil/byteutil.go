@@ -8,7 +8,6 @@ package byteutil
 
 import (
 	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 // Uint32ToBytes converts a uint32 to 4 bytes with the machine endian
@@ -28,20 +27,6 @@ func Uint64ToBytes(value uint64) []byte {
 // BytesToUint64 converts 8 bytes with the machine endian to uint64
 func BytesToUint64(value []byte) uint64 {
 	return enc.MachineEndian.Uint64(value)
-}
-
-// BytesTo20B converts a byte slice to 20-Byte array
-func BytesTo20B(b []byte) hash.Hash160 {
-	var h hash.Hash160
-	copy(h[:], b)
-	return h
-}
-
-// BytesTo32B converts a byte slice to 32-Byte array
-func BytesTo32B(b []byte) hash.Hash256 {
-	var h hash.Hash256
-	copy(h[:], b)
-	return h
 }
 
 // Must is a helper wraps a call to a function returing ([]byte, error) and panics if the error is not nil.

@@ -50,6 +50,9 @@ service APIService {
 
   // read state from blockchain
   rpc ReadState(ReadStateRequest) returns (ReadStateResponse) {}
+
+  // get block producers' productivity metrics
+  rpc GetProductivity(GetProductivityRequest) returns (GetProductivityResponse) {}
 }
 
 message GetAccountRequest {
@@ -172,4 +175,13 @@ message ReadStateRequest {
 
 message ReadStateResponse {
   bytes data = 1;
+}
+
+message GetProductivityRequest {
+   uint64 epochNumber = 1;
+}
+
+message GetProductivityResponse {
+    uint64 totalBlks = 1;
+    map<string, uint64> blksPerDelegate = 2;
 }

@@ -120,6 +120,7 @@ func (v *validator) validateActionsOnly(
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
+		receivedNonces := receivedNonces
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
 		for i, nonce := range receivedNonces {
 			if nonce != confirmedNonce+uint64(i+1) {

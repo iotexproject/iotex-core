@@ -60,6 +60,11 @@ var (
 	)
 )
 
+const (
+	trueStr  = "ture"
+	falseStr = "false"
+)
+
 func init() {
 	prometheus.MustRegister(requestMtc)
 }
@@ -195,7 +200,7 @@ func (exp *Service) GetTransferByID(transferID string) (explorer.Transfer, error
 
 // GetTransfersByAddress returns all transfers associated with an address
 func (exp *Service) GetTransfersByAddress(address string, offset int64, limit int64) ([]explorer.Transfer, error) {
-	var res []explorer.Transfer
+	res := make([]explorer.Transfer, 0)
 	var transfers []hash.Hash256
 	if exp.cfg.UseIndexer {
 		transferHistory, err := exp.idx.Indexer().GetIndexHistory(config.IndexTransfer, address)
@@ -275,7 +280,7 @@ func (exp *Service) GetUnconfirmedTransfersByAddress(address string, offset int6
 
 // GetTransfersByBlockID returns transfers in a block
 func (exp *Service) GetTransfersByBlockID(blkID string, offset int64, limit int64) ([]explorer.Transfer, error) {
-	var res []explorer.Transfer
+	res := make([]explorer.Transfer, 0)
 	bytes, err := hex.DecodeString(blkID)
 
 	if err != nil {
@@ -376,7 +381,7 @@ func (exp *Service) GetVoteByID(voteID string) (explorer.Vote, error) {
 
 // GetVotesByAddress returns all votes associated with an address
 func (exp *Service) GetVotesByAddress(address string, offset int64, limit int64) ([]explorer.Vote, error) {
-	var res []explorer.Vote
+	res := make([]explorer.Vote, 0)
 	var votes []hash.Hash256
 	if exp.cfg.UseIndexer {
 		voteHistory, err := exp.idx.Indexer().GetIndexHistory(config.IndexVote, address)
@@ -456,7 +461,7 @@ func (exp *Service) GetUnconfirmedVotesByAddress(address string, offset int64, l
 
 // GetVotesByBlockID returns votes in a block
 func (exp *Service) GetVotesByBlockID(blkID string, offset int64, limit int64) ([]explorer.Vote, error) {
-	var res []explorer.Vote
+	res := make([]explorer.Vote, 0)
 	bytes, err := hex.DecodeString(blkID)
 	if err != nil {
 		return []explorer.Vote{}, err
@@ -559,7 +564,7 @@ func (exp *Service) GetExecutionByID(executionID string) (explorer.Execution, er
 
 // GetExecutionsByAddress returns all executions associated with an address
 func (exp *Service) GetExecutionsByAddress(address string, offset int64, limit int64) ([]explorer.Execution, error) {
-	var res []explorer.Execution
+	res := make([]explorer.Execution, 0)
 	var executions []hash.Hash256
 	if exp.cfg.UseIndexer {
 		executionHistory, err := exp.idx.Indexer().GetIndexHistory(config.IndexExecution, address)
@@ -637,7 +642,7 @@ func (exp *Service) GetUnconfirmedExecutionsByAddress(address string, offset int
 
 // GetExecutionsByBlockID returns executions in a block
 func (exp *Service) GetExecutionsByBlockID(blkID string, offset int64, limit int64) ([]explorer.Execution, error) {
-	var res []explorer.Execution
+	res := make([]explorer.Execution, 0)
 	bytes, err := hex.DecodeString(blkID)
 
 	if err != nil {
@@ -1051,9 +1056,9 @@ func (exp *Service) SendTransfer(tsfJSON explorer.SendTransferRequest) (resp exp
 	log.L().Debug("receive send transfer request")
 
 	defer func() {
-		succeed := "true"
+		succeed := trueStr
 		if err != nil {
-			succeed = "false"
+			succeed = falseStr
 		}
 		requestMtc.WithLabelValues("SendTransfer", succeed).Inc()
 	}()
@@ -1082,9 +1087,9 @@ func (exp *Service) SendVote(voteJSON explorer.SendVoteRequest) (resp explorer.S
 	log.L().Debug("receive send vote request")
 
 	defer func() {
-		succeed := "true"
+		succeed := trueStr
 		if err != nil {
-			succeed = "false"
+			succeed = falseStr
 		}
 		requestMtc.WithLabelValues("SendVote", succeed).Inc()
 	}()
@@ -1136,9 +1141,9 @@ func (exp *Service) PutSubChainBlock(putBlockJSON explorer.PutSubChainBlockReque
 	log.L().Debug("receive put block request")
 
 	defer func() {
-		succeed := "true"
+		succeed := trueStr
 		if err != nil {
-			succeed = "false"
+			succeed = falseStr
 		}
 		requestMtc.WithLabelValues("PutBlock", succeed).Inc()
 	}()
@@ -1204,9 +1209,9 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 	log.L().Debug("receive send action request")
 
 	defer func() {
-		succeed := "true"
+		succeed := trueStr
 		if err != nil {
-			succeed = "false"
+			succeed = falseStr
 		}
 		requestMtc.WithLabelValues("SendAction", succeed).Inc()
 	}()
@@ -1229,7 +1234,7 @@ func (exp *Service) SendAction(req explorer.SendActionRequest) (resp explorer.Se
 
 // GetPeers return a list of node peers and itself's network addsress info.
 func (exp *Service) GetPeers() (explorer.GetPeersResponse, error) {
-	var exppeers []explorer.Node
+	exppeers := make([]explorer.Node, 0)
 	ctx := context.Background()
 	peers, err := exp.neighborsHandler(ctx)
 	if err != nil {
@@ -1251,9 +1256,9 @@ func (exp *Service) SendSmartContract(execution explorer.Execution) (resp explor
 	log.L().Debug("receive send smart contract request")
 
 	defer func() {
-		succeed := "true"
+		succeed := trueStr
 		if err != nil {
-			succeed = "false"
+			succeed = falseStr
 		}
 		requestMtc.WithLabelValues("SendSmartContract", succeed).Inc()
 	}()
@@ -1366,9 +1371,9 @@ func (exp *Service) GetBlockOrActionByHash(hashStr string) (explorer.GetBlkOrAct
 // CreateDeposit deposits balance from main-chain to sub-chain
 func (exp *Service) CreateDeposit(req explorer.CreateDepositRequest) (res explorer.CreateDepositResponse, err error) {
 	defer func() {
-		succeed := "true"
+		succeed := trueStr
 		if err != nil {
-			succeed = "false"
+			succeed = falseStr
 		}
 		requestMtc.WithLabelValues("createDeposit", succeed).Inc()
 	}()
@@ -1477,9 +1482,9 @@ func (exp *Service) GetDeposits(subChainID int64, offset int64, limit int64) ([]
 // SettleDeposit settles deposit on sub-chain
 func (exp *Service) SettleDeposit(req explorer.SettleDepositRequest) (res explorer.SettleDepositResponse, err error) {
 	defer func() {
-		succeed := "true"
+		succeed := trueStr
 		if err != nil {
-			succeed = "false"
+			succeed = falseStr
 		}
 		requestMtc.WithLabelValues("settleDeposit", succeed).Inc()
 	}()

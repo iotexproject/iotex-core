@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -49,11 +48,11 @@ func TestBlockProofState(t *testing.T) {
 		Roots: []MerkleRoot{
 			{
 				Name:  "abc",
-				Value: byteutil.BytesTo32B([]byte("10002")),
+				Value: hash.BytesToHash256([]byte("10002")),
 			},
 			{
 				Name:  "abd",
-				Value: byteutil.BytesTo32B([]byte("1000d")),
+				Value: hash.BytesToHash256([]byte("1000d")),
 			},
 		},
 		ProducerPublicKey: testaddress.Keyinfo["producer"].PubKey,

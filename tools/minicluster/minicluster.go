@@ -168,8 +168,7 @@ func main() {
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 			actionCleared := true
 			for i := 0; i < numNodes; i++ {
-				acts := svrs[i].ChainService(configs[i].Chain.ID).ActionPool().PickActs()
-				if len(acts) != 0 {
+				if apsize := svrs[i].ChainService(configs[i].Chain.ID).ActionPool().GetSize(); apsize != 0 {
 					actionCleared = false
 				}
 			}
@@ -264,8 +263,6 @@ func newConfig(
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
-
-	cfg.ActPool.MaxNumActsToPick = 2000
 
 	cfg.System.HTTPMetricsPort = 0
 

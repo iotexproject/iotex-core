@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -73,7 +72,7 @@ func TestHandlePutBlock(t *testing.T) {
 	p := NewProtocol(chain)
 
 	roots := make(map[string]hash.Hash256)
-	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	roots["10002"] = hash.BytesToHash256([]byte("10002"))
 	pb := action.NewPutBlock(
 		1,
 		addr.String(),
@@ -108,7 +107,7 @@ func TestHandlePutBlock(t *testing.T) {
 	assert.Equal(t, bp.Roots[0].Value, roots["10002"])
 
 	// put new one
-	roots["10002"] = byteutil.BytesTo32B([]byte("10003"))
+	roots["10002"] = hash.BytesToHash256([]byte("10003"))
 	pb2 := action.NewPutBlock(
 		1,
 		addr.String(),

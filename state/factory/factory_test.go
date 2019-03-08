@@ -112,7 +112,7 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	addr := testaddress.Addrinfo["alfa"].String()
 	_, err := accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(5))
 	require.NoError(err)
-	sHash := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
+	sHash := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 
 	s, err := accountutil.LoadAccount(ws, sHash)
 	require.NoError(err)
@@ -131,7 +131,7 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	addr = testaddress.Addrinfo["bravo"].String()
 	_, err = accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(7))
 	require.NoError(err)
-	tHash := byteutil.BytesTo20B(testaddress.Addrinfo["bravo"].Bytes())
+	tHash := hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes())
 
 	s, err = accountutil.LoadAccount(ws, tHash)
 	require.NoError(err)
@@ -883,7 +883,7 @@ func testState(sf Factory, t *testing.T) {
 	var testAccount state.Account
 	accountA, err := sf.AccountState(a)
 	require.NoError(t, err)
-	sHash := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
+	sHash := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 	err = sf.State(sHash, &testAccount)
 	require.NoError(t, err)
 	require.Equal(t, accountA, &testAccount)
@@ -1264,7 +1264,7 @@ func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
 	}
 
 	// test PutState()
-	hashA := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
+	hashA := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 	accountA := state.EmptyAccount()
 	accountA.Balance = big.NewInt(70)
 	accountA.VotingWeight = big.NewInt(70)

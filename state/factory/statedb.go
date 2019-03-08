@@ -254,7 +254,7 @@ func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
 	if err != nil {
 		return nil, err
 	}
-	pkHash := byteutil.BytesTo20B(addr.Bytes())
+	pkHash := hash.BytesToHash160(addr.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "error when getting the pubkey hash")
 	}

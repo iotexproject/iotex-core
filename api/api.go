@@ -18,10 +18,14 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -33,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
@@ -126,11 +131,11 @@ func NewServer(
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
 	state, err := api.bc.StateByAddr(in.Address)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	pendingNonce, err := api.ap.GetPendingNonce(in.Address)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	accountMeta := &iotextypes.AccountMeta{
 		Address:      in.Address,
@@ -183,12 +188,12 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	tipHeight := api.bc.TipHeight()
 	totalActions, err := api.bc.GetTotalActions()
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	blockLimit := int64(api.cfg.TpsWindow)
 	if blockLimit <= 0 {
-		return nil, errors.Wrapf(ErrInternalServer, "block limit is %d", blockLimit)
+		return nil, status.Errorf(codes.Internal, "block limit is %d", blockLimit)
 	}
 
 	// avoid genesis block
@@ -197,20 +202,20 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	}
 	r, err := api.getBlockMetas(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	blks := r.BlkMetas
 
 	if len(blks) == 0 {
-		return nil, errors.New("get 0 blocks! not able to calculate aps")
+		return nil, status.Error(codes.NotFound, "get 0 blocks! not able to calculate aps")
 	}
 	p, ok := api.registry.Find(rolldpos.ProtocolID)
 	if !ok {
-		return nil, errors.New("rolldpos protocol is not registered")
+		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
 	}
 	rp, ok := p.(*rolldpos.Protocol)
 	if !ok {
-		return nil, errors.New("fail to cast rolldpos protocol")
+		return nil, status.Error(codes.Internal, "fail to cast rolldpos protocol")
 	}
 	epochNum := rp.GetEpochNum(tipHeight)
 	epochHeight := rp.GetEpochHeight(epochNum)
@@ -253,11 +258,11 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 func (api *Server) GetReceiptByAction(ctx context.Context, in *iotexapi.GetReceiptByActionRequest) (*iotexapi.GetReceiptByActionResponse, error) {
 	actHash, err := toHash256(in.ActionHash)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	receipt, err := api.bc.GetReceiptByActionHash(actHash)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	return &iotexapi.GetReceiptByActionResponse{Receipt: receipt.ConvertToReceiptPb()}, nil
@@ -269,30 +274,35 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 
 	selp := &action.SealedEnvelope{}
 	if err := selp.LoadProto(in.Action); err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	sc, ok := selp.Action().(*action.Execution)
 	if !ok {
-		return nil, errors.New("not execution")
+		return nil, status.Error(codes.InvalidArgument, "not an execution")
 	}
 
 	callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	res, err := api.bc.ExecuteContractRead(callerAddr, sc)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.ReadContractResponse{Data: hex.EncodeToString(res.ReturnValue)}, nil
+}
+
+// ReadState reads state on blockchain
+func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
+	return api.readState(ctx, in)
 }
 
 // SuggestGasPrice suggests gas price
 func (api *Server) SuggestGasPrice(ctx context.Context, in *iotexapi.SuggestGasPriceRequest) (*iotexapi.SuggestGasPriceResponse, error) {
 	suggestPrice, err := api.gs.SuggestGasPrice()
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.SuggestGasPriceResponse{GasPrice: suggestPrice}, nil
 }
@@ -301,9 +311,74 @@ func (api *Server) SuggestGasPrice(ctx context.Context, in *iotexapi.SuggestGasP
 func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.EstimateGasForActionRequest) (*iotexapi.EstimateGasForActionResponse, error) {
 	estimateGas, err := api.gs.EstimateGasForAction(in.Action)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
+}
+
+// GetProductivity gets block producers' productivity
+func (api *Server) GetProductivity(
+	ctx context.Context,
+	in *iotexapi.GetProductivityRequest,
+) (*iotexapi.GetProductivityResponse, error) {
+	if in.EpochNumber < 1 {
+		return nil, status.Error(codes.InvalidArgument, "epoch number cannot be less than one")
+	}
+	p, ok := api.registry.Find(rolldpos.ProtocolID)
+	if !ok {
+		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
+	}
+	rp, ok := p.(*rolldpos.Protocol)
+	if !ok {
+		return nil, status.Error(codes.Internal, "fail to cast rolldpos protocol")
+	}
+
+	var isCurrentEpoch bool
+	currentEpochNum := rp.GetEpochNum(api.bc.TipHeight())
+	if in.EpochNumber > currentEpochNum {
+		return nil, status.Error(codes.InvalidArgument, "epoch number is larger than current epoch number")
+	}
+	if in.EpochNumber == currentEpochNum {
+		isCurrentEpoch = true
+	}
+
+	epochStartHeight := rp.GetEpochHeight(in.EpochNumber)
+	var epochEndHeight uint64
+	if isCurrentEpoch {
+		epochEndHeight = api.bc.TipHeight()
+	} else {
+		epochEndHeight = rp.GetEpochLastBlockHeight(in.EpochNumber)
+	}
+	numBlks := epochEndHeight - epochStartHeight + 1
+
+	readStateRequest := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte(poll.ProtocolID),
+		MethodName: []byte("CommitteeBlockProducersByHeight"),
+		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochStartHeight)},
+	}
+	res, err := api.readState(ctx, readStateRequest)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	var committeeBlockProducers pollpb.BlockProducerList
+	if err := proto.Unmarshal(res.Data, &committeeBlockProducers); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	produce := make(map[string]uint64)
+	for _, bp := range committeeBlockProducers.BlockProducers {
+		produce[bp] = 0
+	}
+	getBlkMetasRes, err := api.getBlockMetas(epochStartHeight-1, numBlks)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	for _, blk := range getBlkMetasRes.BlkMetas {
+		produce[blk.ProducerAddress]++
+	}
+
+	return &iotexapi.GetProductivityResponse{TotalBlks: numBlks, BlksPerDelegate: produce}, nil
 }
 
 // Start starts the API server
@@ -331,6 +406,31 @@ func (api *Server) Stop() error {
 	return nil
 }
 
+func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
+	p, ok := api.registry.Find(string(in.ProtocolID))
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "protocol %s isn't registered", string(in.ProtocolID))
+	}
+	// TODO: need to complete the context
+	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
+		BlockHeight: api.bc.TipHeight(),
+		Registry:    api.registry,
+	})
+	ws, err := api.bc.GetFactory().NewWorkingSet()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	data, err := p.ReadState(ctx, ws, in.MethodName, in.Arguments...)
+	// TODO: need to distinguish user error and system error
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	out := iotexapi.ReadStateResponse{
+		Data: data,
+	}
+	return &out, nil
+}
+
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	var res []*iotextypes.Action
@@ -340,7 +440,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	for height := 1; height <= int(tipHeight); height++ {
 		blk, err := api.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		selps := blk.Actions
 		for i := 0; i < len(selps); i++ {
@@ -364,11 +464,11 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 func (api *Server) getAction(actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
 	actHash, err := toHash256(actionHash)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	actPb, err := getAction(api.bc, api.ap, actHash, checkPending)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 	return &iotexapi.GetActionsResponse{Actions: []*iotextypes.Action{actPb}}, nil
 }
@@ -380,18 +480,18 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 	if api.cfg.UseRDS {
 		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		actions = append(actions, actionHistory...)
 	} else {
 		actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 
 		actionsToAddress, err := api.bc.GetActionsToAddress(address)
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 
 		actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
@@ -412,7 +512,7 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 		actPb, err := getAction(api.bc, api.ap, actions[i], false)
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 
 		res = append(res, actPb)
@@ -449,12 +549,12 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	var res []*iotextypes.Action
 	hash, err := toHash256(blkHash)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	blk, err := api.bc.GetBlockByHash(hash)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	selps := blk.Actions
@@ -493,7 +593,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 
 		blk, err := api.bc.GetBlockByHeight(uint64(height))
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		blockHeaderPb := blk.ConvertToBlockHeaderPb()
 
@@ -525,12 +625,12 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse, error) {
 	hash, err := toHash256(blkHash)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	blk, err := api.bc.GetBlockByHash(hash)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	blkHeaderPb := blk.ConvertToBlockHeaderPb()
@@ -552,32 +652,6 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	}
 
 	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iotextypes.BlockMeta{blockMeta}}, nil
-}
-
-// ReadState reads state on blockchain
-func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
-	p, ok := api.registry.Find(string(in.ProtocolID))
-	if !ok {
-		return nil, errors.Errorf("protocol %s isn't registered", string(in.ProtocolID))
-	}
-	// TODO: need to complete the context
-	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
-		BlockHeight: api.bc.TipHeight(),
-		Registry:    api.registry,
-	})
-	ws, err := api.bc.GetFactory().NewWorkingSet()
-	if err != nil {
-		return nil, err
-	}
-	data, err := p.ReadState(ctx, ws, in.MethodName, in.Arguments...)
-	// TODO: need to distinguish user error and system error
-	if err != nil {
-		return nil, err
-	}
-	out := iotexapi.ReadStateResponse{
-		Data: data,
-	}
-	return &out, nil
 }
 
 func toHash256(hashString string) (hash.Hash256, error) {

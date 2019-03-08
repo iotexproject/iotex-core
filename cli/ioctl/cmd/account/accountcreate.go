@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-var numAccounts int
+var numAccounts uint
 
 // accountCreateCmd represents the account create command
 var accountCreateCmd = &cobra.Command{
@@ -31,12 +31,12 @@ var accountCreateCmd = &cobra.Command{
 }
 
 func init() {
-	accountCreateCmd.Flags().IntVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
+	accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
 }
 
 func accountCreate(_ []string) string {
 	items := make([]string, numAccounts)
-	for i := 0; i < numAccounts; i++ {
+	for i := 0; i < int(numAccounts); i++ {
 		private, err := keypair.GenerateKey()
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))

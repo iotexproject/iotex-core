@@ -404,19 +404,19 @@ func TestStateTransitions(t *testing.T) {
 	})
 	t.Run("calibrate", func(t *testing.T) {
 		mockCtx.EXPECT().Height().Return(uint64(2)).Times(2)
-		state, err := cfsm.calibrate(nil)
+		_, err := cfsm.calibrate(nil)
 		require.Error(err)
-		state, err = cfsm.calibrate(&ConsensusEvent{
+		_, err = cfsm.calibrate(&ConsensusEvent{
 			eventType: eCalibrate,
 			data:      nil,
 		})
 		require.Error(err)
-		state, err = cfsm.calibrate(&ConsensusEvent{
+		_, err = cfsm.calibrate(&ConsensusEvent{
 			eventType: eCalibrate,
 			data:      uint64(1),
 		})
 		require.Error(err)
-		state, err = cfsm.calibrate(&ConsensusEvent{
+		state, err := cfsm.calibrate(&ConsensusEvent{
 			eventType: eCalibrate,
 			data:      uint64(2),
 		})

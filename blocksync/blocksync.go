@@ -85,13 +85,13 @@ func NewBlockSyncer(
 	cs consensus.Consensus,
 	opts ...Option,
 ) (BlockSync, error) {
-	bufSize := cfg.BlockSync.BufferSize
 	buf := &blockBuffer{
-		blocks: make(map[uint64]*block.Block),
-		bc:     chain,
-		ap:     ap,
-		cs:     cs,
-		size:   bufSize,
+		blocks:       make(map[uint64]*block.Block),
+		bc:           chain,
+		ap:           ap,
+		cs:           cs,
+		bufferSize:   cfg.BlockSync.BufferSize,
+		intervalSize: cfg.BlockSync.IntervalSize,
 	}
 	bsCfg := Config{}
 	for _, opt := range opts {
