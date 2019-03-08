@@ -17,7 +17,7 @@ import (
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   "balance name/address",
+	Use:   "balance (NAME|ADDRESS)",
 	Short: "Get balance of an account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
