@@ -7,5 +7,6 @@ jobs:
     steps:
       - checkout
 
-      - run: brew update
+      #- run: brew update
       - run: brew install golang
+      - run: - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
