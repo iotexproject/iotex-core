@@ -14,18 +14,17 @@ jobs:
           name: update PATH
           #GOROOT="/usr/local/Cellar/go/1.12/libexec"
           command: |
-            echo $BASH_ENV
-            echo 'export GOPATH=~/go' >> $BASH_ENV
-            echo 'export GOROOT="$(brew --prefix golang)/libexec"' >> $BASH_ENV 
-            echo 'export PATH=$PATH:$GOPATH/bin' >> $BASH_ENV
-            echo 'export PATH=$PATH:$GOROOT/bin' >> $BASH_ENV
-            source $BASH_ENV
+            export GOPATH=~/go
+            export GOROOT="$(brew --prefix golang)/libexec"
+            export PATH=$PATH:$GOPATH/bin
+            export PATH=$PATH:$GOROOT/bin
+           
 
-      - run: mkdir -p $GOPATH $GOPATH/src $GOPATH/pkg $GOPATH/bin
+      #- run: mkdir -p $GOPATH $GOPATH/src $GOPATH/pkg $GOPATH/bin
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
-      - run: go env; cat $BASH_ENV
-      - run: ./go.test.sh
+      - run: go env
+      - run: sh -x go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
