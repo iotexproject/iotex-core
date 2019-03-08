@@ -47,6 +47,8 @@ var _outputFile string
 
 func init() {
 	createConfigCmd.Flags().StringVarP(&_outputFile, "output-file", "o", "", "config output file")
-	createConfigCmd.MarkFlagRequired("output-file")
+	if err := createConfigCmd.MarkFlagRequired("output-file"); err != nil {
+		log.L().Fatal(err.Error())
+	}
 	rootCmd.AddCommand(createConfigCmd)
 }
