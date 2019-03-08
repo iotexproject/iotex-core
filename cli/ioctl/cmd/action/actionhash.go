@@ -25,7 +25,7 @@ import (
 
 // actionHashCmd represents the action hash command
 var actionHashCmd = &cobra.Command{
-	Use:   "hash actionhash",
+	Use:   "hash ACTION_HASH",
 	Short: "Get action by hash",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

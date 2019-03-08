@@ -94,8 +94,23 @@ func sendAction(elp action.Envelope) string {
 		SenderPubKey: pubKey.Bytes(),
 		Signature:    sig,
 	}
-	request := &iotexapi.SendActionRequest{Action: selp}
 
+	var confirm string
+	actionInfo, err := printActionProto(selp)
+	if err != nil {
+		return err.Error()
+	}
+
+	fmt.Println("\n" + actionInfo + "\n" +
+		"Please confirm your action.\n" +
+		"Type 'YES' to continue, quit for anything else.")
+	fmt.Scanf("%s", &confirm)
+	if confirm != "YES" && confirm != "yes" {
+		return "Quit"
+	}
+	fmt.Println()
+
+	request := &iotexapi.SendActionRequest{Action: selp}
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()

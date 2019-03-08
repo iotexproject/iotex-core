@@ -25,7 +25,7 @@ import (
 
 // accountDeleteCmd represents the account delete command
 var accountDeleteCmd = &cobra.Command{
-	Use:   "delete name/address",
+	Use:   "delete (NAME|ADDRESS)",
 	Short: "delete an IoTeX keypair from wallet",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
