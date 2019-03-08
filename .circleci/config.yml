@@ -3,11 +3,28 @@ jobs:
   build:
     macos:
       xcode: "10.0.0"
-    working_directory: ~/go/src/github.com/iotexproject/iotex-core
+    working_directory: /go/src/github.com/iotexproject/iotex-core
 
     steps:
       - checkout
 
       - run: brew install golang
 
-      - run: go env
+      - run:
+          name: update PATH
+          #GOROOT="/usr/local/Cellar/go/1.12/libexec"
+          command: |
+            echo 'export GOROOT=~/go' >> $BASH_ENV
+            echo 'export GOROOT="$(brew --prefix golang)/libexec"' >> $BASH_ENV 
+            echo 'export PATH=$PATH:$GOPATH/bin' >> $BASH_ENV
+            echo 'export PATH=$PATH:$GOROOT/bin' >> $BASH_ENV
+            source $BASH_ENV
+
+      - run: mkdir -p $GOPATH $GOPATH/src $GOPATH/pkg $GOPATH/bin
+      # specify any bash command here prefixed with `run: `
+      #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
+      - run: go env; cat $BASH_ENV
+      - run: ./go.test.sh
+      - run: bash <(curl -s https://codecov.io/bash)
+      - run: go test -run=XXX -bench=. $(go list ./crypto)
+      - run: make minicluster
