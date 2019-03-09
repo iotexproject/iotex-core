@@ -88,6 +88,7 @@ var (
 			EnableTrielessStateDB:   true,
 			EnableIndex:             false,
 			EnableAsyncIndexWrite:   false,
+			CompressBlock:           false,
 			AllowedBlockGasResidue:  10000,
 		},
 		ActPool: ActPool{
@@ -208,10 +209,12 @@ type (
 
 		EnableFallBackToFreshDB bool `yaml:"enableFallbackToFreshDb"`
 		EnableTrielessStateDB   bool `yaml:"enableTrielessStateDB"`
-		// enable index the block actions and receipts
+		// EnableIndex enables index the block actions and receipts
 		EnableIndex bool `yaml:"enableIndex"`
-		// enable writing the block actions' and receipts' index asynchronously
+		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
+		// CompressBlock enables gzip compression on block data
+		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
 	}
