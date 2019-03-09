@@ -173,7 +173,7 @@ func ExecuteContract(
 	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
-	return receipt, err
+	return receipt, nil
 }
 
 func getChainConfig() *params.ChainConfig {
