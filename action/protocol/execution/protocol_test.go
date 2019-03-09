@@ -660,11 +660,9 @@ func TestProtocol_Handle(t *testing.T) {
 
 		log.S().Info("======= Transfer to alfa")
 		data, _ = hex.DecodeString("a9059cbb")
-		alfa := hash.ZeroHash256
 		addr, _ := address.FromString(testaddress.Addrinfo["alfa"].String())
 		to := addr.Bytes()
-
-		alfa.SetBytes(to)
+		alfa := hash.BytesToHash256(to)
 		value := hash.ZeroHash256
 		// send 10000 token to Alfa
 		h = value[24:]
@@ -684,10 +682,9 @@ func TestProtocol_Handle(t *testing.T) {
 
 		// send 20000 token to bravo
 		data, _ = hex.DecodeString("a9059cbb")
-		bravo := hash.ZeroHash256
 		addr, _ = address.FromString(testaddress.Addrinfo["bravo"].String())
 		to = addr.Bytes()
-		bravo.SetBytes(to)
+		bravo := hash.BytesToHash256(to)
 		value = hash.ZeroHash256
 		h = value[24:]
 		binary.BigEndian.PutUint64(h, 20000)
@@ -844,9 +841,8 @@ func TestERC20(t *testing.T) {
 		executions: []execCfg{
 			func() execCfg {
 				data, _ := hex.DecodeString("a9059cbb")
-				alfa := hash.ZeroHash256
 				to := testaddress.Addrinfo["alfa"].Bytes()
-				alfa.SetBytes(to)
+				alfa := hash.BytesToHash256(to)
 				value := hash.ZeroHash256
 				// send 10000 token to Alfa
 				h := value[24:]
@@ -866,9 +862,8 @@ func TestERC20(t *testing.T) {
 			}(),
 			func() execCfg {
 				data, _ := hex.DecodeString("a9059cbb")
-				bravo := hash.ZeroHash256
 				to := testaddress.Addrinfo["bravo"].Bytes()
-				bravo.SetBytes(to)
+				bravo := hash.BytesToHash256(to)
 				value := hash.ZeroHash256
 				h := value[24:]
 				binary.BigEndian.PutUint64(h, 20000)
@@ -887,9 +882,8 @@ func TestERC20(t *testing.T) {
 			}(),
 			func() execCfg {
 				data, _ := hex.DecodeString("a9059cbb")
-				bravo := hash.ZeroHash256
 				to := testaddress.Addrinfo["bravo"].Bytes()
-				bravo.SetBytes(to)
+				bravo := hash.BytesToHash256(to)
 				value := hash.ZeroHash256
 				h := value[24:]
 				binary.BigEndian.PutUint64(h, 2000)
@@ -908,9 +902,8 @@ func TestERC20(t *testing.T) {
 			}(),
 			func() execCfg {
 				data, _ := hex.DecodeString("70a08231")
-				alfa := hash.ZeroHash256
 				to := testaddress.Addrinfo["alfa"].Bytes()
-				alfa.SetBytes(to)
+				alfa := hash.BytesToHash256(to)
 				data = append(data, alfa[:]...)
 				retval, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000001f40")
 				return execCfg{

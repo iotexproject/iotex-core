@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -67,7 +66,7 @@ func TestAddSubChainActions(t *testing.T) {
 	require.NoError(t, ap.Add(selp))
 
 	roots := make(map[string]hash.Hash256)
-	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	roots["10002"] = hash.BytesToHash256([]byte("10002"))
 	putBlock := action.NewPutBlock(
 		2,
 		testaddress.Addrinfo["producer"].String(),

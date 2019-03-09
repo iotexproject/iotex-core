@@ -16,12 +16,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -145,12 +143,4 @@ func (p *Protocol) mutateDeposit(ctx context.Context, deposit *action.SettleDepo
 
 func depositAddress(index uint64) hash.Hash160 {
 	return hash.Hash160b([]byte(fmt.Sprintf("depositToSubChain.%d", index)))
-}
-
-func srcAddressPKHash(srcAddr string) (hash.Hash160, error) {
-	addr, err := address.FromString(srcAddr)
-	if err != nil {
-		return hash.ZeroHash160, err
-	}
-	return byteutil.BytesTo20B(addr.Bytes()), nil
 }

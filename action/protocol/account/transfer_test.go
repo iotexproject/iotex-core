@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
@@ -52,10 +52,10 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	account3 := state.Account{
 		VotingWeight: big.NewInt(5),
 	}
-	pubKeyHash1 := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
-	pubKeyHash2 := byteutil.BytesTo20B(testaddress.Addrinfo["bravo"].Bytes())
-	pubKeyHash3 := byteutil.BytesTo20B(testaddress.Addrinfo["charlie"].Bytes())
-	pubKeyHash4 := byteutil.BytesTo20B(testaddress.Addrinfo["delta"].Bytes())
+	pubKeyHash1 := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
+	pubKeyHash2 := hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes())
+	pubKeyHash3 := hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes())
+	pubKeyHash4 := hash.BytesToHash160(testaddress.Addrinfo["delta"].Bytes())
 
 	require.NoError(ws.PutState(pubKeyHash1, &account1))
 	require.NoError(ws.PutState(pubKeyHash2, &account2))

@@ -318,9 +318,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 				func(height uint64) uint64 {
 					return rolldposProtocol.GetEpochHeight(rolldposProtocol.GetEpochNum(height))
 				},
-				func(height uint64) uint64 {
-					return rolldposProtocol.GetEpochNum(height)
-				},
+				rolldposProtocol.GetEpochNum,
 				genesisConfig.NumCandidateDelegates,
 				genesisConfig.NumDelegates,
 			); err != nil {
