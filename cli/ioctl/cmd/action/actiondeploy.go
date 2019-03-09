@@ -15,6 +15,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -42,14 +44,21 @@ func deploy() string {
 		nonce = accountMeta.PendingNonce
 
 	}
+	gasPriceRau, err := util.StringToRau(gasPrice, util.GasPriceDecimalNum)
+	if err != nil {
+		return err.Error()
+	}
+	if err := validator.ValidateAmount(gasPriceRau.Int64()); err != nil {
+		return err.Error()
+	}
 	tx, err := action.NewExecution("", nonce, big.NewInt(0),
-		gasLimit, big.NewInt(gasPrice), bytecode)
+		gasLimit, gasPriceRau, bytecode)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
-		SetGasPrice(big.NewInt(gasPrice)).
+		SetGasPrice(gasPriceRau).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
 	return sendAction(elp)

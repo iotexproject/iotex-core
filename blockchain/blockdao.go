@@ -9,6 +9,10 @@ package blockchain
 import (
 	"context"
 
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+
+	"github.com/iotexproject/iotex-core/pkg/compress"
+
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 
@@ -70,17 +74,30 @@ var (
 var _ lifecycle.StartStopper = (*blockDAO)(nil)
 
 type blockDAO struct {
-	writeIndex bool
-	kvstore    db.KVStore
-	lifecycle  lifecycle.Lifecycle
+	writeIndex    bool
+	compressBlock bool
+	kvstore       db.KVStore
+	timerFactory  *prometheustimer.TimerFactory
+	lifecycle     lifecycle.Lifecycle
 }
 
 // newBlockDAO instantiates a block DAO
-func newBlockDAO(kvstore db.KVStore, writeIndex bool) *blockDAO {
+func newBlockDAO(kvstore db.KVStore, writeIndex bool, compressBlock bool) *blockDAO {
 	blockDAO := &blockDAO{
-		writeIndex: writeIndex,
-		kvstore:    kvstore,
+		writeIndex:    writeIndex,
+		compressBlock: compressBlock,
+		kvstore:       kvstore,
 	}
+	timerFactory, err := prometheustimer.New(
+		"iotex_block_dao_perf",
+		"Performance of block DAO",
+		[]string{"type"},
+		[]string{"default"},
+	)
+	if err != nil {
+		return nil
+	}
+	blockDAO.timerFactory = timerFactory
 	blockDAO.lifecycle.Add(kvstore)
 	return blockDAO
 }
@@ -177,6 +194,14 @@ func (dao *blockDAO) getBlock(hash hash.Hash256) (*block.Block, error) {
 	value, err := dao.kvstore.Get(blockNS, hash[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block %x", hash)
+	}
+	if dao.compressBlock {
+		timer := dao.timerFactory.NewTimer("decompress")
+		value, err = compress.Decompress(value)
+		timer.End()
+		if err != nil {
+			return nil, errors.Wrapf(err, "error when decompressing a block")
+		}
 	}
 	if len(value) == 0 {
 		return nil, errors.Wrapf(db.ErrNotExist, "block %x missing", hash)
@@ -287,6 +312,14 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 		return errors.Wrap(err, "failed to serialize block")
 	}
 	hash := blk.HashBlock()
+	if dao.compressBlock {
+		timer := dao.timerFactory.NewTimer("compress")
+		serialized, err = compress.Compress(serialized)
+		timer.End()
+		if err != nil {
+			return errors.Wrapf(err, "error when compressing a block")
+		}
+	}
 	batch.Put(blockNS, hash[:], serialized, "failed to put block")
 
 	hashKey := append(hashPrefix, hash[:]...)

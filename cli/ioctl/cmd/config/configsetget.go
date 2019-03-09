@@ -16,7 +16,7 @@ import (
 
 // configGetCmd represents the config get command
 var configGetCmd = &cobra.Command{
-	Use:       "get variable",
+	Use:       "get VARIABLE",
 	Short:     "Get config from ioctl",
 	ValidArgs: []string{"endpoint", "wallet"},
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -32,7 +32,7 @@ var configGetCmd = &cobra.Command{
 
 // configSetCmd represents the config set command
 var configSetCmd = &cobra.Command{
-	Use:       "set variable value",
+	Use:       "set VARIABLE VALUE",
 	Short:     "Set config for ioctl",
 	ValidArgs: []string{"endpoint", "wallet"},
 	Args: func(cmd *cobra.Command, args []string) error {

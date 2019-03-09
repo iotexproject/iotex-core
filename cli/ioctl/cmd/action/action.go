@@ -32,7 +32,7 @@ import (
 var (
 	alias    string
 	gasLimit uint64
-	gasPrice int64
+	gasPrice string
 	nonce    uint64
 	signer   string
 	bytecode []byte
@@ -56,7 +56,8 @@ func init() {
 func setActionFlags(cmds ...*cobra.Command) {
 	for _, cmd := range cmds {
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
-		cmd.Flags().Int64VarP(&gasPrice, "gas-price", "p", 0, "set gas prize")
+		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "",
+			"set gas price (unit: 10^(-6)Iotx)")
 		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing key")
 		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
 		cmd.MarkFlagRequired("gas-limit")
@@ -93,8 +94,23 @@ func sendAction(elp action.Envelope) string {
 		SenderPubKey: pubKey.Bytes(),
 		Signature:    sig,
 	}
-	request := &iotexapi.SendActionRequest{Action: selp}
 
+	var confirm string
+	actionInfo, err := printActionProto(selp)
+	if err != nil {
+		return err.Error()
+	}
+
+	fmt.Println("\n" + actionInfo + "\n" +
+		"Please confirm your action.\n" +
+		"Type 'YES' to continue, quit for anything else.")
+	fmt.Scanf("%s", &confirm)
+	if confirm != "YES" && confirm != "yes" {
+		return "Quit"
+	}
+	fmt.Println()
+
+	request := &iotexapi.SendActionRequest{Action: selp}
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
