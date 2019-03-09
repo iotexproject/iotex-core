@@ -188,7 +188,7 @@ func (dao *blockDAO) getTotalActions() (uint64, error) {
 
 // getReceiptByActionHash returns the receipt by execution hash
 func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	heightBytes, err := dao.kvstore.Get(blockActionReceiptMappingNS, h[:])
+	heightBytes, err := dao.kvstore.Get(blockActionReceiptMappingNS, h[12:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipt index for action %x", h)
 	}
@@ -272,7 +272,7 @@ func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 		}
 		batch.Put(
 			blockActionReceiptMappingNS,
-			r.ActHash[:],
+			r.ActHash[12:],
 			heightBytes[:],
 			"Failed to put receipt index for action %x",
 			r.ActHash[:],
@@ -341,7 +341,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 	// Delete action hash -> block hash mapping
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
-		batch.Delete(blockActionBlockMappingNS, actHash[:], "failed to delete actions f")
+		batch.Delete(blockActionBlockMappingNS, actHash[12:], "failed to delete actions f")
 	}
 
 	if err = deleteActions(dao, blk, batch); err != nil {
@@ -358,7 +358,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 // deleteReceipts deletes receipt information from db
 func deleteReceipts(blk *block.Block, batch db.KVStoreBatch) error {
 	for _, r := range blk.Receipts {
-		batch.Delete(blockActionReceiptMappingNS, r.ActHash[:], "failed to delete receipt for action %x", r.ActHash[:])
+		batch.Delete(blockActionReceiptMappingNS, r.ActHash[12:], "failed to delete receipt for action %x", r.ActHash[:])
 	}
 	return nil
 }
@@ -366,16 +366,18 @@ func deleteReceipts(blk *block.Block, batch db.KVStoreBatch) error {
 // deleteActions deletes action information from db
 func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error {
 	// Firt get the total count of actions by sender and recipient respectively in the block
-	senderCount := make(map[string]uint64)
-	recipientCount := make(map[string]uint64)
+	senderCount := make(map[hash.Hash160]uint64)
+	recipientCount := make(map[hash.Hash160]uint64)
 	for _, selp := range blk.Actions {
-		callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-		if err != nil {
-			return err
-		}
-		senderCount[callerAddr.String()]++
-		if dst, ok := selp.Destination(); ok {
-			recipientCount[dst]++
+		callerAddrBytes := hash.BytesToHash160(selp.SrcPubkey().Hash())
+		senderCount[callerAddrBytes]++
+		if dst, ok := selp.Destination(); ok && dst != "" {
+			dstAddr, err := address.FromString(dst)
+			if err != nil {
+				return err
+			}
+			dstAddrBytes := hash.BytesToHash160(dstAddr.Bytes())
+			recipientCount[dstAddrBytes]++
 		}
 	}
 	// Roll back the status of address -> actionCount mapping to the preivous block
@@ -384,7 +386,7 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 		if err != nil {
 			return errors.Wrapf(err, "for sender %x", sender)
 		}
-		senderActionCountKey := append(actionFromPrefix, sender...)
+		senderActionCountKey := append(actionFromPrefix, sender[:]...)
 		senderCount[sender] = senderActionCount - count
 		batch.Put(blockAddressActionCountMappingNS, senderActionCountKey, byteutil.Uint64ToBytes(senderCount[sender]),
 			"failed to update action count for sender %x", sender)
@@ -394,7 +396,7 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 		if err != nil {
 			return errors.Wrapf(err, "for recipient %x", recipient)
 		}
-		recipientActionCountKey := append(actionToPrefix, recipient...)
+		recipientActionCountKey := append(actionToPrefix, recipient[:]...)
 		recipientCount[recipient] = recipientActionCount - count
 		batch.Put(blockAddressActionCountMappingNS, recipientActionCountKey,
 			byteutil.Uint64ToBytes(recipientCount[recipient]), "failed to update action count for recipient %x",
@@ -402,46 +404,47 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 
 	}
 
-	senderDelta := map[string]uint64{}
-	recipientDelta := map[string]uint64{}
+	senderDelta := map[hash.Hash160]uint64{}
+	recipientDelta := map[hash.Hash160]uint64{}
 
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
-		callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-		callerAddrStr := callerAddr.String()
-		if err != nil {
-			return err
-		}
+		callerAddrBytes := hash.BytesToHash160(selp.SrcPubkey().Hash())
 
-		if delta, ok := senderDelta[callerAddrStr]; ok {
-			senderCount[callerAddrStr] += delta
-			senderDelta[callerAddrStr]++
+		if delta, ok := senderDelta[callerAddrBytes]; ok {
+			senderCount[callerAddrBytes] += delta
+			senderDelta[callerAddrBytes]++
 		} else {
-			senderDelta[callerAddrStr] = 1
+			senderDelta[callerAddrBytes] = 1
 		}
 
 		// Delete new action from sender
-		senderKey := append(actionFromPrefix, callerAddrStr...)
-		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[callerAddrStr])...)
+		senderKey := append(actionFromPrefix, callerAddrBytes[:]...)
+		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderCount[callerAddrBytes])...)
 		batch.Delete(blockAddressActionMappingNS, senderKey, "failed to delete action hash %x for sender %x",
-			actHash, callerAddrStr)
+			actHash, callerAddrBytes)
 
 		dst, ok := selp.Destination()
-		if !ok {
+		if !ok || dst == "" {
 			continue
 		}
-		if delta, ok := recipientDelta[dst]; ok {
-			recipientCount[dst] += delta
-			recipientDelta[dst]++
+		dstAddr, err := address.FromString(dst)
+		if err != nil {
+			return err
+		}
+		dstAddrBytes := hash.BytesToHash160(dstAddr.Bytes())
+		if delta, ok := recipientDelta[dstAddrBytes]; ok {
+			recipientCount[dstAddrBytes] += delta
+			recipientDelta[dstAddrBytes]++
 		} else {
-			recipientDelta[dst] = 1
+			recipientDelta[dstAddrBytes] = 1
 		}
 
 		// Delete new action to recipient
-		recipientKey := append(actionToPrefix, dst...)
-		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[dst])...)
+		recipientKey := append(actionToPrefix, dstAddrBytes[:]...)
+		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientCount[dstAddrBytes])...)
 		batch.Delete(blockAddressActionMappingNS, recipientKey, "failed to delete action hash %x for recipient %x",
-			actHash, dst)
+			actHash, dstAddrBytes)
 	}
 
 	return nil

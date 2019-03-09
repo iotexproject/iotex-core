@@ -40,7 +40,7 @@ func (x Consensus_ConsensusMessageType) String() string {
 	return proto.EnumName(Consensus_ConsensusMessageType_name, int32(x))
 }
 func (Consensus_ConsensusMessageType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_b65c618a256dbdb5, []int{2, 0}
+	return fileDescriptor_rpc_332fa41471114d14, []int{2, 0}
 }
 
 type BlockSync struct {
@@ -55,7 +55,7 @@ func (m *BlockSync) Reset()         { *m = BlockSync{} }
 func (m *BlockSync) String() string { return proto.CompactTextString(m) }
 func (*BlockSync) ProtoMessage()    {}
 func (*BlockSync) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_b65c618a256dbdb5, []int{0}
+	return fileDescriptor_rpc_332fa41471114d14, []int{0}
 }
 func (m *BlockSync) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockSync.Unmarshal(m, b)
@@ -102,7 +102,7 @@ func (m *BlockContainer) Reset()         { *m = BlockContainer{} }
 func (m *BlockContainer) String() string { return proto.CompactTextString(m) }
 func (*BlockContainer) ProtoMessage()    {}
 func (*BlockContainer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_b65c618a256dbdb5, []int{1}
+	return fileDescriptor_rpc_332fa41471114d14, []int{1}
 }
 func (m *BlockContainer) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockContainer.Unmarshal(m, b)
@@ -144,7 +144,7 @@ func (m *Consensus) Reset()         { *m = Consensus{} }
 func (m *Consensus) String() string { return proto.CompactTextString(m) }
 func (*Consensus) ProtoMessage()    {}
 func (*Consensus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rpc_b65c618a256dbdb5, []int{2}
+	return fileDescriptor_rpc_332fa41471114d14, []int{2}
 }
 func (m *Consensus) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Consensus.Unmarshal(m, b)
@@ -206,9 +206,9 @@ func init() {
 	proto.RegisterEnum("iotexrpc.Consensus_ConsensusMessageType", Consensus_ConsensusMessageType_name, Consensus_ConsensusMessageType_value)
 }
 
-func init() { proto.RegisterFile("rpc.proto", fileDescriptor_rpc_b65c618a256dbdb5) }
+func init() { proto.RegisterFile("rpc.proto", fileDescriptor_rpc_332fa41471114d14) }
 
-var fileDescriptor_rpc_b65c618a256dbdb5 = []byte{
+var fileDescriptor_rpc_332fa41471114d14 = []byte{
 	// 346 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x51, 0x4d, 0x6f, 0xea, 0x30,
 	0x10, 0x7c, 0x79, 0x04, 0x44, 0x0c, 0x8f, 0x97, 0x5a, 0xa8, 0x8a, 0xb8, 0x14, 0xe5, 0xd2, 0x5c,

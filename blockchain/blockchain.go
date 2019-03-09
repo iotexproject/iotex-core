@@ -385,19 +385,27 @@ func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 }
 
 // GetActionsFromAddress returns actions from address
-func (bc *blockchain) GetActionsFromAddress(address string) ([]hash.Hash256, error) {
+func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return getActionsBySenderAddress(bc.dao.kvstore, address)
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return nil, err
+	}
+	return getActionsBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
 }
 
 // GetActionToAddress returns action to address
-func (bc *blockchain) GetActionsToAddress(address string) ([]hash.Hash256, error) {
+func (bc *blockchain) GetActionsToAddress(addrStr string) ([]hash.Hash256, error) {
 	if !bc.config.Chain.EnableIndex {
 		return nil, errors.New("index not enabled")
 	}
-	return getActionsByRecipientAddress(bc.dao.kvstore, address)
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return nil, err
+	}
+	return getActionsByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
 }
 
 func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256, error) {

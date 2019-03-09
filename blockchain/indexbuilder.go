@@ -9,13 +9,14 @@ package blockchain
 import (
 	"strconv"
 
+	"github.com/iotexproject/iotex-core/address"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -126,75 +127,77 @@ func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
 	for _, elp := range blk.Actions {
 		actHash := elp.Hash()
-		batch.Put(blockActionBlockMappingNS, actHash[:], hash[:], "failed to put action hash %x", actHash)
+		batch.Put(blockActionBlockMappingNS, actHash[12:], hash[:], "failed to put action hash %x", actHash)
 	}
 
 	return putActions(store, blk, batch)
 }
 
 func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
-	senderDelta := make(map[string]uint64)
-	recipientDelta := make(map[string]uint64)
+	senderDelta := make(map[hash.Hash160]uint64)
+	recipientDelta := make(map[hash.Hash160]uint64)
 
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
-		callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-		if err != nil {
-			return err
-		}
-		callerAddrStr := callerAddr.String()
+		callerAddrBytes := hash.BytesToHash160(selp.SrcPubkey().Hash())
 
 		// get action count for sender
-		senderActionCount, err := getActionCountBySenderAddress(store, callerAddrStr)
+		senderActionCount, err := getActionCountBySenderAddress(store, callerAddrBytes)
 		if err != nil {
-			return errors.Wrapf(err, "for sender %s", callerAddrStr)
+			return errors.Wrapf(err, "for sender %x", callerAddrBytes)
 		}
-		if delta, ok := senderDelta[callerAddrStr]; ok {
+		if delta, ok := senderDelta[callerAddrBytes]; ok {
 			senderActionCount += delta
-			senderDelta[callerAddrStr]++
+			senderDelta[callerAddrBytes]++
 		} else {
-			senderDelta[callerAddrStr] = 1
+			senderDelta[callerAddrBytes] = 1
 		}
 
 		// put new action to sender
-		senderKey := append(actionFromPrefix, callerAddrStr...)
+		senderKey := append(actionFromPrefix, callerAddrBytes[:]...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderActionCount)...)
 		batch.Put(blockAddressActionMappingNS, senderKey, actHash[:],
-			"failed to put action hash %x for sender %s", actHash, callerAddrStr)
+			"failed to put action hash %x for sender %x", actHash, callerAddrBytes)
 
 		// update sender action count
-		senderActionCountKey := append(actionFromPrefix, callerAddrStr...)
+		senderActionCountKey := append(actionFromPrefix, callerAddrBytes[:]...)
 		batch.Put(blockAddressActionCountMappingNS, senderActionCountKey,
 			byteutil.Uint64ToBytes(senderActionCount+1),
-			"failed to bump action count %x for sender %s", actHash, callerAddrStr)
+			"failed to bump action count %x for sender %x", actHash, callerAddrBytes)
 
 		dst, ok := selp.Destination()
-		if !ok {
+		if !ok || dst == "" {
 			continue
 		}
-		// get action count for recipient
-		recipientActionCount, err := getActionCountByRecipientAddress(store, dst)
+		dstAddr, err := address.FromString(dst)
 		if err != nil {
-			return errors.Wrapf(err, "for recipient %s", dst)
+			return err
 		}
-		if delta, ok := recipientDelta[dst]; ok {
+		dstAddrBytes := hash.BytesToHash160(dstAddr.Bytes())
+
+		// get action count for recipient
+		recipientActionCount, err := getActionCountByRecipientAddress(store, dstAddrBytes)
+		if err != nil {
+			return errors.Wrapf(err, "for recipient %x", dstAddrBytes)
+		}
+		if delta, ok := recipientDelta[dstAddrBytes]; ok {
 			recipientActionCount += delta
-			recipientDelta[dst]++
+			recipientDelta[dstAddrBytes]++
 		} else {
-			recipientDelta[dst] = 1
+			recipientDelta[dstAddrBytes] = 1
 		}
 
 		// put new action to recipient
-		recipientKey := append(actionToPrefix, dst...)
+		recipientKey := append(actionToPrefix, dstAddrBytes[:]...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientActionCount)...)
 		batch.Put(blockAddressActionMappingNS, recipientKey, actHash[:],
-			"failed to put action hash %x for recipient %s", actHash, dst)
+			"failed to put action hash %x for recipient %x", actHash, dstAddrBytes)
 
 		// update recipient action count
-		recipientActionCountKey := append(actionToPrefix, dst...)
+		recipientActionCountKey := append(actionToPrefix, dstAddrBytes[:]...)
 		batch.Put(blockAddressActionCountMappingNS, recipientActionCountKey,
-			byteutil.Uint64ToBytes(recipientActionCount+1), "failed to bump action count %x for recipient %s",
-			actHash, dst)
+			byteutil.Uint64ToBytes(recipientActionCount+1), "failed to bump action count %x for recipient %x",
+			actHash, dstAddrBytes)
 	}
 	return nil
 }
@@ -209,7 +212,7 @@ func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVSto
 	for _, r := range blkReceipts {
 		batch.Put(
 			blockActionReceiptMappingNS,
-			r.ActHash[:],
+			r.ActHash[12:],
 			heightBytes[:],
 			"Failed to put receipt index for action %x",
 			r.ActHash[:],
@@ -219,7 +222,7 @@ func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVSto
 
 func getBlockHashByActionHash(store db.KVStore, h hash.Hash256) (hash.Hash256, error) {
 	var blkHash hash.Hash256
-	value, err := store.Get(blockActionBlockMappingNS, h[:])
+	value, err := store.Get(blockActionBlockMappingNS, h[12:])
 	if err != nil {
 		return blkHash, errors.Wrapf(err, "failed to get action %x", h)
 	}
@@ -231,8 +234,8 @@ func getBlockHashByActionHash(store db.KVStore, h hash.Hash256) (hash.Hash256, e
 }
 
 // getActionCountBySenderAddress returns action count by sender address
-func getActionCountBySenderAddress(store db.KVStore, address string) (uint64, error) {
-	senderActionCountKey := append(actionFromPrefix, address...)
+func getActionCountBySenderAddress(store db.KVStore, addrBytes hash.Hash160) (uint64, error) {
+	senderActionCountKey := append(actionFromPrefix, addrBytes[:]...)
 	value, err := store.Get(blockAddressActionCountMappingNS, senderActionCountKey)
 	if err != nil {
 		return 0, nil
@@ -244,14 +247,14 @@ func getActionCountBySenderAddress(store db.KVStore, address string) (uint64, er
 }
 
 // getActionsBySenderAddress returns actions for sender
-func getActionsBySenderAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
+func getActionsBySenderAddress(store db.KVStore, addrBytes hash.Hash160) ([]hash.Hash256, error) {
 	// get action count for sender
-	senderActionCount, err := getActionCountBySenderAddress(store, address)
+	senderActionCount, err := getActionCountBySenderAddress(store, addrBytes)
 	if err != nil {
-		return nil, errors.Wrapf(err, "for sender %x", address)
+		return nil, errors.Wrapf(err, "for sender %x", addrBytes)
 	}
 
-	res, err := getActionsByAddress(store, address, senderActionCount, actionFromPrefix)
+	res, err := getActionsByAddress(store, addrBytes, senderActionCount, actionFromPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -260,14 +263,14 @@ func getActionsBySenderAddress(store db.KVStore, address string) ([]hash.Hash256
 }
 
 // getActionsByRecipientAddress returns actions for recipient
-func getActionsByRecipientAddress(store db.KVStore, address string) ([]hash.Hash256, error) {
+func getActionsByRecipientAddress(store db.KVStore, addrBytes hash.Hash160) ([]hash.Hash256, error) {
 	// get action count for recipient
-	recipientActionCount, getCountErr := getActionCountByRecipientAddress(store, address)
+	recipientActionCount, getCountErr := getActionCountByRecipientAddress(store, addrBytes)
 	if getCountErr != nil {
-		return nil, errors.Wrapf(getCountErr, "for recipient %x", address)
+		return nil, errors.Wrapf(getCountErr, "for recipient %x", addrBytes)
 	}
 
-	res, err := getActionsByAddress(store, address, recipientActionCount, actionToPrefix)
+	res, err := getActionsByAddress(store, addrBytes, recipientActionCount, actionToPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +279,8 @@ func getActionsByRecipientAddress(store db.KVStore, address string) ([]hash.Hash
 }
 
 // getActionCountByRecipientAddress returns action count by recipient address
-func getActionCountByRecipientAddress(store db.KVStore, address string) (uint64, error) {
-	recipientActionCountKey := append(actionToPrefix, address...)
+func getActionCountByRecipientAddress(store db.KVStore, addrBytes hash.Hash160) (uint64, error) {
+	recipientActionCountKey := append(actionToPrefix, addrBytes[:]...)
 	value, err := store.Get(blockAddressActionCountMappingNS, recipientActionCountKey)
 	if err != nil {
 		return 0, nil
@@ -289,11 +292,11 @@ func getActionCountByRecipientAddress(store db.KVStore, address string) (uint64,
 }
 
 // getActionsByAddress returns actions by address
-func getActionsByAddress(store db.KVStore, address string, count uint64, keyPrefix []byte) ([]hash.Hash256, error) {
+func getActionsByAddress(store db.KVStore, addrBytes hash.Hash160, count uint64, keyPrefix []byte) ([]hash.Hash256, error) {
 	var res []hash.Hash256
 
 	for i := uint64(0); i < count; i++ {
-		key := append(keyPrefix, address...)
+		key := append(keyPrefix, addrBytes[:]...)
 		key = append(key, byteutil.Uint64ToBytes(i)...)
 		value, err := store.Get(blockAddressActionMappingNS, key)
 		if err != nil {
@@ -302,9 +305,7 @@ func getActionsByAddress(store db.KVStore, address string, count uint64, keyPref
 		if len(value) == 0 {
 			return res, errors.Wrapf(db.ErrNotExist, "action for index %d missing", i)
 		}
-		actHash := hash.ZeroHash256
-		copy(actHash[:], value)
-		res = append(res, actHash)
+		res = append(res, hash.BytesToHash256(value))
 	}
 
 	return res, nil
