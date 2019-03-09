@@ -1,3 +1,7 @@
+# Golang CircleCI 2.0 configuration file
+# feiren test task for  macos
+# Check https://circleci.com/docs/2.0/language-go/ for more details
+
 version: 2
 jobs:
   build:
@@ -11,7 +15,7 @@ jobs:
       - run: brew install golang
 
       - run:
-          name: update PATH
+          name: SET GO ENV
           #GOROOT="/usr/local/Cellar/go/1.12/libexec"
           command: |
             export GOPATH=~/go
@@ -23,8 +27,8 @@ jobs:
       #- run: mkdir -p $GOPATH $GOPATH/src $GOPATH/pkg $GOPATH/bin
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
-      - run: go env
-      - run: sh -x go.test.sh
+      #- run: go env
+      - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
