@@ -27,6 +27,47 @@ jobs:
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
+
+  test_macos_build:
+    macos:
+      xcode: "10.2.0"   # not supported > 10.2.0 
+    working_directory: ~/go/src/github.com/iotexproject/iotex-core
+
+    steps:
+      - checkout
+
+      - run: 
+          name: Install golang / dep
+          command: |
+            brew install golang
+
+      - run:
+          name: SET GO ENV
+
+          command: |
+            export GOPATH=~/go
+            export GOROOT="$(brew --prefix golang)/libexec"
+            export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
+            export PATH=$PATH:$GOPATH/bin
+            export PATH=$PATH:$GOROOT/bin
+            set -e
+            for d in $(go list ./... | grep -v 'vendor\|protocol/vote'); do
+                go test -short -v -coverprofile=profile.out -covermode=count "$d"
+                if [ -f profile.out ]; then
+                    cat profile.out >> coverage.txt
+                    rm profile.out
+                fi
+            done
+
+      # specify any bash command here prefixed with `run: `
+      #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
+      #- run: go env
+      #- run: dep ensure
+      #- run: ./go.test.sh
+      - run: bash <(curl -s https://codecov.io/bash)
+      - run: go test -run=XXX -bench=. $(go list ./crypto)
+      - run: make minicluster
+
   nightly:
     docker:
       # specify the version
@@ -52,6 +93,7 @@ workflows:
   commit:
     jobs:
       - build
+      - test_macos_build
   nightly:
     triggers:
       - schedule:
