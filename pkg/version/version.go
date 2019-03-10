@@ -10,3 +10,10 @@ const (
 	// ProtocolVersion defines Protocol version, starting from 1
 	ProtocolVersion = 0x01
 )
+
+var (
+	// PackageVersion gets version of code from git tag.
+	PackageVersion = "NoPackageInfo"
+	// PackageCommitID gets latest commit id of code from git
+	PackageCommitID = "NoPackageInfo"
+)

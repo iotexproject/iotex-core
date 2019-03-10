@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 )
 
 // accountBalanceCmd represents the account balance command
@@ -39,7 +39,6 @@ func balance(args []string) string {
 	if !ok {
 		return "failed to convert balance to big int"
 	}
-	balanceInt, balanceDec := big.NewInt(0), big.NewInt(0)
-	balanceInt.DivMod(balance, big.NewInt(unit.Iotx), balanceDec)
-	return fmt.Sprintf("%s: %s.%s IOTX", address, balanceInt.String(), balanceDec.String())
+	return fmt.Sprintf("%s: %s IOTX", address,
+		util.RauToString(balance, util.IotxDecimalNum))
 }

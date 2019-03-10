@@ -12,6 +12,7 @@ option go_package = "github.com/iotexproject/iotex-core/protogen/iotexapi";
 
 import "action.proto";
 import "blockchain.proto";
+import "node.proto";
 
 service APIService {
   // get the address detail of an address
@@ -32,6 +33,9 @@ service APIService {
 
   // get chain metadata
   rpc GetChainMeta(GetChainMetaRequest) returns (GetChainMetaResponse) {}
+
+  // get server version
+  rpc GetServerMeta(GetServerMetaRequest) returns (GetServerMetaResponse) {}
 
   // sendAction
   rpc SendAction(SendActionRequest) returns (SendActionResponse) {}
@@ -129,6 +133,12 @@ message GetChainMetaRequest {}
 
 message GetChainMetaResponse {
   iotextypes.ChainMeta chainMeta = 1;
+}
+
+message GetServerMetaRequest  {}
+
+message GetServerMetaResponse  {
+  iotextypes.ServerMeta serverMeta = 1;
 }
 
 message SendActionRequest {
