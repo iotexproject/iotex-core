@@ -32,7 +32,7 @@ func TestStringToRau(t *testing.T) {
 	}
 }
 
-func TestRauToIotxString(t *testing.T) {
+func TestRauToString(t *testing.T) {
 	require := require.New(t)
 	inputString := []string{"1", "0", "1000000000000", "200000000000", "30000000000",
 		"1004000000000", "999999999999999999999939987", "100090907000030000100"}
@@ -41,7 +41,7 @@ func TestRauToIotxString(t *testing.T) {
 	for i, teststring := range inputString {
 		testBigInt, ok := big.NewInt(0).SetString(teststring, 10)
 		require.True(ok)
-		res := RauToIotxString(testBigInt, GasPriceDecimalNum)
+		res := RauToString(testBigInt, GasPriceDecimalNum)
 		require.Equal(expectedString[i], res)
 	}
 }

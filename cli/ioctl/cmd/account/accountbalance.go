@@ -40,5 +40,5 @@ func balance(args []string) string {
 		return "failed to convert balance to big int"
 	}
 	return fmt.Sprintf("%s: %s IOTX", address,
-		util.RauToIotxString(balance, util.IotxDecimalNum))
+		util.RauToString(balance, util.IotxDecimalNum))
 }

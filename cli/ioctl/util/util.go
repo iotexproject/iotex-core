@@ -36,7 +36,7 @@ func ConnectToEndpoint() (*grpc.ClientConn, error) {
 	return grpc.Dial(endpoint, grpc.WithInsecure())
 }
 
-// StringToRau convert different unit string into Rau big int
+// StringToRau converts different unit string into Rau big int
 func StringToRau(amount string, numDecimals int) (*big.Int, error) {
 	amountStrings := strings.Split(amount, ".")
 	if len(amountStrings) != 1 {
@@ -61,8 +61,8 @@ func StringToRau(amount string, numDecimals int) (*big.Int, error) {
 	return amountRau, nil
 }
 
-// RauToIotxString convert Rau big int into Iotx string
-func RauToIotxString(amount *big.Int, numDecimals int) string {
+// RauToString converts Rau big int into Iotx string
+func RauToString(amount *big.Int, numDecimals int) string {
 	var targetUnit int64
 	switch numDecimals {
 	case 18:
@@ -74,12 +74,10 @@ func RauToIotxString(amount *big.Int, numDecimals int) string {
 	}
 	amountInt, amountDec := big.NewInt(0), big.NewInt(0)
 	amountInt.DivMod(amount, big.NewInt(targetUnit), amountDec)
-	decString := amountDec.String()
-	if decString != "0" {
-		decString = strings.TrimRight(decString, "0")
+	if amountDec.Sign() != 0 {
+		decString := strings.TrimRight(amountDec.String(), "0")
 		zeroString := strings.Repeat("0", numDecimals-len(amountDec.String()))
 		decString = zeroString + decString
-
 		return amountInt.String() + "." + decString
 	}
 	return amountInt.String()
