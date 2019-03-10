@@ -3,7 +3,7 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
-  docker_build:
+  build:
     docker:
       # specify the version
       - image: iotex/iotex-core-ci:latest
@@ -40,17 +40,16 @@ jobs:
           name: Install golang / dep
           command: |
             brew install golang
-          #  brew install dep
+
       - run:
           name: SET GO ENV
-          #GOROOT="/usr/local/Cellar/go/1.12/libexec"
+
           command: |
             export GOPATH=~/go
             export GOROOT="$(brew --prefix golang)/libexec"
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
-
             set -e
             for d in $(go list ./... | grep -v 'vendor\|protocol/vote'); do
                 go test -short -v -coverprofile=profile.out -covermode=count "$d"
@@ -59,7 +58,7 @@ jobs:
                     rm profile.out
                 fi
             done
-      #- run: mkdir -p $GOPATH $GOPATH/src $GOPATH/pkg $GOPATH/bin
+
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
       #- run: go env
@@ -93,7 +92,7 @@ workflows:
   version: 2
   commit:
     jobs:
-      - docker_build
+      - build
       - test_macos_build
   nightly:
     triggers:
