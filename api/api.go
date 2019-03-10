@@ -38,6 +38,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
@@ -238,6 +239,15 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	}
 
 	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta}, nil
+}
+
+// GetServerMeta gets the server metadata
+func (api *Server) GetServerMeta(ctx context.Context,
+	in *iotexapi.GetServerMetaRequest) (*iotexapi.GetServerMetaResponse, error) {
+	return &iotexapi.GetServerMetaResponse{ServerMeta: &iotextypes.ServerMeta{
+		PackageVersion:  version.PackageVersion,
+		PackageCommitID: version.PackageCommitID,
+	}}, nil
 }
 
 // SendAction is the API to send an action to blockchain.
