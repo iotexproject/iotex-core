@@ -23,7 +23,7 @@ var (
 
 // accountImportCmd represents the account create command
 var accountImportCmd = &cobra.Command{
-	Use:   "import name",
+	Use:   "import NAME",
 	Short: "import IoTeX private key into wallet",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

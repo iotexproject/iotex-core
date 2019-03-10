@@ -253,6 +253,7 @@ func newConfig(
 	cfg.Chain.NumCandidates = numNodes
 	cfg.Chain.EnableIndex = true
 	cfg.Chain.EnableAsyncIndexWrite = true
+	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme

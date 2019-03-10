@@ -19,7 +19,7 @@ import (
 
 // accountCreateAddCmd represents the account create command
 var accountCreateAddCmd = &cobra.Command{
-	Use:   "createadd name",
+	Use:   "createadd NAME",
 	Short: "Create new account for ioctl",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
