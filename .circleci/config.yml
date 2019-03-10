@@ -6,7 +6,7 @@ version: 2
 jobs:
   build:
     macos:
-      xcode: "10.0.0"
+      xcode: "10.1.0"
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
 
     steps:
@@ -24,13 +24,14 @@ jobs:
           command: |
             export GOPATH=~/go
             export GOROOT="$(brew --prefix golang)/libexec"
+            export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
       #- run: mkdir -p $GOPATH $GOPATH/src $GOPATH/pkg $GOPATH/bin
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
       #- run: go env
-      - run: go get github.com/golang/protobuf/proto
+    
       - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
