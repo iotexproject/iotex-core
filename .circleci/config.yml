@@ -12,7 +12,11 @@ jobs:
     steps:
       - checkout
 
-      - run: brew install golang
+      - run: 
+          name: Install golang, dep  
+          command: |
+            brew install golang
+            brew install dep
 
       - run:
           name: SET GO ENV
@@ -22,12 +26,11 @@ jobs:
             export GOROOT="$(brew --prefix golang)/libexec"
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
-           
-
       #- run: mkdir -p $GOPATH $GOPATH/src $GOPATH/pkg $GOPATH/bin
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
       #- run: go env
+      - run: go get github.com/golang/protobuf/proto
       - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
