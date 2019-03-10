@@ -30,7 +30,7 @@ jobs:
 
   test_macos:
     macos:
-      xcode: "10.2.0"
+      xcode: "10.14.0"
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
 
     steps:
@@ -40,7 +40,7 @@ jobs:
           name: Install golang / dep
           command: |
             brew install golang
-            brew install dep
+          #  brew install dep
       - run:
           name: SET GO ENV
           #GOROOT="/usr/local/Cellar/go/1.12/libexec"
@@ -50,11 +50,12 @@ jobs:
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
+            
       #- run: mkdir -p $GOPATH $GOPATH/src $GOPATH/pkg $GOPATH/bin
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
       #- run: go env
-      - run: dep ensure
+      #- run: dep ensure
       - run: ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
@@ -84,7 +85,7 @@ workflows:
   version: 2
   commit:
     jobs:
-      - build
+      #- build
       - test_macos
   nightly:
     triggers:
