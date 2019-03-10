@@ -3,7 +3,7 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
-  build:
+  docker_build:
     docker:
       # specify the version
       - image: iotex/iotex-core-ci:latest
@@ -28,7 +28,7 @@ jobs:
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
 
-  test_macos:
+  test_macos_build:
     macos:
       xcode: "10.2.0"   # not supported > 10.2.0 
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
@@ -93,8 +93,8 @@ workflows:
   version: 2
   commit:
     jobs:
-      #- build
-      - test_macos
+      - docker_build
+      - test_macos_build
   nightly:
     triggers:
       - schedule:
