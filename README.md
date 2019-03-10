@@ -82,6 +82,14 @@ Restart the server from a clean state by
 make reboot
 ```
 
+If "make run" fails, please try to recover state database by
+
+```
+make recover
+```
+
+Then, "make run" again.
+
 Note that if your enviroment is in Linux, you need to add the share libraries into `$LD_LIBRARY_PATH` by
 
 ```

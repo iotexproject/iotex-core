@@ -52,7 +52,15 @@ func main() {
 
 	// recover chain and state
 	bc := svr.ChainService(cfg.Chain.ID).Blockchain()
-	bc.Start(context.Background())
+	if err := bc.Start(context.Background()); err == nil {
+		log.L().Info("State DB status is normal.")
+	}
+	defer func() {
+		if err := bc.Stop(context.Background()); err != nil {
+			log.L().Fatal("Failed to stop blockchain")
+		}
+	}()
+
 	if err := bc.RecoverChainAndState(uint64(recoveryHeight)); err != nil {
 		log.L().Fatal("Failed to recover chain and state.", zap.Error(err))
 	}
