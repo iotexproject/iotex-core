@@ -9,16 +9,17 @@ package account
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
-)
-
-var (
-	privateKey string
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // accountImportCmd represents the account create command
@@ -29,11 +30,6 @@ var accountImportCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(accountImport(args))
 	},
-}
-
-func init() {
-	accountImportCmd.Flags().StringVarP(&privateKey,
-		"private-key", "k", "", "import account by private key")
 }
 
 func accountImport(args []string) string {
@@ -50,6 +46,13 @@ func accountImport(args []string) string {
 		return fmt.Sprintf("A account named \"%s\" already exists.", name)
 	}
 	wallet := cfg.Wallet
+	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", name)
+	privateKeyBytes, err := terminal.ReadPassword(syscall.Stdin)
+	if err != nil {
+		log.L().Error("fail to get private key", zap.Error(err))
+		return err.Error()
+	}
+	privateKey := strings.TrimSpace(string(privateKeyBytes))
 	addr, err := newAccountByKey(name, privateKey, wallet)
 	if err != nil {
 		return err.Error()
