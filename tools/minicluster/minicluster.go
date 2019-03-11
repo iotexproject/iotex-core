@@ -13,6 +13,7 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"os"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -64,11 +66,17 @@ func main() {
 	admins := chainAddrs[len(chainAddrs)-numAdmins:]
 	delegates := chainAddrs[:len(chainAddrs)-numAdmins]
 
+	dbFilePaths := make([]string, 0)
+	//a flag to indicate whether the DB files should be cleaned up upon completion of the minicluster.
+	deleteDBFiles := false
+
 	// Set mini-cluster configurations
 	configs := make([]config.Config, numNodes)
 	for i := 0; i < numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, chainDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, trieDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		config := newConfig(chainDBPath, trieDBPath, chainAddrs[i].PriKey,
@@ -79,7 +87,17 @@ func main() {
 		}
 		configs[i] = config
 	}
+	defer func() {
+		if !deleteDBFiles {
+			return
+		}
+		for _, dbFilePath := range dbFilePaths {
+			if fileutil.FileExists(dbFilePath) && os.RemoveAll(dbFilePath) != nil {
+				log.L().Error("Failed to delete db file")
+			}
+		}
 
+	}()
 	// Create mini-cluster
 	svrs := make([]*itx.Server, numNodes)
 	for i := 0; i < numNodes; i++ {
@@ -231,6 +249,8 @@ func main() {
 		}
 
 		log.S().Info("Balance Check PASS")
+
+		deleteDBFiles = true
 
 	}
 }
