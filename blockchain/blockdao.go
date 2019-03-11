@@ -9,23 +9,20 @@ package blockchain
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
-
-	"github.com/iotexproject/iotex-core/pkg/compress"
-
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 const (
@@ -36,6 +33,8 @@ const (
 	blockAddressActionMappingNS      = "a2a"
 	blockAddressActionCountMappingNS = "a2c"
 	receiptsNS                       = "rpt"
+
+	hashOffset = 12
 )
 
 var (
@@ -188,7 +187,7 @@ func (dao *blockDAO) getTotalActions() (uint64, error) {
 
 // getReceiptByActionHash returns the receipt by execution hash
 func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	heightBytes, err := dao.kvstore.Get(blockActionReceiptMappingNS, h[12:])
+	heightBytes, err := dao.kvstore.Get(blockActionReceiptMappingNS, h[hashOffset:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipt index for action %x", h)
 	}
@@ -272,7 +271,7 @@ func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 		}
 		batch.Put(
 			blockActionReceiptMappingNS,
-			r.ActHash[12:],
+			r.ActHash[hashOffset:],
 			heightBytes[:],
 			"Failed to put receipt index for action %x",
 			r.ActHash[:],
@@ -341,7 +340,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 	// Delete action hash -> block hash mapping
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
-		batch.Delete(blockActionBlockMappingNS, actHash[12:], "failed to delete actions f")
+		batch.Delete(blockActionBlockMappingNS, actHash[hashOffset:], "failed to delete actions f")
 	}
 
 	if err = deleteActions(dao, blk, batch); err != nil {
@@ -358,7 +357,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 // deleteReceipts deletes receipt information from db
 func deleteReceipts(blk *block.Block, batch db.KVStoreBatch) error {
 	for _, r := range blk.Receipts {
-		batch.Delete(blockActionReceiptMappingNS, r.ActHash[12:], "failed to delete receipt for action %x", r.ActHash[:])
+		batch.Delete(blockActionReceiptMappingNS, r.ActHash[hashOffset:], "failed to delete receipt for action %x", r.ActHash[:])
 	}
 	return nil
 }

@@ -9,14 +9,13 @@ package blockchain
 import (
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/address"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -127,7 +126,7 @@ func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
 	for _, elp := range blk.Actions {
 		actHash := elp.Hash()
-		batch.Put(blockActionBlockMappingNS, actHash[12:], hash[:], "failed to put action hash %x", actHash)
+		batch.Put(blockActionBlockMappingNS, actHash[hashOffset:], hash[:], "failed to put action hash %x", actHash)
 	}
 
 	return putActions(store, blk, batch)
@@ -212,7 +211,7 @@ func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVSto
 	for _, r := range blkReceipts {
 		batch.Put(
 			blockActionReceiptMappingNS,
-			r.ActHash[12:],
+			r.ActHash[hashOffset:],
 			heightBytes[:],
 			"Failed to put receipt index for action %x",
 			r.ActHash[:],
@@ -222,7 +221,7 @@ func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVSto
 
 func getBlockHashByActionHash(store db.KVStore, h hash.Hash256) (hash.Hash256, error) {
 	var blkHash hash.Hash256
-	value, err := store.Get(blockActionBlockMappingNS, h[12:])
+	value, err := store.Get(blockActionBlockMappingNS, h[hashOffset:])
 	if err != nil {
 		return blkHash, errors.Wrapf(err, "failed to get action %x", h)
 	}
