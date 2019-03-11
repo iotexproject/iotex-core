@@ -133,7 +133,7 @@ func newAccount(name string, walletDir string) (string, error) {
 }
 
 func newAccountByKey(name string, privateKey string, walletDir string) (string, error) {
-	fmt.Printf("#%s: Enter password\n", name)
+	fmt.Printf("#%s: Set password\n", name)
 	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
