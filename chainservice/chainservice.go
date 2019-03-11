@@ -112,6 +112,7 @@ func New(
 	if cfg.Genesis.EnableGravityChainVoting {
 		committeeConfig := cfg.Chain.Committee
 		committeeConfig.BeaconChainStartHeight = cfg.Genesis.GravityChainStartHeight
+		committeeConfig.BeaconChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
 		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
