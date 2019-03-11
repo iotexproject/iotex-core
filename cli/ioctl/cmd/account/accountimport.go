@@ -9,6 +9,7 @@ package account
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -46,12 +47,13 @@ func accountImport(args []string) string {
 	}
 	wallet := cfg.Wallet
 	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", name)
-	privateKey, err := terminal.ReadPassword(syscall.Stdin)
+	privateKeyBytes, err := terminal.ReadPassword(syscall.Stdin)
 	if err != nil {
 		log.L().Error("fail to get private key", zap.Error(err))
 		return err.Error()
 	}
-	addr, err := newAccountByKey(name, string(privateKey), wallet)
+	privateKey := strings.TrimSpace(string(privateKeyBytes))
+	addr, err := newAccountByKey(name, privateKey, wallet)
 	if err != nil {
 		return err.Error()
 	}
