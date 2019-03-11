@@ -115,6 +115,8 @@ type (
 		EnableGravityChainVoting bool `yaml:"enableGravityChainVoting"`
 		// GravityChainStartHeight is the height in gravity chain where the init poll result stored
 		GravityChainStartHeight uint64 `yaml:"gravityChainStartHeight"`
+		// GravityChainHeightInterval the height interval on gravity chain to pull delegate information
+		GravityChainHeightInterval uint64 `yaml:"gravityChainHeightInterval"`
 		// RegisterContractAddress is the address of register contract
 		RegisterContractAddress string `yaml:"registerContractAddress"`
 		// StakingContractAddress is the address of staking contract
