@@ -457,7 +457,6 @@ func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
 	if err != nil {
 		log.L().Panic(
 			"Error when decoding private key",
-			zap.String("key", cfg.Chain.ProducerPrivKey),
 			zap.Error(err),
 		)
 	}

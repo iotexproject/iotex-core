@@ -63,8 +63,9 @@ func main() {
 	initLogger(cfg)
 
 	cfg.Genesis = genesisCfg
-
-	log.S().Infof("Config in use: %+v", cfg)
+	cfgToLog := cfg
+	cfgToLog.Chain.ProducerPrivKey = ""
+	log.S().Infof("Config in use: %+v", cfgToLog)
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPProbePort)
