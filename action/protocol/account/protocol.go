@@ -32,9 +32,7 @@ func NewProtocol() *Protocol { return &Protocol{} }
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.Transfer:
-		if err := p.handleTransfer(ctx, act, sm); err != nil {
-			return nil, errors.Wrap(err, "error when handling transfer action")
-		}
+		return p.handleTransfer(ctx, act, sm)
 	}
 	return nil, nil
 }

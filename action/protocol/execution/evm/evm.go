@@ -113,21 +113,20 @@ func GetHashFn(stateDB *StateDBAdapter) func(n uint64) common.Hash {
 	}
 }
 
-func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit *uint64) error {
+func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
 	executorNonce := stateDB.GetNonce(ps.context.Origin)
 	if executorNonce > ps.nonce {
 		log.S().Errorf("Nonce on %v: %d vs %d", ps.context.Origin, executorNonce, ps.nonce)
 		// TODO ignore inconsistent nonce problem until the actions are executed sequentially
 		// return ErrInconsistentNonce
 	}
-	if *gasLimit < ps.gas {
+	if gasLimit < ps.gas {
 		return action.ErrHitGasLimit
 	}
 	maxGasValue := new(big.Int).Mul(new(big.Int).SetUint64(ps.gas), ps.context.GasPrice)
 	if stateDB.GetBalance(ps.context.Origin).Cmp(maxGasValue) < 0 {
 		return action.ErrInsufficientBalanceForGas
 	}
-	*gasLimit -= ps.gas
 	stateDB.SubBalance(ps.context.Origin, maxGasValue)
 	return nil
 }
@@ -158,7 +157,6 @@ func ExecuteContract(
 		receipt.Status = action.SuccessReceiptStatus
 	}
 	if remainingGas > 0 {
-		*raCtx.GasLimit += remainingGas
 		remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
 		stateDB.AddBalance(ps.context.Origin, remainingValue)
 	}
@@ -186,7 +184,7 @@ func getChainConfig() *params.ChainConfig {
 	return &chainConfig
 }
 
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit *uint64) ([]byte, uint64, uint64, string, error) {
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) ([]byte, uint64, uint64, string, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		return nil, 0, 0, action.EmptyAddress, err

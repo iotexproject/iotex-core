@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -64,8 +63,12 @@ func (stx *stateTX) RunActions(
 ) ([]*action.Receipt, error) {
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
+	var raCtx protocol.RunActionsCtx
+	if len(elps) > 0 {
+		raCtx = protocol.MustGetRunActionsCtx(ctx)
+	}
 	for _, elp := range elps {
-		receipt, err := stx.RunAction(ctx, elp)
+		receipt, err := stx.RunAction(raCtx, elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
@@ -79,15 +82,11 @@ func (stx *stateTX) RunActions(
 
 // RunAction runs action in the block and track pending changes in working set
 func (stx *stateTX) RunAction(
-	ctx context.Context,
+	raCtx protocol.RunActionsCtx,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	// Handle action
 	// Add caller address into the run action context
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss context to run action")
-	}
 	callerAddr, err := address.FromBytes(elp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
@@ -101,7 +100,7 @@ func (stx *stateTX) RunAction(
 	}
 	raCtx.IntrinsicGas = intrinsicGas
 	raCtx.Nonce = elp.Nonce()
-	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
+	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
 	for _, actionHandler := range stx.actionHandlers {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
 		if err != nil {
