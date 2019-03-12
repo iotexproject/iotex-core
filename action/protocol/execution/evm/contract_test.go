@@ -8,7 +8,9 @@ package evm
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,14 +29,10 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-const (
-	testTriePath = "trie.test"
-)
-
 func TestCreateContract(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -115,8 +113,8 @@ func TestCreateContract(t *testing.T) {
 
 func TestLoadStoreContract(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
