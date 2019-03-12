@@ -27,3 +27,7 @@ message RewardHistory {
 message Account {
     string balance = 2;
 }
+
+message Exempt {
+    repeated bytes addrs = 1;
+}

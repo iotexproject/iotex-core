@@ -116,6 +116,6 @@ func TestProtocol_Admin(t *testing.T) {
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.Error(t, p.SetAdmin(ctx, ws, testaddress.Addrinfo["delta"]))
-	})
+	}, false)
 
 }

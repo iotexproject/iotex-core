@@ -11,6 +11,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/address"
+
 	"github.com/iotexproject/iotex-core/action"
 
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -32,7 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
-func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.Factory, *Protocol)) {
+func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.Factory, *Protocol), withExempt bool) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -87,7 +89,36 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	)
 	ws, err := stateDB.NewWorkingSet()
 	require.NoError(t, err)
-	require.NoError(t, p.Initialize(ctx, ws, testaddress.Addrinfo["alfa"], big.NewInt(0), big.NewInt(10), big.NewInt(100), 4))
+	if withExempt {
+		require.NoError(
+			t,
+			p.Initialize(
+				ctx,
+				ws,
+				testaddress.Addrinfo["alfa"],
+				big.NewInt(0),
+				big.NewInt(10),
+				big.NewInt(100),
+				10,
+				[]address.Address{
+					testaddress.Addrinfo["delta"],
+				},
+			))
+	} else {
+		require.NoError(
+			t,
+			p.Initialize(
+				ctx,
+				ws,
+				testaddress.Addrinfo["alfa"],
+				big.NewInt(0),
+				big.NewInt(10),
+				big.NewInt(100),
+				4,
+				nil,
+			))
+	}
+
 	require.NoError(t, stateDB.Commit(ws))
 
 	ctx = protocol.WithRunActionsCtx(
@@ -162,6 +193,7 @@ func TestProtocol_Handle(t *testing.T) {
 		big.NewInt(10),
 		big.NewInt(100),
 		10,
+		nil,
 	))
 	require.NoError(t, stateDB.Commit(ws))
 
