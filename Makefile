@@ -153,7 +153,7 @@ docker:
 
 .PHONY: ioctl
 ioctl:
-	./cli/ioctl/buildcli.sh
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
 
 .PHONY: minicluster
 minicluster:

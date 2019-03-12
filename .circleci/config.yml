@@ -43,7 +43,6 @@ jobs:
 
       - run:
           name: SET GO ENV
-
           command: |
             export GOPATH=~/go
             export GOROOT="$(brew --prefix golang)/libexec"
@@ -51,13 +50,13 @@ jobs:
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
             set -e
-            for d in $(go list ./... | grep -v 'vendor\|protocol/vote'); do
-                go test -short -v -coverprofile=profile.out -covermode=count "$d"
-                if [ -f profile.out ]; then
-                    cat profile.out >> coverage.txt
-                    rm profile.out
-                fi
-            done
+#            for d in $(go list ./... | grep -v 'vendor\|protocol/vote'); do
+#                go test -short -v -coverprofile=profile.out -covermode=count "$d"
+#                if [ -f profile.out ]; then
+#                    cat profile.out >> coverage.txt
+#                    rm profile.out
+#                fi
+#            done
 
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
@@ -70,7 +69,7 @@ jobs:
       - run: make ioctl
       - run:
           name: Deploy to S3
-          command: aws s3 sync cli/ioctl/release/ioctl-darwin-amd64 s3://ioctl/releases/ --delete
+          command: aws s3 sync /bin/ioctl s3://ioctl/releases/ --delete
 
   nightly:
     docker:
