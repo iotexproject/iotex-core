@@ -49,7 +49,7 @@ func claim(args []string) string {
 		nonce = accountMeta.PendingNonce
 	}
 	b := &action.ClaimFromRewardingFundBuilder{}
-	act := b.SetAmount(amount).SetData([]byte(payload)).Build()
+	act := b.SetAmount(amount).SetData(payload).Build()
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPriceRau).
