@@ -47,6 +47,6 @@ func TestProtocol_Fund(t *testing.T) {
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.Error(t, p.Deposit(ctx, ws, big.NewInt(996)))
-	})
+	}, false)
 
 }

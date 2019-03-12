@@ -62,6 +62,37 @@ func (a *admin) Deserialize(data []byte) error {
 	return nil
 }
 
+// exempt stores the addresses that exempt from epoch reward
+type exempt struct {
+	addrs []address.Address
+}
+
+// Serialize serializes exempt state into bytes
+func (e *exempt) Serialize() ([]byte, error) {
+	epb := rewardingpb.Exempt{}
+	for _, addr := range e.addrs {
+		epb.Addrs = append(epb.Addrs, addr.Bytes())
+	}
+	return proto.Marshal(&epb)
+}
+
+// Deserialize deserializes bytes into exempt state
+func (e *exempt) Deserialize(data []byte) error {
+	epb := rewardingpb.Exempt{}
+	if err := proto.Unmarshal(data, &epb); err != nil {
+		return err
+	}
+	e.addrs = nil
+	for _, addrBytes := range epb.Addrs {
+		addr, err := address.FromBytes(addrBytes)
+		if err != nil {
+			return err
+		}
+		e.addrs = append(e.addrs, addr)
+	}
+	return nil
+}
+
 // Initialize initializes the rewarding protocol by setting the original admin, block and epoch reward
 func (p *Protocol) Initialize(
 	ctx context.Context,
@@ -71,6 +102,7 @@ func (p *Protocol) Initialize(
 	blockReward *big.Int,
 	epochReward *big.Int,
 	numDelegatesForEpochReward uint64,
+	exemptAddrs []address.Address,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
@@ -94,12 +126,21 @@ func (p *Protocol) Initialize(
 	); err != nil {
 		return err
 	}
-	return p.putState(
+	if err := p.putState(
 		sm,
 		fundKey,
 		&fund{
 			totalBalance:     initBalance,
 			unclaimedBalance: initBalance,
+		},
+	); err != nil {
+		return err
+	}
+	return p.putState(
+		sm,
+		exemptKey,
+		&exempt{
+			addrs: exemptAddrs,
 		},
 	)
 }
