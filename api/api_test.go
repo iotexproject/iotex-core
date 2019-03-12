@@ -9,9 +9,9 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"io/ioutil"
 	"math/big"
-	"math/rand"
-	"sort"
+	"os"
 	"testing"
 	"time"
 
@@ -35,12 +35,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/gasstation"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -51,11 +48,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testTriePath = "trie.test"
-	testDBPath   = "db.test"
 )
 
 var (
@@ -102,12 +94,6 @@ var (
 			OperatorAddrStr: identityset.Address(2).String(),
 			VotesStr:        "10",
 		},
-	}
-
-	delegateKeys = []keypair.PrivateKey{
-		identityset.PrivateKey(0),
-		identityset.PrivateKey(1),
-		identityset.PrivateKey(2),
 	}
 )
 
@@ -461,50 +447,11 @@ var (
 			numCommitteeBlockProducers: 1,
 		},
 	}
-
-	getProductivityTests = []struct {
-		// Arguments
-		numSubEpochs        uint64
-		numDelegates        uint64
-		blockProducers      []genesis.Delegate
-		blockProducerKeys   []keypair.PrivateKey
-		failedBlockProducer genesis.Delegate
-		epochNumber         uint64
-		// Expected Values
-		totalBlks       uint64
-		blksPerDelegate []uint64
-	}{
-		{
-			numSubEpochs:        2,
-			numDelegates:        2,
-			blockProducers:      delegates[:2],
-			blockProducerKeys:   delegateKeys[:2],
-			failedBlockProducer: delegates[0],
-			epochNumber:         1,
-			totalBlks:           4,
-			blksPerDelegate:     []uint64{1, 3},
-		},
-		{
-			numSubEpochs:        2,
-			numDelegates:        3,
-			blockProducers:      delegates,
-			blockProducerKeys:   delegateKeys,
-			failedBlockProducer: genesis.Delegate{},
-			epochNumber:         1,
-			totalBlks:           6,
-			blksPerDelegate:     []uint64{2, 2, 2},
-		},
-	}
 )
 
 func TestServer_GetAccount(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
@@ -529,11 +476,6 @@ func TestServer_GetActions(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -555,11 +497,6 @@ func TestServer_GetActions(t *testing.T) {
 func TestServer_GetAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
@@ -586,11 +523,6 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -614,11 +546,6 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
 
@@ -641,11 +568,6 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 func TestServer_GetActionsByBlock(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -672,11 +594,6 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -707,11 +624,6 @@ func TestServer_GetBlockMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -738,11 +650,6 @@ func TestServer_GetBlockMeta(t *testing.T) {
 func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -788,11 +695,6 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -808,11 +710,6 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 func TestServer_ReadContract(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -834,11 +731,6 @@ func TestServer_SuggestGasPrice(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	for _, test := range suggestGasPriceTests {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
 		svr, err := createServer(cfg, false)
@@ -852,11 +744,6 @@ func TestServer_SuggestGasPrice(t *testing.T) {
 func TestServer_EstimateGasForAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -876,10 +763,6 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 
 func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	cfg := newConfig()
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(t, err)
@@ -904,11 +787,6 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -953,11 +831,6 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
@@ -994,43 +867,6 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 		var committeeBlockProducers pollpb.BlockProducerList
 		require.NoError(proto.Unmarshal(res.Data, &committeeBlockProducers))
 		require.Equal(test.numCommitteeBlockProducers, len(committeeBlockProducers.BlockProducers))
-	}
-}
-
-func TestServer_GetProductivity(t *testing.T) {
-	require := require.New(t)
-	cfg := newConfig()
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
-
-	for _, test := range getProductivityTests {
-		cfg.Genesis.Delegates = test.blockProducers
-		cfg.Genesis.NumSubEpochs = test.numSubEpochs
-		cfg.Genesis.NumDelegates = test.numDelegates
-		pol := poll.NewLifeLongDelegatesProtocol(test.blockProducers)
-		svr, err := createServer(cfg, false)
-		require.NoError(err)
-		require.NoError(svr.registry.Register(poll.ProtocolID, pol))
-		bc, _, err := setupChain(cfg)
-		require.NoError(err)
-		require.NoError(bc.Start(context.Background()))
-		genesisDigest := cfg.Genesis.Hash()
-		require.NoError(addTestingDummyBlocks(bc, test.blockProducers, test.blockProducerKeys, test.numSubEpochs,
-			test.failedBlockProducer, genesisDigest))
-		svr.bc = bc
-
-		res, err := svr.GetProductivity(context.Background(), &iotexapi.GetProductivityRequest{EpochNumber: test.epochNumber})
-		require.NoError(err)
-		produceList := make([]uint64, 0)
-		for _, numBlks := range res.BlksPerDelegate {
-			produceList = append(produceList, numBlks)
-		}
-		sort.Slice(produceList, func(i, j int) bool { return produceList[i] < produceList[j] })
-		require.Equal(test.blksPerDelegate, produceList)
-		require.Equal(test.totalBlks, res.TotalBlks)
 	}
 }
 
@@ -1184,50 +1020,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	return bc.CommitBlock(blk)
 }
 
-func addTestingDummyBlocks(
-	bc blockchain.Blockchain,
-	blockProducers []genesis.Delegate,
-	blockProducerKeys []keypair.PrivateKey,
-	numSubEpochs uint64,
-	failedBlockProducer genesis.Delegate,
-	genesisDigest hash.Hash256,
-) error {
-	failedIndex := rand.Intn(int(numSubEpochs))
-	prevBlkHash := genesisDigest
-	var prevBlkHeight uint64
-	for i := 0; i < int(numSubEpochs); i++ {
-		for j, bp := range blockProducers {
-			priKey := blockProducerKeys[j]
-			pubKey := priKey.PublicKey()
-
-			if i == failedIndex && bp.OperatorAddrStr == failedBlockProducer.OperatorAddrStr {
-				priKey = blockProducerKeys[(j+1)%len(blockProducers)]
-				pubKey = priKey.PublicKey()
-			}
-			ra := block.NewRunnableActionsBuilder().
-				SetHeight(prevBlkHeight + 1).
-				SetTimeStamp(testutil.TimestampNow()).
-				Build(pubKey)
-
-			nblk, err := block.NewBuilder(ra).
-				SetPrevBlockHash(prevBlkHash).
-				SignAndBuild(priKey)
-			if err != nil {
-				return err
-			}
-			if err := bc.ValidateBlock(&nblk); err != nil {
-				return err
-			}
-			if err := bc.CommitBlock(&nblk); err != nil {
-				return err
-			}
-			prevBlkHash = nblk.HashBlock()
-			prevBlkHeight = nblk.Height()
-		}
-	}
-	return nil
-}
-
 func addActsToActPool(ap actpool.ActPool) error {
 	// Producer transfer--> A
 	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
@@ -1285,9 +1077,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
 	rolldposProtocol := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
 	)
 	r := rewarding.NewProtocol(bc, rolldposProtocol)
 
@@ -1326,6 +1118,12 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 
 func newConfig() config.Config {
 	cfg := config.Default
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
