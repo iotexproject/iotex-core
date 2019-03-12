@@ -12,8 +12,14 @@ const (
 )
 
 var (
-	// PackageVersion gets version of code from git tag.
-	PackageVersion = "NoPackageInfo"
+	// PackageVersion gets version of code from git tag
+	PackageVersion = "NoBuildInfo"
 	// PackageCommitID gets latest commit id of code from git
-	PackageCommitID = "NoPackageInfo"
+	PackageCommitID = "NoBuildInfo"
+	// GitStatus gets git tree status from git
+	GitStatus = "NoBuildInfo"
+	// GoVersion gets go version of package
+	GoVersion = "NoBuildInfo"
+	// BuildTime gets building time
+	BuildTime = "NoBuildInfo"
 )

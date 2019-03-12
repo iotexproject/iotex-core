@@ -16,17 +16,15 @@ import (
 	"flag"
 	"fmt"
 	glog "log"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-
-	_ "net/http/pprof"
-
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"

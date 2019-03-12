@@ -247,6 +247,9 @@ func (api *Server) GetServerMeta(ctx context.Context,
 	return &iotexapi.GetServerMetaResponse{ServerMeta: &iotextypes.ServerMeta{
 		PackageVersion:  version.PackageVersion,
 		PackageCommitID: version.PackageCommitID,
+		GitStatus:       version.GitStatus,
+		GoVersion:       version.GoVersion,
+		BuidTime:        version.BuildTime,
 	}}, nil
 }
 
