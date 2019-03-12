@@ -26,7 +26,7 @@ type RunActionsCtx struct {
 	// timestamp of block containing those actions
 	BlockTimeStamp int64
 	// gas Limit for perform those actions
-	GasLimit *uint64
+	GasLimit uint64
 	// Producer is the address of whom composes the block containing this action
 	Producer address.Address
 	// Caller is the address of whom issues this action

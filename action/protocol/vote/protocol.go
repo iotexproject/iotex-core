@@ -74,7 +74,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", raCtx.Caller.String())
 	}
 
-	if *raCtx.GasLimit < raCtx.IntrinsicGas {
+	if raCtx.GasLimit < raCtx.IntrinsicGas {
 		return nil, action.ErrHitGasLimit
 	}
 	gasFee := big.NewInt(0).Mul(raCtx.GasPrice, big.NewInt(0).SetUint64(raCtx.IntrinsicGas))
@@ -94,7 +94,6 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
 		return nil, err
 	}
-	*raCtx.GasLimit -= raCtx.IntrinsicGas
 	// Update voteFrom Nonce
 	accountutil.SetNonce(vote, voteFrom)
 	prevVotee := voteFrom.Votee
@@ -162,7 +161,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		}
 	}
 
-	return nil, nil
+	return &action.Receipt{GasConsumed: raCtx.IntrinsicGas}, nil
 }
 
 // Validate validates a vote

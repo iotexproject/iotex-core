@@ -347,7 +347,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				wsctx := protocol.WithRunActionsCtx(ctx,
 					protocol.RunActionsCtx{
 						Producer: testaddress.Addrinfo["producer"],
-						GasLimit: &gasLimit,
+						GasLimit: gasLimit,
 					})
 				_, err = ws.RunActions(wsctx, 0, nil)
 				require.NoError(t, err)

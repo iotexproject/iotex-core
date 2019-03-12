@@ -68,7 +68,7 @@ func TestValidateDeposit(t *testing.T) {
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(t, err)

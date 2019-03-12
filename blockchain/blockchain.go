@@ -491,7 +491,7 @@ func (bc *blockchain) MintNewBlock(
 			BlockHeight:    newblockHeight,
 			BlockTimeStamp: bc.now(),
 			Producer:       bc.config.ProducerAddress(),
-			GasLimit:       &gasLimitForContext,
+			GasLimit:       gasLimitForContext,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
@@ -620,7 +620,7 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		BlockTimeStamp: blk.Timestamp(),
 		Producer:       producer,
 		Caller:         caller,
-		GasLimit:       &gasLimit,
+		GasLimit:       gasLimit,
 		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		GasPrice:       big.NewInt(0),
 		IntrinsicGas:   0,
@@ -653,7 +653,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			GasLimit:       &gasLimit,
+			GasLimit:       gasLimit,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Caller:         callerAddr,
 			ActionHash:     hash.ZeroHash256,
@@ -906,7 +906,7 @@ func (bc *blockchain) runActions(
 			BlockHeight:    acts.BlockHeight(),
 			BlockTimeStamp: acts.BlockTimeStamp(),
 			Producer:       producer,
-			GasLimit:       &gasLimit,
+			GasLimit:       gasLimit,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
@@ -931,7 +931,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			break
 		}
 
-		receipt, err := ws.RunAction(ctx, nextAction)
+		receipt, err := ws.RunAction(raCtx, nextAction)
 		if err != nil {
 			if errors.Cause(err) == action.ErrHitGasLimit {
 				// hit block gas limit, we should not process actions belong to this user anymore since we
@@ -943,13 +943,14 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
 		}
 		if receipt != nil {
+			raCtx.GasLimit -= receipt.GasConsumed
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, nextAction)
 
 		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 		// than certain threshold
-		if *raCtx.GasLimit < bc.config.Chain.AllowedBlockGasResidue {
+		if raCtx.GasLimit < bc.config.Chain.AllowedBlockGasResidue {
 			break
 		}
 	}
@@ -961,7 +962,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	switch errors.Cause(err) {
 	case nil:
 		if !skip {
-			receipt, err := ws.RunAction(ctx, putPollResult)
+			receipt, err := ws.RunAction(raCtx, putPollResult)
 			if err != nil {
 				return hash.ZeroHash256, nil, nil, err
 			}
@@ -987,7 +988,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	if err != nil {
 		return hash.ZeroHash256, nil, nil, err
 	}
-	receipt, err := ws.RunAction(ctx, grant)
+	receipt, err := ws.RunAction(raCtx, grant)
 	if err != nil {
 		return hash.ZeroHash256, nil, nil, err
 	}
@@ -1002,7 +1003,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
-		receipt, err = ws.RunAction(ctx, grant)
+		receipt, err = ws.RunAction(raCtx, grant)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
@@ -1154,7 +1155,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight:    0,
 		BlockTimeStamp: bc.config.Genesis.Timestamp,
-		GasLimit:       nil,
+		GasLimit:       0,
 		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		Producer:       nil,
 		Caller:         nil,
