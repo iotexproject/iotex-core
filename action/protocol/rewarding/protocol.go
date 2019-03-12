@@ -30,11 +30,12 @@ const (
 )
 
 var (
-	adminKey                    = []byte("admin")
-	fundKey                     = []byte("fund")
-	blockRewardHistoryKeyPrefix = []byte("blockRewardHistory")
-	epochRewardHistoryKeyPrefix = []byte("epochRewardHistory")
-	accountKeyPrefix            = []byte("account")
+	adminKey                    = []byte("adm")
+	fundKey                     = []byte("fnd")
+	blockRewardHistoryKeyPrefix = []byte("brh")
+	epochRewardHistoryKeyPrefix = []byte("erh")
+	accountKeyPrefix            = []byte("acc")
+	exemptKey                   = []byte("xpt")
 )
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the

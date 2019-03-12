@@ -55,11 +55,12 @@ func initDefaultConfig() {
 			EnableGravityChainVoting: false,
 		},
 		Rewarding: Rewarding{
-			InitAdminAddrStr:           identityset.Address(0).String(),
-			InitBalanceStr:             unit.ConvertIotxToRau(1200000000).String(),
-			BlockRewardStr:             unit.ConvertIotxToRau(36).String(),
-			EpochRewardStr:             unit.ConvertIotxToRau(400000).String(),
-			NumDelegatesForEpochReward: 100,
+			InitAdminAddrStr:              identityset.Address(0).String(),
+			InitBalanceStr:                unit.ConvertIotxToRau(1200000000).String(),
+			BlockRewardStr:                unit.ConvertIotxToRau(36).String(),
+			EpochRewardStr:                unit.ConvertIotxToRau(400000).String(),
+			NumDelegatesForEpochReward:    100,
+			ExemptAddrStrsFromEpochReward: []string{},
 		},
 	}
 	for i := 0; i < identityset.Size(); i++ {
@@ -151,6 +152,8 @@ type (
 		EpochRewardStr string `yaml:"epochReward"`
 		// NumDelegatesForEpochReward is the number of top candidates that will share a epoch reward
 		NumDelegatesForEpochReward uint64 `yaml:"numDelegatesForEpochReward"`
+		// ExemptAddrStrsFromEpochReward is the list of addresses in encoded string format that exempt from epoch reward
+		ExemptAddrStrsFromEpochReward []string `yaml:"exemptAddrsFromEpochReward"`
 	}
 )
 
@@ -332,4 +335,17 @@ func (r *Rewarding) EpochReward() *big.Int {
 		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
 	}
 	return val
+}
+
+// ExemptAddrsFromEpochReward returns the list of addresses that exempt from epoch reward
+func (r *Rewarding) ExemptAddrsFromEpochReward() []address.Address {
+	addrs := make([]address.Address, 0)
+	for _, addrStr := range r.ExemptAddrStrsFromEpochReward {
+		addr, err := address.FromString(addrStr)
+		if err != nil {
+			log.L().Panic("Error when decoding the rewarding protocol exempt address from string.", zap.Error(err))
+		}
+		addrs = append(addrs, addr)
+	}
+	return addrs
 }
