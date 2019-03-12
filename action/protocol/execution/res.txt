@@ -1,0 +1,847 @@
+2019-03-11T14:36:10.288-0700	[34mINFO[0m	execution/protocol_test.go:214	Test EVM
+2019-03-11T14:36:10.309-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "675f1057f81e9e768e33faddbd5609c09f4c0a5c"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func1
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:277
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func4
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:776
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.312-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "675f1057f81e9e768e33faddbd5609c09f4c0a5c"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func1
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:282
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func4
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:776
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.316-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 1, "timeStamp": 0, "prevBlockHash": "74b847f7dda1f6ae84b32d7c62722dca95b51d493001d3c62f15f37f1125447a", "txRoot": "9ed753558d766f63509b6cf71b95f1b20f2b4e668e5e29a7e14dd69eb63592f0", "receiptRoot": "164dca6d08904b384c10ff5420cd0bf8d0d36e8ee127bf995f89298d428c911e", "deltaStateDigest": "f15a3f25adcfd4eafbb0a153ae8070594cda4aece920c6c7f1889e6995ec9380", "tipHash": "2421854ffaeff6f7885fd4e88ea628418c738b006e81bd4b277ce1605d414cdb"}
+2019-03-11T14:36:10.318-0700	[34mINFO[0m	execution/protocol_test.go:326	execution &{AbstractAction:{version:1 nonce:2 srcPubkey:0xc0001881a8 gasLimit:120000 gasPrice:0xc000282960 hash:[253 249 87 93 225 53 209 190 246 181 145 86 139 65 163 82 145 185 155 154 77 234 252 4 135 115 228 61 193 64 105 207]} contract:io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn amount:0xc000282900 data:[96 254 71 177 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 15]}
+2019-03-11T14:36:10.319-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func1
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:330
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func4
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:776
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.322-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func1
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:335
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func4
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:776
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.324-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 2, "timeStamp": 0, "prevBlockHash": "2421854ffaeff6f7885fd4e88ea628418c738b006e81bd4b277ce1605d414cdb", "txRoot": "dd15e8498e81105097ae22dda6be467429f800b73b5cee61b17d7100fe96bbf4", "receiptRoot": "1c8d2db1c1e47eff44c023c20e9cf5c0c393f1f24461f3bbd960cc375b7b8126", "deltaStateDigest": "5c7a6437c3490cf21ac37d4f637fcf5ca727528e56bbfef1e84efbbe39ae4150", "tipHash": "d0e9c0a07b2f27742696de5fe43191015f8afe983cbed426a3574c42f358ea61"}
+2019-03-11T14:36:10.324-0700	[34mINFO[0m	execution/protocol_test.go:362	execution &{AbstractAction:{version:1 nonce:3 srcPubkey:0xc00018a278 gasLimit:120000 gasPrice:0xc00038a080 hash:[39 55 47 108 201 79 86 156 129 177 36 173 87 182 106 184 117 213 90 56 245 135 13 180 77 178 223 69 254 61 172 164]} contract: amount:0xc00038a020 data:[109 76 230 60]}
+2019-03-11T14:36:10.325-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "67ec2fd251e5563c112b2534590ae74d23e6df19"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func1
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:365
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func4
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:776
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.328-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "67ec2fd251e5563c112b2534590ae74d23e6df19"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func1
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:370
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func4
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:776
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.330-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 3, "timeStamp": 0, "prevBlockHash": "d0e9c0a07b2f27742696de5fe43191015f8afe983cbed426a3574c42f358ea61", "txRoot": "02362a85e7fe8bb08e9c6ae5fdca8ce5637a80a908cceb6c5a946ce1ddab618d", "receiptRoot": "0215c1cf9478e2af743df6b6b6539fd21bbdb3ef780e6b5941e7209c27db6d31", "deltaStateDigest": "e86fe75f161c917aebed5ed3639237cca33a761a361ce2141ebfbcd673e7ee6d", "tipHash": "45a0be88959b0341c31a21e223967e8f979f8dabc8e59600213e272db2e1aa33"}
+2019-03-11T14:36:10.331-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "017451ba3587e5843ea76618eebeec36bd9d6979"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func1
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:391
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func4
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:776
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.335-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "017451ba3587e5843ea76618eebeec36bd9d6979"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func1
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:396
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func4
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:776
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.338-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 4, "timeStamp": 0, "prevBlockHash": "45a0be88959b0341c31a21e223967e8f979f8dabc8e59600213e272db2e1aa33", "txRoot": "8ea7c6b460ea74339934574df4671d8a002b1ae255d5ebd19c1b8d0e3743c256", "receiptRoot": "bc36b9756795ddc4a785db79c36db420a135205c0d7cb74151098afa6b4c4887", "deltaStateDigest": "c9883cbe9eca0c16e68ad4030d2ff9c1188d44de484c4e51b3ad8f3116885223", "tipHash": "d5cfb6ee8f15e6431bdf0fcac6c0fb687354da3f1864c197523cf46960e8f7c8"}
+2019-03-11T14:36:10.338-0700	[33mWARN[0m	execution/protocol_test.go:402	======= Test RollDice
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func2
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:402
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func5
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:779
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.349-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "675f1057f81e9e768e33faddbd5609c09f4c0a5c"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func2
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:468
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func5
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:779
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.351-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "675f1057f81e9e768e33faddbd5609c09f4c0a5c"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func2
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:473
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func5
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:779
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.352-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 1, "timeStamp": 0, "prevBlockHash": "74b847f7dda1f6ae84b32d7c62722dca95b51d493001d3c62f15f37f1125447a", "txRoot": "2a63f6a9ade2a37bcfb3c5551dcbd26eef08a644d441e0c668c3e6a0e79315b4", "receiptRoot": "0f1c88923919e1a0b22377b2640a9d4c5d193059d443aa11e543b34c8d56d9bc", "deltaStateDigest": "35049be591dd085c571a7b9ca6da5346661d9097ddf0848214b3b99855e4dc40", "tipHash": "73f0a24418bfe2f387e3c46243e3ed8a023c11fad0e8d5cf6a8a6e69adb96333"}
+2019-03-11T14:36:10.352-0700	[34mINFO[0m	execution/protocol_test.go:476	======= Test RollDice
+2019-03-11T14:36:10.352-0700	[34mINFO[0m	execution/protocol_test.go:491	execution &{AbstractAction:{version:1 nonce:2 srcPubkey:0xc00018a210 gasLimit:120000 gasPrice:0xc000180520 hash:[175 76 166 151 107 129 186 70 176 136 52 11 14 162 84 187 251 170 183 72 172 20 179 77 39 145 163 178 32 84 241 215]} contract:io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn amount:0xc000180300 data:[208 227 13 176]}
+2019-03-11T14:36:10.356-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 2, "timeStamp": 0, "prevBlockHash": "73f0a24418bfe2f387e3c46243e3ed8a023c11fad0e8d5cf6a8a6e69adb96333", "txRoot": "633c6b0276485a1bad58de74ac4ba91b49a2740dd863897567f82b8490156804", "receiptRoot": "7a97d2c167707d90016d555b01e0e600d752e59feae0483d2cc62adfa96a17fb", "deltaStateDigest": "ce4c70cd73f250d694041f8f9335c3dfbd7febf4118dd044202b66cf296f5e1e", "tipHash": "d3925f11a5c41e94f5dae54955ba301bc961d512901e37cde794d41f5c228d33"}
+2019-03-11T14:36:10.356-0700	[34mINFO[0m	execution/protocol_test.go:507	Roll Dice
+2019-03-11T14:36:10.356-0700	[34mINFO[0m	execution/protocol_test.go:519	execution &{AbstractAction:{version:1 nonce:3 srcPubkey:0xc0000c4180 gasLimit:120000 gasPrice:0xc0002837e0 hash:[186 203 38 234 206 177 25 198 235 143 116 245 100 116 38 208 231 115 31 180 234 157 179 229 48 12 11 13 235 95 26 140]} contract:io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn amount:0xc000283780 data:[121 125 159 189 0 0 0 0 0 0 0 0 0 0 0 0 30 20 213 55 62 26 249 204 119 240 3 42 210 205 15 186 139 229 234 46]}
+
+2019-03-11T14:36:10.360-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 3, "timeStamp": 0, "prevBlockHash": "d3925f11a5c41e94f5dae54955ba301bc961d512901e37cde794d41f5c228d33", "txRoot": "67d9639af87c52f1ce89aa42557277a70b9dd79567d729a6fbbcfa2582a4ca79", "receiptRoot": "2f548b962ca96eb63865747661bad0257ae77d8e9c5ab0b32fbaf07ea80f4e89", "deltaStateDigest": "b7c879d6e14058d4eff5b18cdee621523ed98cae55e8cb346b21274c6a3221d3", "tipHash": "5335f7452bfb8c9e9c3a112a161e8ea4b9a56cf028083d39fbbecf2ac7783ddd"}
+2019-03-11T14:36:10.360-0700	[34mINFO[0m	execution/protocol_test.go:540	Roll Dice To Self
+2019-03-11T14:36:10.361-0700	[34mINFO[0m	execution/protocol_test.go:553	execution &{AbstractAction:{version:1 nonce:1 srcPubkey:0xc00000e0f8 gasLimit:120000 gasPrice:0xc0004522a0 hash:[246 190 184 144 159 130 238 217 7 46 53 118 43 32 109 138 110 123 13 30 49 55 54 120 239 47 196 138 200 184 84 99]} contract:io1va03q4lcr608dr3nltwm64sfcz05czjuycsqgn amount:0xc000452220 data:[40 133 173 44]}
+
+2019-03-11T14:36:10.366-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 4, "timeStamp": 0, "prevBlockHash": "5335f7452bfb8c9e9c3a112a161e8ea4b9a56cf028083d39fbbecf2ac7783ddd", "txRoot": "d58b2a2c4bbbc90d8a37d9237b5ca49442cac2ce4e756133cf8cedad86a8f255", "receiptRoot": "979102e0760a0362efd7ad37bba8a1f19de52480e74048a7306a6fe4d270be85", "deltaStateDigest": "b06db0b2d4f48c04e532079753e5e73c406fac4959f0d7a7ea3c87aa75bdba03", "tipHash": "287a6eb295d63012a13f9568496a40c01508ea3de3b19b57c01b7446c0befb5d"}
+2019-03-11T14:36:10.366-0700	[34mINFO[0m	execution/protocol_test.go:566	balance: 111725050
+2019-03-11T14:36:10.374-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.opSload
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/instructions.go:607
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:238
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:378
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:418
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:211
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:636
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.375-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:378
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:418
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:211
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:636
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.375-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:378
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:418
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:211
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:636
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.375-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:378
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:418
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:211
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:636
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.375-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "675f1057f81e9e768e33faddbd5609c09f4c0a5c"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:636
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.378-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.opSload
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/instructions.go:607
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:238
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:378
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:418
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:211
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:641
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.378-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:378
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:418
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:211
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:641
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.379-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:378
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:418
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:211
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:641
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.379-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:378
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Create
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:418
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:211
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:641
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.379-0700	[33mWARN[0m	evm/evm.go:212	evm Create.	{"addrHash": "675f1057f81e9e768e33faddbd5609c09f4c0a5c"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:212
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:641
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.381-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 1, "timeStamp": 0, "prevBlockHash": "74b847f7dda1f6ae84b32d7c62722dca95b51d493001d3c62f15f37f1125447a", "txRoot": "da3515578cbc76adbd81623ff52e10a44145c04e64c3abe86201ce84a18153f2", "receiptRoot": "ce5db2f9d0f72f2a70c8babb24609ddeea7ca83b6ebab6e0008b99131a9175f7", "deltaStateDigest": "14f815dddc30545a7a737f9169ced182eb9e7dcdb04b7592692917cc6cef74e1", "tipHash": "4e3b9114e5e67eb92abc255e4302706294ea6894790a5dfa99d10f9b4ba9c4a2"}
+2019-03-11T14:36:10.381-0700	[34mINFO[0m	execution/protocol_test.go:661	======= Transfer to alfa
+2019-03-11T14:36:10.381-0700	[33mWARN[0m	execution/protocol_test.go:672	TestER	{"v": "qQWcuwAAAAAAAAAAAAAAAB4U1Tc+GvnMd/ADKtLND7qL5eouAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJxA="}
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:672
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.382-0700	[33mWARN[0m	execution/protocol_test.go:693	TestER	{"v": "qQWcuwAAAAAAAAAAAAAAABJ0X+yCtYXyOcAQkIgutAcCwysEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATiA="}
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:693
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.382-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.opSload
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/instructions.go:607
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:238
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:706
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.382-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:706
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.383-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.opSload
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/instructions.go:607
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:238
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:706
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.383-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).pickAndRunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1147
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).MintNewBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:706
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.386-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.opSload
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/instructions.go:607
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:238
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.386-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.387-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.opSload
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/instructions.go:607
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:238
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.387-0700	[31mERROR[0m	evm/evmstatedbadapter.go:523	Failed to get state.	{"error": "not exist in trie", "errorVerbose": "not exist in trie\ngithub.com/iotexproject/iotex-core/db/trie.init\n\t/Users/raullen/work/src/github.com/iotexproject/iotex-core/db/trie/trie.go:37\ngithub.com/iotexproject/iotex-core/action/protocol/execution/evm.init\n\t<autogenerated>:1\ngithub.com/iotexproject/iotex-core/action/protocol/execution.init\n\t<autogenerated>:1\nmain.init\n\t<autogenerated>:1\nruntime.main\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/proc.go:189\nruntime.goexit\n\t/usr/local/Cellar/go/1.11.5/libexec/src/runtime/asm_amd64.s:1333"}
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.(*StateDBAdapter).GetState
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evmstatedbadapter.go:523
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.gasSStore
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/gas_table.go:121
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVMInterpreter).Run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/interpreter.go:224
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.run
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:64
+github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm.(*EVM).Call
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/vendor/github.com/ethereum/go-ethereum/core/vm/evm.go:213
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.executeInEVM
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:224
+github.com/iotexproject/iotex-core/action/protocol/execution/evm.ExecuteContract
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/evm/evm.go:148
+github.com/iotexproject/iotex-core/action/protocol/execution.(*Protocol).Handle
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol.go:42
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunAction
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:106
+github.com/iotexproject/iotex-core/state/factory.(*stateTX).RunActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/state/factory/statetx.go:68
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).runActions
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1127
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).validateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:1033
+github.com/iotexproject/iotex-core/blockchain.(*blockchain).ValidateBlock
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/blockchain/blockchain.go:682
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:711
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.390-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 2, "timeStamp": 0, "prevBlockHash": "4e3b9114e5e67eb92abc255e4302706294ea6894790a5dfa99d10f9b4ba9c4a2", "txRoot": "b1c3b7edd485ffbdc7393a99bf70fc9ad21bdd1b6d470f74ebe8b90279c016fe", "receiptRoot": "94278656c40f7ea3901c597a90c69356d39801fb866c284b5f96525a9560d165", "deltaStateDigest": "ce4409e41692b95f5ea0d6226555cef51723967d755651fea2c80a6371555796", "tipHash": "1028345c99503b4ed05e362b18f81a4d30b738f266e7947728c144af490ad953"}
+2019-03-11T14:36:10.390-0700	[34mINFO[0m	execution/protocol_test.go:714	======= Transfer to bravo
+2019-03-11T14:36:10.390-0700	[33mWARN[0m	execution/protocol_test.go:722	TestER	{"v": "qQWcuwAAAAAAAAAAAAAAABJ0X+yCtYXyOcAQkIgutAcCwysEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB9A="}
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:722
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.396-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 3, "timeStamp": 0, "prevBlockHash": "1028345c99503b4ed05e362b18f81a4d30b738f266e7947728c144af490ad953", "txRoot": "fc23dd033a1d59d2ad7400a309db94a55bb56b1910433cc43675f79e269d5ced", "receiptRoot": "97d536dd8c0a7eadda3e18ea574fb3db3a43f4696a5538ee7a212541e0ae3f96", "deltaStateDigest": "fb5b961a50da5333daa701a0327fe99e694c55a3887d959a3c77de625edbf845", "tipHash": "04710323a7966e40c17b28c6d12fee47ef8d54ab6a416f18682e3a634a7a0750"}
+2019-03-11T14:36:10.396-0700	[33mWARN[0m	execution/protocol_test.go:746	TestER	{"v": "cKCCMQAAAAAAAAAAAAAAAB4U1Tc+GvnMd/ADKtLND7qL5eou"}
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func3
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:746
+github.com/iotexproject/iotex-core/action/protocol/execution.TestProtocol_Handle.func6
+	/Users/raullen/work/src/github.com/iotexproject/iotex-core/action/protocol/execution/protocol_test.go:782
+testing.tRunner
+	/usr/local/Cellar/go/1.11.5/libexec/src/testing/testing.go:827
+2019-03-11T14:36:10.400-0700	[34mINFO[0m	blockchain/blockchain.go:1096	Committed a block.	{"version": 1, "height": 4, "timeStamp": 0, "prevBlockHash": "04710323a7966e40c17b28c6d12fee47ef8d54ab6a416f18682e3a634a7a0750", "txRoot": "8b345e800bd6f7f1b6e8205bdd6282f8501fb6c7cc34d42e1acccfc41c4c021d", "receiptRoot": "242f23e5d0c9f087e90feae1728c16757ff04032d41633405e7684ff119dcd10", "deltaStateDigest": "5bb9ad0e159146817e8caf973e9358285f7fef4106bacb3ccf2e58878da068a1", "tipHash": "a95e5c62bb45d95b81ec42d767aab041f252b03cfc5cfa3a4dd7d2e660cd4c13"}
+PASS
+ok  	github.com/iotexproject/iotex-core/action/protocol/execution	0.164s

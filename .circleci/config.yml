@@ -67,6 +67,10 @@ jobs:
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
+      - run: make ioctl
+      - aws-s3/copy:
+          from: cli/ioctl/release/ioctl-darwin-amd64
+          to: 'https://s3-ap-southeast-1.amazonaws.com/ioctl/'
 
   nightly:
     docker:
