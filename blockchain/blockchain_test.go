@@ -595,64 +595,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(5)
 	require.NoError(err)
 	require.Equal(hash5, blk.HashBlock())
-	tsfs, votes, _ := action.ClassifyActions(blk.Actions)
-	for _, transfer := range tsfs {
-		transferHash := transfer.Hash()
-		blkhash, err := bc.GetBlockHashByTransferHash(transferHash)
-		require.NoError(err)
-		require.Equal(blkhash, hash5)
-		transfer1, err := bc.GetTransferByTransferHash(transferHash)
-		require.NoError(err)
-		require.Equal(transfer1.Hash(), transferHash)
-	}
-
-	for _, vote := range votes {
-		voteHash := vote.Hash()
-		blkhash, err := bc.GetBlockHashByVoteHash(voteHash)
-		require.NoError(err)
-		require.Equal(blkhash, hash5)
-		vote1, err := bc.GetVoteByVoteHash(voteHash)
-		require.NoError(err)
-		require.Equal(vote1.Hash(), voteHash)
-	}
-
-	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].String())
-	require.NoError(err)
-	require.Equal(len(fromTransfers), 5)
-
-	toTransfers, err := bc.GetTransfersToAddress(ta.Addrinfo["charlie"].String())
-	require.NoError(err)
-	require.Equal(len(toTransfers), 2)
-
-	fromVotes, err := bc.GetVotesFromAddress(ta.Addrinfo["charlie"].String())
-	require.NoError(err)
-	require.Equal(len(fromVotes), 1)
-
-	fromVotes, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].String())
-	require.NoError(err)
-	require.Equal(len(fromVotes), 1)
-
-	toVotes, err := bc.GetVotesToAddress(ta.Addrinfo["charlie"].String())
-	require.NoError(err)
-	require.Equal(len(toVotes), 1)
-
-	toVotes, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].String())
-	require.NoError(err)
-	require.Equal(len(toVotes), 1)
-
-	totalTransfers, err := bc.GetTotalTransfers()
-	require.NoError(err)
-	require.Equal(totalTransfers, uint64(22))
-
-	totalVotes, err := bc.GetTotalVotes()
-	require.NoError(err)
-	// Self nominations are not counted as votes
-	require.Equal(totalVotes, uint64(2))
-
-	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
-	require.Error(err)
-	_, err = bc.GetVoteByVoteHash(hash.ZeroHash256)
-	require.Error(err)
 	_, err = bc.StateByAddr("")
 	require.Error(err)
 }
@@ -810,41 +752,6 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(4)
 	require.NoError(err)
 	require.Equal(hash4, blk.HashBlock())
-	tsfs, votes, _ := action.ClassifyActions(blk.Actions)
-	for _, transfer := range tsfs {
-		transferHash := transfer.Hash()
-		_, err := bc.GetBlockHashByTransferHash(transferHash)
-		require.Error(err)
-		_, err = bc.GetTransferByTransferHash(transferHash)
-		require.Error(err)
-	}
-	for _, vote := range votes {
-		voteHash := vote.Hash()
-		_, err := bc.GetBlockHashByVoteHash(voteHash)
-		require.Error(err)
-		_, err = bc.GetVoteByVoteHash(voteHash)
-		require.Error(err)
-	}
-	_, err = bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].String())
-	require.Error(err)
-	_, err = bc.GetTransfersToAddress(ta.Addrinfo["charlie"].String())
-	require.Error(err)
-	_, err = bc.GetVotesFromAddress(ta.Addrinfo["charlie"].String())
-	require.Error(err)
-	_, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].String())
-	require.Error(err)
-	_, err = bc.GetVotesToAddress(ta.Addrinfo["charlie"].String())
-	require.Error(err)
-	_, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].String())
-	require.Error(err)
-	_, err = bc.GetTotalTransfers()
-	require.Error(err)
-	_, err = bc.GetTotalVotes()
-	require.Error(err)
-	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
-	require.Error(err)
-	_, err = bc.GetVoteByVoteHash(hash.ZeroHash256)
-	require.Error(err)
 	_, err = bc.StateByAddr("")
 	require.Error(err)
 }

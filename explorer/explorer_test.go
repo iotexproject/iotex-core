@@ -262,147 +262,9 @@ func TestExplorerApi(t *testing.T) {
 		gs:  GasStation{bc, explorerCfg},
 	}
 
-	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(5, len(transfers))
-
-	votes, err := svc.GetVotesByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(4, len(votes))
-
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["charlie"].String(), 0, 2)
-	require.Nil(err)
-	require.Equal(2, len(votes))
-
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["alfa"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(2, len(votes))
-
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["delta"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(0, len(votes))
-
-	executions, err := svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(2, len(executions))
-
-	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["alfa"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(1, len(executions))
-
-	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, true)
-	require.Equal(3, len(transfers))
-	require.Nil(err)
-	for i := 0; i < len(transfers)-1; i++ {
-		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
-	}
-	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, true)
-	require.Equal(1, len(transfers))
-	require.Nil(err)
-	for i := 0; i < len(transfers)-1; i++ {
-		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
-	}
-
-	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, false)
-	require.Equal(3, len(transfers))
-	require.Nil(err)
-	for i := 0; i < len(transfers)-1; i++ {
-		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
-	}
-	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, false)
-	require.Equal(1, len(transfers))
-	require.Nil(err)
-
-	votes, err = svc.GetLastVotesByRange(4, 0, 10)
-	require.Equal(3, len(votes))
-	require.Nil(err)
-	for i := 0; i < len(votes)-1; i++ {
-		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
-	}
-	votes, err = svc.GetLastVotesByRange(3, 0, 50)
-	require.Equal(1, len(votes))
-	require.Nil(err)
-	for i := 0; i < len(votes)-1; i++ {
-		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
-	}
-
-	executions, err = svc.GetLastExecutionsByRange(4, 0, 3)
-	require.Equal(3, len(executions))
-	require.Nil(err)
-	for i := 0; i < len(executions)-1; i++ {
-		require.True(executions[i].Timestamp >= executions[i+1].Timestamp)
-	}
-	executions, err = svc.GetLastExecutionsByRange(3, 0, 50)
-	require.Equal(1, len(executions))
-	require.Nil(err)
-
 	blks, getBlkErr := svc.GetLastBlocksByRange(3, 4)
 	require.Nil(getBlkErr)
 	require.Equal(3, len(blks))
-
-	transfers, err = svc.GetTransfersByBlockID(blks[2].ID, 0, 10)
-	require.Nil(err)
-	require.Equal(1, len(transfers))
-
-	// fail
-	_, err = svc.GetTransfersByBlockID("", 0, 10)
-	require.Error(err)
-
-	votes, err = svc.GetVotesByBlockID(blks[1].ID, 0, 0)
-	require.Nil(err)
-	require.Equal(0, len(votes))
-
-	votes, err = svc.GetVotesByBlockID(blks[1].ID, 0, 10)
-	require.Nil(err)
-	require.Equal(1, len(votes))
-
-	// fail
-	_, err = svc.GetVotesByBlockID("", 0, 10)
-	require.Error(err)
-
-	// fail
-	_, err = svc.GetExecutionsByBlockID("", 0, 10)
-	require.Error(err)
-
-	executions, err = svc.GetExecutionsByBlockID(blks[1].ID, 0, 10)
-	require.Nil(err)
-	require.Equal(1, len(executions))
-
-	transfer, err := svc.GetTransferByID(transfers[0].ID)
-	require.Nil(err)
-	require.Equal(transfers[0].Sender, transfer.Sender)
-	require.Equal(transfers[0].Recipient, transfer.Recipient)
-	require.Equal(transfers[0].BlockID, transfer.BlockID)
-
-	// error
-	_, err = svc.GetTransferByID("")
-	require.Error(err)
-
-	vote, err := svc.GetVoteByID(votes[0].ID)
-	require.Nil(err)
-	require.Equal(votes[0].Nonce, vote.Nonce)
-	require.Equal(votes[0].BlockID, vote.BlockID)
-	require.Equal(votes[0].Timestamp, vote.Timestamp)
-	require.Equal(votes[0].ID, vote.ID)
-	require.Equal(votes[0].Votee, vote.Votee)
-	require.Equal(votes[0].Voter, vote.Voter)
-
-	// fail
-	_, err = svc.GetVoteByID("")
-	require.Error(err)
-
-	execution, err := svc.GetExecutionByID(executions[0].ID)
-	require.Nil(err)
-	require.Equal(executions[0].Nonce, execution.Nonce)
-	require.Equal(executions[0].BlockID, execution.BlockID)
-	require.Equal(executions[0].Timestamp, execution.Timestamp)
-	require.Equal(executions[0].ID, execution.ID)
-	require.Equal(executions[0].Executor, execution.Executor)
-	require.Equal(executions[0].Contract, execution.Contract)
-
-	// fail
-	_, err = svc.GetExecutionByID("")
-	require.Error(err)
 
 	blk, err := svc.GetBlockByID(blks[0].ID)
 	require.Nil(err)
@@ -419,9 +281,9 @@ func TestExplorerApi(t *testing.T) {
 	stats, err := svc.GetCoinStatistic()
 	require.Nil(err)
 	require.Equal(int64(4), stats.Height)
-	require.Equal(int64(5), stats.Transfers)
-	require.Equal(int64(3), stats.Votes)
-	require.Equal(int64(3), stats.Executions)
+	require.Equal(int64(0), stats.Transfers)
+	require.Equal(int64(0), stats.Votes)
+	require.Equal(int64(0), stats.Executions)
 	require.Equal(int64(11), stats.Aps)
 
 	// success
@@ -452,39 +314,6 @@ func TestExplorerApi(t *testing.T) {
 	err = addActsToActPool(ap)
 	require.NoError(err)
 
-	// success
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].String(), 0, 3)
-	require.Nil(err)
-	require.Equal(2, len(transfers))
-	require.Equal(int64(2), transfers[0].Nonce)
-	require.Equal(int64(4), transfers[1].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].String(), 0, 3)
-	require.Nil(err)
-	require.Equal(1, len(votes))
-	require.Equal(int64(3), votes[0].Nonce)
-	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].String(), 0, 3)
-	require.Nil(err)
-	require.Equal(1, len(executions))
-	require.Equal(int64(5), executions[0].Nonce)
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].String(), 1, 1)
-	require.Nil(err)
-	require.Equal(1, len(transfers))
-	require.Equal(int64(4), transfers[0].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].String(), 1, 1)
-	require.Nil(err)
-	require.Equal(0, len(votes))
-	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].String(), 1, 1)
-	require.Nil(err)
-	require.Equal(0, len(executions))
-
-	// error
-	_, err = svc.GetUnconfirmedTransfersByAddress("", 0, 3)
-	require.Error(err)
-	_, err = svc.GetUnconfirmedVotesByAddress("", 0, 3)
-	require.Error(err)
-	_, err = svc.GetUnconfirmedExecutionsByAddress("", 0, 3)
-	require.Error(err)
-
 	// test GetBlockOrActionByHash
 	res, err := svc.GetBlockOrActionByHash("")
 	require.NoError(err)
@@ -501,35 +330,6 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Execution)
 	require.Nil(res.Address)
 	require.Equal(&blks[0], res.Block)
-
-	res, err = svc.GetBlockOrActionByHash(transfers[0].ID)
-	require.NoError(err)
-	require.Nil(res.Block)
-	require.Nil(res.Vote)
-	require.Nil(res.Execution)
-	require.Nil(res.Address)
-	require.Equal(&transfers[0], res.Transfer)
-
-	votes, err = svc.GetLastVotesByRange(3, 0, 50)
-	require.NoError(err)
-	res, err = svc.GetBlockOrActionByHash(votes[0].ID)
-	require.NoError(err)
-	require.Nil(res.Block)
-	require.Nil(res.Transfer)
-	require.Nil(res.Execution)
-	require.Nil(res.Address)
-	require.Equal(&votes[0], res.Vote)
-
-	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
-	require.NoError(err)
-	res, err = svc.GetBlockOrActionByHash(executions[0].ID)
-	require.NoError(err)
-	require.Nil(res.Block)
-	require.Nil(res.Transfer)
-	require.Nil(res.Vote)
-	require.Nil(res.Address)
-	require.Equal(&executions[0], res.Execution)
-	require.Equal(len(executions), 2)
 
 	res, err = svc.GetBlockOrActionByHash(ta.Addrinfo["charlie"].String())
 	require.NoError(err)

@@ -297,16 +297,16 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(err)
 		require.Equal(data[31:], code)
 
-		exe, err := bc.GetExecutionByExecutionHash(eHash)
+		exe, err := bc.GetActionByActionHash(eHash)
 		require.Nil(err)
 		require.Equal(eHash, exe.Hash())
 
-		exes, err := bc.GetExecutionsFromAddress(testaddress.Addrinfo["producer"].String())
+		exes, err := bc.GetActionsFromAddress(testaddress.Addrinfo["producer"].String())
 		require.Nil(err)
 		require.Equal(1, len(exes))
 		require.Equal(eHash, exes[0])
 
-		blkHash, err := bc.GetBlockHashByExecutionHash(eHash)
+		blkHash, err := bc.GetBlockHashByActionHash(eHash)
 		require.Nil(err)
 		require.Equal(blk.HashBlock(), blkHash)
 
