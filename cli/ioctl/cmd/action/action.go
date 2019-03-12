@@ -50,7 +50,8 @@ func init() {
 	ActionCmd.AddCommand(actionTransferCmd)
 	ActionCmd.AddCommand(actionDeployCmd)
 	ActionCmd.AddCommand(actionInvokeCmd)
-	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd)
+	ActionCmd.AddCommand(actionClaimCmd)
+	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionClaimCmd)
 }
 
 func setActionFlags(cmds ...*cobra.Command) {
