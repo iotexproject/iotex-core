@@ -29,11 +29,22 @@ ROOT_PKG := "github.com/iotexproject/iotex-core"
 DOCKERCMD=docker
 
 # Package Info
-PackageVersion := $(shell git describe --abbrev=0 --tags)
-PackageCommitID := $(shell git log --pretty=format:"%h" -1)
-VersionImportPath = github.com/iotexproject/iotex-core/pkg/version
-PackageFlags += -X $(VersionImportPath).PackageVersion=$(PackageVersion)
-PackageFlags += -X $(VersionImportPath).PackageCommitID=$(PackageCommitID)
+PACKAGE_VERSION := $(shell git describe --abbrev=0 --tags)
+PACKAGE_COMMIT_ID := $(shell git rev-parse --short HEAD)
+GIT_STATUS := $(shell git status --porcelain)
+ifdef GIT_STATUS
+	GIT_STATUS := "dirty"
+else
+	GIT_STATUS := "clean"
+endif
+GO_VERSION := $(shell go version)
+BUILD_TIME=$(shell date +%F-%Z/%T)
+VersionImportPath := github.com/iotexproject/iotex-core/pkg/version
+PackageFlags += -X '$(VersionImportPath).PackageVersion=$(PACKAGE_VERSION)'
+PackageFlags += -X '$(VersionImportPath).PackageCommitID=$(PACKAGE_COMMIT_ID)'
+PackageFlags += -X '$(VersionImportPath).GitStatus=$(GIT_STATUS)'
+PackageFlags += -X '$(VersionImportPath).GoVersion=$(GO_VERSION)'
+PackageFlags += -X '$(VersionImportPath).BuildTime=$(BUILD_TIME)'
 
 TEST_IGNORE= ".git,vendor"
 COV_OUT := profile.coverprofile
@@ -53,10 +64,10 @@ endif
 all: clean build test
 .PHONY: build
 build:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 
 .PHONY: fmt
