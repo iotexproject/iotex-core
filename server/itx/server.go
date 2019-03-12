@@ -71,10 +71,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	p2pAgent := p2p.NewAgent(cfg.Network, dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	chains := make(map[uint32]*chainservice.ChainService)
 	var cs *chainservice.ChainService
-	genesisConfig, err := genesis.New()
-	if err != nil {
-		return nil, err
-	}
 	var opts []chainservice.Option
 	if testing {
 		opts = []chainservice.Option{
@@ -89,14 +85,14 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// Add action validators
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
 	// Install protocols
-	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+	if err := registerDefaultProtocols(cs, cfg.Genesis); err != nil {
 		return nil, err
 	}
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
