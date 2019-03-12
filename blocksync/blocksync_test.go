@@ -8,6 +8,8 @@ package blocksync
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -142,8 +144,6 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
@@ -170,8 +170,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -199,8 +197,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 
 	defer func() {
 		require.Nil(chain.Stop(ctx))
-		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 		ctrl.Finish()
 	}()
 
@@ -233,8 +229,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -285,8 +279,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	defer func() {
 		require.Nil(chain1.Stop(ctx))
 		require.Nil(chain2.Stop(ctx))
-		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 		ctrl.Finish()
 	}()
 
@@ -330,8 +322,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	registry := protocol.Registry{}
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
@@ -385,8 +375,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	defer func() {
 		require.Nil(chain1.Stop(ctx))
 		require.Nil(chain2.Stop(ctx))
-		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 		ctrl.Finish()
 	}()
 
@@ -429,8 +417,6 @@ func TestBlockSyncerSync(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -455,8 +441,6 @@ func TestBlockSyncerSync(t *testing.T) {
 	defer func() {
 		require.Nil(bs.Stop(ctx))
 		require.Nil(chain.Stop(ctx))
-		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 		ctrl.Finish()
 	}()
 
@@ -479,9 +463,14 @@ func TestBlockSyncerSync(t *testing.T) {
 }
 
 func newTestConfig() (config.Config, error) {
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = "trie.test"
-	cfg.Chain.ChainDBPath = "db.test"
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 	cfg.BlockSync.Interval = 100 * time.Millisecond
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Host = "127.0.0.1"

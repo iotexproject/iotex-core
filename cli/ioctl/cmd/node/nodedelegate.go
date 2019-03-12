@@ -9,56 +9,62 @@ package node
 import (
 	"context"
 	"fmt"
+	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 // nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
-	Use:   "delegate",
-	Short: "get current delegates",
-	Args:  cobra.ExactArgs(0),
+	Use:   "delegate [DELEGATE]",
+	Short: "list delegates",
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(delegate())
+		fmt.Println(delegate(args))
 	},
 }
 
-func delegate() string {
+func delegate(args []string) string {
+	delegate := ""
+	var err error
+	if len(args) != 0 {
+		delegate, err = account.Address(args[0])
+		if err != nil {
+			return err.Error()
+		}
+	}
+	if epochNum == 0 {
+		chainMeta, err := bc.GetChainMeta()
+		if err != nil {
+			return err.Error()
+		}
+		epochNum = chainMeta.Epoch.Num
+	}
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
-	requestChainMeta := iotexapi.GetChainMetaRequest{}
+	request := &iotexapi.GetProductivityRequest{EpochNumber: epochNum}
 	ctx := context.Background()
-	responseChainMeta, err := cli.GetChainMeta(ctx, &requestChainMeta)
+	response, err := cli.GetProductivity(ctx, request)
 	if err != nil {
 		return err.Error()
 	}
-	height := responseChainMeta.ChainMeta.Height
-	request := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte("poll"),
-		MethodName: []byte("ActiveBlockProducersByHeight"),
-		Arguments:  [][]byte{byteutil.Uint64ToBytes(height)},
+	if len(delegate) != 0 {
+		return fmt.Sprintf("%s: %d (produced) / %d (total of epoch %d)", delegate,
+			response.BlksPerDelegate[delegate], response.TotalBlks, epochNum)
 	}
-	response, err := cli.ReadState(ctx, request)
-	if err != nil {
-		return err.Error()
+	lines := make([]string, 0)
+	for delegate, productivity := range response.BlksPerDelegate {
+		lines = append(lines, fmt.Sprintf("%s: %d (produced) / %d (total of epoch %d)",
+			delegate, productivity, response.TotalBlks, epochNum))
 	}
-	var activeBlockProducers pollpb.BlockProducerList
-	err = proto.Unmarshal(response.Data, &activeBlockProducers)
-	if err != nil {
-		log.L().Error("failed to unmarshal response data", zap.Error(err))
-		return err.Error()
-	}
-	return proto.MarshalTextString(&activeBlockProducers)
+	return strings.Join(lines, "\n")
 }

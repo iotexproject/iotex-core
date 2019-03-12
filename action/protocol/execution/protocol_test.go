@@ -11,7 +11,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 
@@ -39,11 +41,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testDBPath   = "db.test"
-	testTriePath = "trie.test"
 )
 
 type execCfg struct {
@@ -153,7 +150,7 @@ func (sct *smartContractTest) prepareBlockchain(
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
@@ -213,13 +210,15 @@ func TestProtocol_Handle(t *testing.T) {
 	testEVM := func(t *testing.T) {
 		log.S().Info("Test EVM")
 		require := require.New(t)
-		testutil.CleanupPath(t, testTriePath)
-		defer testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		defer testutil.CleanupPath(t, testDBPath)
 
 		ctx := context.Background()
 		cfg := config.Default
+
+		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath := testTrieFile.Name()
+		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath := testDBFile.Name()
+
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
@@ -255,7 +254,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
 				Producer: testaddress.Addrinfo["producer"],
-				GasLimit: &gasLimit,
+				GasLimit: gasLimit,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -298,16 +297,16 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(err)
 		require.Equal(data[31:], code)
 
-		exe, err := bc.GetExecutionByExecutionHash(eHash)
+		exe, err := bc.GetActionByActionHash(eHash)
 		require.Nil(err)
 		require.Equal(eHash, exe.Hash())
 
-		exes, err := bc.GetExecutionsFromAddress(testaddress.Addrinfo["producer"].String())
+		exes, err := bc.GetActionsFromAddress(testaddress.Addrinfo["producer"].String())
 		require.Nil(err)
 		require.Equal(1, len(exes))
 		require.Equal(eHash, exes[0])
 
-		blkHash, err := bc.GetBlockHashByExecutionHash(eHash)
+		blkHash, err := bc.GetBlockHashByActionHash(eHash)
 		require.Nil(err)
 		require.Equal(blk.HashBlock(), blkHash)
 
@@ -401,10 +400,11 @@ func TestProtocol_Handle(t *testing.T) {
 	testRollDice := func(t *testing.T) {
 		log.S().Warn("======= Test RollDice")
 		require := require.New(t)
-		testutil.CleanupPath(t, testTriePath)
-		defer testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		defer testutil.CleanupPath(t, testDBPath)
+
+		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath := testTrieFile.Name()
+		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath := testDBFile.Name()
 
 		ctx := context.Background()
 		cfg := config.Default
@@ -446,7 +446,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
 				Producer: testaddress.Addrinfo["producer"],
-				GasLimit: &gasLimit,
+				GasLimit: gasLimit,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -569,10 +569,11 @@ func TestProtocol_Handle(t *testing.T) {
 
 	testERC20 := func(t *testing.T) {
 		require := require.New(t)
-		testutil.CleanupPath(t, testTriePath)
-		defer testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		defer testutil.CleanupPath(t, testDBPath)
+
+		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath := testTrieFile.Name()
+		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath := testDBFile.Name()
 
 		ctx := context.Background()
 		cfg := config.Default
@@ -614,7 +615,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
 				Producer: testaddress.Addrinfo["producer"],
-				GasLimit: &gasLimit,
+				GasLimit: gasLimit,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)

@@ -8,9 +8,11 @@ package e2etest
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -254,8 +256,10 @@ var (
 func TestLocalTransfer(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	networkPort := 4689
 	apiPort := 14014
@@ -299,8 +303,6 @@ func TestLocalTransfer(t *testing.T) {
 
 	defer func() {
 		require.Nil(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	bc := svr.ChainService(chainID).Blockchain()

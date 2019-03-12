@@ -120,7 +120,7 @@ func TestWrongNonce(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: ta.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{tsf1})
 	require.NoError(err)
