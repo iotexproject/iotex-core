@@ -1026,7 +1026,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: ta.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err

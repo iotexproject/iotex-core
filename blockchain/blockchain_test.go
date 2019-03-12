@@ -881,7 +881,7 @@ func TestBlocks(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: ta.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
@@ -943,7 +943,7 @@ func TestActions(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: ta.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
@@ -985,7 +985,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: ta.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err
