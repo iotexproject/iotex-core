@@ -487,16 +487,13 @@ func newTransferConfig(
 ) (config.Config, error) {
 
 	cfg := config.Default
-
-	//cfg.NodeType = config.DelegateType
+	cfg.Roles[config.GatewayRole] = true
 	cfg.Network.Port = networkPort
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
-	cfg.Chain.EnableIndex = true
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.Consensus.Scheme = config.StandaloneScheme
-	cfg.API.Enabled = true
 	cfg.API.Port = apiPort
 	cfg.Genesis.BlockInterval = 1 * time.Second
 
