@@ -10,7 +10,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -48,11 +50,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testTriePath = "trie.test"
-	testDBPath   = "db.test"
 )
 
 func addTestingBlocks(bc blockchain.Blockchain) error {
@@ -208,14 +205,15 @@ func addActsToActPool(ap actpool.ActPool) error {
 func TestExplorerApi(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
@@ -922,15 +920,16 @@ func TestExplorerCandidateMetrics(t *testing.T) {
 
 func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	require := require.New(t)
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
