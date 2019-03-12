@@ -19,17 +19,17 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
-// nodeProductivityCmd represents the node productivity command
-var nodeProductivityCmd = &cobra.Command{
-	Use:   "productivity [DELEGATE]",
-	Short: "get productivity of delegates",
+// nodeDelegateCmd represents the node delegate command
+var nodeDelegateCmd = &cobra.Command{
+	Use:   "delegate [DELEGATE]",
+	Short: "list delegates",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(productivity(args))
+		fmt.Println(delegate(args))
 	},
 }
 
-func productivity(args []string) string {
+func delegate(args []string) string {
 	delegate := ""
 	var err error
 	if len(args) != 0 {
