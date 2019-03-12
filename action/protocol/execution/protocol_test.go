@@ -11,7 +11,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 
@@ -39,11 +41,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testDBPath   = "db.test"
-	testTriePath = "trie.test"
 )
 
 type execCfg struct {
@@ -213,13 +210,15 @@ func TestProtocol_Handle(t *testing.T) {
 	testEVM := func(t *testing.T) {
 		log.S().Info("Test EVM")
 		require := require.New(t)
-		testutil.CleanupPath(t, testTriePath)
-		defer testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		defer testutil.CleanupPath(t, testDBPath)
 
 		ctx := context.Background()
 		cfg := config.Default
+
+		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath := testTrieFile.Name()
+		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath := testDBFile.Name()
+
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableIndex = true
@@ -401,10 +400,11 @@ func TestProtocol_Handle(t *testing.T) {
 	testRollDice := func(t *testing.T) {
 		log.S().Warn("======= Test RollDice")
 		require := require.New(t)
-		testutil.CleanupPath(t, testTriePath)
-		defer testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		defer testutil.CleanupPath(t, testDBPath)
+
+		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath := testTrieFile.Name()
+		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath := testDBFile.Name()
 
 		ctx := context.Background()
 		cfg := config.Default
@@ -569,10 +569,11 @@ func TestProtocol_Handle(t *testing.T) {
 
 	testERC20 := func(t *testing.T) {
 		require := require.New(t)
-		testutil.CleanupPath(t, testTriePath)
-		defer testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		defer testutil.CleanupPath(t, testDBPath)
+
+		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath := testTrieFile.Name()
+		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath := testDBFile.Name()
 
 		ctx := context.Background()
 		cfg := config.Default

@@ -10,9 +10,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"os"
-	"path"
 	"testing"
 	"time"
 
@@ -39,22 +39,17 @@ import (
 func TestTwoChains(t *testing.T) {
 	t.Skip()
 
-	dir := os.TempDir()
-	cleanDB := func() {
-		testutil.CleanupPath(t, path.Join(dir, "./trie.db"))
-		testutil.CleanupPath(t, path.Join(dir, "./chain.db"))
-		testutil.CleanupPath(t, path.Join(dir, "./chain-2-trie.db"))
-		testutil.CleanupPath(t, path.Join(dir, "./chain-2-chain.db"))
-	}
-
-	cleanDB()
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Genesis.BlockInterval = time.Second
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(1).HexString()
-	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
-	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableIndex = true
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.Explorer.Enabled = true
@@ -67,7 +62,6 @@ func TestTwoChains(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, svr.Start(ctx))
 	defer func() {
-		cleanDB()
 		require.NoError(t, svr.Stop(ctx))
 	}()
 
