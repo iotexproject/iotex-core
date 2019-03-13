@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -238,8 +237,4 @@ func TestValidateActPool(t *testing.T) {
 			"maximum number of actions per pool cannot be less than maximum number of actions per account",
 		),
 	)
-}
-
-func TestX(t *testing.T) {
-	fmt.Println(time.Now().UnixNano())
 }
