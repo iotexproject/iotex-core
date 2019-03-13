@@ -82,7 +82,8 @@ Restart the server from a clean state by
 make reboot
 ```
 
-If "make run" fails, please try to recover state database by
+If "make run" fails due to corrupted or missing state database while block database is in normal condition, e.g.,
+failing to get factory's height from underlying DB, please try to recover state database by
 
 ```
 make recover
