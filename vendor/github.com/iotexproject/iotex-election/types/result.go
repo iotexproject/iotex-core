@@ -11,7 +11,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 
@@ -23,9 +23,11 @@ var ErrInvalidProto = errors.New("Invalid election proto")
 
 // ElectionResult defines the collection of voting result on a height
 type ElectionResult struct {
-	mintTime  time.Time
-	delegates []*Candidate
-	votes     map[string][]*Vote
+	mintTime         time.Time
+	delegates        []*Candidate
+	votes            map[string][]*Vote
+	totalVotes       *big.Int
+	totalVotedStakes *big.Int
 }
 
 // MintTime returns the mint time of the corresponding beacon chain block
@@ -41,6 +43,16 @@ func (r *ElectionResult) Delegates() []*Candidate {
 // VotesByDelegate returns a list of votes for a given delegate
 func (r *ElectionResult) VotesByDelegate(name []byte) []*Vote {
 	return r.votes[hex.EncodeToString(name)]
+}
+
+// TotalVotes returns the total votes in the result
+func (r *ElectionResult) TotalVotes() *big.Int {
+	return new(big.Int).Set(r.totalVotes)
+}
+
+// TotalVotedStakes returns the total amount of stakings which has been voted
+func (r *ElectionResult) TotalVotedStakes() *big.Int {
+	return new(big.Int).Set(r.totalVotedStakes)
 }
 
 // ToProtoMsg converts the vote to protobuf
@@ -72,9 +84,11 @@ func (r *ElectionResult) ToProtoMsg() (*pb.ElectionResult, error) {
 	}
 
 	return &pb.ElectionResult{
-		Timestamp:     t,
-		Delegates:     delegates,
-		DelegateVotes: delegateVotes,
+		Timestamp:        t,
+		Delegates:        delegates,
+		DelegateVotes:    delegateVotes,
+		TotalVotedStakes: r.totalVotedStakes.Bytes(),
+		TotalVotes:       r.totalVotes.Bytes(),
 	}, nil
 }
 
@@ -124,6 +138,8 @@ func (r *ElectionResult) FromProtoMsg(rPb *pb.ElectionResult) (err error) {
 	if r.mintTime, err = ptypes.Timestamp(rPb.Timestamp); err != nil {
 		return err
 	}
+	r.totalVotedStakes = new(big.Int).SetBytes(rPb.TotalVotedStakes)
+	r.totalVotes = new(big.Int).SetBytes(rPb.TotalVotes)
 
 	return nil
 }
