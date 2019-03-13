@@ -56,8 +56,6 @@ type Committee interface {
 	ResultByHeight(height uint64) (*types.ElectionResult, error)
 	// HeightByTime returns the nearest result before time
 	HeightByTime(timestamp time.Time) (uint64, error)
-	// OnNewBlock is a callback function which will be called on new block created
-	OnNewBlock(height uint64)
 	// LatestHeight returns the height with latest result
 	LatestHeight() uint64
 }
@@ -159,30 +157,33 @@ func (ec *committee) Start(ctx context.Context) (err error) {
 		}
 	}
 	zap.L().Info("catching up via network")
-	for {
-		result, err := ec.fetchResultByHeight(ec.nextHeight)
-		if err == db.ErrNotExist {
-			break
-		}
-		if err == nil {
-			if err = ec.storeResult(ec.nextHeight, result); err != nil {
-				return err
+	tipHeight, err := ec.carrier.TipHeight()
+	if err != nil {
+		return errors.Wrap(err, "failed to get tip height")
+	}
+	if err := ec.sync(tipHeight); err != nil {
+		return errors.Wrap(err, "failed to catch up via network")
+	}
+	zap.L().Info("subscribing to new block")
+	heightChan := make(chan uint64)
+	reportChan := make(chan error)
+	go func() {
+		for {
+			select {
+			case <-ec.terminate:
+				ec.terminate <- true
+				return
+			case height := <-heightChan:
+				if err := ec.Sync(height); err != nil {
+					zap.L().Error("failed to sync", zap.Error(err))
+				}
+			case err := <-reportChan:
+				zap.L().Error("something goes wrong", zap.Error(err))
 			}
-			ec.currentHeight = ec.nextHeight
-			ec.nextHeight += ec.interval
-			continue
 		}
-		return err
-	}
-	for {
-		if err = ec.carrier.SubscribeNewBlock(ec.OnNewBlock, ec.terminate); err == nil {
-			return
-		}
-		zap.L().Warn("retry new block subscription by rotating client", zap.Error(err))
-		if err := ec.carrier.RotateClient(); err != nil {
-			return errors.Wrap(err, "failed to rotate carrier client")
-		}
-	}
+	}()
+	ec.carrier.SubscribeNewBlock(heightChan, reportChan, ec.terminate)
+	return nil
 }
 
 func (ec *committee) Stop(ctx context.Context) error {
@@ -190,12 +191,19 @@ func (ec *committee) Stop(ctx context.Context) error {
 	defer ec.mutex.Unlock()
 	ec.terminate <- true
 	ec.carrier.Close()
+
 	return ec.db.Stop(ctx)
 }
 
-func (ec *committee) OnNewBlock(tipHeight uint64) {
+func (ec *committee) Sync(tipHeight uint64) error {
 	ec.mutex.Lock()
 	defer ec.mutex.Unlock()
+
+	return ec.sync(tipHeight)
+}
+
+func (ec *committee) sync(tipHeight uint64) error {
+	zap.L().Info("new block", zap.Uint64("height", tipHeight))
 	if ec.currentHeight < tipHeight {
 		ec.currentHeight = tipHeight
 	}
@@ -203,34 +211,25 @@ func (ec *committee) OnNewBlock(tipHeight uint64) {
 		if ec.nextHeight >= ec.currentHeight {
 			break
 		}
-		var result *types.ElectionResult
-		var err error
-		for {
-			if result, err = ec.retryFetchResultByHeight(); err == nil {
-				break
-			}
-			if err := ec.carrier.RotateClient(); err != nil {
-				zap.L().Error("failed to rotate carrier client", zap.Error(err))
-				return
-			}
+		result, err := ec.retryFetchResultByHeight()
+		if err != nil {
+			return err
 		}
 		if result == nil {
-			zap.L().Error("failed to fetch result", zap.Uint64("height", ec.nextHeight))
-			return
+			return errors.Errorf("failed to fetch result for height %d", ec.nextHeight)
 		}
 		if err = ec.heightManager.validate(ec.nextHeight, result.MintTime()); err != nil {
 			zap.L().Fatal(
 				"Unexpected status that the upcoming block height or time is invalid",
 				zap.Error(err),
 			)
-			return
 		}
 		if err = ec.storeResult(ec.nextHeight, result); err != nil {
-			zap.L().Error("failed to store result", zap.Error(err))
-			return
+			return errors.Wrapf(err, "failed to store result of height %d", ec.nextHeight)
 		}
 		ec.nextHeight += ec.interval
 	}
+	return nil
 }
 
 func (ec *committee) LatestHeight() uint64 {
