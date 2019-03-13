@@ -18,14 +18,10 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 func (p *Protocol) handlePutBlock(ctx context.Context, pb *action.PutBlock, sm protocol.StateManager) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 
 	if err := p.validatePutBlock(pb, sm); err != nil {
 		return err

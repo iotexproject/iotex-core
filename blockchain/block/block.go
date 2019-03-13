@@ -60,7 +60,7 @@ func (b *Block) Serialize() ([]byte, error) {
 }
 
 // ConvertFromBlockHeaderPb converts BlockHeader to BlockHeader
-func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iotextypes.Block) {
+func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iotextypes.Block) error {
 	b.Header = Header{}
 
 	b.Header.version = pbBlock.GetHeader().GetCore().GetVersion()
@@ -74,14 +74,17 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iotextypes.Block) {
 
 	pubKey, err := keypair.BytesToPublicKey(pbBlock.GetHeader().GetProducerPubkey())
 	if err != nil {
-		log.L().Panic("Failed to unmarshal public key.", zap.Error(err))
+		return err
 	}
 	b.Header.pubkey = pubKey
+	return nil
 }
 
 // ConvertFromBlockPb converts Block to Block
 func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block) error {
-	b.ConvertFromBlockHeaderPb(pbBlock)
+	if err := b.ConvertFromBlockHeaderPb(pbBlock); err != nil {
+		return err
+	}
 
 	b.Actions = []action.SealedEnvelope{}
 

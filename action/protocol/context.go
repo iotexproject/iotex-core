@@ -67,6 +67,7 @@ func GetRunActionsCtx(ctx context.Context) (RunActionsCtx, bool) {
 }
 
 // MustGetRunActionsCtx must get runActions context.
+// If context doesn't exist, this function panic.
 func MustGetRunActionsCtx(ctx context.Context) RunActionsCtx {
 	ra, ok := ctx.Value(runActionsCtxKey{}).(RunActionsCtx)
 	if !ok {
@@ -84,4 +85,14 @@ func WithValidateActionsCtx(ctx context.Context, va ValidateActionsCtx) context.
 func GetValidateActionsCtx(ctx context.Context) (ValidateActionsCtx, bool) {
 	va, ok := ctx.Value(validateActionsCtxKey{}).(ValidateActionsCtx)
 	return va, ok
+}
+
+// MustGetValidateActionsCtx gets validateActions context.
+// If context doesn't exist, this function panic.
+func MustGetValidateActionsCtx(ctx context.Context) ValidateActionsCtx {
+	va, ok := ctx.Value(validateActionsCtxKey{}).(ValidateActionsCtx)
+	if !ok {
+		log.S().Panic("Miss run actions context")
+	}
+	return va
 }
