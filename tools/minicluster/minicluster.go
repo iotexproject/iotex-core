@@ -264,6 +264,8 @@ func newConfig(
 ) config.Config {
 	cfg := config.Default
 
+	cfg.Plugins[config.GatewayPlugin] = true
+
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
@@ -271,8 +273,6 @@ func newConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.NumCandidates = numNodes
-	cfg.Chain.EnableIndex = true
-	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 
@@ -285,7 +285,6 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
 
-	cfg.API.Enabled = true
 	cfg.API.Port = apiPort
 
 	cfg.Genesis.Blockchain.BlockInterval = 10 * time.Second
