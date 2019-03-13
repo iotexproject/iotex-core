@@ -420,9 +420,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.EnableIndex = true
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)

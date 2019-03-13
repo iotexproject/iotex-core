@@ -46,10 +46,10 @@ func main() {
 	ctx := context.Background()
 	// Start iotex-server
 	cfg := config.Default
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.ActionGasLimit = 10000000
 	cfg.Genesis.BlockInterval = 2
-	cfg.Chain.EnableIndex = true
-	cfg.API.Enabled = true
 	itxsvr, err := itx.NewServer(cfg)
 	if err != nil {
 		log.L().Fatal("Failed to start itxServer.", zap.Error(err))

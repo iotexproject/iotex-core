@@ -9,20 +9,19 @@ package config
 import (
 	"flag"
 	"os"
+	"strings"
 	"time"
-
-	"github.com/iotexproject/iotex-election/committee"
-
-	"go.uber.org/zap"
 
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-election/committee"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -32,6 +31,7 @@ func init() {
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
+	flag.Var(&_plugins, "plugin", "Plugin of the node")
 }
 
 var (
@@ -40,6 +40,7 @@ var (
 	// secretPath is the path to the  config file store secret values
 	_secretPath   string
 	_subChainPath string
+	_plugins      strs
 )
 
 const (
@@ -61,33 +62,49 @@ const (
 	IndexReceipt = "receipt"
 )
 
+const (
+	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
+	GatewayPlugin = iota
+)
+
+type strs []string
+
+func (ss *strs) String() string {
+	return strings.Join(*ss, ",")
+}
+
+func (ss *strs) Set(str string) error {
+	*ss = append(*ss, str)
+	return nil
+}
+
 var (
 	// Default is the default config
 	Default = Config{
+		Plugins: make(map[int]interface{}),
 		Network: Network{
 			Host:           "0.0.0.0",
 			Port:           4689,
 			ExternalHost:   "",
 			ExternalPort:   4689,
-			BootstrapNodes: make([]string, 0),
+			BootstrapNodes: []string{},
 			MasterKey:      "",
 		},
 		Chain: Chain{
-			ChainDBPath:     "/tmp/chain.db",
-			TrieDBPath:      "/tmp/trie.db",
+			ChainDBPath:     "./chain.db",
+			TrieDBPath:      "./trie.db",
 			ID:              1,
 			Address:         "",
 			ProducerPrivKey: PrivateKey.HexString(),
 			EmptyGenesis:    false,
 			NumCandidates:   101,
-			GravityChainDB:  DB{DbPath: "/tmp/poll.db", NumRetries: 10},
+			GravityChainDB:  DB{DbPath: "./poll.db", NumRetries: 10},
 			Committee: committee.Config{
 				BeaconChainAPIs: []string{},
 			},
 			EnableFallBackToFreshDB: false,
 			EnableTrielessStateDB:   true,
-			EnableIndex:             false,
-			EnableAsyncIndexWrite:   false,
+			EnableAsyncIndexWrite:   true,
 			CompressBlock:           false,
 			AllowedBlockGasResidue:  10000,
 		},
@@ -132,7 +149,6 @@ var (
 			MaxTransferPayloadBytes: 1024,
 		},
 		API: API{
-			Enabled:   false,
 			UseRDS:    false,
 			Port:      14014,
 			TpsWindow: 10,
@@ -141,7 +157,6 @@ var (
 				DefaultGas:         1,
 				Percentile:         60,
 			},
-			MaxTransferPayloadBytes: 1024,
 		},
 		Indexer: Indexer{
 			Enabled:           false,
@@ -208,8 +223,6 @@ type (
 
 		EnableFallBackToFreshDB bool `yaml:"enableFallbackToFreshDb"`
 		EnableTrielessStateDB   bool `yaml:"enableTrielessStateDB"`
-		// EnableIndex enables index the block actions and receipts
-		EnableIndex bool `yaml:"enableIndex"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
 		// CompressBlock enables gzip compression on block data
@@ -258,14 +271,10 @@ type (
 
 	// API is the api service config
 	API struct {
-		Enabled    bool       `yaml:"enabled"`
-		IsTest     bool       `yaml:"isTest"`
 		UseRDS     bool       `yaml:"useRDS"`
 		Port       int        `yaml:"port"`
 		TpsWindow  int        `yaml:"tpsWindow"`
 		GasStation GasStation `yaml:"gasStation"`
-		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
-		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
 	}
 
 	// GasStation is the gas station config
@@ -343,19 +352,20 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Network    Network          `yaml:"network"`
-		Chain      Chain            `yaml:"chain"`
-		ActPool    ActPool          `yaml:"actPool"`
-		Consensus  Consensus        `yaml:"consensus"`
-		BlockSync  BlockSync        `yaml:"blockSync"`
-		Dispatcher Dispatcher       `yaml:"dispatcher"`
-		Explorer   Explorer         `yaml:"explorer"`
-		API        API              `yaml:"api"`
-		Indexer    Indexer          `yaml:"indexer"`
-		System     System           `yaml:"system"`
-		DB         DB               `yaml:"db"`
-		Log        log.GlobalConfig `yaml:"log"`
-		Genesis    genesis.Genesis  `yaml:"genesis"`
+		Plugins    map[int]interface{} `ymal:"plugins"`
+		Network    Network             `yaml:"network"`
+		Chain      Chain               `yaml:"chain"`
+		ActPool    ActPool             `yaml:"actPool"`
+		Consensus  Consensus           `yaml:"consensus"`
+		BlockSync  BlockSync           `yaml:"blockSync"`
+		Dispatcher Dispatcher          `yaml:"dispatcher"`
+		Explorer   Explorer            `yaml:"explorer"`
+		API        API                 `yaml:"api"`
+		Indexer    Indexer             `yaml:"indexer"`
+		System     System              `yaml:"system"`
+		DB         DB                  `yaml:"db"`
+		Log        log.GlobalConfig    `yaml:"log"`
+		Genesis    genesis.Genesis     `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config
@@ -388,6 +398,16 @@ func New(validates ...Validate) (Config, error) {
 	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
+	}
+
+	// set plugins
+	for _, plugin := range _plugins {
+		switch strings.ToLower(plugin) {
+		case "gateway":
+			cfg.Plugins[GatewayPlugin] = nil
+		default:
+			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
+		}
 	}
 
 	// By default, the config needs to pass all the validation
@@ -500,7 +520,7 @@ func ValidateExplorer(cfg Config) error {
 
 // ValidateAPI validates the api configs
 func ValidateAPI(cfg Config) error {
-	if cfg.API.Enabled && cfg.API.TpsWindow <= 0 {
+	if cfg.API.TpsWindow <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "tps window is not a positive integer when the api is enabled")
 	}
 	return nil
