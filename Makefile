@@ -64,14 +64,15 @@ endif
 all: clean build test
 .PHONY: build
 build:
-	protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/api/api.proto
-	protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/rpc/rpc.proto
-	protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/testing/*.proto
 	protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/action.proto
 	protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/types/blockchain.proto
 	protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/endorsement.proto
 	protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/genesis.proto
 	protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/node.proto
+	protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/api/api.proto
+	protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/rpc/rpc.proto
+	protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/testing/*.proto
+
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
