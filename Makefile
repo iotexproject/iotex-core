@@ -29,8 +29,8 @@ ROOT_PKG := "github.com/iotexproject/iotex-core"
 DOCKERCMD=docker
 
 # Package Info
-PACKAGE_VERSION := $(shell git describe --abbrev=0 --tags)
-PACKAGE_COMMIT_ID := $(shell git rev-parse --short HEAD)
+PACKAGE_VERSION := $(shell git describe --tags)
+PACKAGE_COMMIT_ID := $(shell git rev-parse HEAD)
 GIT_STATUS := $(shell git status --porcelain)
 ifdef GIT_STATUS
 	GIT_STATUS := "dirty"
