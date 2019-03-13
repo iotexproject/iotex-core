@@ -1124,9 +1124,10 @@ func newConfig() config.Config {
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
 
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.EnableIndex = true
+	cfg.Chain.EnableAsyncIndexWrite = false
 	return cfg
 }
 
@@ -1165,7 +1166,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		}
 	}
 
-	apiCfg := config.API{TpsWindow: 10, MaxTransferPayloadBytes: 1024, GasStation: cfg.API.GasStation}
+	apiCfg := config.API{TpsWindow: 10, GasStation: cfg.API.GasStation}
 
 	svr := &Server{
 		bc:       bc,

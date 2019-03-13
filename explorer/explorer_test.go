@@ -211,9 +211,9 @@ func TestExplorerApi(t *testing.T) {
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
 
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.EnableIndex = true
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
@@ -727,9 +727,10 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.EnableIndex = true
+	cfg.Chain.EnableAsyncIndexWrite = false
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)

@@ -8,6 +8,7 @@ package e2etest
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -262,7 +263,7 @@ func TestLocalTransfer(t *testing.T) {
 	testDBPath := testDBFile.Name()
 
 	networkPort := 4689
-	apiPort := 14014
+	apiPort := testutil.RandomPort()
 	sk, err := keypair.GenerateKey()
 	require.NoError(err)
 	cfg, err := newTransferConfig(testDBPath, testTriePath, sk, networkPort, apiPort)
@@ -295,7 +296,7 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
-	grpcAddr := "127.0.0.1:14014"
+	grpcAddr := fmt.Sprintf("127.0.0.1:%d", apiPort)
 	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
 	require.NoError(err)
 
@@ -487,16 +488,13 @@ func newTransferConfig(
 ) (config.Config, error) {
 
 	cfg := config.Default
-
-	//cfg.NodeType = config.DelegateType
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Network.Port = networkPort
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
-	cfg.Chain.EnableIndex = true
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.Consensus.Scheme = config.StandaloneScheme
-	cfg.API.Enabled = true
 	cfg.API.Port = apiPort
 	cfg.Genesis.BlockInterval = 1 * time.Second
 

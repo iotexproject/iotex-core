@@ -209,9 +209,10 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		bc.dao = newBlockDAO(
 			db.NewOnDiskDB(cfg.DB),
-			cfg.Chain.EnableIndex && !cfg.Chain.EnableAsyncIndexWrite,
+			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 		)
 		return nil
@@ -221,9 +222,10 @@ func BoltDBDaoOption() Option {
 // InMemDaoOption sets blockchain's dao with MemKVStore
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
+		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		bc.dao = newBlockDAO(
 			db.NewMemKVStore(),
-			cfg.Chain.EnableIndex && !cfg.Chain.EnableAsyncIndexWrite,
+			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 		)
 
@@ -370,25 +372,16 @@ func (bc *blockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
 
 // GetTotalActions returns the total number of actions
 func (bc *blockchain) GetTotalActions() (uint64, error) {
-	if !bc.config.Chain.EnableIndex {
-		return 0, errors.New("index not enabled")
-	}
 	return bc.dao.getTotalActions()
 }
 
 // GetReceiptByActionHash returns the receipt by action hash
 func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
 	return bc.dao.getReceiptByActionHash(h)
 }
 
 // GetActionsFromAddress returns actions from address
 func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
 	addr, err := address.FromString(addrStr)
 	if err != nil {
 		return nil, err
@@ -398,9 +391,6 @@ func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, err
 
 // GetActionToAddress returns action to address
 func (bc *blockchain) GetActionsToAddress(addrStr string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
 	addr, err := address.FromString(addrStr)
 	if err != nil {
 		return nil, err
@@ -414,10 +404,6 @@ func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256,
 
 // GetActionByActionHash returns action by action hash
 func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	if !bc.config.Chain.EnableIndex {
-		return action.SealedEnvelope{}, errors.New("index not enabled")
-	}
-
 	blkHash, err := bc.getActionByActionHashHelper(h)
 	if err != nil {
 		return action.SealedEnvelope{}, err
@@ -437,9 +423,6 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 
 // GetBlockHashByActionHash returns Block hash by action hash
 func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return hash.ZeroHash256, errors.New("index not enabled")
-	}
 	return getBlockHashByActionHash(bc.dao.kvstore, h)
 }
 
