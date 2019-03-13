@@ -31,9 +31,9 @@ const (
 	// MsgBlockSyncReqType is for requests among peers to sync blocks
 	MsgBlockSyncReqType uint32 = 3
 	// MsgActionType is the action message
-	MsgActionType uint32 = 4
+	MsgActionType uint32 = 5
 	// MsgConsensusType is for consensus message
-	MsgConsensusType uint32 = 5
+	MsgConsensusType uint32 = 6
 	// TestPayloadType is a test payload message type
 	TestPayloadType uint32 = 10001
 )
