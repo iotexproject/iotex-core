@@ -8,6 +8,7 @@ package e2etest
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -295,7 +296,7 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
-	grpcAddr := "127.0.0.1:14014"
+	grpcAddr := fmt.Sprintf("127.0.0.1:%d", apiPort)
 	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
 	require.NoError(err)
 
