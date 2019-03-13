@@ -19,6 +19,7 @@ BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOCTL=ioctl
 BUILD_TARGET_MINICLUSTER=minicluster
+BUILD_TARGET_RECOVER=recover
 
 # Pkgs
 ALL_PKGS := $(shell go list ./... )
@@ -70,6 +71,7 @@ build:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
 
 .PHONY: fmt
 fmt:
@@ -189,3 +191,12 @@ nightlybuild:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
 	./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400
+
+.PHONY: recover
+recover:
+	$(ECHO_V)rm -rf ./e2etest/*chain*.db
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
+	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
+	./bin/$(BUILD_TARGET_RECOVER) -plugin=gateway
+
+
