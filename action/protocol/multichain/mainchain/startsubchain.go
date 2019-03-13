@@ -18,15 +18,11 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 func (p *Protocol) handleStartSubChain(ctx context.Context, start *action.StartSubChain, sm protocol.StateManager) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	account, subChainsInOp, err := p.validateStartSubChain(raCtx.Caller, start, sm)
 	if err != nil {
 		return err

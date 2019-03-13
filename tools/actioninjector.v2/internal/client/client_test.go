@@ -6,13 +6,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/config"
+
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/api"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -26,7 +27,7 @@ func TestClient(t *testing.T) {
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
 	b := testaddress.Addrinfo["bravo"].String()
 
-	cfg := newConfig()
+	cfg := config.Default
 	ctx := context.Background()
 
 	mockCtrl := gomock.NewController(t)
@@ -52,11 +53,11 @@ func TestClient(t *testing.T) {
 	newOption := api.WithBroadcastOutbound(func(_ context.Context, _ uint32, _ proto.Message) error {
 		return nil
 	})
-	apiServer, err := api.NewServer(cfg, bc, dp, ap, nil, nil, newOption)
+	apiServer, err := api.NewServer(cfg.API, bc, dp, ap, nil, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()
-	serverAddr := fmt.Sprintf("127.0.0.1:%d", cfg.Port)
+	serverAddr := fmt.Sprintf("127.0.0.1:%d", cfg.API.Port)
 	cli, err := New(serverAddr)
 	require.NoError(err)
 
@@ -67,10 +68,4 @@ func TestClient(t *testing.T) {
 
 	// test SendAction
 	require.NoError(cli.SendAction(ctx, selp))
-}
-
-func newConfig() config.API {
-	cfg := config.Default
-	cfg.API.Enabled = true
-	return cfg.API
 }

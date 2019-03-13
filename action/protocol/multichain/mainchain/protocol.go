@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -80,10 +79,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 	switch act := act.(type) {
 	case *action.StartSubChain:
-		vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
-		if !ok {
-			log.S().Panic("Miss validate action context")
-		}
+		vaCtx := protocol.MustGetValidateActionsCtx(ctx)
 		if _, _, err := p.validateStartSubChain(vaCtx.Caller, act, nil); err != nil {
 			return errors.Wrapf(err, "error when validating start sub-chain action")
 		}
@@ -92,10 +88,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 			return errors.Wrapf(err, "error when validating put sub-chain block action")
 		}
 	case *action.CreateDeposit:
-		vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
-		if !ok {
-			log.S().Panic("Miss validate action context")
-		}
+		vaCtx := protocol.MustGetValidateActionsCtx(ctx)
 		if _, _, err := p.validateDeposit(vaCtx.Caller, act, nil); err != nil {
 			return errors.Wrapf(err, "error when validating deposit creation action")
 		}

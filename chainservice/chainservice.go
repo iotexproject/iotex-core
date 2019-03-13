@@ -144,7 +144,7 @@ func New(
 	}
 
 	var indexBuilder *blockchain.IndexBuilder
-	if cfg.Chain.EnableIndex && cfg.Chain.EnableAsyncIndexWrite {
+	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok && cfg.Chain.EnableAsyncIndexWrite {
 		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
@@ -220,7 +220,7 @@ func New(
 	}
 
 	var apiSvr *api.Server
-	if cfg.API.Enabled {
+	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		apiSvr, err = api.NewServer(
 			cfg.API,
 			chain,

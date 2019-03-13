@@ -119,7 +119,8 @@ func (sct *smartContractTest) prepareBlockchain(
 	r *require.Assertions,
 ) blockchain.Blockchain {
 	cfg := config.Default
-	cfg.Chain.EnableIndex = true
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.EnableAsyncIndexWrite = false
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
@@ -219,9 +220,10 @@ func TestProtocol_Handle(t *testing.T) {
 		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 		testDBPath := testDBFile.Name()
 
+		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableIndex = true
+		cfg.Chain.EnableAsyncIndexWrite = false
 		registry := protocol.Registry{}
 		acc := account.NewProtocol()
 		registry.Register(account.ProtocolID, acc)
@@ -408,9 +410,10 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ctx := context.Background()
 		cfg := config.Default
+		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableIndex = true
+		cfg.Chain.EnableAsyncIndexWrite = false
 		registry := protocol.Registry{}
 		acc := account.NewProtocol()
 		registry.Register(account.ProtocolID, acc)
@@ -577,9 +580,10 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ctx := context.Background()
 		cfg := config.Default
+		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableIndex = true
+		cfg.Chain.EnableAsyncIndexWrite = false
 		registry := protocol.Registry{}
 		acc := account.NewProtocol()
 		registry.Register(account.ProtocolID, acc)
