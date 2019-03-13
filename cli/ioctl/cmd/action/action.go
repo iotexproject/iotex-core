@@ -51,7 +51,9 @@ func init() {
 	ActionCmd.AddCommand(actionDeployCmd)
 	ActionCmd.AddCommand(actionInvokeCmd)
 	ActionCmd.AddCommand(actionClaimCmd)
-	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionClaimCmd)
+	ActionCmd.AddCommand(actionSetRewardCmd)
+	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd,
+		actionClaimCmd, actionSetRewardCmd)
 }
 
 func setActionFlags(cmds ...*cobra.Command) {
@@ -82,7 +84,6 @@ func sendAction(elp action.Envelope) string {
 	ehash := elp.Hash()
 	sig, err := account.Sign(signer, password, ehash[:])
 	if err != nil {
-		log.L().Error("fail to sign", zap.Error(err))
 		return err.Error()
 	}
 	pubKey, err := keypair.SigToPublicKey(ehash[:], sig)

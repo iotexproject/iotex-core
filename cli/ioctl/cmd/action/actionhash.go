@@ -117,6 +117,20 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			">\n" +
 			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 			fmt.Sprintf("signature: %x\n", action.Signature), nil
+	case action.Core.GetSetReward() != nil:
+		setReward := action.Core.GetSetReward()
+		return fmt.Sprintf("senderAddress: %s\n", senderAddress.String()) +
+			fmt.Sprintf("version: %d\n", action.Core.GetVersion()) +
+			fmt.Sprintf("nonce: %d\n", action.Core.GetNonce()) +
+			fmt.Sprintf("gasLimit: %d\n", action.Core.GasLimit) +
+			fmt.Sprintf("gasPrice: %s\n", action.Core.GasPrice) +
+			"setReward: <\n" +
+			fmt.Sprintf("  amount: %s\n", setReward.Amount) +
+			fmt.Sprintf("  type: %d\n", setReward.Type) +
+			fmt.Sprintf("  data: %x\n", setReward.Data) +
+			">\n" +
+			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
+			fmt.Sprintf("signature: %x\n", action.Signature), nil
 	}
 	return "", errors.New("action can not match")
 }
