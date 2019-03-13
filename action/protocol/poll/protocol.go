@@ -18,7 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
@@ -357,10 +357,7 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 		}
 		return nil
 	}
-	vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss validate action context")
-	}
+	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
 	if vaCtx.ProducerAddr != vaCtx.Caller.String() {
 		return errors.New("Only producer could create this protocol")
 	}

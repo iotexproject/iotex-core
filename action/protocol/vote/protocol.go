@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -166,10 +165,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 // Validate validates a vote
 func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
-	vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss validate action context")
-	}
+	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
 
 	vote, ok := act.(*action.Vote)
 	if !ok {

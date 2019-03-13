@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -108,10 +107,7 @@ func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, sm protocol.St
 }
 
 func (p *Protocol) mutateDeposit(ctx context.Context, deposit *action.SettleDeposit, sm protocol.StateManager) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 
 	// Update the deposit index
 	depositAddr := depositAddress(deposit.Index())
