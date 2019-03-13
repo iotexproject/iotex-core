@@ -38,7 +38,7 @@ jobs:
       - run: pip install awscli
       - run:
           name: Deploy to S3
-          command: aws s3 put go.test.sh s3://ars-file-dev/test/
+          command: aws s3 cp go.test.sh s3://ars-file-dev/test/
 
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
