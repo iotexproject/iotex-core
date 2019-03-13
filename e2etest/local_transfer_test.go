@@ -262,7 +262,7 @@ func TestLocalTransfer(t *testing.T) {
 	testDBPath := testDBFile.Name()
 
 	networkPort := 4689
-	apiPort := 14014
+	apiPort := testutil.RandomPort()
 	sk, err := keypair.GenerateKey()
 	require.NoError(err)
 	cfg, err := newTransferConfig(testDBPath, testTriePath, sk, networkPort, apiPort)
