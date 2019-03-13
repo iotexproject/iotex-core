@@ -3,9 +3,11 @@
 
 package pollpb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,10 +18,10 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type BlockProducerList struct {
-	BlockProducers       []string `protobuf:"bytes,1,rep,name=blockProducers" json:"blockProducers,omitempty"`
+	BlockProducers       []string `protobuf:"bytes,1,rep,name=blockProducers,proto3" json:"blockProducers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -29,16 +31,17 @@ func (m *BlockProducerList) Reset()         { *m = BlockProducerList{} }
 func (m *BlockProducerList) String() string { return proto.CompactTextString(m) }
 func (*BlockProducerList) ProtoMessage()    {}
 func (*BlockProducerList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_poll_8951fc85c9db5abb, []int{0}
+	return fileDescriptor_5d64382c74eeea90, []int{0}
 }
+
 func (m *BlockProducerList) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockProducerList.Unmarshal(m, b)
 }
 func (m *BlockProducerList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BlockProducerList.Marshal(b, m, deterministic)
 }
-func (dst *BlockProducerList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BlockProducerList.Merge(dst, src)
+func (m *BlockProducerList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockProducerList.Merge(m, src)
 }
 func (m *BlockProducerList) XXX_Size() int {
 	return xxx_messageInfo_BlockProducerList.Size(m)
@@ -60,9 +63,9 @@ func init() {
 	proto.RegisterType((*BlockProducerList)(nil), "pollpb.BlockProducerList")
 }
 
-func init() { proto.RegisterFile("poll.proto", fileDescriptor_poll_8951fc85c9db5abb) }
+func init() { proto.RegisterFile("poll.proto", fileDescriptor_5d64382c74eeea90) }
 
-var fileDescriptor_poll_8951fc85c9db5abb = []byte{
+var fileDescriptor_5d64382c74eeea90 = []byte{
 	// 85 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2a, 0xc8, 0xcf, 0xc9,
 	0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x03, 0xb1, 0x0b, 0x92, 0x94, 0xac, 0xb9, 0x04,

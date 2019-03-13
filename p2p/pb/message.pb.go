@@ -3,10 +3,12 @@
 
 package p2ppb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -17,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type BroadcastMsg struct {
 	ChainId              uint32               `protobuf:"varint,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
@@ -34,16 +36,17 @@ func (m *BroadcastMsg) Reset()         { *m = BroadcastMsg{} }
 func (m *BroadcastMsg) String() string { return proto.CompactTextString(m) }
 func (*BroadcastMsg) ProtoMessage()    {}
 func (*BroadcastMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_d969953dc02c4436, []int{0}
+	return fileDescriptor_33c57e4bae7b9afd, []int{0}
 }
+
 func (m *BroadcastMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BroadcastMsg.Unmarshal(m, b)
 }
 func (m *BroadcastMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BroadcastMsg.Marshal(b, m, deterministic)
 }
-func (dst *BroadcastMsg) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BroadcastMsg.Merge(dst, src)
+func (m *BroadcastMsg) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BroadcastMsg.Merge(m, src)
 }
 func (m *BroadcastMsg) XXX_Size() int {
 	return xxx_messageInfo_BroadcastMsg.Size(m)
@@ -105,16 +108,17 @@ func (m *UnicastMsg) Reset()         { *m = UnicastMsg{} }
 func (m *UnicastMsg) String() string { return proto.CompactTextString(m) }
 func (*UnicastMsg) ProtoMessage()    {}
 func (*UnicastMsg) Descriptor() ([]byte, []int) {
-	return fileDescriptor_message_d969953dc02c4436, []int{1}
+	return fileDescriptor_33c57e4bae7b9afd, []int{1}
 }
+
 func (m *UnicastMsg) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_UnicastMsg.Unmarshal(m, b)
 }
 func (m *UnicastMsg) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_UnicastMsg.Marshal(b, m, deterministic)
 }
-func (dst *UnicastMsg) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UnicastMsg.Merge(dst, src)
+func (m *UnicastMsg) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UnicastMsg.Merge(m, src)
 }
 func (m *UnicastMsg) XXX_Size() int {
 	return xxx_messageInfo_UnicastMsg.Size(m)
@@ -172,9 +176,9 @@ func init() {
 	proto.RegisterType((*UnicastMsg)(nil), "p2ppb.UnicastMsg")
 }
 
-func init() { proto.RegisterFile("message.proto", fileDescriptor_message_d969953dc02c4436) }
+func init() { proto.RegisterFile("message.proto", fileDescriptor_33c57e4bae7b9afd) }
 
-var fileDescriptor_message_d969953dc02c4436 = []byte{
+var fileDescriptor_33c57e4bae7b9afd = []byte{
 	// 242 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x8f, 0xb1, 0x4e, 0xc3, 0x30,
 	0x10, 0x86, 0x65, 0x9a, 0xa4, 0xe4, 0x68, 0x17, 0x2f, 0x84, 0x2e, 0x44, 0x9d, 0x32, 0xa5, 0x52,
