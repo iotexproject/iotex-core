@@ -3,9 +3,11 @@
 
 package mainchainpb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,18 +18,18 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type SubChain struct {
-	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID" json:"chainID,omitempty"`
-	SecurityDeposit      string   `protobuf:"bytes,2,opt,name=securityDeposit" json:"securityDeposit,omitempty"`
-	OperationDeposit     string   `protobuf:"bytes,3,opt,name=operationDeposit" json:"operationDeposit,omitempty"`
-	StartHeight          uint64   `protobuf:"varint,4,opt,name=startHeight" json:"startHeight,omitempty"`
-	StopHeight           uint64   `protobuf:"varint,5,opt,name=stopHeight" json:"stopHeight,omitempty"`
-	ParentHeightOffset   uint64   `protobuf:"varint,6,opt,name=parentHeightOffset" json:"parentHeightOffset,omitempty"`
+	ChainID              uint32   `protobuf:"varint,1,opt,name=chainID,proto3" json:"chainID,omitempty"`
+	SecurityDeposit      string   `protobuf:"bytes,2,opt,name=securityDeposit,proto3" json:"securityDeposit,omitempty"`
+	OperationDeposit     string   `protobuf:"bytes,3,opt,name=operationDeposit,proto3" json:"operationDeposit,omitempty"`
+	StartHeight          uint64   `protobuf:"varint,4,opt,name=startHeight,proto3" json:"startHeight,omitempty"`
+	StopHeight           uint64   `protobuf:"varint,5,opt,name=stopHeight,proto3" json:"stopHeight,omitempty"`
+	ParentHeightOffset   uint64   `protobuf:"varint,6,opt,name=parentHeightOffset,proto3" json:"parentHeightOffset,omitempty"`
 	OwnerPublicKey       []byte   `protobuf:"bytes,7,opt,name=ownerPublicKey,proto3" json:"ownerPublicKey,omitempty"`
-	CurrentHeight        uint64   `protobuf:"varint,8,opt,name=currentHeight" json:"currentHeight,omitempty"`
-	DepositCount         uint64   `protobuf:"varint,9,opt,name=depositCount" json:"depositCount,omitempty"`
+	CurrentHeight        uint64   `protobuf:"varint,8,opt,name=currentHeight,proto3" json:"currentHeight,omitempty"`
+	DepositCount         uint64   `protobuf:"varint,9,opt,name=depositCount,proto3" json:"depositCount,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -37,16 +39,17 @@ func (m *SubChain) Reset()         { *m = SubChain{} }
 func (m *SubChain) String() string { return proto.CompactTextString(m) }
 func (*SubChain) ProtoMessage()    {}
 func (*SubChain) Descriptor() ([]byte, []int) {
-	return fileDescriptor_mainchain_93469032edabd922, []int{0}
+	return fileDescriptor_3de594685a4ba7cd, []int{0}
 }
+
 func (m *SubChain) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SubChain.Unmarshal(m, b)
 }
 func (m *SubChain) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SubChain.Marshal(b, m, deterministic)
 }
-func (dst *SubChain) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SubChain.Merge(dst, src)
+func (m *SubChain) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SubChain.Merge(m, src)
 }
 func (m *SubChain) XXX_Size() int {
 	return xxx_messageInfo_SubChain.Size(m)
@@ -121,7 +124,7 @@ func (m *SubChain) GetDepositCount() uint64 {
 }
 
 type MerkleRoot struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -132,16 +135,17 @@ func (m *MerkleRoot) Reset()         { *m = MerkleRoot{} }
 func (m *MerkleRoot) String() string { return proto.CompactTextString(m) }
 func (*MerkleRoot) ProtoMessage()    {}
 func (*MerkleRoot) Descriptor() ([]byte, []int) {
-	return fileDescriptor_mainchain_93469032edabd922, []int{1}
+	return fileDescriptor_3de594685a4ba7cd, []int{1}
 }
+
 func (m *MerkleRoot) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MerkleRoot.Unmarshal(m, b)
 }
 func (m *MerkleRoot) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MerkleRoot.Marshal(b, m, deterministic)
 }
-func (dst *MerkleRoot) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MerkleRoot.Merge(dst, src)
+func (m *MerkleRoot) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MerkleRoot.Merge(m, src)
 }
 func (m *MerkleRoot) XXX_Size() int {
 	return xxx_messageInfo_MerkleRoot.Size(m)
@@ -167,11 +171,11 @@ func (m *MerkleRoot) GetValue() []byte {
 }
 
 type BlockProof struct {
-	SubChainAddress      string        `protobuf:"bytes,1,opt,name=subChainAddress" json:"subChainAddress,omitempty"`
-	Height               uint64        `protobuf:"varint,2,opt,name=height" json:"height,omitempty"`
-	Roots                []*MerkleRoot `protobuf:"bytes,3,rep,name=roots" json:"roots,omitempty"`
+	SubChainAddress      string        `protobuf:"bytes,1,opt,name=subChainAddress,proto3" json:"subChainAddress,omitempty"`
+	Height               uint64        `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	Roots                []*MerkleRoot `protobuf:"bytes,3,rep,name=roots,proto3" json:"roots,omitempty"`
 	ProducerPublicKey    []byte        `protobuf:"bytes,4,opt,name=producerPublicKey,proto3" json:"producerPublicKey,omitempty"`
-	ProducerAddress      string        `protobuf:"bytes,5,opt,name=producerAddress" json:"producerAddress,omitempty"`
+	ProducerAddress      string        `protobuf:"bytes,5,opt,name=producerAddress,proto3" json:"producerAddress,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -181,16 +185,17 @@ func (m *BlockProof) Reset()         { *m = BlockProof{} }
 func (m *BlockProof) String() string { return proto.CompactTextString(m) }
 func (*BlockProof) ProtoMessage()    {}
 func (*BlockProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_mainchain_93469032edabd922, []int{2}
+	return fileDescriptor_3de594685a4ba7cd, []int{2}
 }
+
 func (m *BlockProof) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockProof.Unmarshal(m, b)
 }
 func (m *BlockProof) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_BlockProof.Marshal(b, m, deterministic)
 }
-func (dst *BlockProof) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BlockProof.Merge(dst, src)
+func (m *BlockProof) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockProof.Merge(m, src)
 }
 func (m *BlockProof) XXX_Size() int {
 	return xxx_messageInfo_BlockProof.Size(m)
@@ -237,7 +242,7 @@ func (m *BlockProof) GetProducerAddress() string {
 }
 
 type InOperation struct {
-	Id                   uint32   `protobuf:"varint,1,opt,name=id" json:"id,omitempty"`
+	Id                   uint32   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	Address              []byte   `protobuf:"bytes,2,opt,name=Address,proto3" json:"Address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -248,16 +253,17 @@ func (m *InOperation) Reset()         { *m = InOperation{} }
 func (m *InOperation) String() string { return proto.CompactTextString(m) }
 func (*InOperation) ProtoMessage()    {}
 func (*InOperation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_mainchain_93469032edabd922, []int{3}
+	return fileDescriptor_3de594685a4ba7cd, []int{3}
 }
+
 func (m *InOperation) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_InOperation.Unmarshal(m, b)
 }
 func (m *InOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_InOperation.Marshal(b, m, deterministic)
 }
-func (dst *InOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_InOperation.Merge(dst, src)
+func (m *InOperation) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_InOperation.Merge(m, src)
 }
 func (m *InOperation) XXX_Size() int {
 	return xxx_messageInfo_InOperation.Size(m)
@@ -283,7 +289,7 @@ func (m *InOperation) GetAddress() []byte {
 }
 
 type SubChainsInOperation struct {
-	InOp                 []*InOperation `protobuf:"bytes,1,rep,name=inOp" json:"inOp,omitempty"`
+	InOp                 []*InOperation `protobuf:"bytes,1,rep,name=inOp,proto3" json:"inOp,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -293,16 +299,17 @@ func (m *SubChainsInOperation) Reset()         { *m = SubChainsInOperation{} }
 func (m *SubChainsInOperation) String() string { return proto.CompactTextString(m) }
 func (*SubChainsInOperation) ProtoMessage()    {}
 func (*SubChainsInOperation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_mainchain_93469032edabd922, []int{4}
+	return fileDescriptor_3de594685a4ba7cd, []int{4}
 }
+
 func (m *SubChainsInOperation) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SubChainsInOperation.Unmarshal(m, b)
 }
 func (m *SubChainsInOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SubChainsInOperation.Marshal(b, m, deterministic)
 }
-func (dst *SubChainsInOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SubChainsInOperation.Merge(dst, src)
+func (m *SubChainsInOperation) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SubChainsInOperation.Merge(m, src)
 }
 func (m *SubChainsInOperation) XXX_Size() int {
 	return xxx_messageInfo_SubChainsInOperation.Size(m)
@@ -321,9 +328,9 @@ func (m *SubChainsInOperation) GetInOp() []*InOperation {
 }
 
 type Deposit struct {
-	Amount               string   `protobuf:"bytes,1,opt,name=amount" json:"amount,omitempty"`
+	Amount               string   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
 	Address              []byte   `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	Confirmed            bool     `protobuf:"varint,3,opt,name=confirmed" json:"confirmed,omitempty"`
+	Confirmed            bool     `protobuf:"varint,3,opt,name=confirmed,proto3" json:"confirmed,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -333,16 +340,17 @@ func (m *Deposit) Reset()         { *m = Deposit{} }
 func (m *Deposit) String() string { return proto.CompactTextString(m) }
 func (*Deposit) ProtoMessage()    {}
 func (*Deposit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_mainchain_93469032edabd922, []int{5}
+	return fileDescriptor_3de594685a4ba7cd, []int{5}
 }
+
 func (m *Deposit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Deposit.Unmarshal(m, b)
 }
 func (m *Deposit) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Deposit.Marshal(b, m, deterministic)
 }
-func (dst *Deposit) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Deposit.Merge(dst, src)
+func (m *Deposit) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Deposit.Merge(m, src)
 }
 func (m *Deposit) XXX_Size() int {
 	return xxx_messageInfo_Deposit.Size(m)
@@ -383,9 +391,9 @@ func init() {
 	proto.RegisterType((*Deposit)(nil), "mainchainpb.Deposit")
 }
 
-func init() { proto.RegisterFile("mainchain.proto", fileDescriptor_mainchain_93469032edabd922) }
+func init() { proto.RegisterFile("mainchain.proto", fileDescriptor_3de594685a4ba7cd) }
 
-var fileDescriptor_mainchain_93469032edabd922 = []byte{
+var fileDescriptor_3de594685a4ba7cd = []byte{
 	// 449 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x93, 0x4f, 0x8f, 0xd3, 0x30,
 	0x10, 0xc5, 0x95, 0x34, 0xfd, 0x37, 0xed, 0xee, 0xc2, 0x68, 0xb5, 0xf8, 0x80, 0x50, 0x14, 0x21,
