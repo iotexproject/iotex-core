@@ -3,9 +3,11 @@
 
 package rewardingpb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +18,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Admin struct {
 	Admin                      []byte   `protobuf:"bytes,1,opt,name=admin,proto3" json:"admin,omitempty"`
@@ -32,16 +34,17 @@ func (m *Admin) Reset()         { *m = Admin{} }
 func (m *Admin) String() string { return proto.CompactTextString(m) }
 func (*Admin) ProtoMessage()    {}
 func (*Admin) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rewarding_a94362a70c05aab5, []int{0}
+	return fileDescriptor_a5a8d72c965c1359, []int{0}
 }
+
 func (m *Admin) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Admin.Unmarshal(m, b)
 }
 func (m *Admin) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Admin.Marshal(b, m, deterministic)
 }
-func (dst *Admin) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Admin.Merge(dst, src)
+func (m *Admin) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Admin.Merge(m, src)
 }
 func (m *Admin) XXX_Size() int {
 	return xxx_messageInfo_Admin.Size(m)
@@ -92,16 +95,17 @@ func (m *Fund) Reset()         { *m = Fund{} }
 func (m *Fund) String() string { return proto.CompactTextString(m) }
 func (*Fund) ProtoMessage()    {}
 func (*Fund) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rewarding_a94362a70c05aab5, []int{1}
+	return fileDescriptor_a5a8d72c965c1359, []int{1}
 }
+
 func (m *Fund) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Fund.Unmarshal(m, b)
 }
 func (m *Fund) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Fund.Marshal(b, m, deterministic)
 }
-func (dst *Fund) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Fund.Merge(dst, src)
+func (m *Fund) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Fund.Merge(m, src)
 }
 func (m *Fund) XXX_Size() int {
 	return xxx_messageInfo_Fund.Size(m)
@@ -136,16 +140,17 @@ func (m *RewardHistory) Reset()         { *m = RewardHistory{} }
 func (m *RewardHistory) String() string { return proto.CompactTextString(m) }
 func (*RewardHistory) ProtoMessage()    {}
 func (*RewardHistory) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rewarding_a94362a70c05aab5, []int{2}
+	return fileDescriptor_a5a8d72c965c1359, []int{2}
 }
+
 func (m *RewardHistory) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RewardHistory.Unmarshal(m, b)
 }
 func (m *RewardHistory) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RewardHistory.Marshal(b, m, deterministic)
 }
-func (dst *RewardHistory) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RewardHistory.Merge(dst, src)
+func (m *RewardHistory) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RewardHistory.Merge(m, src)
 }
 func (m *RewardHistory) XXX_Size() int {
 	return xxx_messageInfo_RewardHistory.Size(m)
@@ -167,16 +172,17 @@ func (m *Account) Reset()         { *m = Account{} }
 func (m *Account) String() string { return proto.CompactTextString(m) }
 func (*Account) ProtoMessage()    {}
 func (*Account) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rewarding_a94362a70c05aab5, []int{3}
+	return fileDescriptor_a5a8d72c965c1359, []int{3}
 }
+
 func (m *Account) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Account.Unmarshal(m, b)
 }
 func (m *Account) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Account.Marshal(b, m, deterministic)
 }
-func (dst *Account) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Account.Merge(dst, src)
+func (m *Account) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Account.Merge(m, src)
 }
 func (m *Account) XXX_Size() int {
 	return xxx_messageInfo_Account.Size(m)
@@ -205,16 +211,17 @@ func (m *Exempt) Reset()         { *m = Exempt{} }
 func (m *Exempt) String() string { return proto.CompactTextString(m) }
 func (*Exempt) ProtoMessage()    {}
 func (*Exempt) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rewarding_a94362a70c05aab5, []int{4}
+	return fileDescriptor_a5a8d72c965c1359, []int{4}
 }
+
 func (m *Exempt) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Exempt.Unmarshal(m, b)
 }
 func (m *Exempt) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Exempt.Marshal(b, m, deterministic)
 }
-func (dst *Exempt) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Exempt.Merge(dst, src)
+func (m *Exempt) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Exempt.Merge(m, src)
 }
 func (m *Exempt) XXX_Size() int {
 	return xxx_messageInfo_Exempt.Size(m)
@@ -240,9 +247,9 @@ func init() {
 	proto.RegisterType((*Exempt)(nil), "rewardingpb.Exempt")
 }
 
-func init() { proto.RegisterFile("rewarding.proto", fileDescriptor_rewarding_a94362a70c05aab5) }
+func init() { proto.RegisterFile("rewarding.proto", fileDescriptor_a5a8d72c965c1359) }
 
-var fileDescriptor_rewarding_a94362a70c05aab5 = []byte{
+var fileDescriptor_a5a8d72c965c1359 = []byte{
 	// 244 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x90, 0x41, 0x4b, 0x03, 0x31,
 	0x10, 0x85, 0x89, 0xdd, 0xb6, 0x74, 0x5a, 0xa9, 0x04, 0x0f, 0x8b, 0x07, 0x09, 0xf1, 0xb2, 0x78,

@@ -3,9 +3,11 @@
 
 package accountpb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,17 +18,17 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Account struct {
 	// used by state-based model
-	Nonce                uint64   `protobuf:"varint,1,opt,name=nonce" json:"nonce,omitempty"`
-	Balance              string   `protobuf:"bytes,2,opt,name=balance" json:"balance,omitempty"`
+	Nonce                uint64   `protobuf:"varint,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	Balance              string   `protobuf:"bytes,2,opt,name=balance,proto3" json:"balance,omitempty"`
 	Root                 []byte   `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
 	CodeHash             []byte   `protobuf:"bytes,4,opt,name=codeHash,proto3" json:"codeHash,omitempty"`
-	IsCandidate          bool     `protobuf:"varint,5,opt,name=isCandidate" json:"isCandidate,omitempty"`
+	IsCandidate          bool     `protobuf:"varint,5,opt,name=isCandidate,proto3" json:"isCandidate,omitempty"`
 	VotingWeight         []byte   `protobuf:"bytes,6,opt,name=votingWeight,proto3" json:"votingWeight,omitempty"`
-	Votee                string   `protobuf:"bytes,7,opt,name=votee" json:"votee,omitempty"`
+	Votee                string   `protobuf:"bytes,7,opt,name=votee,proto3" json:"votee,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -36,16 +38,17 @@ func (m *Account) Reset()         { *m = Account{} }
 func (m *Account) String() string { return proto.CompactTextString(m) }
 func (*Account) ProtoMessage()    {}
 func (*Account) Descriptor() ([]byte, []int) {
-	return fileDescriptor_account_236e4fc3b61ede7d, []int{0}
+	return fileDescriptor_8e28828dcb8d24f0, []int{0}
 }
+
 func (m *Account) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Account.Unmarshal(m, b)
 }
 func (m *Account) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Account.Marshal(b, m, deterministic)
 }
-func (dst *Account) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Account.Merge(dst, src)
+func (m *Account) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Account.Merge(m, src)
 }
 func (m *Account) XXX_Size() int {
 	return xxx_messageInfo_Account.Size(m)
@@ -109,9 +112,9 @@ func init() {
 	proto.RegisterType((*Account)(nil), "accountpb.Account")
 }
 
-func init() { proto.RegisterFile("account.proto", fileDescriptor_account_236e4fc3b61ede7d) }
+func init() { proto.RegisterFile("account.proto", fileDescriptor_8e28828dcb8d24f0) }
 
-var fileDescriptor_account_236e4fc3b61ede7d = []byte{
+var fileDescriptor_8e28828dcb8d24f0 = []byte{
 	// 183 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0xcf, 0xbf, 0xae, 0xc2, 0x20,
 	0x14, 0xc7, 0xf1, 0x70, 0x6f, 0xff, 0x1e, 0xeb, 0x72, 0xe2, 0x40, 0x9c, 0x48, 0x27, 0x26, 0x17,

@@ -26,17 +26,17 @@ import (
 
 const (
 	// ChainEndpoint is the ip address of iotex api endpoint
-	ChainEndpoint          = "localhost:14014"
+	ChainEndpoint = "localhost:14014"
 	// Producer indicates block producer's encoded address
-	Producer               = "io13rjq2c07mqhe8sdd7nf9a4vcmnyk9mn72hu94e"
+	Producer = "io13rjq2c07mqhe8sdd7nf9a4vcmnyk9mn72hu94e"
 	// ProducerPubKey indicates block producer's public key
-	ProducerPubKey         = "04403d3c0dbd3270ddfc248c3df1f9aafd60f1d8e7456961c9ef26292262cc68f0ea9690263bef9e197a38f06026814fc70912c2b98d2e90a68f8ddc5328180a01"
+	ProducerPubKey = "04403d3c0dbd3270ddfc248c3df1f9aafd60f1d8e7456961c9ef26292262cc68f0ea9690263bef9e197a38f06026814fc70912c2b98d2e90a68f8ddc5328180a01"
 	// ProducerPrivKey indicates block producer's private key
-	ProducerPrivKey        = "82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90"
+	ProducerPrivKey = "82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90"
 	// GasLimitPerByte indicates the gas limit for each byte
 	GasLimitPerByte uint64 = 100
 	// GasPrice indicates the gas price
-	GasPrice               = 0
+	GasPrice = 0
 )
 
 type (
