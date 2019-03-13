@@ -285,8 +285,6 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
 
-	cfg.System.HTTPMetricsPort = 0
-
 	cfg.API.Enabled = true
 	cfg.API.Port = apiPort
 

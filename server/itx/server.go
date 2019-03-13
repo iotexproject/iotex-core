@@ -10,12 +10,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -244,39 +244,26 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		}()
 	}
 
-	if cfg.System.HTTPProfilingPort > 0 {
+	var adminserv http.Server
+	if cfg.System.HTTPAdminPort > 0 {
+		mux := http.NewServeMux()
+		log.RegisterLevelConfigMux(mux)
+		mux.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
+
+		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
+		adminserv = http.Server{Addr: port, Handler: mux}
 		go func() {
 			runtime.SetMutexProfileFraction(1)
 			runtime.SetBlockProfileRate(1)
-			if err := http.ListenAndServe(
-				fmt.Sprintf(":%d", cfg.System.HTTPProfilingPort),
-				nil,
-			); err != nil {
+			if err := adminserv.ListenAndServe(); err != nil {
 				log.L().Error("Error when serving performance profiling data.", zap.Error(err))
-			}
-		}()
-	}
-
-	var mserv http.Server
-	if cfg.System.HTTPMetricsPort > 0 {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		log.RegisterLevelConfigMux(mux)
-		port := fmt.Sprintf(":%d", cfg.System.HTTPMetricsPort)
-		mserv = http.Server{
-			Addr:    port,
-			Handler: mux,
-		}
-		go func() {
-			if err := mserv.ListenAndServe(); err != nil {
-				log.L().Error("Error when serving metrics data.", zap.Error(err))
 			}
 		}()
 	}
 
 	<-ctx.Done()
 	probeSvr.NotReady()
-	if err := mserv.Shutdown(ctx); err != nil {
+	if err := adminserv.Shutdown(ctx); err != nil {
 		log.L().Error("Error when serving metrics data.", zap.Error(err))
 	}
 	if err := svr.Stop(ctx); err != nil {
