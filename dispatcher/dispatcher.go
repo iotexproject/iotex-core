@@ -215,16 +215,9 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 	d.subscribersMU.RLock()
 	defer d.subscribersMU.RUnlock()
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
-		if m.blkType == protogen.MsgBlockProtoMsgType {
-			d.updateEventAudit(protogen.MsgBlockProtoMsgType)
-			if err := subscriber.HandleBlock(m.ctx, m.block); err != nil {
-				log.L().Error("Fail to handle the block.", zap.Error(err))
-			}
-		} else if m.blkType == protogen.MsgBlockSyncDataType {
-			d.updateEventAudit(protogen.MsgBlockSyncDataType)
-			if err := subscriber.HandleBlockSync(m.ctx, m.block); err != nil {
-				log.L().Error("Fail to sync the block.", zap.Error(err))
-			}
+		d.updateEventAudit(protogen.MsgBlockProtoMsgType)
+		if err := subscriber.HandleBlock(m.ctx, m.block); err != nil {
+			log.L().Error("Fail to handle the block.", zap.Error(err))
 		}
 	} else {
 		log.L().Info("No subscriber specified in the dispatcher.", zap.Uint32("chainID", m.ChainID()))
@@ -287,20 +280,6 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 	})
 }
 
-// dispatchBlockSyncData handles block sync data
-func (d *IotxDispatcher) dispatchBlockSyncData(ctx context.Context, chainID uint32, msg proto.Message) {
-	if atomic.LoadInt32(&d.shutdown) != 0 {
-		return
-	}
-	data := (msg).(*iotexrpc.BlockContainer)
-	d.enqueueEvent(&blockMsg{
-		ctx:     ctx,
-		chainID: chainID,
-		block:   data.Block,
-		blkType: protogen.MsgBlockSyncDataType,
-	})
-}
-
 // HandleBroadcast handles incoming broadcast message
 func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, message proto.Message) {
 	msgType, err := protogen.GetTypeFromProtoMsg(message)
@@ -340,8 +319,8 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 	switch msgType {
 	case protogen.MsgBlockSyncReqType:
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
-	case protogen.MsgBlockSyncDataType:
-		d.dispatchBlockSyncData(ctx, chainID, message)
+	case protogen.MsgBlockProtoMsgType:
+		d.dispatchBlockCommit(ctx, chainID, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Uint32("msgType", msgType))
 	}
