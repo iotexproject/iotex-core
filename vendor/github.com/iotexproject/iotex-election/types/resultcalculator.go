@@ -48,6 +48,8 @@ func (p itemList) Less(i, j int) bool {
 	return strings.Compare(p[i].Key, p[j].Key) > 0
 }
 
+const candidateZero = "000000000000000000000000"
+
 // VoteFilterFunc defines the function to filter vote
 type VoteFilterFunc func(*Vote) bool
 
@@ -56,15 +58,16 @@ type CandidateFilterFunc func(*Candidate) bool
 
 // ResultCalculator defines a calculator for a set of votes
 type ResultCalculator struct {
-	calcScore       func(*Vote, time.Time) *big.Int
-	candidateFilter func(*Candidate) bool
-	voteFilter      func(*Vote) bool
-	mintTime        time.Time
-	candidates      map[string]*Candidate
-	candidateVotes  map[string][]*Vote
-	totalVotes      int32
-	calculated      bool
-	mutex           sync.RWMutex
+	calcScore        func(*Vote, time.Time) *big.Int
+	candidateFilter  func(*Candidate) bool
+	voteFilter       func(*Vote) bool
+	mintTime         time.Time
+	candidates       map[string]*Candidate
+	candidateVotes   map[string][]*Vote
+	totalVotes       *big.Int
+	totalVotedStakes *big.Int
+	calculated       bool
+	mutex            sync.RWMutex
 }
 
 // NewResultCalculator creates a result calculator
@@ -75,14 +78,15 @@ func NewResultCalculator(
 	candidateFilter CandidateFilterFunc, // filter candidates during calculating
 ) *ResultCalculator {
 	return &ResultCalculator{
-		calcScore:       calcScore,
-		candidateFilter: candidateFilter,
-		voteFilter:      voteFilter,
-		mintTime:        mintTime.UTC(),
-		candidates:      map[string]*Candidate{},
-		candidateVotes:  map[string][]*Vote{},
-		totalVotes:      0,
-		calculated:      false,
+		calcScore:        calcScore,
+		candidateFilter:  candidateFilter,
+		voteFilter:       voteFilter,
+		mintTime:         mintTime.UTC(),
+		candidates:       map[string]*Candidate{},
+		candidateVotes:   map[string][]*Vote{},
+		totalVotedStakes: big.NewInt(0),
+		totalVotes:       big.NewInt(0),
+		calculated:       false,
 	}
 }
 
@@ -93,7 +97,7 @@ func (calculator *ResultCalculator) AddCandidates(candidates []*Candidate) error
 	if calculator.calculated {
 		return errors.New("Cannot modify a calculated result")
 	}
-	if calculator.totalVotes > 0 {
+	if calculator.totalVotes.Cmp(big.NewInt(0)) > 0 {
 		return errors.New("Candidates should be added before any votes")
 	}
 	for _, c := range candidates {
@@ -123,29 +127,31 @@ func (calculator *ResultCalculator) AddVotes(votes []*Vote) error {
 			continue
 		}
 		nameHex := calculator.hex(name)
-		candidate, exists := calculator.candidates[nameHex]
-		if !exists {
+		if strings.Compare(nameHex, candidateZero) == 0 {
 			continue
 		}
+		amount := v.Amount()
 		score := calculator.calcScore(v, calculator.mintTime)
-		if bytes.Equal(v.Voter(), candidate.address) {
-			amount := v.Amount()
-			selfStakingWeight := new(big.Int).SetUint64(candidate.selfStakingWeight)
-			amount.Mul(amount, selfStakingWeight)
-			if err := candidate.addSelfStakingTokens(amount); err != nil {
+		if candidate, exists := calculator.candidates[nameHex]; exists {
+			if bytes.Equal(v.Voter(), candidate.address) {
+				selfStakingWeight := new(big.Int).SetUint64(candidate.selfStakingWeight)
+				amount.Mul(amount, selfStakingWeight)
+				if err := candidate.addSelfStakingTokens(amount); err != nil {
+					return err
+				}
+				score.Mul(score, selfStakingWeight)
+			}
+			cVote := v.Clone()
+			if err := cVote.SetWeightedAmount(score); err != nil {
 				return err
 			}
-			score.Mul(score, selfStakingWeight)
+			if err := candidate.addScore(score); err != nil {
+				return err
+			}
+			calculator.candidateVotes[nameHex] = append(calculator.candidateVotes[nameHex], cVote)
 		}
-		cVote := v.Clone()
-		if err := cVote.SetWeightedAmount(score); err != nil {
-			return err
-		}
-		if err := candidate.addScore(score); err != nil {
-			return err
-		}
-		calculator.candidateVotes[nameHex] = append(calculator.candidateVotes[nameHex], cVote)
-		calculator.totalVotes++
+		calculator.totalVotedStakes.Add(calculator.totalVotedStakes, amount)
+		calculator.totalVotes.Add(calculator.totalVotes, score)
 	}
 	return nil
 }
@@ -167,9 +173,11 @@ func (calculator *ResultCalculator) Calculate() (*ElectionResult, error) {
 	calculator.calculated = true
 
 	return &ElectionResult{
-		mintTime:  calculator.mintTime,
-		delegates: candidates,
-		votes:     votes,
+		mintTime:         calculator.mintTime,
+		delegates:        candidates,
+		votes:            votes,
+		totalVotedStakes: calculator.totalVotedStakes,
+		totalVotes:       calculator.totalVotes,
 	}, nil
 }
 
