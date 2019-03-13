@@ -307,13 +307,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 		return err
 	}
 	if bc.tipHeight == 0 {
-		_, err = bc.getBlockByHeight(0)
-		if errors.Cause(err) == db.ErrNotExist {
-			return bc.startEmptyBlockchain()
-		}
-		if err != nil {
-			return err
-		}
+		return bc.startEmptyBlockchain()
 	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
