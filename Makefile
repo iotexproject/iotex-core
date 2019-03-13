@@ -161,14 +161,14 @@ reboot:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
-	./bin/$(BUILD_TARGET_SERVER) -role=gateway
+	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway
 
 .PHONY: run
 run:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
-	./bin/$(BUILD_TARGET_SERVER) -role=gateway
+	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway
 
 .PHONY: docker
 docker:

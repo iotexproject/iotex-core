@@ -1124,7 +1124,7 @@ func newConfig() config.Config {
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
 
-	cfg.Roles[config.GatewayRole] = true
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableAsyncIndexWrite = false

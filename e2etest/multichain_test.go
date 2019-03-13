@@ -45,7 +45,7 @@ func TestTwoChains(t *testing.T) {
 	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
-	cfg.Roles[config.GatewayRole] = true
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Genesis.BlockInterval = time.Second
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(1).HexString()

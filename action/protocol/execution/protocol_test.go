@@ -119,7 +119,7 @@ func (sct *smartContractTest) prepareBlockchain(
 	r *require.Assertions,
 ) blockchain.Blockchain {
 	cfg := config.Default
-	cfg.Roles[config.GatewayRole] = true
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
@@ -220,7 +220,7 @@ func TestProtocol_Handle(t *testing.T) {
 		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 		testDBPath := testDBFile.Name()
 
-		cfg.Roles[config.GatewayRole] = true
+		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableAsyncIndexWrite = false
@@ -410,7 +410,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ctx := context.Background()
 		cfg := config.Default
-		cfg.Roles[config.GatewayRole] = true
+		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableAsyncIndexWrite = false
@@ -580,7 +580,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ctx := context.Background()
 		cfg := config.Default
-		cfg.Roles[config.GatewayRole] = true
+		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
 		cfg.Chain.EnableAsyncIndexWrite = false

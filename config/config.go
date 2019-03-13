@@ -31,7 +31,7 @@ func init() {
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
-	flag.Var(&_roles, "role", "Role of the node")
+	flag.Var(&_plugins, "plugin", "Plugin of the node")
 }
 
 var (
@@ -40,7 +40,7 @@ var (
 	// secretPath is the path to the  config file store secret values
 	_secretPath   string
 	_subChainPath string
-	_roles        strs
+	_plugins      strs
 )
 
 const (
@@ -63,8 +63,8 @@ const (
 )
 
 const (
-	// GatewayRole is the role of accepting user API requests and serving blockchain data to users
-	GatewayRole = iota
+	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
+	GatewayPlugin = iota
 )
 
 type strs []string
@@ -81,7 +81,7 @@ func (ss *strs) Set(str string) error {
 var (
 	// Default is the default config
 	Default = Config{
-		Roles: make(map[int]interface{}),
+		Plugins: make(map[int]interface{}),
 		Network: Network{
 			Host:           "0.0.0.0",
 			Port:           4689,
@@ -352,7 +352,7 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Roles      map[int]interface{} `ymal:"roles"`
+		Plugins    map[int]interface{} `ymal:"plugins"`
 		Network    Network             `yaml:"network"`
 		Chain      Chain               `yaml:"chain"`
 		ActPool    ActPool             `yaml:"actPool"`
@@ -400,13 +400,13 @@ func New(validates ...Validate) (Config, error) {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
 	}
 
-	// set roles
-	for _, role := range _roles {
-		switch strings.ToLower(role) {
+	// set plugins
+	for _, plugin := range _plugins {
+		switch strings.ToLower(plugin) {
 		case "gateway":
-			cfg.Roles[GatewayRole] = nil
+			cfg.Plugins[GatewayPlugin] = nil
 		default:
-			return Config{}, errors.Errorf("Role %s is not supported", role)
+			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
 		}
 	}
 

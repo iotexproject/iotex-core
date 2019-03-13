@@ -420,7 +420,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
-	cfg.Roles[config.GatewayRole] = true
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 

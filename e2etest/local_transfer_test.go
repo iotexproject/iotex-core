@@ -487,7 +487,7 @@ func newTransferConfig(
 ) (config.Config, error) {
 
 	cfg := config.Default
-	cfg.Roles[config.GatewayRole] = true
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Network.Port = networkPort
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
