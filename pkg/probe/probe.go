@@ -14,6 +14,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -54,8 +56,10 @@ func New(port int, opts ...Option) *Server {
 		}
 		s.readinessHandler.ServeHTTP(w, r)
 	}
+
 	mux.HandleFunc("/readiness", readiness)
 	mux.HandleFunc("/health", readiness)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	s.server = http.Server{
 		Addr:    fmt.Sprintf(":%d", port),

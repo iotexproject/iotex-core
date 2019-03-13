@@ -152,9 +152,8 @@ var (
 		},
 		System: System{
 			HeartbeatInterval:     10 * time.Second,
-			HTTPProfilingPort:     0,
-			HTTPMetricsPort:       8080,
-			HTTPProbePort:         7788,
+			HTTPStatsPort:         8080,
+			HTTPAdminPort:         9009,
 			StartSubChainInterval: 10 * time.Second,
 		},
 		DB: DB{
@@ -292,9 +291,8 @@ type (
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
 		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
 		// 0 by default, meaning performance profiling has been disabled
-		HTTPProfilingPort     int           `yaml:"httpProfilingPort"`
-		HTTPMetricsPort       int           `yaml:"httpMetricsPort"`
-		HTTPProbePort         int           `yaml:"httpProbePort"`
+		HTTPAdminPort         int           `yaml:"httpAdminPort"`
+		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
 	}
 
