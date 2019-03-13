@@ -97,6 +97,6 @@ func InitGlobal(cfg GlobalConfig, opts ...zap.Option) error {
 // RegisterLevelConfigMux registers log's level config http mux.
 func RegisterLevelConfigMux(root *http.ServeMux) {
 	_globalCfgMu.Lock()
-	root.Handle("/log/", http.StripPrefix("/log", _globalMux))
+	root.Handle("/logging/", http.StripPrefix("/logging", _globalMux))
 	_globalCfgMu.Unlock()
 }

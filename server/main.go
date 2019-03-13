@@ -16,7 +16,6 @@ import (
 	"flag"
 	"fmt"
 	glog "log"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -66,7 +65,7 @@ func main() {
 	log.S().Infof("Config in use: %+v", cfgToLog)
 
 	// liveness start
-	probeSvr := probe.New(cfg.System.HTTPProbePort)
+	probeSvr := probe.New(cfg.System.HTTPStatsPort)
 	if err := probeSvr.Start(ctx); err != nil {
 		log.L().Fatal("Failed to start probe server.", zap.Error(err))
 	}
