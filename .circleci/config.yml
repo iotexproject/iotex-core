@@ -91,7 +91,7 @@ jobs:
       - run:
           name: Deploy to S3
           command: aws s3 cp release/* ${S3_BUCKET_DIR}
-  macos:
+    macos:
       xcode: "10.2.0"   # not supported > 10.2.0 
       
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
