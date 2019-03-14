@@ -139,7 +139,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, config.Default.Explorer.Enabled, false)
+		dao := newBlockDAO(kvstore, config.Default.Explorer.Enabled, false, 0)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -211,7 +211,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false)
+		dao := newBlockDAO(kvstore, true, false, 0)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -302,7 +302,7 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false)
+		dao := newBlockDAO(kvstore, true, false, 0)
 		err := dao.Start(ctx)
 		require.NoError(err)
 		defer func() {
@@ -371,7 +371,7 @@ func TestBlockDAO(t *testing.T) {
 }
 
 func TestBlockDao_putReceipts(t *testing.T) {
-	blkDao := newBlockDAO(db.NewMemKVStore(), true, false)
+	blkDao := newBlockDAO(db.NewMemKVStore(), true, false, 0)
 	receipts := []*action.Receipt{
 		{
 			ActHash:         hash.Hash256b([]byte("1")),
