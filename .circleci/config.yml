@@ -68,8 +68,7 @@ jobs:
       - checkout
       - run: make nightlybuild
       - run: cd cli/ioctl/ && sh buildcli.sh
-      - run: sudo apt install python-pip
-      - run: pip install awscli
+      - run: sudo apt install awscli
       - run:
           name: Deploy to S3
           command: aws s3 cp release/* ${S3_BUCKET_DIR}
