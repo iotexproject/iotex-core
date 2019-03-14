@@ -24,7 +24,7 @@ type pubkrs struct {
 }
 
 func (dht *IpfsDHT) GetPublicKey(ctx context.Context, p peer.ID) (ci.PubKey, error) {
-	log.Debugf("getPublicKey for: %s", p)
+	logger.Debugf("getPublicKey for: %s", p)
 
 	// Check locally. Will also try to extract the public key from the peer
 	// ID itself if possible (if inlined).
@@ -63,7 +63,7 @@ func (dht *IpfsDHT) GetPublicKey(ctx context.Context, p peer.ID) (ci.PubKey, err
 			// Found the public key
 			err := dht.peerstore.AddPubKey(p, r.pubk)
 			if err != nil {
-				log.Warningf("Failed to add public key to peerstore for %v", p)
+				logger.Warningf("Failed to add public key to peerstore for %v", p)
 			}
 			return r.pubk, nil
 		}
@@ -85,13 +85,13 @@ func (dht *IpfsDHT) getPublicKeyFromDHT(ctx context.Context, p peer.ID) (ci.PubK
 
 	pubk, err := ci.UnmarshalPublicKey(val)
 	if err != nil {
-		log.Errorf("Could not unmarshall public key retrieved from DHT for %v", p)
+		logger.Errorf("Could not unmarshall public key retrieved from DHT for %v", p)
 		return nil, err
 	}
 
 	// Note: No need to check that public key hash matches peer ID
 	// because this is done by GetValues()
-	log.Debugf("Got public key for %s from DHT", p)
+	logger.Debugf("Got public key for %s from DHT", p)
 	return pubk, nil
 }
 
@@ -117,20 +117,20 @@ func (dht *IpfsDHT) getPublicKeyFromNode(ctx context.Context, p peer.ID) (ci.Pub
 
 	pubk, err := ci.UnmarshalPublicKey(record.GetValue())
 	if err != nil {
-		log.Errorf("Could not unmarshall public key for %v", p)
+		logger.Errorf("Could not unmarshall public key for %v", p)
 		return nil, err
 	}
 
 	// Make sure the public key matches the peer ID
 	id, err := peer.IDFromPublicKey(pubk)
 	if err != nil {
-		log.Errorf("Could not extract peer id from public key for %v", p)
+		logger.Errorf("Could not extract peer id from public key for %v", p)
 		return nil, err
 	}
 	if id != p {
 		return nil, fmt.Errorf("public key %v does not match peer %v", id, p)
 	}
 
-	log.Debugf("Got public key from node %v itself", p)
+	logger.Debugf("Got public key from node %v itself", p)
 	return pubk, nil
 }

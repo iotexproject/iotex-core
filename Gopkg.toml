@@ -56,7 +56,7 @@
 
 [[constraint]]
   name = "github.com/iotexproject/go-p2p"
-  revision = "c26edc20f3d7c9ed16b6d996d162548cda979673"
+  version = "v0.2.0"
 
 [[constraint]]
   name = "github.com/iotexproject/iotex-election"

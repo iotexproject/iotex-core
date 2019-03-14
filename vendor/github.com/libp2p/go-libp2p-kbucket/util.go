@@ -34,7 +34,7 @@ func xor(a, b ID) ID {
 	return ID(u.XOR(a, b))
 }
 
-func commonPrefixLen(a, b ID) int {
+func CommonPrefixLen(a, b ID) int {
 	return ks.ZeroPrefixLen(u.XOR(a, b))
 }
 

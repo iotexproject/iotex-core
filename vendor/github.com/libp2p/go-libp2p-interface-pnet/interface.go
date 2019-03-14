@@ -22,7 +22,7 @@ func init() {
 }
 
 // ErrNotInPrivateNetwork is an error that should be returned by libp2p when it
-// tries to dial witt ForcePrivateNetwork set and no PNet Protector
+// tries to dial with ForcePrivateNetwork set and no PNet Protector
 var ErrNotInPrivateNetwork = NewError("private network was not configured but" +
 	" is enforced by the environment")
 

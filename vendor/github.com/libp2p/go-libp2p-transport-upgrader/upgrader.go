@@ -74,7 +74,7 @@ func (u *Upgrader) upgrade(ctx context.Context, t transport.Transport, maconn ma
 		pconn, err := u.Protector.Protect(conn)
 		if err != nil {
 			conn.Close()
-			return nil, err
+			return nil, fmt.Errorf("failed to setup private network protector: %s", err)
 		}
 		conn = pconn
 	} else if pnet.ForcePrivateNetwork {
@@ -85,12 +85,12 @@ func (u *Upgrader) upgrade(ctx context.Context, t transport.Transport, maconn ma
 	sconn, err := u.setupSecurity(ctx, conn, p)
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return nil, fmt.Errorf("failed to negotiate security protocol: %s", err)
 	}
 	smconn, err := u.setupMuxer(ctx, sconn, p)
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return nil, fmt.Errorf("failed to negotiate security stream multiplexer: %s", err)
 	}
 	return &transportConn{
 		Conn:           smconn,

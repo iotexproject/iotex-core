@@ -31,7 +31,7 @@ Transports are:
 
 To actually *use* a transport, you'll likely want to register it with a `transport.Network` (e.g., [go-libp2p-swarm](https://github.com/libp2p/go-libp2p-swarm)). However, you're probably more interested in *implementing* transports.
 
-Transports construct fully featured, encrypted, multiplexed connections. However, there's a fairly good chance your transport won't meet all of those requirements. To make life easier, we've created a helper library called [go-libp2p-transport-upgrader](https://github.com/libp2p/go-libp2p-transport-upgrader) for upgrading simple stream transports to fully-featured (encrypted, authenticated, multiplexed) transports. Check out that packages [README]([go-libp2p-transport-upgrader](https://github.com/libp2p/go-libp2p-transport-upgrader/blob/master/README.md) for an example.
+Transports construct fully featured, encrypted, multiplexed connections. However, there's a fairly good chance your transport won't meet all of those requirements. To make life easier, we've created a helper library called [go-libp2p-transport-upgrader](https://github.com/libp2p/go-libp2p-transport-upgrader) for upgrading simple stream transports to fully-featured (encrypted, authenticated, multiplexed) transports. Check out that package's [README](https://github.com/libp2p/go-libp2p-transport-upgrader/blob/master/README.md) for an example.
 
 ## Contribute
 
