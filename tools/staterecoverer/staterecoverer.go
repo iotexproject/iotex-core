@@ -12,8 +12,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 	glog "log"
+	"os"
 
 	"go.uber.org/zap"
 

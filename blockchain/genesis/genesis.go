@@ -55,7 +55,6 @@ func initDefaultConfig() {
 			EnableGravityChainVoting: false,
 		},
 		Rewarding: Rewarding{
-			InitAdminAddrStr:              identityset.Address(0).String(),
 			InitBalanceStr:                unit.ConvertIotxToRau(1200000000).String(),
 			BlockRewardStr:                unit.ConvertIotxToRau(36).String(),
 			EpochRewardStr:                unit.ConvertIotxToRau(400000).String(),
@@ -142,8 +141,6 @@ type (
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
-		// InitAdminAddrStr is the address of the initial rewarding protocol admin in encoded string format
-		InitAdminAddrStr string `yaml:"initAdminAddr"`
 		// InitBalanceStr is the initial balance of the rewarding protocol in decimal string format
 		InitBalanceStr string `yaml:"initBalance"`
 		// BlockReward is the block reward amount in decimal string format
@@ -225,7 +222,6 @@ func (g *Genesis) Hash() hash.Hash256 {
 	}
 
 	rProto := iotextypes.GenesisRewarding{
-		InitAdminAddr:              g.InitAdminAddrStr,
 		InitBalance:                g.InitBalanceStr,
 		BlockReward:                g.BlockRewardStr,
 		EpochReward:                g.EpochRewardStr,
@@ -299,15 +295,6 @@ func (d *Delegate) Votes() *big.Int {
 		log.S().Panicf("Error when casting votes string %s into big int", d.VotesStr)
 	}
 	return val
-}
-
-// InitAdminAddr returns the address of the initial rewarding protocol admin
-func (r *Rewarding) InitAdminAddr() address.Address {
-	addr, err := address.FromString(r.InitAdminAddrStr)
-	if err != nil {
-		log.L().Panic("Error when decoding the rewarding protocol init admin address from string.", zap.Error(err))
-	}
-	return addr
 }
 
 // InitBalance returns the init balance of the rewarding fund

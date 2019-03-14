@@ -10,7 +10,6 @@ syntax = "proto3";
 package rewardingpb;
 
 message Admin {
-    bytes admin = 1;
     string blockReward = 2;
     string epochReward = 3;
     uint64 numDelegatesForEpochReward = 4;

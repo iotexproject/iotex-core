@@ -1174,7 +1174,6 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 	return rp.Initialize(
 		ctx,
 		ws,
-		bc.config.Genesis.Rewarding.InitAdminAddr(),
 		bc.config.Genesis.InitBalance(),
 		bc.config.Genesis.BlockReward(),
 		bc.config.Genesis.EpochReward(),
