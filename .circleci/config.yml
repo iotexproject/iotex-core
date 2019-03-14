@@ -60,8 +60,10 @@ jobs:
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
+
   nightly:
     docker:
+      # specify the version
       - image: iotex/iotex-core-ci:latest
     working_directory: /go/src/github.com/iotexproject/iotex-core
     steps:
@@ -75,6 +77,7 @@ jobs:
 
     macos:
       xcode: "10.1.0"
+      
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
 
     steps:
