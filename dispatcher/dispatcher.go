@@ -198,7 +198,7 @@ loop:
 
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
-	d.updateEventAudit(iotexrpc.MessageType_Action)
+	d.updateEventAudit(iotexrpc.MessageType_ACTION)
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
 		if err := subscriber.HandleAction(m.ctx, m.action); err != nil {
 			requestMtc.WithLabelValues("AddAction", "false").Inc()
@@ -299,7 +299,7 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 		if err != nil {
 			log.L().Error("Failed to handle block propose.", zap.Error(err))
 		}
-	case iotexrpc.MessageType_Action:
+	case iotexrpc.MessageType_ACTION:
 		d.dispatchAction(ctx, chainID, message)
 	case iotexrpc.MessageType_BLOCK:
 		d.dispatchBlockCommit(ctx, chainID, message)

@@ -32,7 +32,7 @@ message Consensus {
 
 enum MessageType {
   UNKNOWN = 0;
-  Action = 1;
+  ACTION = 1;
   BLOCK = 2;
   CONSENSUS = 3;
   BLOCK_REQUEST = 4;
