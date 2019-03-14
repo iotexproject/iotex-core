@@ -590,8 +590,8 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 	// delete suicided accounts/contract
 	for addr := range stateDB.suicided {
 		if err := stateDB.sm.DelState(addr); err != nil {
-			return errors.Wrapf(err, "failed to delete suicide account/contract %x", addr[:])
 			stateDB.logError(err)
+			return errors.Wrapf(err, "failed to delete suicide account/contract %x", addr[:])
 		}
 	}
 	// write preimages to DB
