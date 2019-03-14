@@ -24,9 +24,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
-	p2ppb "github.com/iotexproject/iotex-core/p2p/pb"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 )
 
 const (
@@ -115,7 +115,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		<-ready
 		var (
 			peerID    string
-			broadcast p2ppb.BroadcastMsg
+			broadcast iotexrpc.BroadcastMsg
 			latency   int64
 		)
 		skip := false
@@ -150,7 +150,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
-		msg, err := protogen.TypifyProtoMsg(broadcast.MsgType, broadcast.MsgBody)
+		msg, err := protogen.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
@@ -165,7 +165,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		// Blocking handling the unicast message until the agent is started
 		<-ready
 		var (
-			unicast p2ppb.UnicastMsg
+			unicast iotexrpc.UnicastMsg
 			peerID  string
 			latency int64
 		)
@@ -181,7 +181,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when marshaling unicast message")
 			return
 		}
-		msg, err := protogen.TypifyProtoMsg(unicast.MsgType, unicast.MsgBody)
+		msg, err := protogen.TypifyRPCMsg(unicast.MsgType, unicast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
@@ -277,7 +277,7 @@ func (p *Agent) Stop(ctx context.Context) error {
 
 // BroadcastOutbound sends a broadcast message to the whole network
 func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
-	var msgType uint32
+	var msgType iotexrpc.MessageType
 	var msgBody []byte
 	defer func() {
 		status := successStr
@@ -301,7 +301,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	broadcast := p2ppb.BroadcastMsg{
+	broadcast := iotexrpc.BroadcastMsg{
 		ChainId:   p2pCtx.ChainID,
 		PeerId:    p.host.HostIdentity(),
 		MsgType:   msgType,
@@ -322,7 +322,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 
 // UnicastOutbound sends a unicast message to the given address
 func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) (err error) {
-	var msgType uint32
+	var msgType iotexrpc.MessageType
 	var msgBody []byte
 	defer func() {
 		status := successStr
@@ -340,7 +340,7 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	unicast := p2ppb.UnicastMsg{
+	unicast := iotexrpc.UnicastMsg{
 		ChainId:   p2pCtx.ChainID,
 		PeerId:    p.host.HostIdentity(),
 		MsgType:   msgType,
@@ -370,8 +370,8 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 	return p.host.Neighbors(ctx)
 }
 
-func convertAppMsg(msg proto.Message) (uint32, []byte, error) {
-	msgType, err := protogen.GetTypeFromProtoMsg(msg)
+func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {
+	msgType, err := protogen.GetTypeFromRPCMsg(msg)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "error when converting application message to proto")
 	}
