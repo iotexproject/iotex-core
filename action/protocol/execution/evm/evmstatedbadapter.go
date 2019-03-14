@@ -123,6 +123,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 	}
 	if err := state.SubBalance(amount); err != nil {
 		log.L().Error("Failed to sub balance.", zap.Error(err))
+		stateDB.logError(err)
 		return
 	}
 	if err := accountutil.StoreAccount(stateDB.sm, addr.String(), state); err != nil {
@@ -153,6 +154,7 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 	}
 	if err := state.AddBalance(amount); err != nil {
 		log.L().Error("Failed to add balance.", zap.Error(err))
+		stateDB.logError(err)
 		return
 	}
 	if err := accountutil.StoreAccount(stateDB.sm, addr.String(), state); err != nil {
@@ -567,8 +569,8 @@ func (stateDB *StateDBAdapter) setContractState(addr hash.Hash160, key, value ha
 	return contract.SetState(key, value[:])
 }
 
-// commitContracts commits contract code to db and update pending contract account changes to trie
-func (stateDB *StateDBAdapter) commitContracts() error {
+// CommitContracts commits contract code to db and update pending contract account changes to trie
+func (stateDB *StateDBAdapter) CommitContracts() error {
 	for addr, contract := range stateDB.cachedContract {
 		if _, ok := stateDB.suicided[addr]; ok {
 			// no need to update a suicide account/contract
@@ -589,6 +591,7 @@ func (stateDB *StateDBAdapter) commitContracts() error {
 	for addr := range stateDB.suicided {
 		if err := stateDB.sm.DelState(addr); err != nil {
 			return errors.Wrapf(err, "failed to delete suicide account/contract %x", addr[:])
+			stateDB.logError(err)
 		}
 	}
 	// write preimages to DB
