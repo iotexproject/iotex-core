@@ -97,7 +97,7 @@ func (stateDB *StateDBAdapter) CreateAccount(evmAddr common.Address) {
 	_, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr.String(), big.NewInt(0))
 	if err != nil {
 		log.L().Error("Failed to create account.", zap.Error(err))
-		// stateDB.logError(err)
+		stateDB.logError(err)
 		return
 	}
 	log.L().Debug("Called CreateAccount.", log.Hex("addrHash", evmAddr[:]))
@@ -127,6 +127,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 	}
 	if err := accountutil.StoreAccount(stateDB.sm, addr.String(), state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
+		stateDB.logError(err)
 	}
 	// stateDB.GetBalance(evmAddr)
 }
@@ -156,6 +157,7 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 	}
 	if err := accountutil.StoreAccount(stateDB.sm, addr.String(), state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
+		stateDB.logError(err)
 	}
 }
 
@@ -214,7 +216,7 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 	s.Nonce = nonce
 	if err := accountutil.StoreAccount(stateDB.sm, addr.String(), s); err != nil {
 		log.L().Error("Failed to set nonce.", zap.Error(err))
-		// stateDB.logError(err)
+		stateDB.logError(err)
 	}
 }
 
@@ -253,6 +255,7 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 	addrHash := hash.BytesToHash160(evmAddr.Bytes())
 	if err := stateDB.sm.PutState(addrHash, s); err != nil {
 		log.L().Error("Failed to kill contract.", zap.Error(err))
+		stateDB.logError(err)
 		return false
 	}
 	// mark it as deleted
@@ -310,7 +313,7 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	if err := stateDB.sm.Revert(snapshot); err != nil {
 		err := errors.New("unexpected error: state manager's Revert() failed")
 		log.L().Error("Failed to revert to snapshot.", zap.Error(err))
-		// stateDB.err = err
+		stateDB.logError(err)
 		return
 	}
 	ds, ok := stateDB.suicideSnapshot[snapshot]
@@ -532,6 +535,7 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash) {
 	if err := stateDB.setContractState(hash.BytesToHash160(evmAddr[:]), hash.BytesToHash256(k[:]), hash.BytesToHash256(v[:])); err != nil {
 		log.L().Error("Failed to set state.", zap.Error(err))
+		stateDB.logError(err)
 		return
 	}
 	log.L().Debug("Called SetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
@@ -571,11 +575,13 @@ func (stateDB *StateDBAdapter) commitContracts() error {
 			continue
 		}
 		if err := contract.Commit(); err != nil {
+			stateDB.logError(err)
 			return errors.Wrap(err, "failed to commit contract")
 		}
 		state := contract.SelfState()
 		// store the account (with new storage trie root) into account trie
 		if err := stateDB.sm.PutState(addr, state); err != nil {
+			stateDB.logError(err)
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 	}
