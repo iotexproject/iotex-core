@@ -182,8 +182,7 @@ message ActionCore {
     // Rewarding protocol actions
     DepositToRewardingFund depositToRewardingFund = 30;
     ClaimFromRewardingFund claimFromRewardingFund = 31;
-    SetReward setReward = 32;
-    GrantReward grantReward = 33;
+    GrantReward grantReward = 32;
 
     PutPollResult putPollResult = 50;
   }
@@ -231,12 +230,6 @@ message ClaimFromRewardingFund {
 enum RewardType {
   BlockReward = 0;
   EpochReward = 1;
-}
-
-message SetReward {
-  string amount = 1;
-  bytes data = 2;
-  RewardType type = 3;
 }
 
 message GrantReward {

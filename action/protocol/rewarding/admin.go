@@ -7,7 +7,6 @@
 package rewarding
 
 import (
-	"bytes"
 	"context"
 	"math/big"
 
@@ -21,7 +20,6 @@ import (
 
 // admin stores the admin data of the rewarding protocol
 type admin struct {
-	admin                      address.Address
 	blockReward                *big.Int
 	epochReward                *big.Int
 	numDelegatesForEpochReward uint64
@@ -30,7 +28,6 @@ type admin struct {
 // Serialize serializes admin state into bytes
 func (a admin) Serialize() ([]byte, error) {
 	gen := rewardingpb.Admin{
-		Admin:                      a.admin.Bytes(),
 		BlockReward:                a.blockReward.String(),
 		EpochReward:                a.epochReward.String(),
 		NumDelegatesForEpochReward: a.numDelegatesForEpochReward,
@@ -42,10 +39,6 @@ func (a admin) Serialize() ([]byte, error) {
 func (a *admin) Deserialize(data []byte) error {
 	gen := rewardingpb.Admin{}
 	if err := proto.Unmarshal(data, &gen); err != nil {
-		return err
-	}
-	var err error
-	if a.admin, err = address.FromBytes(gen.Admin); err != nil {
 		return err
 	}
 	blockReward, ok := big.NewInt(0).SetString(gen.BlockReward, 10)
@@ -97,7 +90,6 @@ func (e *exempt) Deserialize(data []byte) error {
 func (p *Protocol) Initialize(
 	ctx context.Context,
 	sm protocol.StateManager,
-	adminAddr address.Address,
 	initBalance *big.Int,
 	blockReward *big.Int,
 	epochReward *big.Int,
@@ -118,7 +110,6 @@ func (p *Protocol) Initialize(
 		sm,
 		adminKey,
 		&admin{
-			admin:                      adminAddr,
 			blockReward:                blockReward,
 			epochReward:                epochReward,
 			numDelegatesForEpochReward: numDelegatesForEpochReward,
@@ -145,36 +136,6 @@ func (p *Protocol) Initialize(
 	)
 }
 
-// Admin returns the address of current admin
-func (p *Protocol) Admin(
-	_ context.Context,
-	sm protocol.StateManager,
-) (address.Address, error) {
-	admin := admin{}
-	if err := p.state(sm, adminKey, &admin); err != nil {
-		return nil, err
-	}
-	return admin.admin, nil
-}
-
-// SetAdmin sets a new admin address. Only the current admin could make this change
-func (p *Protocol) SetAdmin(
-	ctx context.Context,
-	sm protocol.StateManager,
-	addr address.Address,
-) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if err := p.assertAdminPermission(raCtx, sm); err != nil {
-		return err
-	}
-	a := admin{}
-	if err := p.state(sm, adminKey, &a); err != nil {
-		return err
-	}
-	a.admin = addr
-	return p.putState(sm, adminKey, &a)
-}
-
 // BlockReward returns the block reward amount
 func (p *Protocol) BlockReward(
 	_ context.Context,
@@ -185,15 +146,6 @@ func (p *Protocol) BlockReward(
 		return nil, err
 	}
 	return a.blockReward, nil
-}
-
-// SetBlockReward sets the block reward amount for the block rewarding. Only the current admin could make this change
-func (p *Protocol) SetBlockReward(
-	ctx context.Context,
-	sm protocol.StateManager,
-	amount *big.Int,
-) error {
-	return p.setReward(ctx, sm, amount, true)
 }
 
 // EpochReward returns the epoch reward amount
@@ -208,16 +160,6 @@ func (p *Protocol) EpochReward(
 	return a.epochReward, nil
 }
 
-// SetEpochReward sets the epoch reward amount shared by all beneficiaries in an epoch. Only the current admin could
-// make this change
-func (p *Protocol) SetEpochReward(
-	ctx context.Context,
-	sm protocol.StateManager,
-	amount *big.Int,
-) error {
-	return p.setReward(ctx, sm, amount, false)
-}
-
 // NumDelegatesForEpochReward returns the number of candidates sharing an epoch reward
 func (p *Protocol) NumDelegatesForEpochReward(
 	_ context.Context,
@@ -230,24 +172,6 @@ func (p *Protocol) NumDelegatesForEpochReward(
 	return a.numDelegatesForEpochReward, nil
 }
 
-// SetNumDelegatesForEpochReward sets the number of candidates sharing an epoch reward
-func (p *Protocol) SetNumDelegatesForEpochReward(
-	ctx context.Context,
-	sm protocol.StateManager,
-	num uint64,
-) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if err := p.assertAdminPermission(raCtx, sm); err != nil {
-		return err
-	}
-	a := admin{}
-	if err := p.state(sm, adminKey, &a); err != nil {
-		return err
-	}
-	a.numDelegatesForEpochReward = num
-	return p.putState(sm, adminKey, &a)
-}
-
 func (p *Protocol) assertAmount(amount *big.Int) error {
 	if amount.Cmp(big.NewInt(0)) >= 0 {
 		return nil
@@ -255,45 +179,9 @@ func (p *Protocol) assertAmount(amount *big.Int) error {
 	return errors.Errorf("reward amount %s shouldn't be negative", amount.String())
 }
 
-func (p *Protocol) assertAdminPermission(raCtx protocol.RunActionsCtx, sm protocol.StateManager) error {
-	a := admin{}
-	if err := p.state(sm, adminKey, &a); err != nil {
-		return err
-	}
-	if bytes.Equal(a.admin.Bytes(), raCtx.Caller.Bytes()) {
-		return nil
-	}
-	return errors.Errorf("%s is not the rewarding protocol admin", raCtx.Caller.String())
-}
-
 func (p *Protocol) assertZeroBlockHeight(height uint64) error {
 	if height != 0 {
 		return errors.Errorf("current block height %d is not zero", height)
 	}
 	return nil
-}
-
-func (p *Protocol) setReward(
-	ctx context.Context,
-	sm protocol.StateManager,
-	amount *big.Int,
-	blockLevel bool,
-) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if err := p.assertAdminPermission(raCtx, sm); err != nil {
-		return err
-	}
-	if err := p.assertAmount(amount); err != nil {
-		return err
-	}
-	a := admin{}
-	if err := p.state(sm, adminKey, &a); err != nil {
-		return err
-	}
-	if blockLevel {
-		a.blockReward = amount
-	} else {
-		a.epochReward = amount
-	}
-	return p.putState(sm, adminKey, &a)
 }
