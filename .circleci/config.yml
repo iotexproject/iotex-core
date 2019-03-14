@@ -20,11 +20,12 @@ jobs:
     working_directory: /go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
-
+      - run: cd cli/ioctl/ && sh buildcli.sh
+      - run: sudo apt install python-pip
       - run: pip install awscli
       - run:
           name: Deploy to S3
-          command: aws s3 cp go.test.sh ${S3_BUCKET_DIR}
+          command: aws s3 cp release/* ${S3_BUCKET_DIR}
 
   test_macos_build:
     macos:
@@ -33,10 +34,11 @@ jobs:
 
     steps:
       - checkout
+      - run: cd cli/ioctl/ && sh buildcli.sh
       - run: pip install awscli
       - run:
           name: Deploy to S3
-          command: aws s3 cp go.test.sh ${S3_BUCKET_DIR}
+          command: aws s3 cp release/* ${S3_BUCKET_DIR}
 
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
