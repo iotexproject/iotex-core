@@ -43,6 +43,7 @@ func init() {
 	AccountCmd.AddCommand(accountImportCmd)
 	AccountCmd.AddCommand(accountListCmd)
 	AccountCmd.AddCommand(accountNonceCmd)
+	AccountCmd.AddCommand(accountUpdateCmd)
 }
 
 // Sign use the password to unlock key associated with name, and signs the hash
