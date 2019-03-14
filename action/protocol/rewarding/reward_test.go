@@ -56,7 +56,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.Error(t, p.GrantBlockReward(ctx, ws))
-	})
+	}, false)
 }
 
 func TestProtocol_GrantEpochReward(t *testing.T) {
@@ -107,7 +107,26 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.Error(t, p.GrantEpochReward(protocol.WithRunActionsCtx(context.Background(), raCtx), ws))
-	})
+	}, false)
+
+	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
+		ws, err := stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.NoError(t, p.Deposit(ctx, ws, big.NewInt(200)))
+		require.NoError(t, stateDB.Commit(ws))
+
+		// Grant epoch reward
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.NoError(t, p.GrantEpochReward(ctx, ws))
+		require.NoError(t, stateDB.Commit(ws))
+
+		ws, err = stateDB.NewWorkingSet()
+		// The 5-th candidate can't get the reward because excempting from the epoch reward
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["delta"])
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(0), unclaimedBalance)
+	}, true)
 }
 
 func TestProtocol_ClaimReward(t *testing.T) {
@@ -170,5 +189,5 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.Error(t, p.Claim(claimCtx, ws, big.NewInt(5)))
-	})
+	}, false)
 }

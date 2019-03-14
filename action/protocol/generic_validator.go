@@ -10,8 +10,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -34,10 +32,7 @@ func NewGenericValidator(cm ChainManager, actionGasLimit uint64) *GenericValidat
 
 // Validate validates a generic action
 func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelope) error {
-	vaCtx, ok := GetValidateActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss validate action context")
-	}
+	vaCtx := MustGetValidateActionsCtx(ctx)
 	// Reject over-gassed action
 	if act.GasLimit() > v.actionGasLimit {
 		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")

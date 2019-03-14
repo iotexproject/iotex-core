@@ -10,18 +10,11 @@ syntax = "proto3";
 package iotexrpc;
 option go_package = "github.com/iotexproject/iotex-core/protogen/iotexrpc";
 
-import "blockchain.proto";
 import "google/protobuf/timestamp.proto";
 
 message BlockSync {
   uint64 start = 2;
   uint64 end = 3;
-}
-
-// block container
-// used to send old/existing blocks in block sync
-message BlockContainer {
-  iotextypes.Block block = 1;
 }
 
 message Consensus {

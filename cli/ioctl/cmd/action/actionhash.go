@@ -97,7 +97,8 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		return "", err
 	}
 	switch {
-	case action.Core.GetTransfer() != nil:
+	case action.Core.GetTransfer() != nil ||
+		action.Core.GetClaimFromRewardingFund() != nil:
 		return fmt.Sprintf("senderAddress: %s\n", senderAddress.String()) +
 			proto.MarshalTextString(action.Core) +
 			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
@@ -121,8 +122,9 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
+	status := []string{"Fail", "Success"}
 	return fmt.Sprintf("returnValue %x\n", receipt.ReturnValue) +
-		fmt.Sprintf("status: %d\n", receipt.Status) +
+		fmt.Sprintf("status: %d (%s)\n", receipt.Status, status[receipt.Status]) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		fmt.Sprintf("contractAddress: %s\n", receipt.ContractAddress)

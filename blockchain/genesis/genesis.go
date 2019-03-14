@@ -55,11 +55,11 @@ func initDefaultConfig() {
 			EnableGravityChainVoting: false,
 		},
 		Rewarding: Rewarding{
-			InitAdminAddrStr:           identityset.Address(0).String(),
-			InitBalanceStr:             unit.ConvertIotxToRau(1200000000).String(),
-			BlockRewardStr:             unit.ConvertIotxToRau(36).String(),
-			EpochRewardStr:             unit.ConvertIotxToRau(400000).String(),
-			NumDelegatesForEpochReward: 100,
+			InitBalanceStr:                unit.ConvertIotxToRau(1200000000).String(),
+			BlockRewardStr:                unit.ConvertIotxToRau(36).String(),
+			EpochRewardStr:                unit.ConvertIotxToRau(400000).String(),
+			NumDelegatesForEpochReward:    100,
+			ExemptAddrStrsFromEpochReward: []string{},
 		},
 	}
 	for i := 0; i < identityset.Size(); i++ {
@@ -115,6 +115,8 @@ type (
 		EnableGravityChainVoting bool `yaml:"enableGravityChainVoting"`
 		// GravityChainStartHeight is the height in gravity chain where the init poll result stored
 		GravityChainStartHeight uint64 `yaml:"gravityChainStartHeight"`
+		// GravityChainHeightInterval the height interval on gravity chain to pull delegate information
+		GravityChainHeightInterval uint64 `yaml:"gravityChainHeightInterval"`
 		// RegisterContractAddress is the address of register contract
 		RegisterContractAddress string `yaml:"registerContractAddress"`
 		// StakingContractAddress is the address of staking contract
@@ -139,8 +141,6 @@ type (
 	}
 	// Rewarding contains the configs for rewarding protocol
 	Rewarding struct {
-		// InitAdminAddrStr is the address of the initial rewarding protocol admin in encoded string format
-		InitAdminAddrStr string `yaml:"initAdminAddr"`
 		// InitBalanceStr is the initial balance of the rewarding protocol in decimal string format
 		InitBalanceStr string `yaml:"initBalance"`
 		// BlockReward is the block reward amount in decimal string format
@@ -149,6 +149,8 @@ type (
 		EpochRewardStr string `yaml:"epochReward"`
 		// NumDelegatesForEpochReward is the number of top candidates that will share a epoch reward
 		NumDelegatesForEpochReward uint64 `yaml:"numDelegatesForEpochReward"`
+		// ExemptAddrStrsFromEpochReward is the list of addresses in encoded string format that exempt from epoch reward
+		ExemptAddrStrsFromEpochReward []string `yaml:"exemptAddrsFromEpochReward"`
 	}
 )
 
@@ -220,7 +222,6 @@ func (g *Genesis) Hash() hash.Hash256 {
 	}
 
 	rProto := iotextypes.GenesisRewarding{
-		InitAdminAddr:              g.InitAdminAddrStr,
 		InitBalance:                g.InitBalanceStr,
 		BlockReward:                g.BlockRewardStr,
 		EpochReward:                g.EpochRewardStr,
@@ -296,15 +297,6 @@ func (d *Delegate) Votes() *big.Int {
 	return val
 }
 
-// InitAdminAddr returns the address of the initial rewarding protocol admin
-func (r *Rewarding) InitAdminAddr() address.Address {
-	addr, err := address.FromString(r.InitAdminAddrStr)
-	if err != nil {
-		log.L().Panic("Error when decoding the rewarding protocol init admin address from string.", zap.Error(err))
-	}
-	return addr
-}
-
 // InitBalance returns the init balance of the rewarding fund
 func (r *Rewarding) InitBalance() *big.Int {
 	val, ok := big.NewInt(0).SetString(r.InitBalanceStr, 10)
@@ -330,4 +322,17 @@ func (r *Rewarding) EpochReward() *big.Int {
 		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
 	}
 	return val
+}
+
+// ExemptAddrsFromEpochReward returns the list of addresses that exempt from epoch reward
+func (r *Rewarding) ExemptAddrsFromEpochReward() []address.Address {
+	addrs := make([]address.Address, 0)
+	for _, addrStr := range r.ExemptAddrStrsFromEpochReward {
+		addr, err := address.FromString(addrStr)
+		if err != nil {
+			log.L().Panic("Error when decoding the rewarding protocol exempt address from string.", zap.Error(err))
+		}
+		addrs = append(addrs, addr)
+	}
+	return addrs
 }

@@ -105,7 +105,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{prevTsf})
 	require.NoError(err)
@@ -423,7 +423,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
@@ -577,7 +577,7 @@ func TestActPool_Reset(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
 	require.NoError(err)
@@ -687,7 +687,7 @@ func TestActPool_Reset(t *testing.T) {
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
 	require.NoError(err)
@@ -795,7 +795,7 @@ func TestActPool_Reset(t *testing.T) {
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
 	require.NoError(err)
@@ -1044,7 +1044,7 @@ func TestActPool_GetSize(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)

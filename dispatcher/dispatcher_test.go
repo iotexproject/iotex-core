@@ -52,8 +52,6 @@ func setTestCase() []proto.Message {
 		&iotexrpc.Consensus{},
 		&iotextypes.Block{},
 		&iotexrpc.BlockSync{},
-		&iotexrpc.BlockContainer{},
-		&iotexrpc.BlockContainer{Block: &iotextypes.Block{}},
 		&testingpb.TestPayload{},
 	}
 }

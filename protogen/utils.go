@@ -30,8 +30,6 @@ const (
 	MsgBlockProtoMsgType uint32 = 2
 	// MsgBlockSyncReqType is for requests among peers to sync blocks
 	MsgBlockSyncReqType uint32 = 3
-	// MsgBlockSyncDataType is the response to messages of type MsgBlockSyncReqType
-	MsgBlockSyncDataType uint32 = 4
 	// MsgActionType is the action message
 	MsgActionType uint32 = 5
 	// MsgConsensusType is for consensus message
@@ -47,8 +45,6 @@ func GetTypeFromProtoMsg(msg proto.Message) (uint32, error) {
 		return MsgBlockProtoMsgType, nil
 	case *iotexrpc.BlockSync:
 		return MsgBlockSyncReqType, nil
-	case *iotexrpc.BlockContainer:
-		return MsgBlockSyncDataType, nil
 	case *iotextypes.Action:
 		return MsgActionType, nil
 	case *iotexrpc.Consensus:
@@ -70,8 +66,6 @@ func TypifyProtoMsg(tp uint32, msg []byte) (proto.Message, error) {
 		m = &iotexrpc.Consensus{}
 	case MsgBlockSyncReqType:
 		m = &iotexrpc.BlockSync{}
-	case MsgBlockSyncDataType:
-		m = &iotexrpc.BlockContainer{}
 	case MsgActionType:
 		m = &iotextypes.Action{}
 	case TestPayloadType:

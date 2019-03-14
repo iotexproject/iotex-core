@@ -7,9 +7,15 @@
 package version
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
+	ver "github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // VersionCmd represents the version command
@@ -18,6 +24,30 @@ var VersionCmd = &cobra.Command{
 	Short: "Print the version number of ioctl",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("v0.1")
+		fmt.Println(version())
 	},
+}
+
+func version() string {
+	versionInfo := &iotextypes.ServerMeta{
+		PackageVersion:  ver.PackageVersion,
+		PackageCommitID: ver.PackageCommitID,
+		GitStatus:       ver.GitStatus,
+		GoVersion:       ver.GoVersion,
+		BuidTime:        ver.BuildTime,
+	}
+	conn, err := util.ConnectToEndpoint()
+	if err != nil {
+		return err.Error()
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	request := &iotexapi.GetServerMetaRequest{}
+	ctx := context.Background()
+	response, err := cli.GetServerMeta(ctx, request)
+	if err != nil {
+		return err.Error()
+	}
+	return fmt.Sprintf("Client Version:\n%+v\n", versionInfo) +
+		fmt.Sprintf("Server Version:\n%+v", response.ServerMeta)
 }

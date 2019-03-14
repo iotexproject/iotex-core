@@ -19,6 +19,7 @@ BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOCTL=ioctl
 BUILD_TARGET_MINICLUSTER=minicluster
+BUILD_TARGET_RECOVER=recover
 
 # Pkgs
 ALL_PKGS := $(shell go list ./... )
@@ -29,11 +30,22 @@ ROOT_PKG := "github.com/iotexproject/iotex-core"
 DOCKERCMD=docker
 
 # Package Info
-PackageVersion := $(shell git describe --abbrev=0 --tags)
-PackageCommitID := $(shell git log --pretty=format:"%h" -1)
-VersionImportPath = github.com/iotexproject/iotex-core/pkg/version
-PackageFlags += -X $(VersionImportPath).PackageVersion=$(PackageVersion)
-PackageFlags += -X $(VersionImportPath).PackageCommitID=$(PackageCommitID)
+PACKAGE_VERSION := $(shell git describe --tags)
+PACKAGE_COMMIT_ID := $(shell git rev-parse HEAD)
+GIT_STATUS := $(shell git status --porcelain)
+ifdef GIT_STATUS
+	GIT_STATUS := "dirty"
+else
+	GIT_STATUS := "clean"
+endif
+GO_VERSION := $(shell go version)
+BUILD_TIME=$(shell date +%F-%Z/%T)
+VersionImportPath := github.com/iotexproject/iotex-core/pkg/version
+PackageFlags += -X '$(VersionImportPath).PackageVersion=$(PACKAGE_VERSION)'
+PackageFlags += -X '$(VersionImportPath).PackageCommitID=$(PACKAGE_COMMIT_ID)'
+PackageFlags += -X '$(VersionImportPath).GitStatus=$(GIT_STATUS)'
+PackageFlags += -X '$(VersionImportPath).GoVersion=$(GO_VERSION)'
+PackageFlags += -X '$(VersionImportPath).BuildTime=$(BUILD_TIME)'
 
 TEST_IGNORE= ".git,vendor"
 COV_OUT := profile.coverprofile
@@ -51,13 +63,15 @@ else
 endif
 
 all: clean build test
+
 .PHONY: build
 build:
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
-	$(GOBUILD) -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
 
 .PHONY: fmt
 fmt:
@@ -95,6 +109,17 @@ test-html: test-rich
 	@echo "Generating test report html..."
 	$(ECHO_V)gocov convert $(COV_REPORT) | gocov-html > $(COV_HTML)
 	$(ECHO_V)open $(COV_HTML)
+
+.PHONY: protogen
+protogen:
+	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/action.proto
+	@protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/types/blockchain.proto
+	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/endorsement.proto
+	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/genesis.proto
+	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/node.proto
+	@protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/api/api.proto
+	@protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/rpc/rpc.proto
+	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/testing/*.proto
 
 .PHONY: mockgen
 mockgen:
@@ -138,14 +163,14 @@ reboot:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
-	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
+	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway
 
 .PHONY: run
 run:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
-	./bin/$(BUILD_TARGET_SERVER) -config-path=e2etest/config_local_delegate.yaml
+	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway
 
 .PHONY: docker
 docker:
@@ -166,3 +191,12 @@ nightlybuild:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
 	./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400
+
+.PHONY: recover
+recover:
+	$(ECHO_V)rm -rf ./e2etest/*chain*.db
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
+	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
+	./bin/$(BUILD_TARGET_RECOVER) -plugin=gateway
+
+

@@ -102,7 +102,7 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.updateAvailableBalance(sm, a.epochReward); err != nil {
 		return err
 	}
-	addrs, amounts, err := p.splitEpochReward(raCtx.BlockHeight, a.epochReward, a.numDelegatesForEpochReward)
+	addrs, amounts, err := p.splitEpochReward(sm, raCtx.BlockHeight, a.epochReward, a.numDelegatesForEpochReward)
 	if err != nil {
 		return err
 	}
@@ -224,6 +224,7 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 }
 
 func (p *Protocol) splitEpochReward(
+	sm protocol.StateManager,
 	blkHeight uint64,
 	totalAmount *big.Int,
 	numDelegatesForEpochReward uint64,
@@ -232,6 +233,23 @@ func (p *Protocol) splitEpochReward(
 	if err != nil {
 		return nil, nil, err
 	}
+	// Remove the candidates who exempt from the epoch reward
+	e := exempt{}
+	if err := p.state(sm, exemptKey, &e); err != nil {
+		return nil, nil, err
+	}
+	exemptAddrs := make(map[string]interface{})
+	for _, addr := range e.addrs {
+		exemptAddrs[addr.String()] = nil
+	}
+	filteredCandidates := make([]*state.Candidate, 0)
+	for _, candidate := range candidates {
+		if _, ok := exemptAddrs[candidate.Address]; ok {
+			continue
+		}
+		filteredCandidates = append(filteredCandidates, candidate)
+	}
+	candidates = filteredCandidates
 	// We at most allow numDelegatesForEpochReward delegates to get the epoch reward
 	if uint64(len(candidates)) > numDelegatesForEpochReward {
 		candidates = candidates[:numDelegatesForEpochReward]

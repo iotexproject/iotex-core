@@ -135,8 +135,6 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_SettleDeposit{SettleDeposit: act.Proto()}
 	case *GrantReward:
 		actCore.Action = &iotextypes.ActionCore_GrantReward{GrantReward: act.Proto()}
-	case *SetReward:
-		actCore.Action = &iotextypes.ActionCore_SetReward{SetReward: act.Proto()}
 	case *ClaimFromRewardingFund:
 		actCore.Action = &iotextypes.ActionCore_ClaimFromRewardingFund{ClaimFromRewardingFund: act.Proto()}
 	case *DepositToRewardingFund:
@@ -216,12 +214,6 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	case pbAct.GetGrantReward() != nil:
 		act := &GrantReward{}
 		if err := act.LoadProto(pbAct.GetGrantReward()); err != nil {
-			return err
-		}
-		elp.payload = act
-	case pbAct.GetSetReward() != nil:
-		act := &SetReward{}
-		if err := act.LoadProto(pbAct.GetSetReward()); err != nil {
 			return err
 		}
 		elp.payload = act

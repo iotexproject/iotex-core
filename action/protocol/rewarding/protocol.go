@@ -30,11 +30,12 @@ const (
 )
 
 var (
-	adminKey                    = []byte("admin")
-	fundKey                     = []byte("fund")
-	blockRewardHistoryKeyPrefix = []byte("blockRewardHistory")
-	epochRewardHistoryKeyPrefix = []byte("epochRewardHistory")
-	accountKeyPrefix            = []byte("account")
+	adminKey                    = []byte("adm")
+	fundKey                     = []byte("fnd")
+	blockRewardHistoryKeyPrefix = []byte("brh")
+	epochRewardHistoryKeyPrefix = []byte("erh")
+	accountKeyPrefix            = []byte("acc")
+	exemptKey                   = []byte("xpt")
 )
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
@@ -70,21 +71,6 @@ func (p *Protocol) Handle(
 ) (*action.Receipt, error) {
 	// TODO: simplify the boilerplate
 	switch act := act.(type) {
-	case *action.SetReward:
-		switch act.RewardType() {
-		case action.BlockReward:
-			si := sm.Snapshot()
-			if err := p.SetBlockReward(ctx, sm, act.Amount()); err != nil {
-				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
-			}
-			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
-		case action.EpochReward:
-			si := sm.Snapshot()
-			if err := p.SetEpochReward(ctx, sm, act.Amount()); err != nil {
-				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
-			}
-			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
-		}
 	case *action.DepositToRewardingFund:
 		si := sm.Snapshot()
 		if err := p.Deposit(ctx, sm, act.Amount()); err != nil {

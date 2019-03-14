@@ -38,18 +38,6 @@ func TestClaimFromRewardingFund(t *testing.T) {
 	assert.Equal(t, s2.Data(), s2.Data())
 }
 
-func TestSetBlockReward(t *testing.T) {
-	b := SetRewardBuilder{}
-	s1 := b.SetAmount(big.NewInt(1)).
-		SetData([]byte{2}).
-		Build()
-	proto := s1.Proto()
-	s2 := SetReward{}
-	require.NoError(t, s2.LoadProto(proto))
-	assert.Equal(t, s1.Amount(), s2.Amount())
-	assert.Equal(t, s2.Data(), s2.Data())
-}
-
 func TestGrantBlockReward(t *testing.T) {
 	b := GrantRewardBuilder{}
 	s1 := b.SetRewardType(BlockReward).Build()
