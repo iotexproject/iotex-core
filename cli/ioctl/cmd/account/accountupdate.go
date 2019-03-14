@@ -55,9 +55,9 @@ func accountUpdate(args []string) string {
 			currentPassword := string(byteCurrentPassword)
 			_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
 			if err != nil {
-				return "Wrong password"
+				return "wrong password"
 			}
-			fmt.Printf("#%s: Set new password\n", account)
+			fmt.Printf("#%s: Enter new password\n", account)
 			bytePassword, err := terminal.ReadPassword(syscall.Stdin)
 			if err != nil {
 				log.L().Error("fail to get password", zap.Error(err))
@@ -77,9 +77,8 @@ func accountUpdate(args []string) string {
 				log.L().Error("fail to update keystore", zap.Error(err))
 				return err.Error()
 			}
-			break
+			return fmt.Sprintf("Account \"%s\" has been updated.", account)
 		}
 	}
-	return fmt.Sprintf(
-		"Account \"%s\" has been updated.", account)
+	return fmt.Sprintf("Account #%s not found", account)
 }
