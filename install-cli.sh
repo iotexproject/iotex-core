@@ -16,7 +16,7 @@
 set -e
 
 RELEASES_URL="https://github.com/iotexproject/iotex-core/releases"
-S3URL="https://s3-ap-southeast-1.amazonaws.com/ars-file-dev/test"
+S3URL="https://s3-ap-southeast-1.amazonaws.com/ioctl"
 
 downloadJSON() {
     url="$2"
