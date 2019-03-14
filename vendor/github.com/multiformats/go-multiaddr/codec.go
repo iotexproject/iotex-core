@@ -22,7 +22,8 @@ func stringToBytes(s string) ([]byte, error) {
 	sp = sp[1:]
 
 	for len(sp) > 0 {
-		p := ProtocolWithName(sp[0])
+		name := sp[0]
+		p := ProtocolWithName(name)
 		if p.Code == 0 {
 			return nil, fmt.Errorf("no protocol with name %s", sp[0])
 		}
@@ -34,7 +35,7 @@ func stringToBytes(s string) ([]byte, error) {
 		}
 
 		if len(sp) < 1 {
-			return nil, fmt.Errorf("protocol requires address, none given: %s", p.Name)
+			return nil, fmt.Errorf("protocol requires address, none given: %s", name)
 		}
 
 		if p.Path {
@@ -82,7 +83,7 @@ func validateBytes(b []byte) (err error) {
 		b = b[n:]
 
 		if len(b) < size || size < 0 {
-			return fmt.Errorf("invalid value for size")
+			return fmt.Errorf("invalid value for size %d", len(b))
 		}
 
 		err = p.Transcoder.ValidateBytes(b[:size])
@@ -125,7 +126,7 @@ func readComponent(b []byte) (int, Component, error) {
 	offset += n
 
 	if len(b[offset:]) < size || size < 0 {
-		return 0, Component{}, fmt.Errorf("invalid value for size")
+		return 0, Component{}, fmt.Errorf("invalid value for size %d", len(b[offset:]))
 	}
 
 	return offset + size, Component{

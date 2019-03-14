@@ -18,7 +18,7 @@ var (
 	RandomSubD = 6
 )
 
-// NewRandomSub returns a new PubSub object using RandomSubRouter as the router
+// NewRandomSub returns a new PubSub object using RandomSubRouter as the router.
 func NewRandomSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, error) {
 	rt := &RandomSubRouter{
 		peers: make(map[peer.ID]protocol.ID),

@@ -94,7 +94,7 @@ func (b *Bucket) Split(cpl int, target ID) *Bucket {
 	e := b.list.Front()
 	for e != nil {
 		peerID := ConvertPeerID(e.Value.(peer.ID))
-		peerCPL := commonPrefixLen(peerID, target)
+		peerCPL := CommonPrefixLen(peerID, target)
 		if peerCPL > cpl {
 			cur := e
 			out.PushBack(e.Value)

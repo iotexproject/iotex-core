@@ -70,6 +70,10 @@ func (s *Swarm) TransportForListening(a ma.Multiaddr) transport.Transport {
 func (s *Swarm) AddTransport(t transport.Transport) error {
 	protocols := t.Protocols()
 
+	if len(protocols) == 0 {
+		return fmt.Errorf("useless transport handles no protocols: %T", t)
+	}
+
 	s.transports.Lock()
 	defer s.transports.Unlock()
 	var registered []string

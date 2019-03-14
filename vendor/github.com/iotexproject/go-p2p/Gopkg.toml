@@ -23,62 +23,61 @@
 #   non-go = false
 #   go-tests = true
 #   unused-packages = true
+[[override]]
+  name = "github.com/libp2p/go-libp2p-peer"
+  version = "v0.0.1"
 
 [[constraint]]
   name = "github.com/libp2p/go-libp2p"
-  version = "~6.0.0"
+  version = "v0.0.2"
 
 [[constraint]]
   name = "github.com/libp2p/go-libp2p-crypto"
-  version = "~2.0.0"
+  version = "v0.0.1"
 
 [[constraint]]
   name = "github.com/libp2p/go-libp2p-host"
-  version = "~3.0.0"
+  version = "v0.0.1"
 
 [[constraint]]
   name = "github.com/libp2p/go-libp2p-kad-dht"
-  version = "~4.4.0"
-
-[[constraint]]
-  name = "github.com/libp2p/go-libp2p-peer"
-  version = "~2.4.0"
+  version = "v0.0.4"
 
 [[constraint]]
   name = "github.com/libp2p/go-libp2p-peerstore"
-  version = "~2.0.0"
+  version = "v0.0.1"
 
 [[constraint]]
   name = "github.com/libp2p/go-libp2p-pubsub"
-  version = "~0.11.0"
+  version = "v0.0.1"
 
 [[constraint]]
   name = "github.com/libp2p/go-libp2p-transport-upgrader"
-  version = "~0.1.0"
+  version = "v0.0.1"
 
 [[constraint]]
   name = "github.com/libp2p/go-tcp-transport"
-  version = "~2.0.0"
+  version = "v0.0.1"
 
 [[constraint]]
   name = "github.com/multiformats/go-multiaddr"
-  version = "~1.4.0"
+  version = "v0.0.2"
 
 [[constraint]]
   name = "github.com/multiformats/go-multihash"
-  version = "~1.0.0"
+  version = "v0.0.1"
 
 [[constraint]]
   name = "github.com/whyrusleeping/go-smux-yamux"
-  version = "~2.0.0"
+  version = "v2.0.9"
 
 [[constraint]]
   name = "github.com/stretchr/testify"
-  version = "~1.2.0"
+  version = "v1.3.0"
 
 [[constraint]]
   name = "github.com/prometheus/client_golang"
-  version = "~0.9.0"
+  version = "v0.9.2"
 
 [prune]
   go-tests = true

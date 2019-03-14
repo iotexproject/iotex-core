@@ -36,7 +36,7 @@ var asyncQueryBuffer = 10
 // PutValue adds value corresponding to given Key.
 // This is the top level "Store" operation of the DHT
 func (dht *IpfsDHT) PutValue(ctx context.Context, key string, value []byte, opts ...ropts.Option) (err error) {
-	eip := log.EventBegin(ctx, "PutValue")
+	eip := logger.EventBegin(ctx, "PutValue")
 	defer func() {
 		eip.Append(loggableKey(key))
 		if err != nil {
@@ -44,7 +44,7 @@ func (dht *IpfsDHT) PutValue(ctx context.Context, key string, value []byte, opts
 		}
 		eip.Done()
 	}()
-	log.Debugf("PutValue %s", key)
+	logger.Debugf("PutValue %s", key)
 
 	// don't even allow local users to put bad values.
 	if err := dht.Validator.Validate(key, value); err != nil {
@@ -95,7 +95,7 @@ func (dht *IpfsDHT) PutValue(ctx context.Context, key string, value []byte, opts
 
 			err := dht.putValueToPeer(ctx, p, rec)
 			if err != nil {
-				log.Debugf("failed putting value to peer: %s", err)
+				logger.Debugf("failed putting value to peer: %s", err)
 			}
 		}(p)
 	}
@@ -111,7 +111,7 @@ type RecvdVal struct {
 
 // GetValue searches for the value corresponding to given Key.
 func (dht *IpfsDHT) GetValue(ctx context.Context, key string, opts ...ropts.Option) (_ []byte, err error) {
-	eip := log.EventBegin(ctx, "GetValue")
+	eip := logger.EventBegin(ctx, "GetValue")
 	defer func() {
 		eip.Append(loggableKey(key))
 		if err != nil {
@@ -144,7 +144,7 @@ func (dht *IpfsDHT) GetValue(ctx context.Context, key string, opts ...ropts.Opti
 	if best == nil {
 		return nil, routing.ErrNotFound
 	}
-	log.Debugf("GetValue %v %v", key, best)
+	logger.Debugf("GetValue %v %v", key, best)
 	return best, nil
 }
 
@@ -191,7 +191,7 @@ func (dht *IpfsDHT) SearchValue(ctx context.Context, key string, opts ...ropts.O
 						if v.From == dht.self {
 							err := dht.putLocal(key, fixupRec)
 							if err != nil {
-								log.Error("Error correcting local dht entry:", err)
+								logger.Error("Error correcting local dht entry:", err)
 							}
 							return
 						}
@@ -199,7 +199,7 @@ func (dht *IpfsDHT) SearchValue(ctx context.Context, key string, opts ...ropts.O
 						defer cancel()
 						err := dht.putValueToPeer(ctx, v.From, fixupRec)
 						if err != nil {
-							log.Debug("Error correcting DHT entry: ", err)
+							logger.Debug("Error correcting DHT entry: ", err)
 						}
 					}(v)
 				}
@@ -227,7 +227,7 @@ func (dht *IpfsDHT) SearchValue(ctx context.Context, key string, opts ...ropts.O
 					}
 					sel, err := dht.Validator.Select(key, [][]byte{best.Val, v.Val})
 					if err != nil {
-						log.Warning("Failed to select dht key: ", err)
+						logger.Warning("Failed to select dht key: ", err)
 						continue
 					}
 					if sel != 1 {
@@ -251,7 +251,7 @@ func (dht *IpfsDHT) SearchValue(ctx context.Context, key string, opts ...ropts.O
 
 // GetValues gets nvals values corresponding to the given key.
 func (dht *IpfsDHT) GetValues(ctx context.Context, key string, nvals int) (_ []RecvdVal, err error) {
-	eip := log.EventBegin(ctx, "GetValues")
+	eip := logger.EventBegin(ctx, "GetValues")
 
 	eip.Append(loggableKey(key))
 	defer eip.Done()
@@ -287,7 +287,7 @@ func (dht *IpfsDHT) getValues(ctx context.Context, key string, nvals int) (<-cha
 	if lrec != nil {
 		// TODO: this is tricky, we don't always want to trust our own value
 		// what if the authoritative source updated it?
-		log.Debug("have it locally")
+		logger.Debug("have it locally")
 		vals <- RecvdVal{
 			Val:  lrec.GetValue(),
 			From: dht.self,
@@ -304,9 +304,9 @@ func (dht *IpfsDHT) getValues(ctx context.Context, key string, nvals int) (<-cha
 
 	// get closest peers in the routing table
 	rtp := dht.routingTable.NearestPeers(kb.ConvertKey(key), AlphaValue)
-	log.Debugf("peers in rt: %d %s", len(rtp), rtp)
+	logger.Debugf("peers in rt: %d %s", len(rtp), rtp)
 	if len(rtp) == 0 {
-		log.Warning("No peers from routing table!")
+		logger.Warning("No peers from routing table!")
 		return done(kb.ErrLookupFailure)
 	}
 
@@ -396,7 +396,7 @@ func (dht *IpfsDHT) getValues(ctx context.Context, key string, nvals int) (<-cha
 
 // Provide makes this node announce that it can provide a value for the given key
 func (dht *IpfsDHT) Provide(ctx context.Context, key cid.Cid, brdcst bool) (err error) {
-	eip := log.EventBegin(ctx, "Provide", key, logging.LoggableMap{"broadcast": brdcst})
+	eip := logger.EventBegin(ctx, "Provide", key, logging.LoggableMap{"broadcast": brdcst})
 	defer func() {
 		if err != nil {
 			eip.SetError(err)
@@ -425,10 +425,10 @@ func (dht *IpfsDHT) Provide(ctx context.Context, key cid.Cid, brdcst bool) (err 
 		wg.Add(1)
 		go func(p peer.ID) {
 			defer wg.Done()
-			log.Debugf("putProvider(%s, %s)", key, p)
+			logger.Debugf("putProvider(%s, %s)", key, p)
 			err := dht.sendMessage(ctx, p, mes)
 			if err != nil {
-				log.Debug(err)
+				logger.Debug(err)
 			}
 		}(p)
 	}
@@ -465,14 +465,14 @@ func (dht *IpfsDHT) FindProviders(ctx context.Context, c cid.Cid) ([]pstore.Peer
 // Peers will be returned on the channel as soon as they are found, even before
 // the search query completes.
 func (dht *IpfsDHT) FindProvidersAsync(ctx context.Context, key cid.Cid, count int) <-chan pstore.PeerInfo {
-	log.Event(ctx, "findProviders", key)
+	logger.Event(ctx, "findProviders", key)
 	peerOut := make(chan pstore.PeerInfo, count)
 	go dht.findProvidersAsyncRoutine(ctx, key, count, peerOut)
 	return peerOut
 }
 
 func (dht *IpfsDHT) findProvidersAsyncRoutine(ctx context.Context, key cid.Cid, count int, peerOut chan pstore.PeerInfo) {
-	defer log.EventBegin(ctx, "findProvidersAsync", key).Done()
+	defer logger.EventBegin(ctx, "findProvidersAsync", key).Done()
 	defer close(peerOut)
 
 	ps := pset.NewLimited(count)
@@ -507,27 +507,27 @@ func (dht *IpfsDHT) findProvidersAsyncRoutine(ctx context.Context, key cid.Cid, 
 			return nil, err
 		}
 
-		log.Debugf("%d provider entries", len(pmes.GetProviderPeers()))
+		logger.Debugf("%d provider entries", len(pmes.GetProviderPeers()))
 		provs := pb.PBPeersToPeerInfos(pmes.GetProviderPeers())
-		log.Debugf("%d provider entries decoded", len(provs))
+		logger.Debugf("%d provider entries decoded", len(provs))
 
 		// Add unique providers from request, up to 'count'
 		for _, prov := range provs {
 			if prov.ID != dht.self {
 				dht.peerstore.AddAddrs(prov.ID, prov.Addrs, pstore.TempAddrTTL)
 			}
-			log.Debugf("got provider: %s", prov)
+			logger.Debugf("got provider: %s", prov)
 			if ps.TryAdd(prov.ID) {
-				log.Debugf("using provider: %s", prov)
+				logger.Debugf("using provider: %s", prov)
 				select {
 				case peerOut <- *prov:
 				case <-ctx.Done():
-					log.Debug("context timed out sending more providers")
+					logger.Debug("context timed out sending more providers")
 					return nil, ctx.Err()
 				}
 			}
 			if ps.Size() >= count {
-				log.Debugf("got enough providers (%d/%d)", ps.Size(), count)
+				logger.Debugf("got enough providers (%d/%d)", ps.Size(), count)
 				return &dhtQueryResult{success: true}, nil
 			}
 		}
@@ -535,7 +535,7 @@ func (dht *IpfsDHT) findProvidersAsyncRoutine(ctx context.Context, key cid.Cid, 
 		// Give closer peers back to the query to be queried
 		closer := pmes.GetCloserPeers()
 		clpeers := pb.PBPeersToPeerInfos(closer)
-		log.Debugf("got closer peers: %d %s", len(clpeers), clpeers)
+		logger.Debugf("got closer peers: %d %s", len(clpeers), clpeers)
 
 		notif.PublishQueryEvent(parent, &notif.QueryEvent{
 			Type:      notif.PeerResponse,
@@ -548,13 +548,13 @@ func (dht *IpfsDHT) findProvidersAsyncRoutine(ctx context.Context, key cid.Cid, 
 	peers := dht.routingTable.NearestPeers(kb.ConvertKey(key.KeyString()), AlphaValue)
 	_, err := query.Run(ctx, peers)
 	if err != nil {
-		log.Debugf("Query error: %s", err)
+		logger.Debugf("Query error: %s", err)
 		// Special handling for issue: https://github.com/ipfs/go-ipfs/issues/3032
 		if fmt.Sprint(err) == "<nil>" {
-			log.Error("reproduced bug 3032:")
-			log.Errorf("Errors type information: %#v", err)
-			log.Errorf("go version: %s", runtime.Version())
-			log.Error("please report this information to: https://github.com/ipfs/go-ipfs/issues/3032")
+			logger.Error("reproduced bug 3032:")
+			logger.Errorf("Errors type information: %#v", err)
+			logger.Errorf("go version: %s", runtime.Version())
+			logger.Error("please report this information to: https://github.com/ipfs/go-ipfs/issues/3032")
 
 			// replace problematic error with something that won't crash the daemon
 			err = fmt.Errorf("<nil>")
@@ -568,7 +568,7 @@ func (dht *IpfsDHT) findProvidersAsyncRoutine(ctx context.Context, key cid.Cid, 
 
 // FindPeer searches for a peer with given ID.
 func (dht *IpfsDHT) FindPeer(ctx context.Context, id peer.ID) (_ pstore.PeerInfo, err error) {
-	eip := log.EventBegin(ctx, "FindPeer", id)
+	eip := logger.EventBegin(ctx, "FindPeer", id)
 	defer func() {
 		if err != nil {
 			eip.SetError(err)
@@ -589,7 +589,7 @@ func (dht *IpfsDHT) FindPeer(ctx context.Context, id peer.ID) (_ pstore.PeerInfo
 	// Sanity...
 	for _, p := range peers {
 		if p == id {
-			log.Debug("found target peer in list of closest peers...")
+			logger.Debug("found target peer in list of closest peers...")
 			return dht.peerstore.PeerInfo(p), nil
 		}
 	}
@@ -635,7 +635,7 @@ func (dht *IpfsDHT) FindPeer(ctx context.Context, id peer.ID) (_ pstore.PeerInfo
 		return pstore.PeerInfo{}, err
 	}
 
-	log.Debugf("FindPeer %v %v", id, result.success)
+	logger.Debugf("FindPeer %v %v", id, result.success)
 	if result.peer.ID == "" {
 		return pstore.PeerInfo{}, routing.ErrNotFound
 	}
@@ -700,7 +700,7 @@ func (dht *IpfsDHT) FindPeersConnectedToPeer(ctx context.Context, id peer.ID) (<
 	// this does no error checking
 	go func() {
 		if _, err := query.Run(ctx, peers); err != nil {
-			log.Debug(err)
+			logger.Debug(err)
 		}
 
 		// close the peerchan channel when done.

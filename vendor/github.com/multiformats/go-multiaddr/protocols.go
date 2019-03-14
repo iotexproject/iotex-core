@@ -2,26 +2,26 @@ package multiaddr
 
 // You **MUST** register your multicodecs with
 // https://github.com/multiformats/multicodec before adding them here.
-//
-// TODO: Use a single source of truth for all multicodecs instead of
-// distributing them like this...
 const (
-	P_IP4     = 0x0004
-	P_TCP     = 0x0006
-	P_UDP     = 0x0111
-	P_DCCP    = 0x0021
-	P_IP6     = 0x0029
-	P_IP6ZONE = 0x002A
-	P_QUIC    = 0x01CC
-	P_SCTP    = 0x0084
-	P_UDT     = 0x012D
-	P_UTP     = 0x012E
-	P_UNIX    = 0x0190
-	P_P2P     = 0x01A5
-	P_IPFS    = 0x01A5 // alias for backwards compatability
-	P_HTTP    = 0x01E0
-	P_HTTPS   = 0x01BB
-	P_ONION   = 0x01BC
+	P_IP4               = 0x0004
+	P_TCP               = 0x0006
+	P_UDP               = 0x0111
+	P_DCCP              = 0x0021
+	P_IP6               = 0x0029
+	P_IP6ZONE           = 0x002A
+	P_QUIC              = 0x01CC
+	P_SCTP              = 0x0084
+	P_UDT               = 0x012D
+	P_UTP               = 0x012E
+	P_UNIX              = 0x0190
+	P_P2P               = 0x01A5
+	P_IPFS              = 0x01A5 // alias for backwards compatability
+	P_HTTP              = 0x01E0
+	P_HTTPS             = 0x01BB
+	P_ONION             = 0x01BC // also for backwards compatibility
+	P_ONION3            = 0x01BD
+	P_GARLIC64          = 0x01CA
+	P_P2P_WEBRTC_DIRECT = 0x0114
 )
 
 var (
@@ -80,12 +80,26 @@ var (
 		Size:       16,
 		Transcoder: TranscoderPort,
 	}
-	protoONION = Protocol{
+	protoONION2 = Protocol{
 		Name:       "onion",
 		Code:       P_ONION,
 		VCode:      CodeToVarint(P_ONION),
 		Size:       96,
 		Transcoder: TranscoderOnion,
+	}
+	protoONION3 = Protocol{
+		Name:       "onion3",
+		Code:       P_ONION3,
+		VCode:      CodeToVarint(P_ONION3),
+		Size:       296,
+		Transcoder: TranscoderOnion3,
+	}
+	protoGARLIC64 = Protocol{
+		Name:       "garlic64",
+		Code:       P_GARLIC64,
+		VCode:      CodeToVarint(P_GARLIC64),
+		Size:       LengthPrefixedVarSize,
+		Transcoder: TranscoderGarlic64,
 	}
 	protoUTP = Protocol{
 		Name:  "utp",
@@ -127,6 +141,11 @@ var (
 		Path:       true,
 		Transcoder: TranscoderUnix,
 	}
+	protoP2P_WEBRTC_DIRECT = Protocol{
+		Name:  "p2p-webrtc-direct",
+		Code:  P_P2P_WEBRTC_DIRECT,
+		VCode: CodeToVarint(P_P2P_WEBRTC_DIRECT),
+	}
 )
 
 func init() {
@@ -138,7 +157,9 @@ func init() {
 		protoIP6,
 		protoIP6ZONE,
 		protoSCTP,
-		protoONION,
+		protoONION2,
+		protoONION3,
+		protoGARLIC64,
 		protoUTP,
 		protoUDT,
 		protoQUIC,
@@ -146,6 +167,7 @@ func init() {
 		protoHTTPS,
 		protoP2P,
 		protoUNIX,
+		protoP2P_WEBRTC_DIRECT,
 	} {
 		if err := AddProtocol(p); err != nil {
 			panic(err)

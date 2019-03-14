@@ -74,7 +74,9 @@ func (s *Swarm) AddListenAddr(a ma.Multiaddr) error {
 		for {
 			c, err := list.Accept()
 			if err != nil {
-				log.Warningf("swarm listener accept error: %s", err)
+				if s.ctx.Err() == nil {
+					log.Errorf("swarm listener accept error: %s", err)
+				}
 				return
 			}
 			log.Debugf("swarm listener accepted connection: %s", c)

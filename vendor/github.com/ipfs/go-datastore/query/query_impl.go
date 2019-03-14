@@ -1,5 +1,7 @@
 package query
 
+import "sort"
+
 func DerivedResults(qr Results, ch <-chan Result) Results {
 	return &results{
 		query: qr.Query(),
@@ -73,9 +75,14 @@ func NaiveOffset(qr Results, offset int) Results {
 	return DerivedResults(qr, ch)
 }
 
-// NaiveOrder reorders results according to given Order.
+// NaiveOrder reorders results according to given orders.
 // WARNING: this is the only non-stream friendly operation!
-func NaiveOrder(qr Results, o Order) Results {
+func NaiveOrder(qr Results, orders ...Order) Results {
+	// Short circuit.
+	if len(orders) == 0 {
+		return qr
+	}
+
 	ch := make(chan Result)
 	var entries []Entry
 	go func() {
@@ -89,8 +96,25 @@ func NaiveOrder(qr Results, o Order) Results {
 
 			entries = append(entries, e.Entry)
 		}
+		sort.Slice(entries, func(i int, j int) bool {
+			a, b := entries[i], entries[j]
 
-		o.Sort(entries)
+			for _, cmp := range orders {
+				switch cmp.Compare(a, b) {
+				case 0:
+				case -1:
+					return true
+				case 1:
+					return false
+				}
+			}
+
+			// This gives us a *stable* sort for free. We don't care
+			// preserving the order from the underlying datastore
+			// because it's undefined.
+			return a.Key < b.Key
+		})
+
 		for _, e := range entries {
 			ch <- Result{Entry: e}
 		}
@@ -106,8 +130,8 @@ func NaiveQueryApply(q Query, qr Results) Results {
 	for _, f := range q.Filters {
 		qr = NaiveFilter(qr, f)
 	}
-	for _, o := range q.Orders {
-		qr = NaiveOrder(qr, o)
+	if len(q.Orders) > 0 {
+		qr = NaiveOrder(qr, q.Orders...)
 	}
 	if q.Offset != 0 {
 		qr = NaiveOffset(qr, q.Offset)
