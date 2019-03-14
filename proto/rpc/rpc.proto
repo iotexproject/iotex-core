@@ -29,3 +29,29 @@ message Consensus {
   google.protobuf.Timestamp timestamp = 4;
   bytes data = 5;
 }
+
+enum MessageType {
+  UNKNOWN = 0;
+  ACTION = 1;
+  BLOCK = 2;
+  CONSENSUS = 3;
+  BLOCK_REQUEST = 4;
+  TEST = 10001;
+}
+
+message BroadcastMsg {
+  uint32 chain_id = 1;
+  MessageType msg_type = 2;
+  bytes msg_body = 3;
+  string peer_id = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message UnicastMsg {
+  uint32 chain_id = 1;
+  string addr = 2;
+  MessageType msg_type = 3;
+  bytes msg_body = 4;
+  string peer_id = 5;
+  google.protobuf.Timestamp timestamp = 6;
+}

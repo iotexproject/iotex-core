@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/testutil"
+
 	"github.com/iotexproject/iotex-core/config"
 
 	"github.com/golang/mock/gomock"
@@ -28,6 +30,7 @@ func TestClient(t *testing.T) {
 	b := testaddress.Addrinfo["bravo"].String()
 
 	cfg := config.Default
+	cfg.API.Port = testutil.RandomPort()
 	ctx := context.Background()
 
 	mockCtrl := gomock.NewController(t)
