@@ -141,7 +141,7 @@ if [ "$OS" = "windows" ]; then
     BINARY="$BINARY.exe"
 fi
 
-if [ "$1" = "--unstable" ]; then
+if [ "$1" = "unstable" ]; then
     BINARY_URL="$S3URL/$BINARY"
 
 else
