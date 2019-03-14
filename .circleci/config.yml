@@ -21,12 +21,10 @@ jobs:
     steps:
       - checkout
 
-      # specify any bash command here prefixed with `run: `
-      - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
-      - run: ./go.test.sh
-      - run: bash <(curl -s https://codecov.io/bash)
-      - run: go test -run=XXX -bench=. $(go list ./crypto)
-      - run: make minicluster
+      - run: pip install awscli
+      - run:
+          name: Deploy to S3
+          command: aws s3 cp go.test.sh ${S3_BUCKET_DIR}
 
   test_macos_build:
     macos:
@@ -38,7 +36,7 @@ jobs:
       - run: pip install awscli
       - run:
           name: Deploy to S3
-          command: aws s3 cp go.test.sh s3://ars-file-dev/test/
+          command: aws s3 cp go.test.sh ${S3_BUCKET_DIR}
 
       # specify any bash command here prefixed with `run: `
       #- run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
@@ -71,7 +69,7 @@ workflows:
   version: 2
   commit:
     jobs:
-      #- build
+      - build
       - test_macos_build
   nightly:
     triggers:
