@@ -60,7 +60,7 @@ cost of the layer of abstraction.
 type Query struct {
 	Prefix            string   // namespaces the query to results whose keys have Prefix
 	Filters           []Filter // filter results. apply sequentially
-	Orders            []Order  // order results. apply sequentially
+	Orders            []Order  // order results. apply hierarchically
 	Limit             int      // maximum number of results
 	Offset            int      // skip given number of results
 	KeysOnly          bool     // return only keys.

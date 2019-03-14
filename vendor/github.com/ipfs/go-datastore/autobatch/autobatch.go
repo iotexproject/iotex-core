@@ -88,6 +88,16 @@ func (d *Datastore) Has(k ds.Key) (bool, error) {
 	return d.child.Has(k)
 }
 
+// GetSize implements Datastore.GetSize
+func (d *Datastore) GetSize(k ds.Key) (int, error) {
+	v, ok := d.buffer[k]
+	if ok {
+		return len(v), nil
+	}
+
+	return d.child.GetSize(k)
+}
+
 // Query performs a query
 func (d *Datastore) Query(q dsq.Query) (dsq.Results, error) {
 	err := d.Flush()
@@ -101,4 +111,8 @@ func (d *Datastore) Query(q dsq.Query) (dsq.Results, error) {
 // DiskUsage implements the PersistentDatastore interface.
 func (d *Datastore) DiskUsage() (uint64, error) {
 	return ds.DiskUsage(d.child)
+}
+
+func (d *Datastore) Close() error {
+	return d.child.Close()
 }

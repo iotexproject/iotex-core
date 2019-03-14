@@ -9,68 +9,68 @@
   "gxDependencies": [
     {
       "author": "whyrusleeping",
-      "hash": "QmSvfeW68LC13nVt3BiwHKFneSa4DCdq3erG8RNtJvq7Ni",
+      "hash": "Qme8kdM7thoCqLqd7GYCRqipoZJS64rhJo5MBcTpyWfsL9",
       "name": "go-reuseport",
-      "version": "0.1.18"
+      "version": "0.2.2"
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qmaabb1tJZ2CX5cp6MuuiGgns71NYoxdgQP6Xdid1dVceC",
+      "hash": "Qmc85NSvmSG4Frn9Vb2cBc1rMyULH6D3TNVEfCzSKoUpip",
       "name": "go-multiaddr-net",
-      "version": "1.6.5"
+      "version": "1.7.2"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmcASJiigZMaU3dKghcQo6FtcbqwfZ7UFp5W4fp62f8KJE",
+      "hash": "QmUrZZavcArYChpibtP8KgQXsAEpvgzUk73B2oj3HLbWc4",
       "name": "mafmt",
-      "version": "1.2.8"
+      "version": "1.2.11"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmbCkisBsdejwSzusQcdbYjpSX3yvUw1ek2YSsJ89QbZYX",
+      "hash": "QmNQWMWWBmkAcaVEspSNwYB95axzKFhYTdqZtABA2zXoPu",
       "name": "go-libp2p-transport",
-      "version": "3.0.15"
+      "version": "3.0.27"
     },
     {
-      "hash": "QmZChCsSt8DctjceaL56Eibc29CVQq4dGKRXC5JRZ6Ppae",
+      "hash": "QmbkT7eMTyXfpeyB3ZMxxcxg7XH8t6uXp49jqzz4HB7BGF",
       "name": "go-log",
-      "version": "1.5.7"
+      "version": "1.5.9"
     },
     {
       "author": "multiformats",
-      "hash": "QmT4U94DnD8FRfqr21obWY32HLM5VExccPKMjQHofeYqr9",
+      "hash": "QmTZBfrPJmjWsCvHEtX5FE6KimVJhsJg5sBbqEFYf4UZtL",
       "name": "go-multiaddr",
-      "version": "1.3.5"
+      "version": "1.4.1"
     },
     {
       "author": "Stebalien",
-      "hash": "QmZ3XKH272gU9px86XqWYeZHU65ayHxWs6Wbswvdj2VqVK",
+      "hash": "QmPRoHqULmP4MuKAN5EFaJ64MLpeMY8cny2318xDBDmmkp",
       "name": "go-conn-security",
-      "version": "0.1.15"
+      "version": "0.1.28"
     },
     {
       "author": "stebalien",
-      "hash": "QmPrXbjDqfuthJ1Ddesmz7gw1VWkhnWMkfJxxSXgxUsGqs",
+      "hash": "QmTmbamDjDWgHe8qeMt7ZpaeNpTj349JpFKuwTF321XavT",
       "name": "go-reuseport-transport",
-      "version": "0.1.11"
+      "version": "0.2.3"
     },
     {
       "author": "steb",
-      "hash": "QmeUjhpfGkrMtE6s7JjU2xLhfzprSDh16QUxGVr3wTrKSx",
+      "hash": "QmeqC5shQjEBRG9B8roZqQCJ9xb7Pq6AbWxJFMyLgqBBWh",
       "name": "go-libp2p-transport-upgrader",
-      "version": "0.1.16"
+      "version": "0.1.28"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmaveCPGVaKJU57tBErGCDjzLaqEMZkFygoiv4BhYwWUGc",
+      "hash": "QmaJvNdDccVkTELQLCGXWrLxgaQ14aMdhzZx1EiHPXKbDc",
       "name": "go-smux-multiplex",
-      "version": "3.0.16"
+      "version": "3.0.19"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmTRhk7cgjUf2gfQ3p2M9KPECNZEW9XUrmHcFCgog4cPgB",
+      "hash": "QmYVXrKrKHDC9FobgmcmshCDyWwdrfwfanNQN4oxJ9Fk3h",
       "name": "go-libp2p-peer",
-      "version": "2.4.0"
+      "version": "3.1.2"
     }
   ],
   "gxVersion": "0.4.0",
@@ -78,6 +78,6 @@
   "license": "MIT",
   "name": "go-tcp-transport",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "2.0.16"
+  "version": "2.0.28"
 }
 

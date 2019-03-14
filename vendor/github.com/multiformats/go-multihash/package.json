@@ -26,22 +26,22 @@
       "version": "0.0.1"
     },
     {
-      "author": "whyrusleeping",
-      "hash": "QmfJHywXQu98UeZtGJBQrPAR6AtmDjjbe3qjTo9piXHPnx",
-      "name": "murmur3",
-      "version": "0.0.0"
-    },
-    {
       "author": "minio",
-      "hash": "QmXTpwq2AkzQsPjKqFQDNY2bMdsAT53hUBETeyj8QRHTZU",
+      "hash": "QmcTzQXRcU2vf8yX5EEboz1BSvWC7wWmeYAKVQmhp8WZYU",
       "name": "sha256-simd",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     {
       "author": "minio",
       "hash": "QmZp3eKdYQHHAneECmeK6HhiMwTPufmjC8DuuaGKv3unvx",
       "name": "blake2b-simd",
       "version": "0.1.1"
+    },
+    {
+      "author": "whyrusleeping",
+      "hash": "QmWAXZgFyppTRshtnVHJ8LnA1yoHjUr41ZnsWPoA8wnSgF",
+      "name": "hashland-murmur3",
+      "version": "0.0.1"
     }
   ],
   "gxVersion": "0.9.0",
@@ -49,6 +49,6 @@
   "license": "MIT",
   "name": "go-multihash",
   "releaseCmd": "git commit -a -m \"gx release $VERSION\"",
-  "version": "1.0.8"
+  "version": "1.0.10"
 }
 

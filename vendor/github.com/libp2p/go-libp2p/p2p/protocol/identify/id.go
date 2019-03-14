@@ -74,6 +74,10 @@ func (ids *IDService) OwnObservedAddrs() []ma.Multiaddr {
 	return ids.observedAddrs.Addrs()
 }
 
+func (ids *IDService) ObservedAddrsFor(local ma.Multiaddr) []ma.Multiaddr {
+	return ids.observedAddrs.AddrsFor(local)
+}
+
 func (ids *IDService) IdentifyConn(c inet.Conn) {
 	ids.currmu.Lock()
 	if wait, found := ids.currid[c]; found {

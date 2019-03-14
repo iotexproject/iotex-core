@@ -16,6 +16,7 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	routing "github.com/libp2p/go-libp2p-routing"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 )
@@ -44,6 +45,7 @@ func init() {
 type AutoRelayHost struct {
 	*basic.BasicHost
 	discover discovery.Discoverer
+	router   routing.PeerRouting
 	autonat  autonat.AutoNAT
 	addrsF   basic.AddrsFactory
 
@@ -54,10 +56,11 @@ type AutoRelayHost struct {
 	addrs  []ma.Multiaddr
 }
 
-func NewAutoRelayHost(ctx context.Context, bhost *basic.BasicHost, discover discovery.Discoverer) *AutoRelayHost {
+func NewAutoRelayHost(ctx context.Context, bhost *basic.BasicHost, discover discovery.Discoverer, router routing.PeerRouting) *AutoRelayHost {
 	h := &AutoRelayHost{
 		BasicHost:  bhost,
 		discover:   discover,
+		router:     router,
 		addrsF:     bhost.AddrsFactory,
 		relays:     make(map[peer.ID]pstore.PeerInfo),
 		disconnect: make(chan struct{}, 1),
@@ -148,6 +151,16 @@ func (h *AutoRelayHost) findRelays(ctx context.Context) {
 		h.mx.Unlock()
 
 		cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+
+		if len(pi.Addrs) == 0 {
+			pi, err = h.router.FindPeer(cctx, pi.ID)
+			if err != nil {
+				log.Debugf("error finding relay peer %s: %s", pi.ID, err.Error())
+				cancel()
+				continue
+			}
+		}
+
 		err = h.Connect(cctx, pi)
 		cancel()
 		if err != nil {
@@ -203,36 +216,12 @@ func (h *AutoRelayHost) doUpdateAddrs() {
 	addrs := h.baseAddrs()
 	raddrs := make([]ma.Multiaddr, 0, len(addrs)+len(h.relays))
 
-	// remove our public addresses from the list and replace them by just the public IP
+	// remove our public addresses from the list
 	for _, addr := range addrs {
 		if manet.IsPublicAddr(addr) {
-			ip, err := addr.ValueForProtocol(ma.P_IP4)
-			if err == nil {
-				pub, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s", ip))
-				if err != nil {
-					panic(err)
-				}
-
-				if !containsAddr(raddrs, pub) {
-					raddrs = append(raddrs, pub)
-				}
-				continue
-			}
-
-			ip, err = addr.ValueForProtocol(ma.P_IP6)
-			if err == nil {
-				pub, err := ma.NewMultiaddr(fmt.Sprintf("/ip6/%s", ip))
-				if err != nil {
-					panic(err)
-				}
-				if !containsAddr(raddrs, pub) {
-					raddrs = append(raddrs, pub)
-				}
-				continue
-			}
-		} else {
-			raddrs = append(raddrs, addr)
+			continue
 		}
+		raddrs = append(raddrs, addr)
 	}
 
 	// add relay specific addrs to the list

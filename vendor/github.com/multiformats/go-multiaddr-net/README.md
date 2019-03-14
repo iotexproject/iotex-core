@@ -54,10 +54,6 @@ For further usage, see the docs:
 - `multiaddr/net`: https://godoc.org/github.com/multiformats/go-multiaddr-net
 - `multiaddr`: https://godoc.org/github.com/multiformats/go-multiaddr
 
-## Maintainers
-
-Captain: [@whyrusleeping](https://github.com/whyrusleeping).
-
 ## Contribute
 
 Contributions welcome. Please check out [the issues](https://github.com/multiformats/go-multiaddr-net/issues).
