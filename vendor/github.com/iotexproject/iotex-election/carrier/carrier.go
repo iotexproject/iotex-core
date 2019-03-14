@@ -27,13 +27,13 @@ type Carrier interface {
 	// BlockTimestamp returns the timestamp of a block
 	BlockTimestamp(uint64) (time.Time, error)
 	// SubscribeNewBlock callbacks on new block created
-	SubscribeNewBlock(func(uint64), chan bool) error
+	SubscribeNewBlock(chan uint64, chan error, chan bool)
+	// TipHeight returns the latest height
+	TipHeight() (uint64, error)
 	// Candidates returns the candidates on height
 	Candidates(uint64, *big.Int, uint8) (*big.Int, []*types.Candidate, error)
 	// Votes returns the votes on height
 	Votes(uint64, *big.Int, uint8) (*big.Int, []*types.Vote, error)
-	// RotateClientURL rotates client URL index and sets new client
-	RotateClient() error
 	// Close closes carrier
 	Close()
 }
@@ -55,13 +55,26 @@ func NewEthereumVoteCarrier(
 	if len(clientURLs) == 0 {
 		return nil, errors.New("client URL list is empty")
 	}
-	client, err := ethclient.Dial(clientURLs[0])
+	var client *ethclient.Client
+	var err error
+	var currentClientURLIndex int
+	for currentClientURLIndex = 0; currentClientURLIndex < len(clientURLs); currentClientURLIndex++ {
+		client, err = ethclient.Dial(clientURLs[currentClientURLIndex])
+		if err == nil {
+			break
+		}
+		zap.L().Error(
+			"client is not reachable",
+			zap.String("url", clientURLs[currentClientURLIndex]),
+			zap.Error(err),
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return &ethereumCarrier{
 		client:                  client,
-		currentClientURLIndex:   0,
+		currentClientURLIndex:   currentClientURLIndex,
 		clientURLs:              clientURLs,
 		stakingContractAddress:  stakingContractAddress,
 		registerContractAddress: registerContractAddress,
@@ -72,43 +85,93 @@ func (evc *ethereumCarrier) Close() {
 	evc.client.Close()
 }
 
-func (evc *ethereumCarrier) BlockTimestamp(height uint64) (time.Time, error) {
-	header, err := evc.client.HeaderByNumber(context.Background(), big.NewInt(0).SetUint64(height))
-	if err != nil {
-		return time.Now(), evc.redial(err)
+func (evc *ethereumCarrier) BlockTimestamp(height uint64) (ts time.Time, err error) {
+	var header *ethtypes.Header
+	for i := 0; i < len(evc.clientURLs); i++ {
+		if header, err = evc.client.HeaderByNumber(
+			context.Background(),
+			big.NewInt(0).SetUint64(height),
+		); err == nil {
+			ts = time.Unix(header.Time.Int64(), 0)
+			return
+		}
+		var rotated bool
+		if rotated, err = evc.rotateClient(err); !rotated && err != nil {
+			return
+		}
 	}
-	return time.Unix(header.Time.Int64(), 0), nil
+	return ts, errors.New("failed to get block timestamp")
 }
 
-func (evc *ethereumCarrier) SubscribeNewBlock(cb func(uint64), close chan bool) error {
-	headers := make(chan *ethtypes.Header)
-	sub, err := evc.client.SubscribeNewHead(context.Background(), headers)
-	if err != nil {
-		return evc.redial(err)
-	}
+func (evc *ethereumCarrier) SubscribeNewBlock(height chan uint64, report chan error, unsubscribe chan bool) {
+	ticker := time.NewTicker(60 * time.Second)
+	lastHeight := uint64(0)
 	go func() {
 		for {
 			select {
-			case closed := <-close:
-				close <- closed
+			case <-unsubscribe:
+				unsubscribe <- true
 				return
-			case err := <-sub.Err():
-				for {
-					if err := evc.rotateClient(); err != nil {
-						zap.L().Error("failed to rotate client", zap.Error(err))
-					}
-					if sub, err = evc.client.SubscribeNewHead(context.Background(), headers); err == nil {
-						break
-					}
-					zap.L().Error("failed to resubscribe new head", zap.Error(err))
+			case <-ticker.C:
+				if tipHeight, err := evc.tipHeight(lastHeight); err != nil {
+					report <- err
+				} else {
+					height <- tipHeight
 				}
-			case header := <-headers:
-				zap.L().Debug("New ethereum block", zap.Uint64("height", header.Number.Uint64()))
-				cb(header.Number.Uint64())
 			}
 		}
 	}()
-	return nil
+}
+
+func (evc *ethereumCarrier) TipHeight() (uint64, error) {
+	return evc.tipHeight(0)
+}
+
+func (evc *ethereumCarrier) tipHeight(lastHeight uint64) (uint64, error) {
+	for i := 0; i < len(evc.clientURLs); i++ {
+		header, err := evc.client.HeaderByNumber(context.Background(), nil)
+		if err == nil {
+			if header.Number.Uint64() > lastHeight {
+				return header.Number.Uint64(), nil
+			}
+			zap.L().Warn(
+				"current client is out of date",
+				zap.String("url", evc.clientURLs[evc.currentClientURLIndex]),
+				zap.Uint64("clientHeight", header.Number.Uint64()),
+				zap.Uint64("lastHeight", lastHeight),
+			)
+		}
+		if rotated, err := evc.rotateClient(err); !rotated && err != nil {
+			return 0, err
+		}
+	}
+	return 0, errors.New("failed to get tip height")
+}
+
+func (evc *ethereumCarrier) candidates(
+	opts *bind.CallOpts,
+	startIndex *big.Int,
+	limit *big.Int,
+) (result struct {
+	Names          [][12]byte
+	Addresses      []common.Address
+	IoOperatorAddr [][32]byte
+	IoRewardAddr   [][32]byte
+	Weights        []*big.Int
+}, err error) {
+	var caller *contract.RegisterCaller
+	for i := 0; i < len(evc.clientURLs); i++ {
+		if caller, err = contract.NewRegisterCaller(evc.registerContractAddress, evc.client); err == nil {
+			if result, err = caller.GetAllCandidates(opts, startIndex, limit); err == nil {
+				return
+			}
+		}
+		var rotated bool
+		if rotated, err = evc.rotateClient(err); !rotated && err != nil {
+			return
+		}
+	}
+	return result, errors.New("failed to get candidates")
 }
 
 func (evc *ethereumCarrier) Candidates(
@@ -119,11 +182,7 @@ func (evc *ethereumCarrier) Candidates(
 	if startIndex == nil || startIndex.Cmp(big.NewInt(1)) < 0 {
 		startIndex = big.NewInt(1)
 	}
-	caller, err := contract.NewRegisterCaller(evc.registerContractAddress, evc.client)
-	if err != nil {
-		return nil, nil, evc.redial(err)
-	}
-	retval, err := caller.GetAllCandidates(
+	retval, err := evc.candidates(
 		&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(height)},
 		startIndex,
 		big.NewInt(int64(count)),
@@ -156,6 +215,52 @@ func (evc *ethereumCarrier) Candidates(
 	return new(big.Int).Add(startIndex, big.NewInt(int64(num))), candidates, nil
 }
 
+func (evc *ethereumCarrier) buckets(
+	opts *bind.CallOpts,
+	previousIndex *big.Int,
+	limit *big.Int,
+) (result struct {
+	Count           *big.Int
+	Indexes         []*big.Int
+	StakeStartTimes []*big.Int
+	StakeDurations  []*big.Int
+	Decays          []bool
+	StakedAmounts   []*big.Int
+	CanNames        [][12]byte
+	Owners          []common.Address
+}, err error) {
+	var caller *contract.StakingCaller
+	for i := 0; i < len(evc.clientURLs); i++ {
+		if caller, err = contract.NewStakingCaller(evc.stakingContractAddress, evc.client); err == nil {
+			var bucket struct {
+				CanName          [12]byte
+				StakedAmount     *big.Int
+				StakeDuration    *big.Int
+				StakeStartTime   *big.Int
+				NonDecay         bool
+				UnstakeStartTime *big.Int
+				BucketOwner      common.Address
+				CreateTime       *big.Int
+				Prev             *big.Int
+				Next             *big.Int
+			}
+			if bucket, err = caller.Buckets(opts, previousIndex); err == nil {
+				if bucket.Next.Cmp(big.NewInt(0)) <= 0 {
+					return
+				}
+				if result, err = caller.GetActiveBuckets(opts, previousIndex, limit); err == nil {
+					return
+				}
+			}
+		}
+		var rotated bool
+		if rotated, err = evc.rotateClient(err); !rotated && err != nil {
+			return
+		}
+	}
+	return result, errors.New("failed to get votes")
+}
+
 func (evc *ethereumCarrier) Votes(
 	height uint64,
 	previousIndex *big.Int,
@@ -164,18 +269,7 @@ func (evc *ethereumCarrier) Votes(
 	if previousIndex == nil || previousIndex.Cmp(big.NewInt(0)) < 0 {
 		previousIndex = big.NewInt(0)
 	}
-	caller, err := contract.NewStakingCaller(evc.stakingContractAddress, evc.client)
-	if err != nil {
-		return nil, nil, evc.redial(err)
-	}
-	bucket, err := caller.Buckets(
-		&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(height)},
-		previousIndex,
-	)
-	if err != nil || bucket.Next.Cmp(big.NewInt(0)) <= 0 {
-		return previousIndex, nil, err
-	}
-	buckets, err := caller.GetActiveBuckets(
+	buckets, err := evc.buckets(
 		&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(height)},
 		previousIndex,
 		big.NewInt(int64(count)),
@@ -184,7 +278,7 @@ func (evc *ethereumCarrier) Votes(
 		return nil, nil, err
 	}
 	votes := []*types.Vote{}
-	if buckets.Count.Cmp(big.NewInt(0)) == 0 {
+	if buckets.Count == nil || buckets.Count.Cmp(big.NewInt(0)) == 0 || len(buckets.Indexes) == 0 {
 		return previousIndex, votes, nil
 	}
 	for i, index := range buckets.Indexes {
@@ -212,35 +306,28 @@ func (evc *ethereumCarrier) Votes(
 	return previousIndex, votes, nil
 }
 
-func (evc *ethereumCarrier) RotateClient() error {
-	return evc.rotateClient()
-}
-
-func (evc *ethereumCarrier) redial(err error) error {
-	switch err.Error() {
-	case "tls: use of closed connection":
-		fallthrough
-	case "EOF":
-		zap.L().Warn("reset ethclient", zap.Error(err))
-		evc.client.Close()
-		var newErr error
-		if evc.client, newErr = ethclient.Dial(evc.clientURLs[evc.currentClientURLIndex]); newErr != nil {
-			err = newErr
+func (evc *ethereumCarrier) rotateClient(cause error) (rotated bool, err error) {
+	if cause != nil {
+		switch cause.Error() {
+		case "tls: use of closed connection":
+			zap.L().Error("connection closed", zap.Error(cause))
+		case "EOF":
+			zap.L().Error("connection error", zap.Error(cause))
+		case "no suitable peers available":
+			zap.L().Error("node out of date", zap.Error(cause))
+		default:
+			return false, cause
 		}
 	}
-
-	return err
-}
-
-func (evc *ethereumCarrier) rotateClient() error {
-	evc.currentClientURLIndex++
 	evc.currentClientURLIndex = (evc.currentClientURLIndex + 1) % len(evc.clientURLs)
-	evc.client.Close()
-	var err error
-	if evc.client, err = ethclient.Dial(evc.clientURLs[evc.currentClientURLIndex]); err != nil {
-		return err
+	zap.L().Info("rotate to new client", zap.String("url", evc.clientURLs[evc.currentClientURLIndex]))
+	var client *ethclient.Client
+	if client, err = ethclient.Dial(evc.clientURLs[evc.currentClientURLIndex]); err != nil {
+		return true, err
 	}
-	return nil
+	evc.client.Close()
+	evc.client = client
+	return true, nil
 }
 
 func decodeAddress(data [][32]byte, num int) ([][]byte, error) {

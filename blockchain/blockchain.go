@@ -80,38 +80,8 @@ type Blockchain interface {
 	GetBlockByHeight(height uint64) (*block.Block, error)
 	// GetBlockByHash returns Block by hash
 	GetBlockByHash(h hash.Hash256) (*block.Block, error)
-	// GetTotalTransfers returns the total number of transfers
-	GetTotalTransfers() (uint64, error)
-	// GetTotalVotes returns the total number of votes
-	GetTotalVotes() (uint64, error)
-	// GetTotalExecutions returns the total number of executions
-	GetTotalExecutions() (uint64, error)
 	// GetTotalActions returns the total number of actions
 	GetTotalActions() (uint64, error)
-	// GetTransfersFromAddress returns transaction from address
-	GetTransfersFromAddress(address string) ([]hash.Hash256, error)
-	// GetTransfersToAddress returns transaction to address
-	GetTransfersToAddress(address string) ([]hash.Hash256, error)
-	// GetTransfersByTransferHash returns transfer by transfer hash
-	GetTransferByTransferHash(h hash.Hash256) (*action.Transfer, error)
-	// GetBlockHashByTransferHash returns Block hash by transfer hash
-	GetBlockHashByTransferHash(h hash.Hash256) (hash.Hash256, error)
-	// GetVoteFromAddress returns vote from address
-	GetVotesFromAddress(address string) ([]hash.Hash256, error)
-	// GetVoteToAddress returns vote to address
-	GetVotesToAddress(address string) ([]hash.Hash256, error)
-	// GetVotesByVoteHash returns vote by vote hash
-	GetVoteByVoteHash(h hash.Hash256) (*action.Vote, error)
-	// GetBlockHashByVoteHash returns Block hash by vote hash
-	GetBlockHashByVoteHash(h hash.Hash256) (hash.Hash256, error)
-	// GetExecutionsFromAddress returns executions from address
-	GetExecutionsFromAddress(address string) ([]hash.Hash256, error)
-	// GetExecutionsToAddress returns executions to address
-	GetExecutionsToAddress(address string) ([]hash.Hash256, error)
-	// GetExecutionByExecutionHash returns execution by execution hash
-	GetExecutionByExecutionHash(h hash.Hash256) (*action.Execution, error)
-	// GetBlockHashByExecutionHash returns Block hash by execution hash
-	GetBlockHashByExecutionHash(h hash.Hash256) (hash.Hash256, error)
 	// GetReceiptByActionHash returns the receipt by action hash
 	GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error)
 	// GetActionsFromAddress returns actions from address
@@ -239,9 +209,10 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		bc.dao = newBlockDAO(
 			db.NewOnDiskDB(cfg.DB),
-			cfg.Chain.EnableIndex && !cfg.Chain.EnableAsyncIndexWrite,
+			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 		)
 		return nil
@@ -251,9 +222,10 @@ func BoltDBDaoOption() Option {
 // InMemDaoOption sets blockchain's dao with MemKVStore
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
+		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		bc.dao = newBlockDAO(
 			db.NewMemKVStore(),
-			cfg.Chain.EnableIndex && !cfg.Chain.EnableAsyncIndexWrite,
+			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 		)
 
@@ -335,13 +307,7 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 		return err
 	}
 	if bc.tipHeight == 0 {
-		_, err = bc.getBlockByHeight(0)
-		if errors.Cause(err) == db.ErrNotExist {
-			return bc.startEmptyBlockchain()
-		}
-		if err != nil {
-			return err
-		}
+		return bc.startEmptyBlockchain()
 	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
@@ -398,239 +364,40 @@ func (bc *blockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
 	return bc.dao.getBlock(h)
 }
 
-// TODO: To be deprecated
-// GetTotalTransfers returns the total number of transfers
-func (bc *blockchain) GetTotalTransfers() (uint64, error) {
-	if !bc.config.Chain.EnableIndex {
-		return 0, errors.New("index not enabled")
-	}
-	return bc.dao.getTotalTransfers()
-}
-
-// TODO: To be deprecated
-// GetTotalVotes returns the total number of votes
-func (bc *blockchain) GetTotalVotes() (uint64, error) {
-	if !bc.config.Chain.EnableIndex {
-		return 0, errors.New("index not enabled")
-	}
-	return bc.dao.getTotalVotes()
-}
-
-// TODO: To be deprecated
-// GetTotalExecutions returns the total number of executions
-func (bc *blockchain) GetTotalExecutions() (uint64, error) {
-	if !bc.config.Chain.EnableIndex {
-		return 0, errors.New("index not enabled")
-	}
-	return bc.dao.getTotalExecutions()
-}
-
 // GetTotalActions returns the total number of actions
 func (bc *blockchain) GetTotalActions() (uint64, error) {
-	if !bc.config.Chain.EnableIndex {
-		return 0, errors.New("index not enabled")
-	}
 	return bc.dao.getTotalActions()
-}
-
-// TODO: To be deprecated
-// GetTransfersFromAddress returns transfers from address
-func (bc *blockchain) GetTransfersFromAddress(address string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
-	return getTransfersBySenderAddress(bc.dao.kvstore, address)
-}
-
-// TODO: To be deprecated
-// GetTransfersToAddress returns transfers to address
-func (bc *blockchain) GetTransfersToAddress(address string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
-	return getTransfersByRecipientAddress(bc.dao.kvstore, address)
-}
-
-// TODO: To be deprecated
-// GetTransferByTransferHash returns transfer by transfer hash
-func (bc *blockchain) GetTransferByTransferHash(h hash.Hash256) (*action.Transfer, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
-	blkHash, err := getBlockHashByTransferHash(bc.dao.kvstore, h)
-	if err != nil {
-		return nil, err
-	}
-	blk, err := bc.dao.getBlock(blkHash)
-	if err != nil {
-		return nil, err
-	}
-	transfers, _, _ := action.ClassifyActions(blk.Actions)
-	for _, transfer := range transfers {
-		if transfer.Hash() == h {
-			return transfer, nil
-		}
-	}
-	return nil, errors.Errorf("block %x does not have transfer %x", blkHash, h)
-}
-
-// TODO: To be deprecated
-// GetBlockHashByTxHash returns Block hash by transfer hash
-func (bc *blockchain) GetBlockHashByTransferHash(h hash.Hash256) (hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return hash.ZeroHash256, errors.New("index not enabled")
-	}
-	return getBlockHashByTransferHash(bc.dao.kvstore, h)
-}
-
-// TODO: To be deprecated
-// GetVoteFromAddress returns votes from address
-func (bc *blockchain) GetVotesFromAddress(address string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
-	return getVotesBySenderAddress(bc.dao.kvstore, address)
-}
-
-// TODO: To be deprecated
-// GetVoteToAddress returns votes to address
-func (bc *blockchain) GetVotesToAddress(address string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
-	return getVotesByRecipientAddress(bc.dao.kvstore, address)
-}
-
-// TODO: To be deprecated
-// GetVotesByVoteHash returns vote by vote hash
-func (bc *blockchain) GetVoteByVoteHash(h hash.Hash256) (*action.Vote, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
-	blkHash, err := getBlockHashByVoteHash(bc.dao.kvstore, h)
-	if err != nil {
-		return nil, err
-	}
-	blk, err := bc.dao.getBlock(blkHash)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, selp := range blk.Actions {
-		if v, ok := selp.Action().(*action.Vote); ok {
-			if selp.Hash() == h {
-				return v, nil
-			}
-		}
-	}
-	return nil, errors.Errorf("block %x does not have vote %x", blkHash, h)
-}
-
-// TODO: To be deprecated
-// GetBlockHashByVoteHash returns Block hash by vote hash
-func (bc *blockchain) GetBlockHashByVoteHash(h hash.Hash256) (hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return hash.ZeroHash256, errors.New("index not enabled")
-	}
-	return getBlockHashByVoteHash(bc.dao.kvstore, h)
-}
-
-// TODO: To be deprecated
-// GetExecutionsFromAddress returns executions from address
-func (bc *blockchain) GetExecutionsFromAddress(address string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
-	return getExecutionsByExecutorAddress(bc.dao.kvstore, address)
-}
-
-// TODO: To be deprecated
-// GetExecutionsToAddress returns executions to address
-func (bc *blockchain) GetExecutionsToAddress(address string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
-	return getExecutionsByContractAddress(bc.dao.kvstore, address)
-}
-
-// TODO: To be deprecated
-// GetExecutionByExecutionHash returns execution by execution hash
-func (bc *blockchain) GetExecutionByExecutionHash(h hash.Hash256) (*action.Execution, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
-	blkHash, err := getBlockHashByExecutionHash(bc.dao.kvstore, h)
-	if err != nil {
-		return nil, err
-	}
-	blk, err := bc.dao.getBlock(blkHash)
-	if err != nil {
-		return nil, err
-	}
-	_, _, executions := action.ClassifyActions(blk.Actions)
-	for _, execution := range executions {
-		if execution.Hash() == h {
-			return execution, nil
-		}
-	}
-	return nil, errors.Errorf("block %x does not have execution %x", blkHash, h)
-}
-
-// TODO: To be deprecated
-// GetBlockHashByExecutionHash returns Block hash by execution hash
-func (bc *blockchain) GetBlockHashByExecutionHash(h hash.Hash256) (hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return hash.ZeroHash256, errors.New("index not enabled")
-	}
-	return getBlockHashByExecutionHash(bc.dao.kvstore, h)
 }
 
 // GetReceiptByActionHash returns the receipt by action hash
 func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
-	}
 	return bc.dao.getReceiptByActionHash(h)
 }
 
 // GetActionsFromAddress returns actions from address
-func (bc *blockchain) GetActionsFromAddress(address string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
+func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, error) {
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return nil, err
 	}
-	return getActionsBySenderAddress(bc.dao.kvstore, address)
+	return getActionsBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
 }
 
 // GetActionToAddress returns action to address
-func (bc *blockchain) GetActionsToAddress(address string) ([]hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return nil, errors.New("index not enabled")
+func (bc *blockchain) GetActionsToAddress(addrStr string) ([]hash.Hash256, error) {
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return nil, err
 	}
-	return getActionsByRecipientAddress(bc.dao.kvstore, address)
+	return getActionsByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
 }
 
 func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256, error) {
-	blkHash, err := getBlockHashByTransferHash(bc.dao.kvstore, h)
-	if err == nil {
-		return blkHash, nil
-	}
-	blkHash, err = getBlockHashByVoteHash(bc.dao.kvstore, h)
-	if err == nil {
-		return blkHash, nil
-	}
-	blkHash, err = getBlockHashByExecutionHash(bc.dao.kvstore, h)
-	if err == nil {
-		return blkHash, nil
-	}
 	return getBlockHashByActionHash(bc.dao.kvstore, h)
 }
 
 // GetActionByActionHash returns action by action hash
 func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	if !bc.config.Chain.EnableIndex {
-		return action.SealedEnvelope{}, errors.New("index not enabled")
-	}
-
 	blkHash, err := bc.getActionByActionHashHelper(h)
 	if err != nil {
 		return action.SealedEnvelope{}, err
@@ -650,9 +417,6 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 
 // GetBlockHashByActionHash returns Block hash by action hash
 func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	if !bc.config.Chain.EnableIndex {
-		return hash.ZeroHash256, errors.New("index not enabled")
-	}
 	return getBlockHashByActionHash(bc.dao.kvstore, h)
 }
 
@@ -704,7 +468,7 @@ func (bc *blockchain) MintNewBlock(
 			BlockHeight:    newblockHeight,
 			BlockTimeStamp: bc.now(),
 			Producer:       bc.config.ProducerAddress(),
-			GasLimit:       &gasLimitForContext,
+			GasLimit:       gasLimitForContext,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
@@ -833,7 +597,7 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		BlockTimeStamp: blk.Timestamp(),
 		Producer:       producer,
 		Caller:         caller,
-		GasLimit:       &gasLimit,
+		GasLimit:       gasLimit,
 		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		GasPrice:       big.NewInt(0),
 		IntrinsicGas:   0,
@@ -866,7 +630,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			GasLimit:       &gasLimit,
+			GasLimit:       gasLimit,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Caller:         callerAddr,
 			ActionHash:     hash.ZeroHash256,
@@ -1119,7 +883,7 @@ func (bc *blockchain) runActions(
 			BlockHeight:    acts.BlockHeight(),
 			BlockTimeStamp: acts.BlockTimeStamp(),
 			Producer:       producer,
-			GasLimit:       &gasLimit,
+			GasLimit:       gasLimit,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
@@ -1144,7 +908,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			break
 		}
 
-		receipt, err := ws.RunAction(ctx, nextAction)
+		receipt, err := ws.RunAction(raCtx, nextAction)
 		if err != nil {
 			if errors.Cause(err) == action.ErrHitGasLimit {
 				// hit block gas limit, we should not process actions belong to this user anymore since we
@@ -1156,13 +920,14 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
 		}
 		if receipt != nil {
+			raCtx.GasLimit -= receipt.GasConsumed
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, nextAction)
 
 		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 		// than certain threshold
-		if *raCtx.GasLimit < bc.config.Chain.AllowedBlockGasResidue {
+		if raCtx.GasLimit < bc.config.Chain.AllowedBlockGasResidue {
 			break
 		}
 	}
@@ -1174,7 +939,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	switch errors.Cause(err) {
 	case nil:
 		if !skip {
-			receipt, err := ws.RunAction(ctx, putPollResult)
+			receipt, err := ws.RunAction(raCtx, putPollResult)
 			if err != nil {
 				return hash.ZeroHash256, nil, nil, err
 			}
@@ -1200,7 +965,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	if err != nil {
 		return hash.ZeroHash256, nil, nil, err
 	}
-	receipt, err := ws.RunAction(ctx, grant)
+	receipt, err := ws.RunAction(raCtx, grant)
 	if err != nil {
 		return hash.ZeroHash256, nil, nil, err
 	}
@@ -1215,7 +980,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
-		receipt, err = ws.RunAction(ctx, grant)
+		receipt, err = ws.RunAction(raCtx, grant)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
@@ -1367,7 +1132,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight:    0,
 		BlockTimeStamp: bc.config.Genesis.Timestamp,
-		GasLimit:       nil,
+		GasLimit:       0,
 		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		Producer:       nil,
 		Caller:         nil,
@@ -1409,11 +1174,11 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 	return rp.Initialize(
 		ctx,
 		ws,
-		bc.config.Genesis.Rewarding.InitAdminAddr(),
 		bc.config.Genesis.InitBalance(),
 		bc.config.Genesis.BlockReward(),
 		bc.config.Genesis.EpochReward(),
 		bc.config.Genesis.NumDelegatesForEpochReward,
+		bc.config.Genesis.ExemptAddrsFromEpochReward(),
 	)
 }
 

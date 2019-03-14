@@ -20,13 +20,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-
-	_ "net/http/pprof"
-
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -63,11 +60,12 @@ func main() {
 	initLogger(cfg)
 
 	cfg.Genesis = genesisCfg
-
-	log.S().Infof("Config in use: %+v", cfg)
+	cfgToLog := cfg
+	cfgToLog.Chain.ProducerPrivKey = ""
+	log.S().Infof("Config in use: %+v", cfgToLog)
 
 	// liveness start
-	probeSvr := probe.New(cfg.System.HTTPProbePort)
+	probeSvr := probe.New(cfg.System.HTTPStatsPort)
 	if err := probeSvr.Start(ctx); err != nil {
 		log.L().Fatal("Failed to start probe server.", zap.Error(err))
 	}

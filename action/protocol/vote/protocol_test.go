@@ -74,7 +74,7 @@ func TestProtocol_Handle(t *testing.T) {
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["alfa"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 			GasPrice: big.NewInt(0),
 		},
 	)
@@ -89,7 +89,7 @@ func TestProtocol_Handle(t *testing.T) {
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["bravo"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 			GasPrice: big.NewInt(0),
 		},
 	)
@@ -104,7 +104,7 @@ func TestProtocol_Handle(t *testing.T) {
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["charlie"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 			GasPrice: big.NewInt(0),
 		},
 	)
@@ -119,7 +119,7 @@ func TestProtocol_Handle(t *testing.T) {
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["alfa"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 			GasPrice: big.NewInt(0),
 		},
 	)
@@ -137,7 +137,7 @@ func TestProtocol_Handle(t *testing.T) {
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["bravo"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 			GasPrice: big.NewInt(0),
 		},
 	)
@@ -157,7 +157,7 @@ func TestProtocol_Handle(t *testing.T) {
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["bravo"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 			GasPrice: big.NewInt(0),
 		},
 	)

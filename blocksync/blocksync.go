@@ -189,7 +189,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		}
 		// TODO: send back multiple blocks in one shot
 		if err := bs.unicastHandler(context.Background(), peer,
-			&iotexrpc.BlockContainer{Block: blk.ConvertToBlockPb()},
+			blk.ConvertToBlockPb(),
 		); err != nil {
 			log.L().Warn("Failed to response to ProcessSyncRequest.", zap.Error(err))
 		}

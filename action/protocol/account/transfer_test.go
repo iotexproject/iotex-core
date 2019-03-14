@@ -70,7 +70,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["alfa"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = p.Handle(ctx, transfer, ws)
 	require.NoError(err)

@@ -2,9 +2,9 @@ package e2etest
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
 	"os"
-	"path"
 	"testing"
 	"time"
 
@@ -21,26 +21,23 @@ import (
 )
 
 func TestBlockReward(t *testing.T) {
-	dir := os.TempDir()
-	cleanDB := func() {
-		testutil.CleanupPath(t, path.Join(dir, "./trie.db"))
-		testutil.CleanupPath(t, path.Join(dir, "./chain.db"))
-	}
-	cleanDB()
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Genesis.BlockInterval = time.Second
 	cfg.Chain.ProducerPrivKey = "507f8c8b08358d7ab1d020889a4fa0b8a123b41b6459cb436df4d0d02d8f0ca6"
-	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
-	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Network.Port = testutil.RandomPort()
 
 	svr, err := itx.NewServer(cfg)
 	require.NoError(t, err)
 	require.NoError(t, svr.Start(context.Background()))
 	defer func() {
-		cleanDB()
 		require.NoError(t, svr.Stop(context.Background()))
 	}()
 

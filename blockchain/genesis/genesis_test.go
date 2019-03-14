@@ -30,8 +30,7 @@ func TestDefaultConfig(t *testing.T) {
 	aAddrs, aBalances := cfg.InitBalances()
 	assert.Equal(t, eAddrs, aAddrs)
 	assert.Equal(t, eBalances, aBalances)
-	// Validate rewarding protocol
-	assert.Equal(t, Default.InitAdminAddr().String(), cfg.InitAdminAddr().String())
+	// Validate rewarding protocol)
 	assert.Equal(t, Default.BlockReward(), cfg.BlockReward())
 	assert.Equal(t, Default.EpochReward(), cfg.EpochReward())
 }
