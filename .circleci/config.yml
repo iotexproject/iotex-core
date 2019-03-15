@@ -60,19 +60,23 @@ jobs:
   build_test_ubuntu:
     machine:
       image: circleci/classic:latest
-    working_directory: /home/circleci/go/src/github.com/iotexproject/iotex-core
+    working_directory: $HOME/go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
+      - run: go version
       - run:
           name: GET OS EVN install golang
           command: |
             pwd && cat /etc/issue  && uname -a
-            sudo add-apt-repository ppa:gophers/archive
-            sudo apt-get update
-            sudo apt-get install golang-1.11-go
-            export GOPATH="/home/circleci/go"
-            export PATH=$PATH:$GOPATH/bin
-            export PATH=$PATH:$GOROOT/bin
+            sudo apt-get update -y
+            sudo apt-get -y upgrade
+            cd /tmp
+            wget https://dl.google.com/go/go1.11.linux-amd64.tar.gz
+            sudo tar -xvf go1.11.linux-amd64.tar.gz
+            sudo mv go /usr/local
+            export GOROOT=/usr/local/go
+            export GOPATH=$HOME/go
+            export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             go env
             go version
       - run: ./go.test.sh
