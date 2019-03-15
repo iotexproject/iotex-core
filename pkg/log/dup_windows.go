@@ -1,0 +1,20 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// A warrper for Zerolog (https://github.com/rs/zerolog)
+//
+// Package log provides a global logger for zerolog.
+// derived from https://github.com/rs/zerolog/blob/master/log/log.go
+// putting here to get a better integration
+
+//+build windows
+
+package log
+
+// Dup2 rewrited for windows os
+func Dup2(from int, to int) error {
+	return nil
+}
