@@ -18,8 +18,6 @@ var (
 	ErrInvalidAddr = errors.New("invalid IoTeX address")
 	// ErrLongName indicates error for a long name more than 40 characters
 	ErrLongName = errors.New("invalid long name that is more than 40 characters")
-	// ErrMinusNumber indicates error for a minus number
-	ErrMinusNumber = errors.New("invalid number that is minus")
 	// ErrNonPositiveNumber indicates error for a non-positive number
 	ErrNonPositiveNumber = errors.New("invalid number that is not positive")
 )
@@ -41,14 +39,6 @@ func ValidateAddress(addr string) error {
 func ValidateName(name string) error {
 	if len(name) > 40 {
 		return ErrLongName
-	}
-	return nil
-}
-
-// ValidateNumber validates Number for action
-func ValidateNumber(number int64) error {
-	if number < 0 {
-		return ErrMinusNumber
 	}
 	return nil
 }
