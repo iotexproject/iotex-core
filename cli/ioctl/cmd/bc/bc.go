@@ -45,8 +45,8 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 	return response.ChainMeta, err
 }
 
-// GetBlockMeta gets block metadata
-func GetBlockMeta(height uint64) (*iotextypes.BlockMeta, error) {
+// GetBlockMetaByHeight gets block metadata by height
+func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return nil, err
@@ -59,6 +59,27 @@ func GetBlockMeta(height uint64) (*iotextypes.BlockMeta, error) {
 				Start: height - 1,
 				Count: 1,
 			},
+		},
+	}
+	ctx := context.Background()
+	response, err := cli.GetBlockMetas(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return response.BlkMetas[0], err
+}
+
+// GetBlockMetaByHash gets block metadata by hash
+func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
+	conn, err := util.ConnectToEndpoint()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	request := &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
+			ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: hash},
 		},
 	}
 	ctx := context.Background()

@@ -10,14 +10,15 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
-
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // bcBlockCmd represents the bc Block command
 var bcBlockCmd = &cobra.Command{
-	Use:   "block [HEIGHT]",
+	Use:   "block [HEIGHT|HASH]",
 	Short: "Get block from block chain",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -29,13 +30,15 @@ var bcBlockCmd = &cobra.Command{
 func getBlock(args []string) string {
 	var height uint64
 	var err error
+	isHeight := true
 	if len(args) != 0 {
 		height, err = strconv.ParseUint(args[0], 10, 64)
 		if err != nil {
-			return err.Error()
-		}
-		if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-			return err.Error()
+			isHeight = false
+		} else {
+			if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
+				return err.Error()
+			}
 		}
 	} else {
 		chainMeta, err := GetChainMeta()
@@ -44,7 +47,12 @@ func getBlock(args []string) string {
 		}
 		height = chainMeta.Height
 	}
-	blockMeta, err := GetBlockMeta(height)
+	blockMeta := &iotextypes.BlockMeta{}
+	if isHeight {
+		blockMeta, err = GetBlockMetaByHeight(height)
+	} else {
+		blockMeta, err = GetBlockMetaByHash(args[0])
+	}
 	if err != nil {
 		return err.Error()
 	}
