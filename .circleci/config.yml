@@ -69,8 +69,8 @@ jobs:
           name: update golang 1.11
           command: |
             cd /tmp/ 
-            wget https://dl.google.com/go/go1.12.1.linux-amd64.tar.gz
-            tar zxf go1.12.1.linux-amd64.tar.gz
+            wget https://dl.google.com/go/go1.11.6.linux-amd64.tar.gz
+            tar zxf go1.11.6.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
             sudo mv go /usr/local/go
       - run: go version && cd ~/go/src/github.com/iotexproject/iotex-core
