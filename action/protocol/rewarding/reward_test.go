@@ -122,6 +122,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.NoError(t, stateDB.Commit(ws))
 
 		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
 		// The 5-th candidate can't get the reward because excempting from the epoch reward
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["delta"])
 		require.NoError(t, err)

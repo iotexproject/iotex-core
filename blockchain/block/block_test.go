@@ -158,6 +158,7 @@ func TestBlockCompressionSize(t *testing.T) {
 		blkBytes, err := blk.Serialize()
 		require.NoError(t, err)
 		compressedBlkBytes, err := compress.Compress(blkBytes)
+		require.NoError(t, err)
 		log.L().Info(
 			"Compression result",
 			zap.Int("numActions", n),
@@ -191,6 +192,7 @@ func BenchmarkBlockDecompression(b *testing.B) {
 				blkBytes, err := blk.Serialize()
 				require.NoError(b, err)
 				blkBytes, err = compress.Compress(blkBytes)
+				require.NoError(b, err)
 				b.StartTimer()
 				_, err = compress.Decompress(blkBytes)
 				b.StopTimer()
