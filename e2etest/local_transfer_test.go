@@ -496,7 +496,7 @@ func newTransferConfig(
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.Port = apiPort
-	cfg.Genesis.BlockInterval = 1 * time.Second
+	cfg.Genesis.BlockInterval = 2 * time.Second
 
 	return cfg, nil
 }
