@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bcHeightCmd represents the account height command
+// bcHeightCmd represents the bc height command
 var bcHeightCmd = &cobra.Command{
 	Use:   "height",
 	Short: "Get current block height",
