@@ -64,6 +64,7 @@ jobs:
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
+      - run: sudo apt install golang-1.12
       - run: go version
       - run:
           name: GET OS EVN install golang
@@ -75,9 +76,9 @@ jobs:
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             go env
             ./go.test.sh
-      #- run: bash <(curl -s https://codecov.io/bash)
-      #- run: go test -run=XXX -bench=. $(go list ./crypto)
-      #- run: make minicluster            
+      - run: bash <(curl -s https://codecov.io/bash)
+      - run: go test -run=XXX -bench=. $(go list ./crypto)
+      - run: make minicluster            
 ######################################################################
   nightly_build_docker:
     docker:
