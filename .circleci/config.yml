@@ -69,7 +69,7 @@ jobs:
           command: |
             sudo add-apt-repository ppa:longsleep/golang-backports -y
             sudo apt-get update
-            sudo apt-get install golang-go  
+            sudo apt-get install golang-1.11 
       - run: go version
       - run:
           name: GET OS EVN install golang
@@ -80,7 +80,7 @@ jobs:
             export LD_LIBRARY_PATH=:"/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib"
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             go env
-            ./go.test.sh
+      # ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster            
