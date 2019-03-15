@@ -167,7 +167,7 @@ func ExecuteContract(
 		}
 	}
 
-	if err := stateDB.commitContracts(); err != nil {
+	if err := stateDB.CommitContracts(); err != nil {
 		return nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
 	stateDB.clear()
