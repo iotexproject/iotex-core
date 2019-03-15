@@ -71,15 +71,14 @@ jobs:
             cd /tmp/ 
             wget https://dl.google.com/go/go1.12.1.linux-amd64.tar.gz
             tar zxf go1.12.1.linux-amd64.tar.gz
-            sudo mv go /usr/local/go-1.12.1
-      - run: export GOROOT="/usr/local/go-1.12.1"
-      - run: export PATH=$GOROOT/bin:$PATH      
+            sudo rm -rf /usr/local/go
+            sudo mv go /usr/local/go
       - run: go version && cd ~/go/src/github.com/iotexproject/iotex-core
       - run:
           name: go.test.sh
           command: |
             pwd && cat /etc/issue  && uname -a
-            export GOROOT="/usr/local/go-1.11.6"
+            export GOROOT="/usr/local/go"
             export GOPATH=~/go
             export LD_LIBRARY_PATH=:"/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib"
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
