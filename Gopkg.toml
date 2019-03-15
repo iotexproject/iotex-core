@@ -52,7 +52,7 @@
 
 [[constraint]]
   name = "github.com/iotexproject/go-fsm"
-  revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
+  version = "v1.0.0"
 
 [[constraint]]
   name = "github.com/iotexproject/go-p2p"
