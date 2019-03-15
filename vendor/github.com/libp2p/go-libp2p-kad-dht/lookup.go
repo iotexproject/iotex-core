@@ -41,7 +41,7 @@ func tryFormatLoggableKey(k string) (string, error) {
 func loggableKey(k string) logging.LoggableMap {
 	newKey, err := tryFormatLoggableKey(k)
 	if err != nil {
-		log.Debug(err)
+		logger.Debug(err)
 	} else {
 		k = newKey
 	}
@@ -54,7 +54,7 @@ func loggableKey(k string) logging.LoggableMap {
 // Kademlia 'node lookup' operation. Returns a channel of the K closest peers
 // to the given key
 func (dht *IpfsDHT) GetClosestPeers(ctx context.Context, key string) (<-chan peer.ID, error) {
-	e := log.EventBegin(ctx, "getClosestPeers", loggableKey(key))
+	e := logger.EventBegin(ctx, "getClosestPeers", loggableKey(key))
 	tablepeers := dht.routingTable.NearestPeers(kb.ConvertKey(key), AlphaValue)
 	if len(tablepeers) == 0 {
 		return nil, kb.ErrLookupFailure
@@ -74,7 +74,7 @@ func (dht *IpfsDHT) GetClosestPeers(ctx context.Context, key string) (<-chan pee
 
 		pmes, err := dht.findPeerSingle(ctx, p, peer.ID(key))
 		if err != nil {
-			log.Debugf("error getting closer peers: %s", err)
+			logger.Debugf("error getting closer peers: %s", err)
 			return nil, err
 		}
 		peers := pb.PBPeersToPeerInfos(pmes.GetCloserPeers())
@@ -95,7 +95,7 @@ func (dht *IpfsDHT) GetClosestPeers(ctx context.Context, key string) (<-chan pee
 		// run it!
 		res, err := query.Run(ctx, tablepeers)
 		if err != nil {
-			log.Debugf("closestPeers query run error: %s", err)
+			logger.Debugf("closestPeers query run error: %s", err)
 		}
 
 		if res != nil && res.queriedSet != nil {

@@ -350,8 +350,8 @@ func (c Context) Interface(key string, i interface{}) Context {
 type callerHook struct{}
 
 func (ch callerHook) Run(e *Event, level Level, msg string) {
-	// Three extra frames to skip (added by hook infra).
-	e.caller(CallerSkipFrameCount + 3)
+	// Extra frames to skip (added by hook infra).
+	e.caller(CallerSkipFrameCount + contextCallerSkipFrameCount)
 }
 
 var ch = callerHook{}
@@ -359,6 +359,20 @@ var ch = callerHook{}
 // Caller adds the file:line of the caller with the zerolog.CallerFieldName key.
 func (c Context) Caller() Context {
 	c.l = c.l.Hook(ch)
+	return c
+}
+
+type stackTraceHook struct{}
+
+func (sh stackTraceHook) Run(e *Event, level Level, msg string) {
+	e.Stack()
+}
+
+var sh = stackTraceHook{}
+
+// Stack enables stack trace printing for the error passed to Err().
+func (c Context) Stack() Context {
+	c.l = c.l.Hook(sh)
 	return c
 }
 

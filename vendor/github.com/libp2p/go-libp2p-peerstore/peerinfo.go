@@ -77,7 +77,7 @@ func (pi *PeerInfo) Loggable() map[string]interface{} {
 	}
 }
 
-func (pi *PeerInfo) MarshalJSON() ([]byte, error) {
+func (pi PeerInfo) MarshalJSON() ([]byte, error) {
 	out := make(map[string]interface{})
 	out["ID"] = pi.ID.Pretty()
 	var addrs []string

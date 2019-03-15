@@ -2,6 +2,7 @@ package net
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/jbenet/goprocess"
@@ -144,6 +145,9 @@ type Network interface {
 	// Process returns the network's Process
 	Process() goprocess.Process
 }
+
+// There are no addresses associated with a peer when they were needed.
+var ErrNoRemoteAddrs = errors.New("no remote addresses")
 
 // Dialer represents a service that can dial out to peers
 // (this is usually just a Network, but other services may not need the whole

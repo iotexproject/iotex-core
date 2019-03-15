@@ -3,6 +3,7 @@ package peerstore
 import (
 	"context"
 	"errors"
+	"io"
 	"math"
 	"time"
 
@@ -49,6 +50,8 @@ const (
 // Peerstore provides a threadsafe store of Peer related
 // information.
 type Peerstore interface {
+	io.Closer
+
 	AddrBook
 	KeyBook
 	PeerMetadata
