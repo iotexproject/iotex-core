@@ -36,17 +36,22 @@ jobs:
     steps:
       - checkout
       - run:
-          name: brew install golang
+          name: install golang 1.11.6
+          command: |
+            wget https://dl.google.com/go/go1.11.6.darwin-amd64.pkg
+            sudo installer -pkg go1.11.6.darwin-amd64.pkg -target /usr/local/
+          #name: brew install golang
       - run:
           name: SET GO ENV
           command: |
             export GOPATH=~/go
-            export GOROOT="$(brew --prefix golang)/libexec"
+            export GOROOT="/usr/local/go"
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
+            where go
             set -e
-            for d in $(go list ./... | grep -v 'vendor\|protocol/vote'); do
+            for d in $(go list ./... | grep -v 'vendor'); do
                 go test -short -v -coverprofile=profile.out -covermode=count "$d"
                 if [ -f profile.out ]; then
                     cat profile.out >> coverage.txt
@@ -60,20 +65,17 @@ jobs:
   build_test_ubuntu:
     machine:
       image: circleci/classic:latest
-
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
-      - run: which go
       - run: 
-          name: update golang 1.11
+          name: update golang 1.11.6
           command: |
-            cd /tmp/ 
             wget https://dl.google.com/go/go1.11.6.linux-amd64.tar.gz
             tar zxf go1.11.6.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
             sudo mv go /usr/local/go
-      - run: go version && cd ~/go/src/github.com/iotexproject/iotex-core
+      - run: go version
       - run:
           name: go.test.sh
           command: |
@@ -82,7 +84,6 @@ jobs:
             export GOPATH=~/go
             export LD_LIBRARY_PATH=:"/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib"
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-            go env
             ./go.test.sh
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
@@ -132,7 +133,7 @@ workflows:
   commit:
     jobs:
       #- build_test_docker
-      #- build_test_darwin
+      - build_test_darwin
       - build_test_ubuntu
   scheduled-workflow:
     triggers:
