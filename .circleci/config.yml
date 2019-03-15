@@ -64,7 +64,12 @@ jobs:
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
-      - run: sudo apt install golang-1.11
+      - run: 
+          name: update golang 1.11
+          command: |
+            sudo add-apt-repository ppa:longsleep/golang-backports
+            sudo apt-get update
+            sudo apt-get install golang-1.11
       - run: go version
       - run:
           name: GET OS EVN install golang
