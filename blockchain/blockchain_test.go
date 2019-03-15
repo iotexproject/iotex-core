@@ -787,7 +787,6 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.NumCandidates = 2
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
@@ -817,7 +816,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	}()
 	candidate, err := sf.CandidatesByHeight(0)
 	require.NoError(err)
-	require.True(len(candidate) == 2)
+	require.Equal(24, len(candidate))
 }
 
 func TestBlockchain_StateByAddr(t *testing.T) {

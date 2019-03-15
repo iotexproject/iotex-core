@@ -272,7 +272,6 @@ func newConfig(
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
-	cfg.Chain.NumCandidates = numNodes
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 
