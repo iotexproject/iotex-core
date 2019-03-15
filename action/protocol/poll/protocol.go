@@ -276,7 +276,8 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 }
 
 func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(height uint64) ([]string, error) {
-	gravityHeight, err := p.getGravityHeight(height)
+	epochHeight := p.getEpochHeight(p.getEpochNum(height))
+	gravityHeight, err := p.getGravityHeight(epochHeight)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get gravity chain height")
 	}
