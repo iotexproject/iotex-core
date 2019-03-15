@@ -49,7 +49,7 @@ jobs:
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
-            where go
+            which go
             set -e
             for d in $(go list ./... | grep -v 'vendor'); do
                 go test -short -v -coverprofile=profile.out -covermode=count "$d"
