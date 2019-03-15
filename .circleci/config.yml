@@ -61,7 +61,7 @@ jobs:
     machine:
       image: circleci/classic:latest
 
-    working_directory: $HOME/go/src/github.com/iotexproject/iotex-core
+    working_directory: ~/go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
       - run: go version
