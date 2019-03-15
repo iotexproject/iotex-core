@@ -35,9 +35,9 @@ jobs:
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
             ./go.test.sh
-      - run: bash <(curl -s https://codecov.io/bash)
-      - run: go test -run=XXX -bench=. $(go list ./crypto)
-      - run: make minicluster
+            bash <(curl -s https://codecov.io/bash)
+            go test -run=XXX -bench=. $(go list ./crypto)
+            make minicluster
 
   build_test_ubuntu:
     machine:
@@ -59,9 +59,9 @@ jobs:
             export LD_LIBRARY_PATH=:"/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib"
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             ./go.test.sh
-      - run: bash <(curl -s https://codecov.io/bash)
-      - run: go test -run=XXX -bench=. $(go list ./crypto)
-      - run: make minicluster            
+            bash <(curl -s https://codecov.io/bash)
+            go test -run=XXX -bench=. $(go list ./crypto)
+            make minicluster            
 ######################################################################
   nightly_build_docker:
     docker:
