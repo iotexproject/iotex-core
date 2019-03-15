@@ -19,7 +19,7 @@
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  version = "~1.2.0"
+  version = "1.3.0"
 
 [[constraint]]
   name = "github.com/pkg/errors"
@@ -52,15 +52,15 @@
 
 [[constraint]]
   name = "github.com/iotexproject/go-fsm"
-  revision = "4528c8749aae8cb7868a391390ebd15f5ea84618"
+  version = "v1.0.0"
 
 [[constraint]]
   name = "github.com/iotexproject/go-p2p"
-  revision = "c26edc20f3d7c9ed16b6d996d162548cda979673"
+  version = "v0.2.0"
 
 [[constraint]]
   name = "github.com/iotexproject/iotex-election"
-  revision = "7a4ae1ee8eadfa5126c3bc0f3215642fa2481e01"
+  version = "v0.1.0"
 
 [prune]
   go-tests = true

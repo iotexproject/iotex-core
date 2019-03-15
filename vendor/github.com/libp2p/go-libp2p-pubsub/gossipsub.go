@@ -35,7 +35,7 @@ var (
 	GossipSubFanoutTTL = 60 * time.Second
 )
 
-// NewGossipSub returns a new PubSub object using GossipSubRouter as the router
+// NewGossipSub returns a new PubSub object using GossipSubRouter as the router.
 func NewGossipSub(ctx context.Context, h host.Host, opts ...Option) (*PubSub, error) {
 	rt := &GossipSubRouter{
 		peers:   make(map[peer.ID]protocol.ID),

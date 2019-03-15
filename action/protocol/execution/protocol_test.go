@@ -11,7 +11,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 
@@ -39,11 +41,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testDBPath   = "db.test"
-	testTriePath = "trie.test"
 )
 
 type execCfg struct {
@@ -122,7 +119,8 @@ func (sct *smartContractTest) prepareBlockchain(
 	r *require.Assertions,
 ) blockchain.Blockchain {
 	cfg := config.Default
-	cfg.Chain.EnableIndex = true
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.EnableAsyncIndexWrite = false
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
@@ -153,7 +151,7 @@ func (sct *smartContractTest) prepareBlockchain(
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
@@ -213,16 +211,19 @@ func TestProtocol_Handle(t *testing.T) {
 	testEVM := func(t *testing.T) {
 		log.S().Info("Test EVM")
 		require := require.New(t)
-		testutil.CleanupPath(t, testTriePath)
-		defer testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		defer testutil.CleanupPath(t, testDBPath)
 
 		ctx := context.Background()
 		cfg := config.Default
+
+		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath := testTrieFile.Name()
+		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath := testDBFile.Name()
+
+		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableIndex = true
+		cfg.Chain.EnableAsyncIndexWrite = false
 		registry := protocol.Registry{}
 		acc := account.NewProtocol()
 		registry.Register(account.ProtocolID, acc)
@@ -255,7 +256,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
 				Producer: testaddress.Addrinfo["producer"],
-				GasLimit: &gasLimit,
+				GasLimit: gasLimit,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -298,16 +299,16 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(err)
 		require.Equal(data[31:], code)
 
-		exe, err := bc.GetExecutionByExecutionHash(eHash)
+		exe, err := bc.GetActionByActionHash(eHash)
 		require.Nil(err)
 		require.Equal(eHash, exe.Hash())
 
-		exes, err := bc.GetExecutionsFromAddress(testaddress.Addrinfo["producer"].String())
+		exes, err := bc.GetActionsFromAddress(testaddress.Addrinfo["producer"].String())
 		require.Nil(err)
 		require.Equal(1, len(exes))
 		require.Equal(eHash, exes[0])
 
-		blkHash, err := bc.GetBlockHashByExecutionHash(eHash)
+		blkHash, err := bc.GetBlockHashByActionHash(eHash)
 		require.Nil(err)
 		require.Equal(blk.HashBlock(), blkHash)
 
@@ -401,16 +402,18 @@ func TestProtocol_Handle(t *testing.T) {
 	testRollDice := func(t *testing.T) {
 		log.S().Warn("======= Test RollDice")
 		require := require.New(t)
-		testutil.CleanupPath(t, testTriePath)
-		defer testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		defer testutil.CleanupPath(t, testDBPath)
+
+		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath := testTrieFile.Name()
+		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath := testDBFile.Name()
 
 		ctx := context.Background()
 		cfg := config.Default
+		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableIndex = true
+		cfg.Chain.EnableAsyncIndexWrite = false
 		registry := protocol.Registry{}
 		acc := account.NewProtocol()
 		registry.Register(account.ProtocolID, acc)
@@ -446,7 +449,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
 				Producer: testaddress.Addrinfo["producer"],
-				GasLimit: &gasLimit,
+				GasLimit: gasLimit,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -505,7 +508,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(0, balance.Cmp(big.NewInt(500000000)))
 
 		log.S().Info("Roll Dice")
-		h := keypair.HashPubKey(testaddress.Keyinfo["alfa"].PubKey)
+		h := testaddress.Keyinfo["alfa"].PubKey.Hash()
 		data, _ = hex.DecodeString(fmt.Sprintf("797d9fbd000000000000000000000000%x", h))
 		execution, err = action.NewExecution(contractAddr, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
@@ -569,16 +572,18 @@ func TestProtocol_Handle(t *testing.T) {
 
 	testERC20 := func(t *testing.T) {
 		require := require.New(t)
-		testutil.CleanupPath(t, testTriePath)
-		defer testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		defer testutil.CleanupPath(t, testDBPath)
+
+		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath := testTrieFile.Name()
+		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath := testDBFile.Name()
 
 		ctx := context.Background()
 		cfg := config.Default
+		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
-		cfg.Chain.EnableIndex = true
+		cfg.Chain.EnableAsyncIndexWrite = false
 		registry := protocol.Registry{}
 		acc := account.NewProtocol()
 		registry.Register(account.ProtocolID, acc)
@@ -614,7 +619,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
 				Producer: testaddress.Addrinfo["producer"],
-				GasLimit: &gasLimit,
+				GasLimit: gasLimit,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -660,11 +665,9 @@ func TestProtocol_Handle(t *testing.T) {
 
 		log.S().Info("======= Transfer to alfa")
 		data, _ = hex.DecodeString("a9059cbb")
-		alfa := hash.ZeroHash256
 		addr, _ := address.FromString(testaddress.Addrinfo["alfa"].String())
 		to := addr.Bytes()
-
-		alfa.SetBytes(to)
+		alfa := hash.BytesToHash256(to)
 		value := hash.ZeroHash256
 		// send 10000 token to Alfa
 		h = value[24:]
@@ -684,10 +687,9 @@ func TestProtocol_Handle(t *testing.T) {
 
 		// send 20000 token to bravo
 		data, _ = hex.DecodeString("a9059cbb")
-		bravo := hash.ZeroHash256
 		addr, _ = address.FromString(testaddress.Addrinfo["bravo"].String())
 		to = addr.Bytes()
-		bravo.SetBytes(to)
+		bravo := hash.BytesToHash256(to)
 		value = hash.ZeroHash256
 		h = value[24:]
 		binary.BigEndian.PutUint64(h, 20000)
@@ -844,9 +846,8 @@ func TestERC20(t *testing.T) {
 		executions: []execCfg{
 			func() execCfg {
 				data, _ := hex.DecodeString("a9059cbb")
-				alfa := hash.ZeroHash256
 				to := testaddress.Addrinfo["alfa"].Bytes()
-				alfa.SetBytes(to)
+				alfa := hash.BytesToHash256(to)
 				value := hash.ZeroHash256
 				// send 10000 token to Alfa
 				h := value[24:]
@@ -866,9 +867,8 @@ func TestERC20(t *testing.T) {
 			}(),
 			func() execCfg {
 				data, _ := hex.DecodeString("a9059cbb")
-				bravo := hash.ZeroHash256
 				to := testaddress.Addrinfo["bravo"].Bytes()
-				bravo.SetBytes(to)
+				bravo := hash.BytesToHash256(to)
 				value := hash.ZeroHash256
 				h := value[24:]
 				binary.BigEndian.PutUint64(h, 20000)
@@ -887,9 +887,8 @@ func TestERC20(t *testing.T) {
 			}(),
 			func() execCfg {
 				data, _ := hex.DecodeString("a9059cbb")
-				bravo := hash.ZeroHash256
 				to := testaddress.Addrinfo["bravo"].Bytes()
-				bravo.SetBytes(to)
+				bravo := hash.BytesToHash256(to)
 				value := hash.ZeroHash256
 				h := value[24:]
 				binary.BigEndian.PutUint64(h, 2000)
@@ -908,9 +907,8 @@ func TestERC20(t *testing.T) {
 			}(),
 			func() execCfg {
 				data, _ := hex.DecodeString("70a08231")
-				alfa := hash.ZeroHash256
 				to := testaddress.Addrinfo["alfa"].Bytes()
-				alfa.SetBytes(to)
+				alfa := hash.BytesToHash256(to)
 				data = append(data, alfa[:]...)
 				retval, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000001f40")
 				return execCfg{

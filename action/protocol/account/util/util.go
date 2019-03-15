@@ -14,7 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -37,7 +36,7 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big
 		account = state.EmptyAccount()
 		return &account, errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
-	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	addrHash := hash.BytesToHash160(addr.Bytes())
 	err = sm.State(addrHash, &account)
 	if err == nil {
 		return &account, nil
@@ -72,14 +71,14 @@ func StoreAccount(sm protocol.StateManager, encodedAddr string, account *state.A
 	if err != nil {
 		return errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
-	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	addrHash := hash.BytesToHash160(addr.Bytes())
 	return sm.PutState(addrHash, account)
 }
 
 // Recorded tests if an account has been actually stored
 func Recorded(sm protocol.StateManager, addr address.Address) (bool, error) {
 	var account state.Account
-	err := sm.State(byteutil.BytesTo20B(addr.Bytes()), &account)
+	err := sm.State(hash.BytesToHash160(addr.Bytes()), &account)
 	if err == nil {
 		return true, nil
 	}

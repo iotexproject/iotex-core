@@ -7,12 +7,24 @@
 package evm
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/state"
+
+	"github.com/iotexproject/iotex-core/test/identityset"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestLogReceipt(t *testing.T) {
@@ -46,4 +58,37 @@ func TestLogReceipt(t *testing.T) {
 	require.Equal(receipt.Logs[0], actualReceipt.Logs[0])
 	require.Equal(len(receipt.Logs), len(actualReceipt.Logs))
 	require.Equal(receipt.ActHash, actualReceipt.ActHash)
+}
+
+func TestExecuteContractFailure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cm := mock_chainmanager.NewMockChainManager(ctrl)
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	store := db.NewMemKVStore()
+	sm.EXPECT().GetDB().Return(store).AnyTimes()
+	cb := db.NewCachedBatch()
+	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
+
+	e, err := action.NewExecution(
+		"",
+		1,
+		big.NewInt(0),
+		testutil.TestGasLimit,
+		big.NewInt(0),
+		nil,
+	)
+	require.NoError(t, err)
+
+	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		Caller:   identityset.Address(0),
+		Producer: identityset.Address(1),
+	})
+
+	receipt, err := ExecuteContract(ctx, sm, e, cm)
+	require.NotNil(t, receipt)
+	assert.Equal(t, action.FailureReceiptStatus, receipt.Status)
+	require.NoError(t, err)
 }

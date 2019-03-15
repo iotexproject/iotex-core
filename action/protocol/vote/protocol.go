@@ -18,8 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -75,7 +73,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, errors.Wrapf(err, "failed to load or create the account of voter %s", raCtx.Caller.String())
 	}
 
-	if *raCtx.GasLimit < raCtx.IntrinsicGas {
+	if raCtx.GasLimit < raCtx.IntrinsicGas {
 		return nil, action.ErrHitGasLimit
 	}
 	gasFee := big.NewInt(0).Mul(raCtx.GasPrice, big.NewInt(0).SetUint64(raCtx.IntrinsicGas))
@@ -95,7 +93,6 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
 		return nil, err
 	}
-	*raCtx.GasLimit -= raCtx.IntrinsicGas
 	// Update voteFrom Nonce
 	accountutil.SetNonce(vote, voteFrom)
 	prevVotee := voteFrom.Votee
@@ -110,9 +107,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	} else if raCtx.Caller.String() == vote.Votee() {
 		// Vote to self: self-nomination
 		voteFrom.IsCandidate = true
-		votePubkey := vote.VoterPublicKey()
-		callerPKHash := keypair.HashPubKey(votePubkey)
-		addr, err := address.FromBytes(callerPKHash[:])
+		addr, err := address.FromBytes(vote.VoterPublicKey().Hash())
 		if err != nil {
 			return nil, err
 		}
@@ -165,15 +160,12 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		}
 	}
 
-	return nil, nil
+	return &action.Receipt{GasConsumed: raCtx.IntrinsicGas}, nil
 }
 
 // Validate validates a vote
 func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
-	vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss validate action context")
-	}
+	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
 
 	vote, ok := act.(*action.Vote)
 	if !ok {

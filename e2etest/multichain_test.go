@@ -10,9 +10,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"os"
-	"path"
 	"testing"
 	"time"
 
@@ -39,24 +39,18 @@ import (
 func TestTwoChains(t *testing.T) {
 	t.Skip()
 
-	dir := os.TempDir()
-	cleanDB := func() {
-		testutil.CleanupPath(t, path.Join(dir, "./trie.db"))
-		testutil.CleanupPath(t, path.Join(dir, "./chain.db"))
-		testutil.CleanupPath(t, path.Join(dir, "./chain-2-trie.db"))
-		testutil.CleanupPath(t, path.Join(dir, "./chain-2-chain.db"))
-	}
-
-	cleanDB()
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Genesis.BlockInterval = time.Second
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(identityset.PrivateKey(1))
-	cfg.Chain.TrieDBPath = path.Join(dir, "./trie.db")
-	cfg.Chain.ChainDBPath = path.Join(dir, "./chain.db")
-	cfg.Chain.EnableIndex = true
-	cfg.Chain.EnableAsyncIndexWrite = true
+	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(1).HexString()
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = testutil.RandomPort()
 	cfg.Network.Port = testutil.RandomPort()
@@ -67,21 +61,16 @@ func TestTwoChains(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, svr.Start(ctx))
 	defer func() {
-		cleanDB()
 		require.NoError(t, svr.Stop(ctx))
 	}()
 
-	sk1, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	sk1, err := keypair.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
-	pk1 := &sk1.PublicKey
-	pkHash1 := keypair.HashPubKey(pk1)
-	addr1, err := address.FromBytes(pkHash1[:])
+	addr1, err := address.FromBytes(sk1.PublicKey().Hash())
 	require.NoError(t, err)
-	sk2, err := keypair.DecodePrivateKey("82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90")
+	sk2, err := keypair.HexStringToPrivateKey("82a1556b2dbd0e3615e367edf5d3b90ce04346ec4d12ed71f67c70920ef9ac90")
 	require.NoError(t, err)
-	pk2 := &sk2.PublicKey
-	pkHash2 := keypair.HashPubKey(pk2)
-	addr2, err := address.FromBytes(pkHash2[:])
+	addr2, err := address.FromBytes(sk2.PublicKey().Hash())
 	require.NoError(t, err)
 
 	mainChainClient := exp.NewExplorerProxy(
@@ -134,7 +123,7 @@ func TestTwoChains(t *testing.T) {
 		Version:      int64(createDeposit.Version()),
 		Nonce:        int64(createDeposit.Nonce()),
 		ChainID:      int64(createDeposit.ChainID()),
-		SenderPubKey: keypair.EncodePublicKey(createDeposit.SenderPublicKey()),
+		SenderPubKey: createDeposit.SenderPublicKey().HexString(),
 		Recipient:    createDeposit.Recipient(),
 		Amount:       createDeposit.Amount().String(),
 		Signature:    hex.EncodeToString(selp.Signature()),
@@ -190,7 +179,7 @@ func TestTwoChains(t *testing.T) {
 	settleRes, err := subChainClient.SettleDeposit(explorer.SettleDepositRequest{
 		Version:      int64(settleDeposit.Version()),
 		Nonce:        int64(settleDeposit.Nonce()),
-		SenderPubKey: keypair.EncodePublicKey(settleDeposit.SenderPublicKey()),
+		SenderPubKey: settleDeposit.SenderPublicKey().HexString(),
 		Recipient:    settleDeposit.Recipient(),
 		Amount:       settleDeposit.Amount().String(),
 		Index:        int64(index),

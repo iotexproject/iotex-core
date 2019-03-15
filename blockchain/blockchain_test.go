@@ -9,7 +9,9 @@ package blockchain
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"sync"
 	"testing"
 
@@ -31,11 +33,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testDBPath   = "db.test"
-	testTriePath = "trie.test"
 )
 
 func addTestingTsfBlocks(bc Blockchain) error {
@@ -417,15 +414,15 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.EnableIndex = true
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
@@ -598,74 +595,18 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(5)
 	require.NoError(err)
 	require.Equal(hash5, blk.HashBlock())
-	tsfs, votes, _ := action.ClassifyActions(blk.Actions)
-	for _, transfer := range tsfs {
-		transferHash := transfer.Hash()
-		blkhash, err := bc.GetBlockHashByTransferHash(transferHash)
-		require.NoError(err)
-		require.Equal(blkhash, hash5)
-		transfer1, err := bc.GetTransferByTransferHash(transferHash)
-		require.NoError(err)
-		require.Equal(transfer1.Hash(), transferHash)
-	}
-
-	for _, vote := range votes {
-		voteHash := vote.Hash()
-		blkhash, err := bc.GetBlockHashByVoteHash(voteHash)
-		require.NoError(err)
-		require.Equal(blkhash, hash5)
-		vote1, err := bc.GetVoteByVoteHash(voteHash)
-		require.NoError(err)
-		require.Equal(vote1.Hash(), voteHash)
-	}
-
-	fromTransfers, err := bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].String())
-	require.NoError(err)
-	require.Equal(len(fromTransfers), 5)
-
-	toTransfers, err := bc.GetTransfersToAddress(ta.Addrinfo["charlie"].String())
-	require.NoError(err)
-	require.Equal(len(toTransfers), 2)
-
-	fromVotes, err := bc.GetVotesFromAddress(ta.Addrinfo["charlie"].String())
-	require.NoError(err)
-	require.Equal(len(fromVotes), 1)
-
-	fromVotes, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].String())
-	require.NoError(err)
-	require.Equal(len(fromVotes), 1)
-
-	toVotes, err := bc.GetVotesToAddress(ta.Addrinfo["charlie"].String())
-	require.NoError(err)
-	require.Equal(len(toVotes), 1)
-
-	toVotes, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].String())
-	require.NoError(err)
-	require.Equal(len(toVotes), 1)
-
-	totalTransfers, err := bc.GetTotalTransfers()
-	require.NoError(err)
-	require.Equal(totalTransfers, uint64(22))
-
-	totalVotes, err := bc.GetTotalVotes()
-	require.NoError(err)
-	// Self nominations are not counted as votes
-	require.Equal(totalVotes, uint64(2))
-
-	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
-	require.Error(err)
-	_, err = bc.GetVoteByVoteHash(hash.ZeroHash256)
-	require.Error(err)
 	_, err = bc.StateByAddr("")
 	require.Error(err)
 }
 
 func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.DB.UseBadgerDB = false // test with boltDB
@@ -811,41 +752,6 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(4)
 	require.NoError(err)
 	require.Equal(hash4, blk.HashBlock())
-	tsfs, votes, _ := action.ClassifyActions(blk.Actions)
-	for _, transfer := range tsfs {
-		transferHash := transfer.Hash()
-		_, err := bc.GetBlockHashByTransferHash(transferHash)
-		require.Error(err)
-		_, err = bc.GetTransferByTransferHash(transferHash)
-		require.Error(err)
-	}
-	for _, vote := range votes {
-		voteHash := vote.Hash()
-		_, err := bc.GetBlockHashByVoteHash(voteHash)
-		require.Error(err)
-		_, err = bc.GetVoteByVoteHash(voteHash)
-		require.Error(err)
-	}
-	_, err = bc.GetTransfersFromAddress(ta.Addrinfo["charlie"].String())
-	require.Error(err)
-	_, err = bc.GetTransfersToAddress(ta.Addrinfo["charlie"].String())
-	require.Error(err)
-	_, err = bc.GetVotesFromAddress(ta.Addrinfo["charlie"].String())
-	require.Error(err)
-	_, err = bc.GetVotesFromAddress(ta.Addrinfo["alfa"].String())
-	require.Error(err)
-	_, err = bc.GetVotesToAddress(ta.Addrinfo["charlie"].String())
-	require.Error(err)
-	_, err = bc.GetVotesToAddress(ta.Addrinfo["alfa"].String())
-	require.Error(err)
-	_, err = bc.GetTotalTransfers()
-	require.Error(err)
-	_, err = bc.GetTotalVotes()
-	require.Error(err)
-	_, err = bc.GetTransferByTransferHash(hash.ZeroHash256)
-	require.Error(err)
-	_, err = bc.GetVoteByVoteHash(hash.ZeroHash256)
-	require.Error(err)
 	_, err = bc.StateByAddr("")
 	require.Error(err)
 }
@@ -873,10 +779,10 @@ func TestBlockchain_Validator(t *testing.T) {
 func TestBlockchainInitialCandidate(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -943,10 +849,10 @@ func TestBlocks(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
@@ -975,7 +881,7 @@ func TestBlocks(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: ta.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
@@ -1006,10 +912,10 @@ func TestActions(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
@@ -1037,7 +943,7 @@ func TestActions(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: ta.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	require.NoError(err)
@@ -1079,7 +985,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: ta.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err

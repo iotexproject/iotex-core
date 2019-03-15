@@ -42,7 +42,7 @@ gx-go --rewrite
 
 Please check [Gx](https://github.com/whyrusleeping/gx) and [Gx-go](https://github.com/whyrusleeping/gx-go) documentation for more information.
 
-For more information about how `go-conn-security` is used in the libp2p context, you can see the [go-libp2p-conn](https://github.com/libp2p/go-libp2p-conn) module.
+For more information about how `go-conn-security` is used in the libp2p context, you can see the [go-libp2p-transport-upgrader](https://github.com/libp2p/go-libp2p-transport-upgrader) module.
 
 ## Contribute
 

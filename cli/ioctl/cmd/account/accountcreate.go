@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -19,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-var numAccounts int
+var numAccounts uint
 
 // accountCreateCmd represents the account create command
 var accountCreateCmd = &cobra.Command{
@@ -32,22 +31,21 @@ var accountCreateCmd = &cobra.Command{
 }
 
 func init() {
-	accountCreateCmd.Flags().IntVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
+	accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
 }
 
 func accountCreate(_ []string) string {
 	items := make([]string, numAccounts)
-	for i := 0; i < numAccounts; i++ {
-		private, err := crypto.GenerateKey()
+	for i := 0; i < int(numAccounts); i++ {
+		private, err := keypair.GenerateKey()
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
-		pkHash := keypair.HashPubKey(&private.PublicKey)
-		addr, _ := address.FromBytes(pkHash[:])
-		priKeyBytes := keypair.PrivateKeyToBytes(private)
-		pubKeyBytes := keypair.PublicKeyToBytes(&private.PublicKey)
+		addr, _ := address.FromBytes(private.PublicKey().Hash())
+		priKeyBytes := private.Bytes()
+		pubKeyBytes := private.PublicKey().Bytes()
 		items[i] = fmt.Sprintf(
-			"{\"Address\": \"%s\", \"PrivateKey\": \"%x\", \"PrivateKey\": \"%x\"}\n",
+			"{\"Address\": \"%s\", \"PrivateKey\": \"%x\", \"PublicKey\": \"%x\"}\n",
 			addr.String(), priKeyBytes, pubKeyBytes)
 	}
 	return strings.Join(items, "")

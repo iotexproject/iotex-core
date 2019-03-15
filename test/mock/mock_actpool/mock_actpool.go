@@ -45,18 +45,6 @@ func (mr *MockActPoolMockRecorder) Reset() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockActPool)(nil).Reset))
 }
 
-// PickActs mocks base method
-func (m *MockActPool) PickActs() []action.SealedEnvelope {
-	ret := m.ctrl.Call(m, "PickActs")
-	ret0, _ := ret[0].([]action.SealedEnvelope)
-	return ret0
-}
-
-// PickActs indicates an expected call of PickActs
-func (mr *MockActPoolMockRecorder) PickActs() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PickActs", reflect.TypeOf((*MockActPool)(nil).PickActs))
-}
-
 // PendingActionMap mocks base method
 func (m *MockActPool) PendingActionMap() map[string][]action.SealedEnvelope {
 	ret := m.ctrl.Call(m, "PendingActionMap")

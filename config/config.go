@@ -9,19 +9,19 @@ package config
 import (
 	"flag"
 	"os"
+	"strings"
 	"time"
 
-	"go.uber.org/zap"
-
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-election/committee"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -31,6 +31,7 @@ func init() {
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
+	flag.Var(&_plugins, "plugin", "Plugin of the node")
 }
 
 var (
@@ -39,6 +40,7 @@ var (
 	// secretPath is the path to the  config file store secret values
 	_secretPath   string
 	_subChainPath string
+	_plugins      strs
 )
 
 const (
@@ -60,37 +62,55 @@ const (
 	IndexReceipt = "receipt"
 )
 
+const (
+	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
+	GatewayPlugin = iota
+)
+
+type strs []string
+
+func (ss *strs) String() string {
+	return strings.Join(*ss, ",")
+}
+
+func (ss *strs) Set(str string) error {
+	*ss = append(*ss, str)
+	return nil
+}
+
 var (
 	// Default is the default config
 	Default = Config{
+		Plugins: make(map[int]interface{}),
 		Network: Network{
 			Host:           "0.0.0.0",
 			Port:           4689,
 			ExternalHost:   "",
 			ExternalPort:   4689,
-			BootstrapNodes: make([]string, 0),
+			BootstrapNodes: []string{},
 			MasterKey:      "",
 		},
 		Chain: Chain{
-			ChainDBPath:             "/tmp/chain.db",
-			TrieDBPath:              "/tmp/trie.db",
-			ID:                      1,
-			Address:                 "",
-			ProducerPrivKey:         keypair.EncodePrivateKey(PrivateKey),
-			EmptyGenesis:            false,
-			NumCandidates:           101,
-			BeaconChainAPIs:         []string{},
-			BeaconChainDB:           DB{DbPath: "/tmp/poll.db", NumRetries: 10},
+			ChainDBPath:     "./chain.db",
+			TrieDBPath:      "./trie.db",
+			ID:              1,
+			Address:         "",
+			ProducerPrivKey: PrivateKey.HexString(),
+			EmptyGenesis:    false,
+			NumCandidates:   101,
+			GravityChainDB:  DB{DbPath: "./poll.db", NumRetries: 10},
+			Committee: committee.Config{
+				BeaconChainAPIs: []string{},
+			},
 			EnableFallBackToFreshDB: false,
 			EnableTrielessStateDB:   true,
-			EnableIndex:             false,
-			EnableAsyncIndexWrite:   false,
+			EnableAsyncIndexWrite:   true,
+			CompressBlock:           false,
 			AllowedBlockGasResidue:  10000,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
 			MaxNumActsPerAcct: 2000,
-			MaxNumActsToPick:  0,
 			ActionExpiry:      10 * time.Minute,
 		},
 		Consensus: Consensus{
@@ -109,8 +129,9 @@ var (
 			},
 		},
 		BlockSync: BlockSync{
-			Interval:   10 * time.Second,
-			BufferSize: 16,
+			Interval:     10 * time.Second,
+			BufferSize:   50,
+			IntervalSize: 10,
 		},
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
@@ -128,7 +149,6 @@ var (
 			MaxTransferPayloadBytes: 1024,
 		},
 		API: API{
-			Enabled:   false,
 			UseRDS:    false,
 			Port:      14014,
 			TpsWindow: 10,
@@ -137,7 +157,6 @@ var (
 				DefaultGas:         1,
 				Percentile:         60,
 			},
-			MaxTransferPayloadBytes: 1024,
 		},
 		Indexer: Indexer{
 			Enabled:           false,
@@ -148,9 +167,8 @@ var (
 		},
 		System: System{
 			HeartbeatInterval:     10 * time.Second,
-			HTTPProfilingPort:     0,
-			HTTPMetricsPort:       8080,
-			HTTPProbePort:         7788,
+			HTTPStatsPort:         8080,
+			HTTPAdminPort:         9009,
 			StartSubChainInterval: 10 * time.Second,
 		},
 		DB: DB{
@@ -177,7 +195,7 @@ var (
 	}
 
 	// PrivateKey is a randomly generated producer's key for testing purpose
-	PrivateKey, _ = crypto.GenerateKey()
+	PrivateKey, _ = keypair.GenerateKey()
 )
 
 // Network is the config struct for network package
@@ -193,21 +211,22 @@ type (
 
 	// Chain is the config struct for blockchain package
 	Chain struct {
-		ChainDBPath             string   `yaml:"chainDBPath"`
-		TrieDBPath              string   `yaml:"trieDBPath"`
-		ID                      uint32   `yaml:"id"`
-		Address                 string   `yaml:"address"`
-		ProducerPrivKey         string   `yaml:"producerPrivKey"`
-		EmptyGenesis            bool     `yaml:"emptyGenesis"`
-		NumCandidates           uint     `yaml:"numCandidates"`
-		BeaconChainAPIs         []string `yaml:"beaconChainAPIs"`
-		BeaconChainDB           DB       `yaml:"beaconChainDB"`
-		EnableFallBackToFreshDB bool     `yaml:"enableFallbackToFreshDb"`
-		EnableTrielessStateDB   bool     `yaml:"enableTrielessStateDB"`
-		// enable index the block actions and receipts
-		EnableIndex bool `yaml:"enableIndex"`
-		// enable writing the block actions' and receipts' index asynchronously
+		ChainDBPath     string           `yaml:"chainDBPath"`
+		TrieDBPath      string           `yaml:"trieDBPath"`
+		ID              uint32           `yaml:"id"`
+		Address         string           `yaml:"address"`
+		ProducerPrivKey string           `yaml:"producerPrivKey"`
+		EmptyGenesis    bool             `yaml:"emptyGenesis"`
+		NumCandidates   uint             `yaml:"numCandidates"`
+		GravityChainDB  DB               `yaml:"gravityChainDB"`
+		Committee       committee.Config `yaml:"committee"`
+
+		EnableFallBackToFreshDB bool `yaml:"enableFallbackToFreshDb"`
+		EnableTrielessStateDB   bool `yaml:"enableTrielessStateDB"`
+		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
+		// CompressBlock enables gzip compression on block data
+		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
 	}
@@ -221,8 +240,9 @@ type (
 
 	// BlockSync is the config struct for the BlockSync
 	BlockSync struct {
-		Interval   time.Duration `yaml:"interval"` // update duration
-		BufferSize uint64        `yaml:"bufferSize"`
+		Interval     time.Duration `yaml:"interval"` // update duration
+		BufferSize   uint64        `yaml:"bufferSize"`
+		IntervalSize uint64        `yaml:"intervalSize"`
 	}
 
 	// RollDPoS is the config struct for RollDPoS consensus package
@@ -251,14 +271,10 @@ type (
 
 	// API is the api service config
 	API struct {
-		Enabled    bool       `yaml:"enabled"`
-		IsTest     bool       `yaml:"isTest"`
 		UseRDS     bool       `yaml:"useRDS"`
 		Port       int        `yaml:"port"`
 		TpsWindow  int        `yaml:"tpsWindow"`
 		GasStation GasStation `yaml:"gasStation"`
-		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
-		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
 	}
 
 	// GasStation is the gas station config
@@ -284,9 +300,8 @@ type (
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
 		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
 		// 0 by default, meaning performance profiling has been disabled
-		HTTPProfilingPort     int           `yaml:"httpProfilingPort"`
-		HTTPMetricsPort       int           `yaml:"httpMetricsPort"`
-		HTTPProbePort         int           `yaml:"httpProbePort"`
+		HTTPAdminPort         int           `yaml:"httpAdminPort"`
+		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
 	}
 
@@ -296,9 +311,6 @@ type (
 		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
 		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
-		// MaxNumActsToPick indicates maximum number of actions to pick to mint a block. Default is 0, which means no
-		// limit on the number of actions to pick.
-		MaxNumActsToPick uint64 `yaml:"maxNumActsToPick"`
 		// ActionExpiry defines how long an action will be kept in action pool.
 		ActionExpiry time.Duration `yaml:"actionExpiry"`
 	}
@@ -340,19 +352,20 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Network    Network          `yaml:"network"`
-		Chain      Chain            `yaml:"chain"`
-		ActPool    ActPool          `yaml:"actPool"`
-		Consensus  Consensus        `yaml:"consensus"`
-		BlockSync  BlockSync        `yaml:"blockSync"`
-		Dispatcher Dispatcher       `yaml:"dispatcher"`
-		Explorer   Explorer         `yaml:"explorer"`
-		API        API              `yaml:"api"`
-		Indexer    Indexer          `yaml:"indexer"`
-		System     System           `yaml:"system"`
-		DB         DB               `yaml:"db"`
-		Log        log.GlobalConfig `yaml:"log"`
-		Genesis    genesis.Genesis  `yaml:"genesis"`
+		Plugins    map[int]interface{} `ymal:"plugins"`
+		Network    Network             `yaml:"network"`
+		Chain      Chain               `yaml:"chain"`
+		ActPool    ActPool             `yaml:"actPool"`
+		Consensus  Consensus           `yaml:"consensus"`
+		BlockSync  BlockSync           `yaml:"blockSync"`
+		Dispatcher Dispatcher          `yaml:"dispatcher"`
+		Explorer   Explorer            `yaml:"explorer"`
+		API        API                 `yaml:"api"`
+		Indexer    Indexer             `yaml:"indexer"`
+		System     System              `yaml:"system"`
+		DB         DB                  `yaml:"db"`
+		Log        log.GlobalConfig    `yaml:"log"`
+		Genesis    genesis.Genesis     `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config
@@ -385,6 +398,16 @@ func New(validates ...Validate) (Config, error) {
 	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
+	}
+
+	// set plugins
+	for _, plugin := range _plugins {
+		switch strings.ToLower(plugin) {
+		case "gateway":
+			cfg.Plugins[GatewayPlugin] = nil
+		default:
+			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
+		}
 	}
 
 	// By default, the config needs to pass all the validation
@@ -436,8 +459,7 @@ func NewSub(validates ...Validate) (Config, error) {
 // ProducerAddress returns the configured producer address derived from key
 func (cfg Config) ProducerAddress() address.Address {
 	sk := cfg.ProducerPrivateKey()
-	pkHash := keypair.HashPubKey(&sk.PublicKey)
-	addr, err := address.FromBytes(pkHash[:])
+	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	if err != nil {
 		log.L().Panic(
 			"Error when constructing producer address",
@@ -449,11 +471,10 @@ func (cfg Config) ProducerAddress() address.Address {
 
 // ProducerPrivateKey returns the configured private key
 func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
-	sk, err := keypair.DecodePrivateKey(cfg.Chain.ProducerPrivKey)
+	sk, err := keypair.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		log.L().Panic(
 			"Error when decoding private key",
-			zap.String("key", cfg.Chain.ProducerPrivKey),
 			zap.Error(err),
 		)
 	}
@@ -499,7 +520,7 @@ func ValidateExplorer(cfg Config) error {
 
 // ValidateAPI validates the api configs
 func ValidateAPI(cfg Config) error {
-	if cfg.API.Enabled && cfg.API.TpsWindow <= 0 {
+	if cfg.API.TpsWindow <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "tps window is not a positive integer when the api is enabled")
 	}
 	return nil

@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"bufio"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -41,6 +42,7 @@ const (
 	resetTag     = 6
 )
 
+// Multiplex is a mplex session.
 type Multiplex struct {
 	con       net.Conn
 	buf       *bufio.Reader
@@ -52,15 +54,15 @@ type Multiplex struct {
 	shutdownErr  error
 	shutdownLock sync.Mutex
 
-	wrLock sync.Mutex
+	wrTkn chan struct{}
 
 	nstreams chan *Stream
-	hdrBuf   []byte
 
 	channels map[streamID]*Stream
 	chLock   sync.Mutex
 }
 
+// NewMultiplex creates a new multiplexer session.
 func NewMultiplex(con net.Conn, initiator bool) *Multiplex {
 	mp := &Multiplex{
 		con:       con,
@@ -69,25 +71,31 @@ func NewMultiplex(con net.Conn, initiator bool) *Multiplex {
 		channels:  make(map[streamID]*Stream),
 		closed:    make(chan struct{}),
 		shutdown:  make(chan struct{}),
+		wrTkn:     make(chan struct{}, 1),
 		nstreams:  make(chan *Stream, 16),
-		hdrBuf:    make([]byte, 20),
 	}
 
 	go mp.handleIncoming()
 
+	mp.wrTkn <- struct{}{}
+
 	return mp
 }
 
-func (mp *Multiplex) newStream(id streamID, name string) *Stream {
-	return &Stream{
+func (mp *Multiplex) newStream(id streamID, name string) (s *Stream) {
+	s = &Stream{
 		id:     id,
 		name:   name,
 		dataIn: make(chan []byte, 8),
 		reset:  make(chan struct{}),
 		mp:     mp,
 	}
+
+	s.closedLocal, s.doCloseLocal = context.WithCancel(context.Background())
+	return
 }
 
+// Accept accepts the next stream from the connection.
 func (m *Multiplex) Accept() (*Stream, error) {
 	select {
 	case s, ok := <-m.nstreams:
@@ -100,6 +108,7 @@ func (m *Multiplex) Accept() (*Stream, error) {
 	}
 }
 
+// Close closes the session.
 func (mp *Multiplex) Close() error {
 	mp.closeNoWait()
 
@@ -120,6 +129,7 @@ func (mp *Multiplex) closeNoWait() {
 	mp.shutdownLock.Unlock()
 }
 
+// IsClosed returns true if the session is closed.
 func (mp *Multiplex) IsClosed() bool {
 	select {
 	case <-mp.closed:
@@ -129,34 +139,44 @@ func (mp *Multiplex) IsClosed() bool {
 	}
 }
 
-func (mp *Multiplex) sendMsg(header uint64, data []byte, dl time.Time) error {
-	mp.wrLock.Lock()
-	defer mp.wrLock.Unlock()
-	if !dl.IsZero() {
+func (mp *Multiplex) sendMsg(ctx context.Context, header uint64, data []byte) error {
+	select {
+	case tkn := <-mp.wrTkn:
+		defer func() { mp.wrTkn <- tkn }()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	dl, hasDl := ctx.Deadline()
+	if hasDl {
 		if err := mp.con.SetWriteDeadline(dl); err != nil {
 			return err
 		}
 	}
-	n := binary.PutUvarint(mp.hdrBuf, header)
-	n += binary.PutUvarint(mp.hdrBuf[n:], uint64(len(data)))
-	_, err := mp.con.Write(mp.hdrBuf[:n])
-	if err != nil {
+	buf := pool.Get(len(data) + 20)
+	defer pool.Put(buf)
+
+	n := 0
+	n += binary.PutUvarint(buf[n:], header)
+	n += binary.PutUvarint(buf[n:], uint64(len(data)))
+	n += copy(buf[n:], data)
+
+	written, err := mp.con.Write(buf[:n])
+	if err != nil && written > 0 {
+		// Bail. We've written partial message and can't do anything
+		// about this.
+		mp.con.Close()
 		return err
 	}
 
-	if len(data) != 0 {
-		_, err = mp.con.Write(data)
-		if err != nil {
-			return err
-		}
-	}
-	if !dl.IsZero() {
-		if err := mp.con.SetWriteDeadline(time.Time{}); err != nil {
-			return err
+	if hasDl {
+		// only return this error if we don't *already* have an error from the write.
+		if err2 := mp.con.SetWriteDeadline(time.Time{}); err == nil && err2 != nil {
+			return err2
 		}
 	}
 
-	return nil
+	return err
 }
 
 func (mp *Multiplex) nextChanID() uint64 {
@@ -165,16 +185,19 @@ func (mp *Multiplex) nextChanID() uint64 {
 	return out
 }
 
+// NewStream creates a new stream.
 func (mp *Multiplex) NewStream() (*Stream, error) {
 	return mp.NewNamedStream("")
 }
 
+// NewNamedStream creates a new named stream.
 func (mp *Multiplex) NewNamedStream(name string) (*Stream, error) {
 	mp.chLock.Lock()
 
 	// We could call IsClosed but this is faster (given that we already have
 	// the lock).
 	if mp.channels == nil {
+		mp.chLock.Unlock()
 		return nil, ErrShutdown
 	}
 
@@ -191,7 +214,7 @@ func (mp *Multiplex) NewNamedStream(name string) (*Stream, error) {
 	mp.channels[s.id] = s
 	mp.chLock.Unlock()
 
-	err := mp.sendMsg(header, []byte(name), time.Time{})
+	err := mp.sendMsg(context.Background(), header, []byte(name))
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +233,8 @@ func (mp *Multiplex) cleanup() {
 			// Cancel readers
 			close(msch.reset)
 		}
-		msch.closedLocal = true
+
+		msch.doCloseLocal()
 		msch.clLock.Unlock()
 	}
 	// Don't remove this nil assignment. We check if this is nil to check if
@@ -273,6 +297,8 @@ func (mp *Multiplex) handleIncoming() {
 			}
 
 			name := string(b)
+			pool.Put(b)
+
 			msch = mp.newStream(ch, name)
 			mp.chLock.Lock()
 			mp.channels[ch] = msch
@@ -292,7 +318,8 @@ func (mp *Multiplex) handleIncoming() {
 
 			// Honestly, this check should never be true... It means we've leaked.
 			// However, this is an error on *our* side so we shouldn't just bail.
-			if msch.closedLocal && msch.closedRemote {
+			isClosed := msch.isClosed()
+			if isClosed && msch.closedRemote {
 				msch.clLock.Unlock()
 				log.Errorf("leaked a completely closed stream")
 				continue
@@ -302,7 +329,8 @@ func (mp *Multiplex) handleIncoming() {
 				close(msch.reset)
 			}
 			msch.closedRemote = true
-			msch.closedLocal = true
+			msch.doCloseLocal()
+
 			msch.clLock.Unlock()
 
 			mp.chLock.Lock()
@@ -325,7 +353,7 @@ func (mp *Multiplex) handleIncoming() {
 			close(msch.dataIn)
 			msch.closedRemote = true
 
-			cleanup := msch.closedLocal
+			cleanup := msch.isClosed()
 
 			msch.clLock.Unlock()
 
@@ -336,10 +364,13 @@ func (mp *Multiplex) handleIncoming() {
 			}
 		case messageTag:
 			if !ok {
+				// reset stream, return b
+				pool.Put(b)
+
 				// This is a perfectly valid case when we reset
 				// and forget about the stream.
 				log.Debugf("message for non-existant stream, dropping data: %d", ch)
-				go mp.sendMsg(ch.header(resetTag), nil, time.Time{})
+				go mp.sendMsg(context.Background(), ch.header(resetTag), nil)
 				continue
 			}
 
@@ -347,8 +378,11 @@ func (mp *Multiplex) handleIncoming() {
 			remoteClosed := msch.closedRemote
 			msch.clLock.Unlock()
 			if remoteClosed {
+				// closed stream, return b
+				pool.Put(b)
+
 				log.Errorf("Received data from remote after stream was closed by them. (len = %d)", len(b))
-				go mp.sendMsg(msch.id.header(resetTag), nil, time.Time{})
+				go mp.sendMsg(context.Background(), msch.id.header(resetTag), nil)
 				continue
 			}
 
@@ -356,7 +390,9 @@ func (mp *Multiplex) handleIncoming() {
 			select {
 			case msch.dataIn <- b:
 			case <-msch.reset:
+				pool.Put(b)
 			case <-recvTimeout.C:
+				pool.Put(b)
 				log.Warningf("timed out receiving message into stream queue.")
 				// Do not do this asynchronously. Otherwise, we
 				// could drop a message, then receive a message,
@@ -364,6 +400,7 @@ func (mp *Multiplex) handleIncoming() {
 				msch.Reset()
 				continue
 			case <-mp.shutdown:
+				pool.Put(b)
 				return
 			}
 			if !recvTimeout.Stop() {

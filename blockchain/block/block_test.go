@@ -8,14 +8,26 @@ package block
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
+	"time"
+
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
+
+	"github.com/iotexproject/iotex-core/pkg/compress"
+
+	"github.com/iotexproject/iotex-core/test/identityset"
+
+	"github.com/iotexproject/iotex-core/pkg/unit"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -69,7 +81,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 				Version: version.ProtocolVersion,
 				Height:  123456789,
 			},
-			ProducerPubkey: keypair.PublicKeyToBytes(senderPubKey),
+			ProducerPubkey: senderPubKey.Bytes(),
 		},
 		Actions: []*iotextypes.Action{
 			{
@@ -80,7 +92,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   101,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -90,7 +102,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   102,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -100,7 +112,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   103,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 			{
 				Core: &iotextypes.ActionCore{
@@ -110,7 +122,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 					Version: version.ProtocolVersion,
 					Nonce:   104,
 				},
-				SenderPubKey: keypair.PublicKeyToBytes(senderPubKey),
+				SenderPubKey: senderPubKey.Bytes(),
 			},
 		},
 	}))
@@ -138,4 +150,96 @@ func TestConvertFromBlockPb(t *testing.T) {
 
 	require.Equal(t, blk.Header.txRoot, blk.TxRoot())
 	require.Equal(t, blk.Header.receiptRoot, blk.ReceiptRoot())
+}
+
+func TestBlockCompressionSize(t *testing.T) {
+	for _, n := range []int{1, 10, 100, 1000, 10000} {
+		blk := makeBlock(t, n)
+		blkBytes, err := blk.Serialize()
+		require.NoError(t, err)
+		compressedBlkBytes, err := compress.Compress(blkBytes)
+		require.NoError(t, err)
+		log.L().Info(
+			"Compression result",
+			zap.Int("numActions", n),
+			zap.Int("before", len(blkBytes)),
+			zap.Int("after", len(compressedBlkBytes)),
+		)
+	}
+}
+
+func BenchmarkBlockCompression(b *testing.B) {
+	for _, i := range []int{1, 10, 100, 1000, 2000} {
+		b.Run(fmt.Sprintf("numActions: %d", i), func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				blk := makeBlock(b, i)
+				blkBytes, err := blk.Serialize()
+				require.NoError(b, err)
+				b.StartTimer()
+				_, err = compress.Compress(blkBytes)
+				b.StopTimer()
+				require.NoError(b, err)
+			}
+		})
+	}
+}
+
+func BenchmarkBlockDecompression(b *testing.B) {
+	for _, i := range []int{1, 10, 100, 1000, 2000} {
+		b.Run(fmt.Sprintf("numActions: %d", i), func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				blk := makeBlock(b, i)
+				blkBytes, err := blk.Serialize()
+				require.NoError(b, err)
+				blkBytes, err = compress.Compress(blkBytes)
+				require.NoError(b, err)
+				b.StartTimer()
+				_, err = compress.Decompress(blkBytes)
+				b.StopTimer()
+				require.NoError(b, err)
+			}
+		})
+	}
+}
+
+func makeBlock(tb testing.TB, n int) *Block {
+	rand.Seed(time.Now().Unix())
+	sevlps := make([]action.SealedEnvelope, 0)
+	for j := 1; j <= n; j++ {
+		i := rand.Int()
+		tsf, err := action.NewTransfer(
+			uint64(i),
+			unit.ConvertIotxToRau(1000+int64(i)),
+			identityset.Address(i%identityset.Size()).String(),
+			nil,
+			20000+uint64(i),
+			unit.ConvertIotxToRau(1+int64(i)),
+		)
+		require.NoError(tb, err)
+		eb := action.EnvelopeBuilder{}
+		evlp := eb.
+			SetAction(tsf).
+			SetGasLimit(tsf.GasLimit()).
+			SetGasPrice(tsf.GasPrice()).
+			SetNonce(tsf.Nonce()).
+			SetVersion(1).
+			Build()
+		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
+		require.NoError(tb, err)
+		sevlps = append(sevlps, sevlp)
+	}
+	rap := RunnableActionsBuilder{}
+	ra := rap.
+		SetHeight(1).
+		SetTimeStamp(time.Now().Unix()).
+		AddActions(sevlps...).
+		Build(identityset.PrivateKey(0).PublicKey())
+	blk, err := NewBuilder(ra).
+		SetVersion(1).
+		SetReceiptRoot(hash.Hash256b([]byte("hello, world!"))).
+		SetDeltaStateDigest(hash.Hash256b([]byte("world, hello!"))).
+		SetPrevBlockHash(hash.Hash256b([]byte("hello, block!"))).
+		SignAndBuild(identityset.PrivateKey(0))
+	require.NoError(tb, err)
+	return &blk
 }

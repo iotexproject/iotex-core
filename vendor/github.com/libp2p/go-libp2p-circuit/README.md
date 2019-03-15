@@ -2,8 +2,8 @@ go-libp2p-circuit
 ==================
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](https://protocol.ai)
-[![](https://img.shields.io/badge/project-IPFS-blue.svg?style=flat-square)](https://libp2p.io/)
-[![](https://img.shields.io/badge/freenode-%23ipfs-blue.svg?style=flat-square)](https://webchat.freenode.net/?channels=%23ipfs)
+[![](https://img.shields.io/badge/project-libp2p-yellow.svg?style=flat-square)](https://libp2p.io/)
+[![](https://img.shields.io/badge/freenode-%23libp2p-yellow.svg?style=flat-square)](https://webchat.freenode.net/?channels=%23libp2p)
 [![Coverage Status](https://img.shields.io/codecov/c/github/libp2p/go-libp2p-circuit.svg?style=flat-square&branch=master)](https://codecov.io/github/libp2p/go-libp2p-circuit?branch=master)
 [![Travis CI](https://travis-ci.org/libp2p/go-libp2p-circuit.svg?branch=master)](https://travis-ci.org/libp2p/go-libp2p-circuit)
 
@@ -24,7 +24,7 @@ go get -u github.com/libp2p/go-libp2p-circuit
 
 ## Usage
 
-TODO
+Refer to the [relay example](https://github.com/libp2p/go-libp2p-examples/tree/master/relay) in the `go-libp2p-examples` repository for usage instructions.
 
 ## Contribute
 

@@ -9,7 +9,6 @@ package action
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -136,8 +135,6 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_SettleDeposit{SettleDeposit: act.Proto()}
 	case *GrantReward:
 		actCore.Action = &iotextypes.ActionCore_GrantReward{GrantReward: act.Proto()}
-	case *SetReward:
-		actCore.Action = &iotextypes.ActionCore_SetReward{SetReward: act.Proto()}
 	case *ClaimFromRewardingFund:
 		actCore.Action = &iotextypes.ActionCore_ClaimFromRewardingFund{ClaimFromRewardingFund: act.Proto()}
 	case *DepositToRewardingFund:
@@ -220,12 +217,6 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 			return err
 		}
 		elp.payload = act
-	case pbAct.GetSetReward() != nil:
-		act := &SetReward{}
-		if err := act.LoadProto(pbAct.GetSetReward()); err != nil {
-			return err
-		}
-		elp.payload = act
 	case pbAct.GetClaimFromRewardingFund() != nil:
 		act := &ClaimFromRewardingFund{}
 		if err := act.LoadProto(pbAct.GetClaimFromRewardingFund()); err != nil {
@@ -279,7 +270,7 @@ func (sealed *SealedEnvelope) Signature() []byte {
 func (sealed SealedEnvelope) Proto() *iotextypes.Action {
 	return &iotextypes.Action{
 		Core:         sealed.Envelope.Proto(),
-		SenderPubKey: keypair.PublicKeyToBytes(sealed.srcPubkey),
+		SenderPubKey: sealed.srcPubkey.Bytes(),
 		Signature:    sealed.signature,
 	}
 }
@@ -313,10 +304,10 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 func Sign(act Envelope, sk keypair.PrivateKey) (SealedEnvelope, error) {
 	sealed := SealedEnvelope{Envelope: act}
 
-	sealed.srcPubkey = &sk.PublicKey
+	sealed.srcPubkey = sk.PublicKey()
 
 	hash := act.Hash()
-	sig, err := crypto.Sign(hash[:], sk)
+	sig, err := sk.Sign(hash[:])
 	if err != nil {
 		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
 	}
@@ -354,8 +345,10 @@ func Verify(sealed SealedEnvelope) error {
 	if len(sealed.Signature()) != SignatureLength {
 		return errors.New("incorrect length of signature")
 	}
-	if success := crypto.VerifySignature(keypair.PublicKeyToBytes(sealed.SrcPubkey()), hash[:],
-		sealed.Signature()[:SignatureLength-1]); success {
+	if sealed.SrcPubkey() == nil {
+		return errors.New("empty public key")
+	}
+	if sealed.SrcPubkey().Verify(hash[:], sealed.Signature()) {
 		return nil
 	}
 	return errors.Wrapf(

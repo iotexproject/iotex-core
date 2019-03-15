@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -26,12 +25,12 @@ func TestPutBlock(t *testing.T) {
 		assert.Equal(t, uint64(1), pb.Nonce())
 		assert.Equal(t, addr2.String(), pb.SubChainAddress())
 		assert.Equal(t, uint64(10001), pb.Height())
-		assert.Equal(t, byteutil.BytesTo32B([]byte("10002")), pb.Roots()["10002"])
+		assert.Equal(t, hash.BytesToHash256([]byte("10002")), pb.Roots()["10002"])
 		assert.Equal(t, uint64(10003), pb.GasLimit())
 		assert.Equal(t, big.NewInt(10004), pb.GasPrice())
 	}
 	roots := make(map[string]hash.Hash256)
-	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	roots["10002"] = hash.BytesToHash256([]byte("10002"))
 	pb := NewPutBlock(
 		1,
 		addr2.String(),
@@ -47,7 +46,7 @@ func TestPutBlock(t *testing.T) {
 func TestPutBlockProto(t *testing.T) {
 	addr2 := testaddress.Addrinfo["echo"]
 	roots := make(map[string]hash.Hash256)
-	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	roots["10002"] = hash.BytesToHash256([]byte("10002"))
 	pb := &PutBlock{
 		subChainAddress: addr2.String(),
 		height:          10001,
@@ -56,7 +55,7 @@ func TestPutBlockProto(t *testing.T) {
 	assertPB := func(pb *PutBlock) {
 		assert.Equal(t, addr2.String(), pb.SubChainAddress())
 		assert.Equal(t, uint64(10001), pb.Height())
-		assert.Equal(t, byteutil.BytesTo32B([]byte("10002")), pb.Roots()["10002"])
+		assert.Equal(t, hash.BytesToHash256([]byte("10002")), pb.Roots()["10002"])
 	}
 	putBlockPb := pb.Proto()
 	require.NotNil(t, putBlockPb)
@@ -69,10 +68,10 @@ func TestPutBlockProto(t *testing.T) {
 func TestPutBlockByteStream(t *testing.T) {
 	addr := testaddress.Addrinfo["producer"]
 	roots := make(map[string]hash.Hash256)
-	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
-	roots["10003"] = byteutil.BytesTo32B([]byte("10003"))
-	roots["10004"] = byteutil.BytesTo32B([]byte("10004"))
-	roots["10005"] = byteutil.BytesTo32B([]byte("10005"))
+	roots["10002"] = hash.BytesToHash256([]byte("10002"))
+	roots["10003"] = hash.BytesToHash256([]byte("10003"))
+	roots["10004"] = hash.BytesToHash256([]byte("10004"))
+	roots["10005"] = hash.BytesToHash256([]byte("10005"))
 	pb := NewPutBlock(
 		1,
 		addr.String(),

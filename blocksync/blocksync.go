@@ -85,13 +85,13 @@ func NewBlockSyncer(
 	cs consensus.Consensus,
 	opts ...Option,
 ) (BlockSync, error) {
-	bufSize := cfg.BlockSync.BufferSize
 	buf := &blockBuffer{
-		blocks: make(map[uint64]*block.Block),
-		bc:     chain,
-		ap:     ap,
-		cs:     cs,
-		size:   bufSize,
+		blocks:       make(map[uint64]*block.Block),
+		bc:           chain,
+		ap:           ap,
+		cs:           cs,
+		bufferSize:   cfg.BlockSync.BufferSize,
+		intervalSize: cfg.BlockSync.IntervalSize,
 	}
 	bsCfg := Config{}
 	for _, opt := range opts {
@@ -189,7 +189,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		}
 		// TODO: send back multiple blocks in one shot
 		if err := bs.unicastHandler(context.Background(), peer,
-			&iotexrpc.BlockContainer{Block: blk.ConvertToBlockPb()},
+			blk.ConvertToBlockPb(),
 		); err != nil {
 			log.L().Warn("Failed to response to ProcessSyncRequest.", zap.Error(err))
 		}

@@ -10,7 +10,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -40,8 +42,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -50,11 +50,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-)
-
-const (
-	testTriePath = "trie.test"
-	testDBPath   = "db.test"
 )
 
 func addTestingBlocks(bc blockchain.Blockchain) error {
@@ -210,14 +205,15 @@ func addActsToActPool(ap actpool.ActPool) error {
 func TestExplorerApi(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.EnableIndex = true
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
@@ -266,147 +262,9 @@ func TestExplorerApi(t *testing.T) {
 		gs:  GasStation{bc, explorerCfg},
 	}
 
-	transfers, err := svc.GetTransfersByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(5, len(transfers))
-
-	votes, err := svc.GetVotesByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(4, len(votes))
-
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["charlie"].String(), 0, 2)
-	require.Nil(err)
-	require.Equal(2, len(votes))
-
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["alfa"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(2, len(votes))
-
-	votes, err = svc.GetVotesByAddress(ta.Addrinfo["delta"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(0, len(votes))
-
-	executions, err := svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(2, len(executions))
-
-	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["alfa"].String(), 0, 10)
-	require.Nil(err)
-	require.Equal(1, len(executions))
-
-	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, true)
-	require.Equal(3, len(transfers))
-	require.Nil(err)
-	for i := 0; i < len(transfers)-1; i++ {
-		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
-	}
-	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, true)
-	require.Equal(1, len(transfers))
-	require.Nil(err)
-	for i := 0; i < len(transfers)-1; i++ {
-		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
-	}
-
-	transfers, err = svc.GetLastTransfersByRange(4, 1, 3, false)
-	require.Equal(3, len(transfers))
-	require.Nil(err)
-	for i := 0; i < len(transfers)-1; i++ {
-		require.True(transfers[i].Timestamp >= transfers[i+1].Timestamp)
-	}
-	transfers, err = svc.GetLastTransfersByRange(4, 4, 5, false)
-	require.Equal(1, len(transfers))
-	require.Nil(err)
-
-	votes, err = svc.GetLastVotesByRange(4, 0, 10)
-	require.Equal(3, len(votes))
-	require.Nil(err)
-	for i := 0; i < len(votes)-1; i++ {
-		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
-	}
-	votes, err = svc.GetLastVotesByRange(3, 0, 50)
-	require.Equal(1, len(votes))
-	require.Nil(err)
-	for i := 0; i < len(votes)-1; i++ {
-		require.True(votes[i].Timestamp >= votes[i+1].Timestamp)
-	}
-
-	executions, err = svc.GetLastExecutionsByRange(4, 0, 3)
-	require.Equal(3, len(executions))
-	require.Nil(err)
-	for i := 0; i < len(executions)-1; i++ {
-		require.True(executions[i].Timestamp >= executions[i+1].Timestamp)
-	}
-	executions, err = svc.GetLastExecutionsByRange(3, 0, 50)
-	require.Equal(1, len(executions))
-	require.Nil(err)
-
 	blks, getBlkErr := svc.GetLastBlocksByRange(3, 4)
 	require.Nil(getBlkErr)
 	require.Equal(3, len(blks))
-
-	transfers, err = svc.GetTransfersByBlockID(blks[2].ID, 0, 10)
-	require.Nil(err)
-	require.Equal(1, len(transfers))
-
-	// fail
-	_, err = svc.GetTransfersByBlockID("", 0, 10)
-	require.Error(err)
-
-	votes, err = svc.GetVotesByBlockID(blks[1].ID, 0, 0)
-	require.Nil(err)
-	require.Equal(0, len(votes))
-
-	votes, err = svc.GetVotesByBlockID(blks[1].ID, 0, 10)
-	require.Nil(err)
-	require.Equal(1, len(votes))
-
-	// fail
-	_, err = svc.GetVotesByBlockID("", 0, 10)
-	require.Error(err)
-
-	// fail
-	_, err = svc.GetExecutionsByBlockID("", 0, 10)
-	require.Error(err)
-
-	executions, err = svc.GetExecutionsByBlockID(blks[1].ID, 0, 10)
-	require.Nil(err)
-	require.Equal(1, len(executions))
-
-	transfer, err := svc.GetTransferByID(transfers[0].ID)
-	require.Nil(err)
-	require.Equal(transfers[0].Sender, transfer.Sender)
-	require.Equal(transfers[0].Recipient, transfer.Recipient)
-	require.Equal(transfers[0].BlockID, transfer.BlockID)
-
-	// error
-	_, err = svc.GetTransferByID("")
-	require.Error(err)
-
-	vote, err := svc.GetVoteByID(votes[0].ID)
-	require.Nil(err)
-	require.Equal(votes[0].Nonce, vote.Nonce)
-	require.Equal(votes[0].BlockID, vote.BlockID)
-	require.Equal(votes[0].Timestamp, vote.Timestamp)
-	require.Equal(votes[0].ID, vote.ID)
-	require.Equal(votes[0].Votee, vote.Votee)
-	require.Equal(votes[0].Voter, vote.Voter)
-
-	// fail
-	_, err = svc.GetVoteByID("")
-	require.Error(err)
-
-	execution, err := svc.GetExecutionByID(executions[0].ID)
-	require.Nil(err)
-	require.Equal(executions[0].Nonce, execution.Nonce)
-	require.Equal(executions[0].BlockID, execution.BlockID)
-	require.Equal(executions[0].Timestamp, execution.Timestamp)
-	require.Equal(executions[0].ID, execution.ID)
-	require.Equal(executions[0].Executor, execution.Executor)
-	require.Equal(executions[0].Contract, execution.Contract)
-
-	// fail
-	_, err = svc.GetExecutionByID("")
-	require.Error(err)
 
 	blk, err := svc.GetBlockByID(blks[0].ID)
 	require.Nil(err)
@@ -423,9 +281,9 @@ func TestExplorerApi(t *testing.T) {
 	stats, err := svc.GetCoinStatistic()
 	require.Nil(err)
 	require.Equal(int64(4), stats.Height)
-	require.Equal(int64(5), stats.Transfers)
-	require.Equal(int64(3), stats.Votes)
-	require.Equal(int64(3), stats.Executions)
+	require.Equal(int64(0), stats.Transfers)
+	require.Equal(int64(0), stats.Votes)
+	require.Equal(int64(0), stats.Executions)
 	require.Equal(int64(11), stats.Aps)
 
 	// success
@@ -456,39 +314,6 @@ func TestExplorerApi(t *testing.T) {
 	err = addActsToActPool(ap)
 	require.NoError(err)
 
-	// success
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].String(), 0, 3)
-	require.Nil(err)
-	require.Equal(2, len(transfers))
-	require.Equal(int64(2), transfers[0].Nonce)
-	require.Equal(int64(4), transfers[1].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].String(), 0, 3)
-	require.Nil(err)
-	require.Equal(1, len(votes))
-	require.Equal(int64(3), votes[0].Nonce)
-	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].String(), 0, 3)
-	require.Nil(err)
-	require.Equal(1, len(executions))
-	require.Equal(int64(5), executions[0].Nonce)
-	transfers, err = svc.GetUnconfirmedTransfersByAddress(ta.Addrinfo["producer"].String(), 1, 1)
-	require.Nil(err)
-	require.Equal(1, len(transfers))
-	require.Equal(int64(4), transfers[0].Nonce)
-	votes, err = svc.GetUnconfirmedVotesByAddress(ta.Addrinfo["producer"].String(), 1, 1)
-	require.Nil(err)
-	require.Equal(0, len(votes))
-	executions, err = svc.GetUnconfirmedExecutionsByAddress(ta.Addrinfo["producer"].String(), 1, 1)
-	require.Nil(err)
-	require.Equal(0, len(executions))
-
-	// error
-	_, err = svc.GetUnconfirmedTransfersByAddress("", 0, 3)
-	require.Error(err)
-	_, err = svc.GetUnconfirmedVotesByAddress("", 0, 3)
-	require.Error(err)
-	_, err = svc.GetUnconfirmedExecutionsByAddress("", 0, 3)
-	require.Error(err)
-
 	// test GetBlockOrActionByHash
 	res, err := svc.GetBlockOrActionByHash("")
 	require.NoError(err)
@@ -505,35 +330,6 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Execution)
 	require.Nil(res.Address)
 	require.Equal(&blks[0], res.Block)
-
-	res, err = svc.GetBlockOrActionByHash(transfers[0].ID)
-	require.NoError(err)
-	require.Nil(res.Block)
-	require.Nil(res.Vote)
-	require.Nil(res.Execution)
-	require.Nil(res.Address)
-	require.Equal(&transfers[0], res.Transfer)
-
-	votes, err = svc.GetLastVotesByRange(3, 0, 50)
-	require.NoError(err)
-	res, err = svc.GetBlockOrActionByHash(votes[0].ID)
-	require.NoError(err)
-	require.Nil(res.Block)
-	require.Nil(res.Transfer)
-	require.Nil(res.Execution)
-	require.Nil(res.Address)
-	require.Equal(&votes[0], res.Vote)
-
-	executions, err = svc.GetExecutionsByAddress(ta.Addrinfo["charlie"].String(), 0, 10)
-	require.NoError(err)
-	res, err = svc.GetBlockOrActionByHash(executions[0].ID)
-	require.NoError(err)
-	require.Nil(res.Block)
-	require.Nil(res.Transfer)
-	require.Nil(res.Vote)
-	require.Nil(res.Address)
-	require.Equal(&executions[0], res.Execution)
-	require.Equal(len(executions), 2)
 
 	res, err = svc.GetBlockOrActionByHash(ta.Addrinfo["charlie"].String())
 	require.NoError(err)
@@ -655,7 +451,7 @@ func TestService_SendTransfer(t *testing.T) {
 		Recipient:    ta.Addrinfo["alfa"].String(),
 		Amount:       big.NewInt(1).String(),
 		GasPrice:     big.NewInt(0).String(),
-		SenderPubKey: keypair.EncodePublicKey(ta.Keyinfo["producer"].PubKey),
+		SenderPubKey: ta.Keyinfo["producer"].PubKey.HexString(),
 		Signature:    "",
 		Payload:      "",
 	}
@@ -690,7 +486,7 @@ func TestService_SendVote(t *testing.T) {
 		Nonce:       1,
 		Voter:       ta.Addrinfo["producer"].String(),
 		Votee:       ta.Addrinfo["alfa"].String(),
-		VoterPubKey: keypair.EncodePublicKey(ta.Keyinfo["producer"].PubKey),
+		VoterPubKey: ta.Keyinfo["producer"].PubKey.HexString(),
 		GasPrice:    big.NewInt(0).String(),
 		Signature:   "",
 	}
@@ -724,7 +520,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	explorerExecution.Version = int64(execution.Version())
 
 	exe := execution.Action().(*action.Execution)
-	explorerExecution.ExecutorPubKey = keypair.EncodePublicKey(exe.ExecutorPublicKey())
+	explorerExecution.ExecutorPubKey = exe.ExecutorPublicKey().HexString()
 	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
 	chain.EXPECT().ExecuteContractRead(gomock.Any(), gomock.Any()).Return(&action.Receipt{GasConsumed: 1000}, nil)
 
@@ -773,7 +569,7 @@ func TestServicePutSubChainBlock(t *testing.T) {
 		Version:       0x1,
 		Nonce:         1,
 		SenderAddress: ta.Addrinfo["producer"].String(),
-		SenderPubKey:  keypair.EncodePublicKey(ta.Keyinfo["producer"].PubKey),
+		SenderPubKey:  ta.Keyinfo["producer"].PubKey.HexString(),
 		GasPrice:      big.NewInt(0).String(),
 		Signature:     "",
 		Roots:         roots,
@@ -808,7 +604,7 @@ func TestServiceSendAction(t *testing.T) {
 	require.NotNil(err)
 
 	roots := make(map[string]hash.Hash256)
-	roots["10002"] = byteutil.BytesTo32B([]byte("10002"))
+	roots["10002"] = hash.BytesToHash256([]byte("10002"))
 	pb := action.NewPutBlock(
 		1,
 		ta.Addrinfo["producer"].String(),
@@ -924,15 +720,17 @@ func TestExplorerCandidateMetrics(t *testing.T) {
 
 func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	require := require.New(t)
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+
 	cfg := config.Default
+	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.EnableIndex = true
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	defer testutil.CleanupPath(t, testDBPath)
+	cfg.Chain.EnableAsyncIndexWrite = false
 
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.Nil(err)
@@ -1035,7 +833,7 @@ func TestService_CreateDeposit(t *testing.T) {
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
 		ChainID:      int64(deposit.ChainID()),
-		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
+		SenderPubKey: deposit.SenderPublicKey().HexString(),
 		Recipient:    deposit.Recipient(),
 		Amount:       deposit.Amount().String(),
 		Signature:    hex.EncodeToString(selp.Signature()),
@@ -1093,7 +891,7 @@ func TestService_SettleDeposit(t *testing.T) {
 	res, error := svc.SettleDeposit(explorer.SettleDepositRequest{
 		Version:      int64(deposit.Version()),
 		Nonce:        int64(deposit.Nonce()),
-		SenderPubKey: keypair.EncodePublicKey(deposit.SenderPublicKey()),
+		SenderPubKey: deposit.SenderPublicKey().HexString(),
 		Recipient:    deposit.Recipient(),
 		Amount:       deposit.Amount().String(),
 		Index:        int64(deposit.Index()),
@@ -1134,7 +932,7 @@ func TestService_GetDeposits(t *testing.T) {
 		},
 	))
 	require.NoError(ws.PutState(
-		byteutil.BytesTo20B(subChainAddr.Bytes()),
+		hash.BytesToHash160(subChainAddr.Bytes()),
 		&mainchain.SubChain{
 			DepositCount:   2,
 			OwnerPublicKey: ta.Keyinfo["producer"].PubKey,
@@ -1229,7 +1027,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: ta.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err

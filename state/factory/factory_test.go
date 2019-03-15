@@ -112,7 +112,7 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	addr := testaddress.Addrinfo["alfa"].String()
 	_, err := accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(5))
 	require.NoError(err)
-	sHash := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
+	sHash := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 
 	s, err := accountutil.LoadAccount(ws, sHash)
 	require.NoError(err)
@@ -131,7 +131,7 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	addr = testaddress.Addrinfo["bravo"].String()
 	_, err = accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(7))
 	require.NoError(err)
-	tHash := byteutil.BytesTo20B(testaddress.Addrinfo["bravo"].Bytes())
+	tHash := hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes())
 
 	s, err = accountutil.LoadAccount(ws, tHash)
 	require.NoError(err)
@@ -245,11 +245,11 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	require.NoError(t, err)
 
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
-		})
+	raCtx := protocol.RunActionsCtx{
+		Producer: testaddress.Addrinfo["producer"],
+		GasLimit: gasLimit,
+	}
+	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2})
 	require.Nil(t, err)
 	require.Nil(t, sf.Commit(ws))
@@ -274,11 +274,11 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	zctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &zeroGasLimit,
+			GasLimit: zeroGasLimit,
 		})
 	_, err = ws.RunActions(zctx, 0, []action.SealedEnvelope{selp})
 	require.NotNil(t, err)
-	_, err = ws.RunAction(ctx, selp)
+	_, err = ws.RunAction(raCtx, selp)
 	require.NoError(t, err)
 	newRoot := ws.UpdateBlockLevelInfo(0)
 	if checkStateRoot {
@@ -297,7 +297,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	elp = bd.SetAction(vote2).SetGasLimit(20000).Build()
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
-	_, err = ws.RunAction(ctx, selp)
+	_, err = ws.RunAction(raCtx, selp)
 	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(1)
 	if checkStateRoot {
@@ -319,7 +319,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
-	_, err = ws.RunAction(ctx, selp)
+	_, err = ws.RunAction(raCtx, selp)
 	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(2)
 	if checkStateRoot {
@@ -341,7 +341,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	selp, err = action.Sign(elp, priKeyB)
 	require.NoError(t, err)
 
-	_, err = ws.RunAction(ctx, selp)
+	_, err = ws.RunAction(raCtx, selp)
 	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(3)
 	if checkStateRoot {
@@ -363,7 +363,7 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
-	_, err = ws.RunAction(ctx, selp)
+	_, err = ws.RunAction(raCtx, selp)
 	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(4)
 	if checkStateRoot {
@@ -675,9 +675,9 @@ func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
 	selp2, err = action.Sign(elp, priKeyF)
 	require.NoError(t, err)
 
-	_, err = ws.RunAction(ctx, selp1)
+	_, err = ws.RunAction(raCtx, selp1)
 	require.NoError(t, err)
-	_, err = ws.RunAction(ctx, selp2)
+	_, err = ws.RunAction(raCtx, selp2)
 	require.NoError(t, err)
 	newRoot = ws.UpdateBlockLevelInfo(20)
 	if checkStateRoot {
@@ -864,13 +864,12 @@ func testState(sf Factory, t *testing.T) {
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
-		})
+	raCtx := protocol.RunActionsCtx{
+		Producer: testaddress.Addrinfo["producer"],
+		GasLimit: gasLimit,
+	}
 
-	_, err = ws.RunAction(ctx, selp)
+	_, err = ws.RunAction(raCtx, selp)
 	require.NoError(t, err)
 	_ = ws.UpdateBlockLevelInfo(0)
 	require.NoError(t, sf.Commit(ws))
@@ -883,7 +882,7 @@ func testState(sf Factory, t *testing.T) {
 	var testAccount state.Account
 	accountA, err := sf.AccountState(a)
 	require.NoError(t, err)
-	sHash := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
+	sHash := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 	err = sf.State(sHash, &testAccount)
 	require.NoError(t, err)
 	require.Equal(t, accountA, &testAccount)
@@ -939,13 +938,12 @@ func testNonce(sf Factory, t *testing.T) {
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
-		})
+	raCtx := protocol.RunActionsCtx{
+		Producer: testaddress.Addrinfo["producer"],
+		GasLimit: gasLimit,
+	}
 
-	_, err = ws.RunAction(ctx, selp)
+	_, err = ws.RunAction(raCtx, selp)
 	require.NoError(t, err)
 	nonce, err := sf.Nonce(a)
 	require.NoError(t, err)
@@ -958,7 +956,7 @@ func testNonce(sf Factory, t *testing.T) {
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
-	_, err = ws.RunAction(ctx, selp)
+	_, err = ws.RunAction(raCtx, selp)
 	require.NoError(t, err)
 	_ = ws.UpdateBlockLevelInfo(0)
 	require.NoError(t, sf.Commit(ws))
@@ -1021,7 +1019,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
 	require.Nil(t, err)
@@ -1230,7 +1228,7 @@ func testRunActions(ws WorkingSet, t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp1, selp2})
 	require.NoError(err)
@@ -1264,7 +1262,7 @@ func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
 	}
 
 	// test PutState()
-	hashA := byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes())
+	hashA := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 	accountA := state.EmptyAccount()
 	accountA.Balance = big.NewInt(70)
 	accountA.VotingWeight = big.NewInt(70)
@@ -1452,7 +1450,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 		zctx := protocol.WithRunActionsCtx(context.Background(),
 			protocol.RunActionsCtx{
 				Producer: testaddress.Addrinfo["producer"],
-				GasLimit: &gasLimit,
+				GasLimit: gasLimit,
 			})
 		_, err = ws.RunActions(zctx, uint64(n), acts)
 		if err != nil {

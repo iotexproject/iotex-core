@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// PutPollResult represents put the poll result from beacon chain.
+// PutPollResult represents put the poll result from gravity chain.
 type PutPollResult struct {
 	AbstractAction
 
@@ -57,11 +57,7 @@ func (r *PutPollResult) LoadProto(putPollResultPb *iotextypes.PutPollResult) err
 
 	r.height = putPollResultPb.Height
 
-	if err := r.candidates.LoadProto(putPollResultPb.Candidates); err != nil {
-		return err
-	}
-
-	return nil
+	return r.candidates.LoadProto(putPollResultPb.Candidates)
 }
 
 // Proto converts put poll result action into a proto message.

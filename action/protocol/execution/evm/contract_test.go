@@ -8,7 +8,9 @@ package evm
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,21 +23,16 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-const (
-	testTriePath = "trie.test"
-)
-
 func TestCreateContract(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -72,13 +69,13 @@ func TestCreateContract(t *testing.T) {
 	h := stateDB.GetCodeHash(evmAddr1)
 	require.Equal(emptyEVMHash, h)
 	require.Nil(stateDB.GetCode(evmAddr1))
-	require.NoError(stateDB.commitContracts())
+	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	require.Nil(err)
@@ -116,8 +113,8 @@ func TestCreateContract(t *testing.T) {
 
 func TestLoadStoreContract(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -152,8 +149,8 @@ func TestLoadStoreContract(t *testing.T) {
 	v1 := hash.Hash256b([]byte("cat"))
 	k2 := hash.Hash256b([]byte("dog"))
 	v2 := hash.Hash256b([]byte("dog"))
-	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract), k1, v1))
-	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract), k2, v2))
+	require.Nil(stateDB.setContractState(hash.BytesToHash160(contract), k1, v1))
+	require.Nil(stateDB.setContractState(hash.BytesToHash160(contract), k2, v2))
 
 	code1 := []byte("2nd contract creation")
 	addr1 := testaddress.Addrinfo["bravo"]
@@ -172,16 +169,16 @@ func TestLoadStoreContract(t *testing.T) {
 	v3 := hash.Hash256b([]byte("egg"))
 	k4 := hash.Hash256b([]byte("hen"))
 	v4 := hash.Hash256b([]byte("hen"))
-	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract1), k3, v3))
-	require.Nil(stateDB.setContractState(byteutil.BytesTo20B(contract1), k4, v4))
-	require.NoError(stateDB.commitContracts())
+	require.Nil(stateDB.setContractState(hash.BytesToHash160(contract1), k3, v3))
+	require.Nil(stateDB.setContractState(hash.BytesToHash160(contract1), k4, v4))
+	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	require.Nil(err)
@@ -203,26 +200,26 @@ func TestLoadStoreContract(t *testing.T) {
 		cb:             ws.GetCachedBatch(),
 	}
 
-	w, err := stateDB.getContractState(byteutil.BytesTo20B(contract), k1)
+	w, err := stateDB.getContractState(hash.BytesToHash160(contract), k1)
 	require.Nil(err)
 	require.Equal(v1, w)
-	w, err = stateDB.getContractState(byteutil.BytesTo20B(contract), k2)
+	w, err = stateDB.getContractState(hash.BytesToHash160(contract), k2)
 	require.Nil(err)
 	require.Equal(v2, w)
-	_, err = stateDB.getContractState(byteutil.BytesTo20B(contract), k3)
+	_, err = stateDB.getContractState(hash.BytesToHash160(contract), k3)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
-	_, err = stateDB.getContractState(byteutil.BytesTo20B(contract), k4)
+	_, err = stateDB.getContractState(hash.BytesToHash160(contract), k4)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	// query second contract
-	w, err = stateDB.getContractState(byteutil.BytesTo20B(contract1), k3)
+	w, err = stateDB.getContractState(hash.BytesToHash160(contract1), k3)
 	require.Nil(err)
 	require.Equal(v3, w)
-	w, err = stateDB.getContractState(byteutil.BytesTo20B(contract1), k4)
+	w, err = stateDB.getContractState(hash.BytesToHash160(contract1), k4)
 	require.Nil(err)
 	require.Equal(v4, w)
-	_, err = stateDB.getContractState(byteutil.BytesTo20B(contract1), k1)
+	_, err = stateDB.getContractState(hash.BytesToHash160(contract1), k1)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
-	_, err = stateDB.getContractState(byteutil.BytesTo20B(contract1), k2)
+	_, err = stateDB.getContractState(hash.BytesToHash160(contract1), k2)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	require.Nil(sf.Stop(context.Background()))
 }
@@ -240,7 +237,7 @@ func TestSnapshot(t *testing.T) {
 	v2 := hash.Hash256b([]byte("dog"))
 
 	c1, err := newContract(
-		byteutil.BytesTo20B(testaddress.Addrinfo["alfa"].Bytes()),
+		hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()),
 		s,
 		db.NewMemKVStore(),
 		db.NewCachedBatch(),

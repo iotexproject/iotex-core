@@ -34,8 +34,6 @@ func TestBlockBufferFlush(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -62,16 +60,14 @@ func TestBlockBufferFlush(t *testing.T) {
 	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
 		require.Nil(chain.Stop(ctx))
-		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	}()
 
 	b := blockBuffer{
-		bc:     chain,
-		ap:     ap,
-		cs:     cs,
-		blocks: make(map[uint64]*block.Block),
-		size:   16,
+		bc:         chain,
+		ap:         ap,
+		cs:         cs,
+		blocks:     make(map[uint64]*block.Block),
+		bufferSize: 16,
 	}
 	moved, re := b.Flush(nil)
 	assert.Equal(false, moved)
@@ -141,8 +137,6 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -166,19 +160,27 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
 		require.Nil(chain.Stop(ctx))
-		testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-		testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
 	}()
 
 	b := blockBuffer{
-		bc:     chain,
-		ap:     ap,
-		cs:     cs,
-		blocks: make(map[uint64]*block.Block),
-		size:   16,
+		bc:           chain,
+		ap:           ap,
+		cs:           cs,
+		blocks:       make(map[uint64]*block.Block),
+		bufferSize:   16,
+		intervalSize: 8,
 	}
 
 	out := b.GetBlocksIntervalsToSync(32)
+	require.Equal(2, len(out))
+	require.Equal(uint64(1), out[0].Start)
+	require.Equal(uint64(8), out[0].End)
+	require.Equal(uint64(9), out[1].Start)
+	require.Equal(uint64(16), out[1].End)
+
+	b.intervalSize = 16
+
+	out = b.GetBlocksIntervalsToSync(32)
 	require.Equal(1, len(out))
 	require.Equal(uint64(1), out[0].Start)
 	require.Equal(uint64(16), out[0].End)

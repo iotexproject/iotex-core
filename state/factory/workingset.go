@@ -10,15 +10,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/log"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -53,7 +50,7 @@ type (
 	WorkingSet interface {
 		// states and actions
 		//RunActions(context.Context, uint64, []action.SealedEnvelope) (map[hash.Hash32B]*action.Receipt, error)
-		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
+		RunAction(protocol.RunActionsCtx, action.SealedEnvelope) (*action.Receipt, error)
 		UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256
 		RunActions(context.Context, uint64, []action.SealedEnvelope) ([]*action.Receipt, error)
 		Snapshot() int
@@ -114,7 +111,7 @@ func NewWorkingSet(
 
 // RootHash returns the hash of the root node of the accountTrie
 func (ws *workingSet) RootHash() hash.Hash256 {
-	return byteutil.BytesTo32B(ws.accountTrie.RootHash())
+	return hash.BytesToHash256(ws.accountTrie.RootHash())
 }
 
 // Digest returns the delta state digest
@@ -138,12 +135,17 @@ func (ws *workingSet) RunActions(
 ) ([]*action.Receipt, error) {
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
+	var raCtx protocol.RunActionsCtx
+	if len(elps) > 0 {
+		raCtx = protocol.MustGetRunActionsCtx(ctx)
+	}
 	for _, elp := range elps {
-		receipt, err := ws.RunAction(ctx, elp)
+		receipt, err := ws.RunAction(raCtx, elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
+			raCtx.GasLimit -= receipt.GasConsumed
 			receipts = append(receipts, receipt)
 		}
 	}
@@ -153,17 +155,12 @@ func (ws *workingSet) RunActions(
 
 // RunAction runs action in the block and track pending changes in working set
 func (ws *workingSet) RunAction(
-	ctx context.Context,
+	raCtx protocol.RunActionsCtx,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	// Handle action
 	// Add caller address into the run action context
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss context to run action")
-	}
-	callerPKHash := keypair.HashPubKey(elp.SrcPubkey())
-	caller, err := address.FromBytes(callerPKHash[:])
+	caller, err := address.FromBytes(elp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +173,7 @@ func (ws *workingSet) RunAction(
 	}
 	raCtx.IntrinsicGas = intrinsicGas
 	raCtx.Nonce = elp.Nonce()
-	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
+	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
 
 	for _, actionHandler := range ws.actionHandlers {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
@@ -217,7 +214,7 @@ func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
 
 func (ws *workingSet) Snapshot() int {
 	s := ws.cb.Snapshot()
-	ws.trieRoots[s] = byteutil.BytesTo32B(ws.accountTrie.RootHash())
+	ws.trieRoots[s] = hash.BytesToHash256(ws.accountTrie.RootHash())
 	return s
 }
 

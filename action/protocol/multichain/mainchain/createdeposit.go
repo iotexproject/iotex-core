@@ -18,8 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -49,10 +47,7 @@ func (p *Protocol) handleDeposit(
 	deposit *action.CreateDeposit,
 	sm protocol.StateManager,
 ) (*action.Receipt, error) {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok {
-		log.S().Panic("Miss run action context")
-	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	account, subChainInOp, err := p.validateDeposit(raCtx.Caller, deposit, sm)
 	if err != nil {
 		return nil, err
@@ -110,7 +105,7 @@ func (p *Protocol) mutateDeposit(
 	}
 	depositIndex := subChain.DepositCount
 	subChain.DepositCount++
-	if err := sm.PutState(byteutil.BytesTo20B(addr.Bytes()), subChain); err != nil {
+	if err := sm.PutState(hash.BytesToHash160(addr.Bytes()), subChain); err != nil {
 		return nil, err
 	}
 

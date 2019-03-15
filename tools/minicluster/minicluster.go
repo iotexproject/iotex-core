@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -13,8 +13,7 @@ import (
 	"flag"
 	"fmt"
 	"math"
-	"net/http"
-	"strconv"
+	"os"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -66,17 +66,20 @@ func main() {
 	admins := chainAddrs[len(chainAddrs)-numAdmins:]
 	delegates := chainAddrs[:len(chainAddrs)-numAdmins]
 
-	// path of config file containing all the transfers and self-nominations in genesis block
-	genesisConfigPath := "./tools/minicluster/testnet_actions.yaml"
+	dbFilePaths := make([]string, 0)
+	//a flag to indicate whether the DB files should be cleaned up upon completion of the minicluster.
+	deleteDBFiles := false
 
 	// Set mini-cluster configurations
 	configs := make([]config.Config, numNodes)
 	for i := 0; i < numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, chainDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, trieDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
-		config := newConfig(genesisConfigPath, chainDBPath, trieDBPath, chainAddrs[i].PriKey,
+		config := newConfig(chainDBPath, trieDBPath, chainAddrs[i].PriKey,
 			networkPort, apiPort)
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
@@ -84,7 +87,17 @@ func main() {
 		}
 		configs[i] = config
 	}
+	defer func() {
+		if !deleteDBFiles {
+			return
+		}
+		for _, dbFilePath := range dbFilePaths {
+			if fileutil.FileExists(dbFilePath) && os.RemoveAll(dbFilePath) != nil {
+				log.L().Error("Failed to delete db file")
+			}
+		}
 
+	}()
 	// Create mini-cluster
 	svrs := make([]*itx.Server, numNodes)
 	for i := 0; i < numNodes; i++ {
@@ -95,40 +108,24 @@ func main() {
 		svrs[i] = svr
 	}
 
-	// Create and start probe servers
-	probeSvrs := make([]*probe.Server, numNodes)
-	for i := 0; i < numNodes; i++ {
-		probeSvrs[i] = probe.New(7788 + i)
-	}
-	for i := 0; i < numNodes; i++ {
-		err = probeSvrs[i].Start(context.Background())
-		if err != nil {
-			log.L().Panic("Failed to start probe server")
-		}
-	}
+	// Create a probe server
+	probeSvr := probe.New(7788)
+
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(context.Background(), svrs[i], probeSvrs[i], configs[i])
+		go itx.StartServer(context.Background(), svrs[i], probeSvr, configs[i])
 	}
 
-	if err := testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		ret := true
-		for i := 0; i < numNodes; i++ {
-			resp, err := http.Get("http://localhost:" + strconv.Itoa(7788+i) + "/readiness")
-			if err != nil || http.StatusOK != resp.StatusCode {
-				ret = false
-			}
-		}
-		return ret, nil
-	}); err != nil {
-		log.L().Fatal("Failed to start API server", zap.Error(err))
-	}
 	// target address for grpc connection. Default is "127.0.0.1:14014"
 	grpcAddr := "127.0.0.1:14014"
-	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
+
+	grpcctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(grpcctx, grpcAddr, grpc.WithBlock(), grpc.WithInsecure())
 	if err != nil {
 		log.L().Error("Failed to connect to API server.")
 	}
+
 	client := iotexapi.NewAPIServiceClient(conn)
 
 	counter, err := util.InitCounter(client, chainAddrs)
@@ -178,11 +175,23 @@ func main() {
 		}
 		contract := receipt.ContractAddress
 
+		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
+
 		wg := &sync.WaitGroup{}
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit, voteGasPrice,
 			contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, client, admins, delegates, d,
-			retryNum, retryInterval, resetInterval)
+			retryNum, retryInterval, resetInterval, &expectedBalancesMap)
 		wg.Wait()
+
+		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+			actionCleared := true
+			for i := 0; i < numNodes; i++ {
+				if apsize := svrs[i].ChainService(configs[i].Chain.ID).ActionPool().GetSize(); apsize != 0 {
+					actionCleared = false
+				}
+			}
+			return actionCleared, nil
+		})
 
 		chains := make([]blockchain.Blockchain, numNodes)
 		stateHeights := make([]uint64, numNodes)
@@ -229,11 +238,24 @@ func main() {
 			}
 		}
 
+		m := util.GetAllBalanceMap(client, chainAddrs)
+		for k, v := range m {
+			if len(expectedBalancesMap) != 0 && v.Cmp(expectedBalancesMap[k]) != 0 {
+				log.S().Error("Balance mismatch:")
+				log.S().Info("Account ", k)
+				log.S().Info("Real balance: ", v.String(), " Expected balance: ", expectedBalancesMap[k].String())
+				return
+			}
+		}
+
+		log.S().Info("Balance Check PASS")
+
+		deleteDBFiles = true
+
 	}
 }
 
 func newConfig(
-	genesisConfigPath,
 	chainDBPath,
 	trieDBPath string,
 	producerPriKey keypair.PrivateKey,
@@ -242,6 +264,8 @@ func newConfig(
 ) config.Config {
 	cfg := config.Default
 
+	cfg.Plugins[config.GatewayPlugin] = true
+
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
@@ -249,9 +273,8 @@ func newConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.NumCandidates = numNodes
-	cfg.Chain.EnableIndex = true
-	cfg.Chain.EnableAsyncIndexWrite = true
-	cfg.Chain.ProducerPrivKey = keypair.EncodePrivateKey(producerPriKey)
+	cfg.Chain.CompressBlock = true
+	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 4 * time.Second
@@ -262,11 +285,6 @@ func newConfig(
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 2 * time.Second
 	cfg.Consensus.RollDPoS.Delay = 10 * time.Second
 
-	cfg.ActPool.MaxNumActsToPick = 2000
-
-	cfg.System.HTTPMetricsPort = 0
-
-	cfg.API.Enabled = true
 	cfg.API.Port = apiPort
 
 	cfg.Genesis.Blockchain.BlockInterval = 10 * time.Second
@@ -274,6 +292,5 @@ func newConfig(
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
-
 	return cfg
 }

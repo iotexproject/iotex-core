@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -61,7 +61,7 @@ func TestInitialize(t *testing.T) {
 		operator := string(d.OperatorAddress())
 		addr, err := address.FromString(operator)
 		require.NoError(err)
-		c, ok := candidates[byteutil.BytesTo20B(addr.Bytes())]
+		c, ok := candidates[hash.BytesToHash160(addr.Bytes())]
 		require.True(ok)
 		require.Equal(addr.String(), c.Address)
 	}

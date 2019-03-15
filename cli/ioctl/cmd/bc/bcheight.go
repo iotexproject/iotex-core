@@ -7,48 +7,26 @@
 package bc
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
-// heightCmd represents the account height command
-var heightCmd = &cobra.Command{
+// bcHeightCmd represents the bc height command
+var bcHeightCmd = &cobra.Command{
 	Use:   "height",
 	Short: "Get current block height",
+	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(getCurrentBlockHeigh(args))
+		fmt.Println(currentBlockHeigh())
 	},
 }
 
-// getCurrentBlockHeigh get current height of block chain from server
-func getCurrentBlockHeigh(args []string) string {
-	endpoint := config.GetEndpoint()
-	if endpoint == config.ErrEmptyEndpoint {
-		log.L().Error(config.ErrEmptyEndpoint)
-		return "use \"ioctl config set endpoint\" to config endpoint first."
-	}
-	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+// currentBlockHeigh get current height of block chain from server
+func currentBlockHeigh() string {
+	chainMeta, err := GetChainMeta()
 	if err != nil {
-		log.L().Error("failed to connect to server", zap.Error(err))
 		return err.Error()
 	}
-	defer conn.Close()
-
-	cli := iotexapi.NewAPIServiceClient(conn)
-	request := iotexapi.GetChainMetaRequest{}
-	ctx := context.Background()
-	response, err := cli.GetChainMeta(ctx, &request)
-	if err != nil {
-		log.L().Error("server error", zap.Error(err))
-		return err.Error()
-	}
-	return fmt.Sprintf("%d", response.ChainMeta.Height)
+	return fmt.Sprintf("%d", chainMeta.Height)
 }

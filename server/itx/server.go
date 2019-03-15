@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -10,12 +10,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -71,13 +71,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	p2pAgent := p2p.NewAgent(cfg.Network, dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	chains := make(map[uint32]*chainservice.ChainService)
 	var cs *chainservice.ChainService
-	genesisConfig, err := genesis.New()
-	if err != nil {
-		return nil, err
-	}
-	opts := []chainservice.Option{
-		chainservice.WithGenesis(genesisConfig),
-	}
+	var opts []chainservice.Option
 	if testing {
 		opts = []chainservice.Option{
 			chainservice.WithTesting(),
@@ -91,14 +85,14 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// Add action validators
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
 	// Install protocols
-	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+	if err := registerDefaultProtocols(cs, cfg.Genesis); err != nil {
 		return nil, err
 	}
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
@@ -174,11 +168,6 @@ func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Opti
 }
 
 func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
-	genesisConfig, err := genesis.New()
-	if err != nil {
-		return err
-	}
-	opts = append(opts, chainservice.WithGenesis(genesisConfig))
 	var mainChainAPI explorer.Explorer
 	if s.rootChainService.Explorer() != nil {
 		mainChainAPI = s.rootChainService.Explorer().Explorer()
@@ -190,13 +179,13 @@ func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Opti
 	}
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), genesisConfig.Blockchain.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
-	if err := registerDefaultProtocols(cs, genesisConfig); err != nil {
+	if err := registerDefaultProtocols(cs, cfg.Genesis); err != nil {
 		return err
 	}
 	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
@@ -255,39 +244,26 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		}()
 	}
 
-	if cfg.System.HTTPProfilingPort > 0 {
+	var adminserv http.Server
+	if cfg.System.HTTPAdminPort > 0 {
+		mux := http.NewServeMux()
+		log.RegisterLevelConfigMux(mux)
+		mux.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
+
+		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
+		adminserv = http.Server{Addr: port, Handler: mux}
 		go func() {
 			runtime.SetMutexProfileFraction(1)
 			runtime.SetBlockProfileRate(1)
-			if err := http.ListenAndServe(
-				fmt.Sprintf(":%d", cfg.System.HTTPProfilingPort),
-				nil,
-			); err != nil {
+			if err := adminserv.ListenAndServe(); err != nil {
 				log.L().Error("Error when serving performance profiling data.", zap.Error(err))
-			}
-		}()
-	}
-
-	var mserv http.Server
-	if cfg.System.HTTPMetricsPort > 0 {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		log.RegisterLevelConfigMux(mux)
-		port := fmt.Sprintf(":%d", cfg.System.HTTPMetricsPort)
-		mserv = http.Server{
-			Addr:    port,
-			Handler: mux,
-		}
-		go func() {
-			if err := mserv.ListenAndServe(); err != nil {
-				log.L().Error("Error when serving metrics data.", zap.Error(err))
 			}
 		}()
 	}
 
 	<-ctx.Done()
 	probeSvr.NotReady()
-	if err := mserv.Shutdown(ctx); err != nil {
+	if err := adminserv.Shutdown(ctx); err != nil {
 		log.L().Error("Error when serving metrics data.", zap.Error(err))
 	}
 	if err := svr.Stop(ctx); err != nil {
@@ -304,14 +280,14 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
 		return
 	}
-	if genesisConfig.EnableBeaconChainVoting {
+	if genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
-		initBeaconChainHeight := genesisConfig.InitBeaconChainHeight
+		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol
-		if genesisConfig.InitBeaconChainHeight != 0 && electionCommittee != nil {
+		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
 			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
 				electionCommittee,
-				initBeaconChainHeight,
+				gravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
 					blk, err := cs.Blockchain().GetBlockByHeight(height)
 					if err != nil {
@@ -325,9 +301,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 				func(height uint64) uint64 {
 					return rolldposProtocol.GetEpochHeight(rolldposProtocol.GetEpochNum(height))
 				},
-				func(height uint64) uint64 {
-					return rolldposProtocol.GetEpochNum(height)
-				},
+				rolldposProtocol.GetEpochNum,
 				genesisConfig.NumCandidateDelegates,
 				genesisConfig.NumDelegates,
 			); err != nil {

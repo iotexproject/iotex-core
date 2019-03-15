@@ -25,7 +25,7 @@ const (
 	Closed = Closing + 1
 )
 
-// WindowSize defines the size of window
+// WindowSize defines the bufferSize of window
 var WindowSize uint64 = 8
 
 var (

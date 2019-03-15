@@ -18,9 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -81,10 +79,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 	switch act := act.(type) {
 	case *action.StartSubChain:
-		vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
-		if !ok {
-			log.S().Panic("Miss validate action context")
-		}
+		vaCtx := protocol.MustGetValidateActionsCtx(ctx)
 		if _, _, err := p.validateStartSubChain(vaCtx.Caller, act, nil); err != nil {
 			return errors.Wrapf(err, "error when validating start sub-chain action")
 		}
@@ -93,10 +88,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 			return errors.Wrapf(err, "error when validating put sub-chain block action")
 		}
 	case *action.CreateDeposit:
-		vaCtx, ok := protocol.GetValidateActionsCtx(ctx)
-		if !ok {
-			log.S().Panic("Miss validate action context")
-		}
+		vaCtx := protocol.MustGetValidateActionsCtx(ctx)
 		if _, _, err := p.validateDeposit(vaCtx.Caller, act, nil); err != nil {
 			return errors.Wrapf(err, "error when validating deposit creation action")
 		}
@@ -118,7 +110,7 @@ func (p *Protocol) account(sender string, sm protocol.StateManager) (*state.Acco
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert address to public key hash")
 	}
-	addrHash := byteutil.BytesTo20B(addr.Bytes())
+	addrHash := hash.BytesToHash160(addr.Bytes())
 	return accountutil.LoadAccount(sm, addrHash)
 }
 
@@ -159,13 +151,13 @@ func srcAddressPKHash(srcAddr string) (hash.Hash160, error) {
 	if err != nil {
 		return hash.ZeroHash160, errors.Wrapf(err, "cannot get the public key hash of address %s", srcAddr)
 	}
-	return byteutil.BytesTo20B(addr.Bytes()), nil
+	return hash.BytesToHash160(addr.Bytes()), nil
 }
 
 // SubChain returns the confirmed sub-chain state
 func (p *Protocol) SubChain(addr address.Address) (*SubChain, error) {
 	var subChain SubChain
-	if err := p.sf.State(byteutil.BytesTo20B(addr.Bytes()), &subChain); err != nil {
+	if err := p.sf.State(hash.BytesToHash160(addr.Bytes()), &subChain); err != nil {
 		return nil, errors.Wrapf(err, "error when loading state of %x", addr.Bytes())
 	}
 	return &subChain, nil

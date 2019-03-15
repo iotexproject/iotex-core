@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -79,14 +79,6 @@ func WithTesting() Option {
 	}
 }
 
-// WithGenesis is an option to set genesis config
-func WithGenesis(genesisConfig genesis.Genesis) Option {
-	return func(ops *optionParams) error {
-		ops.genesisConfig = genesisConfig
-		return nil
-	}
-}
-
 // New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(
 	cfg config.Config,
@@ -117,11 +109,19 @@ func New(
 	registry := protocol.Registry{}
 	chainOpts = append(chainOpts, blockchain.RegistryOption(&registry))
 	var electionCommittee committee.Committee
-	if cfg.Genesis.EnableBeaconChainVoting {
-		committeeConfig := cfg.Genesis.Poll.CommitteeConfig
-		committeeConfig.BeaconChainAPIs = cfg.Chain.BeaconChainAPIs
-		kvstore := db.NewOnDiskDB(cfg.Chain.BeaconChainDB)
-		if cfg.Genesis.Poll.InitBeaconChainHeight != 0 {
+	if cfg.Genesis.EnableGravityChainVoting {
+		committeeConfig := cfg.Chain.Committee
+		committeeConfig.BeaconChainStartHeight = cfg.Genesis.GravityChainStartHeight
+		committeeConfig.BeaconChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
+		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
+		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
+		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
+		committeeConfig.ScoreThreshold = cfg.Genesis.ScoreThreshold
+		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
+		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
+
+		kvstore := db.NewOnDiskDB(cfg.Chain.GravityChainDB)
+		if committeeConfig.BeaconChainStartHeight != 0 {
 			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
 				kvstore,
 				committeeConfig,
@@ -144,7 +144,7 @@ func New(
 	}
 
 	var indexBuilder *blockchain.IndexBuilder
-	if cfg.Chain.EnableIndex && cfg.Chain.EnableAsyncIndexWrite {
+	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok && cfg.Chain.EnableAsyncIndexWrite {
 		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
@@ -220,7 +220,7 @@ func New(
 	}
 
 	var apiSvr *api.Server
-	if cfg.API.Enabled {
+	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		apiSvr, err = api.NewServer(
 			cfg.API,
 			chain,
@@ -332,10 +332,7 @@ func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action
 	if err := act.LoadProto(actPb); err != nil {
 		return err
 	}
-	if err := cs.actpool.Add(act); err != nil {
-		return err
-	}
-	return nil
+	return cs.actpool.Add(act)
 }
 
 // HandleBlock handles incoming block request.

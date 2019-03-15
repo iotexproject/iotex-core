@@ -11,21 +11,27 @@ import (
 	mh "github.com/multiformats/go-multihash"
 )
 
-// MaxInlineKeyLength is the maximum length a key can be for it to be inlined in
-// the peer ID.
-//
-// * When `len(pubKey.Bytes()) <= MaxInlineKeyLength`, the peer ID is the
-//   identity multihash hash of the public key.
-// * When `len(pubKey.Bytes()) > MaxInlineKeyLength`, the peer ID is the
-//   sha2-256 multihash of the public key.
-const MaxInlineKeyLength = 42
-
 var (
 	// ErrEmptyPeerID is an error for empty peer ID.
 	ErrEmptyPeerID = errors.New("empty peer ID")
-	// ErrNoPublickKey is an error for peer IDs that don't embed public keys
+	// ErrNoPublicKey is an error for peer IDs that don't embed public keys
 	ErrNoPublicKey = errors.New("public key is not embedded in peer ID")
 )
+
+// AdvancedEnableInlining enables automatically inlining keys shorter than
+// 42 bytes into the peer ID (using the "identity" multihash function).
+//
+// WARNING: This flag will likely be set to false in the future and eventually
+// be removed in favor of using a hash function specified by the key itself.
+// See: https://github.com/libp2p/specs/issues/138
+//
+// DO NOT change this flag unless you know what you're doing.
+//
+// This currently defaults to true for backwards compatibility but will likely
+// be set to false by default when an upgrade path is determined.
+var AdvancedEnableInlining = true
+
+const maxInlineKeyLength = 42
 
 // ID is a libp2p peer identity.
 type ID string
@@ -151,7 +157,7 @@ func IDFromPublicKey(pk ic.PubKey) (ID, error) {
 		return "", err
 	}
 	var alg uint64 = mh.SHA2_256
-	if len(b) <= MaxInlineKeyLength {
+	if AdvancedEnableInlining && len(b) <= maxInlineKeyLength {
 		alg = mh.ID
 	}
 	hash, _ := mh.Sum(b, alg, -1)

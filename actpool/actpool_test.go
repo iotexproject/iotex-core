@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -104,7 +105,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{prevTsf})
 	require.NoError(err)
@@ -356,25 +357,21 @@ func TestActPool_PickActs(t *testing.T) {
 		return ap, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, []action.SealedEnvelope{vote7}, []action.SealedEnvelope{}
 	}
 
-	t.Run("no-limit", func(t *testing.T) {
+	t.Run("no-expiry", func(t *testing.T) {
 		apConfig := getActPoolCfg()
 		ap, transfers, votes, executions := createActPool(apConfig)
-		pickedActs := ap.PickActs()
-		require.Equal(t, len(transfers)+len(votes)+len(executions), len(pickedActs))
+		pickedActs := ap.PendingActionMap()
+		require.Equal(t, len(transfers)+len(votes)+len(executions), lenPendingActionMap(pickedActs))
 	})
-	t.Run("enough-limit", func(t *testing.T) {
+
+	t.Run("expiry", func(t *testing.T) {
 		apConfig := getActPoolCfg()
-		apConfig.MaxNumActsToPick = 10
-		ap, transfers, votes, executions := createActPool(apConfig)
-		pickedActs := ap.PickActs()
-		require.Equal(t, len(transfers)+len(votes)+len(executions), len(pickedActs))
-	})
-	t.Run("low-limit", func(t *testing.T) {
-		apConfig := getActPoolCfg()
-		apConfig.MaxNumActsToPick = 3
+		apConfig.ActionExpiry = time.Second
 		ap, _, _, _ := createActPool(apConfig)
-		pickedActs := ap.PickActs()
-		require.Equal(t, 3, len(pickedActs))
+		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+			pickedActs := ap.PendingActionMap()
+			return lenPendingActionMap(pickedActs) == 0, nil
+		}))
 	})
 }
 
@@ -426,7 +423,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
@@ -570,7 +567,7 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ := ap2.getPendingBalance(addr3)
 	require.Equal(big.NewInt(50).Uint64(), ap2PBalance3.Uint64())
 	// Let ap1 be BP's actpool
-	pickedActs := ap1.PickActs()
+	pickedActs := ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
 	sf := bc.GetFactory()
 	require.NotNil(sf)
@@ -580,9 +577,9 @@ func TestActPool_Reset(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
-	_, err = ws.RunActions(ctx, 0, pickedActs)
+	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -683,16 +680,16 @@ func TestActPool_Reset(t *testing.T) {
 	ap2PBalance3, _ = ap2.getPendingBalance(addr3)
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
-	pickedActs = ap2.PickActs()
+	pickedActs = ap2.PendingActionMap()
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
-	_, err = ws.RunActions(ctx, 0, pickedActs)
+	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -790,7 +787,7 @@ func TestActPool_Reset(t *testing.T) {
 	ap1PBalance5, _ := ap1.getPendingBalance(addr5)
 	require.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
 	// Let ap1 be BP's actpool
-	pickedActs = ap1.PickActs()
+	pickedActs = ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
@@ -798,9 +795,9 @@ func TestActPool_Reset(t *testing.T) {
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
-	_, err = ws.RunActions(ctx, 0, pickedActs)
+	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
 	//Reset
@@ -1047,7 +1044,7 @@ func TestActPool_GetSize(t *testing.T) {
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: &gasLimit,
+			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, vote4})
 	require.NoError(err)
@@ -1079,4 +1076,20 @@ func getActPoolCfg() config.ActPool {
 		MaxNumActsPerPool: maxNumActsPerPool,
 		MaxNumActsPerAcct: maxNumActsPerAcct,
 	}
+}
+
+func actionMap2Slice(actMap map[string][]action.SealedEnvelope) []action.SealedEnvelope {
+	acts := make([]action.SealedEnvelope, 0)
+	for _, parts := range actMap {
+		acts = append(acts, parts...)
+	}
+	return acts
+}
+
+func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
+	l := 0
+	for _, part := range acts {
+		l += len(part)
+	}
+	return l
 }

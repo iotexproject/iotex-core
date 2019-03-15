@@ -3,9 +3,11 @@
 
 package rewardingpb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,13 +18,12 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Admin struct {
-	Admin                      []byte   `protobuf:"bytes,1,opt,name=admin,proto3" json:"admin,omitempty"`
-	BlockReward                string   `protobuf:"bytes,2,opt,name=blockReward" json:"blockReward,omitempty"`
-	EpochReward                string   `protobuf:"bytes,3,opt,name=epochReward" json:"epochReward,omitempty"`
-	NumDelegatesForEpochReward uint64   `protobuf:"varint,4,opt,name=numDelegatesForEpochReward" json:"numDelegatesForEpochReward,omitempty"`
+	BlockReward                string   `protobuf:"bytes,2,opt,name=blockReward,proto3" json:"blockReward,omitempty"`
+	EpochReward                string   `protobuf:"bytes,3,opt,name=epochReward,proto3" json:"epochReward,omitempty"`
+	NumDelegatesForEpochReward uint64   `protobuf:"varint,4,opt,name=numDelegatesForEpochReward,proto3" json:"numDelegatesForEpochReward,omitempty"`
 	XXX_NoUnkeyedLiteral       struct{} `json:"-"`
 	XXX_unrecognized           []byte   `json:"-"`
 	XXX_sizecache              int32    `json:"-"`
@@ -32,16 +33,17 @@ func (m *Admin) Reset()         { *m = Admin{} }
 func (m *Admin) String() string { return proto.CompactTextString(m) }
 func (*Admin) ProtoMessage()    {}
 func (*Admin) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rewarding_c61b85157fd79991, []int{0}
+	return fileDescriptor_a5a8d72c965c1359, []int{0}
 }
+
 func (m *Admin) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Admin.Unmarshal(m, b)
 }
 func (m *Admin) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Admin.Marshal(b, m, deterministic)
 }
-func (dst *Admin) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Admin.Merge(dst, src)
+func (m *Admin) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Admin.Merge(m, src)
 }
 func (m *Admin) XXX_Size() int {
 	return xxx_messageInfo_Admin.Size(m)
@@ -51,13 +53,6 @@ func (m *Admin) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_Admin proto.InternalMessageInfo
-
-func (m *Admin) GetAdmin() []byte {
-	if m != nil {
-		return m.Admin
-	}
-	return nil
-}
 
 func (m *Admin) GetBlockReward() string {
 	if m != nil {
@@ -81,8 +76,8 @@ func (m *Admin) GetNumDelegatesForEpochReward() uint64 {
 }
 
 type Fund struct {
-	TotalBalance         string   `protobuf:"bytes,1,opt,name=totalBalance" json:"totalBalance,omitempty"`
-	UnclaimedBalance     string   `protobuf:"bytes,2,opt,name=unclaimedBalance" json:"unclaimedBalance,omitempty"`
+	TotalBalance         string   `protobuf:"bytes,1,opt,name=totalBalance,proto3" json:"totalBalance,omitempty"`
+	UnclaimedBalance     string   `protobuf:"bytes,2,opt,name=unclaimedBalance,proto3" json:"unclaimedBalance,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -92,16 +87,17 @@ func (m *Fund) Reset()         { *m = Fund{} }
 func (m *Fund) String() string { return proto.CompactTextString(m) }
 func (*Fund) ProtoMessage()    {}
 func (*Fund) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rewarding_c61b85157fd79991, []int{1}
+	return fileDescriptor_a5a8d72c965c1359, []int{1}
 }
+
 func (m *Fund) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Fund.Unmarshal(m, b)
 }
 func (m *Fund) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Fund.Marshal(b, m, deterministic)
 }
-func (dst *Fund) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Fund.Merge(dst, src)
+func (m *Fund) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Fund.Merge(m, src)
 }
 func (m *Fund) XXX_Size() int {
 	return xxx_messageInfo_Fund.Size(m)
@@ -136,16 +132,17 @@ func (m *RewardHistory) Reset()         { *m = RewardHistory{} }
 func (m *RewardHistory) String() string { return proto.CompactTextString(m) }
 func (*RewardHistory) ProtoMessage()    {}
 func (*RewardHistory) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rewarding_c61b85157fd79991, []int{2}
+	return fileDescriptor_a5a8d72c965c1359, []int{2}
 }
+
 func (m *RewardHistory) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RewardHistory.Unmarshal(m, b)
 }
 func (m *RewardHistory) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RewardHistory.Marshal(b, m, deterministic)
 }
-func (dst *RewardHistory) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RewardHistory.Merge(dst, src)
+func (m *RewardHistory) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RewardHistory.Merge(m, src)
 }
 func (m *RewardHistory) XXX_Size() int {
 	return xxx_messageInfo_RewardHistory.Size(m)
@@ -157,7 +154,7 @@ func (m *RewardHistory) XXX_DiscardUnknown() {
 var xxx_messageInfo_RewardHistory proto.InternalMessageInfo
 
 type Account struct {
-	Balance              string   `protobuf:"bytes,2,opt,name=balance" json:"balance,omitempty"`
+	Balance              string   `protobuf:"bytes,2,opt,name=balance,proto3" json:"balance,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -167,16 +164,17 @@ func (m *Account) Reset()         { *m = Account{} }
 func (m *Account) String() string { return proto.CompactTextString(m) }
 func (*Account) ProtoMessage()    {}
 func (*Account) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rewarding_c61b85157fd79991, []int{3}
+	return fileDescriptor_a5a8d72c965c1359, []int{3}
 }
+
 func (m *Account) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Account.Unmarshal(m, b)
 }
 func (m *Account) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Account.Marshal(b, m, deterministic)
 }
-func (dst *Account) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Account.Merge(dst, src)
+func (m *Account) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Account.Merge(m, src)
 }
 func (m *Account) XXX_Size() int {
 	return xxx_messageInfo_Account.Size(m)
@@ -194,29 +192,70 @@ func (m *Account) GetBalance() string {
 	return ""
 }
 
+type Exempt struct {
+	Addrs                [][]byte `protobuf:"bytes,1,rep,name=addrs,proto3" json:"addrs,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Exempt) Reset()         { *m = Exempt{} }
+func (m *Exempt) String() string { return proto.CompactTextString(m) }
+func (*Exempt) ProtoMessage()    {}
+func (*Exempt) Descriptor() ([]byte, []int) {
+	return fileDescriptor_a5a8d72c965c1359, []int{4}
+}
+
+func (m *Exempt) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Exempt.Unmarshal(m, b)
+}
+func (m *Exempt) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Exempt.Marshal(b, m, deterministic)
+}
+func (m *Exempt) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Exempt.Merge(m, src)
+}
+func (m *Exempt) XXX_Size() int {
+	return xxx_messageInfo_Exempt.Size(m)
+}
+func (m *Exempt) XXX_DiscardUnknown() {
+	xxx_messageInfo_Exempt.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Exempt proto.InternalMessageInfo
+
+func (m *Exempt) GetAddrs() [][]byte {
+	if m != nil {
+		return m.Addrs
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Admin)(nil), "rewardingpb.Admin")
 	proto.RegisterType((*Fund)(nil), "rewardingpb.Fund")
 	proto.RegisterType((*RewardHistory)(nil), "rewardingpb.RewardHistory")
 	proto.RegisterType((*Account)(nil), "rewardingpb.Account")
+	proto.RegisterType((*Exempt)(nil), "rewardingpb.Exempt")
 }
 
-func init() { proto.RegisterFile("rewarding.proto", fileDescriptor_rewarding_c61b85157fd79991) }
+func init() { proto.RegisterFile("rewarding.proto", fileDescriptor_a5a8d72c965c1359) }
 
-var fileDescriptor_rewarding_c61b85157fd79991 = []byte{
-	// 224 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x90, 0xcd, 0x4a, 0x03, 0x31,
-	0x14, 0x85, 0x89, 0x4e, 0x2d, 0xbd, 0xad, 0x54, 0x82, 0x8b, 0xc1, 0x55, 0x88, 0x9b, 0xc1, 0x85,
-	0x1b, 0xf7, 0x42, 0x45, 0x8b, 0xeb, 0x2c, 0xdc, 0xe7, 0x8f, 0x1a, 0xcc, 0xe4, 0x0e, 0x69, 0x82,
-	0xf8, 0x38, 0xbe, 0xa9, 0xcc, 0xc4, 0x91, 0x19, 0x84, 0xee, 0x72, 0x3e, 0xbe, 0x43, 0x0e, 0x17,
-	0xb6, 0xd1, 0x7e, 0xca, 0x68, 0x5c, 0x38, 0xdc, 0x77, 0x11, 0x13, 0xd2, 0xf5, 0x1f, 0xe8, 0x14,
-	0xff, 0x26, 0xb0, 0xd8, 0x99, 0xd6, 0x05, 0x7a, 0x0d, 0x0b, 0xd9, 0x3f, 0x6a, 0xc2, 0x48, 0xb3,
-	0x11, 0x25, 0x50, 0x06, 0x6b, 0xe5, 0x51, 0x7f, 0x88, 0xa1, 0x53, 0x9f, 0x31, 0xd2, 0xac, 0xc4,
-	0x14, 0xf5, 0x86, 0xed, 0x50, 0xbf, 0xff, 0x1a, 0xe7, 0xc5, 0x98, 0x20, 0xfa, 0x08, 0x37, 0x21,
-	0xb7, 0xcf, 0xd6, 0xdb, 0x83, 0x4c, 0xf6, 0xb8, 0xc7, 0xf8, 0x32, 0x29, 0x54, 0x8c, 0x34, 0x95,
-	0x38, 0x61, 0xf0, 0x37, 0xa8, 0xf6, 0x39, 0x18, 0xca, 0x61, 0x93, 0x30, 0x49, 0xff, 0x24, 0xbd,
-	0x0c, 0xda, 0x0e, 0x43, 0x57, 0x62, 0xc6, 0xe8, 0x1d, 0x5c, 0xe5, 0xa0, 0xbd, 0x74, 0xad, 0x35,
-	0xa3, 0x57, 0x46, 0xff, 0xe3, 0x7c, 0x0b, 0x97, 0xe5, 0x87, 0x57, 0x77, 0x4c, 0x18, 0xbf, 0xf8,
-	0x2d, 0x2c, 0x77, 0x5a, 0x63, 0x0e, 0x89, 0xd6, 0xb0, 0x54, 0xb3, 0xfa, 0x18, 0xd5, 0xc5, 0x70,
-	0xc5, 0x87, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x89, 0xb4, 0xcd, 0xaf, 0x58, 0x01, 0x00, 0x00,
+var fileDescriptor_a5a8d72c965c1359 = []byte{
+	// 233 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x90, 0xc1, 0x4b, 0xc3, 0x30,
+	0x14, 0xc6, 0x89, 0xeb, 0x36, 0x7c, 0x9b, 0x4c, 0x82, 0x87, 0xe2, 0x41, 0x4a, 0xbc, 0x14, 0x0f,
+	0x5e, 0xbc, 0x0b, 0x13, 0x37, 0x3c, 0xf7, 0xe0, 0x3d, 0x4d, 0x1e, 0xb3, 0x98, 0xe4, 0x85, 0x34,
+	0x41, 0xfd, 0x1b, 0xfc, 0xa7, 0xc5, 0xc6, 0x49, 0x8b, 0xe0, 0xf1, 0xfb, 0xe5, 0xf7, 0xf1, 0x85,
+	0x07, 0x9b, 0x80, 0x6f, 0x32, 0xe8, 0xce, 0x1d, 0x6e, 0x7d, 0xa0, 0x48, 0x7c, 0xf5, 0x0b, 0x7c,
+	0x2b, 0x3e, 0x19, 0xcc, 0xb7, 0xda, 0x76, 0x8e, 0x57, 0xb0, 0x6a, 0x0d, 0xa9, 0xd7, 0x66, 0x78,
+	0x2d, 0x4f, 0x2a, 0x56, 0x9f, 0x36, 0x63, 0xf4, 0x6d, 0xa0, 0x27, 0xf5, 0xf2, 0x63, 0xcc, 0xb2,
+	0x31, 0x42, 0xfc, 0x1e, 0x2e, 0x5d, 0xb2, 0x8f, 0x68, 0xf0, 0x20, 0x23, 0xf6, 0x7b, 0x0a, 0xbb,
+	0x51, 0xa1, 0xa8, 0x58, 0x5d, 0x34, 0xff, 0x18, 0xe2, 0x19, 0x8a, 0x7d, 0x72, 0x9a, 0x0b, 0x58,
+	0x47, 0x8a, 0xd2, 0x3c, 0x48, 0x23, 0x9d, 0xc2, 0x92, 0x0d, 0x53, 0x13, 0xc6, 0x6f, 0xe0, 0x3c,
+	0x39, 0x65, 0x64, 0x67, 0x51, 0x1f, 0xbd, 0xfc, 0xe9, 0x3f, 0x5c, 0x6c, 0xe0, 0x2c, 0x2f, 0x3c,
+	0x75, 0x7d, 0xa4, 0xf0, 0x21, 0xae, 0x61, 0xb9, 0x55, 0x8a, 0x92, 0x8b, 0xbc, 0x84, 0x65, 0x3b,
+	0xa9, 0x1f, 0xa3, 0xb8, 0x82, 0xc5, 0xee, 0x1d, 0xad, 0x8f, 0xfc, 0x02, 0xe6, 0x52, 0xeb, 0xd0,
+	0x97, 0xac, 0x9a, 0xd5, 0xeb, 0x26, 0x87, 0x76, 0x31, 0xdc, 0xf3, 0xee, 0x2b, 0x00, 0x00, 0xff,
+	0xff, 0x54, 0x1a, 0x3e, 0x12, 0x62, 0x01, 0x00, 0x00,
 }

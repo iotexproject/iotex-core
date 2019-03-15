@@ -16,17 +16,22 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/iotexproject/go-p2p"
-	"github.com/libp2p/go-libp2p-peerstore"
-	"github.com/multiformats/go-multiaddr"
+	p2p "github.com/iotexproject/go-p2p"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/p2p/pb"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen"
+	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+)
+
+const (
+	successStr = "success"
+	failureStr = "failure"
 )
 
 var (
@@ -74,8 +79,6 @@ type Agent struct {
 	broadcastInboundHandler    HandleBroadcastInbound
 	unicastInboundAsyncHandler HandleUnicastInboundAsync
 	host                       *p2p.Host
-	bh broadcastHelperHeap
-	name string
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -84,9 +87,6 @@ func NewAgent(cfg config.Network, broadcastHandler HandleBroadcastInbound, unica
 		cfg:                        cfg,
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
-		bh:broadcastHelperHeap{
-			id2BroadcastHelper:make(map[string]*broadcastHelper),
-		},
 	}
 }
 
@@ -109,13 +109,13 @@ func (p *Agent) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
-	host.Name=p.name
+
 	if err := host.AddBroadcastPubSub(broadcastTopic, func(ctx context.Context, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
 		var (
 			peerID    string
-			broadcast p2ppb.BroadcastMsg
+			broadcast iotexrpc.BroadcastMsg
 			latency   int64
 		)
 		skip := false
@@ -124,9 +124,9 @@ func (p *Agent) Start(ctx context.Context) error {
 			if skip {
 				return
 			}
-			status := "success"
+			status := successStr
 			if err != nil {
-				status = "failure"
+				status = failureStr
 			}
 			p2pMsgCounter.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), "in", peerID, status).Inc()
 			p2pMsgLatency.WithLabelValues("broadcast", strconv.Itoa(int(broadcast.MsgType)), status).Observe(float64(latency))
@@ -135,7 +135,6 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when marshaling broadcast message")
 			return
 		}
-		log.L().Info("receive message ",zap.String("agent",p.name))
 		// Skip the broadcast message if it's from the node itself
 		rawmsg, ok := p2p.GetBroadcastMsg(ctx)
 		if !ok {
@@ -147,17 +146,11 @@ func (p *Agent) Start(ctx context.Context) error {
 			skip = true
 			return
 		}
-		log.L().Info(fmt.Sprintf("%s received message %s, index=%d",p.name,broadcast.MessageId,broadcast.IndexOfPiece))
-		broadcast2:=p.bh.AddMessage(&broadcast)
-		if broadcast2==nil{
-			skip=true
-			return
-		}
-		broadcast.MsgBody=broadcast2.MsgBody
+
 		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
-		msg, err := protogen.TypifyProtoMsg(broadcast.MsgType, broadcast.MsgBody)
+		msg, err := protogen.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
@@ -172,14 +165,14 @@ func (p *Agent) Start(ctx context.Context) error {
 		// Blocking handling the unicast message until the agent is started
 		<-ready
 		var (
-			unicast p2ppb.UnicastMsg
+			unicast iotexrpc.UnicastMsg
 			peerID  string
 			latency int64
 		)
 		defer func() {
-			status := "success"
+			status := successStr
 			if err != nil {
-				status = "failure"
+				status = failureStr
 			}
 			p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), "in", peerID, status).Inc()
 			p2pMsgLatency.WithLabelValues("unicast", strconv.Itoa(int(unicast.MsgType)), status).Observe(float64(latency))
@@ -188,7 +181,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when marshaling unicast message")
 			return
 		}
-		msg, err := protogen.TypifyProtoMsg(unicast.MsgType, unicast.MsgBody)
+		msg, err := protogen.TypifyRPCMsg(unicast.MsgType, unicast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
@@ -284,12 +277,12 @@ func (p *Agent) Stop(ctx context.Context) error {
 
 // BroadcastOutbound sends a broadcast message to the whole network
 func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err error) {
-	var msgType uint32
+	var msgType iotexrpc.MessageType
 	var msgBody []byte
 	defer func() {
-		status := "success"
+		status := successStr
 		if err != nil {
-			status = "failure"
+			status = failureStr
 		}
 		p2pMsgCounter.WithLabelValues(
 			"broadcast",
@@ -308,53 +301,33 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	var msgId string
-	var offset =-1
-	var data []byte
-	if len(msgBody)>maxMessageBodySize{
-		msgId=generateMessageID()
+	broadcast := iotexrpc.BroadcastMsg{
+		ChainId:   p2pCtx.ChainID,
+		PeerId:    p.host.HostIdentity(),
+		MsgType:   msgType,
+		MsgBody:   msgBody,
+		Timestamp: ptypes.TimestampNow(),
 	}
-	for len(msgBody)>0{
-		offset++
-		l:=len(msgBody)
-		l=min(l,maxMessageBodySize)
-		hasMore:=true
-		if len(msgBody)<=maxMessageBodySize{
-			hasMore=false
-		}
-		broadcast := p2ppb.BroadcastMsg{
-			ChainId:   p2pCtx.ChainID,
-			PeerId:    p.host.HostIdentity(), //todo bai ,peerId's length is fixed?
-			MsgType:   msgType,
-			MsgBody:   msgBody[0:l],
-			Timestamp: ptypes.TimestampNow(),
-			MessageId:msgId,
-			IndexOfPiece:uint32(offset),
-			HasMore:hasMore,
-		}
-		data, err = proto.Marshal(&broadcast)
-		log.L().Info(fmt.Sprintf("datasize=%d,bodysize=%d,peerid=%d",len(data),l,len(broadcast.PeerId)))
-		if err != nil {
-			err = errors.Wrap(err, "error when marshaling broadcast message")
-			return
-		}
-		if err = p.host.Broadcast(broadcastTopic, data); err != nil {
-			err = errors.Wrap(err, "error when sending broadcast message")
-			return
-		}
-		msgBody=msgBody[l:]
+	data, err := proto.Marshal(&broadcast)
+	if err != nil {
+		err = errors.Wrap(err, "error when marshaling broadcast message")
+		return err
 	}
-	return
+	if err = p.host.Broadcast(broadcastTopic, data); err != nil {
+		err = errors.Wrap(err, "error when sending broadcast message")
+		return err
+	}
+	return err
 }
 
 // UnicastOutbound sends a unicast message to the given address
 func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) (err error) {
-	var msgType uint32
+	var msgType iotexrpc.MessageType
 	var msgBody []byte
 	defer func() {
-		status := "success"
+		status := successStr
 		if err != nil {
-			status = "failure"
+			status = failureStr
 		}
 		p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
 	}()
@@ -367,7 +340,7 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	unicast := p2ppb.UnicastMsg{
+	unicast := iotexrpc.UnicastMsg{
 		ChainId:   p2pCtx.ChainID,
 		PeerId:    p.host.HostIdentity(),
 		MsgType:   msgType,
@@ -377,13 +350,13 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 	data, err := proto.Marshal(&unicast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling unicast message")
-		return
+		return err
 	}
 	if err = p.host.Unicast(ctx, peer, unicastTopic, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
-		return
+		return err
 	}
-	return
+	return err
 }
 
 // Info returns agents' peer info.
@@ -397,8 +370,8 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 	return p.host.Neighbors(ctx)
 }
 
-func convertAppMsg(msg proto.Message) (uint32, []byte, error) {
-	msgType, err := protogen.GetTypeFromProtoMsg(msg)
+func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {
+	msgType, err := protogen.GetTypeFromRPCMsg(msg)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "error when converting application message to proto")
 	}

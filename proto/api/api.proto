@@ -12,6 +12,7 @@ option go_package = "github.com/iotexproject/iotex-core/protogen/iotexapi";
 
 import "action.proto";
 import "blockchain.proto";
+import "node.proto";
 
 service APIService {
   // get the address detail of an address
@@ -33,6 +34,9 @@ service APIService {
   // get chain metadata
   rpc GetChainMeta(GetChainMetaRequest) returns (GetChainMetaResponse) {}
 
+  // get server version
+  rpc GetServerMeta(GetServerMetaRequest) returns (GetServerMetaResponse) {}
+
   // sendAction
   rpc SendAction(SendActionRequest) returns (SendActionResponse) {}
 
@@ -50,6 +54,9 @@ service APIService {
 
   // read state from blockchain
   rpc ReadState(ReadStateRequest) returns (ReadStateResponse) {}
+
+  // get block producers' productivity metrics
+  rpc GetProductivity(GetProductivityRequest) returns (GetProductivityResponse) {}
 }
 
 message GetAccountRequest {
@@ -128,6 +135,12 @@ message GetChainMetaResponse {
   iotextypes.ChainMeta chainMeta = 1;
 }
 
+message GetServerMetaRequest  {}
+
+message GetServerMetaResponse  {
+  iotextypes.ServerMeta serverMeta = 1;
+}
+
 message SendActionRequest {
   iotextypes.Action action = 1;
 }
@@ -172,4 +185,13 @@ message ReadStateRequest {
 
 message ReadStateResponse {
   bytes data = 1;
+}
+
+message GetProductivityRequest {
+   uint64 epochNumber = 1;
+}
+
+message GetProductivityResponse {
+    uint64 totalBlks = 1;
+    map<string, uint64> blksPerDelegate = 2;
 }

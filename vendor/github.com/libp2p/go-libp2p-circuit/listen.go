@@ -33,7 +33,7 @@ func (l *RelayListener) Accept() (manet.Conn, error) {
 		}
 
 		// TODO: Pretty print.
-		log.Infof("accepted relay connection: %s", c)
+		log.Infof("accepted relay connection: %q", c)
 
 		return c, nil
 	case <-l.ctx.Done():
