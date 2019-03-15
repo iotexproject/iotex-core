@@ -69,9 +69,8 @@ jobs:
             pwd && cat /etc/issue  && uname -a
             sudo add-apt-repository ppa:gophers/archive
             sudo apt-get update
-            sudo apt-get install golang
+            sudo apt-get install golang-1.11-go
             export GOPATH="/home/circleci/go"
-            export LD_LIBRARY_PATH=:/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
             go env
