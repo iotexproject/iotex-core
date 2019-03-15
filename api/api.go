@@ -220,9 +220,9 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	}
 	epochNum := rp.GetEpochNum(tipHeight)
 	epochHeight := rp.GetEpochHeight(epochNum)
-	timeDuration := blks[0].Timestamp - blks[len(blks)-1].Timestamp
+	timeDuration := blks[len(blks)-1].Timestamp - blks[0].Timestamp
 	// if time duration is less than 1 second, we set it to be 1 second
-	if timeDuration == 0 {
+	if timeDuration < 1 {
 		timeDuration = 1
 	}
 
