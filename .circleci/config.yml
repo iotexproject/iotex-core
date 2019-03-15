@@ -67,9 +67,9 @@ jobs:
       - run: 
           name: update golang 1.11
           command: |
-            sudo add-apt-repository ppa:longsleep/golang-backports
+            sudo add-apt-repository ppa:longsleep/golang-backports -y
             sudo apt-get update
-            sudo apt-get install golang-1.11
+            sudo apt-get install golang-go  
       - run: go version
       - run:
           name: GET OS EVN install golang
