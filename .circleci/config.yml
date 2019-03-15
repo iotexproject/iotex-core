@@ -70,13 +70,13 @@ jobs:
           name: GET OS EVN install golang
           command: |
             pwd && cat /etc/issue  && uname -a
-            sudo apt install golang
+            sudo apt install golang-go-linux-amd64
             export GOPATH=/home/circleci/go
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
             go env     
-      #- run: ./go.test.sh
+      - run: ./go.test.sh
       #- run: bash <(curl -s https://codecov.io/bash)
       #- run: go test -run=XXX -bench=. $(go list ./crypto)
       #- run: make minicluster            
