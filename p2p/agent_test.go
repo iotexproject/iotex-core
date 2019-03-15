@@ -8,13 +8,12 @@ package p2p
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -50,14 +49,14 @@ func TestBroadcast(t *testing.T) {
 	}
 	u := func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {}
 	bootnode := NewAgent(config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}, b, u)
-	bootnode.name="bootnode"
+	//bootnode.name="bootnode"
 	require.NoError(t, bootnode.Start(ctx))
 
 	for i := 0; i < n; i++ {
 		cfg := config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}
 		cfg.BootstrapNodes = []string{bootnode.Self()[0].String()}
 		agent := NewAgent(cfg, b, u)
-		agent.name=fmt.Sprintf("agent%d",i)
+		//agent.name=fmt.Sprintf("agent%d",i)
 		require.NoError(t, agent.Start(ctx))
 		agents = append(agents, agent)
 	}
