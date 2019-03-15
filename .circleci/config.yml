@@ -71,8 +71,9 @@ jobs:
             wget https://dl.google.com/go/go1.11.6.linux-amd64.tar.gz
             tar zxf go1.11.6.linux-amd64.tar.gz
             sudo mv go /usr/local/go-1.11.6
-            sudo rm /usr/bin/go
-            sudo ln -s //usr/local/go-1.11.6/bin/go /usr/bin/
+            export GOROOT="/usr/local/go-1.11.6"
+            export PATH=$GOROOT/bin:$PATH
+
             
       - run: go version
       - run:
