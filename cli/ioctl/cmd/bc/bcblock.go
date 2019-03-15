@@ -1,0 +1,60 @@
+// Copyright (c) 2019 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+package bc
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
+
+	"github.com/spf13/cobra"
+)
+
+// bcBlockCmd represents the bc Block command
+var bcBlockCmd = &cobra.Command{
+	Use:   "block [HEIGHT]",
+	Short: "Get block from block chain",
+	Args:  cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println(getBlock(args))
+	},
+}
+
+// getBlock get block from block chain
+func getBlock(args []string) string {
+	var height uint64
+	var err error
+	if len(args) != 0 {
+		height, err = strconv.ParseUint(args[0], 10, 64)
+		if err != nil {
+			return err.Error()
+		}
+		if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
+			return err.Error()
+		}
+	} else {
+		chainMeta, err := GetChainMeta()
+		if err != nil {
+			return err.Error()
+		}
+		height = chainMeta.Height
+	}
+	blockMeta, err := GetBlockMeta(height)
+	if err != nil {
+		return err.Error()
+	}
+	return fmt.Sprintf("Transactions: %d\n", blockMeta.NumActions) +
+		fmt.Sprintf("Height: %d\n", blockMeta.Height) +
+		fmt.Sprintf("Total Amount: %s\n", blockMeta.TransferAmount) +
+		fmt.Sprintf("Timestamp: %d\n", blockMeta.Timestamp) +
+		fmt.Sprintf("Producer Public Key: %s\n", blockMeta.ProducerAddress) +
+		fmt.Sprintf("Transactions Root: %s\n", blockMeta.TxRoot) +
+		fmt.Sprintf("Receipt Root: %s\n", blockMeta.ReceiptRoot) +
+		fmt.Sprintf("Delta State Digest: %s\n", blockMeta.DeltaStateDigest) +
+		fmt.Sprintf("Hash: %s", blockMeta.Hash)
+}

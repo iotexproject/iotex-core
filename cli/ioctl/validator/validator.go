@@ -18,8 +18,10 @@ var (
 	ErrInvalidAddr = errors.New("invalid IoTeX address")
 	// ErrLongName indicates error for a long name more than 40 characters
 	ErrLongName = errors.New("invalid long name that is more than 40 characters")
-	// ErrMinusAmount indicates error for an monus amount
-	ErrMinusAmount = errors.New("invalid amount that is minus")
+	// ErrMinusNumber indicates error for a minus number
+	ErrMinusNumber = errors.New("invalid number that is minus")
+	// ErrNonPositiveNumber indicates error for a non-positive number
+	ErrNonPositiveNumber = errors.New("invalid number that is not positive")
 )
 
 const (
@@ -43,10 +45,18 @@ func ValidateName(name string) error {
 	return nil
 }
 
-// ValidateAmount validates amount for action
-func ValidateAmount(amount int64) error {
-	if amount < 0 {
-		return ErrMinusAmount
+// ValidateNumber validates Number for action
+func ValidateNumber(number int64) error {
+	if number < 0 {
+		return ErrMinusNumber
+	}
+	return nil
+}
+
+// ValidatePositiveNumber validates positive Number for action
+func ValidatePositiveNumber(number int64) error {
+	if number <= 0 {
+		return ErrNonPositiveNumber
 	}
 	return nil
 }

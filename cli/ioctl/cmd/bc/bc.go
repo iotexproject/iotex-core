@@ -24,6 +24,7 @@ var BCCmd = &cobra.Command{
 }
 
 func init() {
+	BCCmd.AddCommand(bcBlockCmd)
 	BCCmd.AddCommand(bcHeightCmd)
 }
 
@@ -42,4 +43,28 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 		return nil, err
 	}
 	return response.ChainMeta, err
+}
+
+// GetBlockMeta gets block metadata
+func GetBlockMeta(height uint64) (*iotextypes.BlockMeta, error) {
+	conn, err := util.ConnectToEndpoint()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	request := &iotexapi.GetBlockMetasRequest{
+		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
+			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
+				Start: height - 1,
+				Count: 1,
+			},
+		},
+	}
+	ctx := context.Background()
+	response, err := cli.GetBlockMetas(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return response.BlkMetas[0], err
 }
