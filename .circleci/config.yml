@@ -59,7 +59,8 @@ jobs:
 
   build_test_ubuntu:
     machine:
-      image: circleci/classic:latest
+      #image: circleci/classic:latest
+      image: ubuntu:16.04
     working_directory: $HOME/go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
@@ -68,14 +69,8 @@ jobs:
           name: GET OS EVN install golang
           command: |
             pwd && cat /etc/issue  && uname -a
-            sudo apt-get update -y
-            sudo apt-get -y upgrade
-            cd /tmp
-            wget https://dl.google.com/go/go1.11.linux-amd64.tar.gz
-            sudo tar -xvf go1.11.linux-amd64.tar.gz
-            sudo mv go /usr/local
-            export GOROOT=/usr/local/go
-            export GOPATH=$HOME/go
+            export GOROOT="/usr/local/go"
+            export GOPATH="~/go"
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             go env
             go version
