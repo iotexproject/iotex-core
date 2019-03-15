@@ -35,10 +35,8 @@ func getBlock(args []string) string {
 		height, err = strconv.ParseUint(args[0], 10, 64)
 		if err != nil {
 			isHeight = false
-		} else {
-			if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-				return err.Error()
-			}
+		} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
+			return err.Error()
 		}
 	} else {
 		chainMeta, err := GetChainMeta()
@@ -47,7 +45,7 @@ func getBlock(args []string) string {
 		}
 		height = chainMeta.Height
 	}
-	blockMeta := &iotextypes.BlockMeta{}
+	var blockMeta *iotextypes.BlockMeta
 	if isHeight {
 		blockMeta, err = GetBlockMetaByHeight(height)
 	} else {
