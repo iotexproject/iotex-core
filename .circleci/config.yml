@@ -38,7 +38,7 @@ jobs:
       - run:
           name: install golang 1.11.6
           command: |
-            wget https://dl.google.com/go/go1.11.6.darwin-amd64.pkg
+            curl -o go1.11.6.darwin-amd64.pkg https://dl.google.com/go/go1.11.6.darwin-amd64.pkg
             sudo installer -pkg go1.11.6.darwin-amd64.pkg -target /usr/local/
           #name: brew install golang
       - run:
