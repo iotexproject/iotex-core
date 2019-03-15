@@ -69,7 +69,7 @@ func TestCreateContract(t *testing.T) {
 	h := stateDB.GetCodeHash(evmAddr1)
 	require.Equal(emptyEVMHash, h)
 	require.Nil(stateDB.GetCode(evmAddr1))
-	require.NoError(stateDB.commitContracts())
+	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -171,7 +171,7 @@ func TestLoadStoreContract(t *testing.T) {
 	v4 := hash.Hash256b([]byte("hen"))
 	require.Nil(stateDB.setContractState(hash.BytesToHash160(contract1), k3, v3))
 	require.Nil(stateDB.setContractState(hash.BytesToHash160(contract1), k4, v4))
-	require.NoError(stateDB.commitContracts())
+	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 
 	gasLimit := testutil.TestGasLimit
