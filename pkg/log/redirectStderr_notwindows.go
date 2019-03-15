@@ -22,7 +22,7 @@ import (
 
 // redirectStderr to the file passed in
 func redirectStderr(f *os.File) error {
-	err := syscall.Dup2(int(f.Fd()), int(os.Stderr.Fd()))
+	err := syscall.Dup2(int(f.Fd()), 2)
 	if err != nil {
 		log.Fatalf("Failed to redirect stderr to file: %v", err)
 		return err
