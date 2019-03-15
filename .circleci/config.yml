@@ -50,7 +50,7 @@ jobs:
           command: |
             wget https://dl.google.com/go/go1.11.6.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
-            tar  -C /usr/local -zxf go1.11.6.linux-amd64.tar.gz
+            sudo tar -C /usr/local -zxf go1.11.6.linux-amd64.tar.gz
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
