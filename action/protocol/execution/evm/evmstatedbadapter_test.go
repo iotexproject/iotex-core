@@ -328,7 +328,7 @@ func TestSnapshotAndRevert(t *testing.T) {
 	_, ok = stateDB.preimages[common.BytesToHash(v4[:])]
 	require.False(ok)
 
-	require.NoError(stateDB.commitContracts())
+	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 	require.True(stateDB.Exist(addr1))
 	require.True(stateDB.Exist(cntr1))
@@ -386,7 +386,7 @@ func TestPreimage(t *testing.T) {
 	stateDB.AddPreimage(common.BytesToHash(v3[:]), []byte("hen"))
 	// this won't overwrite preimage of v1
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("fox"))
-	require.NoError(stateDB.commitContracts())
+	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 	k, _ := stateDB.cb.Get(PreimageKVNameSpace, v1[:])
 	require.Equal([]byte("cat"), k)
