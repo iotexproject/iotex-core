@@ -85,6 +85,8 @@ func NewAutoNAT(ctx context.Context, h host.Host, getAddrs GetAddrs) AutoNAT {
 }
 
 func (as *AmbientAutoNAT) Status() NATStatus {
+	as.mx.Lock()
+	defer as.mx.Unlock()
 	return as.status
 }
 

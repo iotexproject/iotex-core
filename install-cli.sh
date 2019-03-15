@@ -16,6 +16,7 @@
 set -e
 
 RELEASES_URL="https://github.com/iotexproject/iotex-core/releases"
+S3URL="https://s3-ap-southeast-1.amazonaws.com/ioctl"
 
 downloadJSON() {
     url="$2"
@@ -140,17 +141,21 @@ if [ "$OS" = "windows" ]; then
     BINARY="$BINARY.exe"
 fi
 
-# if DEP_RELEASE_TAG was not provided, assume latest
-if [ -z "$CLI_RELEASE_TAG" ]; then
-    downloadJSON LATEST_RELEASE "$RELEASES_URL/latest"
-    CLI_RELEASE_TAG=$(echo "${LATEST_RELEASE}" | tr -s '\n' ' ' | sed 's/.*"tag_name":"//' | sed 's/".*//' )
+if [ "$1" = "unstable" ]; then
+    BINARY_URL="$S3URL/$BINARY"
+
+else
+    # if DEP_RELEASE_TAG was not provided, assume latest
+    if [ -z "$CLI_RELEASE_TAG" ]; then
+        downloadJSON LATEST_RELEASE "$RELEASES_URL/latest"
+        CLI_RELEASE_TAG=$(echo "${LATEST_RELEASE}" | tr -s '\n' ' ' | sed 's/.*"tag_name":"//' | sed 's/".*//' )
+    fi
+    echo "Release Tag = $CLI_RELEASE_TAG"
+    # fetch the real release data to make sure it exists before we attempt a download
+    downloadJSON RELEASE_DATA "$RELEASES_URL/tag/$CLI_RELEASE_TAG"
+    BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/$BINARY"
 fi
-echo "Release Tag = $CLI_RELEASE_TAG"
 
-# fetch the real release data to make sure it exists before we attempt a download
-downloadJSON RELEASE_DATA "$RELEASES_URL/tag/$CLI_RELEASE_TAG"
-
-BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/$BINARY"
 DOWNLOAD_FILE=$(mktemp)
 
 downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"

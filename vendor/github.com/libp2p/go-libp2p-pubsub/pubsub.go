@@ -25,8 +25,13 @@ const (
 	defaultValidateThrottle    = 8192
 )
 
+var (
+	TimeCacheDuration = 120 * time.Second
+)
+
 var log = logging.Logger("pubsub")
 
+// PubSub is the implementation of the pubsub system.
 type PubSub struct {
 	// atomic counter for seqnos
 	// NOTE: Must be declared at the top of the struct as we perform atomic
@@ -93,6 +98,10 @@ type PubSub struct {
 	// eval thunk in event loop
 	eval chan func()
 
+	// peer blacklist
+	blacklist     Blacklist
+	blacklistPeer chan peer.ID
+
 	peers        map[peer.ID]chan *RPC
 	seenMessages *timecache.TimeCache
 
@@ -106,7 +115,7 @@ type PubSub struct {
 	ctx context.Context
 }
 
-// PubSubRouter is the message router component of PubSub
+// PubSubRouter is the message router component of PubSub.
 type PubSubRouter interface {
 	// Protocols returns the list of protocols supported by the router.
 	Protocols() []protocol.ID
@@ -147,7 +156,7 @@ type RPC struct {
 
 type Option func(*PubSub) error
 
-// NewPubSub returns a new PubSub management object
+// NewPubSub returns a new PubSub management object.
 func NewPubSub(ctx context.Context, h host.Host, rt PubSubRouter, opts ...Option) (*PubSub, error) {
 	ps := &PubSub{
 		host:             h,
@@ -174,7 +183,9 @@ func NewPubSub(ctx context.Context, h host.Host, rt PubSubRouter, opts ...Option
 		topics:           make(map[string]map[peer.ID]struct{}),
 		peers:            make(map[peer.ID]chan *RPC),
 		topicVals:        make(map[string]*topicVal),
-		seenMessages:     timecache.NewTimeCache(time.Second * 120),
+		blacklist:        NewMapBlacklist(),
+		blacklistPeer:    make(chan peer.ID),
+		seenMessages:     timecache.NewTimeCache(TimeCacheDuration),
 		counter:          uint64(time.Now().UnixNano()),
 	}
 
@@ -257,6 +268,15 @@ func WithStrictSignatureVerification(required bool) Option {
 	}
 }
 
+// WithBlacklist provides an implementation of the blacklist; the default is a
+// MapBlacklist
+func WithBlacklist(b Blacklist) Option {
+	return func(p *PubSub) error {
+		p.blacklist = b
+		return nil
+	}
+}
+
 // processLoop handles all inputs arriving on the channels
 func (p *PubSub) processLoop(ctx context.Context) {
 	defer func() {
@@ -271,9 +291,13 @@ func (p *PubSub) processLoop(ctx context.Context) {
 	for {
 		select {
 		case pid := <-p.newPeers:
-			_, ok := p.peers[pid]
-			if ok {
+			if _, ok := p.peers[pid]; ok {
 				log.Warning("already have connection to peer: ", pid)
+				continue
+			}
+
+			if p.blacklist.Contains(pid) {
+				log.Warning("ignoring connection from blacklisted peer: ", pid)
 				continue
 			}
 
@@ -285,9 +309,16 @@ func (p *PubSub) processLoop(ctx context.Context) {
 		case s := <-p.newPeerStream:
 			pid := s.Conn().RemotePeer()
 
-			_, ok := p.peers[pid]
+			ch, ok := p.peers[pid]
 			if !ok {
 				log.Warning("new stream for unknown peer: ", pid)
+				s.Reset()
+				continue
+			}
+
+			if p.blacklist.Contains(pid) {
+				log.Warning("closing stream for blacklisted peer: ", pid)
+				close(ch)
 				s.Reset()
 				continue
 			}
@@ -368,6 +399,20 @@ func (p *PubSub) processLoop(ctx context.Context) {
 
 		case thunk := <-p.eval:
 			thunk()
+
+		case pid := <-p.blacklistPeer:
+			log.Infof("Blacklisting peer %s", pid)
+			p.blacklist.Add(pid)
+
+			ch, ok := p.peers[pid]
+			if ok {
+				close(ch)
+				delete(p.peers, pid)
+				for _, t := range p.topics {
+					delete(t, pid)
+				}
+				p.rt.RemovePeer(pid)
+			}
 
 		case <-ctx.Done():
 			log.Info("pubsub processloop shutting down")
@@ -562,17 +607,29 @@ func msgID(pmsg *pb.Message) string {
 
 // pushMsg pushes a message performing validation as necessary
 func (p *PubSub) pushMsg(vals []*topicVal, src peer.ID, msg *Message) {
+	// reject messages from blacklisted peers
+	if p.blacklist.Contains(src) {
+		log.Warningf("dropping message from blacklisted peer %s", src)
+		return
+	}
+
+	// even if they are forwarded by good peers
+	if p.blacklist.Contains(msg.GetFrom()) {
+		log.Warningf("dropping message from blacklisted source %s", src)
+		return
+	}
+
 	// reject unsigned messages when strict before we even process the id
 	if p.signStrict && msg.Signature == nil {
 		log.Debugf("dropping unsigned message from %s", src)
 		return
 	}
 
+	// have we already seen and validated this message?
 	id := msgID(msg.Message)
 	if p.seenMessage(id) {
 		return
 	}
-	p.markSeen(id)
 
 	if len(vals) > 0 || msg.Signature != nil {
 		// validation is asynchronous and globally throttled with the throttleValidate semaphore.
@@ -604,7 +661,7 @@ func (p *PubSub) validate(vals []*topicVal, src peer.ID, msg *Message) {
 	}
 
 	if len(vals) > 0 {
-		if !p.validateTopic(vals, msg) {
+		if !p.validateTopic(vals, src, msg) {
 			log.Warningf("message validation failed; dropping message from %s", src)
 			return
 		}
@@ -627,9 +684,9 @@ func (p *PubSub) validateSignature(msg *Message) bool {
 	return true
 }
 
-func (p *PubSub) validateTopic(vals []*topicVal, msg *Message) bool {
+func (p *PubSub) validateTopic(vals []*topicVal, src peer.ID, msg *Message) bool {
 	if len(vals) == 1 {
-		return p.validateSingleTopic(vals[0], msg)
+		return p.validateSingleTopic(vals[0], src, msg)
 	}
 
 	ctx, cancel := context.WithCancel(p.ctx)
@@ -646,7 +703,7 @@ loop:
 		select {
 		case val.validateThrottle <- struct{}{}:
 			go func(val *topicVal) {
-				rch <- val.validateMsg(ctx, msg)
+				rch <- val.validateMsg(ctx, src, msg)
 				<-val.validateThrottle
 			}(val)
 
@@ -672,13 +729,13 @@ loop:
 }
 
 // fast path for single topic validation that avoids the extra goroutine
-func (p *PubSub) validateSingleTopic(val *topicVal, msg *Message) bool {
+func (p *PubSub) validateSingleTopic(val *topicVal, src peer.ID, msg *Message) bool {
 	select {
 	case val.validateThrottle <- struct{}{}:
 		ctx, cancel := context.WithCancel(p.ctx)
 		defer cancel()
 
-		res := val.validateMsg(ctx, msg)
+		res := val.validateMsg(ctx, src, msg)
 		<-val.validateThrottle
 
 		return res
@@ -690,6 +747,12 @@ func (p *PubSub) validateSingleTopic(val *topicVal, msg *Message) bool {
 }
 
 func (p *PubSub) publishMessage(from peer.ID, pmsg *pb.Message) {
+	id := msgID(pmsg)
+	if p.seenMessage(id) {
+		return
+	}
+	p.markSeen(id)
+
 	p.notifySubs(pmsg)
 	p.rt.Publish(from, pmsg)
 }
@@ -717,14 +780,16 @@ type addSubReq struct {
 
 type SubOpt func(sub *Subscription) error
 
-// Subscribe returns a new Subscription for the given topic
+// Subscribe returns a new Subscription for the given topic.
+// Note that subscription is not an instanteneous operation. It may take some time
+// before the subscription is processed by the pubsub main loop and propagated to our peers.
 func (p *PubSub) Subscribe(topic string, opts ...SubOpt) (*Subscription, error) {
 	td := pb.TopicDescriptor{Name: &topic}
 
 	return p.SubscribeByTopicDescriptor(&td, opts...)
 }
 
-// SubscribeByTopicDescriptor lets you subscribe a topic using a pb.TopicDescriptor
+// SubscribeByTopicDescriptor lets you subscribe a topic using a pb.TopicDescriptor.
 func (p *PubSub) SubscribeByTopicDescriptor(td *pb.TopicDescriptor, opts ...SubOpt) (*Subscription, error) {
 	if td.GetAuth().GetMode() != pb.TopicDescriptor_AuthOpts_NONE {
 		return nil, fmt.Errorf("auth mode not yet supported")
@@ -758,14 +823,14 @@ type topicReq struct {
 	resp chan []string
 }
 
-// GetTopics returns the topics this node is subscribed to
+// GetTopics returns the topics this node is subscribed to.
 func (p *PubSub) GetTopics() []string {
 	out := make(chan []string, 1)
 	p.getTopics <- &topicReq{resp: out}
 	return <-out
 }
 
-// Publish publishes data under the given topic
+// Publish publishes data to the given topic.
 func (p *PubSub) Publish(topic string, data []byte) error {
 	seqno := p.nextSeqno()
 	m := &pb.Message{
@@ -804,7 +869,7 @@ type sendReq struct {
 	msg  *Message
 }
 
-// ListPeers returns a list of peers we are connected to.
+// ListPeers returns a list of peers we are connected to in the given topic.
 func (p *PubSub) ListPeers(topic string) []peer.ID {
 	out := make(chan []peer.ID)
 	p.getPeers <- &listPeerReq{
@@ -812,6 +877,11 @@ func (p *PubSub) ListPeers(topic string) []peer.ID {
 		topic: topic,
 	}
 	return <-out
+}
+
+// BlacklistPeer blacklists a peer; all messages from this peer will be unconditionally dropped.
+func (p *PubSub) BlacklistPeer(pid peer.ID) {
+	p.blacklistPeer <- pid
 }
 
 // per topic validators
@@ -835,13 +905,13 @@ type topicVal struct {
 	validateThrottle chan struct{}
 }
 
-// Validator is a function that validates a message
-type Validator func(context.Context, *Message) bool
+// Validator is a function that validates a message.
+type Validator func(context.Context, peer.ID, *Message) bool
 
-// ValidatorOpt is an option for RegisterTopicValidator
+// ValidatorOpt is an option for RegisterTopicValidator.
 type ValidatorOpt func(addVal *addValReq) error
 
-// WithValidatorTimeout is an option that sets the topic validator timeout
+// WithValidatorTimeout is an option that sets the topic validator timeout.
 func WithValidatorTimeout(timeout time.Duration) ValidatorOpt {
 	return func(addVal *addValReq) error {
 		addVal.timeout = timeout
@@ -849,7 +919,7 @@ func WithValidatorTimeout(timeout time.Duration) ValidatorOpt {
 	}
 }
 
-// WithValidatorConcurrency is an option that sets topic validator throttle
+// WithValidatorConcurrency is an option that sets topic validator throttle.
 func WithValidatorConcurrency(n int) ValidatorOpt {
 	return func(addVal *addValReq) error {
 		addVal.throttle = n
@@ -857,7 +927,7 @@ func WithValidatorConcurrency(n int) ValidatorOpt {
 	}
 }
 
-// RegisterTopicValidator registers a validator for topic
+// RegisterTopicValidator registers a validator for topic.
 func (p *PubSub) RegisterTopicValidator(topic string, val Validator, opts ...ValidatorOpt) error {
 	addVal := &addValReq{
 		topic:    topic,
@@ -904,8 +974,8 @@ func (ps *PubSub) addValidator(req *addValReq) {
 	req.resp <- nil
 }
 
-// UnregisterTopicValidator removes a validator from a topic
-// returns an error if there was no validator registered with the topic
+// UnregisterTopicValidator removes a validator from a topic.
+// Returns an error if there was no validator registered with the topic.
 func (p *PubSub) UnregisterTopicValidator(topic string) error {
 	rmVal := &rmValReq{
 		topic: topic,
@@ -928,11 +998,11 @@ func (ps *PubSub) rmValidator(req *rmValReq) {
 	}
 }
 
-func (val *topicVal) validateMsg(ctx context.Context, msg *Message) bool {
+func (val *topicVal) validateMsg(ctx context.Context, src peer.ID, msg *Message) bool {
 	vctx, cancel := context.WithTimeout(ctx, val.validateTimeout)
 	defer cancel()
 
-	valid := val.validate(vctx, msg)
+	valid := val.validate(vctx, src, msg)
 	if !valid {
 		log.Debugf("validation failed for topic %s", val.topic)
 	}

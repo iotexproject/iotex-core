@@ -121,8 +121,8 @@ func (s *Swarm) teardown() error {
 	s.conns.m = nil
 	s.conns.Unlock()
 
-	// Lots of go routines but we might as well do this in parallel. We want
-	// to shut down as fast as possible.
+	// Lots of goroutines but we might as well do this in parallel. We want to shut down as fast as
+	// possible.
 
 	for l := range listeners {
 		go func(l transport.Listener) {
@@ -148,8 +148,8 @@ func (s *Swarm) teardown() error {
 	return nil
 }
 
-// AddAddrFilter adds a multiaddr filter to the set of filters the swarm will
-// use to determine which addresses not to dial to.
+// AddAddrFilter adds a multiaddr filter to the set of filters the swarm will use to determine which
+// addresses not to dial to.
 func (s *Swarm) AddAddrFilter(f string) error {
 	m, err := mafilter.NewMask(f)
 	if err != nil {
