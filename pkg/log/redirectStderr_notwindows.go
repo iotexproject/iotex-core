@@ -10,11 +10,22 @@
 // derived from https://github.com/rs/zerolog/blob/master/log/log.go
 // putting here to get a better integration
 
-//+build windows
+//+build !windows
 
 package log
 
-// Dup2 rewrited for windows os
-func Dup2(from int, to int) error {
+import (
+	"log"
+	"os"
+	"syscall"
+)
+
+// redirectStderr to the file passed in
+func redirectStderr(f *os.File) error {
+	err := syscall.Dup2(int(f.Fd()), int(os.Stderr.Fd()))
+	if err != nil {
+		log.Fatalf("Failed to redirect stderr to file: %v", err)
+		return err
+	}
 	return nil
 }

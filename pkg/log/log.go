@@ -75,7 +75,7 @@ func InitGlobal(cfg GlobalConfig, opts ...zap.Option) error {
 		if err != nil {
 			return err
 		}
-		if err := Dup2(int(stderrF.Fd()), 2); err != nil {
+		if err := redirectStderr(stderrF); err != nil {
 			return err
 		}
 	}
