@@ -64,6 +64,7 @@ jobs:
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
+      - run: which go
       - run: 
           name: update golang 1.11
           command: |
