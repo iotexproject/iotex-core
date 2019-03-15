@@ -63,7 +63,7 @@ jobs:
   build_test_ubuntu:
     machine:
       image: circleci/classic:latest
-    working_directory: ~/go/src/github.com/iotexproject/iotex-core
+    working_directory: /home/circleci/go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
       - run:
@@ -71,7 +71,7 @@ jobs:
           command: |
             pwd && cat /etc/issue  && uname -a
             sudo apt install golang
-            export GOPATH=~/go
+            export GOPATH=/home/circleci/go
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
