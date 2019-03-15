@@ -37,7 +37,7 @@ jobs:
       - checkout
 
       - run:
-          name: Install golang / dep
+          name: Install golang 
           command: |
             brew install golang
       - run:
@@ -71,11 +71,12 @@ jobs:
           command: |
             pwd && cat /etc/issue  && uname -a
             sudo apt install golang-go-linux-amd64
-            export GOPATH=/home/circleci/go
-            export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
+            export GOPATH="/home/circleci/go"
+            export LD_LIBRARY_PATH=:/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
             export PATH=$PATH:$GOROOT/bin
-            go env     
+            go env
+            go version
       - run: ./go.test.sh
       #- run: bash <(curl -s https://codecov.io/bash)
       #- run: go test -run=XXX -bench=. $(go list ./crypto)
