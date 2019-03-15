@@ -16,15 +16,15 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	p2p "github.com/iotexproject/go-p2p"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/iotexproject/go-p2p"
+	"github.com/libp2p/go-libp2p-peerstore"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
-	p2ppb "github.com/iotexproject/iotex-core/p2p/pb"
+	"github.com/iotexproject/iotex-core/p2p/pb"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen"
 )
@@ -74,6 +74,8 @@ type Agent struct {
 	broadcastInboundHandler    HandleBroadcastInbound
 	unicastInboundAsyncHandler HandleUnicastInboundAsync
 	host                       *p2p.Host
+	bh broadcastHelperHeap
+	name string
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -82,6 +84,9 @@ func NewAgent(cfg config.Network, broadcastHandler HandleBroadcastInbound, unica
 		cfg:                        cfg,
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
+		bh:broadcastHelperHeap{
+			id2BroadcastHelper:make(map[string]*broadcastHelper),
+		},
 	}
 }
 
@@ -104,7 +109,7 @@ func (p *Agent) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
-
+	host.Name=p.name
 	if err := host.AddBroadcastPubSub(broadcastTopic, func(ctx context.Context, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
@@ -130,6 +135,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when marshaling broadcast message")
 			return
 		}
+		log.L().Info("receive message ",zap.String("agent",p.name))
 		// Skip the broadcast message if it's from the node itself
 		rawmsg, ok := p2p.GetBroadcastMsg(ctx)
 		if !ok {
@@ -141,7 +147,13 @@ func (p *Agent) Start(ctx context.Context) error {
 			skip = true
 			return
 		}
-
+		log.L().Info(fmt.Sprintf("%s received message %s, index=%d",p.name,broadcast.MessageId,broadcast.IndexOfPiece))
+		broadcast2:=p.bh.AddMessage(&broadcast)
+		if broadcast2==nil{
+			skip=true
+			return
+		}
+		broadcast.MsgBody=broadcast2.MsgBody
 		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
@@ -296,21 +308,41 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	broadcast := p2ppb.BroadcastMsg{
-		ChainId:   p2pCtx.ChainID,
-		PeerId:    p.host.HostIdentity(),
-		MsgType:   msgType,
-		MsgBody:   msgBody,
-		Timestamp: ptypes.TimestampNow(),
+	var msgId string
+	var offset =-1
+	var data []byte
+	if len(msgBody)>maxMessageBodySize{
+		msgId=generateMessageID()
 	}
-	data, err := proto.Marshal(&broadcast)
-	if err != nil {
-		err = errors.Wrap(err, "error when marshaling broadcast message")
-		return
-	}
-	if err = p.host.Broadcast(broadcastTopic, data); err != nil {
-		err = errors.Wrap(err, "error when sending broadcast message")
-		return
+	for len(msgBody)>0{
+		offset++
+		l:=len(msgBody)
+		l=min(l,maxMessageBodySize)
+		hasMore:=true
+		if len(msgBody)<=maxMessageBodySize{
+			hasMore=false
+		}
+		broadcast := p2ppb.BroadcastMsg{
+			ChainId:   p2pCtx.ChainID,
+			PeerId:    p.host.HostIdentity(), //todo bai ,peerId's length is fixed?
+			MsgType:   msgType,
+			MsgBody:   msgBody[0:l],
+			Timestamp: ptypes.TimestampNow(),
+			MessageId:msgId,
+			IndexOfPiece:uint32(offset),
+			HasMore:hasMore,
+		}
+		data, err = proto.Marshal(&broadcast)
+		log.L().Info(fmt.Sprintf("datasize=%d,bodysize=%d,peerid=%d",len(data),l,len(broadcast.PeerId)))
+		if err != nil {
+			err = errors.Wrap(err, "error when marshaling broadcast message")
+			return
+		}
+		if err = p.host.Broadcast(broadcastTopic, data); err != nil {
+			err = errors.Wrap(err, "error when sending broadcast message")
+			return
+		}
+		msgBody=msgBody[l:]
 	}
 	return
 }

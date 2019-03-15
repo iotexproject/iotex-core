@@ -147,6 +147,7 @@ type Host struct {
 	subs      map[string]*pubsub.Subscription
 	close     chan interface{}
 	ctx       context.Context
+	Name string
 }
 
 // NewHost constructs a host struct
@@ -305,6 +306,7 @@ func (h *Host) AddBroadcastPubSub(topic string, callback HandleBroadcast) error 
 	if err != nil {
 		return err
 	}
+	pub.Name=h.Name
 	h.pubs[topic] = pub
 	h.subs[topic] = sub
 	go func() {

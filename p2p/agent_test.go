@@ -8,6 +8,7 @@ package p2p
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -23,7 +24,7 @@ import (
 
 func TestBroadcast(t *testing.T) {
 	ctx := context.Background()
-	n := 10
+	n := 1
 	agents := make([]*Agent, 0)
 	defer func() {
 		var err error
@@ -37,6 +38,7 @@ func TestBroadcast(t *testing.T) {
 	b := func(_ context.Context, _ uint32, msg proto.Message) {
 		mutex.Lock()
 		defer mutex.Unlock()
+		t.Logf("receive message=%s",msg)
 		testMsg, ok := msg.(*testingpb.TestPayload)
 		require.True(t, ok)
 		idx := testMsg.MsgBody[0]
@@ -48,24 +50,29 @@ func TestBroadcast(t *testing.T) {
 	}
 	u := func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {}
 	bootnode := NewAgent(config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}, b, u)
+	bootnode.name="bootnode"
 	require.NoError(t, bootnode.Start(ctx))
 
 	for i := 0; i < n; i++ {
 		cfg := config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}
 		cfg.BootstrapNodes = []string{bootnode.Self()[0].String()}
 		agent := NewAgent(cfg, b, u)
+		agent.name=fmt.Sprintf("agent%d",i)
 		require.NoError(t, agent.Start(ctx))
 		agents = append(agents, agent)
 	}
 
 	for i := 0; i < n; i++ {
+		body:=[]byte{uint8(i)}
+		body=append(body,make([]byte,10)...)
 		require.NoError(t, agents[i].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &testingpb.TestPayload{
-			MsgBody: []byte{uint8(i)},
+			MsgBody: body,
 		}))
-		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
+		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
 			mutex.RLock()
 			defer mutex.RUnlock()
 			// Broadcast message will be skipped by the source node
+			t.Logf("counts=%d,n=%d",counts[uint8(i)],n)
 			return counts[uint8(i)] == n, nil
 		}))
 	}

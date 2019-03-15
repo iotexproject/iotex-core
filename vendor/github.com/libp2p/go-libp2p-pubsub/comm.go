@@ -28,6 +28,7 @@ func (p *PubSub) getHelloPacket() *RPC {
 }
 
 func (p *PubSub) handleNewStream(s inet.Stream) {
+	log.Warningf("pubsub %s handleNewStream",p.Name)
 	r := ggio.NewDelimitedReader(s, 1<<20)
 	for {
 		rpc := new(RPC)
@@ -43,7 +44,7 @@ func (p *PubSub) handleNewStream(s inet.Stream) {
 			}
 			return
 		}
-
+		log.Warningf("pubsub %s new msg",p.Name)
 		rpc.from = s.Conn().RemotePeer()
 		select {
 		case p.incoming <- rpc:

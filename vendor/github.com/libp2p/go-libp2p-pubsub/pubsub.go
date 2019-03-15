@@ -104,6 +104,7 @@ type PubSub struct {
 	signStrict bool
 
 	ctx context.Context
+	Name string
 }
 
 // PubSubRouter is the message router component of PubSub
@@ -489,6 +490,7 @@ func (p *PubSub) notifySubs(msg *pb.Message) {
 		for f := range subs {
 			select {
 			case f.ch <- &Message{msg}:
+				log.Infof("notifySubs name=%s,msg=%s",p.Name,msg)
 			default:
 				log.Infof("Can't deliver message to subscription for topic %s; subscriber too slow", topic)
 			}
@@ -549,7 +551,7 @@ func (p *PubSub) handleIncomingRPC(rpc *RPC) {
 
 		msg := &Message{pmsg}
 		vals := p.getValidators(msg)
-		p.pushMsg(vals, rpc.from, msg)
+		p.pushMsg(vals, rpc.from, msg) //消息通知给订阅者
 	}
 
 	p.rt.HandleRPC(rpc)
