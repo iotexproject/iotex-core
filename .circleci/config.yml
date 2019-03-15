@@ -35,11 +35,8 @@ jobs:
 
     steps:
       - checkout
-
       - run:
-          name: Install golang 
-          command: |
-            brew install golang
+          name: brew install golang
       - run:
           name: SET GO ENV
           command: |
@@ -70,7 +67,9 @@ jobs:
           name: GET OS EVN install golang
           command: |
             pwd && cat /etc/issue  && uname -a
-            sudo apt install golang-go-linux-amd64
+            sudo add-apt-repository ppa:gophers/archive
+            sudo apt-get update
+            sudo apt-get install golang
             export GOPATH="/home/circleci/go"
             export LD_LIBRARY_PATH=:/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin
