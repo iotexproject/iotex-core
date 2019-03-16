@@ -119,11 +119,11 @@ workflows:
   commit:
     jobs:
       - build_test_ubuntu
-      - build_test_darwin
-          requires:
+      - build_test_darwin:
+          requires :
             - build_test_ubuntu
-      - build_test_docker
-          requires:           
+      - build_test_docker:
+          requires :           
             - build_test_ubuntu
   scheduled-workflow:
     triggers:
