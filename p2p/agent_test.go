@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-pubsub"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
