@@ -68,7 +68,6 @@ type (
 		lifecycle          lifecycle.Lifecycle
 		mutex              sync.RWMutex
 		currentChainHeight uint64
-		numCandidates      uint
 		accountTrie        trie.Trie                // global state trie
 		dao                db.KVStore               // the underlying DB for account/contract storage
 		actionHandlers     []protocol.ActionHandler // the handlers to handle actions
@@ -115,7 +114,6 @@ func InMemTrieOption() Option {
 func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 	sf := &factory{
 		currentChainHeight: 0,
-		numCandidates:      cfg.Chain.NumCandidates,
 	}
 
 	for _, opt := range opts {
@@ -294,9 +292,6 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	)
 	if errors.Cause(err) == nil {
 		if len(candidates) > 0 {
-			if len(candidates) > int(sf.numCandidates) {
-				candidates = candidates[:sf.numCandidates]
-			}
 			return candidates, nil
 		}
 		err = state.ErrStateNotExist
