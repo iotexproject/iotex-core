@@ -108,7 +108,7 @@ jobs:
             export GOROOT="/usr/local/go"
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            curl https://github.com/openframeworks/openFrameworks/archive/0.10.1.tar.gz
+            curl -o openFrameworks.tar.gz https://codeload.github.com/openframeworks/openFrameworks/tar.gz/0.10.1
             tar -C ~/ zxf openFrameworks.tar.gz
             ls -lth ~/
             cd cli/ioctl/ && ./buildcli.sh
