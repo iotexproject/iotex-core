@@ -86,7 +86,7 @@ jobs:
       - run: cd cli/ioctl/ && ./buildcli.sh
       - run: sudo apt-get install python python-pip 
       - run: sudo pip install awscli
-      - run: aws s3 cp cli/ioctl/release/* ${S3_BUCKET_DIR}
+      - run: aws s3 sync cli/ioctl/release/ ${S3_BUCKET_DIR}
 
   nightly_ioctl_build_darwin:
     macos:
