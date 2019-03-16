@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 

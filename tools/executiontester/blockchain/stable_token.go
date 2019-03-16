@@ -256,7 +256,7 @@ func (s *stableToken) Start() error {
 		return errors.Wrap(err, "stable token contract failed to set global pause")
 	}
 
-	time.Sleep(time.Second * 6)
+	time.Sleep(time.Second * 20)
 	if _, err := s.CheckCallResult(h); err != nil {
 		return errors.Wrap(err, "allowance sheet failed to transfer ownership")
 	}

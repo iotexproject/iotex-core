@@ -382,7 +382,8 @@ func (f *fpToken) Start() error {
 	if err != nil {
 		return errors.Wrap(err, "stable token contract failed to set approve")
 	}
-	time.Sleep(time.Second * 9)
+
+	time.Sleep(time.Second * 30)
 
 	if _, err := f.CheckCallResult(h); err != nil {
 		return errors.Wrap(err, "management contract failed to set storage")
