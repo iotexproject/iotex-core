@@ -97,7 +97,6 @@ var (
 			Address:         "",
 			ProducerPrivKey: PrivateKey.HexString(),
 			EmptyGenesis:    false,
-			NumCandidates:   101,
 			GravityChainDB:  DB{DbPath: "./poll.db", NumRetries: 10},
 			Committee: committee.Config{
 				BeaconChainAPIs: []string{},
@@ -191,7 +190,6 @@ var (
 		ValidateExplorer,
 		ValidateAPI,
 		ValidateActPool,
-		ValidateChain,
 	}
 
 	// PrivateKey is a randomly generated producer's key for testing purpose
@@ -217,7 +215,6 @@ type (
 		Address         string           `yaml:"address"`
 		ProducerPrivKey string           `yaml:"producerPrivKey"`
 		EmptyGenesis    bool             `yaml:"emptyGenesis"`
-		NumCandidates   uint             `yaml:"numCandidates"`
 		GravityChainDB  DB               `yaml:"gravityChainDB"`
 		Committee       committee.Config `yaml:"committee"`
 
@@ -479,14 +476,6 @@ func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
 		)
 	}
 	return sk
-}
-
-// ValidateChain validates the chain configure
-func ValidateChain(cfg Config) error {
-	if cfg.Chain.NumCandidates <= 0 {
-		return errors.Wrapf(ErrInvalidCfg, "candidate number should be greater than 0")
-	}
-	return nil
 }
 
 // ValidateDispatcher validates the dispatcher configs
