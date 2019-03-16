@@ -82,6 +82,7 @@ jobs:
     working_directory: /go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
+      - run: sudo apt-get install libc6-dev-i386
       - run: cd cli/ioctl/ && ./buildcli.sh
       - run: sudo apt install awscli
       - run:
@@ -108,7 +109,7 @@ jobs:
             export GOROOT="/usr/local/go"
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            sudo apt-get install libc6-dev-i386
+            
             cd cli/ioctl/ && ./buildcli.sh
             pip install awscli
             aws s3 cp release/* ${S3_BUCKET_DIR}
