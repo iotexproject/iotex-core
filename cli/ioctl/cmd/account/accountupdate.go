@@ -47,7 +47,7 @@ func accountUpdate(args []string) string {
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(address.Bytes(), v.Address.Bytes()) {
 			fmt.Printf("#%s: Enter current password\n", account)
-			byteCurrentPassword, err := terminal.ReadPassword(syscall.Stdin)
+			byteCurrentPassword, err := terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
 				log.L().Error("fail to get current password", zap.Error(err))
 				return err.Error()
@@ -58,14 +58,14 @@ func accountUpdate(args []string) string {
 				return "wrong password"
 			}
 			fmt.Printf("#%s: Enter new password\n", account)
-			bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+			bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
 				log.L().Error("fail to get password", zap.Error(err))
 				return err.Error()
 			}
 			password := string(bytePassword)
 			fmt.Printf("#%s: Enter new password again\n", account)
-			bytePassword, err = terminal.ReadPassword(syscall.Stdin)
+			bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
 				log.L().Error("fail to get password", zap.Error(err))
 				return err.Error()
