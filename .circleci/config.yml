@@ -108,7 +108,6 @@ jobs:
             export GOROOT="/usr/local/go"
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            sudo apt-get install libc6-dev-i386
             cd cli/ioctl/ && ./buildcli.sh
             sudo pip install awscli
             aws s3 cp release/* ${S3_BUCKET_DIR}
