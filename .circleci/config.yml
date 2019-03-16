@@ -84,10 +84,9 @@ jobs:
       - checkout
       - run: sudo apt-get install libc6-dev-i386
       - run: cd cli/ioctl/ && ./buildcli.sh
-      - run: sudo apt install awscli
-      - run:
-          name: Deploy to S3
-          command: aws s3 cp release/* ${S3_BUCKET_DIR}
+      - run: sudo apt install awscli 
+      - run: pwd
+      - run: aws s3 cp cli/ioctl/release/* ${S3_BUCKET_DIR}
 
   nightly_ioctl_build_darwin:
     macos:
