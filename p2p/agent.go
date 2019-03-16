@@ -312,11 +312,11 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	var msgId string
+	var msgID string
 	var offset = -1
 	var data []byte
 	if len(msgBody) > maxMessageBodySize {
-		msgId = generateMessageID()
+		msgID = generateMessageID()
 	}
 	for len(msgBody) > 0 {
 		offset++
@@ -332,7 +332,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 			MsgType:      msgType,
 			MsgBody:      msgBody[0:l],
 			Timestamp:    ptypes.TimestampNow(),
-			MessageId:    msgId,
+			MessageId:    msgID,
 			IndexOfPiece: uint32(offset),
 			HasMore:      hasMore,
 		}
