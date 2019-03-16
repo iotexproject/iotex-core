@@ -84,8 +84,8 @@ jobs:
       - checkout
       - run: sudo apt-get install libc6-dev-i386
       - run: cd cli/ioctl/ && ./buildcli.sh
-      - run: sudo apt install awscli 
-      - run: pwd
+      - run: sudo apt-get install python python-pip 
+      - run: sudo pip install awscli
       - run: aws s3 cp cli/ioctl/release/* ${S3_BUCKET_DIR}
 
   nightly_ioctl_build_darwin:
@@ -110,7 +110,7 @@ jobs:
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
             
             cd cli/ioctl/ && ./buildcli.sh
-            pip install awscli
+            sudo pip install awscli
             aws s3 cp release/* ${S3_BUCKET_DIR}
 
 workflows:
