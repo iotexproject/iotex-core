@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-pubsub"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -50,7 +50,7 @@ func testBroadcastNumber(t *testing.T, n int, messagesize int) {
 			defer mutex.Unlock()
 			testMsg, ok := msg.(*testingpb.TestPayload)
 			require.True(t, ok)
-			//t.Logf("%s receive message bodylen=%d", name, len(testMsg.MsgBody))
+			t.Logf("%s receive message bodylen=%d", name, len(testMsg.MsgBody))
 			idx := testMsg.MsgBody[0]
 			if _, ok = counts[idx]; ok {
 				counts[idx]++
