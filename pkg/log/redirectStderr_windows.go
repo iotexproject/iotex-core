@@ -41,7 +41,9 @@ func redirectStderr(f *os.File) {
 	err := setStdHandle(syscall.STD_ERROR_HANDLE, syscall.Handle(f.Fd()))
 	if err != nil {
 		log.Fatalf("Failed to redirect stderr to file: %v", err)
+		return err
 	}
 	// SetStdHandle does not affect prior references to stderr
 	os.Stderr = f
+	return nil
 }
