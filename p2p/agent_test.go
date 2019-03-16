@@ -13,12 +13,10 @@ import (
 	"testing"
 	"time"
 
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/libp2p/go-libp2p-pubsub"
 
 	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -32,7 +30,7 @@ func TestBroadcast(t *testing.T) {
 	}
 }
 func TestBroadcastLargeBlock(t *testing.T) {
-	testBroadcastNumber(t, 10, 10*1024*1024)
+	testBroadcastNumber(t, 4, 5*1024*1024)
 }
 func testBroadcastNumber(t *testing.T, n int, messagesize int) {
 	ctx := context.Background()
@@ -52,7 +50,7 @@ func testBroadcastNumber(t *testing.T, n int, messagesize int) {
 			defer mutex.Unlock()
 			testMsg, ok := msg.(*testingpb.TestPayload)
 			require.True(t, ok)
-			t.Logf("%s receive message bodylen=%d", name, len(testMsg.MsgBody))
+			//t.Logf("%s receive message bodylen=%d", name, len(testMsg.MsgBody))
 			idx := testMsg.MsgBody[0]
 			if _, ok = counts[idx]; ok {
 				counts[idx]++
@@ -75,7 +73,7 @@ func testBroadcastNumber(t *testing.T, n int, messagesize int) {
 		require.NoError(t, agent.Start(ctx))
 		agents = append(agents, agent)
 	}
-	log.L().Warn(fmt.Sprintf("all start complete...."))
+	//log.L().Warn(fmt.Sprintf("all start complete...."))
 	//must wait for heart beat for mesh link
 	time.Sleep(pubsub.GossipSubHeartbeatInitialDelay)
 	for i := 0; i < n; i++ {
@@ -91,7 +89,7 @@ func testBroadcastNumber(t *testing.T, n int, messagesize int) {
 			return counts[uint8(i)] == n, nil
 		}))
 	}
-	log.L().Warn(fmt.Sprintf("all broadcast complete..."))
+	//log.L().Warn(fmt.Sprintf("all broadcast complete..."))
 }
 
 func TestUnicast(t *testing.T) {

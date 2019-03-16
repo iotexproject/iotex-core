@@ -150,8 +150,8 @@ func (p *Agent) Start(ctx context.Context) error {
 			skip = true
 			return
 		}
-		log.L().Info(fmt.Sprintf("received message %s, index=%d,len=%d",
-			broadcast.MessageId, broadcast.IndexOfPiece, len(broadcast.MsgBody)))
+		//log.L().Info(fmt.Sprintf("received message %s, index=%d,len=%d",
+		//	broadcast.MessageId, broadcast.IndexOfPiece, len(broadcast.MsgBody)))
 		broadcast2 := p.bh.AddMessage(&broadcast)
 		if broadcast2 == nil {
 			skip = true
@@ -337,7 +337,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 			HasMore:      hasMore,
 		}
 		data, err = proto.Marshal(&broadcast)
-		log.L().Info(fmt.Sprintf("datasize=%d,bodysize=%d,peerid=%d", len(data), l, len(broadcast.PeerId)))
+		//log.L().Debug(fmt.Sprintf("datasize=%d,bodysize=%d,peerid=%d", len(data), l, len(broadcast.PeerId)))
 		if err != nil {
 			err = errors.Wrap(err, "error when marshaling broadcast message")
 			return
