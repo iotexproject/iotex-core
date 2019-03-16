@@ -54,9 +54,9 @@ jobs:
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
-            export GOROOT="/usr/local/go"
+            export GOROOT=/usr/local/go
             export GOPATH=~/go
-            export LD_LIBRARY_PATH=:"/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib"
+            export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
@@ -118,8 +118,8 @@ workflows:
   version: 2
   commit:
     jobs:
-      - build_test_docker
-      - build_test_darwin
+      #- build_test_docker
+      #- build_test_darwin
       - build_test_ubuntu
   scheduled-workflow:
     triggers:
