@@ -82,7 +82,7 @@ jobs:
     working_directory: /go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
-      - run: cd cli/ioctl/ && sh buildcli.sh
+      - run: cd cli/ioctl/ && ./buildcli.sh
       - run: sudo apt install awscli
       - run:
           name: Deploy to S3
@@ -108,7 +108,7 @@ jobs:
             export GOROOT="/usr/local/go"
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            cd cli/ioctl/ && sh buildcli.sh
+            cd cli/ioctl/ && ./buildcli.sh
       - run: pip install awscli
       - run:
           name: Deploy to S3
@@ -118,8 +118,8 @@ workflows:
   version: 2
   commit:
     jobs:
-      #- build_test_docker
-      #- build_test_darwin
+      - build_test_docker
+      - build_test_darwin
       - build_test_ubuntu
   scheduled-workflow:
     triggers:
