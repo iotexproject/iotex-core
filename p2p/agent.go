@@ -348,7 +348,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		}
 		msgBody = msgBody[l:]
 	}
-	return
+	return err
 }
 
 // UnicastOutbound sends a unicast message to the given address
