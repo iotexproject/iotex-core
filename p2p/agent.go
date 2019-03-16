@@ -30,8 +30,9 @@ import (
 )
 
 const (
-	successStr = "success"
-	failureStr = "failure"
+	successStr    = "success"
+	failureStr    = "failure"
+	broadcastName = "iotexbroadcast"
 )
 
 var (
@@ -79,6 +80,7 @@ type Agent struct {
 	broadcastInboundHandler    HandleBroadcastInbound
 	unicastInboundAsyncHandler HandleUnicastInboundAsync
 	host                       *p2p.Host
+	bh                         broadcastHelperHeap
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -87,6 +89,9 @@ func NewAgent(cfg config.Network, broadcastHandler HandleBroadcastInbound, unica
 		cfg:                        cfg,
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
+		bh: broadcastHelperHeap{
+			id2BroadcastHelper: make(map[string]*broadcastHelper),
+		},
 	}
 }
 
@@ -146,7 +151,13 @@ func (p *Agent) Start(ctx context.Context) error {
 			skip = true
 			return
 		}
-
+		log.L().Info(fmt.Sprintf("received message %s, index=%d,len=%d", broadcast.MessageId, broadcast.IndexOfPiece, len(broadcast.MsgBody)))
+		broadcast2 := p.bh.AddMessage(&broadcast)
+		if broadcast2 == nil {
+			skip = true
+			//return
+		}
+		broadcast.MsgBody = broadcast2.MsgBody
 		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
@@ -301,23 +312,43 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 		err = errors.New("P2P context doesn't exist")
 		return
 	}
-	broadcast := iotexrpc.BroadcastMsg{
-		ChainId:   p2pCtx.ChainID,
-		PeerId:    p.host.HostIdentity(),
-		MsgType:   msgType,
-		MsgBody:   msgBody,
-		Timestamp: ptypes.TimestampNow(),
+	var msgId string
+	var offset = -1
+	var data []byte
+	if len(msgBody) > maxMessageBodySize {
+		msgId = generateMessageID()
 	}
-	data, err := proto.Marshal(&broadcast)
-	if err != nil {
-		err = errors.Wrap(err, "error when marshaling broadcast message")
-		return err
+	for len(msgBody) > 0 {
+		offset++
+		l := len(msgBody)
+		l = min(l, maxMessageBodySize)
+		hasMore := true
+		if len(msgBody) <= maxMessageBodySize {
+			hasMore = false
+		}
+		broadcast := iotexrpc.BroadcastMsg{
+			ChainId:      p2pCtx.ChainID,
+			PeerId:       p.host.HostIdentity(), //todo bai ,peerId's length is fixed?
+			MsgType:      msgType,
+			MsgBody:      msgBody[0:l],
+			Timestamp:    ptypes.TimestampNow(),
+			MessageId:    msgId,
+			IndexOfPiece: uint32(offset),
+			HasMore:      hasMore,
+		}
+		data, err = proto.Marshal(&broadcast)
+		log.L().Info(fmt.Sprintf("datasize=%d,bodysize=%d,peerid=%d", len(data), l, len(broadcast.PeerId)))
+		if err != nil {
+			err = errors.Wrap(err, "error when marshaling broadcast message")
+			return
+		}
+		if err = p.host.Broadcast(broadcastTopic, data); err != nil {
+			err = errors.Wrap(err, "error when sending broadcast message")
+			return
+		}
+		msgBody = msgBody[l:]
 	}
-	if err = p.host.Broadcast(broadcastTopic, data); err != nil {
-		err = errors.Wrap(err, "error when sending broadcast message")
-		return err
-	}
-	return err
+	return
 }
 
 // UnicastOutbound sends a unicast message to the given address

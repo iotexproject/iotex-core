@@ -5,9 +5,10 @@ package iotexrpc
 
 import (
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -207,6 +208,10 @@ type BroadcastMsg struct {
 	MsgBody              []byte               `protobuf:"bytes,3,opt,name=msg_body,json=msgBody,proto3" json:"msg_body,omitempty"`
 	PeerId               string               `protobuf:"bytes,4,opt,name=peer_id,json=peerId,proto3" json:"peer_id,omitempty"`
 	Timestamp            *timestamp.Timestamp `protobuf:"bytes,5,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	MessageId            string               `protobuf:"bytes,6,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	MessageLength        uint32               `protobuf:"varint,7,opt,name=message_length,json=messageLength,proto3" json:"message_length,omitempty"`
+	IndexOfPiece         uint32               `protobuf:"varint,8,opt,name=index_of_piece,json=indexOfPiece,proto3" json:"index_of_piece,omitempty"`
+	HasMore              bool                 `protobuf:"varint,9,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`

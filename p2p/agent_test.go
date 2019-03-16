@@ -8,9 +8,14 @@ package p2p
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/libp2p/go-libp2p-pubsub"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/libp2p/go-libp2p-peerstore"
@@ -22,8 +27,15 @@ import (
 )
 
 func TestBroadcast(t *testing.T) {
+	for n := 1; n < 5; n++ {
+		testBroadcastNumber(t, n, 10)
+	}
+}
+func TestBroadcastLargeBlock(t *testing.T) {
+	testBroadcastNumber(t, 10, 10*1024*1024)
+}
+func testBroadcastNumber(t *testing.T, n int, messagesize int) {
 	ctx := context.Background()
-	n := 1
 	agents := make([]*Agent, 0)
 	defer func() {
 		var err error
@@ -34,47 +46,52 @@ func TestBroadcast(t *testing.T) {
 	}()
 	counts := make(map[uint8]int)
 	var mutex sync.RWMutex
-	b := func(_ context.Context, _ uint32, msg proto.Message) {
-		mutex.Lock()
-		defer mutex.Unlock()
-		t.Logf("receive message=%s",msg)
-		testMsg, ok := msg.(*testingpb.TestPayload)
-		require.True(t, ok)
-		idx := testMsg.MsgBody[0]
-		if _, ok = counts[idx]; ok {
-			counts[idx]++
-		} else {
-			counts[idx] = 1
+	bh := func(name string) HandleBroadcastInbound {
+		b := func(_ context.Context, _ uint32, msg proto.Message) {
+			mutex.Lock()
+			defer mutex.Unlock()
+			testMsg, ok := msg.(*testingpb.TestPayload)
+			require.True(t, ok)
+			t.Logf("%s receive message bodylen=%d", name, len(testMsg.MsgBody))
+			idx := testMsg.MsgBody[0]
+			if _, ok = counts[idx]; ok {
+				counts[idx]++
+			} else {
+				counts[idx] = 1
+			}
 		}
+		return b
 	}
+
 	u := func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {}
-	bootnode := NewAgent(config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}, b, u)
-	//bootnode.name="bootnode"
+	bootnode := NewAgent(config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}, bh("bootnode"), u)
 	require.NoError(t, bootnode.Start(ctx))
 
 	for i := 0; i < n; i++ {
 		cfg := config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()}
 		cfg.BootstrapNodes = []string{bootnode.Self()[0].String()}
-		agent := NewAgent(cfg, b, u)
-		//agent.name=fmt.Sprintf("agent%d",i)
+		name := fmt.Sprintf("agent%d", i)
+		agent := NewAgent(cfg, bh(name), u)
 		require.NoError(t, agent.Start(ctx))
 		agents = append(agents, agent)
 	}
-
+	log.L().Warn(fmt.Sprintf("all start complete...."))
+	//must wait for heart beat for mesh link
+	time.Sleep(pubsub.GossipSubHeartbeatInitialDelay)
 	for i := 0; i < n; i++ {
-		body:=[]byte{uint8(i)}
-		body=append(body,make([]byte,10)...)
-		require.NoError(t, agents[i].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &testingpb.TestPayload{
+		body := []byte{uint8(i)}
+		body = append(body, make([]byte, messagesize-1)...)
+		require.NoError(t, agents[i%len(agents)].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &testingpb.TestPayload{
 			MsgBody: body,
 		}))
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {
 			mutex.RLock()
 			defer mutex.RUnlock()
 			// Broadcast message will be skipped by the source node
-			t.Logf("counts=%d,n=%d",counts[uint8(i)],n)
 			return counts[uint8(i)] == n, nil
 		}))
 	}
+	log.L().Warn(fmt.Sprintf("all broadcast complete..."))
 }
 
 func TestUnicast(t *testing.T) {
