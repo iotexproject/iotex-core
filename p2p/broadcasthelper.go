@@ -15,10 +15,20 @@ libp2p doesn't allow broadcast message which size is bigger than 1M size.
 These messages should be fragmented to ensure no more than 1M size.
 */
 
-var maxBroadcastDataSize = 20 << 20 //20M for Dos attack
-var maxItemForBroadcast = 20        //Up to 20 unfinished fragmented at the same time
-var maxMessageBodySize = 1047552    //1*1024*1024-1024
-var maxIndexOfPiece = 210
+const (
+	/*
+	   When broadcasting a data packet, the size of each data packet cannot exceed 1M, but the size of the block is
+	   likely to exceed 1M, so it must be fragmented. Due to security concerns, the size of each block cannot be
+	   infinitely large, and is directly limited to approximately 20M.
+	   Each broadcast packet can be up to about 1M (maxMessageBodySize), and each block can be broadcast with up to
+	   20 slices (maxIndexOfPiece), so each block is up to about 20M.
+	   Considering the size of the buffer, there should be no more than 20 (maxItemForBroadcast) blocks assembled
+	   	at the same time.
+	*/
+	maxItemForBroadcast = 20      //Up to 20 unfinished fragmented at the same time
+	maxMessageBodySize  = 1047552 //1*1024*1024-1024
+	maxIndexOfPiece     = 20      //about 20M
+)
 
 func generateMessageID() string {
 	//RandSrc random source from math
@@ -62,14 +72,8 @@ func (h *broadcastHelperHeap) Pop() interface{} {
 	h.bhs = h.bhs[0 : n-1]
 	return x
 }
-func (h *broadcastHelperHeap) getbh(bh *broadcastHelper) int {
-	for i := 0; i < len(h.bhs); i++ {
-		if h.bhs[i] == bh {
-			return i
-		}
-	}
-	return -1
-}
+
+//AddMessage add a new piece of message
 func (h *broadcastHelperHeap) AddMessage(msg *iotexrpc.BroadcastMsg) *iotexrpc.BroadcastMsg {
 	defer func() {
 		//remove message that is too old

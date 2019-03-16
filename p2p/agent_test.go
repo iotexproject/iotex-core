@@ -81,7 +81,7 @@ func testBroadcastNumber(t *testing.T, n int, messagesize int) {
 	for i := 0; i < n; i++ {
 		body := []byte{uint8(i)}
 		body = append(body, make([]byte, messagesize-1)...)
-		require.NoError(t, agents[i%len(agents)].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &testingpb.TestPayload{
+		require.NoError(t, agents[i].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &testingpb.TestPayload{
 			MsgBody: body,
 		}))
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (bool, error) {

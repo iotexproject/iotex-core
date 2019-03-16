@@ -30,9 +30,8 @@ import (
 )
 
 const (
-	successStr    = "success"
-	failureStr    = "failure"
-	broadcastName = "iotexbroadcast"
+	successStr = "success"
+	failureStr = "failure"
 )
 
 var (
@@ -151,11 +150,12 @@ func (p *Agent) Start(ctx context.Context) error {
 			skip = true
 			return
 		}
-		log.L().Info(fmt.Sprintf("received message %s, index=%d,len=%d", broadcast.MessageId, broadcast.IndexOfPiece, len(broadcast.MsgBody)))
+		log.L().Info(fmt.Sprintf("received message %s, index=%d,len=%d",
+			broadcast.MessageId, broadcast.IndexOfPiece, len(broadcast.MsgBody)))
 		broadcast2 := p.bh.AddMessage(&broadcast)
 		if broadcast2 == nil {
 			skip = true
-			//return
+			return
 		}
 		broadcast.MsgBody = broadcast2.MsgBody
 		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
