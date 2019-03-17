@@ -82,7 +82,7 @@ jobs:
     working_directory: /go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
-      - run: sudo apt-get install libc6-dev-i386
+      #- run: sudo apt-get install libc6-dev-i386
       - run: cd cli/ioctl/ && ./buildcli.sh
       - run: sudo apt-get install python python-pip 
       - run: sudo pip install awscli
@@ -108,18 +108,17 @@ jobs:
             export GOROOT="/usr/local/go"
             export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            curl -o openFrameworks.tar.gz https://codeload.github.com/openframeworks/openFrameworks/tar.gz/0.10.1
-            tar -C ~/ -zxf openFrameworks.tar.gz
-            ls -lth ~/
             cd cli/ioctl/ && ./buildcli.sh
             sudo pip install awscli
-            aws s3 cp release/* ${S3_BUCKET_DIR}
+            aws s3 sync release/ ${S3_BUCKET_DIR}
 
 workflows:
   version: 2
   commit:
     jobs:
       - nightly_ioctl_build_darwin
+      - nightly_ioctl_build_docker
+      #- build_test_darwin
       #- build_test_darwin
       #- build_test_ubuntu
   scheduled-workflow:
