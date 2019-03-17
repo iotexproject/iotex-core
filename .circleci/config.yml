@@ -82,7 +82,6 @@ jobs:
     working_directory: /go/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
-      #- run: sudo apt-get install libc6-dev-i386
       - run: cd cli/ioctl/ && ./buildcli.sh
       - run: sudo apt-get install python python-pip 
       - run: sudo pip install awscli
@@ -116,13 +115,13 @@ workflows:
   version: 2
   commit:
     jobs:
-      - build_test_darwin:
-          requires :
-            - build_test_ubuntu      
+      - build_test_ubuntu
       - build_test_darwin:
           requires :
             - build_test_ubuntu
-      - build_test_ubuntu
+      - build_test_docker:
+          requires :           
+            - build_test_ubuntu
   scheduled-workflow:
     triggers:
       - schedule:
