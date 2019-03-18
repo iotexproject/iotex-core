@@ -36,6 +36,7 @@ func version() string {
 		GoVersion:       ver.GoVersion,
 		BuidTime:        ver.BuildTime,
 	}
+	res := fmt.Sprintf("Client Version:\n%+v\n", versionInfo)
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
@@ -46,8 +47,9 @@ func version() string {
 	ctx := context.Background()
 	response, err := cli.GetServerMeta(ctx, request)
 	if err != nil {
-		return err.Error()
+		res += "\nfailed to get version from server: " + err.Error()
+	} else {
+		res += fmt.Sprintf("Server Version:\n%+v", response.ServerMeta)
 	}
-	return fmt.Sprintf("Client Version:\n%+v\n", versionInfo) +
-		fmt.Sprintf("Server Version:\n%+v", response.ServerMeta)
+	return res
 }
