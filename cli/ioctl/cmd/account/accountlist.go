@@ -31,8 +31,17 @@ func accountList() string {
 		return err.Error()
 	}
 	lines := make([]string, 0)
-	for n, addr := range w.AccountList {
-		lines = append(lines, fmt.Sprintf("name: %s, address:%s", n, addr))
+	if len(w.AccountList) != 0 {
+		lines = append(lines, "Account:")
+		for name, addr := range w.AccountList {
+			lines = append(lines, fmt.Sprintf("  %s - %s", addr, name))
+		}
+	}
+	if len(w.NameList) != 0 {
+		lines = append(lines, "Name:")
+		for name, addr := range w.NameList {
+			lines = append(lines, fmt.Sprintf("  %s - %s", addr, name))
+		}
 	}
 	return strings.Join(lines, "\n")
 }

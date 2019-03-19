@@ -13,6 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Directories
@@ -44,29 +46,28 @@ type Config struct {
 	Endpoint    string            `yaml:"endpoint"`
 	Wallet      string            `yaml:"wallet"`
 	AccountList map[string]string `yaml:"accountList"`
+	NameList    map[string]string `yaml:"nameList"`
 }
 
 func init() {
 	ConfigDir = os.Getenv("HOME") + "/.config/ioctl/default"
 	if err := os.MkdirAll(ConfigDir, 0700); err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		log.L().Panic(err.Error())
 	}
 	DefaultConfigFile = ConfigDir + "/config.default"
 	cfg, err := LoadConfig()
 	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		log.L().Panic(err.Error())
 	}
-	cfg.Wallet = ConfigDir
+	if cfg.Wallet == "" {
+		cfg.Wallet = ConfigDir
+	}
 	out, err := yaml.Marshal(&cfg)
 	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		log.L().Panic(err.Error())
 	}
 	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-		fmt.Printf("Failed to write to config file %s.", DefaultConfigFile)
-		os.Exit(1)
+		log.L().Panic(fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile))
 	}
 	ConfigCmd.AddCommand(configGetCmd)
 	ConfigCmd.AddCommand(configSetCmd)
@@ -76,6 +77,7 @@ func init() {
 func LoadConfig() (Config, error) {
 	w := Config{
 		AccountList: make(map[string]string),
+		NameList:    make(map[string]string),
 	}
 	in, err := ioutil.ReadFile(DefaultConfigFile)
 	if err == nil {
