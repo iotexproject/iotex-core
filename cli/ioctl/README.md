@@ -23,6 +23,7 @@ specific release so install-cli.sh can download them.
       bc          Deal with block chain of IoTeX blockchain
       help        Help about any command
       node        Deal with nodes of IoTeX blockchain
+      update      Update ioctl with latest version
       version     Print the version number of ioctl
       wallet      Manage accounts of IoTeX blockchain
 
