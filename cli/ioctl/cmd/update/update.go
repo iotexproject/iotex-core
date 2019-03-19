@@ -50,5 +50,5 @@ func update() string {
 	if err != nil {
 		return fmt.Sprintf("Failed to update ioctl.")
 	}
-	return "Ioctl is up-to-date now."
+	return "ioctl is up-to-date now."
 }
