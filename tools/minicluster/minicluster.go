@@ -17,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/iotex-core/pkg/unit"
+
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -138,19 +140,19 @@ func main() {
 		// transfer gas limit. Default is 1000000
 		transferGasLimit := 1000000
 		// transfer gas price. Default is 10
-		transferGasPrice := 10
+		transferGasPrice := unit.Qev
 		// transfer payload. Default is ""
 		transferPayload := ""
 		// vote gas limit. Default is 1000000
 		voteGasLimit := 1000000
 		// vote gas price. Default is 10
-		voteGasPrice := 10
+		voteGasPrice := unit.Qev
 		// execution amount. Default is 0
 		executionAmount := 0
 		// execution gas limit. Default is 1200000
 		executionGasLimit := 1200000
 		// execution gas price. Default is 10
-		executionGasPrice := 10
+		executionGasPrice := unit.Qev
 		// maximum number of rpc retries. Default is 5
 		retryNum := 5
 		// sleeping period between two consecutive rpc retries in seconds. Default is 1
