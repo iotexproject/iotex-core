@@ -18,7 +18,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
-	"github.com/iotexproject/iotex-election/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,6 +41,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -785,17 +785,22 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 }
 
 func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
-	t.Skip()
-
 	require := require.New(t)
 	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
-	r := types.NewElectionResultForTest(time.Now())
-	committee.EXPECT().ResultByHeight(gomock.Any()).Return(r, nil).Times(2)
-	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
+	candidates := []*state.Candidate{
+		{
+			Address: "address1",
+		},
+		{
+			Address: "address2",
+		},
+	}
+	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
 	for _, test := range readActiveBlockProducersByHeightTests {
 		var pol poll.Protocol
@@ -804,7 +809,7 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				nil,
+				mbc,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -831,17 +836,22 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 }
 
 func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
-	t.Skip()
-
 	require := require.New(t)
 	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
-	r := types.NewElectionResultForTest(time.Now())
-	committee.EXPECT().ResultByHeight(gomock.Any()).Return(r, nil).Times(2)
-	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
+	candidates := []*state.Candidate{
+		{
+			Address: "address1",
+		},
+		{
+			Address: "address2",
+		},
+	}
+	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
 	for _, test := range readCommitteeProducersByHeightTests {
 		var pol poll.Protocol
@@ -850,7 +860,7 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				nil,
+				mbc,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },

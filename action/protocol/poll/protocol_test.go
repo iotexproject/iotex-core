@@ -25,8 +25,6 @@ import (
 )
 
 func TestInitialize(t *testing.T) {
-	t.Skip()
-
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
