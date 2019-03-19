@@ -286,6 +286,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 		var pollProtocol poll.Protocol
 		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
 			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
+				cs.Blockchain(),
 				electionCommittee,
 				gravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
