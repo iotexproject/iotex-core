@@ -22,7 +22,7 @@ import (
 // nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
 	Use:   "delegate [DELEGATE]",
-	Short: "list delegates",
+	Short: "list delegates and number of blocks produced",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(delegate(args))
@@ -58,13 +58,14 @@ func delegate(args []string) string {
 		return err.Error()
 	}
 	if len(delegate) != 0 {
-		return fmt.Sprintf("%s: %d (produced) / %d (total of epoch %d)", delegate,
-			response.BlksPerDelegate[delegate], response.TotalBlks, epochNum)
+		return fmt.Sprintf("Epoch: %d, Total blocks: %d\n", epochNum, response.TotalBlks) +
+			fmt.Sprintf("%s: %d", delegate, response.BlksPerDelegate[delegate])
 	}
 	lines := make([]string, 0)
+	lines = append(lines, fmt.Sprintf("Epoch: %d, Total blocks: %d",
+		epochNum, response.TotalBlks))
 	for delegate, productivity := range response.BlksPerDelegate {
-		lines = append(lines, fmt.Sprintf("%s: %d (produced) / %d (total of epoch %d)",
-			delegate, productivity, response.TotalBlks, epochNum))
+		lines = append(lines, fmt.Sprintf("%s: %d", delegate, productivity))
 	}
 	return strings.Join(lines, "\n")
 }
