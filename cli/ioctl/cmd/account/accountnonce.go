@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// accountNonceCmd represents the account balance command
+// accountNonceCmd represents the account nonce command
 var accountNonceCmd = &cobra.Command{
 	Use:   "nonce (NAME|ADDRESS)",
 	Short: "Get nonce of an account",

@@ -17,38 +17,42 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 )
 
-// accountCreateAddCmd represents the account createadd command
-var accountCreateAddCmd = &cobra.Command{
-	Use:   "createadd NAME",
-	Short: "Create new account for ioctl",
-	Args:  cobra.ExactArgs(1),
+// accountNameCmd represents the account name command
+var accountNameCmd = &cobra.Command{
+	Use:   "name ADDRESS NAME",
+	Short: "Name an IoTeX address in config",
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(accountCreateAdd(args))
+		fmt.Println(name(args))
 	},
 }
 
-func accountCreateAdd(args []string) string {
+func name(args []string) string {
 	// Validate inputs
-	if err := validator.ValidateName(args[0]); err != nil {
+	if err := validator.ValidateAddress(args[0]); err != nil {
 		return err.Error()
 	}
-	name := args[0]
+	address := args[0]
+	if err := validator.ValidateName(args[1]); err != nil {
+		return err.Error()
+	}
+	name := args[1]
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return err.Error()
 	}
-	if addr, ok := cfg.AccountList[name]; ok {
-		return fmt.Sprintf("An account #%s:%s already exists.", name, addr)
+	for n, addr := range cfg.AccountList {
+		if n == name || addr == address {
+			return fmt.Sprintf("An account #%s:%s already exists.", n, addr)
+		}
 	}
-	if addr, ok := cfg.NameList[name]; ok {
-		return fmt.Sprintf("Name \"%s\" has already used for %s.", name, addr)
+	for n, addr := range cfg.NameList {
+		if n == name || addr == address {
+			return fmt.Sprintf("Name \"%s\" has been used for %s.", n, addr)
+		}
 	}
-	wallet := cfg.Wallet
-	addr, err := newAccount(name, wallet)
-	if err != nil {
-		return err.Error()
-	}
-	cfg.AccountList[name] = addr
+
+	cfg.NameList[name] = address
 	out, err := yaml.Marshal(&cfg)
 	if err != nil {
 		return err.Error()
@@ -56,7 +60,5 @@ func accountCreateAdd(args []string) string {
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
 	}
-	return fmt.Sprintf(
-		"New account \"%s\" is created.\n"+
-			"Please Keep your password, or your will lose your private key.", name)
+	return fmt.Sprintf("Succeed to name %s \"%s\".", address, name)
 }

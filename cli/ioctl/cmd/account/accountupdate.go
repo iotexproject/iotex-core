@@ -22,10 +22,10 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// accountUpdateCmd represents the account create command
+// accountUpdateCmd represents the account update command
 var accountUpdateCmd = &cobra.Command{
 	Use:   "update (NAME|ADDRESS)",
-	Short: "update password for IoTeX account",
+	Short: "Update password for IoTeX account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(accountUpdate(args))
@@ -77,7 +77,7 @@ func accountUpdate(args []string) string {
 				log.L().Error("fail to update keystore", zap.Error(err))
 				return err.Error()
 			}
-			return fmt.Sprintf("Account \"%s\" has been updated.", account)
+			return fmt.Sprintf("Account #%s has been updated.", account)
 		}
 	}
 	return fmt.Sprintf("Account #%s not found", account)
