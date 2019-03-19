@@ -102,13 +102,35 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.updateAvailableBalance(sm, a.epochReward); err != nil {
 		return err
 	}
-	addrs, amounts, err := p.splitEpochReward(sm, raCtx.BlockHeight, a.epochReward, a.numDelegatesForEpochReward)
+	candidates, err := p.cm.CandidatesByHeight(raCtx.BlockHeight)
+	if err != nil {
+		return err
+	}
+
+	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward)
 	if err != nil {
 		return err
 	}
 	for i := range addrs {
 		if err := p.grantToAccount(sm, addrs[i], amounts[i]); err != nil {
 			return err
+		}
+	}
+
+	// Reward additional bootstrap bonus
+	if epochNum <= a.bootstrapBonusLastEpoch {
+		l := uint64(len(candidates))
+		if l > a.numDelegatesForBootstrapBonus {
+			l = a.numDelegatesForBootstrapBonus
+		}
+		for i := uint64(0); i < l; i++ {
+			rewardAddr, err := address.FromString(candidates[i].RewardAddress)
+			if err != nil {
+				return err
+			}
+			if err := p.grantToAccount(sm, rewardAddr, a.bootstrapBonus); err != nil {
+				return err
+			}
 		}
 	}
 	return p.updateRewardHistory(sm, epochRewardHistoryKeyPrefix, epochNum)
@@ -225,14 +247,10 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 
 func (p *Protocol) splitEpochReward(
 	sm protocol.StateManager,
-	blkHeight uint64,
+	candidates []*state.Candidate,
 	totalAmount *big.Int,
 	numDelegatesForEpochReward uint64,
 ) ([]address.Address, []*big.Int, error) {
-	candidates, err := p.cm.CandidatesByHeight(blkHeight)
-	if err != nil {
-		return nil, nil, err
-	}
 	// Remove the candidates who exempt from the epoch reward
 	e := exempt{}
 	if err := p.state(sm, exemptKey, &e); err != nil {
@@ -250,6 +268,9 @@ func (p *Protocol) splitEpochReward(
 		filteredCandidates = append(filteredCandidates, candidate)
 	}
 	candidates = filteredCandidates
+	if len(candidates) == 0 {
+		return nil, nil, nil
+	}
 	// We at most allow numDelegatesForEpochReward delegates to get the epoch reward
 	if uint64(len(candidates)) > numDelegatesForEpochReward {
 		candidates = candidates[:numDelegatesForEpochReward]

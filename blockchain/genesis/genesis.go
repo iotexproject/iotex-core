@@ -56,10 +56,13 @@ func initDefaultConfig() {
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                unit.ConvertIotxToRau(1200000000).String(),
-			BlockRewardStr:                unit.ConvertIotxToRau(36).String(),
-			EpochRewardStr:                unit.ConvertIotxToRau(400000).String(),
+			BlockRewardStr:                unit.ConvertIotxToRau(16).String(),
+			EpochRewardStr:                unit.ConvertIotxToRau(300000).String(),
 			NumDelegatesForEpochReward:    100,
 			ExemptAddrStrsFromEpochReward: []string{},
+			BootstrapBonusStr:             unit.ConvertIotxToRau(2880).String(),
+			NumDelegatesForBootstrapBonus: 36,
+			BootstrapBonusLastEpoch:       365,
 		},
 	}
 	for i := 0; i < identityset.Size(); i++ {
@@ -151,6 +154,12 @@ type (
 		NumDelegatesForEpochReward uint64 `yaml:"numDelegatesForEpochReward"`
 		// ExemptAddrStrsFromEpochReward is the list of addresses in encoded string format that exempt from epoch reward
 		ExemptAddrStrsFromEpochReward []string `yaml:"exemptAddrsFromEpochReward"`
+		// BootstrapBonusStr is the bootstrap bonus in decimal string format
+		BootstrapBonusStr string `yaml:"bootstrapBonus"`
+		// NumDelegatesForBootstrapBonus is the number of top candidate that will get the bootstrap bonus
+		NumDelegatesForBootstrapBonus uint64 `yaml:"numDelegatesForBootstrapBonus"`
+		// BootstrapBonusLastEpoch is the last epoch number that bootstrap bonus will be granted
+		BootstrapBonusLastEpoch uint64
 	}
 )
 
@@ -335,4 +344,13 @@ func (r *Rewarding) ExemptAddrsFromEpochReward() []address.Address {
 		addrs = append(addrs, addr)
 	}
 	return addrs
+}
+
+// BootstrapBonus returns the bootstrap bonus amount rewarded per epoch
+func (r *Rewarding) BootstrapBonus() *big.Int {
+	val, ok := big.NewInt(0).SetString(r.BootstrapBonusStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting bootstrap bonus string %s into big int", r.EpochRewardStr)
+	}
+	return val
 }

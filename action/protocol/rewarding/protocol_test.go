@@ -102,6 +102,9 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 				[]address.Address{
 					testaddress.Addrinfo["delta"],
 				},
+				big.NewInt(5),
+				5,
+				365,
 			))
 	} else {
 		require.NoError(
@@ -114,6 +117,9 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 				big.NewInt(100),
 				4,
 				nil,
+				big.NewInt(5),
+				5,
+				365,
 			))
 	}
 
@@ -188,6 +194,9 @@ func TestProtocol_Handle(t *testing.T) {
 		big.NewInt(100),
 		10,
 		nil,
+		big.NewInt(5),
+		5,
+		0,
 	))
 	require.NoError(t, stateDB.Commit(ws))
 

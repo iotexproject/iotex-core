@@ -1177,6 +1177,9 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 		bc.config.Genesis.EpochReward(),
 		bc.config.Genesis.NumDelegatesForEpochReward,
 		bc.config.Genesis.ExemptAddrsFromEpochReward(),
+		bc.config.Genesis.BootstrapBonus(),
+		bc.config.Genesis.NumDelegatesForBootstrapBonus,
+		bc.config.Genesis.BootstrapBonusLastEpoch,
 	)
 }
 
