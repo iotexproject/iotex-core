@@ -466,7 +466,7 @@ func (bc *blockchain) MintNewBlock(
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight:    newblockHeight,
-			BlockTimeStamp: bc.now(),
+			BlockTimeStamp: timestamp,
 			Producer:       bc.config.ProducerAddress(),
 			GasLimit:       gasLimitForContext,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
@@ -1071,8 +1071,6 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 		}(s, blk)
 	}
 }
-
-func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
 
 // RecoverToHeight recovers the blockchain to target height
 func (bc *blockchain) recoverToHeight(targetHeight uint64) error {
