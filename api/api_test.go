@@ -53,30 +53,30 @@ import (
 var (
 	testTransfer, _ = testutil.SignedTransfer(ta.Addrinfo["alfa"].String(),
 		ta.Keyinfo["alfa"].PriKey, 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
-		big.NewInt(testutil.TestGasPrice))
+		big.NewInt(testutil.TestGasPriceInt64))
 
 	testTransferPb = testTransfer.Proto()
 
 	testExecution, _ = testutil.SignedExecution(ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["bravo"].PriKey, 1, big.NewInt(0), testutil.TestGasLimit,
-		big.NewInt(testutil.TestGasPrice), []byte{})
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
 	testExecutionPb = testExecution.Proto()
 
 	testTransfer1, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 1,
-		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash1 = testTransfer1.Hash()
 	testVote1, _  = testutil.SignedVote(ta.Addrinfo["charlie"].String(), ta.Keyinfo["charlie"].PriKey, 5,
-		testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+		testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	voteHash1         = testVote1.Hash()
 	testExecution1, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	executionHash1    = testExecution1.Hash()
 	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 6,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash2    = testExecution2.Hash()
 	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 2,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
 )
 
@@ -921,7 +921,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	addr4 := ta.Addrinfo["delta"].String()
 	// Add block 1
 	// Producer transfer--> C
-	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -949,18 +949,18 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	recipients := []string{addr1, addr2, addr4, addr0}
 	selps := make([]action.SealedEnvelope, 0)
 	for i, recipient := range recipients {
-		selp, err := testutil.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+		selp, err := testutil.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 		if err != nil {
 			return err
 		}
 		selps = append(selps, selp)
 	}
-	vote1, err := testutil.SignedVote(addr3, priKey3, 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(addr3, priKey3, 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	execution1, err := testutil.SignedExecution(addr4, priKey3, 6,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
@@ -1002,21 +1002,21 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Charlie exec--> D
 	// Alfa vote--> A
 	// Alfa exec--> D
-	vote1, err = testutil.SignedVote(addr3, priKey3, 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err = testutil.SignedVote(addr3, priKey3, 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-	vote2, err := testutil.SignedVote(addr1, priKey1, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote2, err := testutil.SignedVote(addr1, priKey1, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	execution1, err = testutil.SignedExecution(addr4, priKey3, 8,
-		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
 	execution2, err := testutil.SignedExecution(addr4, priKey1, 2,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
@@ -1038,17 +1038,17 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 func addActsToActPool(ap actpool.ActPool) error {
 	// Producer transfer--> A
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer vote--> P
-	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer transfer--> B
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -1144,6 +1144,7 @@ func newConfig() config.Config {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.ActPool.MinGasPriceStr = "0"
 	return cfg
 }
 

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/test/identityset"
+
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -1053,6 +1055,34 @@ func TestActPool_GetSize(t *testing.T) {
 	require.Equal(uint64(0), ap.GetSize())
 }
 
+func TestActPool_AddActionNotEnoughGasPride(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	bc := blockchain.NewBlockchain(
+		config.Default,
+		blockchain.InMemStateFactoryOption(),
+		blockchain.InMemDaoOption(),
+	)
+	require.NoError(t, bc.Start(context.Background()))
+	defer func() {
+		require.NoError(t, bc.Stop(context.Background()))
+	}()
+
+	cfg := config.Default.ActPool
+	ap, err := NewActPool(bc, cfg)
+	require.NoError(t, err)
+	tsf, err := testutil.SignedTransfer(
+		identityset.Address(0).String(),
+		identityset.PrivateKey(1),
+		uint64(1),
+		big.NewInt(10),
+		[]byte{},
+		uint64(20000),
+		big.NewInt(0),
+	)
+	require.Error(t, ap.Add(tsf))
+}
+
 // Helper function to return the correct pending nonce just in case of empty queue
 func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
@@ -1075,6 +1105,7 @@ func getActPoolCfg() config.ActPool {
 	return config.ActPool{
 		MaxNumActsPerPool: maxNumActsPerPool,
 		MaxNumActsPerAcct: maxNumActsPerAcct,
+		MinGasPriceStr:    "0",
 	}
 }
 

@@ -134,6 +134,14 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	if _, exist := ap.allActions[hash]; exist {
 		return errors.Errorf("reject existed action: %x", hash)
 	}
+	// Reject action if the gas price is lower than the threshold
+	if act.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
+		return errors.Errorf(
+			"reject the action %x whose gas price %s is lower than minimal gas price threshold",
+			hash,
+			act.GasPrice(),
+		)
+	}
 
 	caller, err := address.FromBytes(act.SrcPubkey().Hash())
 	if err != nil {
