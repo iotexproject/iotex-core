@@ -22,10 +22,10 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// accountImportCmd represents the account create command
+// accountImportCmd represents the account import command
 var accountImportCmd = &cobra.Command{
 	Use:   "import NAME",
-	Short: "import IoTeX private key into wallet",
+	Short: "Import IoTeX private key into wallet",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(accountImport(args))
@@ -42,8 +42,11 @@ func accountImport(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	if _, ok := cfg.AccountList[name]; ok {
-		return fmt.Sprintf("A account named \"%s\" already exists.", name)
+	if addr, ok := cfg.AccountList[name]; ok {
+		return fmt.Sprintf("An account #%s:%s already exists.", name, addr)
+	}
+	if addr, ok := cfg.NameList[name]; ok {
+		return fmt.Sprintf("Name \"%s\" has already used for %s.", name, addr)
 	}
 	wallet := cfg.Wallet
 	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", name)
@@ -66,7 +69,7 @@ func accountImport(args []string) string {
 		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
 	}
 	return fmt.Sprintf(
-		"New account \"%s\" is created. Keep your password, or your will lose your private key.",
+		"New account #%s is created. Keep your password, or your will lose your private key.",
 		name,
 	)
 }

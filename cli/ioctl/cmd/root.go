@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/node"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/update"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/version"
 )
 
@@ -40,5 +41,6 @@ func init() {
 	RootCmd.AddCommand(bc.BCCmd)
 	RootCmd.AddCommand(config.ConfigCmd)
 	RootCmd.AddCommand(node.NodeCmd)
+	RootCmd.AddCommand(update.UpdateCmd)
 	RootCmd.AddCommand(version.VersionCmd)
 }

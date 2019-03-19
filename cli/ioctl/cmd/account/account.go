@@ -42,6 +42,7 @@ func init() {
 	AccountCmd.AddCommand(accountDeleteCmd)
 	AccountCmd.AddCommand(accountImportCmd)
 	AccountCmd.AddCommand(accountListCmd)
+	AccountCmd.AddCommand(accountNameCmd)
 	AccountCmd.AddCommand(accountNonceCmd)
 	AccountCmd.AddCommand(accountUpdateCmd)
 }
@@ -80,10 +81,14 @@ func Address(in string) (string, error) {
 		return "", err
 	}
 	addr, ok := config.AccountList[in]
-	if !ok {
-		return "", errors.Errorf("can't find account from #" + in)
+	if ok {
+		return addr, nil
 	}
-	return addr, nil
+	addr, ok = config.NameList[in]
+	if ok {
+		return addr, nil
+	}
+	return "", errors.Errorf("cannot find account from #%s", in)
 }
 
 // GetAccountMeta gets account metadata
@@ -159,6 +164,9 @@ func newAccountByKey(name string, privateKey string, walletDir string) (string, 
 	if err != nil {
 		return "", err
 	}
-	addr, _ := address.FromBytes(account.Address.Bytes())
+	addr, err := address.FromBytes(account.Address.Bytes())
+	if err != nil {
+		return "", err
+	}
 	return addr.String(), nil
 }
