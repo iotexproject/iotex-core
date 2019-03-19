@@ -105,14 +105,14 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 
 func newAccount(name string, walletDir string) (string, error) {
 	fmt.Printf("#%s: Set password\n", name)
-	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
 	}
 	password := string(bytePassword)
 	fmt.Printf("#%s: Enter password again\n", name)
-	bytePassword, err = terminal.ReadPassword(syscall.Stdin)
+	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
@@ -135,14 +135,14 @@ func newAccount(name string, walletDir string) (string, error) {
 
 func newAccountByKey(name string, privateKey string, walletDir string) (string, error) {
 	fmt.Printf("#%s: Set password\n", name)
-	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err
 	}
 	password := string(bytePassword)
 	fmt.Printf("#%s: Enter password again\n", name)
-	bytePassword, err = terminal.ReadPassword(syscall.Stdin)
+	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return "", err

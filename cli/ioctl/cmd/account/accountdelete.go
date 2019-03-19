@@ -74,7 +74,7 @@ func accountDelete(args []string) string {
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 			fmt.Printf("Enter password #%s:\n", name)
-			bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+			bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
 				log.L().Error("fail to get password", zap.Error(err))
 				return err.Error()

@@ -73,7 +73,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 
 func sendAction(elp action.Envelope) string {
 	fmt.Printf("Enter password #%s:\n", signer)
-	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("fail to get password", zap.Error(err))
 		return err.Error()
