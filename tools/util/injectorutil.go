@@ -104,14 +104,14 @@ func InjectByAps(
 	aps float64,
 	counter map[string]uint64,
 	transferGasLimit int,
-	transferGasPrice int,
+	transferGasPrice int64,
 	transferPayload string,
 	voteGasLimit int,
-	voteGasPrice int,
+	voteGasPrice int64,
 	contract string,
 	executionAmount int,
 	executionGasLimit int,
-	executionGasPrice int,
+	executionGasPrice int64,
 	executionData string,
 	client iotexapi.APIServiceClient,
 	admins []*AddressKey,
@@ -178,12 +178,12 @@ loop:
 					amount,
 					transferPayload,
 					uint64(transferGasLimit),
-					big.NewInt(int64(transferGasPrice)),
+					big.NewInt(transferGasPrice),
 				); err != nil {
 					log.L().Info(err.Error())
 				}
 				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
-					big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+					big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval)
 			case 2:
 				sender, recipient, nonce := createVoteInjection(counter, admins, admins)
 				if err := updateVoteExpectedBalanceMap(
@@ -195,17 +195,17 @@ loop:
 					log.L().Info(err.Error())
 				}
 				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit),
-					big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+					big.NewInt(voteGasPrice), retryNum, retryInterval)
 			case 1:
 				executor, nonce := createExecutionInjection(counter, delegates)
 				if err := updateExecutionExpectedBalanceMap(expectedBalances,
 					executor, uint64(executionGasLimit),
-					big.NewInt(int64(executionGasPrice)),
+					big.NewInt(executionGasPrice),
 				); err != nil {
 					log.L().Info(err.Error())
 				}
 				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
-					uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)),
+					uint64(executionGasLimit), big.NewInt(executionGasPrice),
 					executionData, retryNum, retryInterval)
 			}
 		}
@@ -337,7 +337,7 @@ func DeployContract(
 	counter map[string]uint64,
 	delegates []*AddressKey,
 	executionGasLimit int,
-	executionGasPrice int,
+	executionGasPrice int64,
 	executionData string,
 	retryNum int,
 	retryInterval int,

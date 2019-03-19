@@ -26,7 +26,7 @@ import (
 // accountDeleteCmd represents the account delete command
 var accountDeleteCmd = &cobra.Command{
 	Use:   "delete (NAME|ADDRESS)",
-	Short: "delete an IoTeX keypair from wallet",
+	Short: "Delete an IoTeX account/address from wallet/config",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(accountDelete(args))
@@ -34,6 +34,25 @@ var accountDeleteCmd = &cobra.Command{
 }
 
 func accountDelete(args []string) string {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return err.Error()
+	}
+
+	for name, addr := range cfg.NameList {
+		if name == args[0] || addr == args[0] {
+			delete(cfg.NameList, name)
+			out, err := yaml.Marshal(&cfg)
+			if err != nil {
+				return err.Error()
+			}
+			if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+				return "Failed to write to config file %s." + config.DefaultConfigFile
+			}
+			return fmt.Sprintf("Name \"%s\":%s has been removed", name, addr)
+		}
+	}
+
 	var confirm string
 	fmt.Println("** This is an irreversible action!\n" +
 		"Once an account is deleted, all the assets under this account may be lost!\n" +
@@ -42,10 +61,7 @@ func accountDelete(args []string) string {
 	if confirm != "YES" && confirm != "yes" {
 		return "Quit"
 	}
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		return err.Error()
-	}
+
 	found := false
 	name, addr := "", ""
 	var account address.Address

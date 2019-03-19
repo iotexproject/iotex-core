@@ -22,10 +22,27 @@ initOS() {
     echo "OS = $OS"
 }
 
+initVersion() {
+    PACKAGE_VERSION=$(git describe --tags)
+    PACKAGE_COMMIT_ID=$(git rev-parse HEAD)
+    GIT_STATUS=$(git status --porcelain)
+    if git_status=$(git status --porcelain) && [[ -z ${git_status} ]]; then
+        GIT_STATUS="dirty"
+    else
+    	GIT_STATUS="clean"
+    fi
+    GO_VERSION=$(go version)
+    BUILD_TIME=$(date +%F-%Z/%T)
+    VersionImportPath='github.com/iotexproject/iotex-core/pkg/version'
+    PackageFlags="-X '${VersionImportPath}.PackageVersion=${PACKAGE_VERSION}' "
+    PackageFlags+="-X '${VersionImportPath}.PackageCommitID=${PACKAGE_COMMIT_ID}' "
+    PackageFlags+="-X '${VersionImportPath}.GitStatus=${GIT_STATUS}' "
+    PackageFlags+="-X '${VersionImportPath}.GoVersion=${GO_VERSION}' "
+    PackageFlags+="-X '${VersionImportPath}.BuildTime=${BUILD_TIME}'"
+}
 initOS
-
+initVersion
 project_name="ioctl"
-release_version="0.0.1"
 
 release_dir=./release
 rm -rf $release_dir/*
@@ -35,5 +52,5 @@ cd  $(dirname $0)
 
 gofmt -w ./
 
-CGO_ENABLED=1 GOARCH=amd64 go build -o $release_dir/$project_name-$OS-amd64 -v .
+CGO_ENABLED=1 GOARCH=amd64 go build -ldflags "${PackageFlags}" -o $release_dir/$project_name-$OS-amd64 -v .
 #CGO_ENABLED=1 GOARCH=386 go build -o $release_dir/$project_name-$OS-386 -v .
