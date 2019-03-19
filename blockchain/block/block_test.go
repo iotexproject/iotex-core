@@ -14,22 +14,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-
-	"github.com/iotexproject/iotex-core/pkg/compress"
-
-	"github.com/iotexproject/iotex-core/test/identityset"
-
-	"github.com/iotexproject/iotex-core/pkg/unit"
-
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -78,8 +74,9 @@ func TestConvertFromBlockPb(t *testing.T) {
 	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
 			Core: &iotextypes.BlockHeaderCore{
-				Version: version.ProtocolVersion,
-				Height:  123456789,
+				Version:   version.ProtocolVersion,
+				Height:    123456789,
+				Timestamp: ptypes.TimestampNow(),
 			},
 			ProducerPubkey: senderPubKey.Bytes(),
 		},
@@ -231,7 +228,7 @@ func makeBlock(tb testing.TB, n int) *Block {
 	rap := RunnableActionsBuilder{}
 	ra := rap.
 		SetHeight(1).
-		SetTimeStamp(time.Now().Unix()).
+		SetTimeStamp(time.Now()).
 		AddActions(sevlps...).
 		Build(identityset.PrivateKey(0).PublicKey())
 	blk, err := NewBuilder(ra).

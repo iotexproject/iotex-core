@@ -6,6 +6,10 @@ package mock_blockchain
 
 import (
 	context "context"
+	big "math/big"
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	address "github.com/iotexproject/iotex-core/address"
@@ -14,8 +18,6 @@ import (
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
-	big "math/big"
-	reflect "reflect"
 )
 
 // MockBlockchain is a mock of Blockchain interface
@@ -333,7 +335,7 @@ func (mr *MockBlockchainMockRecorder) RecoverChainAndState(targetHeight interfac
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp int64) (*block.Block, error) {
+func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp time.Time) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, timestamp)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)

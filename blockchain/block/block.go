@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -65,7 +66,11 @@ func (b *Block) ConvertFromBlockHeaderPb(pbBlock *iotextypes.Block) error {
 
 	b.Header.version = pbBlock.GetHeader().GetCore().GetVersion()
 	b.Header.height = pbBlock.GetHeader().GetCore().GetHeight()
-	b.Header.timestamp = pbBlock.GetHeader().GetCore().GetTimestamp().GetSeconds()
+	ts, err := ptypes.Timestamp(pbBlock.GetHeader().GetCore().GetTimestamp())
+	if err != nil {
+		return err
+	}
+	b.Header.timestamp = ts
 	copy(b.Header.prevBlockHash[:], pbBlock.GetHeader().GetCore().GetPrevBlockHash())
 	copy(b.Header.txRoot[:], pbBlock.GetHeader().GetCore().GetTxRoot())
 	copy(b.Header.deltaStateDigest[:], pbBlock.GetHeader().GetCore().GetDeltaStateDigest())

@@ -43,7 +43,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[identityset.Address(0).String()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr0] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -171,7 +171,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -214,7 +214,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr5] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 	blk, err = bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err

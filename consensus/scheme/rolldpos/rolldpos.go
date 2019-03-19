@@ -8,7 +8,6 @@ package rolldpos
 
 import (
 	"context"
-	"time"
 
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-fsm"
@@ -200,7 +199,7 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	round, err := r.ctx.roundCtxByTime(epoch, blk.Height(), time.Unix(blk.Timestamp(), 0))
+	round, err := r.ctx.roundCtxByTime(epoch, blk.Height(), blk.Timestamp())
 	if err != nil {
 		return err
 	}
