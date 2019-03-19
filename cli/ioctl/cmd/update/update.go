@@ -13,21 +13,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	versionType string
+)
+
 // UpdateCmd represents the update command
 var UpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update ioctl with latest release",
+	Short: "Update ioctl with latest version",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(update())
 	},
 }
 
+func init() {
+	UpdateCmd.Flags().StringVarP(&versionType, "versionType", "t", "stable",
+		"set version type, \"stable\" or \"unstable\"")
+}
+
 func update() string {
-	cmdString := "curl --silent " +
-		"https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-cli.sh | sh"
+	var cmdString string
+	switch versionType {
+	case "stable":
+		cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" +
+			"iotex-core/master/install-cli.sh | sh"
+	case "unstable":
+		cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" +
+			"iotex-core/master/install-cli.sh | sh -s \"unstable\""
+	default:
+		return fmt.Sprintf("invalid flag %s", versionType)
+	}
 	cmd := exec.Command("bash", "-c", cmdString)
-	fmt.Println("Downloading the latest release ...")
+	fmt.Printf("Downloading the latest %s version ...", versionType)
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Sprintf("Failed to update ioctl.")
