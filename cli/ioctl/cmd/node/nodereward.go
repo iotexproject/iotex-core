@@ -22,7 +22,7 @@ import (
 // nodeRewardCmd represents the node reward command
 var nodeRewardCmd = &cobra.Command{
 	Use:   "reward (NAME|ADDRESS)",
-	Short: "query unclaimed rewards",
+	Short: "Query unclaimed rewards",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(reward(args))
