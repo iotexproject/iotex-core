@@ -102,12 +102,19 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.updateAvailableBalance(sm, a.epochReward); err != nil {
 		return err
 	}
-	candidates, err := p.cm.CandidatesByHeight(raCtx.BlockHeight)
+	// We need to consistently use the votes on of first block height in this epoch
+	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
 	if err != nil {
 		return err
 	}
 
-	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward)
+	// Get unqualified delegate list
+	uqd, err := p.unqualifiedDelegates(raCtx.Producer, epochNum, a.productivityThreshold)
+	if err != nil {
+		return err
+	}
+
+	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward, uqd)
 	if err != nil {
 		return err
 	}
@@ -250,6 +257,7 @@ func (p *Protocol) splitEpochReward(
 	candidates []*state.Candidate,
 	totalAmount *big.Int,
 	numDelegatesForEpochReward uint64,
+	uqd map[string]interface{},
 ) ([]address.Address, []*big.Int, error) {
 	// Remove the candidates who exempt from the epoch reward
 	e := exempt{}
@@ -287,6 +295,11 @@ func (p *Protocol) splitEpochReward(
 	}
 	amounts := make([]*big.Int, 0)
 	for _, candidate := range candidates {
+		// If not qualified, skip the epoch reward
+		if _, ok := uqd[candidate.Address]; ok {
+			amounts = append(amounts, big.NewInt(0))
+			continue
+		}
 		var amountPerAddr *big.Int
 		if totalWeight.Cmp(big.NewInt(0)) == 0 {
 			amountPerAddr = big.NewInt(0)
@@ -296,6 +309,29 @@ func (p *Protocol) splitEpochReward(
 		amounts = append(amounts, amountPerAddr)
 	}
 	return rewardAddrs, amounts, nil
+}
+
+func (p *Protocol) unqualifiedDelegates(
+	producer address.Address,
+	epochNum uint64,
+	productivityThreshold uint64,
+) (map[string]interface{}, error) {
+	unqualifiedDelegates := make(map[string]interface{}, 0)
+	numBlks, produce, err := p.cm.ProductivityByEpoch(epochNum)
+	if err != nil {
+		return nil, err
+	}
+	// The current block is not included, so that we need to add it to the stats
+	numBlks++
+	produce[producer.String()]++
+
+	expectedNumBlks := numBlks / uint64(len(produce))
+	for addr, actualNumBlks := range produce {
+		if actualNumBlks*100/expectedNumBlks < productivityThreshold {
+			unqualifiedDelegates[addr] = nil
+		}
+	}
+	return unqualifiedDelegates, nil
 }
 
 func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, index uint64) error {

@@ -26,6 +26,7 @@ type admin struct {
 	bootstrapBonus                *big.Int
 	numDelegatesForBootstrapBonus uint64
 	bootstrapBonusLastEpoch       uint64
+	productivityThreshold         uint64
 }
 
 // Serialize serializes admin state into bytes
@@ -37,6 +38,7 @@ func (a admin) Serialize() ([]byte, error) {
 		BootstrapBonus:                a.bootstrapBonus.String(),
 		NumDelegatesForBootstrapBonus: a.numDelegatesForBootstrapBonus,
 		BootstrapBonusLastEpoch:       a.bootstrapBonusLastEpoch,
+		ProductivityThreshold:         a.productivityThreshold,
 	}
 	return proto.Marshal(&gen)
 }
@@ -65,6 +67,7 @@ func (a *admin) Deserialize(data []byte) error {
 	a.bootstrapBonus = bootstrapBonus
 	a.numDelegatesForBootstrapBonus = gen.NumDelegatesForBootstrapBonus
 	a.bootstrapBonusLastEpoch = gen.BootstrapBonusLastEpoch
+	a.productivityThreshold = gen.ProductivityThreshold
 	return nil
 }
 
@@ -111,6 +114,7 @@ func (p *Protocol) Initialize(
 	bootstrapBonus *big.Int,
 	numDelegatesForBootstrapBonus uint64,
 	bootstrapBonusLastEpoch uint64,
+	productivityThreshold uint64,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
@@ -132,6 +136,7 @@ func (p *Protocol) Initialize(
 			bootstrapBonus:                bootstrapBonus,
 			numDelegatesForBootstrapBonus: numDelegatesForBootstrapBonus,
 			bootstrapBonusLastEpoch:       bootstrapBonusLastEpoch,
+			productivityThreshold:         productivityThreshold,
 		},
 	); err != nil {
 		return err

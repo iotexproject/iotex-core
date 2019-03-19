@@ -160,6 +160,9 @@ type (
 		NumDelegatesForBootstrapBonus uint64 `yaml:"numDelegatesForBootstrapBonus"`
 		// BootstrapBonusLastEpoch is the last epoch number that bootstrap bonus will be granted
 		BootstrapBonusLastEpoch uint64
+		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach to get the
+		// epoch reward
+		ProductivityThreshold uint64
 	}
 )
 

@@ -16,6 +16,7 @@ message Admin {
     string bootstrapBonus = 4;
     uint64 numDelegatesForBootstrapBonus = 5;
     uint64 bootstrapBonusLastEpoch = 6;
+    uint64 productivityThreshold = 7;
 }
 
 message Fund {

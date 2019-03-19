@@ -74,6 +74,17 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			RewardAddress: testaddress.Addrinfo["delta"].String(),
 		},
 	}, nil).AnyTimes()
+	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
+		uint64(19),
+		map[string]uint64{
+			testaddress.Addrinfo["producer"].String(): 3,
+			testaddress.Addrinfo["alfa"].String():     7,
+			testaddress.Addrinfo["bravo"].String():    1,
+			testaddress.Addrinfo["charlie"].String():  6,
+			testaddress.Addrinfo["delta"].String():    2,
+		},
+		nil,
+	).AnyTimes()
 	p := NewProtocol(chain, rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
@@ -105,6 +116,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 				big.NewInt(5),
 				5,
 				365,
+				50,
 			))
 	} else {
 		require.NoError(
@@ -120,6 +132,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 				big.NewInt(5),
 				5,
 				365,
+				50,
 			))
 	}
 
@@ -197,6 +210,7 @@ func TestProtocol_Handle(t *testing.T) {
 		big.NewInt(5),
 		5,
 		0,
+		50,
 	))
 	require.NoError(t, stateDB.Commit(ws))
 

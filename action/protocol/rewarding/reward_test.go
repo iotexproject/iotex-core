@@ -86,9 +86,10 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["alfa"])
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(35), unclaimedBalance)
+		// The 3-th candidate can't get the reward because it doesn't meet the productivity requirement
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["bravo"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(25), unclaimedBalance)
+		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["charlie"])
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15), unclaimedBalance)
