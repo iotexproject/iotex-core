@@ -8,6 +8,7 @@ package config
 
 import (
 	"flag"
+	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-election/committee"
 )
 
@@ -111,6 +113,7 @@ var (
 			MaxNumActsPerPool: 32000,
 			MaxNumActsPerAcct: 2000,
 			ActionExpiry:      10 * time.Minute,
+			MinGasPriceStr:    big.NewInt(unit.Qev).String(),
 		},
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
@@ -310,6 +313,8 @@ type (
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
 		// ActionExpiry defines how long an action will be kept in action pool.
 		ActionExpiry time.Duration `yaml:"actionExpiry"`
+		// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
+		MinGasPriceStr string `yaml:minGasPrice`
 	}
 
 	// DB is the config for database
@@ -476,6 +481,15 @@ func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
 		)
 	}
 	return sk
+}
+
+// MinGasPrice returns the minimal gas price threshold
+func (ap ActPool) MinGasPrice() *big.Int {
+	mgp, ok := big.NewInt(0).SetString(ap.MinGasPriceStr, 10)
+	if !ok {
+		log.S().Panicf("Error when parsing minimal gas price string: %s", ap.MinGasPriceStr)
+	}
+	return mgp
 }
 
 // ValidateDispatcher validates the dispatcher configs

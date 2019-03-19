@@ -6,8 +6,17 @@
 
 package testutil
 
+import (
+	"math/big"
+
+	"github.com/iotexproject/iotex-core/pkg/unit"
+)
+
 // TestGasLimit represents the gas limit used for test actions
 const TestGasLimit uint64 = 20000
 
-// TestGasPrice represents the gas price for test actions
-const TestGasPrice int64 = 0
+// TestGasPriceInt64 represents the gas price for test actions in int64
+const TestGasPriceInt64 = 0
+
+// TestGasPrice represents the gas price for test actions in big int
+var TestGasPrice = big.NewInt(unit.Qev)
