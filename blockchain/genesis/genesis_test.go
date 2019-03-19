@@ -33,5 +33,5 @@ func TestDefaultConfig(t *testing.T) {
 	// Validate rewarding protocol)
 	assert.Equal(t, Default.BlockReward(), cfg.BlockReward())
 	assert.Equal(t, Default.EpochReward(), cfg.EpochReward())
-	assert.Equal(t, Default.BootstrapBonus(), cfg.BootstrapBonus())
+	assert.Equal(t, Default.FoundationBonus(), cfg.FoundationBonus())
 }

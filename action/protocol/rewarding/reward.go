@@ -125,17 +125,17 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	// Reward additional bootstrap bonus
-	if epochNum <= a.bootstrapBonusLastEpoch {
+	if epochNum <= a.foundationBonusLastEpoch {
 		l := uint64(len(candidates))
-		if l > a.numDelegatesForBootstrapBonus {
-			l = a.numDelegatesForBootstrapBonus
+		if l > a.numDelegatesForFoundationBonus {
+			l = a.numDelegatesForFoundationBonus
 		}
 		for i := uint64(0); i < l; i++ {
 			rewardAddr, err := address.FromString(candidates[i].RewardAddress)
 			if err != nil {
 				return err
 			}
-			if err := p.grantToAccount(sm, rewardAddr, a.bootstrapBonus); err != nil {
+			if err := p.grantToAccount(sm, rewardAddr, a.foundationBonus); err != nil {
 				return err
 			}
 		}
