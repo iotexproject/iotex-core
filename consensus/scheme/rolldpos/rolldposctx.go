@@ -123,8 +123,8 @@ func (ctx *rollDPoSCtx) OnConsensusReached() {
 	}
 	// Commit and broadcast the pending block
 	if err := ctx.chain.CommitBlock(pendingBlock.Block); err != nil {
-		// TODO: review the error handling logic (panic?)
-		ctx.logger().Panic("error when committing a block", zap.Error(err))
+		ctx.logger().Error("error when committing a block", zap.Error(err))
+		return
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
 	ctx.actPool.Reset()
