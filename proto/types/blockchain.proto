@@ -33,8 +33,8 @@ message BlockHeaderCore {
 
 // footer of a block
 message BlockFooter {
-  int64 CommitTimestamp = 1;
-  EndorsementSet endorsements = 2;
+  repeated Endorsement endorsements = 1;
+  google.protobuf.Timestamp timestamp = 2;
 }
 
 // block consists of header followed by transactions

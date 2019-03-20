@@ -114,6 +114,8 @@ type Blockchain interface {
 	StateByAddr(address string) (*state.Account, error)
 	// RecoverChainAndState recovers the chain to target height and refresh state db if necessary
 	RecoverChainAndState(targetHeight uint64) error
+	// GenesisTimestamp returns the timestamp of genesis
+	GenesisTimestamp() int64
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions
@@ -740,6 +742,10 @@ func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
 		return bc.refreshStateDB()
 	}
 	return nil
+}
+
+func (bc *blockchain) GenesisTimestamp() int64 {
+	return bc.config.Genesis.Timestamp
 }
 
 //======================================

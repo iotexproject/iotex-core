@@ -49,7 +49,7 @@ func stopDispatcher(ctx context.Context, d Dispatcher, t *testing.T) {
 func setTestCase() []proto.Message {
 	return []proto.Message{
 		&iotextypes.Action{},
-		&iotexrpc.Consensus{},
+		&iotextypes.ConsensusMessage{},
 		&iotextypes.Block{},
 		&iotexrpc.BlockSync{},
 		&testingpb.TestPayload{},
@@ -98,4 +98,4 @@ func (s *DummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo,
 
 func (s *DummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
 
-func (s *DummySubscriber) HandleConsensusMsg(*iotexrpc.Consensus) error { return nil }
+func (s *DummySubscriber) HandleConsensusMsg(*iotextypes.ConsensusMessage) error { return nil }
