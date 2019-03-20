@@ -3,6 +3,19 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
+
+  build_test_local:
+    docker:
+      - image: iotex/iotex-core-ci:latest
+    working_directory: /go/src/github.com/iotexproject/iotex-core
+    steps:
+      - run: mkdir -p /go/src/github.com/iotexproject/iotex-core && cp -arf /tmp/_circleci_local_build_repo/* /go/src/github.com/iotexproject/iotex-core/
+      - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
+      - run: ./go.test.sh
+      - run: bash <(curl -s https://codecov.io/bash)
+      - run: go test -run=XXX -bench=. $(go list ./crypto)
+      - run: make minicluster
+                            
   build_test_docker:
     docker:
       - image: iotex/iotex-core-ci:latest
@@ -115,7 +128,7 @@ workflows:
   version: 2
   commit:
     jobs:
-
+      #- build_test_ubuntu
       - build_test_darwin
       - build_test_docker
 

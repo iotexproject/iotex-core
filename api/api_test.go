@@ -930,7 +930,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -971,7 +971,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr3] = selps
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	); err != nil {
 		return err
 	}
@@ -986,7 +986,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Empty actions
 	if blk, err = bc.MintNewBlock(
 		nil,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	); err != nil {
 		return err
 	}
@@ -1026,7 +1026,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	); err != nil {
 		return err
 	}

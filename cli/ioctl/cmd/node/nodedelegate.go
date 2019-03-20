@@ -9,6 +9,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -58,14 +59,32 @@ func delegate(args []string) string {
 		return err.Error()
 	}
 	if len(delegate) != 0 {
+		name, err := account.Name(delegate)
+		if err != nil && err != account.ErrNoNameFound {
+			return err.Error()
+		}
 		return fmt.Sprintf("Epoch: %d, Total blocks: %d\n", epochNum, response.TotalBlks) +
-			fmt.Sprintf("%s: %d", delegate, response.BlksPerDelegate[delegate])
+			fmt.Sprintf("%s  %s  %d", delegate, name, response.BlksPerDelegate[delegate])
 	}
+
+	names, err := account.GetNameMap()
+	if err != nil {
+		return err.Error()
+	}
+	formatNameLen := 0
+	for delegate := range response.BlksPerDelegate {
+		if len(names[delegate]) > formatNameLen {
+			formatNameLen = len(names[delegate])
+		}
+	}
+	formatTitleString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %-s"
+	formatDataString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %-d"
 	lines := make([]string, 0)
-	lines = append(lines, fmt.Sprintf("Epoch: %d, Total blocks: %d",
+	lines = append(lines, fmt.Sprintf("Epoch: %d, Total blocks: %d\n",
 		epochNum, response.TotalBlks))
+	lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Name", "Blocks"))
 	for delegate, productivity := range response.BlksPerDelegate {
-		lines = append(lines, fmt.Sprintf("%s: %d", delegate, productivity))
+		lines = append(lines, fmt.Sprintf(formatDataString, delegate, names[delegate], productivity))
 	}
 	return strings.Join(lines, "\n")
 }

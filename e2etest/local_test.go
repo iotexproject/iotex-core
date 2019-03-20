@@ -199,7 +199,7 @@ func TestLocalCommit(t *testing.T) {
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
 	blk1, err := chain.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk1))
@@ -215,7 +215,7 @@ func TestLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["foxtrot"].String()] = []action.SealedEnvelope{tsf2}
 	blk2, err := chain.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk2))
@@ -241,7 +241,7 @@ func TestLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["bravo"].String()] = []action.SealedEnvelope{tsf3}
 	blk3, err := chain.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk3))
@@ -267,7 +267,7 @@ func TestLocalCommit(t *testing.T) {
 	actionMap[ta.Addrinfo["producer"].String()] = []action.SealedEnvelope{tsf4}
 	blk4, err := chain.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	require.Nil(err)
 	require.Nil(chain.ValidateBlock(blk4))

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/proto"
@@ -119,7 +120,7 @@ type Blockchain interface {
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
 		actionMap map[string][]action.SealedEnvelope,
-		timestamp int64,
+		timestamp time.Time,
 	) (*block.Block, error)
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *block.Block) error
@@ -519,7 +520,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 
 func (bc *blockchain) MintNewBlock(
 	actionMap map[string][]action.SealedEnvelope,
-	timestamp int64,
+	timestamp time.Time,
 ) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
@@ -1200,7 +1201,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight:    0,
-		BlockTimeStamp: bc.config.Genesis.Timestamp,
+		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		GasLimit:       0,
 		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		Producer:       nil,
