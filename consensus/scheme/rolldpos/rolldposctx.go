@@ -66,12 +66,12 @@ func newRollDPoSCtx(
 		candidatesByHeightFunc = chain.CandidatesByHeight
 	}
 	roundCalc := &roundCalculator{
-		chain:             chain,
-		blockInterval:     blockInterval,
-		timeBasedRotation: timeBasedRotation,
-		toleratedOvertime: toleratedOvertime,
-		rp:                rp,
+		blockInterval:          blockInterval,
 		candidatesByHeightFunc: candidatesByHeightFunc,
+		chain:                  chain,
+		rp:                     rp,
+		timeBasedRotation:      timeBasedRotation,
+		toleratedOvertime:      toleratedOvertime,
 	}
 	round, err := roundCalc.NewRoundWithToleration(0, clock.Now())
 	if err != nil {
@@ -455,7 +455,7 @@ func (ctx *rollDPoSCtx) mintBlock() (*EndorsedConsensusMessage, error) {
 		log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
 		blk, err := ctx.chain.MintNewBlock(
 			actionMap,
-			ctx.round.StartTime().Unix(),
+			ctx.round.StartTime(),
 		)
 		if err != nil {
 			return nil, err
