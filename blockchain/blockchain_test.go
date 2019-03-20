@@ -57,7 +57,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	actionMap[identityset.Address(0).String()] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	blk, err = bc.MintNewBlock(
 		accMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -150,7 +150,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	blk, err = bc.MintNewBlock(
 		accMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -186,7 +186,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	blk, err = bc.MintNewBlock(
 		accMap,
-		0,
+		testutil.TimestampNow(),
 	)
 
 	if err != nil {
@@ -240,7 +240,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 
 	blk, err = bc.MintNewBlock(
 		accMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -326,7 +326,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	actionMap[identityset.Address(0).String()] = []action.SealedEnvelope{selp}
 	_, err = bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	require.NoError(t, err)
 }
@@ -376,7 +376,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, blk)
@@ -898,7 +898,7 @@ func TestBlocks(t *testing.T) {
 		}
 		blk, _ := bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.Nil(bc.ValidateBlock(blk))
 		require.Nil(bc.CommitBlock(blk))
@@ -963,7 +963,7 @@ func TestActions(t *testing.T) {
 	}
 	blk, _ := bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	require.Nil(val.Validate(blk, 0, blk.PrevHash()))
 }

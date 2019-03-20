@@ -15,7 +15,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
 
@@ -72,7 +71,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -115,7 +114,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	); err != nil {
 		return err
 	}
@@ -129,7 +128,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Add block 3
 	if blk, err = bc.MintNewBlock(
 		nil,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	); err != nil {
 		return err
 	}
@@ -163,7 +162,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	); err != nil {
 		return err
 	}
@@ -775,7 +774,7 @@ func TestExplorerGetReceiptByExecutionID(t *testing.T) {
 	actionMap[ta.Addrinfo["producer"].String()] = []action.SealedEnvelope{execution}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 
 	require.NoError(err)

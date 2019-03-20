@@ -75,7 +75,7 @@ func TestBlockBufferFlush(t *testing.T) {
 
 	blk, err := chain.MintNewBlock(
 		nil,
-		0,
+		testutil.TimestampNow(),
 	)
 	require.Nil(err)
 	moved, re = b.Flush(blk)
@@ -274,7 +274,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 
 	blk, err = chain.MintNewBlock(
 		nil,
-		0,
+		testutil.TimestampNow(),
 	)
 	require.Nil(err)
 	b.Flush(blk)

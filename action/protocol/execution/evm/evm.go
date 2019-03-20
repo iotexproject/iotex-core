@@ -84,7 +84,7 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		Origin:      executorAddr,
 		Coinbase:    producer,
 		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
-		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp),
+		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp.Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    gasLimit,
 		GasPrice:    execution.GasPrice(),
