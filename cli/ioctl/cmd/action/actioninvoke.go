@@ -31,9 +31,11 @@ var actionInvokeCmd = &cobra.Command{
 
 // invoke invokes smart contract on IoTeX blockchain
 func invoke(args []string) string {
-	contract := args[0]
+	contract, err := account.Address(args[0])
+	if err != nil {
+		return err.Error()
+	}
 	amount := big.NewInt(0)
-	var err error
 	if len(args) == 2 {
 		amount, err = util.StringToRau(args[1], util.IotxDecimalNum)
 		if err != nil {
