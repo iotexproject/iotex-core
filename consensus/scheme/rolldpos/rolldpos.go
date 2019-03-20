@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (
@@ -57,9 +57,6 @@ var (
 	ErrNewRollDPoS = errors.New("error when constructing RollDPoS")
 	// ErrZeroDelegate indicates seeing 0 delegates in the network
 	ErrZeroDelegate = errors.New("zero delegates in the network")
-)
-
-var (
 	// ErrNotEnoughCandidates indicates there are not enough candidates from the candidate pool
 	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
 )
@@ -84,26 +81,6 @@ func (bw *blockWrapper) Round() uint32 {
 	return bw.round
 }
 
-type endorsementWrapper struct {
-	*endorsement.Endorsement
-}
-
-func (ew *endorsementWrapper) Hash() []byte {
-	return ew.ConsensusVote().BlkHash
-}
-
-func (ew *endorsementWrapper) Height() uint64 {
-	return ew.ConsensusVote().Height
-}
-
-func (ew *endorsementWrapper) Round() uint32 {
-	return ew.ConsensusVote().Round
-}
-
-func (ew *endorsementWrapper) Topic() endorsement.ConsensusVoteTopic {
-	return ew.ConsensusVote().Topic
-}
-
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
 	cfsm  *consensusfsm.ConsensusFSM
@@ -116,8 +93,9 @@ func (r *RollDPoS) Start(ctx context.Context) error {
 	if err := r.cfsm.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting the consensus FSM")
 	}
-	r.ctx.round = &roundCtx{height: 0}
-	r.cfsm.ProducePrepareEvent(r.ctx.cfg.Delay)
+	if _, err := r.cfsm.BackToPrepare(r.ctx.cfg.Delay); err != nil {
+		return err
+	}
 	close(r.ready)
 	return nil
 }
@@ -128,7 +106,7 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 }
 
 // HandleConsensusMsg handles incoming consensus message
-func (r *RollDPoS) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
+func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	<-r.ready
 	consensusHeight := r.ctx.Height()
 	if consensusHeight != 0 && msg.Height < consensusHeight {
@@ -139,53 +117,38 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
 		)
 		return nil
 	}
-	data := msg.Data
-	switch msg.Type {
-	case iotexrpc.Consensus_PROPOSAL:
-		block := &block.Block{}
-		if err := block.Deserialize(data); err != nil {
-			return errors.Wrap(err, "failed to deserialize block")
-		}
-		log.L().Debug("receive block message", zap.Any("msg", block))
-		// TODO: add proof of lock
-		if msg.Height != block.Height() {
-			return errors.Errorf(
-				"block height %d is not the same as consensus message height",
-				block.Height(),
-			)
-		}
-		if !block.VerifySignature() {
-			return errors.Errorf("invalid block signature")
-		}
-		r.cfsm.ProduceReceiveBlockEvent(&blockWrapper{block, msg.Round})
-	case iotexrpc.Consensus_ENDORSEMENT:
-		en := &endorsement.Endorsement{}
-		if err := en.Deserialize(data); err != nil {
-			return errors.Wrap(err, "error when deserializing a msg to endorsement")
-		}
-		log.L().Debug("receive consensus message", zap.Any("msg", en))
-		ew := &endorsementWrapper{en}
-		if ew.Height() != msg.Height {
-			return errors.Errorf(
-				"endorsement height %d is not the same as consensus message height",
-				ew.Height(),
-			)
-		}
-		if !en.VerifySignature() {
-			return errors.Errorf("invalid endorsement signature")
-		}
-		switch ew.Topic() {
-		case endorsement.PROPOSAL:
-			r.cfsm.ProduceReceiveProposalEndorsementEvent(ew)
-		case endorsement.LOCK:
-			r.cfsm.ProduceReceiveLockEndorsementEvent(ew)
-		case endorsement.COMMIT:
-			r.cfsm.ProduceReceivePreCommitEndorsementEvent(ew)
-		}
-	default:
-		return errors.Errorf("Invalid consensus message type %s", msg.Type)
+	endorsedMessage := &EndorsedConsensusMessage{}
+	if err := endorsedMessage.LoadProto(msg); err != nil {
+		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
-	return nil
+	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {
+		return errors.New("failed to verify signature in endorsement")
+	}
+	en := endorsedMessage.Endorsement()
+	switch consensusMessage := endorsedMessage.Document().(type) {
+	case *blockProposal:
+		if err := r.ctx.VerifyBlockProposal(endorsedMessage.Height(), consensusMessage, en); err != nil {
+			return errors.Wrap(err, "failed to verify block proposal")
+		}
+		r.cfsm.ProduceReceiveBlockEvent(endorsedMessage)
+		return nil
+	case *ConsensusVote:
+		if err := r.ctx.VerifyVote(endorsedMessage.Height(), consensusMessage, en); err != nil {
+			return errors.Wrapf(err, "failed to verify vote")
+		}
+		switch consensusMessage.Topic() {
+		case PROPOSAL:
+			r.cfsm.ProduceReceiveProposalEndorsementEvent(endorsedMessage)
+		case LOCK:
+			r.cfsm.ProduceReceiveLockEndorsementEvent(endorsedMessage)
+		case COMMIT:
+			r.cfsm.ProduceReceivePreCommitEndorsementEvent(endorsedMessage)
+		}
+		return nil
+	// TODO: response block by hash, requestBlock.BlockHash
+	default:
+		return errors.Errorf("Invalid consensus message type %+v", msg)
+	}
 }
 
 // Calibrate called on receive a new block not via consensus
@@ -195,33 +158,31 @@ func (r *RollDPoS) Calibrate(height uint64) {
 
 // ValidateBlockFooter validates the signatures in the block footer
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
-	epoch, err := r.ctx.epochCtxByHeight(blk.Height())
+	round, err := r.ctx.RoundCalc().NewRound(blk.Height(), blk.Timestamp())
 	if err != nil {
 		return err
 	}
-	round, err := r.ctx.roundCtxByTime(epoch, blk.Height(), blk.Timestamp())
-	if err != nil {
-		return err
-	}
-	if round.proposer != blk.ProducerAddress() {
+	if round.Proposer() != blk.ProducerAddress() {
 		return errors.Errorf(
 			"block proposer %s is invalid, %s expected",
 			blk.ProducerAddress(),
 			round.proposer,
 		)
 	}
-	if 3*blk.NumOfDelegateEndorsements(epoch.delegates) <= 2*len(epoch.delegates) {
-		log.L().Warn(
-			"Insufficient endorsements in receiving block",
-			zap.Uint64("blockHeight", blk.Height()),
-			zap.Uint64("epoch", epoch.num),
-			zap.Uint32("round", round.number),
-			zap.Int("numOfDelegates", len(epoch.delegates)),
-			zap.Int("numOfDelegateEndorsements", blk.NumOfDelegateEndorsements(epoch.delegates)),
-			zap.Strings("delegates", epoch.delegates),
-		)
-		blk.FooterLogger(log.L()).Info("Endorsements in footer")
-		return errors.New("insufficient endorsements from delegates")
+	if err := round.AddBlock(blk); err != nil {
+		return err
+	}
+	blkHash := blk.HashBlock()
+	for _, en := range blk.Endorsements() {
+		if err := round.AddVoteEndorsement(
+			NewConsensusVote(blkHash[:], COMMIT),
+			en,
+		); err != nil {
+			return err
+		}
+	}
+	if !round.EndorsedByMajority(blkHash[:], []ConsensusVoteTopic{COMMIT}) {
+		return ErrInsufficientEndorsements
 	}
 
 	return nil
@@ -231,9 +192,9 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
 	height := r.ctx.chain.TipHeight()
-	epoch, err := r.ctx.epochCtxByHeight(height + 1)
+	round, err := r.ctx.RoundCalc().NewRound(height+1, r.ctx.clock.Now())
 	if err != nil {
-		return metrics, errors.Wrap(err, "error when calculating epoch")
+		return metrics, errors.Wrap(err, "error when calculating round")
 	}
 	// Get all candidates
 	candidates, err := r.ctx.chain.CandidatesByHeight(height)
@@ -246,9 +207,9 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	}
 
 	return scheme.ConsensusMetrics{
-		LatestEpoch:         epoch.num,
+		LatestEpoch:         round.EpochNum(),
 		LatestHeight:        height,
-		LatestDelegates:     epoch.delegates,
+		LatestDelegates:     round.Delegates(),
 		LatestBlockProducer: r.ctx.round.proposer,
 		Candidates:          candidateAddresses,
 	}, nil
@@ -360,26 +321,28 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if b.clock == nil {
 		b.clock = clock.New()
 	}
-	ctx := rollDPoSCtx{
-		cfg:                    b.cfg.Consensus.RollDPoS,
-		genesisCfg:             b.cfg.Genesis.Blockchain,
-		encodedAddr:            b.encodedAddr,
-		priKey:                 b.priKey,
-		chain:                  b.chain,
-		actPool:                b.actPool,
-		broadcastHandler:       b.broadcastHandler,
-		clock:                  b.clock,
-		rootChainAPI:           b.rootChainAPI,
-		rp:                     b.rp,
-		candidatesByHeightFunc: b.candidatesByHeightFunc,
-	}
-	cfsm, err := consensusfsm.NewConsensusFSM(b.cfg.Consensus.RollDPoS.FSM, &ctx, b.clock)
+	ctx := newRollDPoSCtx(
+		b.cfg.Consensus.RollDPoS,
+		b.cfg.Genesis.Blockchain.BlockInterval,
+		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
+		b.cfg.Genesis.TimeBasedRotation,
+		b.rootChainAPI,
+		b.chain,
+		b.actPool,
+		b.rp,
+		b.broadcastHandler,
+		b.candidatesByHeightFunc,
+		b.encodedAddr,
+		b.priKey,
+		b.clock,
+	)
+	cfsm, err := consensusfsm.NewConsensusFSM(b.cfg.Consensus.RollDPoS.FSM, ctx, b.clock)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
 	}
 	return &RollDPoS{
 		cfsm:  cfsm,
-		ctx:   &ctx,
+		ctx:   ctx,
 		ready: make(chan interface{}),
 	}, nil
 }

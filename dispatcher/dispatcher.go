@@ -32,7 +32,7 @@ type Subscriber interface {
 	HandleBlock(context.Context, *iotextypes.Block) error
 	HandleBlockSync(context.Context, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error
-	HandleConsensusMsg(*iotexrpc.Consensus) error
+	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
 }
 
 // Dispatcher is used by peers, handles incoming block and header notifications and relays announcements of new blocks.
@@ -295,8 +295,7 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 
 	switch msgType {
 	case iotexrpc.MessageType_CONSENSUS:
-		err := subscriber.HandleConsensusMsg(message.(*iotexrpc.Consensus))
-		if err != nil {
+		if err := subscriber.HandleConsensusMsg(message.(*iotextypes.ConsensusMessage)); err != nil {
 			log.L().Error("Failed to handle block propose.", zap.Error(err))
 		}
 	case iotexrpc.MessageType_ACTION:

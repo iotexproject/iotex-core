@@ -13,7 +13,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
@@ -48,10 +47,14 @@ func (b *Block) ConvertToBlockPb() *iotextypes.Block {
 	for _, act := range b.Actions {
 		actions = append(actions, act.Proto())
 	}
+	footer, err := b.ConvertToBlockFooterPb()
+	if err != nil {
+		log.L().Panic("failed to convert block footer to protobuf message")
+	}
 	return &iotextypes.Block{
 		Header:  b.ConvertToBlockHeaderPb(),
 		Actions: actions,
-		Footer:  b.ConvertToBlockFooterPb(),
+		Footer:  footer,
 	}
 }
 
@@ -180,32 +183,12 @@ func (b *Block) RunnableActions() RunnableActions {
 }
 
 // Finalize creates a footer for the block
-func (b *Block) Finalize(set *endorsement.Set, ts time.Time) error {
-	if b.endorsements != nil {
+func (b *Block) Finalize(endorsements []*endorsement.Endorsement, ts time.Time) error {
+	if len(b.endorsements) != 0 {
 		return errors.New("the block has been finalized")
 	}
-	if set == nil {
-		return errors.New("endorsement set is nil")
-	}
-	commitEndorsements, err := set.SubSet(endorsement.COMMIT)
-	if err != nil {
-		return err
-	}
-	b.endorsements = commitEndorsements
-	b.commitTimestamp = ts.Unix()
+	b.endorsements = endorsements
+	b.commitTime = ts
 
 	return nil
-}
-
-// FooterLogger logs the endorsements in block footer
-func (b *Block) FooterLogger(l *zap.Logger) *zap.Logger {
-	if b.endorsements == nil {
-		h := b.HashBlock()
-		return l.With(
-			log.Hex("blockHash", h[:]),
-			zap.Uint64("blockHeight", b.Height()),
-			zap.Int("numOfEndorsements", 0),
-		)
-	}
-	return b.endorsements.EndorsementsLogger(l)
 }

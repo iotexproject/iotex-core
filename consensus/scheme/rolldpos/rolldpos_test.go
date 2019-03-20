@@ -37,7 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -166,7 +166,8 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	)
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
 	blockchain.EXPECT().TipHeight().Return(blockHeight).Times(1)
-	blockchain.EXPECT().GetBlockByHeight(blockHeight).Return(blk, nil).Times(1)
+	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(2)
+	blockchain.EXPECT().GetBlockByHeight(blockHeight).Return(blk, nil).Times(2)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
 		{Address: candidates[1]},
@@ -180,6 +181,11 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	cfg.Genesis.NumDelegates = 4
 	cfg.Genesis.NumSubEpochs = 1
 	cfg.Genesis.BlockInterval = 10 * time.Second
+	rp := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
 	r, err := NewRollDPoSBuilder().
 		SetConfig(cfg).
 		SetAddr(identityset.Address(1).String()).
@@ -190,24 +196,19 @@ func TestRollDPoS_Metrics(t *testing.T) {
 			return nil
 		}).
 		SetClock(clock).
-		RegisterProtocol(rolldpos.NewProtocol(
-			cfg.Genesis.NumCandidateDelegates,
-			cfg.Genesis.NumDelegates,
-			cfg.Genesis.NumSubEpochs,
-		)).
+		RegisterProtocol(rp).
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	r.ctx.round = &roundCtx{height: blockHeight + 1}
-	clock.Add(r.ctx.genesisCfg.BlockInterval)
-	require.NoError(t, r.ctx.updateEpoch(blockHeight+1))
-	require.NoError(t, r.ctx.updateRound(blockHeight+1))
+	clock.Add(r.ctx.RoundCalc().BlockInterval())
+	r.ctx.round, err = r.ctx.RoundCalc().UpdateRound(r.ctx.round, blockHeight+1, clock.Now())
+	require.NoError(t, err)
 
 	m, err := r.Metrics()
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
 
-	cp.SortCandidates(candidates, m.LatestEpoch, cp.CryptoSeed)
+	cp.SortCandidates(candidates, rp.GetEpochHeight(m.LatestEpoch), cp.CryptoSeed)
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
 }
@@ -230,21 +231,25 @@ func makeTestRollDPoSCtx(
 			return nil
 		}
 	}
-	return &rollDPoSCtx{
-		cfg:              cfg.Consensus.RollDPoS,
-		genesisCfg:       cfg.Genesis.Blockchain,
-		encodedAddr:      addr.encodedAddr,
-		priKey:           addr.priKey,
-		chain:            chain,
-		actPool:          actPool,
-		broadcastHandler: broadcastCB,
-		clock:            clock,
-		rp: rolldpos.NewProtocol(
+	return newRollDPoSCtx(
+		cfg.Consensus.RollDPoS,
+		cfg.Genesis.BlockInterval,
+		cfg.Consensus.RollDPoS.ToleratedOvertime,
+		cfg.Genesis.TimeBasedRotation,
+		nil,
+		chain,
+		actPool,
+		rolldpos.NewProtocol(
 			cfg.Genesis.NumCandidateDelegates,
 			cfg.Genesis.NumDelegates,
 			cfg.Genesis.NumSubEpochs,
 		),
-	}
+		broadcastCB,
+		chain.CandidatesByHeight,
+		addr.encodedAddr,
+		addr.priKey,
+		clock,
+	)
 }
 
 // E2E RollDPoS tests bellow
@@ -260,7 +265,7 @@ func (o *directOverlay) Stop(_ context.Context) error { return nil }
 
 func (o *directOverlay) Broadcast(msg proto.Message) error {
 	// Only broadcast consensus message
-	if cMsg, ok := msg.(*iotexrpc.Consensus); ok {
+	if cMsg, ok := msg.(*iotextypes.ConsensusMessage); ok {
 		for _, r := range o.peers {
 			if err := r.HandleConsensusMsg(cMsg); err != nil {
 				return errors.Wrap(err, "error when handling consensus message directly")
@@ -290,7 +295,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 200 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.UnmatchedEventTTL = time.Second
-		cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 1 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 10 * time.Millisecond
 		cfg.Consensus.RollDPoS.ToleratedOvertime = 200 * time.Millisecond
 
 		cfg.Genesis.BlockInterval = time.Second
@@ -498,7 +503,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < 24; i++ {
 			go func(idx int) {
 				defer wg.Done()
-				cs[idx].ctx.genesisCfg.TimeBasedRotation = true
+				cs[idx].ctx.roundCalc.timeBasedRotation = true
 				err := cs[idx].Start(ctx)
 				require.NoError(t, err)
 			}(i)
