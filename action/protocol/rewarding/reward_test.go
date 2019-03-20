@@ -82,20 +82,21 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(100), availableBalance)
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["producer"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(40), unclaimedBalance)
+		assert.Equal(t, big.NewInt(45), unclaimedBalance)
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["alfa"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(30), unclaimedBalance)
+		assert.Equal(t, big.NewInt(35), unclaimedBalance)
+		// The 3-th candidate can't get the reward because it doesn't meet the productivity requirement
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["bravo"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(20), unclaimedBalance)
+		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["charlie"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(10), unclaimedBalance)
+		assert.Equal(t, big.NewInt(15), unclaimedBalance)
 		// The 5-th candidate can't get the reward because being out of the range
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["delta"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(0), unclaimedBalance)
+		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 
 		// Grant the same epoch reward again will fail
 		ws, err = stateDB.NewWorkingSet()
@@ -126,7 +127,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		// The 5-th candidate can't get the reward because excempting from the epoch reward
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["delta"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(0), unclaimedBalance)
+		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 	}, true)
 }
 

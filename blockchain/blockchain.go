@@ -16,9 +16,12 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -26,6 +29,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
@@ -39,6 +43,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -72,6 +77,8 @@ type Blockchain interface {
 	CreateState(addr string, init *big.Int) (*state.Account, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
+	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
+	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(h hash.Hash256) (uint64, error)
@@ -338,6 +345,70 @@ func (bc *blockchain) Nonce(addr string) (uint64, error) {
 // CandidatesByHeight returns the candidate list by a given height
 func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	return bc.candidatesByHeight(height)
+}
+
+// ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
+func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
+	p, ok := bc.registry.Find(rolldpos.ProtocolID)
+	if !ok {
+		return 0, nil, errors.New("rolldpos protocol is not registered")
+	}
+	rp, ok := p.(*rolldpos.Protocol)
+	if !ok {
+		return 0, nil, errors.New("fail to cast rolldpos protocol")
+	}
+
+	var isCurrentEpoch bool
+	currentEpochNum := rp.GetEpochNum(bc.tipHeight)
+	if epochNum > currentEpochNum {
+		return 0, nil, errors.New("epoch number is larger than current epoch number")
+	}
+	if epochNum == currentEpochNum {
+		isCurrentEpoch = true
+	}
+
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	var epochEndHeight uint64
+	if isCurrentEpoch {
+		epochEndHeight = bc.tipHeight
+	} else {
+		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
+	}
+	numBlks := epochEndHeight - epochStartHeight + 1
+
+	p, ok = bc.registry.Find(rolldpos.ProtocolID)
+	if !ok {
+		return 0, nil, errors.New("rolldpos protocol is not registered")
+	}
+	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		BlockHeight: bc.tipHeight,
+		Registry:    bc.registry,
+	})
+	ws, err := bc.sf.NewWorkingSet()
+	if err != nil {
+		return 0, nil, err
+	}
+	state, err := p.ReadState(ctx, ws, []byte("CommitteeBlockProducersByHeight"), byteutil.Uint64ToBytes(epochStartHeight))
+	if err != nil {
+		return 0, nil, status.Error(codes.NotFound, err.Error())
+	}
+	var committeeBlockProducers pollpb.BlockProducerList
+	if err := proto.Unmarshal(state, &committeeBlockProducers); err != nil {
+		return 0, nil, status.Error(codes.Internal, err.Error())
+	}
+
+	produce := make(map[string]uint64)
+	for _, bp := range committeeBlockProducers.BlockProducers {
+		produce[bp] = 0
+	}
+	for i := uint64(0); i < numBlks; i++ {
+		blk, err := bc.getBlockByHeight(epochStartHeight + i)
+		if err != nil {
+			return 0, nil, err
+		}
+		produce[blk.ProducerAddress()]++
+	}
+	return numBlks, produce, nil
 }
 
 // GetHeightByHash returns block's height by hash
@@ -1178,6 +1249,10 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 		bc.config.Genesis.EpochReward(),
 		bc.config.Genesis.NumDelegatesForEpochReward,
 		bc.config.Genesis.ExemptAddrsFromEpochReward(),
+		bc.config.Genesis.FoundationBonus(),
+		bc.config.Genesis.NumDelegatesForFoundationBonus,
+		bc.config.Genesis.FoundationBonusLastEpoch,
+		bc.config.Genesis.ProductivityThreshold,
 	)
 }
 

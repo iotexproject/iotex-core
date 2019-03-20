@@ -20,17 +20,25 @@ import (
 
 // admin stores the admin data of the rewarding protocol
 type admin struct {
-	blockReward                *big.Int
-	epochReward                *big.Int
-	numDelegatesForEpochReward uint64
+	blockReward                    *big.Int
+	epochReward                    *big.Int
+	numDelegatesForEpochReward     uint64
+	foundationBonus                *big.Int
+	numDelegatesForFoundationBonus uint64
+	foundationBonusLastEpoch       uint64
+	productivityThreshold          uint64
 }
 
 // Serialize serializes admin state into bytes
 func (a admin) Serialize() ([]byte, error) {
 	gen := rewardingpb.Admin{
-		BlockReward:                a.blockReward.String(),
-		EpochReward:                a.epochReward.String(),
-		NumDelegatesForEpochReward: a.numDelegatesForEpochReward,
+		BlockReward:                    a.blockReward.String(),
+		EpochReward:                    a.epochReward.String(),
+		NumDelegatesForEpochReward:     a.numDelegatesForEpochReward,
+		FoundationBonus:                a.foundationBonus.String(),
+		NumDelegatesForFoundationBonus: a.numDelegatesForFoundationBonus,
+		FoundationBonusLastEpoch:       a.foundationBonusLastEpoch,
+		ProductivityThreshold:          a.productivityThreshold,
 	}
 	return proto.Marshal(&gen)
 }
@@ -49,9 +57,17 @@ func (a *admin) Deserialize(data []byte) error {
 	if !ok {
 		return errors.New("failed to set epoch reward")
 	}
+	foundationBonus, ok := big.NewInt(0).SetString(gen.FoundationBonus, 10)
+	if !ok {
+		return errors.New("failed to set bootstrap bonus")
+	}
 	a.blockReward = blockReward
 	a.epochReward = epochReward
 	a.numDelegatesForEpochReward = gen.NumDelegatesForEpochReward
+	a.foundationBonus = foundationBonus
+	a.numDelegatesForFoundationBonus = gen.NumDelegatesForFoundationBonus
+	a.foundationBonusLastEpoch = gen.FoundationBonusLastEpoch
+	a.productivityThreshold = gen.ProductivityThreshold
 	return nil
 }
 
@@ -95,6 +111,10 @@ func (p *Protocol) Initialize(
 	epochReward *big.Int,
 	numDelegatesForEpochReward uint64,
 	exemptAddrs []address.Address,
+	foundationBonus *big.Int,
+	numDelegatesForFoundationBonus uint64,
+	foundationBonusLastEpoch uint64,
+	productivityThreshold uint64,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
@@ -110,9 +130,13 @@ func (p *Protocol) Initialize(
 		sm,
 		adminKey,
 		&admin{
-			blockReward:                blockReward,
-			epochReward:                epochReward,
-			numDelegatesForEpochReward: numDelegatesForEpochReward,
+			blockReward:                    blockReward,
+			epochReward:                    epochReward,
+			numDelegatesForEpochReward:     numDelegatesForEpochReward,
+			foundationBonus:                foundationBonus,
+			numDelegatesForFoundationBonus: numDelegatesForFoundationBonus,
+			foundationBonusLastEpoch:       foundationBonusLastEpoch,
+			productivityThreshold:          productivityThreshold,
 		},
 	); err != nil {
 		return err
