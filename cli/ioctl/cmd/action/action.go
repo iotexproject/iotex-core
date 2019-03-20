@@ -21,11 +21,9 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Flags
@@ -78,23 +76,19 @@ func sendAction(elp action.Envelope) string {
 		log.L().Error("fail to get password", zap.Error(err))
 		return err.Error()
 	}
-	password := string(bytePassword)
-	ehash := elp.Hash()
-	sig, err := account.Sign(signer, password, ehash[:])
+	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
 	if err != nil {
-		log.L().Error("fail to sign", zap.Error(err))
+		log.L().Error("fail to generate key from keystore", zap.Error(err))
 		return err.Error()
 	}
-	pubKey, err := keypair.SigToPublicKey(ehash[:], sig)
+	defer prvKey.Zero()
+	sealed, err := action.Sign(elp, prvKey)
+	prvKey.Zero()
 	if err != nil {
-		log.L().Error("fail to get public key", zap.Error(err))
+		log.L().Error("fail to sign action", zap.Error(err))
 		return err.Error()
 	}
-	selp := &iotextypes.Action{
-		Core:         elp.Proto(),
-		SenderPubKey: pubKey.Bytes(),
-		Signature:    sig,
-	}
+	selp := sealed.Proto()
 
 	var confirm string
 	actionInfo, err := printActionProto(selp)
