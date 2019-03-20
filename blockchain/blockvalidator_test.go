@@ -326,7 +326,7 @@ func TestCoinbaseTransferValidation(t *testing.T) {
 	require.NoError(t, chain.Start(ctx))
 	defer require.NoError(t, chain.Stop(ctx))
 
-	blk, err := chain.MintNewBlock(nil, 0)
+	blk, err := chain.MintNewBlock(nil, testutil.TimestampNow())
 	require.NoError(t, err)
 	validator := validator{}
 	require.NoError(t, validator.validateActionsOnly(
