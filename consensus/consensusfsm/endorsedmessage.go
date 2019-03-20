@@ -6,12 +6,10 @@
 
 package consensusfsm
 
-// Endorsement defines the interface of an endorsement used in consensus
-type Endorsement interface {
-	Hash() []byte
-	Height() uint64
-	Round() uint32
-	Endorser() string
-	Serialize() ([]byte, error)
-	Deserialize([]byte) error
+import "github.com/iotexproject/iotex-core/endorsement"
+
+// EndorsedMessage defines a message with endorsement
+type EndorsedMessage interface {
+	Endorsement() *endorsement.Endorsement
+	Message() interface{}
 }

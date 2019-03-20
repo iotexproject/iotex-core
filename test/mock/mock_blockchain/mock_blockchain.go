@@ -348,6 +348,18 @@ func (mr *MockBlockchainMockRecorder) RecoverChainAndState(targetHeight interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverChainAndState", reflect.TypeOf((*MockBlockchain)(nil).RecoverChainAndState), targetHeight)
 }
 
+// GenesisTimestamp mocks base method
+func (m *MockBlockchain) GenesisTimestamp() int64 {
+	ret := m.ctrl.Call(m, "GenesisTimestamp")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// GenesisTimestamp indicates an expected call of GenesisTimestamp
+func (mr *MockBlockchainMockRecorder) GenesisTimestamp() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenesisTimestamp", reflect.TypeOf((*MockBlockchain)(nil).GenesisTimestamp))
+}
+
 // MintNewBlock mocks base method
 func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp time.Time) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, timestamp)
