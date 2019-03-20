@@ -124,7 +124,7 @@ func deployContract(code string, chainEndPoint string) (string, error) {
 		return "", errors.Wrapf(err, "failed to deploy contract, txhash = %s", h)
 	}
 
-	time.Sleep(time.Second * 18)
+	time.Sleep(time.Second * 3)
 	receipt, err := contract.CheckCallResult(h)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to deploy contract, txhash = %s", h)

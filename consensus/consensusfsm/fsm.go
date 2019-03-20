@@ -277,17 +277,11 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 			select {
 			case <-m.close:
 			case <-m.clock.After(delay):
-				if evt.eventType == eFailedToReceiveBlock {
-					log.L().Error("Produce fail to receive block event")
-				}
 				m.evtq <- evt
 			}
 			m.wg.Done()
 		}()
 	} else {
-		if evt.eventType == eReceiveBlock {
-			log.L().Error("Produce receive block event")
-		}
 		m.evtq <- evt
 	}
 }
@@ -308,7 +302,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 	switch errors.Cause(err) {
 	case nil:
 		m.ctx.Logger().Debug(
-			"consensuls state transition happens",
+			"consensus state transition happens",
 			zap.String("src", string(src)),
 			zap.String("dst", string(m.fsm.CurrentState())),
 			zap.String("evt", string(evt.Type())),

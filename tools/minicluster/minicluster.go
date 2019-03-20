@@ -217,6 +217,8 @@ func main() {
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
 
+		log.L().Info("Start action injections.")
+
 		wg := &sync.WaitGroup{}
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
@@ -296,13 +298,13 @@ func main() {
 		if err != nil {
 			log.S().Error("Failed to get debtor's asset balance.", zap.Error(err))
 		}
-		log.S().Info("Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
+		log.L().Info("Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
 
 		creditorBalance, err := fpToken.ReadValue(fpContract, "70a08231", creditor.EncodedAddr)
 		if err != nil {
 			log.S().Error("Failed to get creditor's asset balance.", zap.Error(err))
 		}
-		log.S().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
+		log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 
 		if debtorBalance+creditorBalance != fpTotal {
 			log.S().Error("Sum of asset balance is incorrect.")
@@ -337,7 +339,7 @@ func newConfig(
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 2400 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 5000 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 1800 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 1800 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 1800 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000

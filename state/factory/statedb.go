@@ -198,12 +198,12 @@ func (sdb *stateDB) CandidatesByHeight(height uint64) ([]*state.Candidate, error
 	// Load Candidates on the given height from underlying db
 	candidatesKey := candidatesutil.ConstructKey(height)
 	err := sdb.state(candidatesKey, &candidates)
-	log.L().Debug(
-		"CandidatesByHeight",
-		zap.Uint64("height", height),
-		zap.Any("candidates", candidates),
-		zap.Error(err),
-	)
+	//log.L().Debug(
+	//	"CandidatesByHeight",
+	//	zap.Uint64("height", height),
+	//	zap.Any("candidates", candidates),
+	//	zap.Error(err),
+	//)
 	if errors.Cause(err) == nil {
 		if len(candidates) > 0 {
 			return candidates, nil

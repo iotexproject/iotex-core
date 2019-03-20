@@ -26,6 +26,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
+	"encoding/hex"
+	"sort"
 )
 
 type (
@@ -562,7 +564,13 @@ func (stateDB *StateDBAdapter) getContractState(addr hash.Hash160, key hash.Hash
 // setContractState writes contract's storage value
 func (stateDB *StateDBAdapter) setContractState(addr hash.Hash160, key, value hash.Hash256) error {
 	if contract, ok := stateDB.cachedContract[addr]; ok {
-		return contract.SetState(key, value[:])
+		err := contract.SetState(key, value[:])
+		if hex.EncodeToString(addr[:]) == "2a1da145442f98815d2f84a92b04465ad3074e86"{
+			root := contract.RootHash()
+			log.L().Warn("current contract state", zap.String("root", hex.EncodeToString(root[:])),
+				zap.String("key", hex.EncodeToString(key[:])), zap.String("value", hex.EncodeToString(value[:])))
+		}
+		return err
 	}
 	contract, err := stateDB.getContract(addr)
 	if err != nil {
@@ -596,6 +604,8 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 			return errors.Wrap(err, "failed to commit contract")
 		}
 		state := contract.SelfState()
+		log.L().Warn("self state", zap.Uint64("nonce", state.Nonce), zap.Any("balance", state.Balance),
+			zap.String("root", hex.EncodeToString(state.Root[:])), zap.String("code hash", hex.EncodeToString(state.CodeHash)))
 		// store the account (with new storage trie root) into account trie
 		if err := stateDB.sm.PutState(addr, state); err != nil {
 			stateDB.logError(err)

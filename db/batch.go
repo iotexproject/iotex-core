@@ -14,6 +14,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"go.uber.org/zap"
+	"encoding/hex"
 )
 
 type (
@@ -313,6 +315,7 @@ func (cb *cachedBatch) Digest() hash.Hash256 {
 		if err != nil {
 			log.S().Panic("Batch entry %d doesn't exist", i)
 		}
+		log.L().Error("Digest entry", zap.String("entry content", hex.EncodeToString(wi.serialize())), zap.Int("entry number", i))
 		bytes = append(bytes, wi.serialize()...)
 	}
 	return hash.Hash256b(bytes)
