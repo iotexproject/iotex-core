@@ -158,7 +158,7 @@ func (ctx *rollDPoSCtx) MintBlock() (consensusfsm.Endorsement, error) {
 		log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
 		b, err := ctx.chain.MintNewBlock(
 			actionMap,
-			ctx.round.timestamp.Unix(),
+			ctx.round.timestamp,
 		)
 		if err != nil {
 			return nil, err
@@ -634,7 +634,7 @@ func (ctx *rollDPoSCtx) roundCtxByTime(
 		if err != nil {
 			return nil, err
 		}
-		lastBlockTime = time.Unix(lastBlock.Timestamp(), 0)
+		lastBlockTime = lastBlock.Timestamp()
 	}
 	// proposer interval should be always larger than 0
 	interval := ctx.genesisCfg.BlockInterval

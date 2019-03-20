@@ -7,6 +7,8 @@
 package block
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -42,7 +44,7 @@ func (b *TestingBuilder) SetHeight(h uint64) *TestingBuilder {
 }
 
 // SetTimeStamp sets the time stamp for block which is building.
-func (b *TestingBuilder) SetTimeStamp(ts int64) *TestingBuilder {
+func (b *TestingBuilder) SetTimeStamp(ts time.Time) *TestingBuilder {
 	b.blk.Header.timestamp = ts
 	return b
 }
@@ -87,7 +89,7 @@ func NewBlockDeprecated(
 	chainID uint32,
 	height uint64,
 	prevBlockHash hash.Hash256,
-	timestamp int64,
+	timestamp time.Time,
 	producer keypair.PublicKey,
 	actions []action.SealedEnvelope,
 ) *Block {

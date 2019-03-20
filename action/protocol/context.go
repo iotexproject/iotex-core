@@ -9,6 +9,7 @@ package protocol
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
@@ -24,7 +25,7 @@ type RunActionsCtx struct {
 	// height of block containing those actions
 	BlockHeight uint64
 	// timestamp of block containing those actions
-	BlockTimeStamp int64
+	BlockTimeStamp time.Time
 	// gas Limit for perform those actions
 	GasLimit uint64
 	// Producer is the address of whom composes the block containing this action
