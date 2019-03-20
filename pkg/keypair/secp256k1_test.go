@@ -13,6 +13,7 @@ func TestSecp256k1(t *testing.T) {
 
 	sk, err := newSecp256k1PrvKey()
 	require.NoError(err)
+	defer sk.Zero()
 	require.Equal(secp256prvKeyLength, len(sk.Bytes()))
 	pk := sk.PublicKey()
 	require.Equal(secp256pubKeyLength, len(pk.Bytes()))

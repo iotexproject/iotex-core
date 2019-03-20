@@ -52,8 +52,8 @@ func init() {
 	AccountCmd.AddCommand(accountUpdateCmd)
 }
 
-// Sign use the password to unlock key associated with name, and signs the hash
-func Sign(signer, password string, hash []byte) ([]byte, error) {
+// KsAccountToPrivateKey generates our PrivateKey interface from Keystore account
+func KsAccountToPrivateKey(signer, password string) (keypair.PrivateKey, error) {
 	addr, err := Address(signer)
 	if err != nil {
 		return nil, err
@@ -62,14 +62,14 @@ func Sign(signer, password string, hash []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// find the key in keystore and sign
+	// find the account in keystore
 	ks := keystore.NewKeyStore(config.Get("wallet"), keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, v := range ks.Accounts() {
-		if bytes.Equal(address.Bytes(), v.Address.Bytes()) {
-			return ks.SignHashWithPassphrase(v, password, hash)
+	for _, account := range ks.Accounts() {
+		if bytes.Equal(address.Bytes(), account.Address.Bytes()) {
+			return keypair.KeystoreToPrivateKey(account, password)
 		}
 	}
-	return nil, errors.Errorf("account %s's address does not match with keys in keystore", signer)
+	return nil, errors.Errorf("account %s does not match all keys in keystore", signer)
 }
 
 // Address returns the address corresponding to name, parameter in can be name or IoTeX address
