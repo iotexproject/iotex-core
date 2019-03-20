@@ -127,7 +127,6 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 }
 
 type governanceChainCommitteeProtocol struct {
-	cm                     protocol.ChainManager
 	getBlockTime           GetBlockTime
 	getEpochHeight         GetEpochHeight
 	getEpochNum            GetEpochNum
@@ -139,7 +138,6 @@ type governanceChainCommitteeProtocol struct {
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
 func NewGovernanceChainCommitteeProtocol(
-	cm protocol.ChainManager,
 	electionCommittee committee.Committee,
 	initGravityChainHeight uint64,
 	getBlockTime GetBlockTime,
@@ -163,7 +161,6 @@ func NewGovernanceChainCommitteeProtocol(
 	}
 
 	return &governanceChainCommitteeProtocol{
-		cm:                     cm,
 		electionCommittee:      electionCommittee,
 		initGravityChainHeight: initGravityChainHeight,
 		getBlockTime:           getBlockTime,
@@ -279,9 +276,14 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 }
 
 func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(height uint64) ([]string, error) {
-	delegates, err := p.cm.CandidatesByHeight(height)
+	epochHeight := p.getEpochHeight(p.getEpochNum(height))
+	gravityHeight, err := p.getGravityHeight(epochHeight)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get gravity chain height")
+	}
+	delegates, err := p.delegatesByGravityChainHeight(gravityHeight)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get delegates on height %d", height)
 	}
 	blockProducers := make([]string, 0)
 	for i, delegate := range delegates {

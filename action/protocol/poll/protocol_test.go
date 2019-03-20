@@ -25,8 +25,6 @@ import (
 )
 
 func TestInitialize(t *testing.T) {
-	t.Skip()
-
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -44,7 +42,6 @@ func TestInitialize(t *testing.T) {
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).Times(1)
 	p, err := NewGovernanceChainCommitteeProtocol(
-		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
