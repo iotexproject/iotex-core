@@ -76,21 +76,22 @@ func sendAction(elp action.Envelope) string {
 		log.L().Error("fail to get password", zap.Error(err))
 		return err.Error()
 	}
-	password := string(bytePassword)
-	prvKey, err := account.KsAccountToPrivateKey(signer, password)
+	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
 	if err != nil {
 		log.L().Error("fail to generate key from keystore", zap.Error(err))
 		return err.Error()
 	}
 	defer prvKey.Zero()
-	selp, err := action.Sign(elp, prvKey)
+	sealed, err := action.Sign(elp, prvKey)
+	prvKey.Zero()
 	if err != nil {
-		log.L().Error("fail to get public key", zap.Error(err))
+		log.L().Error("fail to sign action", zap.Error(err))
 		return err.Error()
 	}
+	selp := sealed.Proto()
 
 	var confirm string
-	actionInfo, err := printActionProto(selp.Proto())
+	actionInfo, err := printActionProto(selp)
 	if err != nil {
 		return err.Error()
 	}
@@ -104,7 +105,7 @@ func sendAction(elp action.Envelope) string {
 	}
 	fmt.Println()
 
-	request := &iotexapi.SendActionRequest{Action: selp.Proto()}
+	request := &iotexapi.SendActionRequest{Action: selp}
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
@@ -116,7 +117,7 @@ func sendAction(elp action.Envelope) string {
 	if err != nil {
 		return err.Error()
 	}
-	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp.Proto())))
+	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	return "Action has been sent to blockchain.\n" +
 		"Wait for several seconds and query this action by hash:\n" +
 		hex.EncodeToString(shash[:])

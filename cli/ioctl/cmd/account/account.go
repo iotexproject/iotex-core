@@ -66,7 +66,7 @@ func KsAccountToPrivateKey(signer, password string) (keypair.PrivateKey, error) 
 	ks := keystore.NewKeyStore(config.Get("wallet"), keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, account := range ks.Accounts() {
 		if bytes.Equal(address.Bytes(), account.Address.Bytes()) {
-			return keypair.KsAccountToPrivateKey(account, password)
+			return keypair.KeystoreToPrivateKey(account, password)
 		}
 	}
 	return nil, errors.Errorf("account %s does not match all keys in keystore", signer)

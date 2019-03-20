@@ -79,14 +79,14 @@ func BytesToPrivateKey(prvKey []byte) (PrivateKey, error) {
 	return newSecp256k1PrvKeyFromBytes(prvKey)
 }
 
-// KsAccountToPrivateKey generates PrivateKey from Keystore account
-func KsAccountToPrivateKey(account accounts.Account, password string) (PrivateKey, error) {
+// KeystoreToPrivateKey generates PrivateKey from Keystore account
+func KeystoreToPrivateKey(account accounts.Account, password string) (PrivateKey, error) {
 	// load the key from the keystore
-	keyjson, err := ioutil.ReadFile(account.URL.Path)
+	keyJSON, err := ioutil.ReadFile(account.URL.Path)
 	if err != nil {
 		return nil, err
 	}
-	key, err := keystore.DecryptKey(keyjson, password)
+	key, err := keystore.DecryptKey(keyJSON, password)
 	if err != nil {
 		return nil, err
 	}
