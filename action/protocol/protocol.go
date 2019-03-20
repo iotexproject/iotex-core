@@ -58,6 +58,8 @@ type ChainManager interface {
 	Nonce(addr string) (uint64, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
+	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
+	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
 }
 
 // StateManager defines the state DB interface atop IoTeX blockchain
