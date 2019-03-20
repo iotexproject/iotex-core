@@ -21,7 +21,7 @@ import (
 
 // actionDeployCmd represents the action deploy command
 var actionDeployCmd = &cobra.Command{
-	Use:   "deploy",
+	Use:   "deploy -l GAS_LIMIT -p GAS_PRICE -s OPERATOR -b BYTE_CODE",
 	Short: "Deploy smart contract on IoTeX blockchain",
 	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
