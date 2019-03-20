@@ -341,7 +341,7 @@ var (
 			methodName: "UnclaimedBalance",
 			addr:       identityset.Address(0).String(),
 			returnErr:  false,
-			balance:    unit.ConvertIotxToRau(144), // 4 block * 36 IOTX reward by default = 144 IOTX
+			balance:    unit.ConvertIotxToRau(64), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
 		{
 			protocolID: rewarding.ProtocolID,

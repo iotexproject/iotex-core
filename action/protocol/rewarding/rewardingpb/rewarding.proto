@@ -10,9 +10,13 @@ syntax = "proto3";
 package rewardingpb;
 
 message Admin {
-    string blockReward = 2;
-    string epochReward = 3;
-    uint64 numDelegatesForEpochReward = 4;
+    string blockReward = 1;
+    string epochReward = 2;
+    uint64 numDelegatesForEpochReward = 3;
+    string foundationBonus = 4;
+    uint64 numDelegatesForFoundationBonus = 5;
+    uint64 foundationBonusLastEpoch = 6;
+    uint64 productivityThreshold = 7;
 }
 
 message Fund {
@@ -24,7 +28,7 @@ message RewardHistory {
 }
 
 message Account {
-    string balance = 2;
+    string balance = 1;
 }
 
 message Exempt {
