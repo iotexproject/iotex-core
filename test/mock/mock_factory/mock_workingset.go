@@ -8,6 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
+	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	db "github.com/iotexproject/iotex-core/db"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	reflect "reflect"
@@ -37,7 +38,7 @@ func (m *MockWorkingSet) EXPECT() *MockWorkingSetMockRecorder {
 }
 
 // RunAction mocks base method
-func (m *MockWorkingSet) RunAction(arg0 context.Context, arg1 action.SealedEnvelope) (*action.Receipt, error) {
+func (m *MockWorkingSet) RunAction(arg0 protocol.RunActionsCtx, arg1 action.SealedEnvelope) (*action.Receipt, error) {
 	ret := m.ctrl.Call(m, "RunAction", arg0, arg1)
 	ret0, _ := ret[0].(*action.Receipt)
 	ret1, _ := ret[1].(error)
