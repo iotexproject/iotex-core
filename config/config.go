@@ -108,6 +108,7 @@ var (
 			EnableAsyncIndexWrite:   true,
 			CompressBlock:           false,
 			AllowedBlockGasResidue:  10000,
+			MaxCacheSize:            0,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
@@ -229,6 +230,8 @@ type (
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
+		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
+		MaxCacheSize int `yaml:"maxCacheSize"`
 	}
 
 	// Consensus is the config struct for consensus package

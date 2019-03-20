@@ -215,8 +215,7 @@ func BoltDBDaoOption() Option {
 			db.NewOnDiskDB(cfg.DB),
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
-			// Set the cache size to the number of one epoch block
-			int(cfg.Genesis.NumDelegates*cfg.Genesis.NumSubEpochs),
+			cfg.Chain.MaxCacheSize,
 		)
 		return nil
 	}
@@ -230,8 +229,7 @@ func InMemDaoOption() Option {
 			db.NewMemKVStore(),
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
-			// Set the cache size to the number of one epoch block
-			int(cfg.Genesis.NumDelegates*cfg.Genesis.NumSubEpochs),
+			cfg.Chain.MaxCacheSize,
 		)
 
 		return nil
