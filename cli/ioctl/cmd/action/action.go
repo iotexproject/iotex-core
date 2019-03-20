@@ -121,7 +121,6 @@ func sendAction(elp action.Envelope) string {
 	ctx := context.Background()
 	_, err = cli.SendAction(ctx, request)
 	if err != nil {
-		log.L().Error("server error", zap.Error(err))
 		return err.Error()
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
