@@ -28,6 +28,11 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
+// Errors
+var (
+	ErrNoNameFound = errors.New("no name is found")
+)
+
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
 	Use:   "account",
@@ -67,14 +72,13 @@ func Sign(signer, password string, hash []byte) ([]byte, error) {
 	return nil, errors.Errorf("account %s's address does not match with keys in keystore", signer)
 }
 
-// Address returns the address corresponding to name
+// Address returns the address corresponding to name, parameter in can be name or IoTeX address
 func Address(in string) (string, error) {
 	if len(in) >= validator.IoAddrLen {
 		if err := validator.ValidateAddress(in); err != nil {
 			return "", err
 		}
 		return in, nil
-
 	}
 	config, err := config.LoadConfig()
 	if err != nil {
@@ -89,6 +93,28 @@ func Address(in string) (string, error) {
 		return addr, nil
 	}
 	return "", errors.Errorf("cannot find account from #%s", in)
+}
+
+// Name returns the name corresponding to address
+func Name(address string) (string, error) {
+	if err := validator.ValidateAddress(address); err != nil {
+		return "", err
+	}
+	config, err := config.LoadConfig()
+	if err != nil {
+		return "", err
+	}
+	for name, addr := range config.AccountList {
+		if addr == address {
+			return name, nil
+		}
+	}
+	for name, addr := range config.NameList {
+		if addr == address {
+			return name, nil
+		}
+	}
+	return "", ErrNoNameFound
 }
 
 // GetAccountMeta gets account metadata
@@ -106,6 +132,22 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 		return nil, err
 	}
 	return response.AccountMeta, nil
+}
+
+// GetNameMap gets the map from address to names of both AccountList and NameList
+func GetNameMap() (map[string]string, error) {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]string)
+	for name, addr := range cfg.NameList {
+		names[addr] = name
+	}
+	for name, addr := range cfg.AccountList {
+		names[addr] = name
+	}
+	return names, nil
 }
 
 func newAccount(name string, walletDir string) (string, error) {
