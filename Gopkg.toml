@@ -22,6 +22,10 @@
   version = "1.3.0"
 
 [[constraint]]
+  name = "github.com/golang/groupcache"
+  revision = "5b532d6fd5efaf7fa130d4e859a2fde0fc3a9e1b"
+
+[[constraint]]
   name = "github.com/pkg/errors"
   version = "~0.8.0"
 
