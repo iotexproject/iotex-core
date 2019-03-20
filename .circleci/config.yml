@@ -71,7 +71,6 @@ jobs:
             export GOPATH=~/go
             export LD_LIBRARY_PATH=:"/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib"
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-            sed -i 's/7788/7789/g' pkg/probe/probe_test.go
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
             go test -run=XXX -bench=. $(go list ./crypto)
@@ -129,7 +128,7 @@ workflows:
   version: 2
   commit:
     jobs:
-      - build_test_ubuntu
+      #- build_test_ubuntu
       - build_test_darwin
       - build_test_docker
 
