@@ -380,9 +380,9 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	}
 	numBlks := epochEndHeight - epochStartHeight + 1
 
-	p, ok = bc.registry.Find(rolldpos.ProtocolID)
+	p, ok = bc.registry.Find(poll.ProtocolID)
 	if !ok {
-		return 0, nil, errors.New("rolldpos protocol is not registered")
+		return 0, nil, errors.New("poll protocol is not registered")
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight: bc.tipHeight,
