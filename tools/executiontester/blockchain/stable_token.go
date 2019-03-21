@@ -14,7 +14,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -73,8 +75,8 @@ type (
 )
 
 // NewStableToken creates a new Stable Token
-func NewStableToken(exp string) StableToken {
-	return &stableToken{Contract: NewContract(exp)}
+func NewStableToken(cfg config.Config) StableToken {
+	return &stableToken{Contract: NewContract(cfg)}
 }
 
 func (s *stableToken) Mint(bech32 string, amount int64) (string, error) {
@@ -256,10 +258,17 @@ func (s *stableToken) Start() error {
 		return errors.Wrap(err, "stable token contract failed to set global pause")
 	}
 
-	time.Sleep(time.Second * 6)
-	if _, err := s.CheckCallResult(h); err != nil {
-		return errors.Wrap(err, "allowance sheet failed to transfer ownership")
+	var innerErr error
+	err = testutil.WaitUntil(100*time.Millisecond, s.ChainConfig().Genesis.BlockInterval*3, func() (bool, error) {
+		if _, innerErr = s.CheckCallResult(h); innerErr == nil {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return errors.Wrap(innerErr, "allowance sheet failed to transfer ownership")
 	}
+
 	if _, err := s.CheckCallResult(h1); err != nil {
 		return errors.Wrap(err, "balance sheet failed to transfer ownership")
 	}
