@@ -196,6 +196,42 @@ func (p *Protocol) NumDelegatesForEpochReward(
 	return a.numDelegatesForEpochReward, nil
 }
 
+// FoundationBonus returns the foundation bonus amount
+func (p *Protocol) FoundationBonus(_ context.Context, sm protocol.StateManager) (*big.Int, error) {
+	a := admin{}
+	if err := p.state(sm, adminKey, &a); err != nil {
+		return nil, err
+	}
+	return a.foundationBonus, nil
+}
+
+// FoundationBonusLastEpoch returns the last epoch when the foundation bonus will still be granted
+func (p *Protocol) FoundationBonusLastEpoch(_ context.Context, sm protocol.StateManager) (uint64, error) {
+	a := admin{}
+	if err := p.state(sm, adminKey, &a); err != nil {
+		return 0, err
+	}
+	return a.foundationBonusLastEpoch, nil
+}
+
+// NumDelegatesForFoundationBonus returns the number of delegates that will get foundation bonus
+func (p *Protocol) NumDelegatesForFoundationBonus(_ context.Context, sm protocol.StateManager) (uint64, error) {
+	a := admin{}
+	if err := p.state(sm, adminKey, &a); err != nil {
+		return 0, err
+	}
+	return a.numDelegatesForEpochReward, nil
+}
+
+// ProductivityThreshold returns the productivity threshold
+func (p *Protocol) ProductivityThreshold(_ context.Context, sm protocol.StateManager) (uint64, error) {
+	a := admin{}
+	if err := p.state(sm, adminKey, &a); err != nil {
+		return 0, err
+	}
+	return a.productivityThreshold, nil
+}
+
 func (p *Protocol) assertAmount(amount *big.Int) error {
 	if amount.Cmp(big.NewInt(0)) >= 0 {
 		return nil
