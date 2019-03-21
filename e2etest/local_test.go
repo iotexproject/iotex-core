@@ -66,7 +66,7 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(err)
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	p := p2p.NewAgent(
-		cfg.Network,
+		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
 
 		},
