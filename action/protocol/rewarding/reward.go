@@ -150,6 +150,9 @@ func (p *Protocol) Claim(
 	amount *big.Int,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if err := p.assertAmount(amount); err != nil {
+		return err
+	}
 	if err := p.updateTotalBalance(sm, amount); err != nil {
 		return err
 	}

@@ -169,6 +169,29 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), primAcc.Balance)
 
+		// Claim negative amount of token will fail
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.Error(t, p.Claim(claimCtx, ws, big.NewInt(-5)))
+
+		// Claim 0 amount won't fail, but also will not get the token
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.NoError(t, p.Claim(claimCtx, ws, big.NewInt(0)))
+		require.NoError(t, stateDB.Commit(ws))
+
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		totalBalance, err = p.TotalBalance(ctx, ws)
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(15), totalBalance)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, raCtx.Producer)
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(5), unclaimedBalance)
+		primAcc, err = accountutil.LoadAccount(ws, hash.BytesToHash160(raCtx.Producer.Bytes()))
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(5), primAcc.Balance)
+
 		// Claim another 5 token
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
