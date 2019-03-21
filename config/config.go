@@ -317,7 +317,7 @@ type (
 		// ActionExpiry defines how long an action will be kept in action pool.
 		ActionExpiry time.Duration `yaml:"actionExpiry"`
 		// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
-		MinGasPriceStr string `yaml:minGasPrice`
+		MinGasPriceStr string `yaml:"minGasPrice"`
 	}
 
 	// DB is the config for database
