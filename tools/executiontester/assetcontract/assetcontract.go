@@ -1,10 +1,10 @@
 package assetcontract
 
 import (
-	"time"
+	"math/rand"
 	"strconv"
 	"strings"
-	"math/rand"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -124,7 +124,7 @@ func deployContract(code string, chainEndPoint string) (string, error) {
 		return "", errors.Wrapf(err, "failed to deploy contract, txhash = %s", h)
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 18)
 	receipt, err := contract.CheckCallResult(h)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to deploy contract, txhash = %s", h)

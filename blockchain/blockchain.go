@@ -47,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"encoding/hex"
 )
 
 var (
@@ -1005,9 +1004,6 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, nextAction)
-		digest := ws.Digest()
-		h := nextAction.Hash()
-		log.L().Error("Delta digtest", zap.String("digtest", hex.EncodeToString(digest[:])), zap.String("action hash", hex.EncodeToString(h[:])))
 
 		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 		// than certain threshold
@@ -1031,9 +1027,6 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 				receipts = append(receipts, receipt)
 			}
 			executedActions = append(executedActions, putPollResult)
-			digest := ws.Digest()
-			h := putPollResult.Hash()
-			log.L().Error("Delta digtest", zap.String("digtest", hex.EncodeToString(digest[:])), zap.String("action hash", hex.EncodeToString(h[:])))
 		}
 	case errDelegatesNotExist:
 		if raCtx.BlockHeight == lastBlkHeight {
@@ -1060,9 +1053,6 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		receipts = append(receipts, receipt)
 	}
 	executedActions = append(executedActions, grant)
-	digest := ws.Digest()
-	h := grant.Hash()
-	log.L().Error("Delta digtest", zap.String("digtest", hex.EncodeToString(digest[:])), zap.String("action hash", hex.EncodeToString(h[:])))
 
 	// Process grant epoch reward action if the block is the last one in an epoch
 	if raCtx.BlockHeight == lastBlkHeight {
@@ -1078,9 +1068,6 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, grant)
-		digest := ws.Digest()
-		h := grant.Hash()
-		log.L().Error("Delta digtest", zap.String("digtest", hex.EncodeToString(digest[:])), zap.String("action hash", hex.EncodeToString(h[:])))
 	}
 
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil

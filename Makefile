@@ -189,7 +189,7 @@ nightlybuild:
 	$(ECHO_V)rm -rf *trie*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
-	./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400
+	./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400 -fp-token=true
 
 .PHONY: recover
 recover:

@@ -136,7 +136,6 @@ func InjectByAps(
 	if fpToken == nil {
 		randRange = 2
 	}
-	randRange = 1
 loop:
 	for {
 		select {
@@ -179,7 +178,7 @@ loop:
 			wg.Add(1)
 			//TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
 			switch randNum := rand.Intn(randRange); randNum {
-			case 2:
+			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 				if err := updateTransferExpectedBalanceMap(
 					expectedBalances,
@@ -217,7 +216,7 @@ loop:
 				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 					uint64(executionGasLimit), big.NewInt(executionGasPrice),
 					executionData, retryNum, retryInterval)
-			case 0:
+			case 2:
 				go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
 			}
 		}

@@ -18,9 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"go.uber.org/zap"
-	"encoding/hex"
 )
 
 // stateTX implements stateTX interface, tracks pending changes to account/contract in local cache
@@ -177,7 +174,6 @@ func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
-	log.L().Warn("Put state", zap.String("pkHash", hex.EncodeToString(pkHash[:])), zap.String("state", hex.EncodeToString(ss)))
 	stx.cb.Put(AccountKVNameSpace, pkHash[:], ss, "error when putting k = %x", pkHash)
 	return nil
 }

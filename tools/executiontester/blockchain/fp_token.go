@@ -15,8 +15,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"go.uber.org/zap"
 )
 
 const (
@@ -109,7 +107,7 @@ func (f *fpToken) CreateToken(id, debtor, creditor string, total, risk int64, op
 	if err != nil {
 		return h, errors.Wrapf(err, "failed to create fp token %s", id)
 	}
-	time.Sleep(time.Second * 30)
+	time.Sleep(time.Second * 18)
 	if _, err := f.CheckCallResult(h); err != nil {
 		return h, errors.Wrapf(err, "failed to create fp token %s", id)
 	}
@@ -194,8 +192,7 @@ func (f *fpToken) Transfer(token, sender, pubkey, prvkey, receiver string, amoun
 	if err != nil {
 		return h, errors.Wrap(err, "transfer failed")
 	}
-	log.L().Error("Sending fp token transfer", zap.String("action hash", h))
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 18)
 	if _, err := f.CheckCallResult(h); err != nil {
 		return h, errors.Wrap(err, "transfer failed")
 	}
@@ -238,32 +235,26 @@ func (f *fpToken) Start() error {
 	if err != nil {
 		return errors.Errorf("invalid management contract address = %s", f.manage)
 	}
-	log.L().Warn("addrManage", zap.String("pkHash", hex.EncodeToString(addrManage.Bytes())))
 	addrProxy, err := address.FromString(f.manageProxy)
 	if err != nil {
 		return errors.Errorf("invalid management proxy contract address = %s", f.manageProxy)
 	}
-	log.L().Warn("addrProxy", zap.String("pkHash", hex.EncodeToString(addrProxy.Bytes())))
 	addrEap, err := address.FromString(f.eapStorage)
 	if err != nil {
 		return errors.Errorf("invalid storage contract address = %s", f.eapStorage)
 	}
-	log.L().Warn("addrEap", zap.String("pkHash", hex.EncodeToString(addrEap.Bytes())))
 	addrRiskLock, err := address.FromString(f.riskLock)
 	if err != nil {
 		return errors.Errorf("invalid risk lock contract address = %s", f.riskLock)
 	}
-	log.L().Warn("addrRiskLock", zap.String("pkHash", hex.EncodeToString(addrRiskLock.Bytes())))
 	addrReg, err := address.FromString(f.registry)
 	if err != nil {
 		return errors.Errorf("invalid registry contract address = %s", f.registry)
 	}
-	log.L().Warn("addrReg", zap.String("pkHash", hex.EncodeToString(addrReg.Bytes())))
 	addrCdp, err := address.FromString(f.cdp)
 	if err != nil {
 		return errors.Errorf("invalid cdp management contract address = %s", f.cdp)
 	}
-	log.L().Warn("addrCdp", zap.String("pkHash", hex.EncodeToString(addrCdp.Bytes())))
 	admin, err := address.FromString(Producer)
 	if err != nil {
 		return errors.Errorf("invalid admin address = %s", Producer)
@@ -392,7 +383,7 @@ func (f *fpToken) Start() error {
 		return errors.Wrap(err, "stable token contract failed to set approve")
 	}
 
-	time.Sleep(time.Second * 9)
+	time.Sleep(time.Second * 18)
 
 	if _, err := f.CheckCallResult(h); err != nil {
 		return errors.Wrap(err, "management contract failed to set storage")

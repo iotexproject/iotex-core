@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/go-fsm"
+	fsm "github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
