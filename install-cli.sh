@@ -175,4 +175,4 @@ if [ "$OS" = "windows" ]; then
 fi
 
 echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
-mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
+sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
