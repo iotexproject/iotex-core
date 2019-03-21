@@ -23,7 +23,7 @@ check_result() {
     fi
 }
 
-cd ../../ && ./go.test.sh
+./go.test.sh
 check_result go.test.sh
 curl -s https://codecov.io/bash|bash
 go test -run=XXX -bench=. $(go list ./crypto)
