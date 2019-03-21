@@ -45,7 +45,7 @@ func update() string {
 		return fmt.Sprintf("invalid flag %s", versionType)
 	}
 	cmd := exec.Command("bash", "-c", cmdString)
-	fmt.Printf("Downloading the latest %s version ...", versionType)
+	fmt.Printf("Downloading the latest %s version ...\n", versionType)
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Sprintf("Failed to update ioctl.")
