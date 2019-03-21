@@ -77,14 +77,21 @@ func delegate(args []string) string {
 			formatNameLen = len(names[delegate])
 		}
 	}
-	formatTitleString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %-s"
-	formatDataString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %-d"
 	lines := make([]string, 0)
 	lines = append(lines, fmt.Sprintf("Epoch: %d, Total blocks: %d\n",
 		epochNum, response.TotalBlks))
-	lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Name", "Blocks"))
-	for delegate, productivity := range response.BlksPerDelegate {
-		lines = append(lines, fmt.Sprintf(formatDataString, delegate, names[delegate], productivity))
+	if formatNameLen == 0 {
+		lines = append(lines, fmt.Sprintf("%-41s  %s", "Address", "Blocks"))
+		for delegate, productivity := range response.BlksPerDelegate {
+			lines = append(lines, fmt.Sprintf("%-41s  %d", delegate, productivity))
+		}
+	} else {
+		formatTitleString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %s"
+		formatDataString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %d"
+		lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Name", "Blocks"))
+		for delegate, productivity := range response.BlksPerDelegate {
+			lines = append(lines, fmt.Sprintf(formatDataString, delegate, names[delegate], productivity))
+		}
 	}
 	return strings.Join(lines, "\n")
 }
