@@ -9,12 +9,10 @@ package main
 import (
 	"context"
 	"flag"
-	"math/rand"
+	"math/big"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address"
@@ -23,7 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
+	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
 )
 
 func main() {
@@ -50,6 +48,7 @@ func main() {
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.ActionGasLimit = 10000000
 	cfg.Genesis.BlockInterval = 2 * time.Second
+	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 	itxsvr, err := itx.NewServer(cfg)
 	if err != nil {
 		log.L().Fatal("Failed to start itxServer.", zap.Error(err))
@@ -59,7 +58,7 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	// Deploy contracts
-	fpToken, _, err := startContracts()
+	fpToken, _, err := assetcontract.StartContracts(cfg)
 	if err != nil {
 		log.L().Fatal("Failed to deploy contracts.", zap.Error(err))
 	}
@@ -69,13 +68,13 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
-	_, _, creditorAddr, err := createAccount()
+	creditorPubKey, creditorPriKey, creditorAddr, err := createAccount()
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
 
 	// Create fp token
-	assetID := generateAssetID()
+	assetID := assetcontract.GenerateAssetID()
 	open := strconv.Itoa(int(time.Now().UnixNano() / 1e6))
 	exp := strconv.Itoa(int(time.Now().UnixNano()/1e6 + 1000000))
 
@@ -89,8 +88,11 @@ func main() {
 	}
 
 	// Transfer fp token
-	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPubKey, debtorPriKey, creditorAddr, transfer); err != nil {
-		log.L().Fatal("Failed to transfer fp token from debtor to creditor", zap.Error(err))
+	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPubKey, debtorPriKey, creditorAddr, total); err != nil {
+		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
+	}
+	if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPubKey, creditorPriKey, risk); err != nil {
+		log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
 	}
 
 	debtorBalance, err := fpToken.ReadValue(contractAddr, "70a08231", debtorAddr)
@@ -105,130 +107,11 @@ func main() {
 	}
 	log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 
-	if debtorBalance+creditorBalance != total {
+	if debtorBalance+creditorBalance != total-risk {
 		log.L().Fatal("Sum of balance is incorrect.")
 	}
 
 	log.L().Info("Fp token transfer test pass!")
-}
-
-func startContracts() (blockchain.FpToken, blockchain.StableToken, error) {
-	// deploy allowance sheet
-	allowance, err := deployContract(blockchain.AllowanceSheetBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-	// deploy balance sheet
-	balance, err := deployContract(blockchain.BalanceSheetBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-	// deploy registry
-	reg, err := deployContract(blockchain.RegistryBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-	// deploy global pause
-	pause, err := deployContract(blockchain.GlobalPauseBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-	// deploy stable token
-	stable, err := deployContract(blockchain.StableTokenBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// create stable token
-	// TODO: query total supply and call stbToken.SetTotal()
-	stbToken := blockchain.NewStableToken(blockchain.ChainEndpoint).
-		SetAllowance(allowance).
-		SetBalance(balance).
-		SetRegistry(reg).
-		SetPause(pause).
-		SetStable(stable)
-	stbToken.SetOwner(blockchain.Producer, blockchain.ProducerPubKey, blockchain.ProducerPrivKey)
-
-	// stable token set-up
-	if err := stbToken.Start(); err != nil {
-		return nil, nil, err
-	}
-
-	// deploy fp token
-	fpReg, err := deployContract(blockchain.FpRegistryBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-	cdp, err := deployContract(blockchain.CdpManageBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-	manage, err := deployContract(blockchain.ManageBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-	proxy, err := deployContract(blockchain.ManageProxyBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-	eap, err := deployContract(blockchain.EapStorageBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-	riskLock, err := deployContract(blockchain.TokenRiskLockBinary)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// create fp token
-	fpToken := blockchain.NewFpToken(blockchain.ChainEndpoint).
-		SetManagement(manage).
-		SetManagementProxy(proxy).
-		SetEapStorage(eap).
-		SetRiskLock(riskLock).
-		SetRegistry(fpReg).
-		SetCdpManager(cdp).
-		SetStableToken(stable)
-	fpToken.SetOwner(blockchain.Producer, blockchain.ProducerPubKey, blockchain.ProducerPrivKey)
-
-	// fp token set-up
-	if err := fpToken.Start(); err != nil {
-		return nil, nil, err
-	}
-
-	return fpToken, stbToken, nil
-}
-
-func deployContract(code string) (string, error) {
-	// deploy the contract
-	contract := blockchain.NewContract(blockchain.ChainEndpoint)
-	h, err := contract.
-		SetExecutor(blockchain.Producer).
-		SetPubKey(blockchain.ProducerPubKey).
-		SetPrvKey(blockchain.ProducerPrivKey).
-		Deploy(code)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to deploy contract, txhash = %s", h)
-	}
-
-	time.Sleep(time.Second * 3)
-	receipt, err := contract.CheckCallResult(h)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to deploy contract, txhash = %s", h)
-	}
-	return receipt.ContractAddress, nil
-}
-
-func generateAssetID() string {
-	for {
-		id := strconv.Itoa(rand.Int())
-		if len(id) >= 8 {
-			// attach 8-digit YYYYMMDD at front
-			t := time.Now().Format(time.RFC3339)
-			t = strings.Replace(t, "-", "", -1)
-			return t[:8] + id[:8]
-		}
-	}
 }
 
 func createAccount() (string, string, string, error) {
