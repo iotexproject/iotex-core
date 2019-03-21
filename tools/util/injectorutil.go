@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -113,6 +114,10 @@ func InjectByAps(
 	executionGasLimit int,
 	executionGasPrice int64,
 	executionData string,
+	fpToken blockchain.FpToken,
+	fpContract string,
+	debtor *AddressKey,
+	creditor *AddressKey,
 	client iotexapi.APIServiceClient,
 	admins []*AddressKey,
 	delegates []*AddressKey,
@@ -127,6 +132,10 @@ func InjectByAps(
 	reset := time.NewTicker(time.Duration(resetInterval) * time.Second)
 	rand.Seed(time.Now().UnixNano())
 
+	randRange := 3
+	if fpToken == nil {
+		randRange = 2
+	}
 loop:
 	for {
 		select {
@@ -168,7 +177,7 @@ loop:
 		case <-tick.C:
 			wg.Add(1)
 			//TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
-			switch rand := rand.Intn(2); rand {
+			switch randNum := rand.Intn(randRange); randNum {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 				if err := updateTransferExpectedBalanceMap(
@@ -184,18 +193,6 @@ loop:
 				}
 				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
 					big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval)
-			case 2:
-				sender, recipient, nonce := createVoteInjection(counter, admins, admins)
-				if err := updateVoteExpectedBalanceMap(
-					expectedBalances,
-					sender,
-					uint64(voteGasLimit),
-					big.NewInt(int64(voteGasPrice)),
-				); err != nil {
-					log.L().Info(err.Error())
-				}
-				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit),
-					big.NewInt(voteGasPrice), retryNum, retryInterval)
 			case 1:
 				executor, nonce := createExecutionInjection(counter, delegates)
 				if err := updateExecutionExpectedBalanceMap(expectedBalances,
@@ -207,6 +204,21 @@ loop:
 				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 					uint64(executionGasLimit), big.NewInt(executionGasPrice),
 					executionData, retryNum, retryInterval)
+			case 2:
+				go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
+			// vote injection is currently suspended
+			case 3:
+				sender, recipient, nonce := createVoteInjection(counter, admins, admins)
+				if err := updateVoteExpectedBalanceMap(
+					expectedBalances,
+					sender,
+					uint64(voteGasLimit),
+					big.NewInt(int64(voteGasPrice)),
+				); err != nil {
+					log.L().Info(err.Error())
+				}
+				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit),
+					big.NewInt(voteGasPrice), retryNum, retryInterval)
 			}
 		}
 	}
@@ -440,6 +452,40 @@ func injectExecInteraction(
 	log.L().Info("Created signed execution")
 
 	injectExecution(selp, execution, c, retryNum, retryInterval)
+	if wg != nil {
+		wg.Done()
+	}
+}
+
+func injectFpTokenTransfer(
+	wg *sync.WaitGroup,
+	fpToken blockchain.FpToken,
+	fpContract string,
+	debtor *AddressKey,
+	creditor *AddressKey,
+) {
+	sender := debtor
+	recipient := creditor
+	balance, err := fpToken.ReadValue(fpContract, "70a08231", debtor.EncodedAddr)
+	if err != nil {
+		log.L().Error("Failed to read debtor's asset balance", zap.Error(err))
+	}
+	if balance == int64(0) {
+		sender = creditor
+		recipient = debtor
+		balance, err = fpToken.ReadValue(fpContract, "70a08231", creditor.EncodedAddr)
+		if err != nil {
+			log.L().Error("Failed to read creditor's asset balance", zap.Error(err))
+		}
+	}
+	transfer := rand.Int63n(balance)
+	senderPubKey := sender.PriKey.PublicKey().HexString()
+	senderPriKey := sender.PriKey.HexString()
+	// Transfer fp token
+	if _, err := fpToken.Transfer(fpContract, sender.EncodedAddr, senderPubKey, senderPriKey,
+		recipient.EncodedAddr, transfer); err != nil {
+		log.L().Error("Failed to transfer fp token from debtor to creditor", zap.Error(err))
+	}
 	if wg != nil {
 		wg.Done()
 	}
