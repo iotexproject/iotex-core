@@ -28,7 +28,6 @@ import (
 
 // Flags
 var (
-	alias    string
 	gasLimit uint64
 	gasPrice string
 	nonce    uint64
