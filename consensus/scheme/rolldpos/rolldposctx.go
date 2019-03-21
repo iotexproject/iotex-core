@@ -300,17 +300,19 @@ func (ctx *rollDPoSCtx) NewLockEndorsement(
 	case ErrInsufficientEndorsements:
 		return nil, nil
 	case nil:
-		ctx.loggerWithStats().Debug("Locked")
-		return ctx.newEndorsement(
-			blkHash,
-			LOCK,
-			ctx.round.StartTime().Add(
-				ctx.cfg.FSM.AcceptBlockTTL+ctx.cfg.FSM.AcceptProposalEndorsementTTL,
-			),
-		)
-	default:
-		return nil, err
+		if len(blkHash) != 0 {
+			ctx.loggerWithStats().Info("Locked", log.Hex("block", blkHash))
+			return ctx.newEndorsement(
+				blkHash,
+				LOCK,
+				ctx.round.StartTime().Add(
+					ctx.cfg.FSM.AcceptBlockTTL+ctx.cfg.FSM.AcceptProposalEndorsementTTL,
+				),
+			)
+		}
+		ctx.loggerWithStats().Info("Unlocked")
 	}
+	return nil, err
 }
 
 func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
