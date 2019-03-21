@@ -207,7 +207,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) (
 		// create contract
 		var evmContractAddress common.Address
 		ret, evmContractAddress, remainingGas, err = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
-		log.L().Warn("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
+		log.L().Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}

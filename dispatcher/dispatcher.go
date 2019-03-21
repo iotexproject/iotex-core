@@ -296,7 +296,7 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 	switch msgType {
 	case iotexrpc.MessageType_CONSENSUS:
 		if err := subscriber.HandleConsensusMsg(message.(*iotextypes.ConsensusMessage)); err != nil {
-			log.L().Error("Failed to handle block propose.", zap.Error(err))
+			log.L().Debug("Failed to handle consensus message.", zap.Error(err))
 		}
 	case iotexrpc.MessageType_ACTION:
 		d.dispatchAction(ctx, chainID, message)
