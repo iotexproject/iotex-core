@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"flag"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -47,6 +48,7 @@ func main() {
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.ActionGasLimit = 10000000
 	cfg.Genesis.BlockInterval = 2 * time.Second
+	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 	itxsvr, err := itx.NewServer(cfg)
 	if err != nil {
 		log.L().Fatal("Failed to start itxServer.", zap.Error(err))
@@ -56,8 +58,7 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	// Deploy contracts
-	chainEndPoint := "127.0.0.1:" + strconv.Itoa(cfg.API.Port)
-	fpToken, _, err := assetcontract.StartContracts(chainEndPoint)
+	fpToken, _, err := assetcontract.StartContracts(cfg)
 	if err != nil {
 		log.L().Fatal("Failed to deploy contracts.", zap.Error(err))
 	}
@@ -67,7 +68,7 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
-	_, _, creditorAddr, err := createAccount()
+	creditorPubKey, creditorPriKey, creditorAddr, err := createAccount()
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
@@ -87,8 +88,11 @@ func main() {
 	}
 
 	// Transfer fp token
-	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPubKey, debtorPriKey, creditorAddr, transfer); err != nil {
-		log.L().Fatal("Failed to transfer fp token from debtor to creditor", zap.Error(err))
+	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPubKey, debtorPriKey, creditorAddr, total); err != nil {
+		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
+	}
+	if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPubKey, creditorPriKey, risk); err != nil {
+		log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
 	}
 
 	debtorBalance, err := fpToken.ReadValue(contractAddr, "70a08231", debtorAddr)
@@ -103,7 +107,7 @@ func main() {
 	}
 	log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 
-	if debtorBalance+creditorBalance != total {
+	if debtorBalance+creditorBalance != total-risk {
 		log.L().Fatal("Sum of balance is incorrect.")
 	}
 

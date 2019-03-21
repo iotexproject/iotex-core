@@ -193,18 +193,6 @@ loop:
 				}
 				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
 					big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval)
-			case 3:
-				sender, recipient, nonce := createVoteInjection(counter, admins, admins)
-				if err := updateVoteExpectedBalanceMap(
-					expectedBalances,
-					sender,
-					uint64(voteGasLimit),
-					big.NewInt(int64(voteGasPrice)),
-				); err != nil {
-					log.L().Info(err.Error())
-				}
-				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit),
-					big.NewInt(voteGasPrice), retryNum, retryInterval)
 			case 1:
 				executor, nonce := createExecutionInjection(counter, delegates)
 				if err := updateExecutionExpectedBalanceMap(expectedBalances,
@@ -218,6 +206,19 @@ loop:
 					executionData, retryNum, retryInterval)
 			case 2:
 				go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
+			// vote injection is currently suspended
+			case 3:
+				sender, recipient, nonce := createVoteInjection(counter, admins, admins)
+				if err := updateVoteExpectedBalanceMap(
+					expectedBalances,
+					sender,
+					uint64(voteGasLimit),
+					big.NewInt(int64(voteGasPrice)),
+				); err != nil {
+					log.L().Info(err.Error())
+				}
+				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit),
+					big.NewInt(voteGasPrice), retryNum, retryInterval)
 			}
 		}
 	}

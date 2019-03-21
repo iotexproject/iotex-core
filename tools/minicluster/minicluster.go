@@ -13,6 +13,7 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"math/big"
 	"math/rand"
 	"os"
 	"strconv"
@@ -169,7 +170,7 @@ func main() {
 		// fpTotal indicates the total amount value of a fp token
 		fpTotal := int64(20000)
 		// fpRisk indicates the risk amount value of a fp token
-		fpRisk := int64(5000)
+		fpRisk := int64(1000)
 
 		d := time.Duration(timeout) * time.Second
 
@@ -195,7 +196,7 @@ func main() {
 		var creditor *util.AddressKey
 		if testFpToken {
 			// Deploy asset smart contracts
-			fpToken, _, err = assetcontract.StartContracts(grpcAddr)
+			fpToken, _, err = assetcontract.StartContracts(configs[0])
 			if err != nil {
 				log.L().Fatal("Failed to deploy asset contracts.", zap.Error(err))
 			}
@@ -214,13 +215,30 @@ func main() {
 			open := strconv.Itoa(int(time.Now().UnixNano() / 1e6))
 			exp := strconv.Itoa(int(time.Now().UnixNano()/1e6+d.Nanoseconds()/1e6) + 10000)
 
-			if _, err := fpToken.CreateToken(assetID, debtor.EncodedAddr, creditor.EncodedAddr, fpTotal, fpRisk, open, exp); err != nil {
+			if _, err := fpToken.CreateToken(assetID, debtor.EncodedAddr, creditor.EncodedAddr, fpTotal, fpRisk, open,
+				exp); err != nil {
 				log.L().Fatal("Failed to create fp token", zap.Error(err))
 			}
 
 			fpContract, err = fpToken.TokenAddress(assetID)
 			if err != nil {
 				log.L().Fatal("Failed to get token contract address", zap.Error(err))
+			}
+
+			// Transfer full amount from debtor to creditor
+			debtorPubKey := debtor.PriKey.PublicKey().HexString()
+			debtorPriKey := debtor.PriKey.HexString()
+			if _, err := fpToken.Transfer(fpContract, debtor.EncodedAddr, debtorPubKey, debtorPriKey,
+				creditor.EncodedAddr, fpTotal); err != nil {
+				log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
+			}
+
+			// Transfer amount of risk from creditor to contract
+			creditorPubKey := creditor.PriKey.PublicKey().HexString()
+			creditorPriKey := creditor.PriKey.HexString()
+			if _, err := fpToken.RiskLock(fpContract, creditor.EncodedAddr, creditorPubKey, creditorPriKey,
+				fpRisk); err != nil {
+				log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
 			}
 		}
 
@@ -316,8 +334,9 @@ func main() {
 			}
 			log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 
-			if debtorBalance+creditorBalance != fpTotal {
+			if debtorBalance+creditorBalance != fpTotal-fpRisk {
 				log.S().Error("Sum of asset balance is incorrect.")
+				return
 			}
 
 			log.S().Info("Fp token transfer test pass!")
@@ -346,6 +365,8 @@ func newConfig(
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
+
+	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 2400 * time.Millisecond
