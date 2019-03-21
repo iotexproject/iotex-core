@@ -20,7 +20,7 @@ import (
 
 // actionTransferCmd represents the action transfer command
 var actionTransferCmd = &cobra.Command{
-	Use:   "transfer RECIPIENT AMOUNT_IOTX DATA",
+	Use:   "transfer RECIPIENT AMOUNT_IOTX DATA -l GAS_LIMIT -p GAS_PRICE -s OPERATOR",
 	Short: "Transfer tokens on IoTeX blokchain",
 	Args:  cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
