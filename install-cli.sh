@@ -7,7 +7,8 @@
 # the platform is not supported.
 #
 # Environment variables:
-# - INSTALL_DIRECTORY (optional): defaults to $GOPATH/bin
+# - INSTALL_DIRECTORY (optional): defaults to $GOPATH/bin (if $GOPATH exists) 
+#   or /usr/local/bin (else)
 # - CLI_RELEASE_TAG (optional): defaults to fetching the latest release
 #
 # You can install using this script:
@@ -64,23 +65,27 @@ downloadFile() {
 }
 
 findGoBinDirectory() {
-    EFFECTIVE_GOPATH=$(go env GOPATH)
-    # CYGWIN: Convert Windows-style path into sh-compatible path
-    if [ "$OS_CYGWIN" = "1" ]; then
-	EFFECTIVE_GOPATH=$(cygpath "$EFFECTIVE_GOPATH")
+    if [ -z "$GOPATH" ]; then
+        eval "$1='/usr/local/bin'"
+    else
+        EFFECTIVE_GOPATH="$GOPATH"
+        # CYGWIN: Convert Windows-style path into sh-compatible path
+        if [ "$OS_CYGWIN" = "1" ]; then
+            EFFECTIVE_GOPATH=$(cygpath "$EFFECTIVE_GOPATH")
+        fi
+        if [ -z "$EFFECTIVE_GOPATH" ]; then
+            echo "Installation could not determine your \$GOPATH."
+            exit 1
+        fi
+        if [ -z "$GOBIN" ]; then
+            GOBIN=$(echo "${EFFECTIVE_GOPATH%%:*}/bin" | sed s#//*#/#g)
+        fi
+        if [ ! -d "$GOBIN" ]; then
+            echo "Installation requires your GOBIN directory $GOBIN to exist. Please create it."
+            exit 1
+        fi
+        eval "$1='$GOBIN'"
     fi
-    if [ -z "$EFFECTIVE_GOPATH" ]; then
-        echo "Installation could not determine your \$GOPATH."
-        exit 1
-    fi
-    if [ -z "$GOBIN" ]; then
-        GOBIN=$(echo "${EFFECTIVE_GOPATH%%:*}/bin" | sed s#//*#/#g)
-    fi
-    if [ ! -d "$GOBIN" ]; then
-        echo "Installation requires your GOBIN directory $GOBIN to exist. Please create it."
-        exit 1
-    fi
-    eval "$1='$GOBIN'"
 }
 
 initArch() {
