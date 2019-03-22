@@ -17,8 +17,6 @@ set -e
 
 RELEASES_URL="https://github.com/iotexproject/iotex-core/releases"
 S3URL="https://s3-ap-southeast-1.amazonaws.com/ioctl"
-INSTALL_DIRECTORY="/usr/local/bin"
-GO_VERSION="1.11.6"
 
 downloadJSON() {
     url="$2"
@@ -64,28 +62,7 @@ downloadFile() {
         exit 1
     fi
 }
-install_golang() {
-    GO_URL="https://dl.google.com/go"
-    GO_Archive="go${GO_VERSION}.${OS}-${ARCH}"
-    if [ "$OS" = "windows" ]; then
-	echo "todo ....."
-	exit 0
-	#downloadFile "${GO_URL}/${GO_Archive}.zip" "${GO_Archive}.zip"
-    else
-	downloadFile "${GO_URL}/${GO_Archive}.tar.gz" "${GO_Archive}.tar.gz"
-	sudo tar -C /usr/local -xzf ${GO_Archive}.tar.gz
-	if [ $? -ne 0 ]; then
-	    echo "unable to install go"
-	    exit 1
-	fi
-	echo "\033[33m The golang install to '/usr/local/go' \033[0m"
-        env_file="$HOME/.bashrc"	
-	echo "export GOPATH=~/go" >> $env_file
-	echo "export GOROOT=/usr/local/go" >> $env_file
-	echo 'export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin' >> $env_file
-	echo 'Please \033[33m source "$HOME/.bashrc" \033[0m'
-    fi
-}
+
 findGoBinDirectory() {
     EFFECTIVE_GOPATH=$(go env GOPATH)
     # CYGWIN: Convert Windows-style path into sh-compatible path
@@ -105,6 +82,7 @@ findGoBinDirectory() {
     fi
     eval "$1='$GOBIN'"
 }
+
 initArch() {
     ARCH=$(uname -m)
     case $ARCH in
@@ -121,6 +99,7 @@ initArch() {
     esac
     echo "ARCH = $ARCH"
 }
+
 initOS() {
     OS=$(uname | tr '[:upper:]' '[:lower:]')
     OS_CYGWIN=0
@@ -138,18 +117,17 @@ initOS() {
     esac
     echo "OS = $OS"
 }
+
 # identify platform based on uname output
-
-
 initArch
 initOS
 
-
 # determine install directory if required
-#if [ -z "$INSTALL_DIRECTORY" ]; then
-#    findGoBinDirectory INSTALL_DIRECTORY
-#fi
+if [ -z "$INSTALL_DIRECTORY" ]; then
+    findGoBinDirectory INSTALL_DIRECTORY
+fi
 echo "Will install into $INSTALL_DIRECTORY"
+
 # assemble expected release artifact name
 if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
     # ppc64 and ppc64le are only supported on Linux.
@@ -157,12 +135,15 @@ if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le
 else
     BINARY="ioctl-${OS}-${ARCH}"
 fi
+
 # add .exe if on windows
 if [ "$OS" = "windows" ]; then
     BINARY="$BINARY.exe"
 fi
+
 if [ "$1" = "unstable" ]; then
     BINARY_URL="$S3URL/$BINARY"
+
 else
     # if DEP_RELEASE_TAG was not provided, assume latest
     if [ -z "$CLI_RELEASE_TAG" ]; then
@@ -174,26 +155,19 @@ else
     downloadJSON RELEASE_DATA "$RELEASES_URL/tag/$CLI_RELEASE_TAG"
     BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/$BINARY"
 fi
+
 DOWNLOAD_FILE=$(mktemp)
+
 downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
+
 echo "Setting executable permissions."
-sudo chmod +x "$DOWNLOAD_FILE"
+chmod +x "$DOWNLOAD_FILE"
+
 INSTALL_NAME="ioctl"
+
 if [ "$OS" = "windows" ]; then
     INSTALL_NAME="$INSTALL_NAME.exe"
 fi
-echo "\033[33m Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME \033[0m"
-sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
 
-if ! [ $(command -v go) ];then
-   
-   echo "\033[33m You OS is not install golang! The ioctl depends on it.....!\033[0m"
-   while true; do
-       read -p " Do you wish to install this golang? [Y/y]es or [N/n]o: " yn
-       case $yn in
-        [Yy]* ) echo "\033[33m Install golang $GO_VERSION \033[0m" ;install_golang; break;;
-        [Nn]* ) echo "Later Manual installation" ;exit 0;;
-	* ) echo "Please answer [Y/y]es or [N/n]o";;
-       esac
-    done
-fi
+echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
+mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
