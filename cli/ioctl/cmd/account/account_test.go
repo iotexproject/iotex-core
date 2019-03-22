@@ -36,9 +36,8 @@ func TestAccount(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg, err := config.LoadConfig()
-	require.NoError(err)
-	ks := keystore.NewKeyStore(cfg.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+		keystore.StandardScryptN, keystore.StandardScryptP)
 	require.NotNil(ks)
 
 	// create an account
@@ -63,15 +62,14 @@ func testInit() error {
 	if err := os.MkdirAll(config.ConfigDir, 0700); err != nil {
 		return err
 	}
+	var err error
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
-	cfg, err := config.LoadConfig()
-	if err != nil {
+	config.ReadConfig, err = config.LoadConfig()
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if cfg.Wallet == "" {
-		cfg.Wallet = config.ConfigDir
-	}
-	out, err := yaml.Marshal(&cfg)
+	config.ReadConfig.Wallet = config.ConfigDir
+	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
 		return err
 	}

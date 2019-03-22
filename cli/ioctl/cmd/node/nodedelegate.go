@@ -14,7 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -22,7 +22,7 @@ import (
 
 // nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
-	Use:   "delegate [DELEGATE]",
+	Use:   "delegate [ALIAS|DELEGATE_ADDRESS]",
 	Short: "list delegates and number of blocks produced",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -34,7 +34,7 @@ func delegate(args []string) string {
 	delegate := ""
 	var err error
 	if len(args) != 0 {
-		delegate, err = account.Address(args[0])
+		delegate, err = alias.Address(args[0])
 		if err != nil {
 			return err.Error()
 		}
@@ -59,38 +59,35 @@ func delegate(args []string) string {
 		return err.Error()
 	}
 	if len(delegate) != 0 {
-		name, err := account.Name(delegate)
-		if err != nil && err != account.ErrNoNameFound {
+		delegateAlias, err := alias.Alias(delegate)
+		if err != nil && err != alias.ErrNoAliasFound {
 			return err.Error()
 		}
 		return fmt.Sprintf("Epoch: %d, Total blocks: %d\n", epochNum, response.TotalBlks) +
-			fmt.Sprintf("%s  %s  %d", delegate, name, response.BlksPerDelegate[delegate])
+			fmt.Sprintf("%s  %s  %d", delegate, delegateAlias, response.BlksPerDelegate[delegate])
 	}
 
-	names, err := account.GetNameMap()
-	if err != nil {
-		return err.Error()
-	}
-	formatNameLen := 0
+	aliases := alias.GetAliasMap()
+	formataliasLen := 0
 	for delegate := range response.BlksPerDelegate {
-		if len(names[delegate]) > formatNameLen {
-			formatNameLen = len(names[delegate])
+		if len(aliases[delegate]) > formataliasLen {
+			formataliasLen = len(aliases[delegate])
 		}
 	}
 	lines := make([]string, 0)
 	lines = append(lines, fmt.Sprintf("Epoch: %d, Total blocks: %d\n",
 		epochNum, response.TotalBlks))
-	if formatNameLen == 0 {
+	if formataliasLen == 0 {
 		lines = append(lines, fmt.Sprintf("%-41s  %s", "Address", "Blocks"))
 		for delegate, productivity := range response.BlksPerDelegate {
 			lines = append(lines, fmt.Sprintf("%-41s  %d", delegate, productivity))
 		}
 	} else {
-		formatTitleString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %s"
-		formatDataString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %d"
-		lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Name", "Blocks"))
+		formatTitleString := "%-41s  %-" + strconv.Itoa(formataliasLen) + "s  %s"
+		formatDataString := "%-41s  %-" + strconv.Itoa(formataliasLen) + "s  %d"
+		lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Alias", "Blocks"))
 		for delegate, productivity := range response.BlksPerDelegate {
-			lines = append(lines, fmt.Sprintf(formatDataString, delegate, names[delegate], productivity))
+			lines = append(lines, fmt.Sprintf(formatDataString, delegate, aliases[delegate], productivity))
 		}
 	}
 	return strings.Join(lines, "\n")
