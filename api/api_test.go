@@ -223,12 +223,12 @@ var (
 		numBlks int
 	}{
 		{
-			0,
+			1,
 			4,
 			4,
 		},
 		{
-			1,
+			2,
 			5,
 			3,
 		},
@@ -284,12 +284,20 @@ var (
 		status uint64
 	}{
 		{
+			hex.EncodeToString(transferHash1[:]),
+			action.SuccessReceiptStatus,
+		},
+		{
+			hex.EncodeToString(voteHash1[:]),
+			action.SuccessReceiptStatus,
+		},
+		{
 			hex.EncodeToString(executionHash2[:]),
-			1,
+			action.SuccessReceiptStatus,
 		},
 		{
 			hex.EncodeToString(executionHash3[:]),
-			1,
+			action.SuccessReceiptStatus,
 		},
 	}
 
