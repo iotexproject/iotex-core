@@ -284,12 +284,20 @@ var (
 		status uint64
 	}{
 		{
+			hex.EncodeToString(transferHash1[:]),
+			action.SuccessReceiptStatus,
+		},
+		{
+			hex.EncodeToString(voteHash1[:]),
+			action.SuccessReceiptStatus,
+		},
+		{
 			hex.EncodeToString(executionHash2[:]),
-			1,
+			action.SuccessReceiptStatus,
 		},
 		{
 			hex.EncodeToString(executionHash3[:]),
-			1,
+			action.SuccessReceiptStatus,
 		},
 	}
 
