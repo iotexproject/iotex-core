@@ -76,7 +76,28 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.updateAvailableBalance(sm, a.blockReward); err != nil {
 		return err
 	}
-	if err := p.grantToAccount(sm, raCtx.Producer, a.blockReward); err != nil {
+	// Get the reward address for the block producer
+	epochNum := p.rp.GetEpochNum(raCtx.BlockHeight)
+	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
+	if err != nil {
+		return err
+	}
+	producerAddrStr := raCtx.Producer.String()
+	rewardAddrStr := ""
+	for _, candidate := range candidates {
+		if candidate.Address == producerAddrStr {
+			rewardAddrStr = candidate.RewardAddress
+			break
+		}
+	}
+	if rewardAddrStr == "" {
+		return errors.Errorf("Producer %s doesn't have a reward address", producerAddrStr)
+	}
+	rewardAddr, err := address.FromString(rewardAddrStr)
+	if err != nil {
+		return err
+	}
+	if err := p.grantToAccount(sm, rewardAddr, a.blockReward); err != nil {
 		return err
 	}
 	return p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight)

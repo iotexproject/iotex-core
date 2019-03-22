@@ -51,7 +51,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 		{
 			Address:       testaddress.Addrinfo["producer"].String(),
 			Votes:         unit.ConvertIotxToRau(4000000),
-			RewardAddress: testaddress.Addrinfo["producer"].String(),
+			RewardAddress: identityset.Address(0).String(),
 		},
 		{
 			Address:       testaddress.Addrinfo["alfa"].String(),
@@ -184,6 +184,16 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(t, stateDB.Stop(context.Background()))
 	}()
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
+	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return(
+		[]*state.Candidate{
+			{
+				Address:       identityset.Address(0).String(),
+				Votes:         unit.ConvertIotxToRau(4000000),
+				RewardAddress: identityset.Address(0).String(),
+			},
+		},
+		nil,
+	).Times(1)
 	rp := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
