@@ -48,18 +48,14 @@ var configSetCmd = &cobra.Command{
 
 // Get gets config variable
 func Get(arg string) string {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return err.Error()
-	}
 	switch arg {
 	case "endpoint":
-		if cfg.Endpoint == "" {
+		if ReadConfig.Endpoint == "" {
 			return ErrEmptyEndpoint
 		}
-		return cfg.Endpoint
+		return ReadConfig.Endpoint
 	case "wallet":
-		return cfg.Wallet
+		return ReadConfig.Wallet
 	default:
 		return ErrConfigNotMatch
 	}
@@ -67,19 +63,15 @@ func Get(arg string) string {
 
 // set sets config variable
 func set(args []string) string {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return err.Error()
-	}
 	switch args[0] {
 	case "endpoint":
-		cfg.Endpoint = args[1]
+		ReadConfig.Endpoint = args[1]
 	case "wallet":
-		cfg.Wallet = args[1]
+		ReadConfig.Wallet = args[1]
 	default:
 		return ErrConfigNotMatch
 	}
-	out, err := yaml.Marshal(&cfg)
+	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {
 		return err.Error()
 	}

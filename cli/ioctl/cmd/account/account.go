@@ -19,9 +19,9 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
-	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -30,7 +30,7 @@ import (
 
 // Errors
 var (
-	ErrNoNameFound = errors.New("no name is found")
+	ErrPasswdNotMatch = errors.New("password doesn't match")
 )
 
 // AccountCmd represents the account command
@@ -47,74 +47,30 @@ func init() {
 	AccountCmd.AddCommand(accountDeleteCmd)
 	AccountCmd.AddCommand(accountImportCmd)
 	AccountCmd.AddCommand(accountListCmd)
-	AccountCmd.AddCommand(accountNameCmd)
 	AccountCmd.AddCommand(accountNonceCmd)
 	AccountCmd.AddCommand(accountUpdateCmd)
 }
 
 // KsAccountToPrivateKey generates our PrivateKey interface from Keystore account
 func KsAccountToPrivateKey(signer, password string) (keypair.PrivateKey, error) {
-	addr, err := Address(signer)
+	addr, err := alias.Address(signer)
 	if err != nil {
 		return nil, err
 	}
 	address, err := address.FromString(addr)
 	if err != nil {
+		log.L().Error("failed to convert string into address", zap.Error(err))
 		return nil, err
 	}
 	// find the account in keystore
-	ks := keystore.NewKeyStore(config.Get("wallet"), keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, account := range ks.Accounts() {
 		if bytes.Equal(address.Bytes(), account.Address.Bytes()) {
 			return keypair.KeystoreToPrivateKey(account, password)
 		}
 	}
-	return nil, errors.Errorf("account %s does not match all keys in keystore", signer)
-}
-
-// Address returns the address corresponding to name, parameter in can be name or IoTeX address
-func Address(in string) (string, error) {
-	if len(in) >= validator.IoAddrLen {
-		if err := validator.ValidateAddress(in); err != nil {
-			return "", err
-		}
-		return in, nil
-	}
-	config, err := config.LoadConfig()
-	if err != nil {
-		return "", err
-	}
-	addr, ok := config.AccountList[in]
-	if ok {
-		return addr, nil
-	}
-	addr, ok = config.NameList[in]
-	if ok {
-		return addr, nil
-	}
-	return "", errors.Errorf("cannot find account from #%s", in)
-}
-
-// Name returns the name corresponding to address
-func Name(address string) (string, error) {
-	if err := validator.ValidateAddress(address); err != nil {
-		return "", err
-	}
-	config, err := config.LoadConfig()
-	if err != nil {
-		return "", err
-	}
-	for name, addr := range config.AccountList {
-		if addr == address {
-			return name, nil
-		}
-	}
-	for name, addr := range config.NameList {
-		if addr == address {
-			return name, nil
-		}
-	}
-	return "", ErrNoNameFound
+	return nil, fmt.Errorf("account #%s does not match all keys in keystore", signer)
 }
 
 // GetAccountMeta gets account metadata
@@ -134,38 +90,22 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	return response.AccountMeta, nil
 }
 
-// GetNameMap gets the map from address to names of both AccountList and NameList
-func GetNameMap() (map[string]string, error) {
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	names := make(map[string]string)
-	for name, addr := range cfg.NameList {
-		names[addr] = name
-	}
-	for name, addr := range cfg.AccountList {
-		names[addr] = name
-	}
-	return names, nil
-}
-
-func newAccount(name string, walletDir string) (string, error) {
-	fmt.Printf("#%s: Set password\n", name)
+func newAccount(alias string, walletDir string) (string, error) {
+	fmt.Printf("#%s: Set password\n", alias)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
+		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
 	password := string(bytePassword)
-	fmt.Printf("#%s: Enter password again\n", name)
+	fmt.Printf("#%s: Enter password again\n", alias)
 	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
+		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
 	if password != string(bytePassword) {
-		return "", errors.New("password doesn't match")
+		return "", ErrPasswdNotMatch
 	}
 	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
 	account, err := ks.NewAccount(password)
@@ -174,40 +114,43 @@ func newAccount(name string, walletDir string) (string, error) {
 	}
 	addr, err := address.FromBytes(account.Address.Bytes())
 	if err != nil {
-		log.L().Error(err.Error(), zap.Error(err))
+		log.L().Error("failed to convert bytes into address", zap.Error(err))
 		return "", err
 	}
 	return addr.String(), nil
 }
 
-func newAccountByKey(name string, privateKey string, walletDir string) (string, error) {
-	fmt.Printf("#%s: Set password\n", name)
+func newAccountByKey(alias string, privateKey string, walletDir string) (string, error) {
+	fmt.Printf("#%s: Set password\n", alias)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
+		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
 	password := string(bytePassword)
-	fmt.Printf("#%s: Enter password again\n", name)
+	fmt.Printf("#%s: Enter password again\n", alias)
 	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
+		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
 	if password != string(bytePassword) {
-		return "", errors.New("password doesn't match")
+		return "", ErrPasswdNotMatch
 	}
 	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
 	priKey, err := keypair.HexStringToPrivateKey(privateKey)
 	if err != nil {
 		return "", err
 	}
+	defer priKey.Zero()
 	account, err := ks.ImportECDSA(priKey.EcdsaPrivateKey(), password)
+	priKey.Zero()
 	if err != nil {
 		return "", err
 	}
 	addr, err := address.FromBytes(account.Address.Bytes())
 	if err != nil {
+		log.L().Error("failed to convert bytes into address", zap.Error(err))
 		return "", err
 	}
 	return addr.String(), nil

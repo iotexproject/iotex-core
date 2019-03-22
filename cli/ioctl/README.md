@@ -20,6 +20,7 @@ specific release so install-cli.sh can download them.
     Available Commands:
       account     Deal with accounts of IoTeX blockchain
       action      Deal with actions of IoTeX blockchain
+      alias       Deal with aliases of IoTeX addresses
       bc          Deal with block chain of IoTeX blockchain
       help        Help about any command
       node        Deal with nodes of IoTeX blockchain

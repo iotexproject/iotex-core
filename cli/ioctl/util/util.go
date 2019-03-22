@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
@@ -28,9 +27,8 @@ const (
 
 // ConnectToEndpoint starts a new connection
 func ConnectToEndpoint() (*grpc.ClientConn, error) {
-	endpoint := config.Get("endpoint")
+	endpoint := config.ReadConfig.Endpoint
 	if endpoint == config.ErrEmptyEndpoint {
-		log.L().Error(config.ErrEmptyEndpoint)
 		return nil, errors.New("use \"ioctl config set endpoint\" to config endpoint first")
 	}
 	return grpc.Dial(endpoint, grpc.WithInsecure())

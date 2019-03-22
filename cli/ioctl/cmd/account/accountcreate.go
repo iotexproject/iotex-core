@@ -41,7 +41,11 @@ func accountCreate(_ []string) string {
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}
-		addr, _ := address.FromBytes(private.PublicKey().Hash())
+		addr, err := address.FromBytes(private.PublicKey().Hash())
+		if err != nil {
+			log.L().Error("failed to convert bytes into address", zap.Error(err))
+			return err.Error()
+		}
 		priKeyBytes := private.Bytes()
 		pubKeyBytes := private.PublicKey().Bytes()
 		items[i] = fmt.Sprintf(
