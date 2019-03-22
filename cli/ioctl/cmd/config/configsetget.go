@@ -14,14 +14,19 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var (
+	validArgs = []string{"endpoint", "wallet"}
+)
+
 // configGetCmd represents the config get command
 var configGetCmd = &cobra.Command{
 	Use:       "get VARIABLE",
 	Short:     "Get config from ioctl",
-	ValidArgs: []string{"endpoint", "wallet"},
+	ValidArgs: validArgs,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
-			return fmt.Errorf("accepts 1 arg(s), received %d", len(args))
+			return fmt.Errorf("accepts 1 arg(s), received %d,"+
+				" valid arg(s): %s", len(args), validArgs)
 		}
 		return cobra.OnlyValidArgs(cmd, args)
 	},
@@ -37,7 +42,8 @@ var configSetCmd = &cobra.Command{
 	ValidArgs: []string{"endpoint", "wallet"},
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 2 {
-			return fmt.Errorf("accepts 2 arg(s), received %d", len(args))
+			return fmt.Errorf("accepts 2 arg(s), received %d,"+
+				" valid arg(s): %s", len(args), validArgs)
 		}
 		return cobra.OnlyValidArgs(cmd, args[:1])
 	},
