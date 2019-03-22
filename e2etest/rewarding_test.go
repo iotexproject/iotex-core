@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/test/identityset"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -29,7 +31,8 @@ func TestBlockReward(t *testing.T) {
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.Genesis.BlockInterval = time.Second
-	cfg.Chain.ProducerPrivKey = "507f8c8b08358d7ab1d020889a4fa0b8a123b41b6459cb436df4d0d02d8f0ca6"
+	cfg.Genesis.EnableGravityChainVoting = true
+	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Network.Port = testutil.RandomPort()
