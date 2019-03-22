@@ -298,8 +298,8 @@ func (p *governanceChainCommitteeProtocol) readCommitteeProducersByHeight(height
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get active block producers on height %d", height)
 	}
-	epochNum := p.getEpochNum(height)
-	crypto.SortCandidates(blockProducers, epochNum, crypto.CryptoSeed)
+	epochStartHeight := p.getEpochHeight(height)
+	crypto.SortCandidates(blockProducers, epochStartHeight, crypto.CryptoSeed)
 	if uint64(len(blockProducers)) < p.numDelegates {
 		return blockProducers, nil
 	}
