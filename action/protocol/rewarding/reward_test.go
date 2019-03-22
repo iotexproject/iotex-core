@@ -11,8 +11,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,6 +18,8 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestProtocol_GrantBlockReward(t *testing.T) {
@@ -48,7 +48,12 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		availableBalance, err := p.AvailableBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(190), availableBalance)
+		// Operator shouldn't get reward
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, raCtx.Producer)
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(0), unclaimedBalance)
+		// Beneficiary should get reward
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(0))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), unclaimedBalance)
 
@@ -80,7 +85,12 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		availableBalance, err := p.AvailableBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(100), availableBalance)
+		// Operator shouldn't get reward
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["producer"])
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(0), unclaimedBalance)
+		// Beneficiary should get reward
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(0))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(45), unclaimedBalance)
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["alfa"])
@@ -149,7 +159,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
 		claimRaCtx := raCtx
-		claimRaCtx.Caller = raCtx.Producer
+		claimRaCtx.Caller = identityset.Address(0)
 		claimCtx := protocol.WithRunActionsCtx(context.Background(), claimRaCtx)
 
 		ws, err = stateDB.NewWorkingSet()
@@ -162,10 +172,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		totalBalance, err := p.TotalBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15), totalBalance)
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, raCtx.Producer)
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, claimRaCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err := accountutil.LoadAccount(ws, hash.BytesToHash160(raCtx.Producer.Bytes()))
+		primAcc, err := accountutil.LoadAccount(ws, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), primAcc.Balance)
 
@@ -185,10 +195,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		totalBalance, err = p.TotalBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15), totalBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, raCtx.Producer)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, claimRaCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(ws, hash.BytesToHash160(raCtx.Producer.Bytes()))
+		primAcc, err = accountutil.LoadAccount(ws, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), primAcc.Balance)
 
@@ -203,10 +213,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		totalBalance, err = p.TotalBalance(ctx, ws)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), totalBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, raCtx.Producer)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, claimRaCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(ws, hash.BytesToHash160(raCtx.Producer.Bytes()))
+		primAcc, err = accountutil.LoadAccount(ws, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), primAcc.Balance)
 
@@ -214,5 +224,12 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		require.Error(t, p.Claim(claimCtx, ws, big.NewInt(5)))
+
+		// Operator should have nothing to claim
+		claimRaCtx.Caller = raCtx.Producer
+		claimCtx = protocol.WithRunActionsCtx(context.Background(), claimRaCtx)
+		ws, err = stateDB.NewWorkingSet()
+		require.NoError(t, err)
+		require.Error(t, p.Claim(claimCtx, ws, big.NewInt(1)))
 	}, false)
 }

@@ -829,7 +829,7 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.Register(poll.ProtocolID, pol))
+		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -880,7 +880,7 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.Register(poll.ProtocolID, pol))
+		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -1100,6 +1100,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	acc := account.NewProtocol()
 	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
+	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
@@ -1120,6 +1121,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		return nil, nil, err
 	}
 	if err := registry.Register(rewarding.ProtocolID, r); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(poll.ProtocolID, p); err != nil {
 		return nil, nil, err
 	}
 	sf.AddActionHandlers(acc, v, evm, r)
@@ -1152,6 +1156,7 @@ func newConfig() config.Config {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	return cfg
 }
