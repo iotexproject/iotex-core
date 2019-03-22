@@ -49,8 +49,8 @@ func accountCreate(_ []string) string {
 		priKeyBytes := private.Bytes()
 		pubKeyBytes := private.PublicKey().Bytes()
 		items[i] = fmt.Sprintf(
-			"{\"Address\": \"%s\", \"PrivateKey\": \"%x\", \"PublicKey\": \"%x\"}\n",
+			"{address: \"%s\", privateKey: \"%x\", publicKey: \"%x\"}",
 			addr.String(), priKeyBytes, pubKeyBytes)
 	}
-	return strings.Join(items, "")
+	return strings.Join(items, "\n")
 }

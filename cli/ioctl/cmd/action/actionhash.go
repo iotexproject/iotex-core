@@ -104,7 +104,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				match(transfer.Recipient, "address")) +
 			fmt.Sprintf("  amount: %s\n", transfer.Amount) +
-			fmt.Sprintf("  payload: %x\n", transfer.Payload) +
+			fmt.Sprintf("  payload: %s\n", transfer.Payload) +
 			">\n" +
 			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 			fmt.Sprintf("signature: %x\n", action.Signature), nil
