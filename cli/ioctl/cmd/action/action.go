@@ -77,7 +77,6 @@ func sendAction(elp action.Envelope) string {
 	}
 	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
 	if err != nil {
-		log.L().Error("failed to generate key from keystore", zap.Error(err))
 		return err.Error()
 	}
 	defer prvKey.Zero()
