@@ -257,16 +257,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		if !ok {
 			return nil, errors.New("invalid endorsed block")
 		}
-		producer := proposal.ProposerAddress()
-		expectedProposer := ctx.round.Proposer()
-		if producer == "" || producer != expectedProposer {
-			return nil, errors.Errorf(
-				"unexpected block proposer %s, %s expected",
-				producer,
-				ctx.round.Proposer(),
-			)
-		}
-		if producer != ctx.round.Proposer() || proposal.block.WorkingSet == nil {
+		if proposal.block.WorkingSet == nil {
 			if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
 				return nil, errors.Wrapf(err, "error when validating the proposed block")
 			}
@@ -328,7 +319,7 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 	case ErrInsufficientEndorsements:
 		return nil, nil
 	case nil:
-		ctx.loggerWithStats().Debug("Ready to pre-commit")
+		ctx.loggerWithStats().Info("Ready to pre-commit")
 		return ctx.newEndorsement(
 			blkHash,
 			COMMIT,
@@ -523,7 +514,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 }
 
 func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
-	return ctx.round.LogWithStats(ctx.logger())
+	return ctx.round.LogWithStats(log.L())
 }
 
 func (ctx *rollDPoSCtx) verifyVote(
