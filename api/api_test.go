@@ -252,18 +252,41 @@ var (
 	}
 
 	getChainMetaTests = []struct {
+		// Arguments
+		emptyChain       bool
+		pollProtocolType string
+		// Expected values
 		height     uint64
 		numActions int64
 		tps        int64
 		epoch      iotextypes.EpochData
 	}{
 		{
+			emptyChain: true,
+		},
+
+		{
+			false,
+			"lifeLongDelegates",
 			4,
 			15,
 			15,
 			iotextypes.EpochData{
-				Num:    1,
-				Height: 1,
+				Num:           1,
+				Height:        1,
+				GravityChainStartHeight: 1,
+			},
+		},
+		{
+			false,
+			"governanceChainCommittee",
+			4,
+			15,
+			15,
+			iotextypes.EpochData{
+				Num:           1,
+				Height:        1,
+				GravityChainStartHeight: 100,
 			},
 		},
 	}
@@ -659,10 +682,38 @@ func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	svr, err := createServer(cfg, false)
-	require.NoError(err)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
+	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
+		if test.pollProtocolType == "lifeLongDelegates" {
+			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+		} else if test.pollProtocolType == "governanceChainCommittee" {
+			committee := mock_committee.NewMockCommittee(ctrl)
+			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				nil,
+				committee,
+				uint64(123456),
+				func(uint64) (time.Time, error) { return time.Now(), nil },
+				func(uint64) uint64 { return 1 },
+				func(uint64) uint64 { return 1 },
+				cfg.Genesis.NumCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+			)
+			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
+		}
+
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		if pol != nil {
+			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		}
+		if test.emptyChain {
+			mbc := mock_blockchain.NewMockBlockchain(ctrl)
+			mbc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
+			svr.bc = mbc
+		}
 		res, err := svr.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
 		require.NoError(err)
 		chainMetaPb := res.ChainMeta
@@ -671,6 +722,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 		require.Equal(test.tps, chainMetaPb.Tps)
 		require.Equal(test.epoch.Num, chainMetaPb.Epoch.Num)
 		require.Equal(test.epoch.Height, chainMetaPb.Epoch.Height)
+		require.Equal(test.epoch.GravityChainStartHeight, chainMetaPb.Epoch.GravityChainStartHeight)
 	}
 }
 
