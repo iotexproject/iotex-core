@@ -10,9 +10,9 @@ syntax = "proto3";
 package iotexapi;
 option go_package = "github.com/iotexproject/iotex-core/protogen/iotexapi";
 
-import "action.proto";
-import "blockchain.proto";
-import "node.proto";
+import "proto/types/action.proto";
+import "proto/types/blockchain.proto";
+import "proto/types/node.proto";
 
 service APIService {
   // get the address detail of an address
