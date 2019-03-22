@@ -10,9 +10,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // accountListCmd represents the account list command
@@ -26,22 +31,21 @@ var accountListCmd = &cobra.Command{
 }
 
 func accountList() string {
-	w, err := config.LoadConfig()
-	if err != nil {
-		return err.Error()
-	}
 	lines := make([]string, 0)
-	if len(w.AccountList) != 0 {
-		lines = append(lines, "Account:")
-		for name, addr := range w.AccountList {
-			lines = append(lines, fmt.Sprintf("  %s - %s", addr, name))
+	aliases := alias.GetAliasMap()
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+		keystore.StandardScryptN, keystore.StandardScryptP)
+	for _, v := range ks.Accounts() {
+		address, err := address.FromBytes(v.Address.Bytes())
+		if err != nil {
+			log.L().Error("failed to convert bytes into address", zap.Error(err))
+			return err.Error()
 		}
-	}
-	if len(w.NameList) != 0 {
-		lines = append(lines, "Name:")
-		for name, addr := range w.NameList {
-			lines = append(lines, fmt.Sprintf("  %s - %s", addr, name))
+		line := address.String()
+		if len(aliases[line]) != 0 {
+			line += " - " + aliases[line]
 		}
+		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")
 }
