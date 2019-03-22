@@ -544,9 +544,9 @@ func TestServer_GetAction(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(1, len(res.Actions))
-		actPb := res.Actions[0]
-		require.Equal(test.nonce, actPb.GetCore().GetNonce())
-		require.Equal(test.senderPubKey, hex.EncodeToString(actPb.SenderPubKey))
+		act := res.Actions[0]
+		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
+		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 	}
 }
 
