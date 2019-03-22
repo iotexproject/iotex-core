@@ -105,8 +105,14 @@ message GetActionsByBlockRequest {
   uint64 count = 3;
 }
 
+message Action {
+  iotextypes.Action action = 1;
+  string actHash = 2;
+  string blkHash = 3;
+}
+
 message GetActionsResponse {
-  repeated iotextypes.Action actions = 1;
+  repeated Action actions = 1;
 }
 
 message GetBlockMetasRequest {
