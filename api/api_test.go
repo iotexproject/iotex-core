@@ -521,7 +521,7 @@ func TestServer_GetActions(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -543,8 +543,8 @@ func TestServer_GetAction(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(1, len(res.Actions))
-		act := res.Actions[0]
+		require.Equal(1, len(res.ActionInfo))
+		act := res.ActionInfo[0]
 		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 	}
@@ -569,7 +569,7 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -592,7 +592,7 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -618,7 +618,7 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
