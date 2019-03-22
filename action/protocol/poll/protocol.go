@@ -58,8 +58,6 @@ type Protocol interface {
 	DelegatesByHeight(uint64) (state.CandidateList, error)
 	// ReadState read the state on blockchain via protocol
 	ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error)
-	// GetGravityHeight gets the gravity chain height corresponding to the epoch start height on root chain
-	GetGravityHeight(context.Context, uint64) (uint64, error)
 }
 
 type lifeLongDelegatesProtocol struct {
@@ -115,13 +113,14 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 		fallthrough
 	case "CommitteeBlockProducersByHeight":
 		return p.readBlockProducers()
+	case "GetGravityChainStartHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		return args[0], nil
 	default:
 		return nil, errors.New("corresponding method isn't found")
 	}
-}
-
-func (p *lifeLongDelegatesProtocol) GetGravityHeight(ctx context.Context, height uint64) (uint64, error) {
-	return height, nil
 }
 
 func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
@@ -278,14 +277,19 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 			return nil, err
 		}
 		return serializeBlockProducers(activeBlockProducers)
+	case "GetGravityChainStartHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		gravityStartheight, err := p.getGravityHeight(byteutil.BytesToUint64(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		return byteutil.Uint64ToBytes(gravityStartheight), nil
 	default:
 		return nil, errors.New("corresponding method isn't found")
 
 	}
-}
-
-func (p *governanceChainCommitteeProtocol) GetGravityHeight(ctx context.Context, height uint64) (uint64, error) {
-	return p.getGravityHeight(height)
 }
 
 func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(height uint64) ([]string, error) {

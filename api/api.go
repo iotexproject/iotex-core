@@ -39,6 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
@@ -188,11 +189,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if tipHeight == 0 {
 		return &iotexapi.GetChainMetaResponse{
 			ChainMeta: &iotextypes.ChainMeta{
-				Epoch: &iotextypes.EpochData{
-					Num:           uint64(1),
-					Height:        uint64(1),
-					GravityHeight: uint64(1),
-				},
+				Epoch: &iotextypes.EpochData{},
 			},
 		}, nil
 	}
@@ -230,15 +227,18 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	epochNum := rp.GetEpochNum(tipHeight)
 	epochHeight := rp.GetEpochHeight(epochNum)
 
-	epochGravityHeight := epochHeight
-	if p, ok = api.registry.Find(poll.ProtocolID); ok {
-		pp, ok := p.(poll.Protocol)
-		if !ok {
-			return nil, status.Error(codes.Internal, "failed to cast poll protocol")
+	gravityChainStartHeight := epochHeight
+	if _, ok = api.registry.Find(poll.ProtocolID); ok {
+		readStateRequest := &iotexapi.ReadStateRequest{
+			ProtocolID: []byte(poll.ProtocolID),
+			MethodName: []byte("GetGravityChainStartHeight"),
+			Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
 		}
-		if epochGravityHeight, err = pp.GetGravityHeight(ctx, epochHeight); err != nil {
-			return nil, status.Error(codes.Internal, "failed to get gravity chain height")
+		res, err := api.readState(ctx, readStateRequest)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
+		gravityChainStartHeight = byteutil.BytesToUint64(res.GetData())
 	}
 
 	timeDuration := blks[len(blks)-1].Timestamp - blks[0].Timestamp
@@ -254,7 +254,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		Epoch: &iotextypes.EpochData{
 			Num:           epochNum,
 			Height:        epochHeight,
-			GravityHeight: epochGravityHeight,
+			GravityChainStartHeight: gravityChainStartHeight,
 		},
 		NumActions: int64(totalActions),
 		Tps:        tps,

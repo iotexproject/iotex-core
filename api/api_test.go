@@ -263,11 +263,6 @@ var (
 	}{
 		{
 			emptyChain: true,
-			epoch: iotextypes.EpochData{
-				Num:           1,
-				Height:        1,
-				GravityHeight: 1,
-			},
 		},
 
 		{
@@ -279,7 +274,7 @@ var (
 			iotextypes.EpochData{
 				Num:           1,
 				Height:        1,
-				GravityHeight: 1,
+				GravityChainStartHeight: 1,
 			},
 		},
 		{
@@ -291,7 +286,7 @@ var (
 			iotextypes.EpochData{
 				Num:           1,
 				Height:        1,
-				GravityHeight: 100,
+				GravityChainStartHeight: 100,
 			},
 		},
 	}
@@ -706,13 +701,13 @@ func TestServer_GetChainMeta(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 			)
-			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityHeight, nil)
+			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
 
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
 		if pol != nil {
-			require.NoError(svr.registry.Register(poll.ProtocolID, pol))
+			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 		}
 		if test.emptyChain {
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
@@ -727,7 +722,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 		require.Equal(test.tps, chainMetaPb.Tps)
 		require.Equal(test.epoch.Num, chainMetaPb.Epoch.Num)
 		require.Equal(test.epoch.Height, chainMetaPb.Epoch.Height)
-		require.Equal(test.epoch.GravityHeight, chainMetaPb.Epoch.GravityHeight)
+		require.Equal(test.epoch.GravityChainStartHeight, chainMetaPb.Epoch.GravityChainStartHeight)
 	}
 }
 
