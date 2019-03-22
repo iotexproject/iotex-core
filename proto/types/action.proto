@@ -29,9 +29,7 @@ message Candidate {
   string address = 1;
   bytes votes = 2;
   bytes pubKey = 3;
-  uint64 creationHeight = 4;
-  uint64 lastUpdateHeight = 5;
-  string rewardAddress = 6;
+  string rewardAddress = 4;
 }
 
 message CandidateList {
