@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 )
 
@@ -33,7 +34,7 @@ func claim(args []string) string {
 		return err.Error()
 	}
 	payload := []byte(args[1])
-	sender, err := account.Address(signer)
+	sender, err := alias.Address(signer)
 	if err != nil {
 		return err.Error()
 	}

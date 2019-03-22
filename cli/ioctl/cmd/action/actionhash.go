@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -45,6 +45,7 @@ func getActionByHash(args []string) string {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
+
 	requestCheckPending := iotexapi.GetActionsRequest{
 		Lookup: &iotexapi.GetActionsRequest_ByHash{
 			ByHash: &iotexapi.GetActionByHashRequest{
@@ -58,6 +59,11 @@ func getActionByHash(args []string) string {
 		return err.Error()
 	}
 	action := response.Actions[0]
+	output, err := printActionProto(action)
+	if err != nil {
+		return err.Error()
+	}
+
 	request := &iotexapi.GetActionsRequest{
 		Lookup: &iotexapi.GetActionsRequest_ByHash{
 			ByHash: &iotexapi.GetActionByHashRequest{
@@ -66,17 +72,11 @@ func getActionByHash(args []string) string {
 			},
 		},
 	}
-	output, err := printActionProto(action)
-	if err != nil {
-		return err.Error()
-	}
 	_, err = cli.GetActions(ctx, request)
 	if err != nil {
 		return output + "\n#This action is pending\n"
 	}
-	if action.Core.GetTransfer() != nil {
-		return output + "\n#This action has been written on blockchain\n"
-	}
+
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
@@ -95,7 +95,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 	}
 	senderAddress, err := address.FromBytes(pubKey.Hash())
 	if err != nil {
-		log.L().Error("failed to convert address", zap.Error(err))
+		log.L().Error("failed to convert bytes into address", zap.Error(err))
 		return "", err
 	}
 	switch {
@@ -107,7 +107,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				match(transfer.Recipient, "address")) +
 			fmt.Sprintf("  amount: %s\n", transfer.Amount) +
-			fmt.Sprintf("  payload: %x\n", transfer.Payload) +
+			fmt.Sprintf("  payload: %s\n", transfer.Payload) +
 			">\n" +
 			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 			fmt.Sprintf("signature: %x\n", action.Signature), nil
@@ -151,11 +151,11 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 func match(in string, matchType string) string {
 	switch matchType {
 	case "address":
-		name, err := account.Name(in)
+		alias, err := alias.Alias(in)
 		if err != nil {
 			return ""
 		}
-		return "(" + name + ")"
+		return "(" + alias + ")"
 	case "status":
 		if in == "0" {
 			return "(Fail)"

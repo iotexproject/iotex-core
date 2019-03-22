@@ -10,11 +10,13 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 )
 
 // accountNonceCmd represents the account nonce command
 var accountNonceCmd = &cobra.Command{
-	Use:   "nonce (NAME|ADDRESS)",
+	Use:   "nonce (ALIAS|ADDRESS)",
 	Short: "Get nonce of an account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -24,7 +26,7 @@ var accountNonceCmd = &cobra.Command{
 
 // nonce gets nonce and pending nonce of an IoTeX blockchain address
 func nonce(args []string) string {
-	address, err := Address(args[0])
+	address, err := alias.Address(args[0])
 	if err != nil {
 		return err.Error()
 	}
