@@ -24,6 +24,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -38,6 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
@@ -184,6 +186,13 @@ func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetas
 // GetChainMeta returns blockchain metadata
 func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRequest) (*iotexapi.GetChainMetaResponse, error) {
 	tipHeight := api.bc.TipHeight()
+	if tipHeight == 0 {
+		return &iotexapi.GetChainMetaResponse{
+			ChainMeta: &iotextypes.ChainMeta{
+				Epoch: &iotextypes.EpochData{},
+			},
+		}, nil
+	}
 	totalActions, err := api.bc.GetTotalActions()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -217,6 +226,21 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	}
 	epochNum := rp.GetEpochNum(tipHeight)
 	epochHeight := rp.GetEpochHeight(epochNum)
+
+	gravityChainStartHeight := epochHeight
+	if _, ok = api.registry.Find(poll.ProtocolID); ok {
+		readStateRequest := &iotexapi.ReadStateRequest{
+			ProtocolID: []byte(poll.ProtocolID),
+			MethodName: []byte("GetGravityChainStartHeight"),
+			Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
+		}
+		res, err := api.readState(ctx, readStateRequest)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		gravityChainStartHeight = byteutil.BytesToUint64(res.GetData())
+	}
+
 	timeDuration := blks[len(blks)-1].Timestamp - blks[0].Timestamp
 	// if time duration is less than 1 second, we set it to be 1 second
 	if timeDuration < 1 {
@@ -228,8 +252,9 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
 		Epoch: &iotextypes.EpochData{
-			Num:    epochNum,
-			Height: epochHeight,
+			Num:           epochNum,
+			Height:        epochHeight,
+			GravityChainStartHeight: gravityChainStartHeight,
 		},
 		NumActions: int64(totalActions),
 		Tps:        tps,
