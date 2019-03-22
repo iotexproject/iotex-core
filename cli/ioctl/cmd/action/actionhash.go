@@ -45,6 +45,7 @@ func getActionByHash(args []string) string {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
+
 	requestCheckPending := iotexapi.GetActionsRequest{
 		Lookup: &iotexapi.GetActionsRequest_ByHash{
 			ByHash: &iotexapi.GetActionByHashRequest{
@@ -58,6 +59,11 @@ func getActionByHash(args []string) string {
 		return err.Error()
 	}
 	action := response.Actions[0]
+	output, err := printActionProto(action)
+	if err != nil {
+		return err.Error()
+	}
+
 	request := &iotexapi.GetActionsRequest{
 		Lookup: &iotexapi.GetActionsRequest_ByHash{
 			ByHash: &iotexapi.GetActionByHashRequest{
@@ -66,14 +72,11 @@ func getActionByHash(args []string) string {
 			},
 		},
 	}
-	output, err := printActionProto(action)
-	if err != nil {
-		return err.Error()
-	}
 	_, err = cli.GetActions(ctx, request)
 	if err != nil {
 		return output + "\n#This action is pending\n"
 	}
+
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
