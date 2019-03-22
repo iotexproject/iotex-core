@@ -112,9 +112,9 @@ test-html: test-rich
 .PHONY: protogen
 protogen:
 	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/*
-	@protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/api/*.proto
-	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/rpc/*.proto
-	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/testing/*.proto
+	@protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/api/*
+	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/rpc/*
+	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/testing/*
 
 .PHONY: mockgen
 mockgen:
