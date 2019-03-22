@@ -10,8 +10,8 @@ syntax = "proto3";
 package iotextypes;
 option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
 
-import "action.proto";
-import "endorsement.proto";
+import "proto/types/action.proto";
+import "proto/types/endorsement.proto";
 import "google/protobuf/timestamp.proto";
 
 // header of a block
