@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package account
+package alias
 
 import (
 	"fmt"
@@ -17,48 +17,37 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 )
 
-// accountNameCmd represents the account name command
-var accountNameCmd = &cobra.Command{
-	Use:   "name ADDRESS NAME",
-	Short: "Name an IoTeX address in config",
+// aliasSetCmd represents the alias set command
+var aliasSetCmd = &cobra.Command{
+	Use:   "set ALIAS ADDRESS",
+	Short: "Set alias for address",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(name(args))
+		fmt.Println(set(args))
 	},
 }
 
-func name(args []string) string {
-	// Validate inputs
-	if err := validator.ValidateAddress(args[0]); err != nil {
+// set sets alias
+func set(args []string) string {
+	if err := validator.ValidateAlias(args[0]); err != nil {
 		return err.Error()
 	}
-	address := args[0]
-	if err := validator.ValidateName(args[1]); err != nil {
+	alias := args[0]
+	if err := validator.ValidateAddress(args[1]); err != nil {
 		return err.Error()
 	}
-	name := args[1]
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		return err.Error()
+	addr := args[1]
+	aliases := GetAliasMap()
+	if aliases[addr] != "" {
+		delete(config.ReadConfig.Aliases, aliases[addr])
 	}
-	for n, addr := range cfg.AccountList {
-		if n == name || addr == address {
-			return fmt.Sprintf("An account #%s:%s already exists.", n, addr)
-		}
-	}
-	for n, addr := range cfg.NameList {
-		if n == name || addr == address {
-			return fmt.Sprintf("Name \"%s\" has been used for %s.", n, addr)
-		}
-	}
-
-	cfg.NameList[name] = address
-	out, err := yaml.Marshal(&cfg)
+	config.ReadConfig.Aliases[alias] = addr
+	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
 		return err.Error()
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
 	}
-	return fmt.Sprintf("Succeed to name %s \"%s\".", address, name)
+	return "set"
 }
