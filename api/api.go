@@ -24,6 +24,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -184,6 +185,17 @@ func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetas
 // GetChainMeta returns blockchain metadata
 func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRequest) (*iotexapi.GetChainMetaResponse, error) {
 	tipHeight := api.bc.TipHeight()
+	if tipHeight == 0 {
+		return &iotexapi.GetChainMetaResponse{
+			ChainMeta: &iotextypes.ChainMeta{
+				Epoch: &iotextypes.EpochData{
+					Num:           uint64(1),
+					Height:        uint64(1),
+					GravityHeight: uint64(1),
+				},
+			},
+		}, nil
+	}
 	totalActions, err := api.bc.GetTotalActions()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -217,6 +229,18 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	}
 	epochNum := rp.GetEpochNum(tipHeight)
 	epochHeight := rp.GetEpochHeight(epochNum)
+
+	epochGravityHeight := epochHeight
+	if p, ok = api.registry.Find(poll.ProtocolID); ok {
+		pp, ok := p.(poll.Protocol)
+		if !ok {
+			return nil, status.Error(codes.Internal, "failed to cast poll protocol")
+		}
+		if epochGravityHeight, err = pp.GetGravityHeight(ctx, epochHeight); err != nil {
+			return nil, status.Error(codes.Internal, "failed to get gravity chain height")
+		}
+	}
+
 	timeDuration := blks[len(blks)-1].Timestamp - blks[0].Timestamp
 	// if time duration is less than 1 second, we set it to be 1 second
 	if timeDuration < 1 {
@@ -228,8 +252,9 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
 		Epoch: &iotextypes.EpochData{
-			Num:    epochNum,
-			Height: epochHeight,
+			Num:           epochNum,
+			Height:        epochHeight,
+			GravityHeight: epochGravityHeight,
 		},
 		NumActions: int64(totalActions),
 		Tps:        tps,
