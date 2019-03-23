@@ -156,10 +156,8 @@ func NewConsensus(
 						log.L().Error("Error when setting candidate total votes.", zap.Error(err))
 					}
 					cs = append(cs, &state.Candidate{
-						Address:          addr.String(),
-						Votes:            votes,
-						CreationHeight:   uint64(rawc.CreationHeight),
-						LastUpdateHeight: uint64(rawc.LastUpdateHeight),
+						Address: addr.String(),
+						Votes:   votes,
 					})
 				}
 				return cs, nil
