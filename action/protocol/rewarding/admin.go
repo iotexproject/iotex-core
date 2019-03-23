@@ -220,7 +220,7 @@ func (p *Protocol) NumDelegatesForFoundationBonus(_ context.Context, sm protocol
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return 0, err
 	}
-	return a.numDelegatesForEpochReward, nil
+	return a.numDelegatesForFoundationBonus, nil
 }
 
 // ProductivityThreshold returns the productivity threshold

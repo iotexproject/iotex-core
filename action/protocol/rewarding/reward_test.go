@@ -11,14 +11,21 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
@@ -84,7 +91,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.NoError(t, err)
 		availableBalance, err := p.AvailableBalance(ctx, ws)
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(100), availableBalance)
+		assert.Equal(t, big.NewInt(95), availableBalance)
 		// Operator shouldn't get reward
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["producer"])
 		require.NoError(t, err)
@@ -232,4 +239,124 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.NoError(t, err)
 		require.Error(t, p.Claim(claimCtx, ws, big.NewInt(1)))
 	}, false)
+}
+
+func TestProtocol_NoRewardAddr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := config.Default
+	stateDB, err := factory.NewStateDB(cfg, factory.InMemStateDBOption())
+	require.NoError(t, err)
+	require.NoError(t, stateDB.Start(context.Background()))
+	defer func() {
+		require.NoError(t, stateDB.Stop(context.Background()))
+	}()
+
+	chain := mock_chainmanager.NewMockChainManager(ctrl)
+	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+		{
+			Address:       identityset.Address(0).String(),
+			Votes:         unit.ConvertIotxToRau(1000000),
+			RewardAddress: "",
+		},
+		{
+			Address:       identityset.Address(1).String(),
+			Votes:         unit.ConvertIotxToRau(1000000),
+			RewardAddress: identityset.Address(1).String(),
+		},
+	}, nil).AnyTimes()
+	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
+		uint64(19),
+		map[string]uint64{
+			identityset.Address(0).String(): 9,
+			identityset.Address(1).String(): 10,
+		},
+		nil,
+	).AnyTimes()
+	p := NewProtocol(chain, rolldpos.NewProtocol(
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
+	))
+
+	// Initialize the protocol
+	ctx := protocol.WithRunActionsCtx(
+		context.Background(),
+		protocol.RunActionsCtx{
+			BlockHeight: 0,
+		},
+	)
+	ws, err := stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	require.NoError(
+		t,
+		p.Initialize(
+			ctx,
+			ws,
+			big.NewInt(0),
+			big.NewInt(10),
+			big.NewInt(100),
+			10,
+			nil,
+			big.NewInt(5),
+			5,
+			365,
+			50,
+		))
+	require.NoError(t, stateDB.Commit(ws))
+
+	// Create a test account with 1000 token
+	ws, err = stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(0).String(), big.NewInt(1000))
+	require.NoError(t, err)
+	require.NoError(t, stateDB.Commit(ws))
+
+	ctx = protocol.WithRunActionsCtx(
+		context.Background(),
+		protocol.RunActionsCtx{
+			Producer:    identityset.Address(0),
+			Caller:      identityset.Address(0),
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+		},
+	)
+	ws, err = stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	require.NoError(t, p.Deposit(ctx, ws, big.NewInt(200)))
+	require.NoError(t, stateDB.Commit(ws))
+
+	// Grant block reward
+	ws, err = stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	require.NoError(t, p.GrantBlockReward(ctx, ws))
+	require.NoError(t, stateDB.Commit(ws))
+
+	ws, err = stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	availableBalance, err := p.AvailableBalance(ctx, ws)
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(200), availableBalance)
+	unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, identityset.Address(0))
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(0), unclaimedBalance)
+
+	// Grant epoch reward
+	ws, err = stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	require.NoError(t, p.GrantEpochReward(ctx, ws))
+	require.NoError(t, stateDB.Commit(ws))
+
+	ws, err = stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	availableBalance, err = p.AvailableBalance(ctx, ws)
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(145), availableBalance)
+	unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(0))
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(0), unclaimedBalance)
+	// It doesn't affect others to get reward
+	unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(1))
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(55), unclaimedBalance)
 }
