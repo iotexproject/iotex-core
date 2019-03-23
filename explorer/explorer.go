@@ -441,12 +441,10 @@ func (exp *Service) GetCandidateMetrics() (explorer.CandidateMetrics, error) {
 	candidates := make([]explorer.Candidate, len(cm.Candidates))
 	for i, c := range allCandidates {
 		candidates[i] = explorer.Candidate{
-			Address:          c.Address,
-			TotalVote:        c.Votes.String(),
-			CreationHeight:   int64(c.CreationHeight),
-			LastUpdateHeight: int64(c.LastUpdateHeight),
-			IsDelegate:       false,
-			IsProducer:       false,
+			Address:    c.Address,
+			TotalVote:  c.Votes.String(),
+			IsDelegate: false,
+			IsProducer: false,
 		}
 		if _, ok := delegateSet[c.Address]; ok {
 			candidates[i].IsDelegate = true
@@ -476,10 +474,8 @@ func (exp *Service) GetCandidateMetricsByHeight(h int64) (explorer.CandidateMetr
 	candidates := make([]explorer.Candidate, 0, len(allCandidates))
 	for _, c := range allCandidates {
 		candidates = append(candidates, explorer.Candidate{
-			Address:          c.Address,
-			TotalVote:        c.Votes.String(),
-			CreationHeight:   int64(c.CreationHeight),
-			LastUpdateHeight: int64(c.LastUpdateHeight),
+			Address:   c.Address,
+			TotalVote: c.Votes.String(),
 		})
 	}
 

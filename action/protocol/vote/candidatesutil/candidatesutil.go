@@ -28,7 +28,7 @@ func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr strin
 	if err != nil {
 		return errors.Wrap(err, "failed to get most recent candidates from trie")
 	}
-	if err := addCandidate(candidateMap, addr, blkHeight); err != nil {
+	if err := addCandidate(candidateMap, addr); err != nil {
 		return errors.Wrap(err, "failed to add candidate to candidate map")
 	}
 	return storeCandidates(candidateMap, sm, blkHeight)
@@ -91,7 +91,7 @@ func ConstructKey(height uint64) hash.Hash160 {
 }
 
 // addCandidate adds a new candidate to candidateMap
-func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr string, height uint64) error {
+func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr string) error {
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get public key hash from account address")
@@ -99,9 +99,8 @@ func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr st
 	addrHash := hash.BytesToHash160(addr.Bytes())
 	if _, ok := candidateMap[addrHash]; !ok {
 		candidateMap[addrHash] = &state.Candidate{
-			Address:        encodedAddr,
-			Votes:          big.NewInt(0),
-			CreationHeight: height,
+			Address: encodedAddr,
+			Votes:   big.NewInt(0),
 		}
 	}
 	return nil
@@ -122,7 +121,6 @@ func updateCandidate(
 	// Candidate was added when self-nomination, always exist in cachedCandidates
 	candidate := candidateMap[addrHash]
 	candidate.Votes = totalWeight
-	candidate.LastUpdateHeight = blockHeight
 
 	return nil
 }
