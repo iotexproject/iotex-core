@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -243,6 +244,7 @@ func main() {
 		}
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
+		pendingActionMap := make(map[hash.Hash256]*big.Int)
 
 		log.L().Info("Start action injections.")
 
@@ -250,18 +252,23 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			&expectedBalancesMap)
+			&expectedBalancesMap, svrs[0].ChainService(1), &pendingActionMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			actionCleared := true
-			for i := 0; i < numNodes; i++ {
-				if apsize := svrs[i].ChainService(configs[i].Chain.ID).ActionPool().GetSize(); apsize != 0 {
-					actionCleared = false
-				}
+			if err := util.CheckPendingActionList(
+				svrs[0].ChainService(1),
+				&pendingActionMap,
+				&expectedBalancesMap,
+			); err != nil {
+				log.L().Error(err.Error())
 			}
-			return actionCleared, nil
+			return len(pendingActionMap) == 0, nil
 		})
+
+		if len(pendingActionMap) != 0 {
+			log.L().Error("Not all actions are settled")
+		}
 
 		chains := make([]blockchain.Blockchain, numNodes)
 		stateHeights := make([]uint64, numNodes)
