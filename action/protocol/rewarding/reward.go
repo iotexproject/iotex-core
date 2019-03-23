@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -69,13 +70,7 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
 		return err
 	}
-	a := admin{}
-	if err := p.state(sm, adminKey, &a); err != nil {
-		return err
-	}
-	if err := p.updateAvailableBalance(sm, a.blockReward); err != nil {
-		return err
-	}
+
 	// Get the reward address for the block producer
 	epochNum := p.rp.GetEpochNum(raCtx.BlockHeight)
 	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
@@ -90,10 +85,20 @@ func (p *Protocol) GrantBlockReward(
 			break
 		}
 	}
+	// If reward address doesn't exist, do nothing
 	if rewardAddrStr == "" {
-		return errors.Errorf("Producer %s doesn't have a reward address", producerAddrStr)
+		log.S().Warnf("Producer %s doesn't have a reward address", producerAddrStr)
+		return nil
 	}
 	rewardAddr, err := address.FromString(rewardAddrStr)
+
+	a := admin{}
+	if err := p.state(sm, adminKey, &a); err != nil {
+		return err
+	}
+	if err := p.updateAvailableBalance(sm, a.blockReward); err != nil {
+		return err
+	}
 	if err != nil {
 		return err
 	}
@@ -120,9 +125,6 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateAvailableBalance(sm, a.epochReward); err != nil {
-		return err
-	}
 	// We need to consistently use the votes on of first block height in this epoch
 	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
 	if err != nil {
@@ -139,10 +141,16 @@ func (p *Protocol) GrantEpochReward(
 	if err != nil {
 		return err
 	}
+	actualTotalReward := big.NewInt(0)
 	for i := range addrs {
+		// If reward address doesn't exist, do nothing
+		if addrs[i] == nil {
+			continue
+		}
 		if err := p.grantToAccount(sm, addrs[i], amounts[i]); err != nil {
 			return err
 		}
+		actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
 	}
 
 	// Reward additional bootstrap bonus
@@ -152,6 +160,11 @@ func (p *Protocol) GrantEpochReward(
 			l = a.numDelegatesForFoundationBonus
 		}
 		for i := uint64(0); i < l; i++ {
+			// If reward address doesn't exist, do nothing
+			if candidates[i].RewardAddress == "" {
+				log.S().Warnf("Candidate %s doesn't have a reward address", candidates[i].Address)
+				continue
+			}
 			rewardAddr, err := address.FromString(candidates[i].RewardAddress)
 			if err != nil {
 				return err
@@ -159,7 +172,13 @@ func (p *Protocol) GrantEpochReward(
 			if err := p.grantToAccount(sm, rewardAddr, a.foundationBonus); err != nil {
 				return err
 			}
+			actualTotalReward = big.NewInt(0).Add(actualTotalReward, a.foundationBonus)
 		}
+	}
+
+	// Update actual reward
+	if err := p.updateAvailableBalance(sm, actualTotalReward); err != nil {
+		return err
 	}
 	return p.updateRewardHistory(sm, epochRewardHistoryKeyPrefix, epochNum)
 }
@@ -310,9 +329,15 @@ func (p *Protocol) splitEpochReward(
 	totalWeight := big.NewInt(0)
 	rewardAddrs := make([]address.Address, 0)
 	for _, candidate := range candidates {
-		rewardAddr, err := address.FromString(candidate.RewardAddress)
-		if err != nil {
-			return nil, nil, err
+		var rewardAddr address.Address
+		var err error
+		if candidate.RewardAddress != "" {
+			rewardAddr, err = address.FromString(candidate.RewardAddress)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			log.S().Warnf("Candidate %s doesn't have a reward address", candidate.Address)
 		}
 		rewardAddrs = append(rewardAddrs, rewardAddr)
 		totalWeight = big.NewInt(0).Add(totalWeight, candidate.Votes)
