@@ -272,8 +272,8 @@ var (
 			15,
 			15,
 			iotextypes.EpochData{
-				Num:           1,
-				Height:        1,
+				Num:                     1,
+				Height:                  1,
 				GravityChainStartHeight: 1,
 			},
 		},
@@ -284,8 +284,8 @@ var (
 			15,
 			15,
 			iotextypes.EpochData{
-				Num:           1,
-				Height:        1,
+				Num:                     1,
+				Height:                  1,
 				GravityChainStartHeight: 100,
 			},
 		},
