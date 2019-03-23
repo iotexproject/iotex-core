@@ -36,10 +36,10 @@ import (
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
@@ -252,8 +252,8 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
 		Epoch: &iotextypes.EpochData{
-			Num:           epochNum,
-			Height:        epochHeight,
+			Num:                     epochNum,
+			Height:                  epochHeight,
 			GravityChainStartHeight: gravityChainStartHeight,
 		},
 		NumActions: int64(totalActions),
@@ -449,7 +449,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
 }
 
-// getAction returns action by action hash
+// getSingleAction returns action by action hash
 func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
 	actHash, err := toHash256(actionHash)
 	if err != nil {
