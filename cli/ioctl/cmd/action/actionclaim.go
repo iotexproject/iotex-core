@@ -19,9 +19,9 @@ import (
 
 // actionClaimCmd represents the action claim command
 var actionClaimCmd = &cobra.Command{
-	Use:   "claim AMOUNT_IOTX DATA -l GAS_LIMIT -p GASPRICE -s OPERATOR",
+	Use:   "claim AMOUNT_IOTX [DATA] -l GAS_LIMIT -p GASPRICE -s OPERATOR",
 	Short: "Claim rewards from rewarding fund",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(claim(args))
 	},
@@ -33,7 +33,10 @@ func claim(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	payload := []byte(args[1])
+	payload := make([]byte, 0)
+	if len(args) == 2 {
+		payload = []byte(args[1])
+	}
 	sender, err := alias.Address(signer)
 	if err != nil {
 		return err.Error()
