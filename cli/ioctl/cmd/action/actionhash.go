@@ -58,8 +58,8 @@ func getActionByHash(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	action := response.Actions[0]
-	output, err := printActionProto(action)
+	action := response.ActionInfo[0]
+	output, err := printActionProto(action.Action)
 	if err != nil {
 		return err.Error()
 	}
