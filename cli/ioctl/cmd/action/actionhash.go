@@ -138,14 +138,23 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
+	lines := make([]string, 0)
+	for _, l := range receipt.Logs {
+		line := fmt.Sprintf("#%d block:%d txHash:%s address:%s data:%s\n",
+			l.Index, l.BlockNumber, l.TxnHash, l.Address, l.Data)
+		for _, t := range l.Topics {
+			line += fmt.Sprintf("  %s\n", t)
+		}
+		lines = append(lines, line)
+	}
 	return fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue) +
 		fmt.Sprintf("status: %d %s\n", receipt.Status,
 			match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		fmt.Sprintf("contractAddress: %s %s\n", receipt.ContractAddress,
-			match(receipt.ContractAddress, "address"))
-	//TODO: print logs
+			match(receipt.ContractAddress, "address")) +
+		fmt.Sprintf("logs:\n%s", lines)
 }
 
 func match(in string, matchType string) string {
