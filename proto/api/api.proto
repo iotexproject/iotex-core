@@ -57,6 +57,9 @@ service APIService {
 
   // get block producers' productivity metrics
   rpc GetProductivity(GetProductivityRequest) returns (GetProductivityResponse) {}
+
+  // get epoch data
+  rpc GetEpochData(GetEpochDataRequest) returns (GetEpochDataResponse) {}
 }
 
 message GetAccountRequest {
@@ -200,4 +203,14 @@ message GetProductivityRequest {
 message GetProductivityResponse {
     uint64 totalBlks = 1;
     map<string, uint64> blksPerDelegate = 2;
+}
+
+message GetEpochDataRequest {
+    uint64 epochNumber = 1;
+}
+
+message GetEpochDataResponse {
+    iotextypes.EpochData epochData = 1;
+    GetProductivityResponse productivity = 2;
+    repeated string nextEpochBlockProducers = 3;
 }
