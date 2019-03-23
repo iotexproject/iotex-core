@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -86,6 +87,7 @@ func (p *Protocol) GrantBlockReward(
 	}
 	// If reward address doesn't exist, do nothing
 	if rewardAddrStr == "" {
+		log.S().Warnf("Producer %s doesn't have a reward address", producerAddrStr)
 		return nil
 	}
 	rewardAddr, err := address.FromString(rewardAddrStr)
@@ -160,6 +162,7 @@ func (p *Protocol) GrantEpochReward(
 		for i := uint64(0); i < l; i++ {
 			// If reward address doesn't exist, do nothing
 			if candidates[i].RewardAddress == "" {
+				log.S().Warnf("Candidate %s doesn't have a reward address", candidates[i].Address)
 				continue
 			}
 			rewardAddr, err := address.FromString(candidates[i].RewardAddress)
@@ -333,6 +336,8 @@ func (p *Protocol) splitEpochReward(
 			if err != nil {
 				return nil, nil, err
 			}
+		} else {
+			log.S().Warnf("Candidate %s doesn't have a reward address", candidate.Address)
 		}
 		rewardAddrs = append(rewardAddrs, rewardAddr)
 		totalWeight = big.NewInt(0).Add(totalWeight, candidate.Votes)
