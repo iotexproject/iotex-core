@@ -4,7 +4,6 @@ import (
 	"container/heap"
 	"encoding/base64"
 	"math/rand"
-	"sort"
 	"time"
 
 	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
@@ -21,13 +20,14 @@ const (
 	   likely to exceed 1M, so it must be fragmented. Due to security concerns, the size of each block cannot be
 	   infinitely large, and is directly limited to approximately 20M.
 	   Each broadcast packet can be up to about 1M (maxMessageBodySize), and each block can be broadcast with up to
-	   20 slices (maxIndexOfPiece), so each block is up to about 20M.
+	   20 slices (maxIndexOfFragment), so each block is up to about 20M.
 	   Considering the size of the buffer, there should be no more than 20 (maxItemForBroadcast) blocks assembled
 	   	at the same time.
 	*/
-	maxItemForBroadcast = 20      //Up to 20 unfinished fragmented at the same time
-	maxMessageBodySize  = 1047552 //1*1024*1024-1024
-	maxIndexOfPiece     = 20      //about 20M
+	maxItemForBroadcast = 20          //Up to 20 unfinished fragmented at the same time
+	maxMessageBodySize  = 1047552     //1*1024*1024-1024
+	maxIndexOfFragment  = 20          //about 20M
+	maxItemLifeTime     = time.Minute // if cannot receive the whole message in one minute,discard the message
 )
 
 func generateMessageID() string {
@@ -53,8 +53,7 @@ type broadcastHelper struct {
 }
 
 type broadcastHelperHeap struct {
-	bhs                []*broadcastHelper
-	id2BroadcastHelper map[string]*broadcastHelper
+	bhs []*broadcastHelper
 }
 
 func (h *broadcastHelperHeap) Len() int           { return len(h.bhs) }
@@ -63,7 +62,6 @@ func (h *broadcastHelperHeap) Swap(i, j int)      { h.bhs[i], h.bhs[j] = h.bhs[j
 func (h *broadcastHelperHeap) Push(x interface{}) {
 	bh := x.(*broadcastHelper)
 	h.bhs = append(h.bhs, bh)
-	h.id2BroadcastHelper[bh.broadcast.MessageId] = bh
 }
 
 func (h *broadcastHelperHeap) Pop() interface{} {
@@ -80,57 +78,66 @@ func (h *broadcastHelperHeap) AddMessage(msg *iotexrpc.BroadcastMsg) *iotexrpc.B
 		for len(h.bhs) > 0 {
 			bh := h.bhs[0]
 			//remove item that is arrived at 1 minute ago
-			if bh.t.After(time.Now().Add(0 - time.Minute)) {
+			if bh.t.After(time.Now().Add(0 - maxItemLifeTime)) {
 				break
 			}
-			delete(h.id2BroadcastHelper, bh.broadcast.MessageId)
 			heap.Pop(h)
 		}
 		//remove message if too many items
 		if len(h.bhs) > maxItemForBroadcast {
-			bh := heap.Remove(h, 0) //移除第一个,时间最久的那个
-			delete(h.id2BroadcastHelper, bh.(*broadcastHelper).broadcast.MessageId)
+			heap.Remove(h, 0) //remove the oldest one
 		}
 	}()
 	if msg.MessageId == "" {
 		return msg
 	}
-	if int(msg.IndexOfPiece) > maxIndexOfPiece {
+	if int(msg.IndexOfFrag) > maxIndexOfFragment {
 		return nil
 	}
-	bh := h.id2BroadcastHelper[msg.MessageId]
-	if bh == nil {
+	if len(msg.MsgBody) > maxMessageBodySize {
+		return nil
+	}
+	var index = -1
+	var bh *broadcastHelper
+	for i := range h.bhs {
+		if h.bhs[i].broadcast.MessageId == msg.MessageId {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		//new broadcast message
 		bh = &broadcastHelper{
 			broadcast: msg,
 			bodies:    make(map[int][]byte),
 			t:         time.Now(),
 		}
-		if !msg.HasMore {
-			bh.maxIndex = int(msg.IndexOfPiece)
-		}
-		bh.bodies[int(msg.IndexOfPiece)] = msg.MsgBody
-		h.bhs = append(h.bhs, bh) //it must be the latest
-		h.id2BroadcastHelper[msg.MessageId] = bh
+		bh.bodies[int(msg.IndexOfFrag)] = msg.MsgBody
+		h.bhs = append(h.bhs, bh)
 	} else {
+		bh = h.bhs[index]
 		ol := len(bh.bodies)
-		bh.bodies[int(msg.IndexOfPiece)] = msg.MsgBody
+		bh.bodies[int(msg.IndexOfFrag)] = msg.MsgBody
 		//ignore duplicate message time update
 		if len(bh.bodies) <= ol {
 			return nil
 		}
 		if !msg.HasMore {
-			bh.maxIndex = int(msg.IndexOfPiece)
+			bh.maxIndex = int(msg.IndexOfFrag)
 		}
 		bh.t = time.Now()
-		sort.Sort(h)
 		//all the fragment arrive
 		if len(bh.bodies) == bh.maxIndex+1 {
 			bh.broadcast.MsgBody = nil
 			for i := 0; i < len(bh.bodies); i++ {
+				//The other party may maliciously send  a message numbered [0, 2, 3, 4],
+				// which will only cause a message error and will not cause the program to crash.
 				bh.broadcast.MsgBody = append(bh.broadcast.MsgBody, bh.bodies[i]...)
 			}
-			delete(h.id2BroadcastHelper, bh.broadcast.MessageId)
+			heap.Remove(h, index)
 			return bh.broadcast
+		} else {
+			heap.Fix(h, index)
 		}
 	}
 	return nil

@@ -13,15 +13,13 @@ import (
 	"testing"
 	"time"
 
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-
 	"github.com/golang/protobuf/proto"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/protogen/testingpb"
 	"github.com/iotexproject/iotex-core/testutil"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBroadcast(t *testing.T) {
@@ -50,7 +48,7 @@ func testBroadcastNumber(t *testing.T, n int, messagesize int) {
 			defer mutex.Unlock()
 			testMsg, ok := msg.(*testingpb.TestPayload)
 			require.True(t, ok)
-			t.Logf("%s receive message bodylen=%d", name, len(testMsg.MsgBody))
+			//t.Logf("%s receive message bodylen=%d", name, len(testMsg.MsgBody))
 			idx := testMsg.MsgBody[0]
 			if _, ok = counts[idx]; ok {
 				counts[idx]++
@@ -137,8 +135,10 @@ func TestUnicast(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(neighbors))
 		for _, neighbor := range neighbors {
+			body := make([]byte, 5*1024*1024)
+			body[0] = uint8(i)
 			require.NoError(t, agents[i].UnicastOutbound(WitContext(ctx, Context{ChainID: 1}), neighbor, &testingpb.TestPayload{
-				MsgBody: []byte{uint8(i)},
+				MsgBody: body,
 			}))
 		}
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {

@@ -88,9 +88,7 @@ func NewAgent(cfg config.Network, broadcastHandler HandleBroadcastInbound, unica
 		cfg:                        cfg,
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
-		bh: broadcastHelperHeap{
-			id2BroadcastHelper: make(map[string]*broadcastHelper),
-		},
+		bh:                         broadcastHelperHeap{},
 	}
 }
 
@@ -150,8 +148,6 @@ func (p *Agent) Start(ctx context.Context) error {
 			skip = true
 			return
 		}
-		//log.L().Info(fmt.Sprintf("received message %s, index=%d,len=%d",
-		//	broadcast.MessageId, broadcast.IndexOfPiece, len(broadcast.MsgBody)))
 		broadcast2 := p.bh.AddMessage(&broadcast)
 		if broadcast2 == nil {
 			skip = true
@@ -327,14 +323,14 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 			hasMore = false
 		}
 		broadcast := iotexrpc.BroadcastMsg{
-			ChainId:      p2pCtx.ChainID,
-			PeerId:       p.host.HostIdentity(), //todo bai ,peerId's length is fixed?
-			MsgType:      msgType,
-			MsgBody:      msgBody[0:l],
-			Timestamp:    ptypes.TimestampNow(),
-			MessageId:    msgID,
-			IndexOfPiece: uint32(offset),
-			HasMore:      hasMore,
+			ChainId:     p2pCtx.ChainID,
+			PeerId:      p.host.HostIdentity(), //todo bai ,peerId's length is fixed?
+			MsgType:     msgType,
+			MsgBody:     msgBody[0:l],
+			Timestamp:   ptypes.TimestampNow(),
+			MessageId:   msgID,
+			IndexOfFrag: uint32(offset),
+			HasMore:     hasMore,
 		}
 		data, err = proto.Marshal(&broadcast)
 		//log.L().Debug(fmt.Sprintf("datasize=%d,bodysize=%d,peerid=%d", len(data), l, len(broadcast.PeerId)))
