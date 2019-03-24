@@ -1,7 +1,9 @@
 ---
 name: Failing Test
 about: Report test failures in iotex-core CI jobs
-labels: kind/failing-test
+title: ''
+labels: test
+assignees: ''
 
 ---
 
