@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# if [ ! -f /usr/local/bin/circleci ]; then
+#     curl -fLSs https://circle.ci/cli | sudo bash
+#     echo "Please enter the apitoken"
+#     circleci setup
+# fi
+
+#CURR_DIR="$(dirname $0)"
+#workspace=$(cd ../../)
+export LD_LIBRARY_PATH=:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib
+check_result() {
+    if [ $? != 0 ]; then
+        echo "$1 failed!!"
+        echo "commit will not execute"
+        echo "$?"
+        exit 1
+    else
+        echo "$1 passed."
+        echo "commit will execute"
+        echo "$?"
+    fi
+}
+
+./go.test.sh
+check_result go.test.sh
+curl -s https://codecov.io/bash|bash
+go test -run=XXX -bench=. $(go list ./crypto)
+check_result go_test_run
+make minicluster
+check_result make_minicluster

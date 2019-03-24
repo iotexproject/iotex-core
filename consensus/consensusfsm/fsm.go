@@ -16,8 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 /**
@@ -64,6 +62,8 @@ const (
 var (
 	// ErrEvtCast indicates the error of casting the event
 	ErrEvtCast = errors.New("error when casting the event")
+	// ErrMsgCast indicates the error of casting to endorsed message
+	ErrMsgCast = errors.New("error when casting to endorsed message")
 	// ErrEvtConvert indicates the error of converting the event from/to the proto message
 	ErrEvtConvert = errors.New("error when converting the event from/to the proto message")
 	// ErrEvtType represents an unexpected event type error
@@ -234,29 +234,31 @@ func (m *ConsensusFSM) Calibrate(height uint64) {
 	m.produce(m.ctx.NewConsensusEvent(eCalibrate, height), 0)
 }
 
-// ProducePrepareEvent produces an ePrepare event after delay
-func (m *ConsensusFSM) ProducePrepareEvent(delay time.Duration) {
+// BackToPrepare produces an ePrepare event after delay
+func (m *ConsensusFSM) BackToPrepare(delay time.Duration) (fsm.State, error) {
 	m.produceConsensusEvent(ePrepare, delay)
+
+	return sPrepare, nil
 }
 
 // ProduceReceiveBlockEvent produces an eReceiveBlock event after delay
-func (m *ConsensusFSM) ProduceReceiveBlockEvent(block Endorsement) {
+func (m *ConsensusFSM) ProduceReceiveBlockEvent(block interface{}) {
 	m.produce(m.ctx.NewConsensusEvent(eReceiveBlock, block), 0)
 }
 
 // ProduceReceiveProposalEndorsementEvent produces an eReceiveProposalEndorsement event right away
-func (m *ConsensusFSM) ProduceReceiveProposalEndorsementEvent(endorsement Endorsement) {
-	m.produce(m.ctx.NewConsensusEvent(eReceiveProposalEndorsement, endorsement), 0)
+func (m *ConsensusFSM) ProduceReceiveProposalEndorsementEvent(vote interface{}) {
+	m.produce(m.ctx.NewConsensusEvent(eReceiveProposalEndorsement, vote), 0)
 }
 
 // ProduceReceiveLockEndorsementEvent produces an eReceiveLockEndorsement event right away
-func (m *ConsensusFSM) ProduceReceiveLockEndorsementEvent(endorsement Endorsement) {
-	m.produce(m.ctx.NewConsensusEvent(eReceiveLockEndorsement, endorsement), 0)
+func (m *ConsensusFSM) ProduceReceiveLockEndorsementEvent(vote interface{}) {
+	m.produce(m.ctx.NewConsensusEvent(eReceiveLockEndorsement, vote), 0)
 }
 
 // ProduceReceivePreCommitEndorsementEvent produces an eReceivePreCommitEndorsement event right away
-func (m *ConsensusFSM) ProduceReceivePreCommitEndorsementEvent(endorsement Endorsement) {
-	m.produce(m.ctx.NewConsensusEvent(eReceivePreCommitEndorsement, endorsement), 0)
+func (m *ConsensusFSM) ProduceReceivePreCommitEndorsementEvent(vote interface{}) {
+	m.produce(m.ctx.NewConsensusEvent(eReceivePreCommitEndorsement, vote), 0)
 }
 
 func (m *ConsensusFSM) produceConsensusEvent(et fsm.EventType, delay time.Duration) {
@@ -265,6 +267,9 @@ func (m *ConsensusFSM) produceConsensusEvent(et fsm.EventType, delay time.Durati
 
 // produce adds an event into the queue for the consensus FSM to process
 func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
+	if evt == nil {
+		return
+	}
 	consensusMtc.WithLabelValues(string(evt.Type())).Inc()
 	if delay > 0 {
 		m.wg.Add(1)
@@ -342,32 +347,19 @@ func (m *ConsensusFSM) calibrate(evt fsm.Event) (fsm.State, error) {
 		zap.Uint64("consensusHeight", consensusHeight),
 		zap.Uint64("height", height),
 	)
-	m.ProducePrepareEvent(0)
-	return sPrepare, nil
+	return m.BackToPrepare(0)
 }
 
 func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
-	delay, err := m.ctx.Prepare()
+	isProposer, proposal, isDelegate, locked, delay, err := m.ctx.Prepare()
 	switch {
 	case err != nil:
 		m.ctx.Logger().Error("Error during prepare", zap.Error(err))
 		fallthrough
-	case !m.ctx.IsDelegate():
-		m.ProducePrepareEvent(delay)
-		return sPrepare, nil
+	case !isDelegate:
+		return m.BackToPrepare(delay)
 	}
 	m.ctx.Logger().Info("Start a new round", zap.Duration("delay", delay))
-	isProposer := m.ctx.IsProposer()
-	var blk Endorsement
-	if isProposer {
-		m.ctx.Logger().Info("current node is the proposer")
-		if blk, err = m.ctx.MintBlock(); err != nil || blk == nil {
-			// TODO: review the return state
-			m.ctx.Logger().Error("Error when minting a block", zap.Error(err))
-			m.ProducePrepareEvent(0)
-			return sPrepare, nil
-		}
-	}
 	if delay > 0 {
 		time.Sleep(delay)
 	}
@@ -378,11 +370,12 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 	m.produceConsensusEvent(eStopReceivingProposalEndorsement, ttl)
 	ttl += m.cfg.AcceptLockEndorsementTTL
 	m.produceConsensusEvent(eStopReceivingLockEndorsement, ttl)
-	// TODO add timeout for commit collection
-	if isProposer {
-		m.ctx.Logger().Info("Broadcast init proposal.", log.Hex("blockHash", blk.Hash()))
-		m.ProduceReceiveBlockEvent(blk)
-		m.ctx.BroadcastBlockProposal(blk)
+	switch {
+	case isProposer:
+		m.ctx.Broadcast(proposal)
+		fallthrough
+	case locked:
+		m.ProduceReceiveBlockEvent(proposal)
 	}
 
 	return sAcceptBlockProposal, nil
@@ -395,70 +388,54 @@ func (m *ConsensusFSM) onReceiveBlock(evt fsm.Event) (fsm.State, error) {
 		m.ctx.Logger().Error("invalid fsm event", zap.Any("event", evt))
 		return sAcceptBlockProposal, nil
 	}
-	block, ok := cEvt.Data().(Endorsement)
-	if !ok {
-		m.ctx.Logger().Error("invalid data type", zap.Any("data", cEvt.Data()))
-		return sAcceptBlockProposal, nil
-	}
-	en, err := m.ctx.NewProposalEndorsement(block)
-	if err != nil {
+	if err := m.processBlock(cEvt.Data()); err != nil {
 		m.ctx.Logger().Debug("Failed to generate proposal endorsement", zap.Error(err))
 		return sAcceptBlockProposal, nil
 	}
-	m.ProduceReceiveProposalEndorsementEvent(en)
-	m.ctx.BroadcastEndorsement(en)
 
 	return sAcceptProposalEndorsement, nil
 }
 
+func (m *ConsensusFSM) processBlock(block interface{}) error {
+	en, err := m.ctx.NewProposalEndorsement(block)
+	if err != nil {
+		return err
+	}
+	m.ProduceReceiveProposalEndorsementEvent(en)
+	m.ctx.Broadcast(en)
+	return nil
+}
+
 func (m *ConsensusFSM) onFailedToReceiveBlock(evt fsm.Event) (fsm.State, error) {
 	m.ctx.Logger().Warn("didn't receive the proposed block before timeout")
-	/*
-		TODO: Produce an endorsement of nil
-		en, err := m.ctx.NewProposalEndorsement(nil)
-		if err == nil {
-			m.ProduceReceiveProposalEndorsementEvent(en)
-			m.ctx.BroadcastEndorsement(en)
-		} else {
-			m.ctx.Logger().Debug("Failed to generate proposal endorsement", zap.Error(err))
-		}
-		return sAcceptProposalEndorsement, err
-	*/
+	if err := m.processBlock(nil); err != nil {
+		m.ctx.Logger().Debug("Failed to generate proposal endorsement", zap.Error(err))
+	}
+
 	return sAcceptProposalEndorsement, nil
 }
 
 func (m *ConsensusFSM) onReceiveProposalEndorsement(evt fsm.Event) (fsm.State, error) {
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
-		m.ctx.Logger().Error("failed to cast to consensus event", zap.Any("event", evt))
-		return sAcceptProposalEndorsement, nil
+		return sAcceptProposalEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
-	en, ok := cEvt.Data().(Endorsement)
-	if !ok {
-		m.ctx.Logger().Error("invalid data type", zap.Any("data", cEvt.Data()))
-		return sAcceptProposalEndorsement, nil
-	}
-	err := m.ctx.AddProposalEndorsement(en)
-	if err != nil || !m.ctx.IsLocked() {
+	lockEndorsement, err := m.ctx.NewLockEndorsement(cEvt.Data())
+	if err != nil {
 		m.ctx.Logger().Debug("Failed to add proposal endorsement", zap.Error(err))
 		return sAcceptProposalEndorsement, nil
 	}
-	m.ctx.LoggerWithStats().Debug("Locked")
-	lockEndorsement, err := m.ctx.NewLockEndorsement()
-	if err != nil {
-		// TODO: review return state
-		m.ctx.Logger().Error("error when producing lock endorsement", zap.Error(err))
-		m.ProducePrepareEvent(0)
-		return sPrepare, nil
+	if lockEndorsement == nil {
+		return sAcceptProposalEndorsement, nil
 	}
 	m.ProduceReceiveLockEndorsementEvent(lockEndorsement)
-	m.ctx.BroadcastEndorsement(lockEndorsement)
+	m.ctx.Broadcast(lockEndorsement)
 
-	return sAcceptLockEndorsement, nil
+	return sAcceptLockEndorsement, err
 }
 
 func (m *ConsensusFSM) onStopReceivingProposalEndorsement(evt fsm.Event) (fsm.State, error) {
-	m.ctx.LoggerWithStats().Warn("Not enough proposal endorsements")
+	m.ctx.Logger().Warn("Not enough proposal endorsements")
 
 	return sAcceptLockEndorsement, nil
 }
@@ -466,70 +443,38 @@ func (m *ConsensusFSM) onStopReceivingProposalEndorsement(evt fsm.Event) (fsm.St
 func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error) {
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
-		m.ctx.Logger().Error("failed to cast to consensus event", zap.Any("event", evt))
-		return sAcceptLockEndorsement, nil
+		return sAcceptLockEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
-	en, ok := cEvt.Data().(Endorsement)
-	if !ok {
-		m.ctx.Logger().Error("invalid data type", zap.Any("data", cEvt.Data()))
-		return sAcceptLockEndorsement, nil
-	}
-	err := m.ctx.AddLockEndorsement(en)
-	switch {
-	case err != nil:
-		m.ctx.Logger().Error("failed to add lock endorsement", zap.Error(err))
-		fallthrough
-	case !m.ctx.ReadyToPreCommit():
-		return sAcceptLockEndorsement, nil
-	}
-	m.ctx.LoggerWithStats().Debug("Ready to pre-commit")
-	preCommitEndorsement, err := m.ctx.NewPreCommitEndorsement()
+	preCommitEndorsement, err := m.ctx.NewPreCommitEndorsement(cEvt.Data())
 	if err != nil {
-		// TODO: Review return state
-		m.ctx.Logger().Error("error when producing pre-commit endorsement", zap.Error(err))
-		m.ProducePrepareEvent(0)
-
-		return sPrepare, nil
+		return sAcceptLockEndorsement, err
+	}
+	if preCommitEndorsement == nil {
+		return sAcceptLockEndorsement, nil
 	}
 	m.ProduceReceivePreCommitEndorsementEvent(preCommitEndorsement)
-	m.ctx.BroadcastEndorsement(preCommitEndorsement)
+	m.ctx.Broadcast(preCommitEndorsement)
 
 	return sAcceptPreCommitEndorsement, nil
 }
 
 func (m *ConsensusFSM) onStopReceivingLockEndorsement(evt fsm.Event) (fsm.State, error) {
-	m.ctx.LoggerWithStats().Warn("Not enough lock endorsements")
+	m.ctx.Logger().Warn("Not enough lock endorsements")
 
-	m.ProducePrepareEvent(0)
-
-	return sPrepare, nil
+	return m.BackToPrepare(0)
 }
 
 func (m *ConsensusFSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, error) {
 	cEvt, ok := evt.(*ConsensusEvent)
 	if !ok {
-		m.ctx.Logger().Error("failed to cast to consensus event", zap.Any("event", evt))
-		return sAcceptPreCommitEndorsement, nil
+		return sAcceptPreCommitEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
-	en, ok := cEvt.Data().(Endorsement)
-	if !ok {
-		m.ctx.Logger().Error("invalid data type", zap.Any("data", cEvt.Data()))
-		return sAcceptPreCommitEndorsement, nil
+	committed, err := m.ctx.Commit(cEvt.Data())
+	if err != nil || !committed {
+		return sAcceptPreCommitEndorsement, err
 	}
-	if err := m.ctx.AddPreCommitEndorsement(en); err != nil {
-		m.ctx.Logger().Error("error when adding pre-commit endorsement", zap.Error(err))
-		return sAcceptPreCommitEndorsement, nil
-	}
-	if !m.ctx.ReadyToCommit() {
-		return sAcceptPreCommitEndorsement, nil
-	}
-	m.ctx.LoggerWithStats().Debug("Ready to commit")
-
 	consensusMtc.WithLabelValues("ReachConsenus").Inc()
-	m.ctx.OnConsensusReached()
-	m.ProducePrepareEvent(0)
-
-	return sPrepare, nil
+	return m.BackToPrepare(0)
 }
 
 // handleBackdoorEvt takes the dst state from the event and move the FSM into it

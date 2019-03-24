@@ -17,19 +17,6 @@ message BlockSync {
   uint64 end = 3;
 }
 
-message Consensus {
-  enum ConsensusMessageType {
-    PROPOSAL = 0;
-    ENDORSEMENT = 1;
-    // TODO: Unify ConsensusVoteTopic and ConsensusMessageType
-  }
-  uint64 height = 1;
-  uint32 round = 2;
-  ConsensusMessageType type = 3;
-  google.protobuf.Timestamp timestamp = 4;
-  bytes data = 5;
-}
-
 enum MessageType {
   UNKNOWN = 0;
   ACTION = 1;

@@ -21,16 +21,13 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Flags
 var (
-	alias    string
 	gasLimit uint64
 	gasPrice string
 	nonce    uint64
@@ -59,7 +56,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
 		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "",
 			"set gas price (unit: 10^(-6)Iotx)")
-		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing key")
+		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
 		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
 		cmd.MarkFlagRequired("gas-limit")
 		cmd.MarkFlagRequired("gas-price")
@@ -73,35 +70,29 @@ func setActionFlags(cmds ...*cobra.Command) {
 
 func sendAction(elp action.Envelope) string {
 	fmt.Printf("Enter password #%s:\n", signer)
-	bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
+		log.L().Error("failed to get password", zap.Error(err))
 		return err.Error()
 	}
-	password := string(bytePassword)
-	ehash := elp.Hash()
-	sig, err := account.Sign(signer, password, ehash[:])
+	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
 	if err != nil {
-		log.L().Error("fail to sign", zap.Error(err))
 		return err.Error()
 	}
-	pubKey, err := keypair.SigToPublicKey(ehash[:], sig)
+	defer prvKey.Zero()
+	sealed, err := action.Sign(elp, prvKey)
+	prvKey.Zero()
 	if err != nil {
-		log.L().Error("fail to get public key", zap.Error(err))
+		log.L().Error("failed to sign action", zap.Error(err))
 		return err.Error()
 	}
-	selp := &iotextypes.Action{
-		Core:         elp.Proto(),
-		SenderPubKey: pubKey.Bytes(),
-		Signature:    sig,
-	}
+	selp := sealed.Proto()
 
-	var confirm string
 	actionInfo, err := printActionProto(selp)
 	if err != nil {
 		return err.Error()
 	}
-
+	var confirm string
 	fmt.Println("\n" + actionInfo + "\n" +
 		"Please confirm your action.\n" +
 		"Type 'YES' to continue, quit for anything else.")
@@ -121,7 +112,6 @@ func sendAction(elp action.Envelope) string {
 	ctx := context.Background()
 	_, err = cli.SendAction(ctx, request)
 	if err != nil {
-		log.L().Error("server error", zap.Error(err))
 		return err.Error()
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))

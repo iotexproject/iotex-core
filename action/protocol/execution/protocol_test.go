@@ -99,7 +99,7 @@ func runExecution(
 	actionMap[ecfg.executor] = []action.SealedEnvelope{selp}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		0,
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -330,7 +330,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -365,7 +365,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -391,7 +391,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -470,7 +470,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -497,7 +497,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -525,7 +525,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -559,7 +559,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["bravo"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -640,7 +640,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -710,7 +710,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp, selp2}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -739,7 +739,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["alfa"].String()] = []action.SealedEnvelope{selp3}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
@@ -762,7 +762,7 @@ func TestProtocol_Handle(t *testing.T) {
 		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
-			0,
+			testutil.TimestampNow(),
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))

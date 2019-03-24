@@ -7,8 +7,10 @@
 package block
 
 import (
+	"time"
+
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -22,7 +24,7 @@ import (
 type Header struct {
 	version          uint32            // version
 	height           uint64            // block height
-	timestamp        int64             // unix timestamp
+	timestamp        time.Time         // propose timestamp
 	prevBlockHash    hash.Hash256      // hash of previous block
 	txRoot           hash.Hash256      // merkle root of all transactions
 	deltaStateDigest hash.Hash256      // digest of state change by this block
@@ -38,7 +40,7 @@ func (h Header) Version() uint32 { return h.version }
 func (h Header) Height() uint64 { return h.height }
 
 // Timestamp returns the Timestamp of this block.
-func (h Header) Timestamp() int64 { return h.timestamp }
+func (h Header) Timestamp() time.Time { return h.timestamp }
 
 // PrevHash returns the hash of prev block.
 func (h Header) PrevHash() hash.Hash256 { return h.prevBlockHash }
@@ -66,12 +68,14 @@ func (h Header) BlockHeaderProto() *iotextypes.BlockHeader {
 
 // BlockHeaderCoreProto returns BlockHeaderCore proto.
 func (h Header) BlockHeaderCoreProto() *iotextypes.BlockHeaderCore {
+	ts, err := ptypes.TimestampProto(h.timestamp)
+	if err != nil {
+		log.L().Panic("failed to cast to ptypes.timestamp", zap.Error(err))
+	}
 	return &iotextypes.BlockHeaderCore{
-		Version: h.version,
-		Height:  h.height,
-		Timestamp: &timestamp.Timestamp{
-			Seconds: h.timestamp,
-		},
+		Version:          h.version,
+		Height:           h.height,
+		Timestamp:        ts,
 		PrevBlockHash:    h.prevBlockHash[:],
 		TxRoot:           h.txRoot[:],
 		DeltaStateDigest: h.deltaStateDigest[:],
@@ -105,7 +109,7 @@ func (h Header) HashHeaderCore() hash.Hash256 {
 func (h Header) HeaderLogger(l *zap.Logger) *zap.Logger {
 	return l.With(zap.Uint32("version", h.version),
 		zap.Uint64("height", h.height),
-		zap.Int64("timeStamp", h.timestamp),
+		zap.String("timestamp", h.timestamp.String()),
 		log.Hex("prevBlockHash", h.prevBlockHash[:]),
 		log.Hex("txRoot", h.txRoot[:]),
 		log.Hex("receiptRoot", h.receiptRoot[:]),

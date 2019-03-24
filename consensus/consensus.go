@@ -25,7 +25,7 @@ import (
 	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -33,7 +33,7 @@ import (
 type Consensus interface {
 	lifecycle.StartStopper
 
-	HandleConsensusMsg(*iotexrpc.Consensus) error
+	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
 	Calibrate(uint64)
 	ValidateBlockFooter(*block.Block) error
 	Metrics() (scheme.ConsensusMetrics, error)
@@ -97,7 +97,7 @@ func NewConsensus(
 	mintBlockCB := func() (*block.Block, error) {
 		actionMap := ap.PendingActionMap()
 		log.L().Debug("Pick actions.", zap.Int("actions", len(actionMap)))
-		blk, err := bc.MintNewBlock(actionMap, clock.Now().Unix())
+		blk, err := bc.MintNewBlock(actionMap, clock.Now())
 		if err != nil {
 			log.L().Error("Failed to mint a block.", zap.Error(err))
 			return nil, err
@@ -156,10 +156,8 @@ func NewConsensus(
 						log.L().Error("Error when setting candidate total votes.", zap.Error(err))
 					}
 					cs = append(cs, &state.Candidate{
-						Address:          addr.String(),
-						Votes:            votes,
-						CreationHeight:   uint64(rawc.CreationHeight),
-						LastUpdateHeight: uint64(rawc.LastUpdateHeight),
+						Address: addr.String(),
+						Votes:   votes,
 					})
 				}
 				return cs, nil
@@ -215,8 +213,8 @@ func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 }
 
 // HandleConsensusMsg handles consensus messages
-func (c *IotxConsensus) HandleConsensusMsg(propose *iotexrpc.Consensus) error {
-	return c.scheme.HandleConsensusMsg(propose)
+func (c *IotxConsensus) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
+	return c.scheme.HandleConsensusMsg(msg)
 }
 
 // Calibrate triggers an event to calibrate consensus context

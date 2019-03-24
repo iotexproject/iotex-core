@@ -11,25 +11,21 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/address"
-
-	"github.com/iotexproject/iotex-core/action"
-
-	"github.com/iotexproject/iotex-core/test/identityset"
-
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
@@ -51,7 +47,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 		{
 			Address:       testaddress.Addrinfo["producer"].String(),
 			Votes:         unit.ConvertIotxToRau(4000000),
-			RewardAddress: testaddress.Addrinfo["producer"].String(),
+			RewardAddress: identityset.Address(0).String(),
 		},
 		{
 			Address:       testaddress.Addrinfo["alfa"].String(),
@@ -74,6 +70,17 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			RewardAddress: testaddress.Addrinfo["delta"].String(),
 		},
 	}, nil).AnyTimes()
+	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
+		uint64(19),
+		map[string]uint64{
+			testaddress.Addrinfo["producer"].String(): 3,
+			testaddress.Addrinfo["alfa"].String():     7,
+			testaddress.Addrinfo["bravo"].String():    1,
+			testaddress.Addrinfo["charlie"].String():  6,
+			testaddress.Addrinfo["delta"].String():    2,
+		},
+		nil,
+	).AnyTimes()
 	p := NewProtocol(chain, rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
@@ -102,6 +109,10 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 				[]address.Address{
 					testaddress.Addrinfo["delta"],
 				},
+				big.NewInt(5),
+				5,
+				365,
+				50,
 			))
 	} else {
 		require.NoError(
@@ -114,6 +125,10 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 				big.NewInt(100),
 				4,
 				nil,
+				big.NewInt(5),
+				5,
+				365,
+				50,
 			))
 	}
 
@@ -135,6 +150,18 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	epochReward, err := p.EpochReward(ctx, ws)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(100), epochReward)
+	fb, err := p.FoundationBonus(ctx, ws)
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(5), fb)
+	ndffb, err := p.NumDelegatesForFoundationBonus(ctx, ws)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(5), ndffb)
+	fble, err := p.FoundationBonusLastEpoch(ctx, ws)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(365), fble)
+	pt, err := p.ProductivityThreshold(ctx, ws)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(50), pt)
 
 	totalBalance, err := p.TotalBalance(ctx, ws)
 	require.NoError(t, err)
@@ -165,6 +192,16 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(t, stateDB.Stop(context.Background()))
 	}()
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
+	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return(
+		[]*state.Candidate{
+			{
+				Address:       identityset.Address(0).String(),
+				Votes:         unit.ConvertIotxToRau(4000000),
+				RewardAddress: identityset.Address(0).String(),
+			},
+		},
+		nil,
+	).Times(1)
 	rp := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
@@ -188,6 +225,10 @@ func TestProtocol_Handle(t *testing.T) {
 		big.NewInt(100),
 		10,
 		nil,
+		big.NewInt(5),
+		5,
+		0,
+		50,
 	))
 	require.NoError(t, stateDB.Commit(ws))
 

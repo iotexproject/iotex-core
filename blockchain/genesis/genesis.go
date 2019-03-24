@@ -55,11 +55,14 @@ func initDefaultConfig() {
 			EnableGravityChainVoting: false,
 		},
 		Rewarding: Rewarding{
-			InitBalanceStr:                unit.ConvertIotxToRau(1200000000).String(),
-			BlockRewardStr:                unit.ConvertIotxToRau(36).String(),
-			EpochRewardStr:                unit.ConvertIotxToRau(400000).String(),
-			NumDelegatesForEpochReward:    100,
-			ExemptAddrStrsFromEpochReward: []string{},
+			InitBalanceStr:                 unit.ConvertIotxToRau(1200000000).String(),
+			BlockRewardStr:                 unit.ConvertIotxToRau(16).String(),
+			EpochRewardStr:                 unit.ConvertIotxToRau(300000).String(),
+			NumDelegatesForEpochReward:     100,
+			ExemptAddrStrsFromEpochReward:  []string{},
+			FoundationBonusStr:             unit.ConvertIotxToRau(2880).String(),
+			NumDelegatesForFoundationBonus: 36,
+			FoundationBonusLastEpoch:       365,
 		},
 	}
 	for i := 0; i < identityset.Size(); i++ {
@@ -151,6 +154,15 @@ type (
 		NumDelegatesForEpochReward uint64 `yaml:"numDelegatesForEpochReward"`
 		// ExemptAddrStrsFromEpochReward is the list of addresses in encoded string format that exempt from epoch reward
 		ExemptAddrStrsFromEpochReward []string `yaml:"exemptAddrsFromEpochReward"`
+		// FoundationBonusStr is the bootstrap bonus in decimal string format
+		FoundationBonusStr string `yaml:"foundationBonus"`
+		// NumDelegatesForFoundationBonus is the number of top candidate that will get the bootstrap bonus
+		NumDelegatesForFoundationBonus uint64 `yaml:"numDelegatesForFoundationBonus"`
+		// FoundationBonusLastEpoch is the last epoch number that bootstrap bonus will be granted
+		FoundationBonusLastEpoch uint64 `yaml:"foundationBonusLastEpoch"`
+		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach to get the
+		// epoch reward
+		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
 	}
 )
 
@@ -222,10 +234,14 @@ func (g *Genesis) Hash() hash.Hash256 {
 	}
 
 	rProto := iotextypes.GenesisRewarding{
-		InitBalance:                g.InitBalanceStr,
-		BlockReward:                g.BlockRewardStr,
-		EpochReward:                g.EpochRewardStr,
-		NumDelegatesForEpochReward: g.NumDelegatesForEpochReward,
+		InitBalance:                    g.InitBalanceStr,
+		BlockReward:                    g.BlockRewardStr,
+		EpochReward:                    g.EpochRewardStr,
+		NumDelegatesForEpochReward:     g.NumDelegatesForEpochReward,
+		FoundationBonus:                g.FoundationBonusStr,
+		NumDelegatesForFoundationBonus: g.NumDelegatesForFoundationBonus,
+		FoundationBonusLastEpoch:       g.FoundationBonusLastEpoch,
+		ProductivityThreshold:          g.ProductivityThreshold,
 	}
 
 	gProto := iotextypes.Genesis{
@@ -335,4 +351,13 @@ func (r *Rewarding) ExemptAddrsFromEpochReward() []address.Address {
 		addrs = append(addrs, addr)
 	}
 	return addrs
+}
+
+// FoundationBonus returns the bootstrap bonus amount rewarded per epoch
+func (r *Rewarding) FoundationBonus() *big.Int {
+	val, ok := big.NewInt(0).SetString(r.FoundationBonusStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting bootstrap bonus string %s into big int", r.EpochRewardStr)
+	}
+	return val
 }

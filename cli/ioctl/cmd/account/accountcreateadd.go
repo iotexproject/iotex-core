@@ -17,9 +17,9 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 )
 
-// accountCreateAddCmd represents the account create command
+// accountCreateAddCmd represents the account createadd command
 var accountCreateAddCmd = &cobra.Command{
-	Use:   "createadd NAME",
+	Use:   "createadd ALIAS",
 	Short: "Create new account for ioctl",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -29,24 +29,19 @@ var accountCreateAddCmd = &cobra.Command{
 
 func accountCreateAdd(args []string) string {
 	// Validate inputs
-	if err := validator.ValidateName(args[0]); err != nil {
+	if err := validator.ValidateAlias(args[0]); err != nil {
 		return err.Error()
 	}
-	name := args[0]
-	cfg, err := config.LoadConfig()
+	alias := args[0]
+	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
+		return fmt.Sprintf("Alias \"%s\" has already used for %s.", alias, addr)
+	}
+	addr, err := newAccount(alias, config.ReadConfig.Wallet)
 	if err != nil {
 		return err.Error()
 	}
-	if _, ok := cfg.AccountList[name]; ok {
-		return fmt.Sprintf("A account named \"%s\" already exists.", name)
-	}
-	wallet := cfg.Wallet
-	addr, err := newAccount(name, wallet)
-	if err != nil {
-		return err.Error()
-	}
-	cfg.AccountList[name] = addr
-	out, err := yaml.Marshal(&cfg)
+	config.ReadConfig.Aliases[alias] = addr
+	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
 		return err.Error()
 	}
@@ -55,7 +50,5 @@ func accountCreateAdd(args []string) string {
 	}
 	return fmt.Sprintf(
 		"New account \"%s\" is created.\n"+
-			"Please Keep your password, or your will lose your private key.",
-		name,
-	)
+			"Please Keep your password, or your will lose your private key.", alias)
 }

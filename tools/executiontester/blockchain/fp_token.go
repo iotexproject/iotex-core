@@ -14,7 +14,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
@@ -80,8 +82,8 @@ type (
 )
 
 // NewFpToken creates a new Fp Token
-func NewFpToken(exp string) FpToken {
-	return &fpToken{Contract: NewContract(exp)}
+func NewFpToken(cfg config.Config) FpToken {
+	return &fpToken{Contract: NewContract(cfg)}
 }
 
 func (f *fpToken) CreateToken(id, debtor, creditor string, total, risk int64, open, exp string) (string, error) {
@@ -107,10 +109,18 @@ func (f *fpToken) CreateToken(id, debtor, creditor string, total, risk int64, op
 	if err != nil {
 		return h, errors.Wrapf(err, "failed to create fp token %s", id)
 	}
-	time.Sleep(time.Second * 5)
-	if _, err := f.CheckCallResult(h); err != nil {
-		return h, errors.Wrapf(err, "failed to create fp token %s", id)
+
+	var innerErr error
+	err = testutil.WaitUntil(100*time.Millisecond, f.ChainConfig().Genesis.BlockInterval*3, func() (bool, error) {
+		if _, innerErr = f.CheckCallResult(h); innerErr == nil {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return h, errors.Wrapf(innerErr, "failed to create fp token %s", id)
 	}
+
 	return h, nil
 }
 
@@ -192,10 +202,18 @@ func (f *fpToken) Transfer(token, sender, pubkey, prvkey, receiver string, amoun
 	if err != nil {
 		return h, errors.Wrap(err, "transfer failed")
 	}
-	time.Sleep(time.Second * 3)
-	if _, err := f.CheckCallResult(h); err != nil {
-		return h, errors.Wrap(err, "transfer failed")
+
+	var innerErr error
+	err = testutil.WaitUntil(100*time.Millisecond, f.ChainConfig().Genesis.BlockInterval*3, func() (bool, error) {
+		if _, innerErr = f.CheckCallResult(h); innerErr == nil {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return h, errors.Wrap(innerErr, "transfer failed")
 	}
+
 	return h, nil
 }
 
@@ -382,11 +400,18 @@ func (f *fpToken) Start() error {
 	if err != nil {
 		return errors.Wrap(err, "stable token contract failed to set approve")
 	}
-	time.Sleep(time.Second * 9)
 
-	if _, err := f.CheckCallResult(h); err != nil {
-		return errors.Wrap(err, "management contract failed to set storage")
+	var innerErr error
+	err = testutil.WaitUntil(100*time.Millisecond, f.ChainConfig().Genesis.BlockInterval*3, func() (bool, error) {
+		if _, innerErr = f.CheckCallResult(h); innerErr == nil {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return errors.Wrap(innerErr, "management contract failed to set storage")
 	}
+
 	if _, err := f.CheckCallResult(h1); err != nil {
 		return errors.Wrap(err, "management contract failed to set risk lock")
 	}

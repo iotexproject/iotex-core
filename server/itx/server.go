@@ -68,7 +68,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
-	p2pAgent := p2p.NewAgent(cfg.Network, dispatcher.HandleBroadcast, dispatcher.HandleTell)
+	p2pAgent := p2p.NewAgent(cfg, dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	chains := make(map[uint32]*chainservice.ChainService)
 	var cs *chainservice.ChainService
 	var opts []chainservice.Option
@@ -286,6 +286,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 		var pollProtocol poll.Protocol
 		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
 			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
+				cs.Blockchain(),
 				electionCommittee,
 				gravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
@@ -296,7 +297,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 							height,
 						)
 					}
-					return time.Unix(blk.Header.Timestamp(), 0), nil
+					return blk.Header.Timestamp(), nil
 				},
 				func(height uint64) uint64 {
 					return rolldposProtocol.GetEpochHeight(rolldposProtocol.GetEpochNum(height))

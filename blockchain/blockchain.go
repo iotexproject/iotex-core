@@ -13,11 +13,15 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -25,6 +29,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
@@ -38,6 +43,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -71,6 +77,8 @@ type Blockchain interface {
 	CreateState(addr string, init *big.Int) (*state.Account, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
+	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
+	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
 	// For exposing blockchain states
 	// GetHeightByHash returns Block's height by hash
 	GetHeightByHash(h hash.Hash256) (uint64, error)
@@ -106,13 +114,15 @@ type Blockchain interface {
 	StateByAddr(address string) (*state.Account, error)
 	// RecoverChainAndState recovers the chain to target height and refresh state db if necessary
 	RecoverChainAndState(targetHeight uint64) error
+	// GenesisTimestamp returns the timestamp of genesis
+	GenesisTimestamp() int64
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
 	MintNewBlock(
 		actionMap map[string][]action.SealedEnvelope,
-		timestamp int64,
+		timestamp time.Time,
 	) (*block.Block, error)
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *block.Block) error
@@ -214,6 +224,7 @@ func BoltDBDaoOption() Option {
 			db.NewOnDiskDB(cfg.DB),
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
+			cfg.Chain.MaxCacheSize,
 		)
 		return nil
 	}
@@ -227,6 +238,7 @@ func InMemDaoOption() Option {
 			db.NewMemKVStore(),
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
+			cfg.Chain.MaxCacheSize,
 		)
 
 		return nil
@@ -339,6 +351,70 @@ func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, err
 	return bc.candidatesByHeight(height)
 }
 
+// ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
+func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
+	p, ok := bc.registry.Find(rolldpos.ProtocolID)
+	if !ok {
+		return 0, nil, errors.New("rolldpos protocol is not registered")
+	}
+	rp, ok := p.(*rolldpos.Protocol)
+	if !ok {
+		return 0, nil, errors.New("fail to cast rolldpos protocol")
+	}
+
+	var isCurrentEpoch bool
+	currentEpochNum := rp.GetEpochNum(bc.tipHeight)
+	if epochNum > currentEpochNum {
+		return 0, nil, errors.New("epoch number is larger than current epoch number")
+	}
+	if epochNum == currentEpochNum {
+		isCurrentEpoch = true
+	}
+
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	var epochEndHeight uint64
+	if isCurrentEpoch {
+		epochEndHeight = bc.tipHeight
+	} else {
+		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
+	}
+	numBlks := epochEndHeight - epochStartHeight + 1
+
+	p, ok = bc.registry.Find(poll.ProtocolID)
+	if !ok {
+		return 0, nil, errors.New("poll protocol is not registered")
+	}
+	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		BlockHeight: bc.tipHeight,
+		Registry:    bc.registry,
+	})
+	ws, err := bc.sf.NewWorkingSet()
+	if err != nil {
+		return 0, nil, err
+	}
+	state, err := p.ReadState(ctx, ws, []byte("CommitteeBlockProducersByHeight"), byteutil.Uint64ToBytes(epochStartHeight))
+	if err != nil {
+		return 0, nil, status.Error(codes.NotFound, err.Error())
+	}
+	var committeeBlockProducers pollpb.BlockProducerList
+	if err := proto.Unmarshal(state, &committeeBlockProducers); err != nil {
+		return 0, nil, status.Error(codes.Internal, err.Error())
+	}
+
+	produce := make(map[string]uint64)
+	for _, bp := range committeeBlockProducers.BlockProducers {
+		produce[bp] = 0
+	}
+	for i := uint64(0); i < numBlks; i++ {
+		blk, err := bc.getBlockByHeight(epochStartHeight + i)
+		if err != nil {
+			return 0, nil, err
+		}
+		produce[blk.ProducerAddress()]++
+	}
+	return numBlks, produce, nil
+}
+
 // GetHeightByHash returns block's height by hash
 func (bc *blockchain) GetHeightByHash(h hash.Hash256) (uint64, error) {
 	return bc.dao.getBlockHeight(h)
@@ -448,7 +524,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 
 func (bc *blockchain) MintNewBlock(
 	actionMap map[string][]action.SealedEnvelope,
-	timestamp int64,
+	timestamp time.Time,
 ) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
@@ -466,7 +542,7 @@ func (bc *blockchain) MintNewBlock(
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight:    newblockHeight,
-			BlockTimeStamp: bc.now(),
+			BlockTimeStamp: timestamp,
 			Producer:       bc.config.ProducerAddress(),
 			GasLimit:       gasLimitForContext,
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
@@ -666,6 +742,10 @@ func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
 		return bc.refreshStateDB()
 	}
 	return nil
+}
+
+func (bc *blockchain) GenesisTimestamp() int64 {
+	return bc.config.Genesis.Timestamp
 }
 
 //======================================
@@ -1072,8 +1152,6 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 	}
 }
 
-func (bc *blockchain) now() int64 { return bc.clk.Now().Unix() }
-
 // RecoverToHeight recovers the blockchain to target height
 func (bc *blockchain) recoverToHeight(targetHeight uint64) error {
 	for bc.tipHeight > targetHeight {
@@ -1131,7 +1209,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight:    0,
-		BlockTimeStamp: bc.config.Genesis.Timestamp,
+		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		GasLimit:       0,
 		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		Producer:       nil,
@@ -1179,6 +1257,10 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 		bc.config.Genesis.EpochReward(),
 		bc.config.Genesis.NumDelegatesForEpochReward,
 		bc.config.Genesis.ExemptAddrsFromEpochReward(),
+		bc.config.Genesis.FoundationBonus(),
+		bc.config.Genesis.NumDelegatesForFoundationBonus,
+		bc.config.Genesis.FoundationBonusLastEpoch,
+		bc.config.Genesis.ProductivityThreshold,
 	)
 }
 

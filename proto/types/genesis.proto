@@ -56,4 +56,8 @@ message GenesisRewarding {
     string blockReward = 3;
     string epochReward = 4;
     uint64 numDelegatesForEpochReward = 5;
+    string foundationBonus = 6;
+    uint64 numDelegatesForFoundationBonus = 7;
+    uint64 foundationBonusLastEpoch  = 8;
+    uint64 productivityThreshold = 9;
 }

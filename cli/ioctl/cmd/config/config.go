@@ -13,6 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Directories
@@ -41,32 +43,35 @@ var ConfigCmd = &cobra.Command{
 
 // Config defines the config schema
 type Config struct {
-	Endpoint    string            `yaml:"endpoint"`
-	Wallet      string            `yaml:"wallet"`
-	AccountList map[string]string `yaml:"accountList"`
+	Endpoint string            `yaml:"endpoint"`
+	Wallet   string            `yaml:"wallet"`
+	Aliases  map[string]string `yaml:"aliases"`
 }
+
+// ReadConfig represents the current config read from local
+var ReadConfig Config
 
 func init() {
 	ConfigDir = os.Getenv("HOME") + "/.config/ioctl/default"
 	if err := os.MkdirAll(ConfigDir, 0700); err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		log.L().Panic(err.Error())
 	}
 	DefaultConfigFile = ConfigDir + "/config.default"
-	cfg, err := LoadConfig()
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-	cfg.Wallet = ConfigDir
-	out, err := yaml.Marshal(&cfg)
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-		fmt.Printf("Failed to write to config file %s.", DefaultConfigFile)
-		os.Exit(1)
+	var err error
+	ReadConfig, err = LoadConfig()
+	if err != nil || ReadConfig.Wallet == "" {
+		if !os.IsNotExist(err) || ReadConfig.Wallet == "" {
+			ReadConfig.Wallet = ConfigDir
+			out, err := yaml.Marshal(&ReadConfig)
+			if err != nil {
+				log.L().Panic(err.Error())
+			}
+			if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
+				log.L().Panic(fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile))
+			}
+		} else {
+			log.L().Panic(err.Error())
+		}
 	}
 	ConfigCmd.AddCommand(configGetCmd)
 	ConfigCmd.AddCommand(configSetCmd)
@@ -74,16 +79,14 @@ func init() {
 
 // LoadConfig loads config file in yaml format
 func LoadConfig() (Config, error) {
-	w := Config{
-		AccountList: make(map[string]string),
+	ReadConfig := Config{
+		Aliases: make(map[string]string),
 	}
 	in, err := ioutil.ReadFile(DefaultConfigFile)
 	if err == nil {
-		if err := yaml.Unmarshal(in, &w); err != nil {
-			return w, err
+		if err := yaml.Unmarshal(in, &ReadConfig); err != nil {
+			return ReadConfig, err
 		}
-	} else if !os.IsNotExist(err) {
-		return w, err
 	}
-	return w, nil
+	return ReadConfig, err
 }

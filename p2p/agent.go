@@ -8,6 +8,7 @@ package p2p
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"strconv"
@@ -76,6 +77,7 @@ type (
 // Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
 type Agent struct {
 	cfg                        config.Network
+	topicSuffix                string
 	broadcastInboundHandler    HandleBroadcastInbound
 	unicastInboundAsyncHandler HandleUnicastInboundAsync
 	host                       *p2p.Host
@@ -83,9 +85,12 @@ type Agent struct {
 }
 
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg config.Network, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
+func NewAgent(cfg config.Config, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
+	gh := cfg.Genesis.Hash()
 	return &Agent{
-		cfg:                        cfg,
+		cfg: cfg.Network,
+		// Make sure the honest node only care the messages related the chain from the same genesis
+		topicSuffix:                hex.EncodeToString(gh[22:]), // last 10 bytes of genesis hash
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
 		bh:                         broadcastHelperHeap{},
@@ -112,7 +117,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when instantiating Agent host")
 	}
 
-	if err := host.AddBroadcastPubSub(broadcastTopic, func(ctx context.Context, data []byte) (err error) {
+	if err := host.AddBroadcastPubSub(broadcastTopic+p.topicSuffix, func(ctx context.Context, data []byte) (err error) {
 		// Blocking handling the broadcast message until the agent is started
 		<-ready
 		var (
@@ -168,7 +173,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
 	}
 
-	if err := host.AddUnicastPubSub(unicastTopic, func(ctx context.Context, _ io.Writer, data []byte) (err error) {
+	if err := host.AddUnicastPubSub(unicastTopic+p.topicSuffix, func(ctx context.Context, _ io.Writer, data []byte) (err error) {
 		// Blocking handling the unicast message until the agent is started
 		<-ready
 		var (
@@ -338,7 +343,7 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 			err = errors.Wrap(err, "error when marshaling broadcast message")
 			return
 		}
-		if err = p.host.Broadcast(broadcastTopic, data); err != nil {
+		if err = p.host.Broadcast(broadcastTopic+p.topicSuffix, data); err != nil {
 			err = errors.Wrap(err, "error when sending broadcast message")
 			return
 		}
@@ -379,7 +384,7 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 		err = errors.Wrap(err, "error when marshaling unicast message")
 		return err
 	}
-	if err = p.host.Unicast(ctx, peer, unicastTopic, data); err != nil {
+	if err = p.host.Unicast(ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
 		return err
 	}

@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -25,8 +26,8 @@ import (
 )
 
 const (
-	// ChainEndpoint is the ip address of iotex api endpoint
-	ChainEndpoint = "localhost:14014"
+	// ChainIP is the ip address of iotex api endpoint
+	ChainIP = "localhost"
 	// Producer indicates block producer's encoded address
 	Producer = "io13rjq2c07mqhe8sdd7nf9a4vcmnyk9mn72hu94e"
 	// ProducerPubKey indicates block producer's public key
@@ -45,6 +46,7 @@ type (
 		Start() error
 		Exist(string) bool
 		Explorer() string
+		ChainConfig() config.Config
 		Deploy(string) (string, error)
 		Read(string, []byte) (string, error)
 		ReadValue(string, string, string) (int64, error)
@@ -63,20 +65,20 @@ type (
 	}
 
 	contract struct {
-		cs       string // blockchain service endpoint
-		owner    string // owner of the smart contract
-		ownerPk  string // owner's public key
-		ownerSk  string // owner's private key
-		addr     string // address of the smart contract
-		executor string // executor of the smart contract
-		pubkey   string // public key of executor
-		prvkey   string // private key of executor
+		chainConfig config.Config // blockchain service configuration
+		owner       string        // owner of the smart contract
+		ownerPk     string        // owner's public key
+		ownerSk     string        // owner's private key
+		addr        string        // address of the smart contract
+		executor    string        // executor of the smart contract
+		pubkey      string        // public key of executor
+		prvkey      string        // private key of executor
 	}
 )
 
 // NewContract creates a new contract
-func NewContract(exp string) Contract {
-	return &contract{cs: exp}
+func NewContract(cfg config.Config) Contract {
+	return &contract{chainConfig: cfg}
 }
 
 func (c *contract) Start() error {
@@ -89,7 +91,11 @@ func (c *contract) Exist(addr string) bool {
 }
 
 func (c *contract) Explorer() string {
-	return c.cs
+	return c.explorer()
+}
+
+func (c *contract) ChainConfig() config.Config {
+	return c.chainConfig
 }
 
 // ReadValue reads the value
@@ -166,7 +172,7 @@ func (c *contract) Deploy(code string) (string, error) {
 }
 
 func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
-	conn, err := grpc.Dial(c.cs, grpc.WithInsecure())
+	conn, err := grpc.Dial(c.explorer(), grpc.WithInsecure())
 	if err != nil {
 		return "", err
 	}
@@ -225,7 +231,7 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 }
 
 func (c *contract) CheckCallResult(h string) (*iotextypes.Receipt, error) {
-	conn, err := grpc.Dial(c.cs, grpc.WithInsecure())
+	conn, err := grpc.Dial(c.explorer(), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
@@ -280,4 +286,8 @@ func (c *contract) RunAsOwner() Contract {
 	c.pubkey = c.ownerPk
 	c.prvkey = c.ownerSk
 	return c
+}
+
+func (c *contract) explorer() string {
+	return ChainIP + ":" + strconv.Itoa(c.chainConfig.API.Port)
 }

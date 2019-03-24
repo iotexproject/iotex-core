@@ -8,6 +8,7 @@ package config
 
 import (
 	"flag"
+	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-election/committee"
 )
 
@@ -97,7 +99,6 @@ var (
 			Address:         "",
 			ProducerPrivKey: PrivateKey.HexString(),
 			EmptyGenesis:    false,
-			NumCandidates:   101,
 			GravityChainDB:  DB{DbPath: "./poll.db", NumRetries: 10},
 			Committee: committee.Config{
 				BeaconChainAPIs: []string{},
@@ -107,11 +108,13 @@ var (
 			EnableAsyncIndexWrite:   true,
 			CompressBlock:           false,
 			AllowedBlockGasResidue:  10000,
+			MaxCacheSize:            0,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool: 32000,
 			MaxNumActsPerAcct: 2000,
 			ActionExpiry:      10 * time.Minute,
+			MinGasPriceStr:    big.NewInt(unit.Qev).String(),
 		},
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
@@ -191,7 +194,6 @@ var (
 		ValidateExplorer,
 		ValidateAPI,
 		ValidateActPool,
-		ValidateChain,
 	}
 
 	// PrivateKey is a randomly generated producer's key for testing purpose
@@ -217,7 +219,6 @@ type (
 		Address         string           `yaml:"address"`
 		ProducerPrivKey string           `yaml:"producerPrivKey"`
 		EmptyGenesis    bool             `yaml:"emptyGenesis"`
-		NumCandidates   uint             `yaml:"numCandidates"`
 		GravityChainDB  DB               `yaml:"gravityChainDB"`
 		Committee       committee.Config `yaml:"committee"`
 
@@ -229,6 +230,8 @@ type (
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
+		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
+		MaxCacheSize int `yaml:"maxCacheSize"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -313,6 +316,8 @@ type (
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
 		// ActionExpiry defines how long an action will be kept in action pool.
 		ActionExpiry time.Duration `yaml:"actionExpiry"`
+		// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
+		MinGasPriceStr string `yaml:"minGasPrice"`
 	}
 
 	// DB is the config for database
@@ -481,12 +486,13 @@ func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
 	return sk
 }
 
-// ValidateChain validates the chain configure
-func ValidateChain(cfg Config) error {
-	if cfg.Chain.NumCandidates <= 0 {
-		return errors.Wrapf(ErrInvalidCfg, "candidate number should be greater than 0")
+// MinGasPrice returns the minimal gas price threshold
+func (ap ActPool) MinGasPrice() *big.Int {
+	mgp, ok := big.NewInt(0).SetString(ap.MinGasPriceStr, 10)
+	if !ok {
+		log.S().Panicf("Error when parsing minimal gas price string: %s", ap.MinGasPriceStr)
 	}
-	return nil
+	return mgp
 }
 
 // ValidateDispatcher validates the dispatcher configs

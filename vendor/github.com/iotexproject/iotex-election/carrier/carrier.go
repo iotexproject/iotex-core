@@ -38,7 +38,7 @@ type Carrier interface {
 	Close()
 }
 
-type ethereumCarrier struct {
+type EthereumCarrier struct {
 	client                  *ethclient.Client
 	currentClientURLIndex   int
 	clientURLs              []string
@@ -72,7 +72,7 @@ func NewEthereumVoteCarrier(
 	if err != nil {
 		return nil, err
 	}
-	return &ethereumCarrier{
+	return &EthereumCarrier{
 		client:                  client,
 		currentClientURLIndex:   currentClientURLIndex,
 		clientURLs:              clientURLs,
@@ -81,11 +81,11 @@ func NewEthereumVoteCarrier(
 	}, nil
 }
 
-func (evc *ethereumCarrier) Close() {
+func (evc *EthereumCarrier) Close() {
 	evc.client.Close()
 }
 
-func (evc *ethereumCarrier) BlockTimestamp(height uint64) (ts time.Time, err error) {
+func (evc *EthereumCarrier) BlockTimestamp(height uint64) (ts time.Time, err error) {
 	var header *ethtypes.Header
 	for i := 0; i < len(evc.clientURLs); i++ {
 		if header, err = evc.client.HeaderByNumber(
@@ -103,7 +103,7 @@ func (evc *ethereumCarrier) BlockTimestamp(height uint64) (ts time.Time, err err
 	return ts, errors.New("failed to get block timestamp")
 }
 
-func (evc *ethereumCarrier) SubscribeNewBlock(height chan uint64, report chan error, unsubscribe chan bool) {
+func (evc *EthereumCarrier) SubscribeNewBlock(height chan uint64, report chan error, unsubscribe chan bool) {
 	ticker := time.NewTicker(60 * time.Second)
 	lastHeight := uint64(0)
 	go func() {
@@ -123,11 +123,11 @@ func (evc *ethereumCarrier) SubscribeNewBlock(height chan uint64, report chan er
 	}()
 }
 
-func (evc *ethereumCarrier) TipHeight() (uint64, error) {
+func (evc *EthereumCarrier) TipHeight() (uint64, error) {
 	return evc.tipHeight(0)
 }
 
-func (evc *ethereumCarrier) tipHeight(lastHeight uint64) (uint64, error) {
+func (evc *EthereumCarrier) tipHeight(lastHeight uint64) (uint64, error) {
 	for i := 0; i < len(evc.clientURLs); i++ {
 		header, err := evc.client.HeaderByNumber(context.Background(), nil)
 		if err == nil {
@@ -148,7 +148,7 @@ func (evc *ethereumCarrier) tipHeight(lastHeight uint64) (uint64, error) {
 	return 0, errors.New("failed to get tip height")
 }
 
-func (evc *ethereumCarrier) candidates(
+func (evc *EthereumCarrier) candidates(
 	opts *bind.CallOpts,
 	startIndex *big.Int,
 	limit *big.Int,
@@ -162,6 +162,13 @@ func (evc *ethereumCarrier) candidates(
 	var caller *contract.RegisterCaller
 	for i := 0; i < len(evc.clientURLs); i++ {
 		if caller, err = contract.NewRegisterCaller(evc.registerContractAddress, evc.client); err == nil {
+			var count *big.Int
+			if count, err = caller.CandidateCount(opts); err != nil {
+				return
+			}
+			if startIndex.Cmp(count) >= 0 {
+				return
+			}
 			if result, err = caller.GetAllCandidates(opts, startIndex, limit); err == nil {
 				return
 			}
@@ -174,7 +181,7 @@ func (evc *ethereumCarrier) candidates(
 	return result, errors.New("failed to get candidates")
 }
 
-func (evc *ethereumCarrier) Candidates(
+func (evc *EthereumCarrier) Candidates(
 	height uint64,
 	startIndex *big.Int,
 	count uint8,
@@ -215,11 +222,8 @@ func (evc *ethereumCarrier) Candidates(
 	return new(big.Int).Add(startIndex, big.NewInt(int64(num))), candidates, nil
 }
 
-func (evc *ethereumCarrier) buckets(
-	opts *bind.CallOpts,
-	previousIndex *big.Int,
-	limit *big.Int,
-) (result struct {
+// EthereumBucketsResult defines the data structure the buckets api returns
+type EthereumBucketsResult struct {
 	Count           *big.Int
 	Indexes         []*big.Int
 	StakeStartTimes []*big.Int
@@ -228,7 +232,22 @@ func (evc *ethereumCarrier) buckets(
 	StakedAmounts   []*big.Int
 	CanNames        [][12]byte
 	Owners          []common.Address
-}, err error) {
+}
+
+// Buckets returns the result of api "buckets"
+func (evc *EthereumCarrier) Buckets(
+	opts *bind.CallOpts,
+	previousIndex *big.Int,
+	limit *big.Int,
+) (EthereumBucketsResult, error) {
+	return evc.buckets(opts, previousIndex, limit)
+}
+
+func (evc *EthereumCarrier) buckets(
+	opts *bind.CallOpts,
+	previousIndex *big.Int,
+	limit *big.Int,
+) (result EthereumBucketsResult, err error) {
 	var caller *contract.StakingCaller
 	for i := 0; i < len(evc.clientURLs); i++ {
 		if caller, err = contract.NewStakingCaller(evc.stakingContractAddress, evc.client); err == nil {
@@ -261,7 +280,7 @@ func (evc *ethereumCarrier) buckets(
 	return result, errors.New("failed to get votes")
 }
 
-func (evc *ethereumCarrier) Votes(
+func (evc *EthereumCarrier) Votes(
 	height uint64,
 	previousIndex *big.Int,
 	count uint8,
@@ -306,7 +325,7 @@ func (evc *ethereumCarrier) Votes(
 	return previousIndex, votes, nil
 }
 
-func (evc *ethereumCarrier) rotateClient(cause error) (rotated bool, err error) {
+func (evc *EthereumCarrier) rotateClient(cause error) (rotated bool, err error) {
 	if cause != nil {
 		switch cause.Error() {
 		case "tls: use of closed connection":

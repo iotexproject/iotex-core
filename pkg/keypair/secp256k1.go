@@ -80,6 +80,14 @@ func (k *secp256k1PrvKey) Sign(hash []byte) ([]byte, error) {
 	return crypto.Sign(hash, k.PrivateKey)
 }
 
+// Zero zeroes the private key data
+func (k *secp256k1PrvKey) Zero() {
+	b := k.D.Bits()
+	for i := range b {
+		b[i] = 0
+	}
+}
+
 //======================================
 // PublicKey function
 //======================================

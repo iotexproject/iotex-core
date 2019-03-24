@@ -1,0 +1,38 @@
+// Copyright (c) 2019 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:$GOPATH/src *.proto
+syntax = "proto3";
+package iotextypes;
+option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
+
+import "proto/types/blockchain.proto";
+import "proto/types/endorsement.proto";
+
+message BlockProposal {
+    Block block = 1;
+    repeated Endorsement endorsements = 2;
+}
+
+message ConsensusVote {
+    enum Topic {
+        PROPOSAL = 0;
+        LOCK = 1;
+        COMMIT = 2;
+    }
+    bytes blockHash = 1;
+    Topic topic = 2;
+}
+
+message ConsensusMessage {
+    uint64 height = 1;
+    Endorsement endorsement = 2;
+    oneof msg {
+        BlockProposal blockProposal = 100;
+        ConsensusVote vote = 101;
+    }
+}

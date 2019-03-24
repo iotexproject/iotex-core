@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/libp2p/go-libp2p-peerstore"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -48,7 +48,7 @@ func TestLocalActPool(t *testing.T) {
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	cli := p2p.NewAgent(
-		cfg.Network,
+		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
 
 		},
@@ -119,7 +119,7 @@ func TestPressureActPool(t *testing.T) {
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	cli := p2p.NewAgent(
-		cfg.Network,
+		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
 
 		},
@@ -170,6 +170,7 @@ func newActPoolConfig() (config.Config, error) {
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.Explorer.Enabled = true

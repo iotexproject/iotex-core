@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -36,8 +37,9 @@ func TestPutBlockToParentChain(t *testing.T) {
 	blkpb := &iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
 			Core: &iotextypes.BlockHeaderCore{
-				Version: version.ProtocolVersion,
-				Height:  123456789,
+				Version:   version.ProtocolVersion,
+				Height:    123456789,
+				Timestamp: ptypes.TimestampNow(),
 			},
 			ProducerPubkey: pubKey.Bytes(),
 		},

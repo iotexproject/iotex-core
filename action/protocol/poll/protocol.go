@@ -53,7 +53,7 @@ type Protocol interface {
 	// Handle handles a vote
 	Handle(context.Context, action.Action, protocol.StateManager) (*action.Receipt, error)
 	// Validate validates a vote
-	Validate(ctx context.Context, act action.Action) error
+	Validate(context.Context, action.Action) error
 	// DelegatesByHeight returns the delegates by chain height
 	DelegatesByHeight(uint64) (state.CandidateList, error)
 	// ReadState read the state on blockchain via protocol
@@ -113,6 +113,11 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 		fallthrough
 	case "CommitteeBlockProducersByHeight":
 		return p.readBlockProducers()
+	case "GetGravityChainStartHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		return args[0], nil
 	default:
 		return nil, errors.New("corresponding method isn't found")
 	}
@@ -127,6 +132,7 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 }
 
 type governanceChainCommitteeProtocol struct {
+	cm                     protocol.ChainManager
 	getBlockTime           GetBlockTime
 	getEpochHeight         GetEpochHeight
 	getEpochNum            GetEpochNum
@@ -138,6 +144,7 @@ type governanceChainCommitteeProtocol struct {
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
 func NewGovernanceChainCommitteeProtocol(
+	cm protocol.ChainManager,
 	electionCommittee committee.Committee,
 	initGravityChainHeight uint64,
 	getBlockTime GetBlockTime,
@@ -161,6 +168,7 @@ func NewGovernanceChainCommitteeProtocol(
 	}
 
 	return &governanceChainCommitteeProtocol{
+		cm:                     cm,
 		electionCommittee:      electionCommittee,
 		initGravityChainHeight: initGravityChainHeight,
 		getBlockTime:           getBlockTime,
@@ -269,6 +277,15 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 			return nil, err
 		}
 		return serializeBlockProducers(activeBlockProducers)
+	case "GetGravityChainStartHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		gravityStartheight, err := p.getGravityHeight(byteutil.BytesToUint64(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		return byteutil.Uint64ToBytes(gravityStartheight), nil
 	default:
 		return nil, errors.New("corresponding method isn't found")
 
@@ -276,13 +293,9 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 }
 
 func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(height uint64) ([]string, error) {
-	gravityHeight, err := p.getGravityHeight(height)
+	delegates, err := p.cm.CandidatesByHeight(height)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get gravity chain height")
-	}
-	delegates, err := p.delegatesByGravityChainHeight(gravityHeight)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get delegates on height %d", height)
+		return nil, err
 	}
 	blockProducers := make([]string, 0)
 	for i, delegate := range delegates {
@@ -299,8 +312,8 @@ func (p *governanceChainCommitteeProtocol) readCommitteeProducersByHeight(height
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get active block producers on height %d", height)
 	}
-	epochNum := p.getEpochNum(height)
-	crypto.SortCandidates(blockProducers, epochNum, crypto.CryptoSeed)
+	epochStartHeight := p.getEpochHeight(height)
+	crypto.SortCandidates(blockProducers, epochStartHeight, crypto.CryptoSeed)
 	if uint64(len(blockProducers)) < p.numDelegates {
 		return blockProducers, nil
 	}

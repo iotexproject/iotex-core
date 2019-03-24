@@ -6,6 +6,10 @@ package mock_blockchain
 
 import (
 	context "context"
+	big "math/big"
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	address "github.com/iotexproject/iotex-core/address"
@@ -14,8 +18,6 @@ import (
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
-	big "math/big"
-	reflect "reflect"
 )
 
 // MockBlockchain is a mock of Blockchain interface
@@ -115,6 +117,20 @@ func (m *MockBlockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, 
 // CandidatesByHeight indicates an expected call of CandidatesByHeight
 func (mr *MockBlockchainMockRecorder) CandidatesByHeight(height interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockBlockchain)(nil).CandidatesByHeight), height)
+}
+
+// ProductivityByEpoch mocks base method
+func (m *MockBlockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
+	ret := m.ctrl.Call(m, "ProductivityByEpoch", epochNum)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(map[string]uint64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ProductivityByEpoch indicates an expected call of ProductivityByEpoch
+func (mr *MockBlockchainMockRecorder) ProductivityByEpoch(epochNum interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockBlockchain)(nil).ProductivityByEpoch), epochNum)
 }
 
 // GetHeightByHash mocks base method
@@ -332,8 +348,20 @@ func (mr *MockBlockchainMockRecorder) RecoverChainAndState(targetHeight interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverChainAndState", reflect.TypeOf((*MockBlockchain)(nil).RecoverChainAndState), targetHeight)
 }
 
+// GenesisTimestamp mocks base method
+func (m *MockBlockchain) GenesisTimestamp() int64 {
+	ret := m.ctrl.Call(m, "GenesisTimestamp")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// GenesisTimestamp indicates an expected call of GenesisTimestamp
+func (mr *MockBlockchainMockRecorder) GenesisTimestamp() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenesisTimestamp", reflect.TypeOf((*MockBlockchain)(nil).GenesisTimestamp))
+}
+
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp int64) (*block.Block, error) {
+func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp time.Time) (*block.Block, error) {
 	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, timestamp)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)

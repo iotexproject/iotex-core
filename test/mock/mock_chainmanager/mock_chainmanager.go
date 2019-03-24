@@ -274,6 +274,20 @@ func (mr *MockChainManagerMockRecorder) CandidatesByHeight(height interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockChainManager)(nil).CandidatesByHeight), height)
 }
 
+// ProductivityByEpoch mocks base method
+func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
+	ret := m.ctrl.Call(m, "ProductivityByEpoch", epochNum)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(map[string]uint64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ProductivityByEpoch indicates an expected call of ProductivityByEpoch
+func (mr *MockChainManagerMockRecorder) ProductivityByEpoch(epochNum interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockChainManager)(nil).ProductivityByEpoch), epochNum)
+}
+
 // MockStateManager is a mock of StateManager interface
 type MockStateManager struct {
 	ctrl     *gomock.Controller

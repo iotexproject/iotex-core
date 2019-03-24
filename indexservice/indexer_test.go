@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -53,8 +54,9 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	err = blk.ConvertFromBlockPb(&iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
 			Core: &iotextypes.BlockHeaderCore{
-				Version: version.ProtocolVersion,
-				Height:  123456789,
+				Version:   version.ProtocolVersion,
+				Height:    123456789,
+				Timestamp: ptypes.TimestampNow(),
 			},
 			ProducerPubkey: pubKey1.Bytes(),
 		},

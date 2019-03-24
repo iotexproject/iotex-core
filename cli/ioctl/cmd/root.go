@@ -14,9 +14,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/node"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/update"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/version"
 )
 
@@ -37,8 +39,10 @@ func Execute() {
 func init() {
 	RootCmd.AddCommand(account.AccountCmd)
 	RootCmd.AddCommand(action.ActionCmd)
+	RootCmd.AddCommand(alias.AliasCmd)
 	RootCmd.AddCommand(bc.BCCmd)
 	RootCmd.AddCommand(config.ConfigCmd)
 	RootCmd.AddCommand(node.NodeCmd)
+	RootCmd.AddCommand(update.UpdateCmd)
 	RootCmd.AddCommand(version.VersionCmd)
 }

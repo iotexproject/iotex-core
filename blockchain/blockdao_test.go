@@ -8,10 +8,20 @@ package blockchain
 
 import (
 	"context"
+	"fmt"
 	"hash/fnv"
 	"math/big"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+
+	"github.com/iotexproject/iotex-core/pkg/unit"
+
+	"github.com/iotexproject/iotex-core/test/identityset"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -139,7 +149,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, config.Default.Explorer.Enabled, false)
+		dao := newBlockDAO(kvstore, config.Default.Explorer.Enabled, false, 0)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -211,7 +221,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false)
+		dao := newBlockDAO(kvstore, true, false, 0)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -302,7 +312,7 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false)
+		dao := newBlockDAO(kvstore, true, false, 0)
 		err := dao.Start(ctx)
 		require.NoError(err)
 		defer func() {
@@ -371,7 +381,7 @@ func TestBlockDAO(t *testing.T) {
 }
 
 func TestBlockDao_putReceipts(t *testing.T) {
-	blkDao := newBlockDAO(db.NewMemKVStore(), true, false)
+	blkDao := newBlockDAO(db.NewMemKVStore(), true, false, 0)
 	receipts := []*action.Receipt{
 		{
 			ActHash:         hash.Hash256b([]byte("1")),
@@ -396,4 +406,69 @@ func TestBlockDao_putReceipts(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, receipt.ActHash, r.ActHash)
 	}
+}
+
+func BenchmarkBlockCache(b *testing.B) {
+	test := func(cacheSize int, b *testing.B) {
+		b.StopTimer()
+		path := filepath.Join(os.TempDir(), fmt.Sprintf("test-%d.db", rand.Int()))
+		cfg := config.DB{
+			DbPath:     path,
+			NumRetries: 1,
+		}
+		defer func() {
+			if !fileutil.FileExists(path) {
+				return
+			}
+			require.NoError(b, os.RemoveAll(path))
+		}()
+		store := db.NewOnDiskDB(cfg)
+
+		blkDao := newBlockDAO(store, false, false, cacheSize)
+		require.NoError(b, blkDao.Start(context.Background()))
+		defer func() {
+			require.NoError(b, blkDao.Stop(context.Background()))
+		}()
+		prevHash := hash.ZeroHash256
+		var err error
+		numBlks := 8640
+		for i := 1; i <= numBlks; i++ {
+			actions := make([]action.SealedEnvelope, 10)
+			for j := 0; j < 10; j++ {
+				actions[j], err = testutil.SignedTransfer(
+					identityset.Address(j).String(),
+					identityset.PrivateKey(j+1),
+					1,
+					unit.ConvertIotxToRau(1),
+					nil,
+					testutil.TestGasLimit,
+					testutil.TestGasPrice,
+				)
+				require.NoError(b, err)
+			}
+			tb := block.TestingBuilder{}
+			blk, err := tb.SetPrevBlockHash(prevHash).
+				SetVersion(1).
+				SetTimeStamp(time.Now()).
+				SetHeight(uint64(i)).
+				AddActions(actions...).
+				SignAndBuild(identityset.PrivateKey(0).PublicKey(), identityset.PrivateKey(0))
+			require.NoError(b, err)
+			require.NoError(b, blkDao.putBlock(&blk))
+			prevHash = blk.HashBlock()
+		}
+		b.ResetTimer()
+		b.StartTimer()
+		for n := 0; n < b.N; n++ {
+			hash, _ := blkDao.getBlockHash(uint64(rand.Intn(numBlks) + 1))
+			_, _ = blkDao.getBlock(hash)
+		}
+		b.StopTimer()
+	}
+	b.Run("cache", func(b *testing.B) {
+		test(8640, b)
+	})
+	b.Run("no-cache", func(b *testing.B) {
+		test(0, b)
+	})
 }

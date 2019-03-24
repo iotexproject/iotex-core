@@ -11,8 +11,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,10 +18,12 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestAddSubChainActions(t *testing.T) {
@@ -57,10 +57,14 @@ func TestAddSubChainActions(t *testing.T) {
 		110,
 		10,
 		uint64(1000),
-		big.NewInt(0),
+		testutil.TestGasPrice,
 	)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).SetGasLimit(10000).SetAction(startSubChain).Build()
+	elp := bd.SetNonce(1).
+		SetGasLimit(10000).
+		SetAction(startSubChain).
+		SetGasPrice(testutil.TestGasPrice).
+		Build()
 	selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(selp))
@@ -73,11 +77,11 @@ func TestAddSubChainActions(t *testing.T) {
 		10001,
 		roots,
 		10003,
-		big.NewInt(10004),
+		testutil.TestGasPrice,
 	)
 	bd = &action.EnvelopeBuilder{}
 	pbelp := bd.SetNonce(2).
-		SetGasPrice(big.NewInt(10004)).
+		SetGasPrice(testutil.TestGasPrice).
 		SetAction(putBlock).
 		SetGasLimit(10003).Build()
 	pbselp, err := action.Sign(pbelp, testaddress.Keyinfo["producer"].PriKey)
@@ -89,11 +93,11 @@ func TestAddSubChainActions(t *testing.T) {
 		testaddress.Addrinfo["alfa"].String(),
 		10003,
 		10005,
-		big.NewInt(10006),
+		testutil.TestGasPrice,
 	)
 	bd = &action.EnvelopeBuilder{}
 	sscelp := bd.SetNonce(3).
-		SetGasPrice(big.NewInt(10006)).
+		SetGasPrice(testutil.TestGasPrice).
 		SetAction(stopSubChain).
 		SetGasLimit(10005).Build()
 	sscselp, err := action.Sign(sscelp, testaddress.Keyinfo["producer"].PriKey)

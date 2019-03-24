@@ -160,19 +160,6 @@ func TestValidateExplorer(t *testing.T) {
 	)
 }
 
-func TestValidateChain(t *testing.T) {
-	cfg := Default
-	cfg.Chain.NumCandidates = 0
-
-	err := ValidateChain(cfg)
-	require.Error(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "candidate number should be greater than 0"),
-	)
-}
-
 func TestValidateDispatcher(t *testing.T) {
 	cfg := Default
 	cfg.Dispatcher.EventChanSize = 0

@@ -8,10 +8,11 @@ package keypair
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"encoding/hex"
+	"io/ioutil"
 
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
 )
 
@@ -41,6 +42,7 @@ type (
 		EcdsaPrivateKey() *ecdsa.PrivateKey
 		PublicKey() PublicKey
 		Sign([]byte) ([]byte, error)
+		Zero()
 	}
 )
 
@@ -77,15 +79,19 @@ func BytesToPrivateKey(prvKey []byte) (PrivateKey, error) {
 	return newSecp256k1PrvKeyFromBytes(prvKey)
 }
 
-// SigToPublicKey returns the uncompressed public key that created the given signature
-func SigToPublicKey(hash, sig []byte) (PublicKey, error) {
-	pk, err := crypto.Ecrecover(hash, sig)
+// KeystoreToPrivateKey generates PrivateKey from Keystore account
+func KeystoreToPrivateKey(account accounts.Account, password string) (PrivateKey, error) {
+	// load the key from the keystore
+	keyJSON, err := ioutil.ReadFile(account.URL.Path)
 	if err != nil {
 		return nil, err
 	}
-	x, y := elliptic.Unmarshal(crypto.S256(), pk)
-	return &secp256k1PubKey{
-		PublicKey: &ecdsa.PublicKey{Curve: crypto.S256(), X: x, Y: y},
+	key, err := keystore.DecryptKey(keyJSON, password)
+	if err != nil {
+		return nil, err
+	}
+	return &secp256k1PrvKey{
+		PrivateKey: key.PrivateKey,
 	}, nil
 }
 

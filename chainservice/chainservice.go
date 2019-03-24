@@ -359,7 +359,7 @@ func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.Pe
 }
 
 // HandleConsensusMsg handles incoming consensus message.
-func (cs *ChainService) HandleConsensusMsg(msg *iotexrpc.Consensus) error {
+func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	return cs.consensus.HandleConsensusMsg(msg)
 }
 

@@ -87,7 +87,7 @@ func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1, arg2 interfa
 }
 
 // HandleConsensusMsg mocks base method
-func (m *MockSubscriber) HandleConsensusMsg(arg0 *iotexrpc.Consensus) error {
+func (m *MockSubscriber) HandleConsensusMsg(arg0 *iotextypes.ConsensusMessage) error {
 	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

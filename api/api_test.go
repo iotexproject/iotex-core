@@ -18,7 +18,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
-	"github.com/iotexproject/iotex-election/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,6 +41,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -53,30 +53,30 @@ import (
 var (
 	testTransfer, _ = testutil.SignedTransfer(ta.Addrinfo["alfa"].String(),
 		ta.Keyinfo["alfa"].PriKey, 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
-		big.NewInt(testutil.TestGasPrice))
+		big.NewInt(testutil.TestGasPriceInt64))
 
 	testTransferPb = testTransfer.Proto()
 
 	testExecution, _ = testutil.SignedExecution(ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["bravo"].PriKey, 1, big.NewInt(0), testutil.TestGasLimit,
-		big.NewInt(testutil.TestGasPrice), []byte{})
+		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
 	testExecutionPb = testExecution.Proto()
 
 	testTransfer1, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 1,
-		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash1 = testTransfer1.Hash()
 	testVote1, _  = testutil.SignedVote(ta.Addrinfo["charlie"].String(), ta.Keyinfo["charlie"].PriKey, 5,
-		testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+		testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	voteHash1         = testVote1.Hash()
 	testExecution1, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	executionHash1    = testExecution1.Hash()
 	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 6,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash2    = testExecution2.Hash()
 	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 2,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
 )
 
@@ -223,12 +223,12 @@ var (
 		numBlks int
 	}{
 		{
-			0,
+			1,
 			4,
 			4,
 		},
 		{
-			1,
+			2,
 			5,
 			3,
 		},
@@ -252,18 +252,41 @@ var (
 	}
 
 	getChainMetaTests = []struct {
+		// Arguments
+		emptyChain       bool
+		pollProtocolType string
+		// Expected values
 		height     uint64
 		numActions int64
 		tps        int64
 		epoch      iotextypes.EpochData
 	}{
 		{
+			emptyChain: true,
+		},
+
+		{
+			false,
+			"lifeLongDelegates",
 			4,
 			15,
 			15,
 			iotextypes.EpochData{
-				Num:    1,
-				Height: 1,
+				Num:                     1,
+				Height:                  1,
+				GravityChainStartHeight: 1,
+			},
+		},
+		{
+			false,
+			"governanceChainCommittee",
+			4,
+			15,
+			15,
+			iotextypes.EpochData{
+				Num:                     1,
+				Height:                  1,
+				GravityChainStartHeight: 100,
 			},
 		},
 	}
@@ -284,12 +307,20 @@ var (
 		status uint64
 	}{
 		{
+			hex.EncodeToString(transferHash1[:]),
+			action.SuccessReceiptStatus,
+		},
+		{
+			hex.EncodeToString(voteHash1[:]),
+			action.SuccessReceiptStatus,
+		},
+		{
 			hex.EncodeToString(executionHash2[:]),
-			1,
+			action.SuccessReceiptStatus,
 		},
 		{
 			hex.EncodeToString(executionHash3[:]),
-			1,
+			action.SuccessReceiptStatus,
 		},
 	}
 
@@ -341,7 +372,7 @@ var (
 			methodName: "UnclaimedBalance",
 			addr:       identityset.Address(0).String(),
 			returnErr:  false,
-			balance:    unit.ConvertIotxToRau(144), // 4 block * 36 IOTX reward by default = 144 IOTX
+			balance:    unit.ConvertIotxToRau(64), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
 		{
 			protocolID: rewarding.ProtocolID,
@@ -490,7 +521,7 @@ func TestServer_GetActions(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -512,10 +543,10 @@ func TestServer_GetAction(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(1, len(res.Actions))
-		actPb := res.Actions[0]
-		require.Equal(test.nonce, actPb.GetCore().GetNonce())
-		require.Equal(test.senderPubKey, hex.EncodeToString(actPb.SenderPubKey))
+		require.Equal(1, len(res.ActionInfo))
+		act := res.ActionInfo[0]
+		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
+		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 	}
 }
 
@@ -538,7 +569,7 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -561,7 +592,7 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -587,7 +618,7 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -651,10 +682,38 @@ func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	svr, err := createServer(cfg, false)
-	require.NoError(err)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
+	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
+		if test.pollProtocolType == "lifeLongDelegates" {
+			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+		} else if test.pollProtocolType == "governanceChainCommittee" {
+			committee := mock_committee.NewMockCommittee(ctrl)
+			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				nil,
+				committee,
+				uint64(123456),
+				func(uint64) (time.Time, error) { return time.Now(), nil },
+				func(uint64) uint64 { return 1 },
+				func(uint64) uint64 { return 1 },
+				cfg.Genesis.NumCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+			)
+			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
+		}
+
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		if pol != nil {
+			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		}
+		if test.emptyChain {
+			mbc := mock_blockchain.NewMockBlockchain(ctrl)
+			mbc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
+			svr.bc = mbc
+		}
 		res, err := svr.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
 		require.NoError(err)
 		chainMetaPb := res.ChainMeta
@@ -663,6 +722,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 		require.Equal(test.tps, chainMetaPb.Tps)
 		require.Equal(test.epoch.Num, chainMetaPb.Epoch.Num)
 		require.Equal(test.epoch.Height, chainMetaPb.Epoch.Height)
+		require.Equal(test.epoch.GravityChainStartHeight, chainMetaPb.Epoch.GravityChainStartHeight)
 	}
 }
 
@@ -790,10 +850,17 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
-	r := types.NewElectionResultForTest(time.Now())
-	committee.EXPECT().ResultByHeight(gomock.Any()).Return(r, nil).Times(2)
-	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
+	candidates := []*state.Candidate{
+		{
+			Address: "address1",
+		},
+		{
+			Address: "address2",
+		},
+	}
+	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
 	for _, test := range readActiveBlockProducersByHeightTests {
 		var pol poll.Protocol
@@ -802,6 +869,7 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				mbc,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -813,7 +881,7 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.Register(poll.ProtocolID, pol))
+		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -833,10 +901,17 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
-	r := types.NewElectionResultForTest(time.Now())
-	committee.EXPECT().ResultByHeight(gomock.Any()).Return(r, nil).Times(2)
-	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
+	candidates := []*state.Candidate{
+		{
+			Address: "address1",
+		},
+		{
+			Address: "address2",
+		},
+	}
+	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
 	for _, test := range readCommitteeProducersByHeightTests {
 		var pol poll.Protocol
@@ -845,6 +920,7 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				mbc,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -856,7 +932,7 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.Register(poll.ProtocolID, pol))
+		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -905,7 +981,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	addr4 := ta.Addrinfo["delta"].String()
 	// Add block 1
 	// Producer transfer--> C
-	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -914,7 +990,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
 		actionMap,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	)
 	if err != nil {
 		return err
@@ -933,18 +1009,18 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	recipients := []string{addr1, addr2, addr4, addr0}
 	selps := make([]action.SealedEnvelope, 0)
 	for i, recipient := range recipients {
-		selp, err := testutil.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+		selp, err := testutil.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 		if err != nil {
 			return err
 		}
 		selps = append(selps, selp)
 	}
-	vote1, err := testutil.SignedVote(addr3, priKey3, 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(addr3, priKey3, 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	execution1, err := testutil.SignedExecution(addr4, priKey3, 6,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
@@ -955,7 +1031,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr3] = selps
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	); err != nil {
 		return err
 	}
@@ -970,7 +1046,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Empty actions
 	if blk, err = bc.MintNewBlock(
 		nil,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	); err != nil {
 		return err
 	}
@@ -986,21 +1062,21 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	// Charlie exec--> D
 	// Alfa vote--> A
 	// Alfa exec--> D
-	vote1, err = testutil.SignedVote(addr3, priKey3, 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err = testutil.SignedVote(addr3, priKey3, 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-	vote2, err := testutil.SignedVote(addr1, priKey1, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote2, err := testutil.SignedVote(addr1, priKey1, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	execution1, err = testutil.SignedExecution(addr4, priKey3, 8,
-		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
 	execution2, err := testutil.SignedExecution(addr4, priKey1, 2,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice), []byte{1})
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
@@ -1010,7 +1086,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
-		time.Now().Unix(),
+		testutil.TimestampNow(),
 	); err != nil {
 		return err
 	}
@@ -1022,17 +1098,17 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 func addActsToActPool(ap actpool.ActPool) error {
 	// Producer transfer--> A
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer vote--> P
-	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer transfer--> B
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPrice))
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -1076,6 +1152,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	acc := account.NewProtocol()
 	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
+	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
@@ -1096,6 +1173,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		return nil, nil, err
 	}
 	if err := registry.Register(rewarding.ProtocolID, r); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(poll.ProtocolID, p); err != nil {
 		return nil, nil, err
 	}
 	sf.AddActionHandlers(acc, v, evm, r)
@@ -1128,6 +1208,8 @@ func newConfig() config.Config {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.EnableGravityChainVoting = true
+	cfg.ActPool.MinGasPriceStr = "0"
 	return cfg
 }
 

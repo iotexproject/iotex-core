@@ -8,9 +8,12 @@ package blockchain
 
 import (
 	"context"
+	"sync"
 
+	"github.com/golang/groupcache/lru"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
@@ -46,7 +49,15 @@ var (
 	actionToPrefix   = []byte("to.")
 )
 
-var _ lifecycle.StartStopper = (*blockDAO)(nil)
+var (
+	cacheMtc = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "iotex_blockdao_cache",
+			Help: "IoTeX blockdao cache counter.",
+		},
+		[]string{"result"},
+	)
+)
 
 type blockDAO struct {
 	writeIndex    bool
@@ -54,14 +65,19 @@ type blockDAO struct {
 	kvstore       db.KVStore
 	timerFactory  *prometheustimer.TimerFactory
 	lifecycle     lifecycle.Lifecycle
+	cache         *lru.Cache
+	cacheMutex    sync.RWMutex
 }
 
 // newBlockDAO instantiates a block DAO
-func newBlockDAO(kvstore db.KVStore, writeIndex bool, compressBlock bool) *blockDAO {
+func newBlockDAO(kvstore db.KVStore, writeIndex bool, compressBlock bool, maxCacheSize int) *blockDAO {
 	blockDAO := &blockDAO{
 		writeIndex:    writeIndex,
 		compressBlock: compressBlock,
 		kvstore:       kvstore,
+	}
+	if maxCacheSize > 0 {
+		blockDAO.cache = lru.New(maxCacheSize)
 	}
 	timerFactory, err := prometheustimer.New(
 		"iotex_block_dao_perf",
@@ -139,6 +155,16 @@ func (dao *blockDAO) getBlockHeight(hash hash.Hash256) (uint64, error) {
 
 // getBlock returns a block
 func (dao *blockDAO) getBlock(hash hash.Hash256) (*block.Block, error) {
+	if dao.cache != nil {
+		dao.cacheMutex.RLock()
+		cblk, ok := dao.cache.Get(hash)
+		dao.cacheMutex.RUnlock()
+		if ok {
+			cacheMtc.WithLabelValues("hit").Inc()
+			return cblk.(*block.Block), nil
+		}
+		cacheMtc.WithLabelValues("miss").Inc()
+	}
 	value, err := dao.kvstore.Get(blockNS, hash[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block %x", hash)
@@ -157,6 +183,11 @@ func (dao *blockDAO) getBlock(hash hash.Hash256) (*block.Block, error) {
 	blk := block.Block{}
 	if err = blk.Deserialize(value); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize block")
+	}
+	if dao.cache != nil {
+		dao.cacheMutex.Lock()
+		dao.cache.Add(hash, &blk)
+		dao.cacheMutex.Unlock()
 	}
 	return &blk, nil
 }
@@ -351,6 +382,11 @@ func (dao *blockDAO) deleteTipBlock() error {
 		return err
 	}
 
+	if dao.cache != nil {
+		dao.cacheMutex.Lock()
+		dao.cache.Remove(hash)
+		dao.cacheMutex.Unlock()
+	}
 	return dao.kvstore.Commit(batch)
 }
 

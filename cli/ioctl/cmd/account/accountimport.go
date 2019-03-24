@@ -22,10 +22,10 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// accountImportCmd represents the account create command
+// accountImportCmd represents the account import command
 var accountImportCmd = &cobra.Command{
-	Use:   "import NAME",
-	Short: "import IoTeX private key into wallet",
+	Use:   "import ALIAS",
+	Short: "Import IoTeX private key into wallet",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(accountImport(args))
@@ -34,31 +34,30 @@ var accountImportCmd = &cobra.Command{
 
 func accountImport(args []string) string {
 	// Validate inputs
-	if err := validator.ValidateName(args[0]); err != nil {
+	if err := validator.ValidateAlias(args[0]); err != nil {
 		return err.Error()
 	}
-	name := args[0]
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		return err.Error()
+	alias := args[0]
+	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
+		return fmt.Sprintf("alias \"%s\" has already used for %s.", alias, addr)
 	}
-	if _, ok := cfg.AccountList[name]; ok {
-		return fmt.Sprintf("A account named \"%s\" already exists.", name)
-	}
-	wallet := cfg.Wallet
-	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", name)
-	privateKeyBytes, err := terminal.ReadPassword(syscall.Stdin)
+	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", alias)
+	privateKeyBytes, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		log.L().Error("fail to get private key", zap.Error(err))
+		log.L().Error("failed to get private key", zap.Error(err))
 		return err.Error()
 	}
 	privateKey := strings.TrimSpace(string(privateKeyBytes))
-	addr, err := newAccountByKey(name, privateKey, wallet)
+	for i := 0; i < len(privateKeyBytes); i++ {
+		privateKeyBytes[i] = 0
+	}
+	addr, err := newAccountByKey(alias, privateKey, config.ReadConfig.Wallet)
+	privateKey = ""
 	if err != nil {
 		return err.Error()
 	}
-	cfg.AccountList[name] = addr
-	out, err := yaml.Marshal(&cfg)
+	config.ReadConfig.Aliases[alias] = addr
+	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
 		return err.Error()
 	}
@@ -66,7 +65,7 @@ func accountImport(args []string) string {
 		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
 	}
 	return fmt.Sprintf(
-		"New account \"%s\" is created. Keep your password, or your will lose your private key.",
-		name,
+		"New account #%s is created. Keep your password, or your will lose your private key.",
+		alias,
 	)
 }

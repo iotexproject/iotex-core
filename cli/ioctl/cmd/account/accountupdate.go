@@ -17,15 +17,16 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// accountUpdateCmd represents the account create command
+// accountUpdateCmd represents the account update command
 var accountUpdateCmd = &cobra.Command{
-	Use:   "update (NAME|ADDRESS)",
-	Short: "update password for IoTeX account",
+	Use:   "update (ALIAS|ADDRESS)",
+	Short: "Update password for IoTeX account",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(accountUpdate(args))
@@ -34,22 +35,24 @@ var accountUpdateCmd = &cobra.Command{
 
 func accountUpdate(args []string) string {
 	account := args[0]
-	addr, err := Address(account)
+	addr, err := alias.Address(account)
 	if err != nil {
 		return err.Error()
 	}
 	address, err := address.FromString(addr)
 	if err != nil {
+		log.L().Error("failed to convert string into address", zap.Error(err))
 		return err.Error()
 	}
 	// find the keystore and update
-	ks := keystore.NewKeyStore(config.Get("wallet"), keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(address.Bytes(), v.Address.Bytes()) {
 			fmt.Printf("#%s: Enter current password\n", account)
-			byteCurrentPassword, err := terminal.ReadPassword(syscall.Stdin)
+			byteCurrentPassword, err := terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
-				log.L().Error("fail to get current password", zap.Error(err))
+				log.L().Error("failed to get current password", zap.Error(err))
 				return err.Error()
 			}
 			currentPassword := string(byteCurrentPassword)
@@ -58,26 +61,26 @@ func accountUpdate(args []string) string {
 				return "wrong password"
 			}
 			fmt.Printf("#%s: Enter new password\n", account)
-			bytePassword, err := terminal.ReadPassword(syscall.Stdin)
+			bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
-				log.L().Error("fail to get password", zap.Error(err))
+				log.L().Error("failed to get password", zap.Error(err))
 				return err.Error()
 			}
 			password := string(bytePassword)
 			fmt.Printf("#%s: Enter new password again\n", account)
-			bytePassword, err = terminal.ReadPassword(syscall.Stdin)
+			bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
-				log.L().Error("fail to get password", zap.Error(err))
+				log.L().Error("failed to get password", zap.Error(err))
 				return err.Error()
 			}
 			if password != string(bytePassword) {
-				return "password doesn't match"
+				return ErrPasswdNotMatch.Error()
 			}
 			if err := ks.Update(v, currentPassword, password); err != nil {
-				log.L().Error("fail to update keystore", zap.Error(err))
+				log.L().Error("failed to update keystore", zap.Error(err))
 				return err.Error()
 			}
-			return fmt.Sprintf("Account \"%s\" has been updated.", account)
+			return fmt.Sprintf("Account #%s has been updated.", account)
 		}
 	}
 	return fmt.Sprintf("Account #%s not found", account)

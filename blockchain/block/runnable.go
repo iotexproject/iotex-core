@@ -7,6 +7,8 @@
 package block
 
 import (
+	"time"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -15,7 +17,7 @@ import (
 // RunnableActions is abstructed from block which contains information to execute all actions in a block.
 type RunnableActions struct {
 	blockHeight         uint64
-	blockTimeStamp      int64
+	blockTimeStamp      time.Time
 	blockProducerPubKey keypair.PublicKey
 	txHash              hash.Hash256
 	actions             []action.SealedEnvelope
@@ -27,7 +29,7 @@ func (ra RunnableActions) BlockHeight() uint64 {
 }
 
 // BlockTimeStamp returns blockTimeStamp.
-func (ra RunnableActions) BlockTimeStamp() int64 {
+func (ra RunnableActions) BlockTimeStamp() time.Time {
 	return ra.blockTimeStamp
 }
 
@@ -57,7 +59,7 @@ func (b *RunnableActionsBuilder) SetHeight(h uint64) *RunnableActionsBuilder {
 }
 
 // SetTimeStamp sets the time stamp for block which is building.
-func (b *RunnableActionsBuilder) SetTimeStamp(ts int64) *RunnableActionsBuilder {
+func (b *RunnableActionsBuilder) SetTimeStamp(ts time.Time) *RunnableActionsBuilder {
 	b.ra.blockTimeStamp = ts
 	return b
 }

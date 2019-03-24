@@ -74,10 +74,12 @@ func TestBasicProbe(t *testing.T) {
 }
 
 func TestReadniessHandler(t *testing.T) {
+	ctx := context.Background()
 	s := New(7788, WithReadinessHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 	})))
-	ctx := context.Background()
+	defer s.Stop(ctx)
+
 	require.NoError(t, s.Start(ctx))
 	test := []testCase{
 		{

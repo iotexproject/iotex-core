@@ -16,6 +16,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/test/identityset"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -48,22 +53,6 @@ func randStringRunes(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
-}
-
-func compareStrings(actual []string, expected []string) bool {
-	act := make(map[string]bool)
-	for i := 0; i < len(actual); i++ {
-		act[actual[i]] = true
-	}
-
-	for i := 0; i < len(expected); i++ {
-		if _, ok := act[expected[i]]; ok {
-			delete(act, expected[i])
-		} else {
-			return false
-		}
-	}
-	return len(act) == 0
 }
 
 func voteForm(height uint64, cs []*state.Candidate) []string {
@@ -159,663 +148,35 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 }
 
 func TestCandidates(t *testing.T) {
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	cfg := config.Default
-	cfg.Chain.NumCandidates = 2
-	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	sf, err := NewFactory(cfg, InMemTrieOption())
 	require.NoError(t, err)
-	testCandidates(sf, t, true)
+	testCandidates(sf, t)
 }
 
 func TestSDBCandidates(t *testing.T) {
-	testutil.CleanupPath(t, testStateDBPath)
-	defer testutil.CleanupPath(t, testStateDBPath)
 	cfg := config.Default
-	cfg.Chain.NumCandidates = 2
-	cfg.Chain.TrieDBPath = testStateDBPath
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	sdb, err := NewStateDB(cfg, InMemStateDBOption())
 	require.NoError(t, err)
-	testCandidates(sdb, t, false)
+	testCandidates(sdb, t)
 }
 
-func candidatesByHeight(sf Factory, height uint64) ([]*state.Candidate, error) {
-	for {
-		candidates, err := sf.CandidatesByHeight(height)
-		if err == nil {
-			return candidates, err
-		}
-		if height == 0 {
-			return nil, errors.New("not found")
-		}
-		height--
-	}
-}
-
-func testCandidates(sf Factory, t *testing.T, checkStateRoot bool) {
-
-	// Create three dummy iotex addresses
-	a := testaddress.Addrinfo["alfa"].String()
-	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	b := testaddress.Addrinfo["bravo"].String()
-	priKeyB := testaddress.Keyinfo["bravo"].PriKey
-	c := testaddress.Addrinfo["charlie"].String()
-	priKeyC := testaddress.Keyinfo["charlie"].PriKey
-	d := testaddress.Addrinfo["delta"].String()
-	priKeyD := testaddress.Keyinfo["delta"].PriKey
-	e := testaddress.Addrinfo["echo"].String()
-	priKeyE := testaddress.Keyinfo["echo"].PriKey
-	f := testaddress.Addrinfo["foxtrot"].String()
-	priKeyF := testaddress.Keyinfo["foxtrot"].PriKey
-
-	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
-	require.NoError(t, sf.Start(context.Background()))
-	defer func() {
-		require.NoError(t, sf.Stop(context.Background()))
-	}()
+func testCandidates(sf Factory, t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
-	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, b, big.NewInt(200))
-	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, c, big.NewInt(300))
-	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, d, big.NewInt(100))
-	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, e, big.NewInt(100))
-	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, f, big.NewInt(300))
-	require.NoError(t, err)
-	// a:100(0) b:200(0) c:300(0)
-	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).SetAction(tx1).Build()
-	selp1, err := action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-
-	tx2, err := action.NewTransfer(uint64(2), big.NewInt(20), c, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(2).SetAction(tx2).Build()
-	selp2, err := action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-
-	gasLimit := uint64(1000000)
-	raCtx := protocol.RunActionsCtx{
-		Producer: testaddress.Addrinfo["producer"],
-		GasLimit: gasLimit,
-	}
-	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
-	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	balanceB, err := sf.Balance(b)
-	require.NoError(t, err)
-	require.Equal(t, balanceB, big.NewInt(210))
-	balanceC, err := sf.Balance(c)
-	require.NoError(t, err)
-	require.Equal(t, balanceC, big.NewInt(320))
-	h, _ := sf.Height()
-	cand, _ := sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{}))
-	// a:70 b:210 c:320
-
-	vote, err := action.NewVote(0, a, uint64(20000), big.NewInt(0))
-	require.NoError(t, err)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote).SetGasLimit(20000).Build()
-	selp, err := action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-	zeroGasLimit := uint64(0)
-	zctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: zeroGasLimit,
-		})
-	_, err = ws.RunActions(zctx, 0, []action.SealedEnvelope{selp})
-	require.NotNil(t, err)
-	_, err = ws.RunAction(raCtx, selp)
-	require.NoError(t, err)
-	newRoot := ws.UpdateBlockLevelInfo(0)
-	if checkStateRoot {
-		require.NotEqual(t, hash.ZeroHash256, newRoot)
-	}
+	require.NoError(t, candidatesutil.LoadAndAddCandidates(ws, 1, identityset.Address(0).String()))
+	require.NoError(t, candidatesutil.LoadAndUpdateCandidates(ws, 1, identityset.Address(0).String(), big.NewInt(0)))
+	require.NoError(t, candidatesutil.LoadAndAddCandidates(ws, 1, identityset.Address(1).String()))
+	require.NoError(t, candidatesutil.LoadAndUpdateCandidates(ws, 1, identityset.Address(1).String(), big.NewInt(1)))
 	require.NoError(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":70"}))
-	// a(a):70(+0=70) b:210 c:320
 
-	vote2, err := action.NewVote(0, b, uint64(20000), big.NewInt(0))
+	candidates, err := sf.CandidatesByHeight(1)
 	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote2).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, priKeyB)
-	require.NoError(t, err)
-	_, err = ws.RunAction(raCtx, selp)
-	require.NoError(t, err)
-	newRoot = ws.UpdateBlockLevelInfo(1)
-	if checkStateRoot {
-		require.NotEqual(t, hash.ZeroHash256, newRoot)
-	}
-	require.NoError(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":70", b + ":210"}))
-	// a(a):70(+0=70) b(b):210(+0=210) !c:320
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote3, err := action.NewVote(1, b, uint64(20000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote3).SetNonce(1).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-
-	_, err = ws.RunAction(raCtx, selp)
-	require.NoError(t, err)
-	newRoot = ws.UpdateBlockLevelInfo(2)
-	if checkStateRoot {
-		require.NotEqual(t, hash.ZeroHash256, newRoot)
-	}
-	require.NoError(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
-	// a(b):70(0) b(b):210(+70=280) !c:320
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	tx3, err := action.NewTransfer(uint64(2), big.NewInt(20), a, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx3).SetNonce(2).Build()
-	selp, err = action.Sign(elp, priKeyB)
-	require.NoError(t, err)
-
-	_, err = ws.RunAction(raCtx, selp)
-	require.NoError(t, err)
-	newRoot = ws.UpdateBlockLevelInfo(3)
-	if checkStateRoot {
-		require.NotEqual(t, hash.ZeroHash256, newRoot)
-	}
-	require.NoError(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
-	// a(b):90(0) b(b):190(+90=280) !c:320
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	tx4, err := action.NewTransfer(uint64(2), big.NewInt(20), b, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx4).SetNonce(2).Build()
-	selp, err = action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-
-	_, err = ws.RunAction(raCtx, selp)
-	require.NoError(t, err)
-	newRoot = ws.UpdateBlockLevelInfo(4)
-	if checkStateRoot {
-		require.NotEqual(t, hash.ZeroHash256, newRoot)
-	}
-	require.NoError(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
-	// a(b):70(0) b(b):210(+70=280) !c:320
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote4, err := action.NewVote(1, a, uint64(20000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote4).SetNonce(1).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, priKeyB)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 5, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":210", b + ":70"}))
-	// a(b):70(210) b(a):210(70) !c:320
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote5, err := action.NewVote(2, b, uint64(20000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote5).SetNonce(2).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, priKeyB)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 6, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
-	// a(b):70(0) b(b):210(+70=280) !c:320
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote6, err := action.NewVote(3, b, uint64(20000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote6).SetNonce(3).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, priKeyB)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 7, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":280"}))
-	// a(b):70(0) b(b):210(+70=280) !c:320
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	tx5, err := action.NewTransfer(uint64(2), big.NewInt(20), a, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx5).SetNonce(2).Build()
-	selp, err = action.Sign(elp, priKeyC)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 8, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":0", b + ":300"}))
-	// a(b):90(0) b(b):210(+90=300) !c:300
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote7, err := action.NewVote(0, a, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote7).SetNonce(0).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyC)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 9, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":300"}))
-	// a(b):90(300) b(b):210(+90=300) !c(a):300
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote8, err := action.NewVote(4, c, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote8).SetNonce(4).Build()
-	selp, err = action.Sign(elp, priKeyB)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 10, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":300", b + ":90"}))
-	// a(b):90(300) b(c):210(90) !c(a):300
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote9, err := action.NewVote(1, c, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote9).SetNonce(1).
-		SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyC)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 11, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
-	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote10, err := action.NewVote(0, e, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote10).SetNonce(0).
-		SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyD)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 12, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", b + ":90"}))
-	// a(b):90(0) b(c):210(90) c(c):300(+210=510)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote11, err := action.NewVote(1, d, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote11).SetNonce(1).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyD)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 13, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", d + ":100"}))
-	// a(b):90(0) b(c):210(90) c(c):300(+210=510) d(d): 100(100)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote12, err := action.NewVote(2, a, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote12).SetNonce(2).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyD)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 14, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
-	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote13, err := action.NewVote(2, d, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote13).SetNonce(2).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyC)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 15, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":210", d + ":300"}))
-	// a(b):90(100) b(c):210(90) c(d):300(210) d(a): 100(300)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote14, err := action.NewVote(3, c, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote14).SetNonce(3).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyC)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 16, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":510", a + ":100"}))
-	// a(b):90(100) b(c):210(90) c(c):300(+210=510) d(a): 100(0)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	tx6, err := action.NewTransfer(uint64(1), big.NewInt(200), e, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx6).SetNonce(1).Build()
-	selp1, err = action.Sign(elp, priKeyC)
-	require.NoError(t, err)
-
-	tx7, err := action.NewTransfer(uint64(2), big.NewInt(200), e, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx7).SetNonce(2).Build()
-	selp2, err = action.Sign(elp, priKeyB)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 17, []action.SealedEnvelope{selp1, selp2})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", a + ":100"}))
-	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) !e:500
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote15, err := action.NewVote(0, e, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote15).SetNonce(0).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyE)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 18, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":110", e + ":500"}))
-	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote16, err := action.NewVote(0, f, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote16).SetNonce(0).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyF)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 19, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{f + ":300", e + ":500"}))
-	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(0) e(e):500(+0=500) f(f):300(+0=300)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote17, err := action.NewVote(0, d, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote17).SetNonce(0).
-		SetGasLimit(100000).Build()
-	selp1, err = action.Sign(elp, priKeyF)
-	require.NoError(t, err)
-
-	vote18, err := action.NewVote(1, d, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote18).SetNonce(1).
-		SetGasLimit(100000).Build()
-	selp2, err = action.Sign(elp, priKeyF)
-	require.NoError(t, err)
-
-	_, err = ws.RunAction(raCtx, selp1)
-	require.NoError(t, err)
-	_, err = ws.RunAction(raCtx, selp2)
-	require.NoError(t, err)
-	newRoot = ws.UpdateBlockLevelInfo(20)
-	if checkStateRoot {
-		require.NotEqual(t, hash.ZeroHash256, newRoot)
-	}
-	require.NoError(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{d + ":300", e + ":500"}))
-	// a(b):90(100) b(c):10(90) c(c):100(+10=110) d(a): 100(300) e(e):500(+0=500) f(d):300(0)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	tx8, err := action.NewTransfer(uint64(1), big.NewInt(200), b, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx8).SetNonce(1).Build()
-	selp, err = action.Sign(elp, priKeyF)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 21, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":310", e + ":500"}))
-	// a(b):90(100) b(c):210(90) c(c):100(+210=310) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
-	//fmt.Printf("%v \n", voteForm(sf.candidatesBuffer()))
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	tx9, err := action.NewTransfer(uint64(1), big.NewInt(10), a, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx9).SetNonce(1).Build()
-	selp, err = action.Sign(elp, priKeyB)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 22, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", e + ":500"}))
-	// a(b):100(100) b(c):200(100) c(c):100(+200=300) d(a): 100(100) e(e):500(+0=500) f(d):100(0)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	tx10, err := action.NewTransfer(uint64(1), big.NewInt(300), d, nil, uint64(0), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx10).SetNonce(1).Build()
-	selp, err = action.Sign(elp, priKeyE)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 23, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, err = sf.Height()
-	require.Equal(t, uint64(23), h)
-	require.NoError(t, err)
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", a + ":400"}))
-	// a(b):100(400) b(c):200(100) c(c):100(+200=300) d(a): 400(100) e(e):200(+0=200) f(d):100(0)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote19, err := action.NewVote(0, a, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote19).SetNonce(0).SetGasLimit(100000).Build()
-	selp1, err = action.Sign(elp, priKeyD)
-	require.NoError(t, err)
-
-	vote20, err := action.NewVote(3, b, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote20).SetNonce(3).SetGasLimit(100000).Build()
-	selp2, err = action.Sign(elp, priKeyD)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 24, []action.SealedEnvelope{selp1, selp2})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, err = sf.Height()
-	require.Equal(t, uint64(24), h)
-	require.NoError(t, err)
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{c + ":300", b + ":500"}))
-	// a(b):100(0) b(c):200(500) c(c):100(+200=300) d(b): 400(100) e(e):200(+0=200) f(d):100(0)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote21, err := action.NewVote(4, "", uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote21).SetNonce(4).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyC)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 25, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	require.Equal(t, uint64(25), h)
-	require.NoError(t, err)
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
-	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
-
-	ws, err = sf.NewWorkingSet()
-	require.NoError(t, err)
-	vote22, err := action.NewVote(4, "", uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote22).SetNonce(4).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyF)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 26, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	require.Equal(t, uint64(26), h)
-	require.NoError(t, err)
-	cand, _ = candidatesByHeight(sf, h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{e + ":200", b + ":500"}))
-	// a(b):100(0) b(c):200(500) [c(c):100(+200=300)] d(b): 400(100) e(e):200(+0=200) f(d):100(0)
-	stateA, err := accountutil.LoadOrCreateAccount(ws, a, big.NewInt(0))
-	require.NoError(t, err)
-	require.Equal(t, stateA.Balance, big.NewInt(100))
+	require.Equal(t, 2, len(candidates))
+	assert.Equal(t, candidates[0].Address, identityset.Address(1).String())
+	assert.Equal(t, candidates[0].Votes, big.NewInt(1))
+	assert.Equal(t, candidates[1].Address, identityset.Address(0).String())
+	assert.Equal(t, candidates[1].Votes, big.NewInt(0))
 }
 
 func TestState(t *testing.T) {
@@ -834,7 +195,6 @@ func TestSDBState(t *testing.T) {
 	defer testutil.CleanupPath(t, testStateDBPath)
 
 	cfg := config.Default
-	cfg.Chain.NumCandidates = 2
 	cfg.Chain.TrieDBPath = testStateDBPath
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
@@ -875,7 +235,7 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, sf.Commit(ws))
 	h, _ := sf.Height()
 	cand, _ := sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":100"}))
+	require.Equal(t, voteForm(h, cand), []string{a + ":100"})
 	// a(a):100(+0=100) b:200 c:300
 
 	//test AccountState() & State()
@@ -907,7 +267,6 @@ func TestSDBNonce(t *testing.T) {
 	defer testutil.CleanupPath(t, testStateDBPath)
 
 	cfg := config.Default
-	cfg.Chain.NumCandidates = 2
 	cfg.Chain.TrieDBPath = testStateDBPath
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
@@ -970,7 +329,6 @@ func TestUnvote(t *testing.T) {
 	defer testutil.CleanupPath(t, testTriePath)
 
 	cfg := config.Default
-	cfg.Chain.NumCandidates = 2
 	cfg.DB.DbPath = testTriePath
 	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
 	require.NoError(t, err)
@@ -981,7 +339,6 @@ func TestSDBUnvote(t *testing.T) {
 	testutil.CleanupPath(t, testStateDBPath)
 	defer testutil.CleanupPath(t, testStateDBPath)
 	cfg := config.Default
-	cfg.Chain.NumCandidates = 2
 	cfg.Chain.TrieDBPath = testStateDBPath
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
@@ -1026,7 +383,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ := sf.Height()
 	cand, _ := sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{}))
+	require.Equal(t, voteForm(h, cand), []string{})
 
 	vote2, err := action.NewVote(0, a, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
@@ -1041,7 +398,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{a + ":100"}))
+	require.Equal(t, voteForm(h, cand), []string{a + ":100"})
 
 	vote3, err := action.NewVote(0, "", uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
@@ -1056,7 +413,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{}))
+	require.Equal(t, voteForm(h, cand), []string{})
 
 	vote4, err := action.NewVote(0, b, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
@@ -1087,7 +444,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.True(t, compareStrings(voteForm(h, cand), []string{b + ":200"}))
+	require.Equal(t, voteForm(h, cand), []string{b + ":200"})
 }
 
 func TestLoadStoreHeight(t *testing.T) {

@@ -10,25 +10,10 @@ syntax = "proto3";
 package iotextypes;
 option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
 
-// corresponding to prepare and pre-prepare phase in view change protocol
-message Endorsement {
-  enum ConsensusVoteTopic {
-    PROPOSAL = 0;
-    LOCK = 1;
-    COMMIT = 2;
-  }
-  uint64 height = 1;
-  uint32 round = 2;
-  bytes blockHash = 3;
-  ConsensusVoteTopic topic = 4;
-  string endorser = 5;
-  bytes endorserPubKey = 6;
-  bool decision = 7;
-  bytes signature = 8;
-}
+import "google/protobuf/timestamp.proto";
 
-message EndorsementSet {
-  bytes blockHash = 1;
-  uint32 round = 2;
-  repeated Endorsement endorsements = 3;
+message Endorsement {
+    google.protobuf.Timestamp timestamp = 1;
+    bytes endorser = 2;
+    bytes signature = 3;
 }

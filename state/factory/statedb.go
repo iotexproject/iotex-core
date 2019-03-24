@@ -32,7 +32,6 @@ import (
 type stateDB struct {
 	mutex              sync.RWMutex
 	currentChainHeight uint64
-	numCandidates      uint
 	dao                db.KVStore               // the underlying DB for account/contract storage
 	actionHandlers     []protocol.ActionHandler // the handlers to handle actions
 	timerFactory       *prometheustimer.TimerFactory
@@ -66,7 +65,6 @@ func InMemStateDBOption() StateDBOption {
 func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
 		currentChainHeight: 0,
-		numCandidates:      cfg.Chain.NumCandidates,
 	}
 
 	for _, opt := range opts {
@@ -208,9 +206,6 @@ func (sdb *stateDB) CandidatesByHeight(height uint64) ([]*state.Candidate, error
 	)
 	if errors.Cause(err) == nil {
 		if len(candidates) > 0 {
-			if len(candidates) > int(sdb.numCandidates) {
-				candidates = candidates[:sdb.numCandidates]
-			}
 			return candidates, nil
 		}
 		err = state.ErrStateNotExist

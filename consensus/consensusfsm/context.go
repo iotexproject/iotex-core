@@ -20,32 +20,16 @@ type Context interface {
 	IsStaleUnmatchedEvent(*ConsensusEvent) bool
 
 	Logger() *zap.Logger
-	LoggerWithStats() *zap.Logger
-
 	Height() uint64
 
 	NewConsensusEvent(fsm.EventType, interface{}) *ConsensusEvent
 	NewBackdoorEvt(fsm.State) *ConsensusEvent
 
-	IsDelegate() bool
-	IsProposer() bool
+	Broadcast(interface{})
 
-	BroadcastBlockProposal(Endorsement)
-	BroadcastEndorsement(Endorsement)
-
-	Prepare() (time.Duration, error)
-	MintBlock() (Endorsement, error)
-	NewProposalEndorsement(Endorsement) (Endorsement, error)
-	NewLockEndorsement() (Endorsement, error)
-	NewPreCommitEndorsement() (Endorsement, error)
-	OnConsensusReached()
-
-	AddProposalEndorsement(Endorsement) error
-	AddLockEndorsement(Endorsement) error
-	AddPreCommitEndorsement(Endorsement) error
-
-	HasReceivedBlock() bool
-	IsLocked() bool
-	ReadyToPreCommit() bool
-	ReadyToCommit() bool
+	Prepare() (bool, interface{}, bool, bool, time.Duration, error)
+	NewProposalEndorsement(interface{}) (interface{}, error)
+	NewLockEndorsement(interface{}) (interface{}, error)
+	NewPreCommitEndorsement(interface{}) (interface{}, error)
+	Commit(interface{}) (bool, error)
 }

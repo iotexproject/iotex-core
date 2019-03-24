@@ -7,198 +7,137 @@
 package endorsement
 
 import (
-	"encoding/hex"
+	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
-// ConsensusVoteTopic defines the topic of an consensus vote
-type ConsensusVoteTopic uint8
+type (
+	// Document defines a signable docuement
+	Document interface {
+		Hash() ([]byte, error)
+	}
 
-const (
-	// PROPOSAL stands for an consensus vote to endorse a block proposal
-	PROPOSAL ConsensusVoteTopic = 0
-	// LOCK stands for an consensus vote to endorse a lock on a proposed block
-	LOCK ConsensusVoteTopic = 1
-	// COMMIT stands for an consensus vote to endorse a block commit
-	COMMIT ConsensusVoteTopic = 2
+	// Endorsement defines an endorsement with timestamp
+	Endorsement struct {
+		ts        time.Time
+		endorser  keypair.PublicKey
+		signature []byte
+	}
+
+	// EndorsedDocument is an signed document
+	EndorsedDocument interface {
+		Document() Document
+		Endorsement() *Endorsement
+	}
 )
 
-// ConsensusVote is a vote on a given topic for a block on a specific height
-type ConsensusVote struct {
-	BlkHash []byte
-	Height  uint64
-	Round   uint32
-	Topic   ConsensusVoteTopic
-}
-
-// NewConsensusVote creates a consensus vote
-func NewConsensusVote(blkHash []byte, height uint64, round uint32, topic ConsensusVoteTopic) *ConsensusVote {
-	return &ConsensusVote{
-		blkHash,
-		height,
-		round,
-		topic,
-	}
-}
-
-// Hash returns a Hash256 for the consensus vote
-func (en *ConsensusVote) Hash() hash.Hash256 {
-	stream := byteutil.Uint64ToBytes(en.Height)
-	stream = append(stream, uint8(en.Topic))
-	stream = append(stream, byteutil.Uint32ToBytes(en.Round)...)
-	stream = append(stream, en.BlkHash...)
-
-	return hash.Hash256b(stream)
-}
-
-// Endorsement is a stamp on a consensus vote
-type Endorsement struct {
-	object         *ConsensusVote
-	endorser       string
-	endorserPubkey keypair.PublicKey
-	signature      []byte
-}
-
-// NewEndorsement creates an Endorsement for an consensus vote
-func NewEndorsement(object *ConsensusVote, endorserPriKey keypair.PrivateKey, endorserAddr string) *Endorsement {
-	hash := object.Hash()
-	sig, err := endorserPriKey.Sign(hash[:])
+func hashDocWithTime(doc Document, ts time.Time) ([]byte, error) {
+	h, err := doc.Hash()
 	if err != nil {
-		log.L().Error("Failed to sign endorsement.")
-		return nil
+		return nil, err
 	}
+	h = append(h, byteutil.Uint64ToBytes(uint64(ts.Unix()))...)
+	h256 := hash.Hash256b(append(h, byteutil.Uint32ToBytes(uint32(ts.Nanosecond()))...))
+
+	return h256[:], nil
+}
+
+// NewEndorsement creates a new Endorsement
+func NewEndorsement(
+	ts time.Time,
+	endorserPubKey keypair.PublicKey,
+	sig []byte,
+) *Endorsement {
+	cs := make([]byte, len(sig))
+	copy(cs, sig)
 	return &Endorsement{
-		object:         object,
-		endorser:       endorserAddr,
-		endorserPubkey: endorserPriKey.PublicKey(),
-		signature:      sig,
+		ts:        ts,
+		endorser:  endorserPubKey,
+		signature: cs,
 	}
 }
 
-// ConsensusVote returns the Object of the endorse for signature
-func (en *Endorsement) ConsensusVote() *ConsensusVote {
-	return en.object
+// Endorse endorses a document
+func Endorse(
+	signer keypair.PrivateKey,
+	doc Document,
+	ts time.Time,
+) (*Endorsement, error) {
+	hash, err := hashDocWithTime(doc, ts)
+	if err != nil {
+		return nil, err
+	}
+	sig, err := signer.Sign(hash)
+	if err != nil {
+		return nil, err
+	}
+	return NewEndorsement(ts, signer.PublicKey(), sig), nil
 }
 
-// Endorser returns the endorser of this endorsement
-func (en *Endorsement) Endorser() string {
+// VerifyEndorsedDocument checks an endorsed document
+func VerifyEndorsedDocument(endorsedDoc EndorsedDocument) bool {
+	return VerifyEndorsement(endorsedDoc.Document(), endorsedDoc.Endorsement())
+}
+
+// VerifyEndorsement checks the signature in an endorsement against a document
+func VerifyEndorsement(doc Document, en *Endorsement) bool {
+	hash, err := hashDocWithTime(doc, en.Timestamp())
+	if err != nil {
+		return false
+	}
+
+	return en.Endorser().Verify(hash, en.Signature())
+}
+
+// Timestamp returns the signature time
+func (en *Endorsement) Timestamp() time.Time {
+	return en.ts
+}
+
+// Endorser returns the endorser's public key
+func (en *Endorsement) Endorser() keypair.PublicKey {
 	return en.endorser
-}
-
-// EndorserPublicKey returns the public key of the endorser of this endorsement
-func (en *Endorsement) EndorserPublicKey() keypair.PublicKey {
-	return en.endorserPubkey
 }
 
 // Signature returns the signature of this endorsement
 func (en *Endorsement) Signature() []byte {
-	return en.signature
+	signature := make([]byte, len(en.signature))
+	copy(signature, en.signature)
+
+	return signature
 }
 
-// VerifySignature verifies that the endorse with pubkey
-func (en *Endorsement) VerifySignature() bool {
-	hash := en.object.Hash()
-	return en.endorserPubkey.Verify(hash[:], en.signature)
-}
-
-// ToProtoMsg converts an endorsement to endorse proto
-func (en *Endorsement) ToProtoMsg() *iotextypes.Endorsement {
-	vote := en.ConsensusVote()
-	var topic iotextypes.Endorsement_ConsensusVoteTopic
-	switch vote.Topic {
-	case PROPOSAL:
-		topic = iotextypes.Endorsement_PROPOSAL
-	case LOCK:
-		topic = iotextypes.Endorsement_LOCK
-	case COMMIT:
-		topic = iotextypes.Endorsement_COMMIT
-	default:
-		log.L().Error("Endorsement object is of the wrong topic.")
-		return nil
-	}
-	pubkey := en.EndorserPublicKey()
-	return &iotextypes.Endorsement{
-		Height:         vote.Height,
-		Round:          vote.Round,
-		BlockHash:      vote.BlkHash,
-		Topic:          topic,
-		Endorser:       en.Endorser(),
-		EndorserPubKey: pubkey.Bytes(),
-		Decision:       true,
-		Signature:      en.Signature(),
-	}
-}
-
-// Serialize converts an endorsement to bytes
-func (en *Endorsement) Serialize() ([]byte, error) {
-	pb := en.ToProtoMsg()
-	if pb == nil {
-		return nil, errors.New("error when converting to protobuf")
-	}
-
-	return proto.Marshal(pb)
-}
-
-// FromProtoMsg creates an endorsement from endorsePb
-func (en *Endorsement) FromProtoMsg(endorsePb *iotextypes.Endorsement) error {
-	var topic ConsensusVoteTopic
-	switch endorsePb.Topic {
-	case iotextypes.Endorsement_PROPOSAL:
-		topic = PROPOSAL
-	case iotextypes.Endorsement_LOCK:
-		topic = LOCK
-	case iotextypes.Endorsement_COMMIT:
-		topic = COMMIT
-	default:
-		return errors.New("Invalid topic")
-	}
-	vote := NewConsensusVote(
-		endorsePb.BlockHash,
-		endorsePb.Height,
-		endorsePb.Round,
-		topic,
-	)
-	pubKey, err := keypair.BytesToPublicKey(endorsePb.EndorserPubKey)
+// Proto converts an endorsement to protobuf message
+func (en *Endorsement) Proto() (*iotextypes.Endorsement, error) {
+	ts, err := ptypes.TimestampProto(en.ts)
 	if err != nil {
-		log.L().Error("Error when constructing endorse from proto message.",
-			zap.Error(err),
-			log.Hex("endorserPubKey", endorsePb.EndorserPubKey))
-		return err
+		return nil, err
 	}
-	en.object = vote
-	en.endorser = endorsePb.Endorser
-	en.endorserPubkey = pubKey
-	en.signature = endorsePb.Signature
-
-	return nil
+	return &iotextypes.Endorsement{
+		Timestamp: ts,
+		Endorser:  en.endorser.Bytes(),
+		Signature: en.Signature(),
+	}, nil
 }
 
-// Deserialize converts a byte array to endorsement
-func (en *Endorsement) Deserialize(bs []byte) error {
-	pb := iotextypes.Endorsement{}
-	if err := proto.Unmarshal(bs, &pb); err != nil {
-		return err
+// LoadProto converts a protobuf message to endorsement
+func (en *Endorsement) LoadProto(ePb *iotextypes.Endorsement) (err error) {
+	if en.ts, err = ptypes.Timestamp(ePb.Timestamp); err != nil {
+		return
 	}
-	return en.FromProtoMsg(&pb)
-}
+	eb := make([]byte, len(ePb.Endorser))
+	copy(eb, ePb.Endorser)
+	if en.endorser, err = keypair.BytesToPublicKey(eb); err != nil {
+		return
+	}
+	en.signature = make([]byte, len(ePb.Signature))
+	copy(en.signature, ePb.Signature)
 
-// MarshalLogObject marshals the endorsement to a zap object
-func (en *Endorsement) MarshalLogObject(oe zapcore.ObjectEncoder) error {
-	oe.AddUint8("topic", uint8(en.object.Topic))
-	oe.AddString("warrantee", hex.EncodeToString(en.object.BlkHash))
-	oe.AddUint64("height", en.object.Height)
-	oe.AddUint32("round", en.object.Round)
-	oe.AddString("endorser", en.endorser)
-
-	return nil
+	return
 }

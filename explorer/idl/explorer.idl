@@ -128,8 +128,6 @@ struct Candidate {
     address string
     pubKey string
     totalVote string
-    creationHeight int
-    lastUpdateHeight int
     isDelegate bool
     isProducer bool
 }

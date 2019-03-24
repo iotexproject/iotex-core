@@ -84,7 +84,7 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		Origin:      executorAddr,
 		Coinbase:    producer,
 		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
-		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp),
+		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp.Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    gasLimit,
 		GasPrice:    execution.GasPrice(),
@@ -207,7 +207,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) (
 		// create contract
 		var evmContractAddress common.Address
 		ret, evmContractAddress, remainingGas, err = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
-		log.L().Warn("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
+		log.L().Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if err != nil {
 			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
 		}

@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/enc"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -69,6 +70,28 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
 		return err
 	}
+
+	// Get the reward address for the block producer
+	epochNum := p.rp.GetEpochNum(raCtx.BlockHeight)
+	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
+	if err != nil {
+		return err
+	}
+	producerAddrStr := raCtx.Producer.String()
+	rewardAddrStr := ""
+	for _, candidate := range candidates {
+		if candidate.Address == producerAddrStr {
+			rewardAddrStr = candidate.RewardAddress
+			break
+		}
+	}
+	// If reward address doesn't exist, do nothing
+	if rewardAddrStr == "" {
+		log.S().Warnf("Producer %s doesn't have a reward address", producerAddrStr)
+		return nil
+	}
+	rewardAddr, err := address.FromString(rewardAddrStr)
+
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
@@ -76,7 +99,10 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.updateAvailableBalance(sm, a.blockReward); err != nil {
 		return err
 	}
-	if err := p.grantToAccount(sm, raCtx.Producer, a.blockReward); err != nil {
+	if err != nil {
+		return err
+	}
+	if err := p.grantToAccount(sm, rewardAddr, a.blockReward); err != nil {
 		return err
 	}
 	return p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight)
@@ -99,17 +125,60 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return err
 	}
-	if err := p.updateAvailableBalance(sm, a.epochReward); err != nil {
-		return err
-	}
-	addrs, amounts, err := p.splitEpochReward(sm, raCtx.BlockHeight, a.epochReward, a.numDelegatesForEpochReward)
+	// We need to consistently use the votes on of first block height in this epoch
+	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
 	if err != nil {
 		return err
 	}
+
+	// Get unqualified delegate list
+	uqd, err := p.unqualifiedDelegates(raCtx.Producer, epochNum, a.productivityThreshold)
+	if err != nil {
+		return err
+	}
+
+	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward, uqd)
+	if err != nil {
+		return err
+	}
+	actualTotalReward := big.NewInt(0)
 	for i := range addrs {
+		// If reward address doesn't exist, do nothing
+		if addrs[i] == nil {
+			continue
+		}
 		if err := p.grantToAccount(sm, addrs[i], amounts[i]); err != nil {
 			return err
 		}
+		actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
+	}
+
+	// Reward additional bootstrap bonus
+	if epochNum <= a.foundationBonusLastEpoch {
+		l := uint64(len(candidates))
+		if l > a.numDelegatesForFoundationBonus {
+			l = a.numDelegatesForFoundationBonus
+		}
+		for i := uint64(0); i < l; i++ {
+			// If reward address doesn't exist, do nothing
+			if candidates[i].RewardAddress == "" {
+				log.S().Warnf("Candidate %s doesn't have a reward address", candidates[i].Address)
+				continue
+			}
+			rewardAddr, err := address.FromString(candidates[i].RewardAddress)
+			if err != nil {
+				return err
+			}
+			if err := p.grantToAccount(sm, rewardAddr, a.foundationBonus); err != nil {
+				return err
+			}
+			actualTotalReward = big.NewInt(0).Add(actualTotalReward, a.foundationBonus)
+		}
+	}
+
+	// Update actual reward
+	if err := p.updateAvailableBalance(sm, actualTotalReward); err != nil {
+		return err
 	}
 	return p.updateRewardHistory(sm, epochRewardHistoryKeyPrefix, epochNum)
 }
@@ -121,6 +190,9 @@ func (p *Protocol) Claim(
 	amount *big.Int,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if err := p.assertAmount(amount); err != nil {
+		return err
+	}
 	if err := p.updateTotalBalance(sm, amount); err != nil {
 		return err
 	}
@@ -225,14 +297,11 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 
 func (p *Protocol) splitEpochReward(
 	sm protocol.StateManager,
-	blkHeight uint64,
+	candidates []*state.Candidate,
 	totalAmount *big.Int,
 	numDelegatesForEpochReward uint64,
+	uqd map[string]interface{},
 ) ([]address.Address, []*big.Int, error) {
-	candidates, err := p.cm.CandidatesByHeight(blkHeight)
-	if err != nil {
-		return nil, nil, err
-	}
 	// Remove the candidates who exempt from the epoch reward
 	e := exempt{}
 	if err := p.state(sm, exemptKey, &e); err != nil {
@@ -250,6 +319,9 @@ func (p *Protocol) splitEpochReward(
 		filteredCandidates = append(filteredCandidates, candidate)
 	}
 	candidates = filteredCandidates
+	if len(candidates) == 0 {
+		return nil, nil, nil
+	}
 	// We at most allow numDelegatesForEpochReward delegates to get the epoch reward
 	if uint64(len(candidates)) > numDelegatesForEpochReward {
 		candidates = candidates[:numDelegatesForEpochReward]
@@ -257,15 +329,26 @@ func (p *Protocol) splitEpochReward(
 	totalWeight := big.NewInt(0)
 	rewardAddrs := make([]address.Address, 0)
 	for _, candidate := range candidates {
-		rewardAddr, err := address.FromString(candidate.RewardAddress)
-		if err != nil {
-			return nil, nil, err
+		var rewardAddr address.Address
+		var err error
+		if candidate.RewardAddress != "" {
+			rewardAddr, err = address.FromString(candidate.RewardAddress)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			log.S().Warnf("Candidate %s doesn't have a reward address", candidate.Address)
 		}
 		rewardAddrs = append(rewardAddrs, rewardAddr)
 		totalWeight = big.NewInt(0).Add(totalWeight, candidate.Votes)
 	}
 	amounts := make([]*big.Int, 0)
 	for _, candidate := range candidates {
+		// If not qualified, skip the epoch reward
+		if _, ok := uqd[candidate.Address]; ok {
+			amounts = append(amounts, big.NewInt(0))
+			continue
+		}
 		var amountPerAddr *big.Int
 		if totalWeight.Cmp(big.NewInt(0)) == 0 {
 			amountPerAddr = big.NewInt(0)
@@ -275,6 +358,29 @@ func (p *Protocol) splitEpochReward(
 		amounts = append(amounts, amountPerAddr)
 	}
 	return rewardAddrs, amounts, nil
+}
+
+func (p *Protocol) unqualifiedDelegates(
+	producer address.Address,
+	epochNum uint64,
+	productivityThreshold uint64,
+) (map[string]interface{}, error) {
+	unqualifiedDelegates := make(map[string]interface{}, 0)
+	numBlks, produce, err := p.cm.ProductivityByEpoch(epochNum)
+	if err != nil {
+		return nil, err
+	}
+	// The current block is not included, so that we need to add it to the stats
+	numBlks++
+	produce[producer.String()]++
+
+	expectedNumBlks := numBlks / uint64(len(produce))
+	for addr, actualNumBlks := range produce {
+		if actualNumBlks*100/expectedNumBlks < productivityThreshold {
+			unqualifiedDelegates[addr] = nil
+		}
+	}
+	return unqualifiedDelegates, nil
 }
 
 func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, index uint64) error {

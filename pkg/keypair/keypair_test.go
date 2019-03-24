@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 const (
@@ -71,18 +70,4 @@ func TestCompatibility(t *testing.T) {
 	addr, err := address.FromBytes(nsk.PublicKey().Hash())
 	require.NoError(err)
 	require.Equal(ethAddr.Bytes(), addr.Bytes())
-}
-
-func TestSigToPublicKey(t *testing.T) {
-	require := require.New(t)
-
-	sk, err := GenerateKey()
-	require.NoError(err)
-	h := hash.Hash256b([]byte("TestSigToPublicKey"))
-	sig, err := sk.Sign(h[:])
-	require.NoError(err)
-	pk, err := SigToPublicKey(h[:], sig)
-	require.NoError(err)
-	require.True(pk.Verify(h[:], sig))
-	require.Equal(sk.PublicKey(), pk)
 }
