@@ -100,7 +100,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 	switch {
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
-		return fmt.Sprintf("version: %d  ", action.Core.GetVersion()) +
+		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
 			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
 			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
 			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
@@ -116,7 +116,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			fmt.Sprintf("signature: %x\n", action.Signature), nil
 	case action.Core.GetExecution() != nil:
 		execution := action.Core.GetExecution()
-		return fmt.Sprintf("version: %d  ", action.Core.GetVersion()) +
+		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
 			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
 			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
 			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
@@ -131,7 +131,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 			fmt.Sprintf("signature: %x\n", action.Signature), nil
 	case action.Core.GetClaimFromRewardingFund() != nil:
-		return fmt.Sprintf("version: %d  ", action.Core.GetVersion()) +
+		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
 			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
 			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
 			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
