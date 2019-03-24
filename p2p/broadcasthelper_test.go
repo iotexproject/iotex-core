@@ -27,13 +27,13 @@ func TestBroadcastHelperHeap_AddMessage(t *testing.T) {
 		PeerId:    "foo",
 		MessageId: "a",
 	}
-	var frags []interface{}
+	var frags = make([]interface{}, len(expected))
 	for i, b := range expected {
 		msg := msgBase
 		msg.IndexOfFrag = uint32(i)
 		msg.HasMore = i != len(expected)-1
 		msg.MsgBody = []byte{b}
-		frags = append(frags, msg)
+		frags[i] = msg
 	}
 	frags = sliceShuffle(frags)
 	h := broadcastHelperHeap{}
@@ -84,6 +84,7 @@ func TestBroadcastHelperHeap_AddMessage(t *testing.T) {
 	msg2.IndexOfFrag = 2
 	msg2.HasMore = false
 	result = h.AddMessage(&msg2)
+	ast.Nil(result)
 
 	//frag 3
 	msg3 := msg

@@ -136,9 +136,8 @@ func (h *broadcastHelperHeap) AddMessage(msg *iotexrpc.BroadcastMsg) *iotexrpc.B
 			}
 			heap.Remove(h, index)
 			return bh.broadcast
-		} else {
-			heap.Fix(h, index)
 		}
+		heap.Fix(h, index)
 	}
 	return nil
 }

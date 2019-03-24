@@ -43,6 +43,7 @@ func testBroadcastNumber(t *testing.T, n int, messagesize int) {
 	counts := make(map[uint8]int)
 	var mutex sync.RWMutex
 	bh := func(name string) HandleBroadcastInbound {
+		_ = name
 		b := func(_ context.Context, _ uint32, msg proto.Message) {
 			mutex.Lock()
 			defer mutex.Unlock()
