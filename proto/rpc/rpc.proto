@@ -45,6 +45,9 @@ message BroadcastMsg {
   bytes msg_body = 3;
   string peer_id = 4;
   google.protobuf.Timestamp timestamp = 5;
+  string message_id=6;
+  uint32 index_of_frag=7;
+  bool   has_more=8;
 }
 
 message UnicastMsg {
