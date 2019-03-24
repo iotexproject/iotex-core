@@ -129,8 +129,26 @@ func (ctx *roundCtx) ProofOfLock() []*endorsement.Endorsement {
 	return ctx.proofOfLock
 }
 
-func (ctx *roundCtx) IsStale(height uint64, num uint32) bool {
-	return height < ctx.height || height == ctx.height && num < ctx.roundNum
+func (ctx *roundCtx) IsStale(height uint64, num uint32, data interface{}) bool {
+	switch {
+	case height < ctx.height:
+		return true
+	case height > ctx.height:
+		return false
+	case num >= ctx.roundNum:
+		return false
+	default:
+		msg, ok := data.(*EndorsedConsensusMessage)
+		if !ok {
+			return true
+		}
+		vote, ok := msg.Document().(*ConsensusVote)
+		if !ok {
+			return true
+		}
+
+		return vote.Topic() != COMMIT
+	}
 }
 
 func (ctx *roundCtx) IsFuture(height uint64, num uint32) bool {
