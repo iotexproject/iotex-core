@@ -74,12 +74,14 @@ func (p *Protocol) Handle(
 	case *action.DepositToRewardingFund:
 		si := sm.Snapshot()
 		if err := p.Deposit(ctx, sm, act.Amount()); err != nil {
+			log.L().Debug("Error when handling rewarding action", zap.Error(err))
 			return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 		}
 		return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
 	case *action.ClaimFromRewardingFund:
 		si := sm.Snapshot()
 		if err := p.Claim(ctx, sm, act.Amount()); err != nil {
+			log.L().Debug("Error when handling rewarding action", zap.Error(err))
 			return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 		}
 		return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
@@ -88,12 +90,14 @@ func (p *Protocol) Handle(
 		case action.BlockReward:
 			si := sm.Snapshot()
 			if err := p.GrantBlockReward(ctx, sm); err != nil {
+				log.L().Debug("Error when handling rewarding action", zap.Error(err))
 				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 			}
 			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
 		case action.EpochReward:
 			si := sm.Snapshot()
 			if err := p.GrantEpochReward(ctx, sm); err != nil {
+				log.L().Debug("Error when handling rewarding action", zap.Error(err))
 				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 			}
 			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
