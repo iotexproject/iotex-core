@@ -347,22 +347,11 @@ func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.Estima
 	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
 }
 
-// GetProductivity gets block producers' productivity
-func (api *Server) GetProductivity(
+// GetEpochMeta gets epoch metadata
+func (api *Server) GetEpochMeta(
 	ctx context.Context,
-	in *iotexapi.GetProductivityRequest,
-) (*iotexapi.GetProductivityResponse, error) {
-	if in.EpochNumber < 1 {
-		return nil, status.Error(codes.InvalidArgument, "epoch number cannot be less than one")
-	}
-	return api.getProductivity(in.EpochNumber)
-}
-
-// GetEpochData gets epoch data
-func (api *Server) GetEpochData(
-	ctx context.Context,
-	in *iotexapi.GetEpochDataRequest,
-) (*iotexapi.GetEpochDataResponse, error) {
+	in *iotexapi.GetEpochMetaRequest,
+) (*iotexapi.GetEpochMetaResponse, error) {
 	if in.EpochNumber < 1 {
 		return nil, status.Error(codes.InvalidArgument, "epoch number cannot be less than one")
 	}
@@ -396,21 +385,27 @@ func (api *Server) GetEpochData(
 		Arguments:  [][]byte{byteutil.Uint64ToBytes(nextEpochHeight)},
 	}
 	res, err := api.readState(context.Background(), readStateRequest)
-	var nextEpochBlockProducers []string
+	var nextEpochBlockProducers *iotexapi.NextEpochBlockProducers
 	switch errors.Cause(err) {
 	case nil:
 		var committeeBlockProducers pollpb.BlockProducerList
 		if err := proto.Unmarshal(res.Data, &committeeBlockProducers); err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
-		nextEpochBlockProducers = committeeBlockProducers.BlockProducers
+		nextEpochBlockProducers = &iotexapi.NextEpochBlockProducers{
+			Ready:          true,
+			BlockProducers: committeeBlockProducers.BlockProducers,
+		}
 	case state.ErrStateNotExist:
-		nextEpochBlockProducers = make([]string, 0)
+		nextEpochBlockProducers = &iotexapi.NextEpochBlockProducers{
+			Ready:          false,
+			BlockProducers: make([]string, 0),
+		}
 	default:
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &iotexapi.GetEpochDataResponse{
+	return &iotexapi.GetEpochMetaResponse{
 		EpochData:               epochData,
 		Productivity:            productivity,
 		NextEpochBlockProducers: nextEpochBlockProducers,
@@ -709,12 +704,12 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 	return gravityChainStartHeight, nil
 }
 
-func (api *Server) getProductivity(epochNumber uint64) (*iotexapi.GetProductivityResponse, error) {
+func (api *Server) getProductivity(epochNumber uint64) (*iotexapi.Productivity, error) {
 	numBlks, produce, err := api.bc.ProductivityByEpoch(epochNumber)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	return &iotexapi.GetProductivityResponse{TotalBlks: numBlks, BlksPerDelegate: produce}, nil
+	return &iotexapi.Productivity{TotalBlks: numBlks, BlksPerDelegate: produce}, nil
 }
 
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {

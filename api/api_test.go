@@ -480,7 +480,7 @@ var (
 		},
 	}
 
-	getEpochDataTests = []struct {
+	getEpochMetaTests = []struct {
 		// Arguments
 		EpochNumber      uint64
 		pollProtocolType string
@@ -488,6 +488,7 @@ var (
 		epochData         iotextypes.EpochData
 		numBlksInEpoch    int
 		numBPsInEpoch     int
+		nextEpochReady    bool
 		numBPsInNextEpoch int
 	}{
 		{
@@ -500,6 +501,7 @@ var (
 			},
 			4,
 			24,
+			true,
 			24,
 		},
 		{
@@ -512,6 +514,7 @@ var (
 			},
 			4,
 			4,
+			false,
 			0,
 		},
 	}
@@ -983,14 +986,14 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 	}
 }
 
-func TestServer_GetEpochData(t *testing.T) {
+func TestServer_GetEpochMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	for _, test := range getEpochDataTests {
+	for _, test := range getEpochMetaTests {
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
 		if test.pollProtocolType == "lifeLongDelegates" {
@@ -1027,14 +1030,15 @@ func TestServer_GetEpochData(t *testing.T) {
 				Return(nil, state.ErrStateNotExist).Times(1)
 			svr.bc = mbc
 		}
-		res, err := svr.GetEpochData(context.Background(), &iotexapi.GetEpochDataRequest{EpochNumber: test.EpochNumber})
+		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
 		require.NoError(err)
 		require.Equal(test.epochData.Num, res.EpochData.Num)
 		require.Equal(test.epochData.Height, res.EpochData.Height)
 		require.Equal(test.epochData.GravityChainStartHeight, res.EpochData.GravityChainStartHeight)
 		require.Equal(test.numBlksInEpoch, int(res.Productivity.TotalBlks))
 		require.Equal(test.numBPsInEpoch, len(res.Productivity.BlksPerDelegate))
-		require.Equal(test.numBPsInNextEpoch, len(res.NextEpochBlockProducers))
+		require.Equal(test.nextEpochReady, res.NextEpochBlockProducers.Ready)
+		require.Equal(test.numBPsInNextEpoch, len(res.NextEpochBlockProducers.BlockProducers))
 	}
 }
 
