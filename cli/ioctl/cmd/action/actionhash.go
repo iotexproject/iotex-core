@@ -82,7 +82,6 @@ func getActionByHash(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-
 	return output + "\n#This action has been written on blockchain\n" +
 		printReceiptProto(responseReceipt.Receipt)
 }
@@ -101,35 +100,43 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 	switch {
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
-		return fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-			match(senderAddress.String(), "address")) +
+		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
+			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
+			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
+			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
+			fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
+				match(senderAddress.String(), "address")) +
 			"transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				match(transfer.Recipient, "address")) +
-			fmt.Sprintf("  amount: %s\n", transfer.Amount) +
+			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount) +
 			fmt.Sprintf("  payload: %s\n", transfer.Payload) +
 			">\n" +
 			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 			fmt.Sprintf("signature: %x\n", action.Signature), nil
 	case action.Core.GetExecution() != nil:
 		execution := action.Core.GetExecution()
-		return fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-			match(senderAddress.String(), "address")) +
-			fmt.Sprintf("version: %d\n", action.Core.GetVersion()) +
-			fmt.Sprintf("nonce: %d\n", action.Core.GetNonce()) +
-			fmt.Sprintf("gasLimit: %d\n", action.Core.GasLimit) +
-			fmt.Sprintf("gasPrice: %s\n", action.Core.GasPrice) +
+		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
+			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
+			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
+			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
+			fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
+				match(senderAddress.String(), "address")) +
 			"execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
 				match(execution.Contract, "address")) +
-			fmt.Sprintf("  amount: %s\n", execution.Amount) +
+			fmt.Sprintf("  amount: %s Rau\n", execution.Amount) +
 			fmt.Sprintf("  data: %x\n", execution.Data) +
 			">\n" +
 			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 			fmt.Sprintf("signature: %x\n", action.Signature), nil
 	case action.Core.GetClaimFromRewardingFund() != nil:
-		return fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-			match(senderAddress.String(), "address")) +
+		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
+			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
+			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
+			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
+			fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
+				match(senderAddress.String(), "address")) +
 			proto.MarshalTextString(action.Core) +
 			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 			fmt.Sprintf("signature: %x\n", action.Signature), nil
@@ -151,6 +158,7 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 		fmt.Sprintf("status: %d %s\n", receipt.Status,
 			match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
+		// TODO: blkHash
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		fmt.Sprintf("contractAddress: %s %s\n", receipt.ContractAddress,
 			match(receipt.ContractAddress, "address")) +
