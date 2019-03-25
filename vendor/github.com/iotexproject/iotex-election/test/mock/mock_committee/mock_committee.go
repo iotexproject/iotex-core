@@ -37,6 +37,7 @@ func (m *MockCommittee) EXPECT() *MockCommitteeMockRecorder {
 
 // Start mocks base method
 func (m *MockCommittee) Start(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -44,11 +45,13 @@ func (m *MockCommittee) Start(arg0 context.Context) error {
 
 // Start indicates an expected call of Start
 func (mr *MockCommitteeMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockCommittee)(nil).Start), arg0)
 }
 
 // Stop mocks base method
 func (m *MockCommittee) Stop(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -56,11 +59,13 @@ func (m *MockCommittee) Stop(arg0 context.Context) error {
 
 // Stop indicates an expected call of Stop
 func (mr *MockCommitteeMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockCommittee)(nil).Stop), arg0)
 }
 
 // ResultByHeight mocks base method
 func (m *MockCommittee) ResultByHeight(height uint64) (*types.ElectionResult, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResultByHeight", height)
 	ret0, _ := ret[0].(*types.ElectionResult)
 	ret1, _ := ret[1].(error)
@@ -69,11 +74,28 @@ func (m *MockCommittee) ResultByHeight(height uint64) (*types.ElectionResult, er
 
 // ResultByHeight indicates an expected call of ResultByHeight
 func (mr *MockCommitteeMockRecorder) ResultByHeight(height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResultByHeight", reflect.TypeOf((*MockCommittee)(nil).ResultByHeight), height)
+}
+
+// FetchResultByHeight mocks base method
+func (m *MockCommittee) FetchResultByHeight(height uint64) (*types.ElectionResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FetchResultByHeight", height)
+	ret0, _ := ret[0].(*types.ElectionResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FetchResultByHeight indicates an expected call of FetchResultByHeight
+func (mr *MockCommitteeMockRecorder) FetchResultByHeight(height interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchResultByHeight", reflect.TypeOf((*MockCommittee)(nil).FetchResultByHeight), height)
 }
 
 // HeightByTime mocks base method
 func (m *MockCommittee) HeightByTime(timestamp time.Time) (uint64, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HeightByTime", timestamp)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
@@ -82,21 +104,13 @@ func (m *MockCommittee) HeightByTime(timestamp time.Time) (uint64, error) {
 
 // HeightByTime indicates an expected call of HeightByTime
 func (mr *MockCommitteeMockRecorder) HeightByTime(timestamp interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeightByTime", reflect.TypeOf((*MockCommittee)(nil).HeightByTime), timestamp)
-}
-
-// OnNewBlock mocks base method
-func (m *MockCommittee) OnNewBlock(height uint64) {
-	m.ctrl.Call(m, "OnNewBlock", height)
-}
-
-// OnNewBlock indicates an expected call of OnNewBlock
-func (mr *MockCommitteeMockRecorder) OnNewBlock(height interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnNewBlock", reflect.TypeOf((*MockCommittee)(nil).OnNewBlock), height)
 }
 
 // LatestHeight mocks base method
 func (m *MockCommittee) LatestHeight() uint64 {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LatestHeight")
 	ret0, _ := ret[0].(uint64)
 	return ret0
@@ -104,5 +118,6 @@ func (m *MockCommittee) LatestHeight() uint64 {
 
 // LatestHeight indicates an expected call of LatestHeight
 func (mr *MockCommitteeMockRecorder) LatestHeight() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestHeight", reflect.TypeOf((*MockCommittee)(nil).LatestHeight))
 }
