@@ -359,7 +359,12 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		return false, errors.Wrap(err, "failed to add endorsements to block")
 	}
 	// Commit and broadcast the pending block
-	if err := ctx.chain.CommitBlock(pendingBlock); err != nil {
+	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
+	case blockchain.ErrInvalidTipHeight:
+		return true, nil
+	case nil:
+		break
+	default:
 		return false, errors.Wrap(err, "error when committing a block")
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
