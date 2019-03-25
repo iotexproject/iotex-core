@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"math/rand"
-	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -43,10 +42,10 @@ const (
 	TsfSuccess
 	//This transfer should be accepted into action pool,
 	//but will stay in action pool (not minted yet)
-	//untill all the blocks with preceding nonces arrive
+	//until all the blocks with preceding nonce arrive
 	TsfPending
 	//This transfer should enable all the pending transfer in action pool be accepted
-	//into block chain. This happens when a transfer with the missing nouce arrives,
+	//into block chain. This happens when a transfer with the missing nonce arrives,
 	//filling the gap between minted blocks and pending blocks.
 	TsfFinal
 )
@@ -177,7 +176,7 @@ var (
 			1, big.NewInt(-100),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
-			TsfFail, "Transfer with negtive amount",
+			TsfFail, "Transfer with negative amount",
 		},
 		{
 			AcntCreate, nil, big.NewInt(100000),
@@ -255,8 +254,6 @@ var (
 )
 
 func TestLocalTransfer(t *testing.T) {
-	// TODO: fix ane enable the test
-	t.Skip()
 
 	require := require.New(t)
 
@@ -267,9 +264,7 @@ func TestLocalTransfer(t *testing.T) {
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	sk, err := keypair.GenerateKey()
-	require.NoError(err)
-	cfg, err := newTransferConfig(testDBPath, testTriePath, sk, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, networkPort, apiPort)
 	require.NoError(err)
 
 	// create server
@@ -285,22 +280,12 @@ func TestLocalTransfer(t *testing.T) {
 	go itx.StartServer(context.Background(), svr, probeSvr, cfg)
 
 	chainID := cfg.Chain.ID
-	require.NotNil(svr.ChainService(chainID).ActionPool())
-
-	err = testutil.WaitUntil(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		ret := true
-		resp, err := http.Get("http://localhost:7788/readiness")
-		if err != nil || http.StatusOK != resp.StatusCode {
-			ret = false
-		}
-
-		return ret, nil
-	})
-	require.NoError(err)
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", apiPort)
-	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
+	grpcctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(grpcctx, grpcAddr, grpc.WithBlock(), grpc.WithInsecure())
 	require.NoError(err)
 
 	client := iotexapi.NewAPIServiceClient(conn)
@@ -312,7 +297,8 @@ func TestLocalTransfer(t *testing.T) {
 	bc := svr.ChainService(chainID).Blockchain()
 	ap := svr.ChainService(chainID).ActionPool()
 
-	initTestAccounts(big.NewInt(30000), bc)
+	preProcessTestCases(t, bc)
+	initExistingAccounts(t, big.NewInt(30000), bc)
 
 	for _, tsfTest := range getSimpleTransferTests {
 		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc)
@@ -338,7 +324,7 @@ func TestLocalTransfer(t *testing.T) {
 		case TsfSuccess:
 			//Wait long enough for a block to be minted, and check the balance of both
 			//sender and receiver.
-			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
+			time.Sleep(cfg.Genesis.BlockInterval + 100*time.Millisecond)
 			selp, err := bc.GetActionByActionHash(tsf.Hash())
 			require.NoError(err, tsfTest.message)
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
@@ -365,7 +351,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(expectedRecvrBalance.String(), newRecvBalance.String(), tsfTest.message)
 		case TsfFail:
 			//The transfer should be rejected right after we inject it
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 			//In case of failed transfer, the transfer should not exit in either action pool or blockchain
 			_, err := ap.GetActionByHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
@@ -379,16 +365,16 @@ func TestLocalTransfer(t *testing.T) {
 
 		case TsfPending:
 			//Need to wait long enough to make sure the pending transfer is not minted, only stay in action pool
-			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
+			time.Sleep(cfg.Genesis.BlockInterval + 100*time.Millisecond)
 			_, err := ap.GetActionByHash(tsf.Hash())
 			require.NoError(err, tsfTest.message)
 			_, err = bc.GetActionByActionHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			//After a blocked is minted, check all the pending transfers in action pool are cleared
-			//This checking procedure is simplied for this test case, because of the complexity of
+			//This checking procedure is simplified for this test case, because of the complexity of
 			//handling pending transfers.
-			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
+			time.Sleep(cfg.Genesis.BlockInterval + 100*time.Millisecond)
 			require.Equal(0, lenPendingActionMap(ap.PendingActionMap()), tsfTest.message)
 
 		default:
@@ -399,7 +385,7 @@ func TestLocalTransfer(t *testing.T) {
 
 }
 
-// initStateKeyAddr, if the given privatekey is nil,
+// initStateKeyAddr, if the given private key is nil,
 // creates key, address, and init the new account with given balance
 // otherwise, calculate the the address, and load test with existing
 // balance state.
@@ -413,19 +399,11 @@ func initStateKeyAddr(
 	retAddr := ""
 	switch accountState {
 	case AcntCreate:
-		sk, err := keypair.GenerateKey()
-		if err != nil {
-			return nil, "", err
-		}
-		addr, err := address.FromBytes(sk.PublicKey().Hash())
+		addr, err := address.FromBytes(retKey.PublicKey().Hash())
 		if err != nil {
 			return nil, "", err
 		}
 		retAddr = addr.String()
-		if _, err := bc.CreateState(retAddr, initBalance); err != nil {
-			return nil, "", err
-		}
-		retKey = sk
 
 	case AcntExist:
 		addr, err := address.FromBytes(retKey.PublicKey().Hash())
@@ -460,21 +438,20 @@ func initStateKeyAddr(
 	return retKey, retAddr, nil
 }
 
-func initTestAccounts(
+//Initialize accounts that could be used multiple times in some test cases
+func initExistingAccounts(
+	t *testing.T,
 	initBalance *big.Int,
 	bc blockchain.Blockchain,
-) error {
+) {
 	for i := 0; i < len(localKeys); i++ {
 		sk := getLocalKey(i)
 		addr, err := address.FromBytes(sk.PublicKey().Hash())
-		if err != nil {
-			return err
-		}
-		if _, err := bc.CreateState(addr.String(), initBalance); err != nil {
-			return err
-		}
+		require.NoError(t, err)
+		_, err = bc.CreateState(addr.String(), initBalance)
+		require.NoError(t, err)
 	}
-	return nil
+
 }
 
 func getLocalKey(i int) keypair.PrivateKey {
@@ -482,10 +459,38 @@ func getLocalKey(i int) keypair.PrivateKey {
 	return sk
 }
 
+// Pre processing test cases with "AcntCreate" flag by creating new keys and accounts,
+// then filling that test case with the newly created key
+func preProcessTestCases(
+	t *testing.T,
+	bc blockchain.Blockchain,
+) {
+	for i, tsfTest := range getSimpleTransferTests {
+		if tsfTest.senderAcntState == AcntCreate {
+			sk, err := keypair.GenerateKey()
+			require.NoError(t, err)
+			addr, err := address.FromBytes(sk.PublicKey().Hash())
+			require.NoError(t, err)
+			_, err = bc.CreateState(addr.String(), tsfTest.senderBalance)
+			require.NoError(t, err)
+			getSimpleTransferTests[i].senderPriKey = sk
+		}
+		if tsfTest.recvAcntState == AcntCreate {
+			sk, err := keypair.GenerateKey()
+			require.NoError(t, err)
+			addr, err := address.FromBytes(sk.PublicKey().Hash())
+			require.NoError(t, err)
+			_, err = bc.CreateState(addr.String(), tsfTest.recvBalance)
+			require.NoError(t, err)
+			getSimpleTransferTests[i].recvPriKey = sk
+		}
+	}
+
+}
+
 func newTransferConfig(
 	chainDBPath,
 	trieDBPath string,
-	producerPriKey keypair.PrivateKey,
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
@@ -500,7 +505,7 @@ func newTransferConfig(
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.Port = apiPort
-	cfg.Genesis.BlockInterval = 2 * time.Second
+	cfg.Genesis.BlockInterval = 100 * time.Millisecond
 
 	return cfg, nil
 }
