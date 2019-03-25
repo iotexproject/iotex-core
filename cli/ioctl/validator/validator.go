@@ -16,8 +16,8 @@ import (
 var (
 	// ErrInvalidAddr indicates error for an invalid address
 	ErrInvalidAddr = errors.New("invalid IoTeX address")
-	// ErrLongName indicates error for a long name more than 40 characters
-	ErrLongName = errors.New("invalid long name that is more than 40 characters")
+	// ErrLongAlias indicates error for a long alias more than 40 characters
+	ErrLongAlias = errors.New("invalid long alias that is more than 40 characters")
 	// ErrNonPositiveNumber indicates error for a non-positive number
 	ErrNonPositiveNumber = errors.New("invalid number that is not positive")
 )
@@ -35,10 +35,10 @@ func ValidateAddress(addr string) error {
 	return nil
 }
 
-// ValidateName validates name for account
-func ValidateName(name string) error {
-	if len(name) > 40 {
-		return ErrLongName
+// ValidateAlias validates alias for account
+func ValidateAlias(alias string) error {
+	if len(alias) > 40 {
+		return ErrLongAlias
 	}
 	return nil
 }

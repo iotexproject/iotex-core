@@ -53,7 +53,7 @@ type Protocol interface {
 	// Handle handles a vote
 	Handle(context.Context, action.Action, protocol.StateManager) (*action.Receipt, error)
 	// Validate validates a vote
-	Validate(ctx context.Context, act action.Action) error
+	Validate(context.Context, action.Action) error
 	// DelegatesByHeight returns the delegates by chain height
 	DelegatesByHeight(uint64) (state.CandidateList, error)
 	// ReadState read the state on blockchain via protocol
@@ -113,6 +113,11 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 		fallthrough
 	case "CommitteeBlockProducersByHeight":
 		return p.readBlockProducers()
+	case "GetGravityChainStartHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		return args[0], nil
 	default:
 		return nil, errors.New("corresponding method isn't found")
 	}
@@ -272,6 +277,15 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 			return nil, err
 		}
 		return serializeBlockProducers(activeBlockProducers)
+	case "GetGravityChainStartHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		gravityStartheight, err := p.getGravityHeight(byteutil.BytesToUint64(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		return byteutil.Uint64ToBytes(gravityStartheight), nil
 	default:
 		return nil, errors.New("corresponding method isn't found")
 

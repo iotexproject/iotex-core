@@ -53,6 +53,7 @@ message Receipts {
 message EpochData {
   uint64 num = 1;
   uint64 height = 2;
+  uint64 gravityChainStartHeight = 3;
 }
 
 // Blockchain Metadata

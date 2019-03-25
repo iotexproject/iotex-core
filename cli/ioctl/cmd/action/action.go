@@ -72,29 +72,27 @@ func sendAction(elp action.Envelope) string {
 	fmt.Printf("Enter password #%s:\n", signer)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		log.L().Error("fail to get password", zap.Error(err))
+		log.L().Error("failed to get password", zap.Error(err))
 		return err.Error()
 	}
 	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
 	if err != nil {
-		log.L().Error("fail to generate key from keystore", zap.Error(err))
 		return err.Error()
 	}
 	defer prvKey.Zero()
 	sealed, err := action.Sign(elp, prvKey)
 	prvKey.Zero()
 	if err != nil {
-		log.L().Error("fail to sign action", zap.Error(err))
+		log.L().Error("failed to sign action", zap.Error(err))
 		return err.Error()
 	}
 	selp := sealed.Proto()
 
-	var confirm string
 	actionInfo, err := printActionProto(selp)
 	if err != nil {
 		return err.Error()
 	}
-
+	var confirm string
 	fmt.Println("\n" + actionInfo + "\n" +
 		"Please confirm your action.\n" +
 		"Type 'YES' to continue, quit for anything else.")

@@ -18,14 +18,14 @@ specific release so install-cli.sh can download them.
     ioctl [command]
 
     Available Commands:
-      account     Deal with accounts of IoTeX blockchain
-      action      Deal with actions of IoTeX blockchain
+      account     Manage accounts of IoTeX blockchain
+      action      Manage actions of IoTeX blockchain
+      alias       Manage aliases of IoTeX addresses
       bc          Deal with block chain of IoTeX blockchain
       help        Help about any command
       node        Deal with nodes of IoTeX blockchain
       update      Update ioctl with latest version
       version     Print the version number of ioctl
-      wallet      Manage accounts of IoTeX blockchain
 
     Flags:
       -h, --help   help for ioctl

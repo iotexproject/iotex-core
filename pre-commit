@@ -8,8 +8,7 @@
 
 #CURR_DIR="$(dirname $0)"
 #workspace=$(cd ../../)
-gopath=$(go env|grep GOPATH)
-export LD_LIBRARY_PATH=:${gopath}/src/github.com/iotexproject/iotex-core/crypto/lib
+export LD_LIBRARY_PATH=:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib
 check_result() {
     if [ $? != 0 ]; then
         echo "$1 failed!!"
@@ -23,7 +22,7 @@ check_result() {
     fi
 }
 
-cd ../../ && ./go.test.sh
+./go.test.sh
 check_result go.test.sh
 curl -s https://codecov.io/bash|bash
 go test -run=XXX -bench=. $(go list ./crypto)

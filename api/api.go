@@ -24,6 +24,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -35,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
@@ -152,7 +154,7 @@ func (api *Server) GetActions(ctx context.Context, in *iotexapi.GetActionsReques
 		return api.getActions(request.Start, request.Count)
 	case in.GetByHash() != nil:
 		request := in.GetByHash()
-		return api.getAction(request.ActionHash, request.CheckPending)
+		return api.getSingleAction(request.ActionHash, request.CheckPending)
 	case in.GetByAddr() != nil:
 		request := in.GetByAddr()
 		return api.getActionsByAddress(request.Address, request.Start, request.Count)
@@ -184,6 +186,13 @@ func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetas
 // GetChainMeta returns blockchain metadata
 func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRequest) (*iotexapi.GetChainMetaResponse, error) {
 	tipHeight := api.bc.TipHeight()
+	if tipHeight == 0 {
+		return &iotexapi.GetChainMetaResponse{
+			ChainMeta: &iotextypes.ChainMeta{
+				Epoch: &iotextypes.EpochData{},
+			},
+		}, nil
+	}
 	totalActions, err := api.bc.GetTotalActions()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -217,6 +226,21 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	}
 	epochNum := rp.GetEpochNum(tipHeight)
 	epochHeight := rp.GetEpochHeight(epochNum)
+
+	gravityChainStartHeight := epochHeight
+	if _, ok = api.registry.Find(poll.ProtocolID); ok {
+		readStateRequest := &iotexapi.ReadStateRequest{
+			ProtocolID: []byte(poll.ProtocolID),
+			MethodName: []byte("GetGravityChainStartHeight"),
+			Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
+		}
+		res, err := api.readState(ctx, readStateRequest)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		gravityChainStartHeight = byteutil.BytesToUint64(res.GetData())
+	}
+
 	timeDuration := blks[len(blks)-1].Timestamp - blks[0].Timestamp
 	// if time duration is less than 1 second, we set it to be 1 second
 	if timeDuration < 1 {
@@ -228,8 +252,9 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
 		Epoch: &iotextypes.EpochData{
-			Num:    epochNum,
-			Height: epochHeight,
+			Num:                     epochNum,
+			Height:                  epochHeight,
+			GravityChainStartHeight: gravityChainStartHeight,
 		},
 		NumActions: int64(totalActions),
 		Tps:        tps,
@@ -393,7 +418,7 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iotextypes.Action
+	var res []*iotexapi.ActionInfo
 	var actionCount uint64
 
 	tipHeight := api.bc.TipHeight()
@@ -411,31 +436,35 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 			}
 
 			if uint64(len(res)) >= count {
-				return &iotexapi.GetActionsResponse{Actions: res}, nil
+				return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
 			}
-			res = append(res, selps[i].Proto())
+			act, err := api.convertToAction(selps[i], true)
+			if err != nil {
+				return nil, err
+			}
+			res = append(res, act)
 		}
 	}
 
-	return &iotexapi.GetActionsResponse{Actions: res}, nil
+	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
 }
 
-// getAction returns action by action hash
-func (api *Server) getAction(actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
+// getSingleAction returns action by action hash
+func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
 	actHash, err := toHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	actPb, err := getAction(api.bc, api.ap, actHash, checkPending)
+	act, err := api.getAction(actHash, checkPending)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
-	return &iotexapi.GetActionsResponse{Actions: []*iotextypes.Action{actPb}}, nil
+	return &iotexapi.GetActionsResponse{ActionInfo: []*iotexapi.ActionInfo{act}}, nil
 }
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iotextypes.Action
+	var res []*iotexapi.ActionInfo
 	var actions []hash.Hash256
 	if api.cfg.UseRDS {
 		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
@@ -470,20 +499,20 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 			break
 		}
 
-		actPb, err := getAction(api.bc, api.ap, actions[i], false)
+		act, err := api.getAction(actions[i], false)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 
-		res = append(res, actPb)
+		res = append(res, act)
 	}
 
-	return &iotexapi.GetActionsResponse{Actions: res}, nil
+	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
 }
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iotextypes.Action
+	var res []*iotexapi.ActionInfo
 	var actionCount uint64
 
 	selps := api.ap.GetUnconfirmedActs(address)
@@ -497,16 +526,19 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 		if uint64(len(res)) >= count {
 			break
 		}
-
-		res = append(res, selps[i].Proto())
+		act, err := api.convertToAction(selps[i], false)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, act)
 	}
 
-	return &iotexapi.GetActionsResponse{Actions: res}, nil
+	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
 }
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	var res []*iotextypes.Action
+	var res []*iotexapi.ActionInfo
 	hash, err := toHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -530,9 +562,13 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 			break
 		}
 
-		res = append(res, selps[i].Proto())
+		act, err := api.convertToAction(selps[i], true)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, act)
 	}
-	return &iotexapi.GetActionsResponse{Actions: res}, nil
+	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
 }
 
 // getBlockMetas gets block within the height range
@@ -605,6 +641,36 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iotextypes.BlockMeta{blockMeta}}, nil
 }
 
+func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
+	actHash := selp.Hash()
+	blkHash := hash.ZeroHash256
+	var err error
+	if pullBlkHash {
+		if blkHash, err = api.bc.GetBlockHashByActionHash(actHash); err != nil {
+			return nil, err
+		}
+	}
+	return &iotexapi.ActionInfo{
+		Action:  selp.Proto(),
+		ActHash: hex.EncodeToString(actHash[:]),
+		BlkHash: hex.EncodeToString(blkHash[:]),
+	}, nil
+}
+func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
+	var selp action.SealedEnvelope
+	var err error
+	if selp, err = api.bc.GetActionByActionHash(actHash); err != nil {
+		if checkPending {
+			// Try to fetch pending action from actpool
+			selp, err = api.ap.GetActionByHash(actHash)
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.convertToAction(selp, !checkPending)
+}
+
 func toHash256(hashString string) (hash.Hash256, error) {
 	bytes, err := hex.DecodeString(hashString)
 	if err != nil {
@@ -613,21 +679,6 @@ func toHash256(hashString string) (hash.Hash256, error) {
 	var hash hash.Hash256
 	copy(hash[:], bytes)
 	return hash, nil
-}
-
-func getAction(bc blockchain.Blockchain, ap actpool.ActPool, actHash hash.Hash256, checkPending bool) (*iotextypes.Action, error) {
-	var selp action.SealedEnvelope
-	var err error
-	if selp, err = bc.GetActionByActionHash(actHash); err != nil {
-		if checkPending {
-			// Try to fetch pending action from actpool
-			selp, err = ap.GetActionByHash(actHash)
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	return selp.Proto(), nil
 }
 
 func getTranferAmountInBlock(blk *block.Block) *big.Int {
