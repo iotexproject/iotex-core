@@ -138,11 +138,16 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	actions, err := api.getTotalActionsByAddress(in.Address)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
 	accountMeta := &iotextypes.AccountMeta{
 		Address:      in.Address,
 		Balance:      state.Balance.String(),
 		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
+		NumActions:   uint64(len(actions)),
 	}
 	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta}, nil
 }
@@ -514,28 +519,10 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	var res []*iotexapi.ActionInfo
-	var actions []hash.Hash256
-	if api.cfg.UseRDS {
-		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-		actions = append(actions, actionHistory...)
-	} else {
-		actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-
-		actionsToAddress, err := api.bc.GetActionsToAddress(address)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-
-		actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
-		actions = append(actions, actionsFromAddress...)
+	actions, err := api.getTotalActionsByAddress(address)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
-
 	var actionCount uint64
 	for i := 0; i < len(actions); i++ {
 		actionCount++
@@ -722,6 +709,7 @@ func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool)
 		BlkHash: hex.EncodeToString(blkHash[:]),
 	}, nil
 }
+
 func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
 	var selp action.SealedEnvelope
 	var err error
@@ -735,6 +723,31 @@ func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi
 		return nil, err
 	}
 	return api.convertToAction(selp, !checkPending)
+}
+
+func (api *Server) getTotalActionsByAddress(address string) ([]hash.Hash256, error) {
+	var actions []hash.Hash256
+	if api.cfg.UseRDS {
+		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
+		if err != nil {
+			return nil, err
+		}
+		actions = append(actions, actionHistory...)
+	} else {
+		actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
+		if err != nil {
+			return nil, err
+		}
+
+		actionsToAddress, err := api.bc.GetActionsToAddress(address)
+		if err != nil {
+			return nil, err
+		}
+
+		actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
+		actions = append(actions, actionsFromAddress...)
+	}
+	return uniqueActions(actions), nil
 }
 
 func toHash256(hashString string) (hash.Hash256, error) {
@@ -757,4 +770,16 @@ func getTranferAmountInBlock(blk *block.Block) *big.Int {
 		totalAmount.Add(totalAmount, transfer.Amount())
 	}
 	return totalAmount
+}
+
+func uniqueActions(actions []hash.Hash256) []hash.Hash256 {
+	check := make(map[hash.Hash256]bool)
+	var uniqueActs []hash.Hash256
+	for _, action := range actions {
+		if _, in := check[action]; !in {
+			check[action] = true
+			uniqueActs = append(uniqueActs, action)
+		}
+	}
+	return uniqueActs
 }
