@@ -54,6 +54,8 @@ type Committee interface {
 	Stop(context.Context) error
 	// ResultByHeight returns the result on a specific ethereum height
 	ResultByHeight(height uint64) (*types.ElectionResult, error)
+	// FetchResultByHeight returns the votes
+	FetchResultByHeight(height uint64) (*types.ElectionResult, error)
 	// HeightByTime returns the nearest result before time
 	HeightByTime(timestamp time.Time) (uint64, error)
 	// LatestHeight returns the height with latest result
@@ -203,7 +205,7 @@ func (ec *committee) Sync(tipHeight uint64) error {
 }
 
 func (ec *committee) sync(tipHeight uint64) error {
-	zap.L().Info("new block", zap.Uint64("height", tipHeight))
+	zap.L().Info("new ethereum block", zap.Uint64("height", tipHeight))
 	if ec.currentHeight < tipHeight {
 		ec.currentHeight = tipHeight
 	}
@@ -300,8 +302,29 @@ func (ec *committee) calcWeightedVotes(v *types.Vote, now time.Time) *big.Int {
 	return weightedAmount
 }
 
-func (ec *committee) fetchResultByHeight(height uint64) (*types.ElectionResult, error) {
-	zap.L().Info("fetch result", zap.Uint64("height", height))
+func (ec *committee) fetchVotesByHeight(height uint64) ([]*types.Vote, error) {
+	var allVotes []*types.Vote
+	previousIndex := big.NewInt(0)
+	for {
+		var votes []*types.Vote
+		var err error
+		if previousIndex, votes, err = ec.carrier.Votes(
+			height,
+			previousIndex,
+			ec.paginationSize,
+		); err != nil {
+			return nil, err
+		}
+		allVotes = append(allVotes, votes...)
+		if len(votes) < int(ec.paginationSize) {
+			break
+		}
+	}
+
+	return allVotes, nil
+}
+
+func (ec *committee) calculator(height uint64) (*types.ResultCalculator, error) {
 	mintTime, err := ec.carrier.BlockTimestamp(height)
 	switch errors.Cause(err) {
 	case nil:
@@ -311,7 +334,7 @@ func (ec *committee) fetchResultByHeight(height uint64) (*types.ElectionResult, 
 	default:
 		return nil, err
 	}
-	calculator := types.NewResultCalculator(
+	return types.NewResultCalculator(
 		mintTime,
 		func(v *types.Vote) bool {
 			return ec.voteThreshold.Cmp(v.Amount()) > 0
@@ -321,7 +344,11 @@ func (ec *committee) fetchResultByHeight(height uint64) (*types.ElectionResult, 
 			return ec.selfStakingThreshold.Cmp(c.SelfStakingTokens()) > 0 &&
 				ec.scoreThreshold.Cmp(c.Score()) > 0
 		},
-	)
+	), nil
+}
+
+func (ec *committee) fetchCandidatesByHeight(height uint64) ([]*types.Candidate, error) {
+	var allCandidates []*types.Candidate
 	previousIndex := big.NewInt(1)
 	for {
 		var candidates []*types.Candidate
@@ -333,27 +360,46 @@ func (ec *committee) fetchResultByHeight(height uint64) (*types.ElectionResult, 
 		); err != nil {
 			return nil, err
 		}
-		calculator.AddCandidates(candidates)
+		allCandidates = append(allCandidates, candidates...)
 		if len(candidates) < int(ec.paginationSize) {
 			break
 		}
 	}
-	previousIndex = big.NewInt(0)
-	for {
-		var votes []*types.Vote
+	return allCandidates, nil
+}
+
+func (ec *committee) FetchResultByHeight(height uint64) (*types.ElectionResult, error) {
+	if height == 0 {
 		var err error
-		if previousIndex, votes, err = ec.carrier.Votes(
-			height,
-			previousIndex,
-			ec.paginationSize,
-		); err != nil {
+		height, err = ec.carrier.TipHeight()
+		if err != nil {
 			return nil, err
 		}
-		calculator.AddVotes(votes)
-		if len(votes) < int(ec.paginationSize) {
-			break
-		}
 	}
+	return ec.fetchResultByHeight(height)
+}
+
+func (ec *committee) fetchResultByHeight(height uint64) (*types.ElectionResult, error) {
+	zap.L().Info("fetch result from ethereum", zap.Uint64("height", height))
+	calculator, err := ec.calculator(height)
+	if err != nil {
+		return nil, err
+	}
+	candidates, err := ec.fetchCandidatesByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	if err := calculator.AddCandidates(candidates); err != nil {
+		return nil, err
+	}
+	votes, err := ec.fetchVotesByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	if err := calculator.AddVotes(votes); err != nil {
+		return nil, err
+	}
+
 	return calculator.Calculate()
 }
 

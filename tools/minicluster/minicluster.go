@@ -20,8 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotexproject/iotex-core/pkg/unit"
-
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
@@ -31,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -293,7 +292,7 @@ func main() {
 			if bcHeights[i] != stateHeights[i] {
 				log.S().Errorf("Node#%d: State height does not match blockchain height", i)
 			}
-			if math.Abs(float64(bcHeights[i]-idealHeight[i])) > 1 {
+			if bcHeights[i] < idealHeight[i] {
 				log.S().Errorf("blockchain in Node#%d is behind the expected height", i)
 			}
 		}

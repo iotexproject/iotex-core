@@ -38,7 +38,7 @@ type Carrier interface {
 	Close()
 }
 
-type EthereumCarrier struct {
+type ethereumCarrier struct {
 	client                  *ethclient.Client
 	currentClientURLIndex   int
 	clientURLs              []string
@@ -72,7 +72,7 @@ func NewEthereumVoteCarrier(
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumCarrier{
+	return &ethereumCarrier{
 		client:                  client,
 		currentClientURLIndex:   currentClientURLIndex,
 		clientURLs:              clientURLs,
@@ -81,11 +81,11 @@ func NewEthereumVoteCarrier(
 	}, nil
 }
 
-func (evc *EthereumCarrier) Close() {
+func (evc *ethereumCarrier) Close() {
 	evc.client.Close()
 }
 
-func (evc *EthereumCarrier) BlockTimestamp(height uint64) (ts time.Time, err error) {
+func (evc *ethereumCarrier) BlockTimestamp(height uint64) (ts time.Time, err error) {
 	var header *ethtypes.Header
 	for i := 0; i < len(evc.clientURLs); i++ {
 		if header, err = evc.client.HeaderByNumber(
@@ -103,7 +103,7 @@ func (evc *EthereumCarrier) BlockTimestamp(height uint64) (ts time.Time, err err
 	return ts, errors.New("failed to get block timestamp")
 }
 
-func (evc *EthereumCarrier) SubscribeNewBlock(height chan uint64, report chan error, unsubscribe chan bool) {
+func (evc *ethereumCarrier) SubscribeNewBlock(height chan uint64, report chan error, unsubscribe chan bool) {
 	ticker := time.NewTicker(60 * time.Second)
 	lastHeight := uint64(0)
 	go func() {
@@ -123,11 +123,11 @@ func (evc *EthereumCarrier) SubscribeNewBlock(height chan uint64, report chan er
 	}()
 }
 
-func (evc *EthereumCarrier) TipHeight() (uint64, error) {
+func (evc *ethereumCarrier) TipHeight() (uint64, error) {
 	return evc.tipHeight(0)
 }
 
-func (evc *EthereumCarrier) tipHeight(lastHeight uint64) (uint64, error) {
+func (evc *ethereumCarrier) tipHeight(lastHeight uint64) (uint64, error) {
 	for i := 0; i < len(evc.clientURLs); i++ {
 		header, err := evc.client.HeaderByNumber(context.Background(), nil)
 		if err == nil {
@@ -148,7 +148,7 @@ func (evc *EthereumCarrier) tipHeight(lastHeight uint64) (uint64, error) {
 	return 0, errors.New("failed to get tip height")
 }
 
-func (evc *EthereumCarrier) candidates(
+func (evc *ethereumCarrier) candidates(
 	opts *bind.CallOpts,
 	startIndex *big.Int,
 	limit *big.Int,
@@ -181,7 +181,7 @@ func (evc *EthereumCarrier) candidates(
 	return result, errors.New("failed to get candidates")
 }
 
-func (evc *EthereumCarrier) Candidates(
+func (evc *ethereumCarrier) Candidates(
 	height uint64,
 	startIndex *big.Int,
 	count uint8,
@@ -234,16 +234,7 @@ type EthereumBucketsResult struct {
 	Owners          []common.Address
 }
 
-// Buckets returns the result of api "buckets"
-func (evc *EthereumCarrier) Buckets(
-	opts *bind.CallOpts,
-	previousIndex *big.Int,
-	limit *big.Int,
-) (EthereumBucketsResult, error) {
-	return evc.buckets(opts, previousIndex, limit)
-}
-
-func (evc *EthereumCarrier) buckets(
+func (evc *ethereumCarrier) buckets(
 	opts *bind.CallOpts,
 	previousIndex *big.Int,
 	limit *big.Int,
@@ -280,7 +271,7 @@ func (evc *EthereumCarrier) buckets(
 	return result, errors.New("failed to get votes")
 }
 
-func (evc *EthereumCarrier) Votes(
+func (evc *ethereumCarrier) Votes(
 	height uint64,
 	previousIndex *big.Int,
 	count uint8,
@@ -325,7 +316,7 @@ func (evc *EthereumCarrier) Votes(
 	return previousIndex, votes, nil
 }
 
-func (evc *EthereumCarrier) rotateClient(cause error) (rotated bool, err error) {
+func (evc *ethereumCarrier) rotateClient(cause error) (rotated bool, err error) {
 	if cause != nil {
 		switch cause.Error() {
 		case "tls: use of closed connection":
