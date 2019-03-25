@@ -55,8 +55,8 @@ service APIService {
   // read state from blockchain
   rpc ReadState(ReadStateRequest) returns (ReadStateResponse) {}
 
-  // get block producers' productivity metrics
-  rpc GetProductivity(GetProductivityRequest) returns (GetProductivityResponse) {}
+  // get epoch metadata
+  rpc GetEpochMeta(GetEpochMetaRequest) returns (GetEpochMetaResponse) {}
 }
 
 message GetAccountRequest {
@@ -109,6 +109,16 @@ message ActionInfo {
   iotextypes.Action action = 1;
   string actHash = 2;
   string blkHash = 3;
+}
+
+message Productivity {
+    uint64 totalBlks = 1;
+    map<string, uint64> blksPerDelegate = 2;
+}
+
+message NextEpochBlockProducers {
+    bool ready = 1;
+    repeated string blockProducers = 2;
 }
 
 message GetActionsResponse {
@@ -193,11 +203,12 @@ message ReadStateResponse {
   bytes data = 1;
 }
 
-message GetProductivityRequest {
-   uint64 epochNumber = 1;
+message GetEpochMetaRequest {
+    uint64 epochNumber = 1;
 }
 
-message GetProductivityResponse {
-    uint64 totalBlks = 1;
-    map<string, uint64> blksPerDelegate = 2;
+message GetEpochMetaResponse {
+    iotextypes.EpochData epochData = 1;
+    Productivity productivity = 2;
+    NextEpochBlockProducers nextEpochBlockProducers = 3;
 }

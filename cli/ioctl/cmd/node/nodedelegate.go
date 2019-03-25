@@ -52,12 +52,13 @@ func delegate(args []string) string {
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
-	request := &iotexapi.GetProductivityRequest{EpochNumber: epochNum}
+	request := &iotexapi.GetEpochMetaRequest{EpochNumber: epochNum}
 	ctx := context.Background()
-	response, err := cli.GetProductivity(ctx, request)
+	epochResponse, err := cli.GetEpochMeta(ctx, request)
 	if err != nil {
 		return err.Error()
 	}
+	response := epochResponse.Productivity
 	if len(delegate) != 0 {
 		delegateAlias, err := alias.Alias(delegate)
 		if err != nil && err != alias.ErrNoAliasFound {
