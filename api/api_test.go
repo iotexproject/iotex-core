@@ -46,6 +46,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -476,6 +477,45 @@ var (
 			height:                     4,
 			numDelegates:               1,
 			numCommitteeBlockProducers: 1,
+		},
+	}
+
+	getEpochMetaTests = []struct {
+		// Arguments
+		EpochNumber      uint64
+		pollProtocolType string
+		// Expected Values
+		epochData         iotextypes.EpochData
+		numBlksInEpoch    int
+		numBPsInEpoch     int
+		nextEpochReady    bool
+		numBPsInNextEpoch int
+	}{
+		{
+			1,
+			"lifeLongDelegates",
+			iotextypes.EpochData{
+				Num:                     1,
+				Height:                  1,
+				GravityChainStartHeight: 1,
+			},
+			4,
+			24,
+			true,
+			24,
+		},
+		{
+			1,
+			"governanceChainCommittee",
+			iotextypes.EpochData{
+				Num:                     1,
+				Height:                  1,
+				GravityChainStartHeight: 100,
+			},
+			4,
+			4,
+			false,
+			0,
 		},
 	}
 )
@@ -943,6 +983,62 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 		var committeeBlockProducers pollpb.BlockProducerList
 		require.NoError(proto.Unmarshal(res.Data, &committeeBlockProducers))
 		require.Equal(test.numCommitteeBlockProducers, len(committeeBlockProducers.BlockProducers))
+	}
+}
+
+func TestServer_GetEpochMeta(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	for _, test := range getEpochMetaTests {
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		if test.pollProtocolType == "lifeLongDelegates" {
+			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		} else if test.pollProtocolType == "governanceChainCommittee" {
+			committee := mock_committee.NewMockCommittee(ctrl)
+			mbc := mock_blockchain.NewMockBlockchain(ctrl)
+			msf := mock_factory.NewMockFactory(ctrl)
+			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
+				mbc,
+				committee,
+				uint64(123456),
+				func(uint64) (time.Time, error) { return time.Now(), nil },
+				func(uint64) uint64 { return 1 },
+				func(uint64) uint64 { return 1 },
+				cfg.Genesis.NumCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+			)
+			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
+			mbc.EXPECT().GetFactory().Return(msf).Times(2)
+			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
+
+			blksPerDelegate := map[string]uint64{
+				"address1": uint64(1),
+				"address2": uint64(1),
+				"address3": uint64(1),
+				"address4": uint64(1),
+			}
+			mbc.EXPECT().ProductivityByEpoch(uint64(1)).Return(uint64(4), blksPerDelegate, nil).Times(1)
+			mbc.EXPECT().CandidatesByHeight(cfg.Genesis.NumDelegates*cfg.Genesis.NumSubEpochs+1).
+				Return(nil, state.ErrStateNotExist).Times(1)
+			svr.bc = mbc
+		}
+		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
+		require.NoError(err)
+		require.Equal(test.epochData.Num, res.EpochData.Num)
+		require.Equal(test.epochData.Height, res.EpochData.Height)
+		require.Equal(test.epochData.GravityChainStartHeight, res.EpochData.GravityChainStartHeight)
+		require.Equal(test.numBlksInEpoch, int(res.Productivity.TotalBlks))
+		require.Equal(test.numBPsInEpoch, len(res.Productivity.BlksPerDelegate))
+		require.Equal(test.nextEpochReady, res.NextEpochBlockProducers.Ready)
+		require.Equal(test.numBPsInNextEpoch, len(res.NextEpochBlockProducers.BlockProducers))
 	}
 }
 
