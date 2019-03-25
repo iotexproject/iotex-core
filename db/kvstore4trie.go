@@ -94,11 +94,14 @@ func (s *KVStoreForTrie) Put(key []byte, value []byte) error {
 func (s *KVStoreForTrie) Get(key []byte) ([]byte, error) {
 	trieKeystoreMtc.WithLabelValues("get").Inc()
 	v, err := s.cb.Get(s.bucket, key)
-	if err != nil {
-		if v, err = s.dao.Get(s.bucket, key); err != nil {
-			return nil, errors.Wrapf(err, "failed to get key %x", key)
+	if errors.Cause(err) == ErrNotExist {
+		if v, err = s.dao.Get(s.bucket, key); errors.Cause(err) == ErrNotExist {
+			return nil, errors.Wrapf(ErrNotExist, "failed to get key %x", key)
 		}
 		// TODO: put it back to cache
+	}
+	if errors.Cause(err) == ErrAlreadyDeleted {
+		return nil, errors.Wrapf(ErrNotExist, "failed to get key %x", key)
 	}
 	return v, err
 }
