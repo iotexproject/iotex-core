@@ -21,10 +21,10 @@ import (
 
 // actionTransferCmd represents the action transfer command
 var actionTransferCmd = &cobra.Command{
-	Use: "transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX DATA" +
+	Use: "transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX [DATA]" +
 		" -l GAS_LIMIT -p GAS_PRICE -s OPERATOR",
 	Short: "Transfer tokens on IoTeX blokchain",
-	Args:  cobra.ExactArgs(3),
+	Args:  cobra.RangeArgs(2, 3),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(transfer(args))
 	},
@@ -40,7 +40,10 @@ func transfer(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	payload := args[2]
+	payload := make([]byte, 0)
+	if len(args) == 3 {
+		payload = []byte(args[2])
+	}
 	sender, err := alias.Address(signer)
 	if err != nil {
 		return err.Error()
