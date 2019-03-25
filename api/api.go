@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -40,6 +41,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -226,19 +228,9 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	}
 	epochNum := rp.GetEpochNum(tipHeight)
 	epochHeight := rp.GetEpochHeight(epochNum)
-
-	gravityChainStartHeight := epochHeight
-	if _, ok = api.registry.Find(poll.ProtocolID); ok {
-		readStateRequest := &iotexapi.ReadStateRequest{
-			ProtocolID: []byte(poll.ProtocolID),
-			MethodName: []byte("GetGravityChainStartHeight"),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
-		}
-		res, err := api.readState(ctx, readStateRequest)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-		gravityChainStartHeight = byteutil.BytesToUint64(res.GetData())
+	gravityChainStartHeight, err := api.getGravityChainStartHeight(epochHeight)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
 	timeDuration := blks[len(blks)-1].Timestamp - blks[0].Timestamp
@@ -330,7 +322,11 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 
 // ReadState reads state on blockchain
 func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
-	return api.readState(ctx, in)
+	res, err := api.readState(ctx, in)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return res, nil
 }
 
 // SuggestGasPrice suggests gas price
@@ -351,19 +347,69 @@ func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.Estima
 	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
 }
 
-// GetProductivity gets block producers' productivity
-func (api *Server) GetProductivity(
+// GetEpochMeta gets epoch metadata
+func (api *Server) GetEpochMeta(
 	ctx context.Context,
-	in *iotexapi.GetProductivityRequest,
-) (*iotexapi.GetProductivityResponse, error) {
+	in *iotexapi.GetEpochMetaRequest,
+) (*iotexapi.GetEpochMetaResponse, error) {
 	if in.EpochNumber < 1 {
 		return nil, status.Error(codes.InvalidArgument, "epoch number cannot be less than one")
 	}
-	numBlks, produce, err := api.bc.ProductivityByEpoch(in.EpochNumber)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+	p, ok := api.registry.Find(rolldpos.ProtocolID)
+	if !ok {
+		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
 	}
-	return &iotexapi.GetProductivityResponse{TotalBlks: numBlks, BlksPerDelegate: produce}, nil
+	rp, ok := p.(*rolldpos.Protocol)
+	if !ok {
+		return nil, status.Error(codes.Internal, "fail to cast rolldpos protocol")
+	}
+	epochHeight := rp.GetEpochHeight(in.EpochNumber)
+	gravityChainStartHeight, err := api.getGravityChainStartHeight(epochHeight)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	epochData := &iotextypes.EpochData{
+		Num:                     in.EpochNumber,
+		Height:                  epochHeight,
+		GravityChainStartHeight: gravityChainStartHeight,
+	}
+	productivity, err := api.getProductivity(in.EpochNumber)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	nextEpochHeight := rp.GetEpochHeight(in.EpochNumber + 1)
+
+	readStateRequest := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte(poll.ProtocolID),
+		MethodName: []byte("CommitteeBlockProducersByHeight"),
+		Arguments:  [][]byte{byteutil.Uint64ToBytes(nextEpochHeight)},
+	}
+	res, err := api.readState(context.Background(), readStateRequest)
+	var nextEpochBlockProducers *iotexapi.NextEpochBlockProducers
+	switch errors.Cause(err) {
+	case nil:
+		var committeeBlockProducers pollpb.BlockProducerList
+		if err := proto.Unmarshal(res.Data, &committeeBlockProducers); err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		nextEpochBlockProducers = &iotexapi.NextEpochBlockProducers{
+			Ready:          true,
+			BlockProducers: committeeBlockProducers.BlockProducers,
+		}
+	case state.ErrStateNotExist:
+		nextEpochBlockProducers = &iotexapi.NextEpochBlockProducers{
+			Ready:          false,
+			BlockProducers: make([]string, 0),
+		}
+	default:
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &iotexapi.GetEpochMetaResponse{
+		EpochData:               epochData,
+		Productivity:            productivity,
+		NextEpochBlockProducers: nextEpochBlockProducers,
+	}, nil
 }
 
 // Start starts the API server
@@ -408,7 +454,7 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	data, err := p.ReadState(ctx, ws, in.MethodName, in.Arguments...)
 	// TODO: need to distinguish user error and system error
 	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
+		return nil, err
 	}
 	out := iotexapi.ReadStateResponse{
 		Data: data,
@@ -639,6 +685,31 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	}
 
 	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iotextypes.BlockMeta{blockMeta}}, nil
+}
+
+func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
+	gravityChainStartHeight := epochHeight
+	if _, ok := api.registry.Find(poll.ProtocolID); ok {
+		readStateRequest := &iotexapi.ReadStateRequest{
+			ProtocolID: []byte(poll.ProtocolID),
+			MethodName: []byte("GetGravityChainStartHeight"),
+			Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
+		}
+		res, err := api.readState(context.Background(), readStateRequest)
+		if err != nil {
+			return 0, err
+		}
+		gravityChainStartHeight = byteutil.BytesToUint64(res.GetData())
+	}
+	return gravityChainStartHeight, nil
+}
+
+func (api *Server) getProductivity(epochNumber uint64) (*iotexapi.Productivity, error) {
+	numBlks, produce, err := api.bc.ProductivityByEpoch(epochNumber)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	return &iotexapi.Productivity{TotalBlks: numBlks, BlksPerDelegate: produce}, nil
 }
 
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
