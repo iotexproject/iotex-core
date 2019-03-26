@@ -80,6 +80,7 @@ func TestStateTransitions(t *testing.T) {
 		AcceptBlockTTL:               4 * time.Second,
 		AcceptProposalEndorsementTTL: 2 * time.Second,
 		AcceptLockEndorsementTTL:     2 * time.Second,
+		CommitTTL:                    2 * time.Second,
 	}, mockCtx, mockClock)
 	require.Nil(err)
 	require.NotNil(cfsm)
@@ -117,13 +118,13 @@ func TestStateTransitions(t *testing.T) {
 				require.Nil(evt.Data())
 				time.Sleep(100 * time.Millisecond)
 				// garbage collection
-				mockClock.Add(4 * time.Second)
+				mockClock.Add(cfsm.cfg.AcceptBlockTTL)
 				evt = <-cfsm.evtq
 				require.Equal(eFailedToReceiveBlock, evt.Type())
-				mockClock.Add(2 * time.Second)
+				mockClock.Add(cfsm.cfg.AcceptProposalEndorsementTTL)
 				evt = <-cfsm.evtq
 				require.Equal(eStopReceivingProposalEndorsement, evt.Type())
-				mockClock.Add(2 * time.Second)
+				mockClock.Add(cfsm.cfg.AcceptLockEndorsementTTL)
 				evt = <-cfsm.evtq
 				require.Equal(eStopReceivingLockEndorsement, evt.Type())
 			})
@@ -284,7 +285,6 @@ func TestStateTransitions(t *testing.T) {
 		})
 		t.Run("ready-to-pre-commit", func(t *testing.T) {
 			mockCtx.EXPECT().NewPreCommitEndorsement(gomock.Any()).Return(NewMockEndorsement(ctrl), nil).Times(1)
-			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(1)
 			state, err := cfsm.onReceiveLockEndorsement(&ConsensusEvent{
 				eventType: eReceiveLockEndorsement,
 				data:      NewMockEndorsement(ctrl),
@@ -293,6 +293,8 @@ func TestStateTransitions(t *testing.T) {
 			require.Equal(sAcceptPreCommitEndorsement, state)
 			evt := <-cfsm.evtq
 			require.Equal(eReceivePreCommitEndorsement, evt.Type())
+			evt = <-cfsm.evtq
+			require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
 		})
 	})
 	t.Run("onStopReceivingLockEndorsement", func(t *testing.T) {
@@ -301,6 +303,27 @@ func TestStateTransitions(t *testing.T) {
 		require.Equal(sPrepare, state)
 		evt := <-cfsm.evtq
 		require.Equal(ePrepare, evt.Type())
+	})
+	t.Run("onBroadcastPreCommitEndorsement", func(t *testing.T) {
+		t.Run("invalid-fsm-event", func(t *testing.T) {
+			state, err := cfsm.onBroadcastPreCommitEndorsement(nil)
+			require.Error(err)
+			require.Equal(sAcceptPreCommitEndorsement, state)
+		})
+		t.Run("success", func(t *testing.T) {
+			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(1)
+			mockEndorsement := NewMockEndorsement(ctrl)
+			state, err := cfsm.onBroadcastPreCommitEndorsement(&ConsensusEvent{
+				eventType: eBroadcastPreCommitEndorsement,
+				data:      mockEndorsement,
+			})
+			require.NoError(err)
+			require.Equal(sAcceptPreCommitEndorsement, state)
+			time.Sleep(100 * time.Millisecond)
+			mockClock.Add(cfsm.cfg.CommitTTL)
+			evt := <-cfsm.evtq
+			require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
+		})
 	})
 	t.Run("onReceivePreCommitEndorsement", func(t *testing.T) {
 		t.Run("invalid-fsm-event", func(t *testing.T) {

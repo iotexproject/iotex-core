@@ -12,6 +12,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/endorsement"
 )
 
 func TestRoundCtx(t *testing.T) {
@@ -52,17 +54,43 @@ func TestRoundCtx(t *testing.T) {
 	for _, d := range round.Delegates() {
 		require.True(round.IsDelegate(d))
 	}
-	require.True(round.IsStale(blockHeight, 2))
-	require.True(round.IsStale(blockHeight, 3))
-	require.True(round.IsStale(blockHeight, 4))
-	require.True(round.IsStale(blockHeight+1, 2))
-	require.False(round.IsStale(blockHeight+1, 3))
-	require.False(round.IsStale(blockHeight+1, 4))
-	require.False(round.IsStale(blockHeight+2, 2))
-	require.False(round.IsFuture(blockHeight, 4))
-	require.False(round.IsFuture(blockHeight+1, 2))
-	require.False(round.IsFuture(blockHeight+1, 3))
-	require.True(round.IsFuture(blockHeight+1, 4))
-	require.True(round.IsFuture(blockHeight+2, 2))
+	t.Run("is-stale", func(t *testing.T) {
+		blkHash := []byte("Some block hash")
+		require.True(round.IsStale(blockHeight, 2, nil))
+		require.True(round.IsStale(blockHeight, 3, nil))
+		require.True(round.IsStale(blockHeight, 4, nil))
+		require.True(round.IsStale(blockHeight+1, 2, nil))
+		require.True(round.IsStale(blockHeight+1, 2, NewEndorsedConsensusMessage(
+			blockHeight+1,
+			&blockProposal{},
+			&endorsement.Endorsement{},
+		)))
+		require.True(round.IsStale(blockHeight+1, 2, NewEndorsedConsensusMessage(
+			blockHeight+1,
+			NewConsensusVote(
+				blkHash,
+				PROPOSAL,
+			),
+			&endorsement.Endorsement{},
+		)))
+		require.False(round.IsStale(blockHeight+1, 2, NewEndorsedConsensusMessage(
+			blockHeight+1,
+			NewConsensusVote(
+				blkHash,
+				COMMIT,
+			),
+			&endorsement.Endorsement{},
+		)))
+		require.False(round.IsStale(blockHeight+1, 3, nil))
+		require.False(round.IsStale(blockHeight+1, 4, nil))
+		require.False(round.IsStale(blockHeight+2, 2, nil))
+	})
+	t.Run("is-future", func(t *testing.T) {
+		require.False(round.IsFuture(blockHeight, 4))
+		require.False(round.IsFuture(blockHeight+1, 2))
+		require.False(round.IsFuture(blockHeight+1, 3))
+		require.True(round.IsFuture(blockHeight+1, 4))
+		require.True(round.IsFuture(blockHeight+2, 2))
+	})
 	// TODO: add more unit tests
 }
