@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -19,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -109,9 +107,9 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "ActiveBlockProducersByHeight":
+	case "ConsensusBlockProducersByHeight":
 		fallthrough
-	case "CommitteeBlockProducersByHeight":
+	case "ActiveConsensusBlockProducersByHeight":
 		return p.readBlockProducers()
 	case "GetGravityChainStartHeight":
 		if len(args) != 1 {
@@ -124,11 +122,7 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 }
 
 func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
-	blockProducers := make([]string, 0)
-	for _, delegate := range p.delegates {
-		blockProducers = append(blockProducers, delegate.Address)
-	}
-	return serializeBlockProducers(blockProducers)
+	return p.delegates.Serialize()
 }
 
 type governanceChainCommitteeProtocol struct {
@@ -259,24 +253,24 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "ActiveBlockProducersByHeight":
+	case "ConsensusBlockProducersByHeight":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		blockProducers, err := p.readActiveBlockProducersByHeight(byteutil.BytesToUint64(args[0]))
+		blockProducers, err := p.readConsensusProducersByHeight(byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
-		return serializeBlockProducers(blockProducers)
-	case "CommitteeBlockProducersByHeight":
+		return blockProducers.Serialize()
+	case "ActiveConsensusBlockProducersByHeight":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		activeBlockProducers, err := p.readCommitteeProducersByHeight(byteutil.BytesToUint64(args[0]))
+		activeBlockProducers, err := p.readActiveConsensusProducersByHeight(byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
-		return serializeBlockProducers(activeBlockProducers)
+		return activeBlockProducers.Serialize()
 	case "GetGravityChainStartHeight":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
@@ -292,32 +286,47 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	}
 }
 
-func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(height uint64) ([]string, error) {
+func (p *governanceChainCommitteeProtocol) readConsensusProducersByHeight(height uint64) (state.CandidateList, error) {
 	delegates, err := p.cm.CandidatesByHeight(height)
 	if err != nil {
 		return nil, err
 	}
-	blockProducers := make([]string, 0)
+	var blockProducers state.CandidateList
 	for i, delegate := range delegates {
 		if uint64(i) >= p.numCandidateDelegates {
 			break
 		}
-		blockProducers = append(blockProducers, delegate.Address)
+		blockProducers = append(blockProducers, delegate)
 	}
 	return blockProducers, nil
 }
 
-func (p *governanceChainCommitteeProtocol) readCommitteeProducersByHeight(height uint64) ([]string, error) {
-	blockProducers, err := p.readActiveBlockProducersByHeight(height)
+func (p *governanceChainCommitteeProtocol) readActiveConsensusProducersByHeight(height uint64) (state.CandidateList, error) {
+	blockProducers, err := p.readConsensusProducersByHeight(height)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get active block producers on height %d", height)
 	}
-	epochStartHeight := p.getEpochHeight(height)
-	crypto.SortCandidates(blockProducers, epochStartHeight, crypto.CryptoSeed)
-	if uint64(len(blockProducers)) < p.numDelegates {
-		return blockProducers, nil
+
+	var blockProducerList []string
+	blockProducerMap := make(map[string]*state.Candidate)
+	for _, bp := range blockProducers {
+		blockProducerList = append(blockProducerList, bp.Address)
+		blockProducerMap[bp.Address] = bp
 	}
-	return blockProducers[:p.numDelegates], nil
+
+	epochStartHeight := p.getEpochHeight(height)
+	crypto.SortCandidates(blockProducerList, epochStartHeight, crypto.CryptoSeed)
+
+	length := int(p.numDelegates)
+	if len(blockProducerList) < int(p.numDelegates) {
+		length = len(blockProducerList)
+	}
+
+	var activeBlockProducers state.CandidateList
+	for i := 0; i < length; i++ {
+		activeBlockProducers = append(activeBlockProducers, blockProducerMap[blockProducerList[i]])
+	}
+	return activeBlockProducers, nil
 }
 
 func (p *governanceChainCommitteeProtocol) getGravityHeight(height uint64) (uint64, error) {
@@ -427,9 +436,4 @@ func setCandidates(
 		)
 	}
 	return sm.PutState(candidatesutil.ConstructKey(height), &candidates)
-}
-
-func serializeBlockProducers(blockProducers []string) ([]byte, error) {
-	blockProducersPb := &pollpb.BlockProducerList{BlockProducers: blockProducers}
-	return proto.Marshal(blockProducersPb)
 }
