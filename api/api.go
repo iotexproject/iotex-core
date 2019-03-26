@@ -138,7 +138,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	actions, err := api.getTotalActionsByAddress(in.Address)
+	numActions, err := api.bc.GetActionCountByAddress(in.Address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -147,7 +147,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		Balance:      state.Balance.String(),
 		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
-		NumActions:   uint64(len(actions)),
+		NumActions:   numActions,
 	}
 	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta}, nil
 }
@@ -747,7 +747,7 @@ func (api *Server) getTotalActionsByAddress(address string) ([]hash.Hash256, err
 		actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
 		actions = append(actions, actionsFromAddress...)
 	}
-	return uniqueActions(actions), nil
+	return actions, nil
 }
 
 func toHash256(hashString string) (hash.Hash256, error) {
@@ -770,16 +770,4 @@ func getTranferAmountInBlock(blk *block.Block) *big.Int {
 		totalAmount.Add(totalAmount, transfer.Amount())
 	}
 	return totalAmount
-}
-
-func uniqueActions(actions []hash.Hash256) []hash.Hash256 {
-	check := make(map[hash.Hash256]bool)
-	var uniqueActs []hash.Hash256
-	for _, action := range actions {
-		if _, in := check[action]; !in {
-			check[action] = true
-			uniqueActs = append(uniqueActs, action)
-		}
-	}
-	return uniqueActs
 }

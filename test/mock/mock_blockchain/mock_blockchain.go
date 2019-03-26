@@ -6,10 +6,6 @@ package mock_blockchain
 
 import (
 	context "context"
-	big "math/big"
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	action "github.com/iotexproject/iotex-core/action"
 	address "github.com/iotexproject/iotex-core/address"
@@ -18,6 +14,9 @@ import (
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
+	big "math/big"
+	reflect "reflect"
+	time "time"
 )
 
 // MockBlockchain is a mock of Blockchain interface
@@ -235,6 +234,19 @@ func (m *MockBlockchain) GetActionsToAddress(address string) ([]hash.Hash256, er
 // GetActionsToAddress indicates an expected call of GetActionsToAddress
 func (mr *MockBlockchainMockRecorder) GetActionsToAddress(address interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionsToAddress", reflect.TypeOf((*MockBlockchain)(nil).GetActionsToAddress), address)
+}
+
+// GetActionCountByAddress mocks base method
+func (m *MockBlockchain) GetActionCountByAddress(address string) (uint64, error) {
+	ret := m.ctrl.Call(m, "GetActionCountByAddress", address)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActionCountByAddress indicates an expected call of GetActionCountByAddress
+func (mr *MockBlockchainMockRecorder) GetActionCountByAddress(address interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionCountByAddress", reflect.TypeOf((*MockBlockchain)(nil).GetActionCountByAddress), address)
 }
 
 // GetActionByActionHash mocks base method

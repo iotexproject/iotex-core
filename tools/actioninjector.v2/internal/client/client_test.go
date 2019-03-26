@@ -51,6 +51,7 @@ func TestClient(t *testing.T) {
 
 	bc.EXPECT().StateByAddr(gomock.Any()).Return(&state, nil).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
+	bc.EXPECT().GetActionCountByAddress(gomock.Any()).Return(uint64(1), nil).AnyTimes()
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
 	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	newOption := api.WithBroadcastOutbound(func(_ context.Context, _ uint32, _ proto.Message) error {
