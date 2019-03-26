@@ -60,7 +60,7 @@ func TestBackdoorEvt(t *testing.T) {
 	}
 }
 
-func TestStateTransitions(t *testing.T) {
+func TestStateTransitionFunctions(t *testing.T) {
 	t.Parallel()
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -231,18 +231,23 @@ func TestStateTransitions(t *testing.T) {
 			require.Equal(sAcceptProposalEndorsement, state)
 		})
 		t.Run("is-not-locked", func(t *testing.T) {
-			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(nil, nil).Times(1)
-			mockEndorsement := NewMockEndorsement(ctrl)
+			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(nil, nil).Times(2)
 			state, err := cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
 				eventType: eReceiveProposalEndorsement,
-				data:      mockEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptProposalEndorsement, state)
+			state, err = cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
+				eventType: eReceivePreCommitEndorsement,
+				data:      NewMockEndorsement(ctrl),
 			})
 			require.NoError(err)
 			require.Equal(sAcceptProposalEndorsement, state)
 		})
 		t.Run("is-locked", func(t *testing.T) {
-			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(NewMockEndorsement(ctrl), nil).Times(1)
-			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(1)
+			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(NewMockEndorsement(ctrl), nil).Times(2)
+			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(2)
 			state, err := cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
 				eventType: eReceiveProposalEndorsement,
 				data:      NewMockEndorsement(ctrl),
@@ -250,6 +255,14 @@ func TestStateTransitions(t *testing.T) {
 			require.NoError(err)
 			require.Equal(sAcceptLockEndorsement, state)
 			evt := <-cfsm.evtq
+			require.Equal(eReceiveLockEndorsement, evt.Type())
+			state, err = cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
+				eventType: eReceivePreCommitEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptLockEndorsement, state)
+			evt = <-cfsm.evtq
 			require.Equal(eReceiveLockEndorsement, evt.Type())
 		})
 	})
@@ -275,9 +288,15 @@ func TestStateTransitions(t *testing.T) {
 			require.Equal(sAcceptLockEndorsement, state)
 		})
 		t.Run("not-ready-to-pre-commit", func(t *testing.T) {
-			mockCtx.EXPECT().NewPreCommitEndorsement(gomock.Any()).Return(nil, nil).Times(1)
+			mockCtx.EXPECT().NewPreCommitEndorsement(gomock.Any()).Return(nil, nil).Times(2)
 			state, err := cfsm.onReceiveLockEndorsement(&ConsensusEvent{
 				eventType: eReceiveLockEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptLockEndorsement, state)
+			state, err = cfsm.onReceiveLockEndorsement(&ConsensusEvent{
+				eventType: eReceivePreCommitEndorsement,
 				data:      NewMockEndorsement(ctrl),
 			})
 			require.NoError(err)
@@ -420,4 +439,8 @@ func TestStateTransitions(t *testing.T) {
 
 		})
 	})
+}
+
+func TestStateTransitionEvents(t *testing.T) {
+	// TODO (zhi): add event tests
 }

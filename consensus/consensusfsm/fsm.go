@@ -148,6 +148,14 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 			}).
 		AddTransition(
 			sAcceptProposalEndorsement,
+			eReceivePreCommitEndorsement,
+			cm.onReceiveProposalEndorsement,
+			[]fsm.State{
+				sAcceptProposalEndorsement, // not enough endorsements
+				sAcceptLockEndorsement,     // enough endorsements
+			}).
+		AddTransition(
+			sAcceptProposalEndorsement,
 			eStopReceivingProposalEndorsement,
 			cm.onStopReceivingProposalEndorsement,
 			[]fsm.State{
@@ -156,6 +164,14 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 		AddTransition(
 			sAcceptLockEndorsement,
 			eReceiveLockEndorsement,
+			cm.onReceiveLockEndorsement,
+			[]fsm.State{
+				sAcceptLockEndorsement,      // not enough endorsements
+				sAcceptPreCommitEndorsement, // reach commit agreement, jump to next step
+			}).
+		AddTransition(
+			sAcceptLockEndorsement,
+			eReceivePreCommitEndorsement,
 			cm.onReceiveLockEndorsement,
 			[]fsm.State{
 				sAcceptLockEndorsement,      // not enough endorsements
@@ -297,11 +313,11 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 
 func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 	if m.ctx.IsStaleEvent(evt) {
-		m.ctx.Logger().Debug("stale event", zap.Any("event", evt))
+		m.ctx.Logger().Debug("stale event", zap.Any("event", evt.Type()))
 		return nil
 	}
 	if m.ctx.IsFutureEvent(evt) {
-		m.ctx.Logger().Debug("future event", zap.Any("event", evt))
+		m.ctx.Logger().Debug("future event", zap.Any("event", evt.Type()))
 		// TODO: find a more appropriate delay
 		m.produce(evt, m.cfg.UnmatchedEventInterval)
 		return nil
@@ -472,6 +488,7 @@ func (m *ConsensusFSM) onBroadcastPreCommitEndorsement(evt fsm.Event) (fsm.State
 	if !ok {
 		return sAcceptPreCommitEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
 	}
+	m.ctx.Logger().Debug("broadcast pre-commit endorsement")
 	m.ctx.Broadcast(cEvt.Data())
 	m.produce(cEvt, m.cfg.CommitTTL)
 
