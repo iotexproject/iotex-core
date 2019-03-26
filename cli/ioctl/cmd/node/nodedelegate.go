@@ -27,11 +27,11 @@ var nodeDelegateCmd = &cobra.Command{
 	Short: "print consensus delegates information in certain epoch",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(delegate(args))
+		fmt.Println(delegate())
 	},
 }
 
-func delegate(args []string) string {
+func delegate() string {
 	status := map[bool]string{true: "active", false: ""}
 	if epochNum == 0 {
 		chainMeta, err := bc.GetChainMeta()
@@ -76,7 +76,7 @@ func delegate(args []string) string {
 			return "failed to convert votes into big int"
 		}
 		production := ""
-		if bp.Active == true {
+		if bp.Active {
 			production = strconv.Itoa(int(bp.Production))
 		}
 		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, index+1,
