@@ -54,6 +54,7 @@ const (
 	eReceiveLockEndorsement           fsm.EventType = "E_RECEIVE_LOCK_ENDORSEMENT"
 	eStopReceivingLockEndorsement     fsm.EventType = "E_STOP_RECEIVING_LOCK_ENDORSEMENT"
 	eReceivePreCommitEndorsement      fsm.EventType = "E_RECEIVE_PRECOMMIT_ENDORSEMENT"
+	eBroadcastPreCommitEndorsement    fsm.EventType = "E_BROADCAST_PRECOMMIT_ENDORSEMENT"
 
 	// BackdoorEvent indicates a backdoor event type
 	BackdoorEvent fsm.EventType = "E_BACKDOOR"
@@ -87,6 +88,7 @@ type Config struct {
 	AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
 	AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
 	AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
+	CommitTTL                    time.Duration `yaml:"commitTTL"`
 }
 
 // ConsensusFSM wraps over the general purpose FSM and implements the consensus logic
@@ -158,6 +160,13 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 			[]fsm.State{
 				sAcceptLockEndorsement,      // not enough endorsements
 				sAcceptPreCommitEndorsement, // reach commit agreement, jump to next step
+			}).
+		AddTransition(
+			sAcceptPreCommitEndorsement,
+			eBroadcastPreCommitEndorsement,
+			cm.onBroadcastPreCommitEndorsement,
+			[]fsm.State{
+				sAcceptPreCommitEndorsement,
 			}).
 		AddTransition(
 			sAcceptLockEndorsement,
@@ -453,7 +462,18 @@ func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error
 		return sAcceptLockEndorsement, nil
 	}
 	m.ProduceReceivePreCommitEndorsementEvent(preCommitEndorsement)
-	m.ctx.Broadcast(preCommitEndorsement)
+	m.produce(m.ctx.NewConsensusEvent(eBroadcastPreCommitEndorsement, preCommitEndorsement), 0)
+
+	return sAcceptPreCommitEndorsement, nil
+}
+
+func (m *ConsensusFSM) onBroadcastPreCommitEndorsement(evt fsm.Event) (fsm.State, error) {
+	cEvt, ok := evt.(*ConsensusEvent)
+	if !ok {
+		return sAcceptPreCommitEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
+	}
+	m.ctx.Broadcast(cEvt.Data())
+	m.produce(cEvt, m.cfg.CommitTTL)
 
 	return sAcceptPreCommitEndorsement, nil
 }
