@@ -324,7 +324,7 @@ func TestLocalTransfer(t *testing.T) {
 		case TsfSuccess:
 			//Wait long enough for a block to be minted, and check the balance of both
 			//sender and receiver.
-			time.Sleep(cfg.Genesis.BlockInterval + 100*time.Millisecond)
+			time.Sleep(cfg.Genesis.BlockInterval + 1*time.Second)
 			selp, err := bc.GetActionByActionHash(tsf.Hash())
 			require.NoError(err, tsfTest.message)
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
@@ -351,7 +351,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(expectedRecvrBalance.String(), newRecvBalance.String(), tsfTest.message)
 		case TsfFail:
 			//The transfer should be rejected right after we inject it
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 			//In case of failed transfer, the transfer should not exit in either action pool or blockchain
 			_, err := ap.GetActionByHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
@@ -365,7 +365,7 @@ func TestLocalTransfer(t *testing.T) {
 
 		case TsfPending:
 			//Need to wait long enough to make sure the pending transfer is not minted, only stay in action pool
-			time.Sleep(cfg.Genesis.BlockInterval + 100*time.Millisecond)
+			time.Sleep(cfg.Genesis.BlockInterval + 1*time.Second)
 			_, err := ap.GetActionByHash(tsf.Hash())
 			require.NoError(err, tsfTest.message)
 			_, err = bc.GetActionByActionHash(tsf.Hash())
@@ -374,7 +374,7 @@ func TestLocalTransfer(t *testing.T) {
 			//After a blocked is minted, check all the pending transfers in action pool are cleared
 			//This checking procedure is simplified for this test case, because of the complexity of
 			//handling pending transfers.
-			time.Sleep(cfg.Genesis.BlockInterval + 100*time.Millisecond)
+			time.Sleep(cfg.Genesis.BlockInterval + 1*time.Second)
 			require.Equal(0, lenPendingActionMap(ap.PendingActionMap()), tsfTest.message)
 
 		default:
@@ -505,7 +505,7 @@ func newTransferConfig(
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.Port = apiPort
-	cfg.Genesis.BlockInterval = 100 * time.Millisecond
+	cfg.Genesis.BlockInterval = 2 * time.Second
 
 	return cfg, nil
 }
