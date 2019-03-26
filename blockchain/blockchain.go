@@ -554,7 +554,6 @@ func (bc *blockchain) MintNewBlock(
 	}
 
 	blockMtc.WithLabelValues("numActions").Set(float64(len(actions)))
-	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - gasLimitForContext))
 
 	sk := bc.config.ProducerPrivateKey()
 	ra := block.NewRunnableActionsBuilder().
@@ -1069,6 +1068,8 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		}
 		executedActions = append(executedActions, grant)
 	}
+
+	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - raCtx.GasLimit))
 
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
 }
