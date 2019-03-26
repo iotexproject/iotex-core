@@ -268,16 +268,11 @@ func (p *Protocol) claimFromAccount(sm protocol.StateManager, addr address.Addre
 	balance := big.NewInt(0).Sub(acc.balance, amount)
 	if balance.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("no enough available balance")
-	} else if balance.Cmp(big.NewInt(0)) == 0 {
-		// If the account balance is cleared, delete if from the store
-		if err := p.deleteState(sm, accKey); err != nil {
-			return err
-		}
-	} else {
-		acc.balance = balance
-		if err := p.putState(sm, accKey, &acc); err != nil {
-			return err
-		}
+	}
+	// TODO: we may want to delete the account when the unclaimed balance becomes 0
+	acc.balance = balance
+	if err := p.putState(sm, accKey, &acc); err != nil {
+		return err
 	}
 
 	// Update primary account

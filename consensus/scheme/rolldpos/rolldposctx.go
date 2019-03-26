@@ -359,7 +359,12 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		return false, errors.Wrap(err, "failed to add endorsements to block")
 	}
 	// Commit and broadcast the pending block
-	if err := ctx.chain.CommitBlock(pendingBlock); err != nil {
+	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
+	case blockchain.ErrInvalidTipHeight:
+		return true, nil
+	case nil:
+		break
+	default:
 		return false, errors.Wrap(err, "error when committing a block")
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
@@ -408,7 +413,7 @@ func (ctx *rollDPoSCtx) IsStaleEvent(evt *consensusfsm.ConsensusEvent) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	return ctx.round.IsStale(evt.Height(), ctx.round.Number())
+	return ctx.round.IsStale(evt.Height(), evt.Round(), evt.Data())
 }
 
 func (ctx *rollDPoSCtx) IsFutureEvent(evt *consensusfsm.ConsensusEvent) bool {
@@ -500,7 +505,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 			data,
 			ed.Height(),
 			roundNum,
-			ed.Endorsement().Timestamp(),
+			ctx.clock.Now(),
 		)
 	default:
 		return consensusfsm.NewConsensusEvent(
