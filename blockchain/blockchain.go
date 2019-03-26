@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -29,7 +28,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
@@ -392,18 +390,19 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	if err != nil {
 		return 0, nil, err
 	}
-	state, err := p.ReadState(ctx, ws, []byte("CommitteeBlockProducersByHeight"), byteutil.Uint64ToBytes(epochStartHeight))
+	s, err := p.ReadState(ctx, ws, []byte("ActiveConsensusBlockProducersByHeight"),
+		byteutil.Uint64ToBytes(epochStartHeight))
 	if err != nil {
 		return 0, nil, status.Error(codes.NotFound, err.Error())
 	}
-	var committeeBlockProducers pollpb.BlockProducerList
-	if err := proto.Unmarshal(state, &committeeBlockProducers); err != nil {
-		return 0, nil, status.Error(codes.Internal, err.Error())
+	var activeConsensusBlockProducers state.CandidateList
+	if err := activeConsensusBlockProducers.Deserialize(s); err != nil {
+		return 0, nil, err
 	}
 
 	produce := make(map[string]uint64)
-	for _, bp := range committeeBlockProducers.BlockProducers {
-		produce[bp] = 0
+	for _, bp := range activeConsensusBlockProducers {
+		produce[bp.Address] = 0
 	}
 	for i := uint64(0); i < numBlks; i++ {
 		blk, err := bc.getBlockByHeight(epochStartHeight + i)
