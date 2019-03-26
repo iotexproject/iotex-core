@@ -111,14 +111,11 @@ message ActionInfo {
   string blkHash = 3;
 }
 
-message Productivity {
-    uint64 totalBlks = 1;
-    map<string, uint64> blksPerDelegate = 2;
-}
-
-message NextEpochBlockProducers {
-    bool ready = 1;
-    repeated string blockProducers = 2;
+message BlockProducerInfo {
+    string address = 1;
+    string votes = 2;
+    bool active = 3;
+    uint64 production = 4;
 }
 
 message GetActionsResponse {
@@ -209,6 +206,6 @@ message GetEpochMetaRequest {
 
 message GetEpochMetaResponse {
     iotextypes.EpochData epochData = 1;
-    Productivity productivity = 2;
-    NextEpochBlockProducers nextEpochBlockProducers = 3;
+    uint64 totalBlocks = 2;
+    repeated BlockProducerInfo blockProducersInfo = 3;
 }

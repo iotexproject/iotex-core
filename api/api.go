@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -373,42 +372,46 @@ func (api *Server) GetEpochMeta(
 		Height:                  epochHeight,
 		GravityChainStartHeight: gravityChainStartHeight,
 	}
-	productivity, err := api.getProductivity(in.EpochNumber)
+
+	numBlks, produce, err := api.bc.ProductivityByEpoch(in.EpochNumber)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	nextEpochHeight := rp.GetEpochHeight(in.EpochNumber + 1)
 
 	readStateRequest := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte(poll.ProtocolID),
-		MethodName: []byte("CommitteeBlockProducersByHeight"),
-		Arguments:  [][]byte{byteutil.Uint64ToBytes(nextEpochHeight)},
+		MethodName: []byte("ConsensusBlockProducersByHeight"),
+		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
 	}
 	res, err := api.readState(context.Background(), readStateRequest)
-	var nextEpochBlockProducers *iotexapi.NextEpochBlockProducers
-	switch errors.Cause(err) {
-	case nil:
-		var committeeBlockProducers pollpb.BlockProducerList
-		if err := proto.Unmarshal(res.Data, &committeeBlockProducers); err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		nextEpochBlockProducers = &iotexapi.NextEpochBlockProducers{
-			Ready:          true,
-			BlockProducers: committeeBlockProducers.BlockProducers,
-		}
-	case state.ErrStateNotExist:
-		nextEpochBlockProducers = &iotexapi.NextEpochBlockProducers{
-			Ready:          false,
-			BlockProducers: make([]string, 0),
-		}
-	default:
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	var consensusBlockProducers state.CandidateList
+	if err := consensusBlockProducers.Deserialize(res.Data); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	var blockProducersInfo []*iotexapi.BlockProducerInfo
+	for _, bp := range consensusBlockProducers {
+		var active bool
+		var blockProduction uint64
+		if production, ok := produce[bp.Address]; ok {
+			active = true
+			blockProduction = production
+		}
+		blockProducersInfo = append(blockProducersInfo, &iotexapi.BlockProducerInfo{
+			Address:    bp.Address,
+			Votes:      bp.Votes.String(),
+			Active:     active,
+			Production: blockProduction,
+		})
+	}
+
 	return &iotexapi.GetEpochMetaResponse{
-		EpochData:               epochData,
-		Productivity:            productivity,
-		NextEpochBlockProducers: nextEpochBlockProducers,
+		EpochData:          epochData,
+		TotalBlocks:        numBlks,
+		BlockProducersInfo: blockProducersInfo,
 	}, nil
 }
 
@@ -702,14 +705,6 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 		gravityChainStartHeight = byteutil.BytesToUint64(res.GetData())
 	}
 	return gravityChainStartHeight, nil
-}
-
-func (api *Server) getProductivity(epochNumber uint64) (*iotexapi.Productivity, error) {
-	numBlks, produce, err := api.bc.ProductivityByEpoch(epochNumber)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-	return &iotexapi.Productivity{TotalBlks: numBlks, BlksPerDelegate: produce}, nil
 }
 
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
