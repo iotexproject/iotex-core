@@ -413,7 +413,7 @@ func (ctx *rollDPoSCtx) IsStaleEvent(evt *consensusfsm.ConsensusEvent) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	return ctx.round.IsStale(evt.Height(), ctx.round.Number())
+	return ctx.round.IsStale(evt.Height(), evt.Round(), evt.Data())
 }
 
 func (ctx *rollDPoSCtx) IsFutureEvent(evt *consensusfsm.ConsensusEvent) bool {
@@ -505,7 +505,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 			data,
 			ed.Height(),
 			roundNum,
-			ed.Endorsement().Timestamp(),
+			ctx.clock.Now(),
 		)
 	default:
 		return consensusfsm.NewConsensusEvent(
