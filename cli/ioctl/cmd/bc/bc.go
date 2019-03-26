@@ -25,8 +25,7 @@ var BCCmd = &cobra.Command{
 
 func init() {
 	BCCmd.AddCommand(bcBlockCmd)
-	BCCmd.AddCommand(bcHeightCmd)
-	BCCmd.AddCommand(bcTpsCmd)
+	BCCmd.AddCommand(bcInfoCmd)
 }
 
 // GetChainMeta gets block chain metadata
