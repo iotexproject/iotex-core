@@ -128,7 +128,7 @@ func InjectByAps(
 	resetInterval int,
 	expectedBalances *map[string]*big.Int,
 	cs *chainservice.ChainService,
-	pendingActionMap *map[hash.Hash256]*big.Int,
+	pendingActionMap *sync.Map,
 ) {
 	timeout := time.After(duration)
 	tick := time.NewTicker(time.Duration(1/aps*1000000) * time.Microsecond)
@@ -180,7 +180,7 @@ loop:
 		case <-tick.C:
 			wg.Add(1)
 			//TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
-			if err := CheckPendingActionList(cs,
+			if _, err := CheckPendingActionList(cs,
 				pendingActionMap,
 				expectedBalances,
 			); err != nil {
@@ -362,7 +362,7 @@ func injectTransfer(
 	payload string,
 	retryNum int,
 	retryInterval int,
-	pendingActionMap *map[hash.Hash256]*big.Int,
+	pendingActionMap *sync.Map,
 ) {
 	selp, _, err := createSignedTransfer(sender, recipient, unit.ConvertIotxToRau(amount), nonce, gasLimit,
 		gasPrice, payload)
@@ -379,7 +379,7 @@ func injectTransfer(
 	}, bo); err != nil {
 		log.L().Error("Failed to inject transfer", zap.Error(err))
 	} else if pendingActionMap != nil {
-		(*pendingActionMap)[selp.Hash()] = big.NewInt(0)
+		pendingActionMap.Store(selp.Hash(), 1)
 	}
 
 	if wg != nil {
@@ -397,7 +397,7 @@ func injectVote(
 	gasPrice *big.Int,
 	retryNum int,
 	retryInterval int,
-	pendingActionMap *map[hash.Hash256]*big.Int,
+	pendingActionMap *sync.Map,
 ) {
 	selp, _, err := createSignedVote(sender, recipient, nonce, gasLimit, gasPrice)
 	if err != nil {
@@ -413,7 +413,7 @@ func injectVote(
 	}, bo); err != nil {
 		log.L().Error("Failed to inject vote", zap.Error(err))
 	} else if pendingActionMap != nil {
-		(*pendingActionMap)[selp.Hash()] = big.NewInt(0)
+		pendingActionMap.Store(selp.Hash(), 1)
 	}
 
 	if wg != nil {
@@ -433,7 +433,7 @@ func injectExecInteraction(
 	data string,
 	retryNum int,
 	retryInterval int,
-	pendingActionMap *map[hash.Hash256]*big.Int,
+	pendingActionMap *sync.Map,
 ) {
 	selp, execution, err := createSignedExecution(executor, contract, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
@@ -445,7 +445,7 @@ func injectExecInteraction(
 	injectExecution(selp, execution, c, retryNum, retryInterval)
 
 	if pendingActionMap != nil {
-		(*pendingActionMap)[selp.Hash()] = big.NewInt(0)
+		pendingActionMap.Store(selp.Hash(), 1)
 	}
 
 	if wg != nil {
@@ -659,13 +659,21 @@ func GetAllBalanceMap(
 // 2) remove the action from pending list
 func CheckPendingActionList(
 	cs *chainservice.ChainService,
-	pendingActionMap *map[hash.Hash256]*big.Int,
+	pendingActionMap *sync.Map,
 	balancemap *map[string]*big.Int,
-) error {
-	for selphash := range *pendingActionMap {
-		selp, err := cs.Blockchain().GetActionByActionHash(selphash)
+) (bool, error) {
+	var retErr error
+	empty := true
+
+	pendingActionMap.Range(func(selphash, vi interface{}) bool {
+		empty = false
+		selp, err := cs.Blockchain().GetActionByActionHash(selphash.(hash.Hash256))
 		if err == nil {
-			receipt, _ := cs.Blockchain().GetReceiptByActionHash(selphash)
+			receipt, err := cs.Blockchain().GetReceiptByActionHash(selphash.(hash.Hash256))
+			if err != nil {
+				retErr = err
+				return false
+			}
 			if receipt.Status == action.SuccessReceiptStatus {
 
 				pbAct := selp.Envelope.Proto()
@@ -674,11 +682,13 @@ func CheckPendingActionList(
 				case pbAct.GetTransfer() != nil:
 					act := &action.Transfer{}
 					if err := act.LoadProto(pbAct.GetTransfer()); err != nil {
-						return err
+						retErr = err
+						return false
 					}
 					senderaddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 					if err != nil {
-						return err
+						retErr = err
+						return false
 					}
 
 					updateTransferExpectedBalanceMap(balancemap, senderaddr.String(),
@@ -687,35 +697,40 @@ func CheckPendingActionList(
 				case pbAct.GetVote() != nil:
 					act := &action.Vote{}
 					if err := act.LoadProto(pbAct.GetVote()); err != nil {
-						return err
+						retErr = err
+						return false
 					}
 					voteraddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 					if err != nil {
-						return err
+						retErr = err
+						return false
 					}
 
 					updateVoteExpectedBalanceMap(balancemap, voteraddr.String(), selp.GasLimit(), selp.GasPrice())
 				case pbAct.GetExecution() != nil:
 					act := &action.Execution{}
 					if err := act.LoadProto(pbAct.GetExecution()); err != nil {
-						return err
+						retErr = err
+						return false
 					}
 					executoraddr, err := address.FromBytes(selp.SrcPubkey().Hash())
 					if err != nil {
-						return err
+						retErr = err
+						return false
 					}
 
 					updateExecutionExpectedBalanceMap(balancemap, executoraddr.String(), selp.GasLimit(), selp.GasPrice())
 				default:
-					return errors.New("Unsupported action type for balance check")
+					retErr = errors.New("Unsupported action type for balance check")
+					return false
 				}
 			}
-
-			delete(*pendingActionMap, selphash)
-
+			pendingActionMap.Delete(selphash)
 		}
-	}
-	return nil
+		return true
+	})
+
+	return empty, retErr
 }
 func updateTransferExpectedBalanceMap(
 	balancemap *map[string]*big.Int,
