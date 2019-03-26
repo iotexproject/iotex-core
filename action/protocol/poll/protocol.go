@@ -342,10 +342,6 @@ func (p *governanceChainCommitteeProtocol) getGravityHeight(height uint64) (uint
 	return p.electionCommittee.HeightByTime(blkTime)
 }
 
-func (p *governanceChainCommitteeProtocol) getEpochMeta(epochNumber uint64) ([]byte, error) {
-	return nil, nil
-}
-
 func validateDelegates(cs state.CandidateList) error {
 	zero := big.NewInt(0)
 	addrs := map[string]bool{}

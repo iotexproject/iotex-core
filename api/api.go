@@ -375,9 +375,6 @@ func (api *Server) GetEpochMeta(
 
 	numBlks, produce, err := api.bc.ProductivityByEpoch(in.EpochNumber)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
