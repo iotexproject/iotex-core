@@ -1,6 +1,7 @@
 package assetcontract
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -9,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/tools/erc721tester/blockchain"
+	"github.com/iotexproject/iotex-core/tools/1erc721tester/blockchain"
 )
 
 const (
@@ -25,7 +26,7 @@ func StartContracts(cfg config.Config) (blockchain.Erc721Token,error) {
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println("////////////////////////////:",addr)
 	erc721Token := blockchain.NewErc721Token(endpoint).SetRegistry(addr)
 	erc721Token.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 

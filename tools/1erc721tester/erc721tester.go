@@ -23,7 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/tools/erc721tester/assetcontract"
+	"github.com/iotexproject/iotex-core/tools/1erc721tester/assetcontract"
 )
 
 func main() {
