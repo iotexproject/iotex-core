@@ -55,11 +55,11 @@ type (
 		CreateDeferredToken(string, string, string, string, int64, int64, int64) (string, error)
 		TokenAddress(string) (string, error)
 		Transfer(string, string, string, string, int64) (string, error)
-		RiskLock(string, string, string, int64) (string, error)
-		SetRate(string, int64) (string, error)
-		GetRate(string) (string, error)
-		SetPayDate(string, int64) (string, error)
-		GetPayDate(string) (string, error)
+		//RiskLock(string, string, string, int64) (string, error)
+		//SetRate(string, int64) (string, error)
+		//GetRate(string) (string, error)
+		//SetPayDate(string, int64) (string, error)
+		//GetPayDate(string) (string, error)
 
 		SetManagement(string) FpToken
 		SetManagementProxy(string) FpToken
