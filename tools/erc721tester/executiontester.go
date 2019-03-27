@@ -90,9 +90,9 @@ func main() {
 	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPriKey, creditorAddr, assetID); err != nil {
 		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
 	}
-	if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
-		log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
-	}
+	//if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
+	//	log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
+	//}
 
 	debtorBalance, err := fpToken.ReadValue(contractAddr, "70a08231", debtorAddr)
 	if err != nil {
