@@ -18,7 +18,7 @@ const (
 )
 
 // StartContracts deploys and starts fp token smart contract and stable token smart contract
-func StartContracts(cfg config.Config) (*blockchain.Erc721Token,error) {
+func StartContracts(cfg config.Config) (blockchain.Erc721Token,error) {
 	endpoint := chainIP + ":" + strconv.Itoa(cfg.API.Port)
 
 	addr, err := deployContract(blockchain.Erc721Binary, endpoint)
