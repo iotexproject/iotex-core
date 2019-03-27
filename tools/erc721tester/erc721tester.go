@@ -9,6 +9,8 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+
 	//"fmt"
 	"math/big"
 	"time"
@@ -85,7 +87,7 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to get balance", zap.Error(err))
 	}
-	log.L().Info("Fp token transfer test pass!",zap.String(b))
+	fmt.Println("Fp token transfer test pass!",b)
 	//
 	//contractAddr, err := fpToken.TokenAddress(assetID)
 	//if err != nil {
