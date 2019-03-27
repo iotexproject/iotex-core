@@ -66,11 +66,11 @@ func main() {
 	}
 	//log.L().Info("//////////////////////////////:",erc721Token)
 	// Create two accounts
-	_, debtorPriKey, debtorAddr, err := createAccount()
-	if err != nil {
-		log.L().Fatal("Failed to create account.", zap.Error(err))
-	}
-	_, creditorPriKey, creditorAddr, err := createAccount()
+	//_, debtorPriKey, debtorAddr, err := createAccount()
+	//if err != nil {
+	//	log.L().Fatal("Failed to create account.", zap.Error(err))
+	//}
+	_, _, creditorAddr, err := createAccount()
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
