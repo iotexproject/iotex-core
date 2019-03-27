@@ -112,6 +112,8 @@ func main() {
 	//}
 	//
 	//log.L().Info("Fp token transfer test pass!")
+	var ch chan struct{}
+	<-ch
 }
 
 func createAccount() (string, string, string, error) {
