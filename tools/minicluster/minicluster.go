@@ -239,6 +239,7 @@ func main() {
 		}
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
+		pendingActionMap := new(sync.Map)
 
 		log.L().Info("Start action injections.")
 
@@ -246,18 +247,25 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			&expectedBalancesMap)
+			&expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			actionCleared := true
-			for i := 0; i < numNodes; i++ {
-				if apsize := svrs[i].ChainService(configs[i].Chain.ID).ActionPool().GetSize(); apsize != 0 {
-					actionCleared = false
-				}
+			empty, err := util.CheckPendingActionList(
+				svrs[0].ChainService(1),
+				pendingActionMap,
+				&expectedBalancesMap,
+			)
+			if err != nil {
+				log.L().Error(err.Error())
+				return false, err
 			}
-			return actionCleared, nil
+			return empty, nil
 		})
+
+		if err != nil {
+			log.L().Error("Not all actions are settled")
+		}
 
 		chains := make([]blockchain.Blockchain, numNodes)
 		stateHeights := make([]uint64, numNodes)

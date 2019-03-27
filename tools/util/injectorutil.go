@@ -18,10 +18,11 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -126,6 +127,8 @@ func InjectByAps(
 	retryInterval int,
 	resetInterval int,
 	expectedBalances *map[string]*big.Int,
+	cs *chainservice.ChainService,
+	pendingActionMap *sync.Map,
 ) {
 	timeout := time.After(duration)
 	tick := time.NewTicker(time.Duration(1/aps*1000000) * time.Microsecond)
@@ -177,48 +180,29 @@ loop:
 		case <-tick.C:
 			wg.Add(1)
 			//TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
+			if _, err := CheckPendingActionList(cs,
+				pendingActionMap,
+				expectedBalances,
+			); err != nil {
+				log.L().Error(err.Error())
+			}
 			switch randNum := rand.Intn(randRange); randNum {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
-				if err := updateTransferExpectedBalanceMap(
-					expectedBalances,
-					sender,
-					recipient,
-					amount,
-					transferPayload,
-					uint64(transferGasLimit),
-					big.NewInt(transferGasPrice),
-				); err != nil {
-					log.L().Info(err.Error())
-				}
 				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
-					big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval)
+					big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval, pendingActionMap)
 			case 1:
 				executor, nonce := createExecutionInjection(counter, delegates)
-				if err := updateExecutionExpectedBalanceMap(expectedBalances,
-					executor, uint64(executionGasLimit),
-					big.NewInt(executionGasPrice),
-				); err != nil {
-					log.L().Info(err.Error())
-				}
 				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 					uint64(executionGasLimit), big.NewInt(executionGasPrice),
-					executionData, retryNum, retryInterval)
+					executionData, retryNum, retryInterval, pendingActionMap)
 			case 2:
 				go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
 			// vote injection is currently suspended
 			case 3:
 				sender, recipient, nonce := createVoteInjection(counter, admins, admins)
-				if err := updateVoteExpectedBalanceMap(
-					expectedBalances,
-					sender,
-					uint64(voteGasLimit),
-					big.NewInt(int64(voteGasPrice)),
-				); err != nil {
-					log.L().Info(err.Error())
-				}
 				go injectVote(wg, client, sender, recipient, nonce, uint64(voteGasLimit),
-					big.NewInt(voteGasPrice), retryNum, retryInterval)
+					big.NewInt(voteGasPrice), retryNum, retryInterval, pendingActionMap)
 			}
 		}
 	}
@@ -251,17 +235,17 @@ func InjectByInterval(
 	for transferNum > 0 && voteNum > 0 && executionNum > 0 {
 		sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 		injectTransfer(nil, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
-			big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+			big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval, nil)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		sender, recipient, nonce = createVoteInjection(counter, admins, delegates)
 		injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit),
-			big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+			big.NewInt(int64(voteGasPrice)), retryNum, retryInterval, nil)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		executor, nonce := createExecutionInjection(counter, delegates)
 		injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
-			uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
+			uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval, nil)
 		time.Sleep(time.Second * time.Duration(interval))
 
 		transferNum--
@@ -273,12 +257,12 @@ func InjectByInterval(
 		for transferNum > 0 && voteNum > 0 {
 			sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 			injectTransfer(nil, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
-				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			sender, recipient, nonce = createVoteInjection(counter, admins, delegates)
 			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit),
-				big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+				big.NewInt(int64(voteGasPrice)), retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			transferNum--
@@ -288,12 +272,12 @@ func InjectByInterval(
 		for transferNum > 0 && executionNum > 0 {
 			sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 			injectTransfer(nil, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
-				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			executor, nonce := createExecutionInjection(counter, delegates)
 			injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
-				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
+				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			transferNum--
@@ -303,12 +287,12 @@ func InjectByInterval(
 		for voteNum > 0 && executionNum > 0 {
 			sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
 			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit),
-				big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+				big.NewInt(int64(voteGasPrice)), retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			executor, nonce := createExecutionInjection(counter, delegates)
 			injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
-				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
+				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 
 			voteNum--
@@ -320,7 +304,7 @@ func InjectByInterval(
 		for transferNum > 0 {
 			sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 			injectTransfer(nil, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
-				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval)
+				big.NewInt(int64(transferGasPrice)), transferPayload, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 			transferNum--
 		}
@@ -328,7 +312,7 @@ func InjectByInterval(
 		for voteNum > 0 {
 			sender, recipient, nonce := createVoteInjection(counter, admins, delegates)
 			injectVote(nil, client, sender, recipient, nonce, uint64(voteGasLimit),
-				big.NewInt(int64(voteGasPrice)), retryNum, retryInterval)
+				big.NewInt(int64(voteGasPrice)), retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 			voteNum--
 		}
@@ -336,7 +320,7 @@ func InjectByInterval(
 		for executionNum > 0 {
 			executor, nonce := createExecutionInjection(counter, delegates)
 			injectExecInteraction(nil, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
-				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval)
+				uint64(executionGasLimit), big.NewInt(int64(executionGasPrice)), executionData, retryNum, retryInterval, nil)
 			time.Sleep(time.Second * time.Duration(interval))
 			executionNum--
 		}
@@ -378,6 +362,7 @@ func injectTransfer(
 	payload string,
 	retryNum int,
 	retryInterval int,
+	pendingActionMap *sync.Map,
 ) {
 	selp, _, err := createSignedTransfer(sender, recipient, unit.ConvertIotxToRau(amount), nonce, gasLimit,
 		gasPrice, payload)
@@ -393,6 +378,8 @@ func injectTransfer(
 		return err
 	}, bo); err != nil {
 		log.L().Error("Failed to inject transfer", zap.Error(err))
+	} else if pendingActionMap != nil {
+		pendingActionMap.Store(selp.Hash(), 1)
 	}
 
 	if wg != nil {
@@ -410,6 +397,7 @@ func injectVote(
 	gasPrice *big.Int,
 	retryNum int,
 	retryInterval int,
+	pendingActionMap *sync.Map,
 ) {
 	selp, _, err := createSignedVote(sender, recipient, nonce, gasLimit, gasPrice)
 	if err != nil {
@@ -424,6 +412,8 @@ func injectVote(
 		return err
 	}, bo); err != nil {
 		log.L().Error("Failed to inject vote", zap.Error(err))
+	} else if pendingActionMap != nil {
+		pendingActionMap.Store(selp.Hash(), 1)
 	}
 
 	if wg != nil {
@@ -443,6 +433,7 @@ func injectExecInteraction(
 	data string,
 	retryNum int,
 	retryInterval int,
+	pendingActionMap *sync.Map,
 ) {
 	selp, execution, err := createSignedExecution(executor, contract, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
@@ -452,6 +443,11 @@ func injectExecInteraction(
 	log.L().Info("Created signed execution")
 
 	injectExecution(selp, execution, c, retryNum, retryInterval)
+
+	if pendingActionMap != nil {
+		pendingActionMap.Store(selp.Hash(), 1)
+	}
+
 	if wg != nil {
 		wg.Done()
 	}
@@ -657,92 +653,166 @@ func GetAllBalanceMap(
 	return balanceMap
 }
 
+// CheckPendingActionList will go through the pending action list, for an executed action:
+// 1) update the expectation balance map if the action has been run successfully
+// 2) remove the action from pending list
+func CheckPendingActionList(
+	cs *chainservice.ChainService,
+	pendingActionMap *sync.Map,
+	balancemap *map[string]*big.Int,
+) (bool, error) {
+	var retErr error
+	empty := true
+
+	pendingActionMap.Range(func(selphash, vi interface{}) bool {
+		empty = false
+		selp, err := cs.Blockchain().GetActionByActionHash(selphash.(hash.Hash256))
+		if err == nil {
+			receipt, err := cs.Blockchain().GetReceiptByActionHash(selphash.(hash.Hash256))
+			if err != nil {
+				retErr = err
+				return false
+			}
+			if receipt.Status == action.SuccessReceiptStatus {
+
+				pbAct := selp.Envelope.Proto()
+
+				switch {
+				case pbAct.GetTransfer() != nil:
+					act := &action.Transfer{}
+					if err := act.LoadProto(pbAct.GetTransfer()); err != nil {
+						retErr = err
+						return false
+					}
+					senderaddr, err := address.FromBytes(selp.SrcPubkey().Hash())
+					if err != nil {
+						retErr = err
+						return false
+					}
+
+					updateTransferExpectedBalanceMap(balancemap, senderaddr.String(),
+						act.Recipient(), act.Amount(), act.Payload(), selp.GasLimit(), selp.GasPrice())
+
+				case pbAct.GetVote() != nil:
+					act := &action.Vote{}
+					if err := act.LoadProto(pbAct.GetVote()); err != nil {
+						retErr = err
+						return false
+					}
+					voteraddr, err := address.FromBytes(selp.SrcPubkey().Hash())
+					if err != nil {
+						retErr = err
+						return false
+					}
+
+					updateVoteExpectedBalanceMap(balancemap, voteraddr.String(), selp.GasLimit(), selp.GasPrice())
+				case pbAct.GetExecution() != nil:
+					act := &action.Execution{}
+					if err := act.LoadProto(pbAct.GetExecution()); err != nil {
+						retErr = err
+						return false
+					}
+					executoraddr, err := address.FromBytes(selp.SrcPubkey().Hash())
+					if err != nil {
+						retErr = err
+						return false
+					}
+
+					updateExecutionExpectedBalanceMap(balancemap, executoraddr.String(), selp.GasLimit(), selp.GasPrice())
+				default:
+					retErr = errors.New("Unsupported action type for balance check")
+					return false
+				}
+			}
+			pendingActionMap.Delete(selphash)
+		}
+		return true
+	})
+
+	return empty, retErr
+}
 func updateTransferExpectedBalanceMap(
 	balancemap *map[string]*big.Int,
-	sender *AddressKey,
-	recipient *AddressKey,
-	amount int64,
-	payload string,
+	senderAddr string,
+	recipientAddr string,
+	amount *big.Int,
+	payload []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
-) error {
-	amountRau := unit.ConvertIotxToRau(amount)
+) {
+
 	gasLimitBig := big.NewInt(int64(gasLimit))
 
 	//calculate gas consumed by payload
-	transferPayload, _ := hex.DecodeString(payload)
 	gasUnitPayloadConsumed := new(big.Int).Mul(new(big.Int).SetUint64(action.TransferPayloadGas),
-		new(big.Int).SetUint64(uint64(len(transferPayload))))
+		new(big.Int).SetUint64(uint64(len(payload))))
 	gasUnitTransferConsumed := new(big.Int).SetUint64(action.TransferBaseIntrinsicGas)
 
 	//calculate total gas consumed by payload and transfer action
 	gasUnitConsumed := new(big.Int).Add(gasUnitPayloadConsumed, gasUnitTransferConsumed)
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
-		return errors.New("Not enough gas")
+		log.L().Fatal("Not enough gas")
 	}
 
 	//convert to gas cost
 	gasConsumed := new(big.Int).Mul(gasUnitConsumed, gasPrice)
 
 	//total cost of transferred amount, payload, transfer intrinsic
-	totalUsed := new(big.Int).Add(gasConsumed, amountRau)
+	totalUsed := new(big.Int).Add(gasConsumed, amount)
 
 	//update sender balance
-	senderBalance := (*balancemap)[sender.EncodedAddr]
+	senderBalance := (*balancemap)[senderAddr]
 	if senderBalance.Cmp(totalUsed) < 0 {
-		return errors.New("Not enough balance")
+		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[sender.EncodedAddr].Sub(senderBalance, totalUsed)
+	(*balancemap)[senderAddr].Sub(senderBalance, totalUsed)
 
 	//update recipient balance
-	recipientBalance := (*balancemap)[recipient.EncodedAddr]
-	(*balancemap)[recipient.EncodedAddr].Add(recipientBalance, amountRau)
-	return nil
+	recipientBalance := (*balancemap)[recipientAddr]
+	(*balancemap)[recipientAddr].Add(recipientBalance, amount)
 }
 
 func updateVoteExpectedBalanceMap(
 	balancemap *map[string]*big.Int,
-	sender *AddressKey,
+	voter string,
 	gasLimit uint64,
 	gasPrice *big.Int,
-) error {
+) {
 	gasLimitBig := new(big.Int).SetUint64(gasLimit)
 	gasUnitVoteConsumed := new(big.Int).SetUint64(action.VoteIntrinsicGas)
 	if gasLimitBig.Cmp(gasUnitVoteConsumed) < 0 {
-		return errors.New("Not enough gas")
+		log.L().Fatal("Not enough gas")
 	}
 	gasConsumed := new(big.Int).Mul(gasUnitVoteConsumed, gasPrice)
 
 	//update sender balance
-	senderBalance := (*balancemap)[sender.EncodedAddr]
+	senderBalance := (*balancemap)[voter]
 	if senderBalance.Cmp(gasConsumed) < 0 {
-		return errors.New("Not enough balance")
+		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[sender.EncodedAddr].Sub(senderBalance, gasConsumed)
-	return nil
+	(*balancemap)[voter].Sub(senderBalance, gasConsumed)
 }
 
 func updateExecutionExpectedBalanceMap(
 	balancemap *map[string]*big.Int,
-	executor *AddressKey,
+	executor string,
 	gasLimit uint64,
 	gasPrice *big.Int,
-) error {
+) {
 	gasLimitBig := new(big.Int).SetUint64(gasLimit)
 
 	//NOTE: This hard-coded gas comsumption value is precalculted on minicluster deployed test contract only
 	gasUnitConsumed := new(big.Int).SetUint64(24028)
 
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
-		return errors.New("Not enough gas")
+		log.L().Fatal("Not enough gas")
 	}
 	gasConsumed := new(big.Int).Mul(gasUnitConsumed, gasPrice)
 
-	executorBalance := (*balancemap)[executor.EncodedAddr]
+	executorBalance := (*balancemap)[executor]
 	if executorBalance.Cmp(gasConsumed) < 0 {
-		return errors.New("Not enough balance")
+		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[executor.EncodedAddr].Sub(executorBalance, gasConsumed)
+	(*balancemap)[executor].Sub(executorBalance, gasConsumed)
 
-	return nil
 }
