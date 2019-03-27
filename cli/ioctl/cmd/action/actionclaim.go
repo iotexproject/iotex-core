@@ -19,7 +19,7 @@ import (
 
 // actionClaimCmd represents the action claim command
 var actionClaimCmd = &cobra.Command{
-	Use:   "claim AMOUNT_IOTX [DATA] -l GAS_LIMIT -p GASPRICE -s OPERATOR",
+	Use:   "claim AMOUNT_IOTX [DATA] -l GAS_LIMIT -p GASPRICE -s SIGNER",
 	Short: "Claim rewards from rewarding fund",
 	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
