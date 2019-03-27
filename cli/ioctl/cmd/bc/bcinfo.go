@@ -12,21 +12,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bcHeightCmd represents the bc height command
-var bcHeightCmd = &cobra.Command{
-	Use:   "height",
-	Short: "Get current block height",
+// bcInfoCmd represents the bc info command
+var bcInfoCmd = &cobra.Command{
+	Use:   "info",
+	Short: "Get current block chain information",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(currentBlockHeigh())
+		fmt.Println(bcInfo())
 	},
 }
 
-// currentBlockHeigh get current height of block chain from server
-func currentBlockHeigh() string {
+// bcInfo get current information of block chain from server
+func bcInfo() string {
 	chainMeta, err := GetChainMeta()
 	if err != nil {
 		return err.Error()
 	}
-	return fmt.Sprintf("%d", chainMeta.Height)
+	return fmt.Sprintf("height:%d  numActions:%d  tps:%d\nepochNum:%d  epochStartHeight:%d"+
+		"  gravityChainStartHeight:%d", chainMeta.Height, chainMeta.NumActions, chainMeta.Tps,
+		chainMeta.Epoch.Num, chainMeta.Epoch.Height, chainMeta.Epoch.GravityChainStartHeight)
 }
