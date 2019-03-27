@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
@@ -57,9 +58,11 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	//keccak256("Deposit(address,hash256,uint256)")
 	//hash:=keccak256("mint(address,uint256)")
 	hash:=crypto.Keccak256([]byte("mint(address,uint256)"))[:4]
-	//h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
+	////h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
 	hashString:=common.Bytes2Hex(hash)
-	h, err := f.SetAddress(f.registry).Call(hashString,addrCreditor.Bytes(),[]byte(tokenid))
+	fmt.Println("////////////////////////hash mint:",hashString)
+	//h, err := f.SetAddress(f.registry).Call(hashString,addrCreditor.Bytes(),[]byte(tokenid))
+	h,err:=f.Call("40c10f19",addrCreditor.Bytes(),[]byte(tokenid))
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to create")
 	}
