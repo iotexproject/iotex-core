@@ -67,7 +67,7 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
-	_, creditorPriKey, creditorAddr, err := createAccount()
+	_, _, creditorAddr, err := createAccount()
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
