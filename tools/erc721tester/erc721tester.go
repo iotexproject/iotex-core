@@ -77,8 +77,6 @@ func main() {
 
 	// Create fp token
 	assetID := assetcontract.GenerateAssetID()
-	open := time.Now().Unix()
-	exp := open + 100000
 
 	if _, err := erc721Token.CreateToken(assetID,creditorAddr); err != nil {
 		log.L().Fatal("Failed to create token", zap.Error(err))
