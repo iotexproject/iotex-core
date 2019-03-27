@@ -63,7 +63,7 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	//fmt.Println("////////////////////////hash mint:",hashString)
 	//h, err := f.SetAddress(f.registry).Call(hashString,addrCreditor.Bytes(),[]byte(tokenid))
 	fmt.Println("//////////////////////contract addr:",f.Address())
-	h,err:=f.Call("40c10f19",addrCreditor.Bytes(),[]byte(tokenid))
+	h,err:=f.RunAsOwner().Call("40c10f19",addrCreditor.Bytes(),[]byte(tokenid))
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to create")
 	}
