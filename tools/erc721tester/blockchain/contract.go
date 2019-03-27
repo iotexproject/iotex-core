@@ -59,7 +59,6 @@ type (
 		SetExecutor(string) Contract
 		SetPrvKey(string) Contract
 		RunAsOwner() Contract
-		Balance(string) (string, error)
 	}
 
 	contract struct {
