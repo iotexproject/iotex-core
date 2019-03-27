@@ -204,10 +204,10 @@ func (f *fpToken) Transfer(token, sender, prvkey, receiver string, id string) (s
 	return h, nil
 }
 
-func (f *fpToken) RiskLock(token, sender, prvkey string, amount int64) (string, error) {
-	// lock is a special type of transfer with receiver == risk lock contract
-	return f.Transfer(token, sender, prvkey, f.riskLock, amount)
-}
+//func (f *fpToken) RiskLock(token, sender, prvkey string, amount int64) (string, error) {
+//	// lock is a special type of transfer with receiver == risk lock contract
+//	return f.Transfer(token, sender, prvkey, f.riskLock, amount)
+//}
 
 //func (f *fpToken) SetRate(source string, amount int64) (string, error) {
 //	tokenAddr := []byte{}
