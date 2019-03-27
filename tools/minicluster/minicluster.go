@@ -16,7 +16,6 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -211,8 +210,8 @@ func main() {
 
 			// Create fp token
 			assetID := assetcontract.GenerateAssetID()
-			open := strconv.Itoa(int(time.Now().UnixNano() / 1e6))
-			exp := strconv.Itoa(int(time.Now().UnixNano()/1e6+d.Nanoseconds()/1e6) + 10000)
+			open := time.Now().Unix()
+			exp := open + 100000
 
 			if _, err := fpToken.CreateToken(assetID, debtor.EncodedAddr, creditor.EncodedAddr, fpTotal, fpRisk, open,
 				exp); err != nil {
@@ -225,17 +224,15 @@ func main() {
 			}
 
 			// Transfer full amount from debtor to creditor
-			debtorPubKey := debtor.PriKey.PublicKey().HexString()
 			debtorPriKey := debtor.PriKey.HexString()
-			if _, err := fpToken.Transfer(fpContract, debtor.EncodedAddr, debtorPubKey, debtorPriKey,
+			if _, err := fpToken.Transfer(fpContract, debtor.EncodedAddr, debtorPriKey,
 				creditor.EncodedAddr, fpTotal); err != nil {
 				log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
 			}
 
 			// Transfer amount of risk from creditor to contract
-			creditorPubKey := creditor.PriKey.PublicKey().HexString()
 			creditorPriKey := creditor.PriKey.HexString()
-			if _, err := fpToken.RiskLock(fpContract, creditor.EncodedAddr, creditorPubKey, creditorPriKey,
+			if _, err := fpToken.RiskLock(fpContract, creditor.EncodedAddr, creditorPriKey,
 				fpRisk); err != nil {
 				log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
 			}
