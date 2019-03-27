@@ -3,13 +3,14 @@ package explorer
 
 import (
 	"fmt"
-	"github.com/coopernurse/barrister-go"
 	"reflect"
+
+	"github.com/coopernurse/barrister-go"
 )
 
 const BarristerVersion string = "0.1.6"
-const BarristerChecksum string = "02691b1ac8fe2a4e7820ddf891ec5020"
-const BarristerDateGenerated int64 = 1552068369522000000
+const BarristerChecksum string = "0f6bf284ad39053040811ee110998a4d"
+const BarristerDateGenerated int64 = 1553297260246000000
 
 type CoinStatistic struct {
 	Height     int64  `json:"height"`
@@ -121,13 +122,11 @@ type AddressDetails struct {
 }
 
 type Candidate struct {
-	Address          string `json:"address"`
-	PubKey           string `json:"pubKey"`
-	TotalVote        string `json:"totalVote"`
-	CreationHeight   int64  `json:"creationHeight"`
-	LastUpdateHeight int64  `json:"lastUpdateHeight"`
-	IsDelegate       bool   `json:"isDelegate"`
-	IsProducer       bool   `json:"isProducer"`
+	Address    string `json:"address"`
+	PubKey     string `json:"pubKey"`
+	TotalVote  string `json:"totalVote"`
+	IsDelegate bool   `json:"isDelegate"`
+	IsProducer bool   `json:"isProducer"`
 }
 
 type CandidateMetrics struct {
@@ -1683,20 +1682,6 @@ var IdlJsonRaw = `[
             {
                 "name": "totalVote",
                 "type": "string",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "creationHeight",
-                "type": "int",
-                "optional": false,
-                "is_array": false,
-                "comment": ""
-            },
-            {
-                "name": "lastUpdateHeight",
-                "type": "int",
                 "optional": false,
                 "is_array": false,
                 "comment": ""
@@ -3409,7 +3394,7 @@ var IdlJsonRaw = `[
         "values": null,
         "functions": null,
         "barrister_version": "0.1.6",
-        "date_generated": 1552068369522,
-        "checksum": "02691b1ac8fe2a4e7820ddf891ec5020"
+        "date_generated": 1553297260246,
+        "checksum": "0f6bf284ad39053040811ee110998a4d"
     }
 ]`

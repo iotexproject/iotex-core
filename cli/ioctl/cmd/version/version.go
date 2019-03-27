@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	ver "github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -36,7 +37,7 @@ func version() string {
 		GoVersion:       ver.GoVersion,
 		BuidTime:        ver.BuildTime,
 	}
-	res := fmt.Sprintf("Client Version:\n%+v\n", versionInfo)
+	fmt.Printf("Client:\n%+v\n\n", versionInfo)
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
@@ -47,9 +48,7 @@ func version() string {
 	ctx := context.Background()
 	response, err := cli.GetServerMeta(ctx, request)
 	if err != nil {
-		res += "\nfailed to get version from server: " + err.Error()
-	} else {
-		res += fmt.Sprintf("Server Version:\n%+v", response.ServerMeta)
+		return "failed to get version from server: " + err.Error()
 	}
-	return res
+	return fmt.Sprintf("Server: %s\n%+v", config.ReadConfig.Endpoint, response.ServerMeta)
 }
