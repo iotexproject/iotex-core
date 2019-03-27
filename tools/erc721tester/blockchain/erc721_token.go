@@ -58,7 +58,8 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	//hash:=keccak256("mint(address,uint256)")
 	hash:=crypto.Keccak256([]byte("mint(address,uint256)"))[:4]
 	//h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
-	h, err := f.Call(string(hash),addrCreditor.Bytes(),[]byte(tokenid))
+	hashString:=common.Bytes2Hex(hash)
+	h, err := f.Call(hashString,addrCreditor.Bytes(),[]byte(tokenid))
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to create")
 	}
