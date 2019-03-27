@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	//"math/big"
@@ -78,7 +79,8 @@ func (f *erc721Token) Balance(creditor string) (string, error) {
 	//hash:=keccak256("mint(address,uint256)")
 	hash:=crypto.Keccak256([]byte("balanceOf(address)"))[:4]
 	//h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
-	h, err := f.Call(string(hash),addrCreditor.Bytes())
+	hashString:=common.Bytes2Hex(hash)
+	h, err := f.Call(hashString,addrCreditor.Bytes())
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to get balance")
 	}
