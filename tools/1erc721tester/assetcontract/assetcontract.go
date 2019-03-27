@@ -27,7 +27,8 @@ func StartContracts(cfg config.Config) (blockchain.Erc721Token,error) {
 		return nil, err
 	}
 	fmt.Println("////////////////////////////:",addr)
-	erc721Token := blockchain.NewErc721Token(endpoint).SetRegistry(addr)
+	erc721Token := blockchain.NewErc721Token(endpoint)
+	erc721Token.SetAddress(addr)
 	erc721Token.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
 	if err := erc721Token.Start(); err != nil {
