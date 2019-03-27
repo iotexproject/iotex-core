@@ -180,7 +180,7 @@ func (f *fpToken) TokenAddress(astid string) (string, error) {
 }
 
 func (f *fpToken) Transfer(token, sender, prvkey, receiver string, id string) (string, error) {
-	_, err := address.FromString(sender)
+	addressSender, err := address.FromString(sender)
 	if err != nil {
 		return "", errors.Errorf("invalid account address = %s", sender)
 	}
@@ -193,7 +193,7 @@ func (f *fpToken) Transfer(token, sender, prvkey, receiver string, id string) (s
 		SetExecutor(sender).
 		SetPrvKey(prvkey).
 		//Call("a9059cbb", addrReceiver.Bytes(), big.NewInt(amount).Bytes())
-		Call("b88d4fde", sender.Bytes(),addrReceiver.Bytes(), []byte(id))
+		Call("b88d4fde", addressSender.Bytes(),addrReceiver.Bytes(), []byte(id))
 	if err != nil {
 		return h, errors.Wrap(err, "call transfer failed")
 	}
