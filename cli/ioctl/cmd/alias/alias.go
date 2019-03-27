@@ -24,7 +24,7 @@ var (
 // AliasCmd represents the alias command
 var AliasCmd = &cobra.Command{
 	Use:   "alias",
-	Short: "Deal with aliases of IoTeX addresses",
+	Short: "Manage aliases of IoTeX addresses",
 	Args:  cobra.MaximumNArgs(3),
 }
 
