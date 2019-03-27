@@ -18,6 +18,7 @@ set -e
 
 RELEASES_URL="https://github.com/iotexproject/iotex-core/releases"
 S3URL="https://s3-ap-southeast-1.amazonaws.com/ioctl"
+INSTALL_DIRECTORY='/usr/local/bin'
 
 downloadJSON() {
     url="$2"
@@ -132,9 +133,6 @@ initOS
 #if [ -z "$INSTALL_DIRECTORY" ]; then
 #    findGoBinDirectory INSTALL_DIRECTORY
 #fi
-
-INSTALL_DIRECTORY='/usr/local/bin'
-echo "Will install into $INSTALL_DIRECTORY"
 
 # assemble expected release artifact name
 if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
