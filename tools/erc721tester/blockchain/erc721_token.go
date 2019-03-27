@@ -59,11 +59,11 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	//h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
 	h, err := f.Call(string(hash),addrCreditor.Bytes(),[]byte(tokenid))
 	if err != nil {
-		return h, errors.Wrapf(err, "call failed to create fp token %s", id)
+		return h, errors.Wrapf(err, "call failed to create")
 	}
 
 	if _, err := f.CheckCallResult(h); err != nil {
-		return h, errors.Wrapf(err, "check failed to create fp token %s", id)
+		return h, errors.Wrapf(err, "check failed to create")
 	}
 	return h, nil
 }
@@ -80,11 +80,11 @@ func (f *erc721Token) Balance(creditor string) (string, error) {
 	//h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
 	h, err := f.Call(string(hash),addrCreditor.Bytes())
 	if err != nil {
-		return h, errors.Wrapf(err, "call failed to create fp token %s", id)
+		return h, errors.Wrapf(err, "call failed to get balance")
 	}
 
 	if _, err := f.CheckCallResult(h); err != nil {
-		return h, errors.Wrapf(err, "check failed to create fp token %s", id)
+		return h, errors.Wrapf(err, "check failed to get balance")
 	}
 	return h, nil
 }
