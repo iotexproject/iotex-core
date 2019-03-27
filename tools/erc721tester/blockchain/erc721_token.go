@@ -25,7 +25,7 @@ type (
 		CreateToken(string, string, string, int64, int64, int64, int64) (string, error)
 
 		//Transfer(string, string, string, string, int64) (string, error)
-
+		SetRegistry(string) Erc721Token
 	}
 
 	erc721Token struct {
