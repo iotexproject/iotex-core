@@ -18,7 +18,7 @@ const (
 )
 
 // StartContracts deploys and starts fp token smart contract and stable token smart contract
-func StartContracts(cfg config.Config) (*blockchain.FpToken,error) {
+func StartContracts(cfg config.Config) (*blockchain.Erc721Token,error) {
 	endpoint := chainIP + ":" + strconv.Itoa(cfg.API.Port)
 
 	addr, err := deployContract(blockchain.Erc721Binary, endpoint)
@@ -26,15 +26,14 @@ func StartContracts(cfg config.Config) (*blockchain.FpToken,error) {
 		return nil, err
 	}
 
-	erc721Token := blockchain.NewFpToken(endpoint).SetRegistry(addr)
+	erc721Token := blockchain.NewErc721Token(endpoint).SetRegistry(addr)
 	erc721Token.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
-	// fp token set-up
 	if err := erc721Token.Start(); err != nil {
 		return nil, err
 	}
 
-	return fpToken, nil
+	return erc721Token, nil
 }
 
 // GenerateAssetID generates an asset ID

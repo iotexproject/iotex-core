@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/tools/erc721tester/erc721"
+	"github.com/iotexproject/iotex-core/tools/erc721tester/assetcontract"
 )
 
 func main() {
@@ -46,7 +47,7 @@ func main() {
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.ActionGasLimit = 10000000
-	cfg.Genesis.BlockInterval = 2 * time.Second
+	cfg.Genesis.BlockInterval = 20 * time.Second
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 	itxsvr, err := itx.NewServer(cfg)
 	if err != nil {
@@ -57,11 +58,11 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	// Deploy contracts
-	fpToken, _, err := assetcontract.StartContracts(cfg)
+	erc721Token, _, err := assetcontract.StartContracts(cfg)
 	if err != nil {
 		log.L().Fatal("Failed to deploy contracts.", zap.Error(err))
 	}
-
+	fmt.Println(erc721Token)
 	// Create two accounts
 	//_, debtorPriKey, debtorAddr, err := createAccount()
 	//if err != nil {
