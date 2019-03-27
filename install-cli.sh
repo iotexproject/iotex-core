@@ -77,11 +77,12 @@ findGoBinDirectory() {
             echo "Installation could not determine your \$GOPATH."
             exit 1
         fi
-        if [ -z "$GOBIN" ]; then
-            GOBIN=$(echo "${EFFECTIVE_GOPATH%%:*}/bin" | sed s#//*#/#g)
+        if [ -z "$GOROOT" ]; then
+            #GOBIN=$(echo "${EFFECTIVE_GOPATH%%:*}/bin" | sed s#//*#/#g)
+	    GOBIN=$GOROOT/bin
         fi
-        if [ ! -d "$GOBIN" ]; then
-            echo "Installation requires your GOBIN directory $GOBIN to exist. Please create it."
+        if [ ! -d "$GOROOT" ]; then
+            echo "Installation requires your GOBIN directory $GOROOT to exist. Please create it."
             exit 1
         fi
         eval "$1='$GOBIN'"
@@ -172,7 +173,11 @@ INSTALL_NAME="ioctl"
 
 if [ "$OS" = "windows" ]; then
     INSTALL_NAME="$INSTALL_NAME.exe"
+    echo "Moving executable to $HOME/$INSTALL_NAME"
+    mv "$DOWNLOAD_FILE" "$HOME/$INSTALL_NAME"
+else
+    echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
+    sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
 fi
 
-echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
-sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
+
