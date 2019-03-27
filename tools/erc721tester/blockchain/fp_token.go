@@ -92,21 +92,24 @@ func (f *fpToken) CreateToken(id, debtor, creditor string, total, risk, open, ex
 	if err != nil {
 		return "", errors.Errorf("invalid debtor address = %s", debtor)
 	}
-	addrCreditor, err := address.FromString(creditor)
-	if err != nil {
-		return "", errors.Errorf("invalid creditor address = %s", creditor)
-	}
+	//addrCreditor, err := address.FromString(creditor)
+	//if err != nil {
+	//	return "", errors.Errorf("invalid creditor address = %s", creditor)
+	//}
 
 	h, err := f.RunAsOwner().
 		SetAddress(f.manageProxy).
-		Call("5582e770",
-			[]byte(id),
+		Call("40c10f19",
 			addrDebtor.Bytes(),
-			addrCreditor.Bytes(),
-			big.NewInt(total).Bytes(),
-			big.NewInt(risk).Bytes(),
-			big.NewInt(open).Bytes(),
-			big.NewInt(exp).Bytes())
+			[]byte(id))
+		//Call("5582e770",
+		//	[]byte(id),
+		//	addrDebtor.Bytes(),
+		//	addrCreditor.Bytes(),
+		//	big.NewInt(total).Bytes(),
+		//	big.NewInt(risk).Bytes(),
+		//	big.NewInt(open).Bytes(),
+		//	big.NewInt(exp).Bytes())
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to create fp token %s", id)
 	}
@@ -176,7 +179,7 @@ func (f *fpToken) TokenAddress(astid string) (string, error) {
 	return token.String(), nil
 }
 
-func (f *fpToken) Transfer(token, sender, prvkey, receiver string, amount int64) (string, error) {
+func (f *fpToken) Transfer(token, sender, prvkey, receiver string, id string) (string, error) {
 	_, err := address.FromString(sender)
 	if err != nil {
 		return "", errors.Errorf("invalid account address = %s", sender)
@@ -189,7 +192,8 @@ func (f *fpToken) Transfer(token, sender, prvkey, receiver string, amount int64)
 	h, err := f.SetAddress(token).
 		SetExecutor(sender).
 		SetPrvKey(prvkey).
-		Call("a9059cbb", addrReceiver.Bytes(), big.NewInt(amount).Bytes())
+		//Call("a9059cbb", addrReceiver.Bytes(), big.NewInt(amount).Bytes())
+		Call("b88d4fde", sender.Bytes(),addrReceiver.Bytes(), []byte(id))
 	if err != nil {
 		return h, errors.Wrap(err, "call transfer failed")
 	}
