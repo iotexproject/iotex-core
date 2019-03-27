@@ -209,53 +209,53 @@ func (f *fpToken) RiskLock(token, sender, prvkey string, amount int64) (string, 
 	return f.Transfer(token, sender, prvkey, f.riskLock, amount)
 }
 
-func (f *fpToken) SetRate(source string, amount int64) (string, error) {
-	tokenAddr := []byte{}
-	if source != StableTokenID {
-		token, err := address.FromString(source)
-		if err != nil {
-			return "", errors.Errorf("invalid token address = %s", source)
-		}
-		tokenAddr = token.Bytes()
-	}
-	h, err := f.RunAsOwner().
-		SetAddress(f.cdp).
-		Call("9fb9c12c", tokenAddr, big.NewInt(amount).Bytes())
-	if err != nil {
-		return h, errors.Wrap(err, "call set interest rate failed")
-	}
-
-	if _, err := f.CheckCallResult(h); err != nil {
-		return h, errors.Wrap(err, "check set interest rate failed")
-	}
-	return h, nil
-}
-
-func (f *fpToken) GetRate(token string) (string, error) {
-	return f.ReadAndParseToDecimal(f.cdp, "2e05d56f", token)
-}
-
-func (f *fpToken) SetPayDate(token string, pay int64) (string, error) {
-	tokenAddr, err := address.FromString(token)
-	if err != nil {
-		return "", errors.Errorf("invalid token address = %s", token)
-	}
-	h, err := f.RunAsOwner().
-		SetAddress(f.eapStorage).
-		Call("b74b15a6", tokenAddr.Bytes(), big.NewInt(pay).Bytes())
-	if err != nil {
-		return h, errors.Wrap(err, "call setPayDate failed")
-	}
-
-	if _, err := f.CheckCallResult(h); err != nil {
-		return h, errors.Wrap(err, "check setPayDate failed")
-	}
-	return h, nil
-}
-
-func (f *fpToken) GetPayDate(token string) (string, error) {
-	return f.ReadAndParseToDecimal(f.eapStorage, "8174bc65", token)
-}
+//func (f *fpToken) SetRate(source string, amount int64) (string, error) {
+//	tokenAddr := []byte{}
+//	if source != StableTokenID {
+//		token, err := address.FromString(source)
+//		if err != nil {
+//			return "", errors.Errorf("invalid token address = %s", source)
+//		}
+//		tokenAddr = token.Bytes()
+//	}
+//	h, err := f.RunAsOwner().
+//		SetAddress(f.cdp).
+//		Call("9fb9c12c", tokenAddr, big.NewInt(amount).Bytes())
+//	if err != nil {
+//		return h, errors.Wrap(err, "call set interest rate failed")
+//	}
+//
+//	if _, err := f.CheckCallResult(h); err != nil {
+//		return h, errors.Wrap(err, "check set interest rate failed")
+//	}
+//	return h, nil
+//}
+//
+//func (f *fpToken) GetRate(token string) (string, error) {
+//	return f.ReadAndParseToDecimal(f.cdp, "2e05d56f", token)
+//}
+//
+//func (f *fpToken) SetPayDate(token string, pay int64) (string, error) {
+//	tokenAddr, err := address.FromString(token)
+//	if err != nil {
+//		return "", errors.Errorf("invalid token address = %s", token)
+//	}
+//	h, err := f.RunAsOwner().
+//		SetAddress(f.eapStorage).
+//		Call("b74b15a6", tokenAddr.Bytes(), big.NewInt(pay).Bytes())
+//	if err != nil {
+//		return h, errors.Wrap(err, "call setPayDate failed")
+//	}
+//
+//	if _, err := f.CheckCallResult(h); err != nil {
+//		return h, errors.Wrap(err, "check setPayDate failed")
+//	}
+//	return h, nil
+//}
+//
+//func (f *fpToken) GetPayDate(token string) (string, error) {
+//	return f.ReadAndParseToDecimal(f.eapStorage, "8174bc65", token)
+//}
 
 func (f *fpToken) Start() error {
 	addrManage, err := address.FromString(f.manage)
