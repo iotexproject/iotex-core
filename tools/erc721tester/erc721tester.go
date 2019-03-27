@@ -62,7 +62,7 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to deploy contracts.", zap.Error(err))
 	}
-	fmt.Println("//////////////////////////////:",erc721Token)
+	log.L().Info("//////////////////////////////:",erc721Token)
 	// Create two accounts
 	//_, debtorPriKey, debtorAddr, err := createAccount()
 	//if err != nil {
