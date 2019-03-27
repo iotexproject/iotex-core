@@ -479,10 +479,9 @@ func injectFpTokenTransfer(
 		}
 	}
 	transfer := rand.Int63n(balance)
-	senderPubKey := sender.PriKey.PublicKey().HexString()
 	senderPriKey := sender.PriKey.HexString()
 	// Transfer fp token
-	if _, err := fpToken.Transfer(fpContract, sender.EncodedAddr, senderPubKey, senderPriKey,
+	if _, err := fpToken.Transfer(fpContract, sender.EncodedAddr, senderPriKey,
 		recipient.EncodedAddr, transfer); err != nil {
 		log.L().Error("Failed to transfer fp token from debtor to creditor", zap.Error(err))
 	}
