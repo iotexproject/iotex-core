@@ -87,7 +87,7 @@ func main() {
 	}
 
 	// Transfer fp token
-	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPriKey, creditorAddr, assetID); err != nil {
+	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPriKey, creditorAddr,123); err != nil {
 		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
 	}
 	//if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
