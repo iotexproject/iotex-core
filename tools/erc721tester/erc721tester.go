@@ -78,10 +78,11 @@ func main() {
 	open := time.Now().Unix()
 	exp := open + 100000
 
-	if _, err := erc721Token.CreateToken(assetID, debtorAddr, creditorAddr, total, risk, open, exp); err != nil {
+	if _, err := erc721Token.CreateToken(assetID,creditorAddr); err != nil {
 		log.L().Fatal("Failed to create token", zap.Error(err))
 	}
-	if b, err := erc721Token.Balance(creditorAddr); err != nil {
+	b, err := erc721Token.Balance(creditorAddr)
+	if err != nil {
 		log.L().Fatal("Failed to get balance", zap.Error(err))
 	}
 	log.L().Info("Fp token transfer test pass!",zap.String(b))
