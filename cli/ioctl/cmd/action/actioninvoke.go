@@ -23,7 +23,7 @@ import (
 // actionInvokeCmd represents the action invoke command
 var actionInvokeCmd = &cobra.Command{
 	Use: "invoke (ALIAS|CONTRACT_ADDRESS) [AMOUNT_IOTX]" +
-		" -l GAS_LIMIT -p GAS_PRICE -s OPERATOR -b BYTE_CODE",
+		" -l GAS_LIMIT -p GAS_PRICE -s SIGNER -b BYTE_CODE",
 	Short: "Invoke smart contract on IoTeX blockchain",
 	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
