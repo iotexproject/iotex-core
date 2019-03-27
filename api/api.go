@@ -222,6 +222,12 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if len(blks) == 0 {
 		return nil, status.Error(codes.NotFound, "get 0 blocks! not able to calculate aps")
 	}
+
+	var numActions int64
+	for _, blk := range blks {
+		numActions += blk.NumActions
+	}
+
 	p, ok := api.registry.Find(rolldpos.ProtocolID)
 	if !ok {
 		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
@@ -243,7 +249,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		timeDuration = 1
 	}
 
-	tps := int64(totalActions) / timeDuration
+	tps := numActions / timeDuration
 
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
