@@ -89,6 +89,9 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(response.BlkMetas) == 0 {
+		return nil, fmt.Errorf("no block returned")
+	}
 	return response.BlkMetas[0], nil
 }
 
@@ -109,6 +112,9 @@ func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	response, err := cli.GetBlockMetas(ctx, request)
 	if err != nil {
 		return nil, err
+	}
+	if len(response.BlkMetas) == 0 {
+		return nil, fmt.Errorf("no block returned")
 	}
 	return response.BlkMetas[0], nil
 }
