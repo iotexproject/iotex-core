@@ -129,9 +129,11 @@ initArch
 initOS
 
 # determine install directory if required
-if [ -z "$INSTALL_DIRECTORY" ]; then
-    findGoBinDirectory INSTALL_DIRECTORY
-fi
+#if [ -z "$INSTALL_DIRECTORY" ]; then
+#    findGoBinDirectory INSTALL_DIRECTORY
+#fi
+
+INSTALL_DIRECTORY='/usr/local/bin'
 echo "Will install into $INSTALL_DIRECTORY"
 
 # assemble expected release artifact name
