@@ -105,12 +105,14 @@ var (
 		balance      string
 		nonce        uint64
 		pendingNonce uint64
+		numActions   uint64
 	}{
 		{ta.Addrinfo["charlie"].String(),
 			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 			"3",
 			8,
 			9,
+			11,
 		},
 		{
 			ta.Addrinfo["producer"].String(),
@@ -118,6 +120,7 @@ var (
 			"9999999999999999999999999991",
 			1,
 			6,
+			2,
 		},
 	}
 
@@ -534,6 +537,7 @@ func TestServer_GetAccount(t *testing.T) {
 		require.Equal(test.balance, accountMeta.Balance)
 		require.Equal(test.nonce, accountMeta.Nonce)
 		require.Equal(test.pendingNonce, accountMeta.PendingNonce)
+		require.Equal(test.numActions, accountMeta.NumActions)
 	}
 	// failure
 	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
