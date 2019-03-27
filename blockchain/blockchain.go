@@ -94,6 +94,8 @@ type Blockchain interface {
 	GetActionsFromAddress(address string) ([]hash.Hash256, error)
 	// GetActionsToAddress returns actions to address
 	GetActionsToAddress(address string) ([]hash.Hash256, error)
+	// GetActionCountByAddress returns action count by address
+	GetActionCountByAddress(address string) (uint64, error)
 	// GetActionByActionHash returns action by action hash
 	GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
 	// GetBlockHashByActionHash returns Block hash by action hash
@@ -465,6 +467,23 @@ func (bc *blockchain) GetActionsToAddress(addrStr string) ([]hash.Hash256, error
 		return nil, err
 	}
 	return getActionsByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+}
+
+// GetActionCountByAddress returns action count by address
+func (bc *blockchain) GetActionCountByAddress(addrStr string) (uint64, error) {
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return 0, err
+	}
+	fromCount, err := getActionCountBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	if err != nil {
+		return 0, err
+	}
+	toCount, err := getActionCountByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	if err != nil {
+		return 0, err
+	}
+	return fromCount + toCount, nil
 }
 
 func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256, error) {

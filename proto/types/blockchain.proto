@@ -83,4 +83,5 @@ message AccountMeta {
   string balance = 2;
   uint64 nonce = 3;
   uint64 pendingNonce = 4;
+  uint64 numActions = 5;
 }
