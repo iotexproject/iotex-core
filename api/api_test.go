@@ -258,6 +258,7 @@ var (
 	getChainMetaTests = []struct {
 		// Arguments
 		emptyChain       bool
+		tpsWindow        int
 		pollProtocolType string
 		// Expected values
 		height     uint64
@@ -271,10 +272,11 @@ var (
 
 		{
 			false,
+			1,
 			"lifeLongDelegates",
 			4,
 			15,
-			15,
+			5,
 			iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
@@ -283,6 +285,7 @@ var (
 		},
 		{
 			false,
+			5,
 			"governanceChainCommittee",
 			4,
 			15,
@@ -745,6 +748,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
 
+		cfg.API.TpsWindow = test.tpsWindow
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
 		if pol != nil {
@@ -1397,7 +1401,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		}
 	}
 
-	apiCfg := config.API{TpsWindow: 10, GasStation: cfg.API.GasStation}
+	apiCfg := config.API{TpsWindow: cfg.API.TpsWindow, GasStation: cfg.API.GasStation}
 
 	svr := &Server{
 		bc:       bc,
