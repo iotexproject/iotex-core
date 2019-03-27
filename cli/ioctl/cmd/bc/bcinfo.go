@@ -22,7 +22,7 @@ var bcInfoCmd = &cobra.Command{
 	},
 }
 
-// currentBlockHeigh get current height of block chain from server
+// bcInfo get current information of block chain from server
 func bcInfo() string {
 	chainMeta, err := GetChainMeta()
 	if err != nil {
