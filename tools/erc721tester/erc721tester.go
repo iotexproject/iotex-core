@@ -62,25 +62,29 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to deploy contracts.", zap.Error(err))
 	}
-	log.L().Info("//////////////////////////////:",erc721Token)
+	//log.L().Info("//////////////////////////////:",erc721Token)
 	// Create two accounts
-	//_, debtorPriKey, debtorAddr, err := createAccount()
-	//if err != nil {
-	//	log.L().Fatal("Failed to create account.", zap.Error(err))
-	//}
-	//_, creditorPriKey, creditorAddr, err := createAccount()
-	//if err != nil {
-	//	log.L().Fatal("Failed to create account.", zap.Error(err))
-	//}
+	_, debtorPriKey, debtorAddr, err := createAccount()
+	if err != nil {
+		log.L().Fatal("Failed to create account.", zap.Error(err))
+	}
+	_, creditorPriKey, creditorAddr, err := createAccount()
+	if err != nil {
+		log.L().Fatal("Failed to create account.", zap.Error(err))
+	}
 
 	// Create fp token
-	//assetID := assetcontract.GenerateAssetID()
-	//open := time.Now().Unix()
-	//exp := open + 100000
-	//
-	//if _, err := fpToken.CreateToken(assetID, debtorAddr, creditorAddr, total, risk, open, exp); err != nil {
-	//	log.L().Fatal("Failed to create fp token", zap.Error(err))
-	//}
+	assetID := assetcontract.GenerateAssetID()
+	open := time.Now().Unix()
+	exp := open + 100000
+
+	if _, err := erc721Token.CreateToken(assetID, debtorAddr, creditorAddr, total, risk, open, exp); err != nil {
+		log.L().Fatal("Failed to create token", zap.Error(err))
+	}
+	if b, err := erc721Token.Balance(creditorAddr); err != nil {
+		log.L().Fatal("Failed to get balance", zap.Error(err))
+	}
+	log.L().Info("Fp token transfer test pass!",zap.String(b))
 	//
 	//contractAddr, err := fpToken.TokenAddress(assetID)
 	//if err != nil {
@@ -112,8 +116,8 @@ func main() {
 	//}
 	//
 	//log.L().Info("Fp token transfer test pass!")
-	var ch chan struct{}
-	<-ch
+	//var ch chan struct{}
+	//<-ch
 }
 
 func createAccount() (string, string, string, error) {

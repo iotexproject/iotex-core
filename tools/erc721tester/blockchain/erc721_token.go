@@ -7,6 +7,7 @@
 package blockchain
 
 import (
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"math/big"
 
@@ -45,26 +46,39 @@ func NewErc721Token(exp string) Erc721Token {
 	return &erc721Token{Contract: NewContract(exp)}
 }
 
-func (f *erc721Token) CreateToken(id, debtor, creditor string, total, risk, open, exp int64) (string, error) {
-	addrDebtor, err := address.FromString(debtor)
-	if err != nil {
-		return "", errors.Errorf("invalid debtor address = %s", debtor)
-	}
+func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
+
 	addrCreditor, err := address.FromString(creditor)
 	if err != nil {
 		return "", errors.Errorf("invalid creditor address = %s", creditor)
 	}
+	//function mint(address _to,uint256 _tokenId)
+	//keccak256("Deposit(address,hash256,uint256)")
+	//hash:=keccak256("mint(address,uint256)")
+	hash:=crypto.Keccak256([]byte("mint(address,uint256)"))[:4]
+	//h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
+	h, err := f.Call(string(hash),addrCreditor.Bytes(),[]byte(tokenid))
+	if err != nil {
+		return h, errors.Wrapf(err, "call failed to create fp token %s", id)
+	}
 
-	h, err := f.RunAsOwner().
-		SetAddress(f.manageProxy).
-		Call("5582e770",
-			[]byte(id),
-			addrDebtor.Bytes(),
-			addrCreditor.Bytes(),
-			big.NewInt(total).Bytes(),
-			big.NewInt(risk).Bytes(),
-			big.NewInt(open).Bytes(),
-			big.NewInt(exp).Bytes())
+	if _, err := f.CheckCallResult(h); err != nil {
+		return h, errors.Wrapf(err, "check failed to create fp token %s", id)
+	}
+	return h, nil
+}
+func (f *erc721Token) Balance(creditor string) (string, error) {
+
+	addrCreditor, err := address.FromString(creditor)
+	if err != nil {
+		return "", errors.Errorf("invalid creditor address = %s", creditor)
+	}
+	//function mint(address _to,uint256 _tokenId)
+	//keccak256("Deposit(address,hash256,uint256)")
+	//hash:=keccak256("mint(address,uint256)")
+	hash:=crypto.Keccak256([]byte("balanceOf(address)"))[:4]
+	//h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
+	h, err := f.Call(string(hash),addrCreditor.Bytes())
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to create fp token %s", id)
 	}
