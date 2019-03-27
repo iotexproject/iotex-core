@@ -89,7 +89,7 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		return nil, err
 	}
-	return response.BlkMetas[0], err
+	return response.BlkMetas[0], nil
 }
 
 // GetBlockMetaByHash gets block metadata by hash
@@ -110,5 +110,5 @@ func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		return nil, err
 	}
-	return response.BlkMetas[0], err
+	return response.BlkMetas[0], nil
 }
