@@ -15,13 +15,15 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // actionInvokeCmd represents the action invoke command
 var actionInvokeCmd = &cobra.Command{
-	Use:   "invoke CONTRACT [AMOUNT_IOTX] -l GAS_LIMIT -p GAS_PRICE -s OPERATOR -b BYTE_CODE",
+	Use: "invoke (ALIAS|CONTRACT_ADDRESS) [AMOUNT_IOTX]" +
+		" -l GAS_LIMIT -p GAS_PRICE -s OPERATOR -b BYTE_CODE",
 	Short: "Invoke smart contract on IoTeX blockchain",
 	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -31,7 +33,7 @@ var actionInvokeCmd = &cobra.Command{
 
 // invoke invokes smart contract on IoTeX blockchain
 func invoke(args []string) string {
-	contract, err := account.Address(args[0])
+	contract, err := alias.Address(args[0])
 	if err != nil {
 		return err.Error()
 	}
@@ -42,7 +44,7 @@ func invoke(args []string) string {
 			return err.Error()
 		}
 	}
-	executor, err := account.Address(signer)
+	executor, err := alias.Address(signer)
 	if err != nil {
 		return err.Error()
 	}
@@ -57,8 +59,7 @@ func invoke(args []string) string {
 		}
 		nonce = accountMeta.PendingNonce
 	}
-	tx, err := action.NewExecution(contract, nonce, amount,
-		gasLimit, gasPriceRau, bytecode)
+	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return err.Error()

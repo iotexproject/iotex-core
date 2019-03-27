@@ -14,14 +14,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
 // nodeRewardCmd represents the node reward command
 var nodeRewardCmd = &cobra.Command{
-	Use:   "reward (NAME|ADDRESS)",
+	Use:   "reward (ALIAS|DELEGATE_ADDRESS)",
 	Short: "Query unclaimed rewards",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -30,7 +30,7 @@ var nodeRewardCmd = &cobra.Command{
 }
 
 func reward(args []string) string {
-	address, err := account.Address(args[0])
+	address, err := alias.Address(args[0])
 	if err != nil {
 		return err.Error()
 	}

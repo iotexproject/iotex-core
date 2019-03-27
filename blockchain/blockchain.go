@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -29,7 +28,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
@@ -96,6 +94,8 @@ type Blockchain interface {
 	GetActionsFromAddress(address string) ([]hash.Hash256, error)
 	// GetActionsToAddress returns actions to address
 	GetActionsToAddress(address string) ([]hash.Hash256, error)
+	// GetActionCountByAddress returns action count by address
+	GetActionCountByAddress(address string) (uint64, error)
 	// GetActionByActionHash returns action by action hash
 	GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
 	// GetBlockHashByActionHash returns Block hash by action hash
@@ -392,18 +392,19 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	if err != nil {
 		return 0, nil, err
 	}
-	state, err := p.ReadState(ctx, ws, []byte("CommitteeBlockProducersByHeight"), byteutil.Uint64ToBytes(epochStartHeight))
+	s, err := p.ReadState(ctx, ws, []byte("ActiveConsensusBlockProducersByHeight"),
+		byteutil.Uint64ToBytes(epochStartHeight))
 	if err != nil {
 		return 0, nil, status.Error(codes.NotFound, err.Error())
 	}
-	var committeeBlockProducers pollpb.BlockProducerList
-	if err := proto.Unmarshal(state, &committeeBlockProducers); err != nil {
-		return 0, nil, status.Error(codes.Internal, err.Error())
+	var activeConsensusBlockProducers state.CandidateList
+	if err := activeConsensusBlockProducers.Deserialize(s); err != nil {
+		return 0, nil, err
 	}
 
 	produce := make(map[string]uint64)
-	for _, bp := range committeeBlockProducers.BlockProducers {
-		produce[bp] = 0
+	for _, bp := range activeConsensusBlockProducers {
+		produce[bp.Address] = 0
 	}
 	for i := uint64(0); i < numBlks; i++ {
 		blk, err := bc.getBlockByHeight(epochStartHeight + i)
@@ -466,6 +467,23 @@ func (bc *blockchain) GetActionsToAddress(addrStr string) ([]hash.Hash256, error
 		return nil, err
 	}
 	return getActionsByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+}
+
+// GetActionCountByAddress returns action count by address
+func (bc *blockchain) GetActionCountByAddress(addrStr string) (uint64, error) {
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return 0, err
+	}
+	fromCount, err := getActionCountBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	if err != nil {
+		return 0, err
+	}
+	toCount, err := getActionCountByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	if err != nil {
+		return 0, err
+	}
+	return fromCount + toCount, nil
 }
 
 func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256, error) {
@@ -554,7 +572,6 @@ func (bc *blockchain) MintNewBlock(
 	}
 
 	blockMtc.WithLabelValues("numActions").Set(float64(len(actions)))
-	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - gasLimitForContext))
 
 	sk := bc.config.ProducerPrivateKey()
 	ra := block.NewRunnableActionsBuilder().
@@ -1069,6 +1086,8 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		}
 		executedActions = append(executedActions, grant)
 	}
+
+	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - raCtx.GasLimit))
 
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
 }

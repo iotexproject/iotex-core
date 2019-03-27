@@ -161,8 +161,8 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 
 	return &action.Receipt{
-		Status: action.SuccessReceiptStatus,
-		ActHash: raCtx.ActionHash,
+		Status:      action.SuccessReceiptStatus,
+		ActHash:     raCtx.ActionHash,
 		GasConsumed: raCtx.IntrinsicGas,
 	}, nil
 }

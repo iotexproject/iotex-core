@@ -9,12 +9,13 @@ package node
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -22,23 +23,16 @@ import (
 
 // nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
-	Use:   "delegate [DELEGATE]",
-	Short: "list delegates and number of blocks produced",
+	Use:   "delegate",
+	Short: "print consensus delegates information in certain epoch",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(delegate(args))
+		fmt.Println(delegate())
 	},
 }
 
-func delegate(args []string) string {
-	delegate := ""
-	var err error
-	if len(args) != 0 {
-		delegate, err = account.Address(args[0])
-		if err != nil {
-			return err.Error()
-		}
-	}
+func delegate() string {
+	status := map[bool]string{true: "active", false: ""}
 	if epochNum == 0 {
 		chainMeta, err := bc.GetChainMeta()
 		if err != nil {
@@ -52,46 +46,42 @@ func delegate(args []string) string {
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
-	request := &iotexapi.GetProductivityRequest{EpochNumber: epochNum}
+	request := &iotexapi.GetEpochMetaRequest{EpochNumber: epochNum}
 	ctx := context.Background()
-	response, err := cli.GetProductivity(ctx, request)
+	response, err := cli.GetEpochMeta(ctx, request)
 	if err != nil {
 		return err.Error()
-	}
-	if len(delegate) != 0 {
-		name, err := account.Name(delegate)
-		if err != nil && err != account.ErrNoNameFound {
-			return err.Error()
-		}
-		return fmt.Sprintf("Epoch: %d, Total blocks: %d\n", epochNum, response.TotalBlks) +
-			fmt.Sprintf("%s  %s  %d", delegate, name, response.BlksPerDelegate[delegate])
 	}
 
-	names, err := account.GetNameMap()
-	if err != nil {
-		return err.Error()
-	}
-	formatNameLen := 0
-	for delegate := range response.BlksPerDelegate {
-		if len(names[delegate]) > formatNameLen {
-			formatNameLen = len(names[delegate])
+	epockData := response.EpochData
+	aliases := alias.GetAliasMap()
+	formataliasLen := 0
+	for _, delegateInfo := range response.BlockProducersInfo {
+		if len(aliases[delegateInfo.Address]) > formataliasLen {
+			formataliasLen = len(aliases[delegateInfo.Address])
 		}
 	}
 	lines := make([]string, 0)
-	lines = append(lines, fmt.Sprintf("Epoch: %d, Total blocks: %d\n",
-		epochNum, response.TotalBlks))
-	if formatNameLen == 0 {
-		lines = append(lines, fmt.Sprintf("%-41s  %s", "Address", "Blocks"))
-		for delegate, productivity := range response.BlksPerDelegate {
-			lines = append(lines, fmt.Sprintf("%-41s  %d", delegate, productivity))
+	lines = append(lines, fmt.Sprintf("Epoch: %d,  Start block height: %d,  Total blocks: %d\n",
+		epockData.Num, epockData.Height, response.TotalBlocks))
+	formatTitleString := "%-41s   %-5s   %-" + strconv.Itoa(formataliasLen) +
+		"s   %-6s   %-6s   %s"
+	formatDataString := "%-41s   %5d   %-" + strconv.Itoa(formataliasLen) +
+		"s   %-6s   %-6s   %s"
+	lines = append(lines, fmt.Sprintf(formatTitleString,
+		"Address", "Index", "Alias", "Status", "Blocks", "Votes"))
+	for index, bp := range response.BlockProducersInfo {
+		votes, ok := big.NewInt(0).SetString(bp.Votes, 10)
+		if !ok {
+			return "failed to convert votes into big int"
 		}
-	} else {
-		formatTitleString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %s"
-		formatDataString := "%-41s  %-" + strconv.Itoa(formatNameLen) + "s  %d"
-		lines = append(lines, fmt.Sprintf(formatTitleString, "Address", "Name", "Blocks"))
-		for delegate, productivity := range response.BlksPerDelegate {
-			lines = append(lines, fmt.Sprintf(formatDataString, delegate, names[delegate], productivity))
+		production := ""
+		if bp.Active {
+			production = strconv.Itoa(int(bp.Production))
 		}
+		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, index+1,
+			aliases[bp.Address], status[bp.Active], production,
+			util.RauToString(votes, util.IotxDecimalNum)))
 	}
 	return strings.Join(lines, "\n")
 }

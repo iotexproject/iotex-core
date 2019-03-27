@@ -257,16 +257,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		if !ok {
 			return nil, errors.New("invalid endorsed block")
 		}
-		producer := proposal.ProposerAddress()
-		expectedProposer := ctx.round.Proposer()
-		if producer == "" || producer != expectedProposer {
-			return nil, errors.Errorf(
-				"unexpected block proposer %s, %s expected",
-				producer,
-				ctx.round.Proposer(),
-			)
-		}
-		if producer != ctx.round.Proposer() || proposal.block.WorkingSet == nil {
+		if proposal.block.WorkingSet == nil {
 			if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
 				return nil, errors.Wrapf(err, "error when validating the proposed block")
 			}
@@ -328,7 +319,7 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 	case ErrInsufficientEndorsements:
 		return nil, nil
 	case nil:
-		ctx.loggerWithStats().Debug("Ready to pre-commit")
+		ctx.loggerWithStats().Info("Ready to pre-commit")
 		return ctx.newEndorsement(
 			blkHash,
 			COMMIT,
@@ -368,7 +359,12 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		return false, errors.Wrap(err, "failed to add endorsements to block")
 	}
 	// Commit and broadcast the pending block
-	if err := ctx.chain.CommitBlock(pendingBlock); err != nil {
+	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
+	case blockchain.ErrInvalidTipHeight:
+		return true, nil
+	case nil:
+		break
+	default:
 		return false, errors.Wrap(err, "error when committing a block")
 	}
 	// Remove transfers in this block from ActPool and reset ActPool state
@@ -417,7 +413,7 @@ func (ctx *rollDPoSCtx) IsStaleEvent(evt *consensusfsm.ConsensusEvent) bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	return ctx.round.IsStale(evt.Height(), ctx.round.Number())
+	return ctx.round.IsStale(evt.Height(), evt.Round(), evt.Data())
 }
 
 func (ctx *rollDPoSCtx) IsFutureEvent(evt *consensusfsm.ConsensusEvent) bool {
@@ -509,7 +505,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 			data,
 			ed.Height(),
 			roundNum,
-			ed.Endorsement().Timestamp(),
+			ctx.clock.Now(),
 		)
 	default:
 		return consensusfsm.NewConsensusEvent(
@@ -523,7 +519,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 }
 
 func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
-	return ctx.round.LogWithStats(ctx.logger())
+	return ctx.round.LogWithStats(log.L())
 }
 
 func (ctx *rollDPoSCtx) verifyVote(

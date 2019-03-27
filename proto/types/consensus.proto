@@ -10,8 +10,8 @@ syntax = "proto3";
 package iotextypes;
 option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
 
-import "blockchain.proto";
-import "endorsement.proto";
+import "proto/types/blockchain.proto";
+import "proto/types/endorsement.proto";
 
 message BlockProposal {
     Block block = 1;

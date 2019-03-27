@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -28,7 +29,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
@@ -46,6 +46,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -104,12 +105,14 @@ var (
 		balance      string
 		nonce        uint64
 		pendingNonce uint64
+		numActions   uint64
 	}{
 		{ta.Addrinfo["charlie"].String(),
 			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 			"3",
 			8,
 			9,
+			11,
 		},
 		{
 			ta.Addrinfo["producer"].String(),
@@ -117,6 +120,7 @@ var (
 			"9999999999999999999999999991",
 			1,
 			6,
+			2,
 		},
 	}
 
@@ -252,18 +256,44 @@ var (
 	}
 
 	getChainMetaTests = []struct {
+		// Arguments
+		emptyChain       bool
+		tpsWindow        int
+		pollProtocolType string
+		// Expected values
 		height     uint64
 		numActions int64
 		tps        int64
 		epoch      iotextypes.EpochData
 	}{
 		{
+			emptyChain: true,
+		},
+
+		{
+			false,
+			1,
+			"lifeLongDelegates",
+			4,
+			15,
+			5,
+			iotextypes.EpochData{
+				Num:                     1,
+				Height:                  1,
+				GravityChainStartHeight: 1,
+			},
+		},
+		{
+			false,
+			5,
+			"governanceChainCommittee",
 			4,
 			15,
 			15,
 			iotextypes.EpochData{
-				Num:    1,
-				Height: 1,
+				Num:                     1,
+				Height:                  1,
+				GravityChainStartHeight: 100,
 			},
 		},
 	}
@@ -372,7 +402,7 @@ var (
 		},
 	}
 
-	readActiveBlockProducersByHeightTests = []struct {
+	readConsensusBlockProducersByHeightTests = []struct {
 		// Arguments
 		protocolID            string
 		protocolType          string
@@ -380,41 +410,41 @@ var (
 		height                uint64
 		numCandidateDelegates uint64
 		// Expected Values
-		numActiveBlockProducers int
+		numConsensusBlockProducers int
 	}{
 		{
-			protocolID:              "poll",
-			protocolType:            "lifeLongDelegates",
-			methodName:              "ActiveBlockProducersByHeight",
-			height:                  1,
-			numActiveBlockProducers: 3,
+			protocolID:                 "poll",
+			protocolType:               "lifeLongDelegates",
+			methodName:                 "ConsensusBlockProducersByHeight",
+			height:                     1,
+			numConsensusBlockProducers: 3,
 		},
 		{
-			protocolID:              "poll",
-			protocolType:            "lifeLongDelegates",
-			methodName:              "ActiveBlockProducersByHeight",
-			height:                  4,
-			numActiveBlockProducers: 3,
+			protocolID:                 "poll",
+			protocolType:               "lifeLongDelegates",
+			methodName:                 "ConsensusBlockProducersByHeight",
+			height:                     4,
+			numConsensusBlockProducers: 3,
 		},
 		{
-			protocolID:              "poll",
-			protocolType:            "governanceChainCommittee",
-			methodName:              "ActiveBlockProducersByHeight",
-			height:                  1,
-			numCandidateDelegates:   2,
-			numActiveBlockProducers: 2,
+			protocolID:                 "poll",
+			protocolType:               "governanceChainCommittee",
+			methodName:                 "ConsensusBlockProducersByHeight",
+			height:                     1,
+			numCandidateDelegates:      2,
+			numConsensusBlockProducers: 2,
 		},
 		{
-			protocolID:              "poll",
-			protocolType:            "governanceChainCommittee",
-			methodName:              "ActiveBlockProducersByHeight",
-			height:                  4,
-			numCandidateDelegates:   1,
-			numActiveBlockProducers: 1,
+			protocolID:                 "poll",
+			protocolType:               "governanceChainCommittee",
+			methodName:                 "ConsensusBlockProducersByHeight",
+			height:                     4,
+			numCandidateDelegates:      1,
+			numConsensusBlockProducers: 1,
 		},
 	}
 
-	readCommitteeProducersByHeightTests = []struct {
+	readActiveConsensusProducersByHeightTests = []struct {
 		// Arguments
 		protocolID   string
 		protocolType string
@@ -422,37 +452,73 @@ var (
 		height       uint64
 		numDelegates uint64
 		// Expected Values
-		numCommitteeBlockProducers int
+		numActiveConsensusBlockProducers int
 	}{
 		{
-			protocolID:                 "poll",
-			protocolType:               "lifeLongDelegates",
-			methodName:                 "CommitteeBlockProducersByHeight",
-			height:                     1,
-			numCommitteeBlockProducers: 3,
+			protocolID:                       "poll",
+			protocolType:                     "lifeLongDelegates",
+			methodName:                       "ActiveConsensusBlockProducersByHeight",
+			height:                           1,
+			numActiveConsensusBlockProducers: 3,
 		},
 		{
-			protocolID:                 "poll",
-			protocolType:               "lifeLongDelegates",
-			methodName:                 "CommitteeBlockProducersByHeight",
-			height:                     4,
-			numCommitteeBlockProducers: 3,
+			protocolID:                       "poll",
+			protocolType:                     "lifeLongDelegates",
+			methodName:                       "ActiveConsensusBlockProducersByHeight",
+			height:                           4,
+			numActiveConsensusBlockProducers: 3,
 		},
 		{
-			protocolID:                 "poll",
-			protocolType:               "governanceChainCommittee",
-			methodName:                 "CommitteeBlockProducersByHeight",
-			height:                     1,
-			numDelegates:               2,
-			numCommitteeBlockProducers: 2,
+			protocolID:                       "poll",
+			protocolType:                     "governanceChainCommittee",
+			methodName:                       "ActiveConsensusBlockProducersByHeight",
+			height:                           1,
+			numDelegates:                     2,
+			numActiveConsensusBlockProducers: 2,
 		},
 		{
-			protocolID:                 "poll",
-			protocolType:               "governanceChainCommittee",
-			methodName:                 "CommitteeBlockProducersByHeight",
-			height:                     4,
-			numDelegates:               1,
-			numCommitteeBlockProducers: 1,
+			protocolID:                       "poll",
+			protocolType:                     "governanceChainCommittee",
+			methodName:                       "ActiveConsensusBlockProducersByHeight",
+			height:                           4,
+			numDelegates:                     1,
+			numActiveConsensusBlockProducers: 1,
+		},
+	}
+
+	getEpochMetaTests = []struct {
+		// Arguments
+		EpochNumber      uint64
+		pollProtocolType string
+		// Expected Values
+		epochData                     iotextypes.EpochData
+		numBlksInEpoch                int
+		numConsenusBlockProducers     int
+		numActiveCensusBlockProducers int
+	}{
+		{
+			1,
+			"lifeLongDelegates",
+			iotextypes.EpochData{
+				Num:                     1,
+				Height:                  1,
+				GravityChainStartHeight: 1,
+			},
+			4,
+			24,
+			24,
+		},
+		{
+			1,
+			"governanceChainCommittee",
+			iotextypes.EpochData{
+				Num:                     1,
+				Height:                  1,
+				GravityChainStartHeight: 100,
+			},
+			4,
+			6,
+			4,
 		},
 	}
 )
@@ -474,6 +540,7 @@ func TestServer_GetAccount(t *testing.T) {
 		require.Equal(test.balance, accountMeta.Balance)
 		require.Equal(test.nonce, accountMeta.Nonce)
 		require.Equal(test.pendingNonce, accountMeta.PendingNonce)
+		require.Equal(test.numActions, accountMeta.NumActions)
 	}
 	// failure
 	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
@@ -498,7 +565,7 @@ func TestServer_GetActions(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -520,10 +587,10 @@ func TestServer_GetAction(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(1, len(res.Actions))
-		actPb := res.Actions[0]
-		require.Equal(test.nonce, actPb.GetCore().GetNonce())
-		require.Equal(test.senderPubKey, hex.EncodeToString(actPb.SenderPubKey))
+		require.Equal(1, len(res.ActionInfo))
+		act := res.ActionInfo[0]
+		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
+		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 	}
 }
 
@@ -546,7 +613,7 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -569,7 +636,7 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -595,7 +662,7 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.numActions, len(res.Actions))
+		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
 
@@ -659,10 +726,39 @@ func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
-	svr, err := createServer(cfg, false)
-	require.NoError(err)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
+	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
+		if test.pollProtocolType == "lifeLongDelegates" {
+			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+		} else if test.pollProtocolType == "governanceChainCommittee" {
+			committee := mock_committee.NewMockCommittee(ctrl)
+			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				nil,
+				committee,
+				uint64(123456),
+				func(uint64) (time.Time, error) { return time.Now(), nil },
+				func(uint64) uint64 { return 1 },
+				func(uint64) uint64 { return 1 },
+				cfg.Genesis.NumCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+			)
+			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
+		}
+
+		cfg.API.TpsWindow = test.tpsWindow
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		if pol != nil {
+			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		}
+		if test.emptyChain {
+			mbc := mock_blockchain.NewMockBlockchain(ctrl)
+			mbc.EXPECT().TipHeight().Return(uint64(0)).Times(1)
+			svr.bc = mbc
+		}
 		res, err := svr.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
 		require.NoError(err)
 		chainMetaPb := res.ChainMeta
@@ -671,6 +767,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 		require.Equal(test.tps, chainMetaPb.Tps)
 		require.Equal(test.epoch.Num, chainMetaPb.Epoch.Num)
 		require.Equal(test.epoch.Height, chainMetaPb.Epoch.Height)
+		require.Equal(test.epoch.GravityChainStartHeight, chainMetaPb.Epoch.GravityChainStartHeight)
 	}
 }
 
@@ -792,7 +889,7 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	}
 }
 
-func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
+func TestServer_ReadConsensusBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -802,15 +899,19 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
-			Address: "address1",
+			Address:       "address1",
+			Votes:         big.NewInt(1),
+			RewardAddress: "rewardAddress",
 		},
 		{
-			Address: "address2",
+			Address:       "address2",
+			Votes:         big.NewInt(1),
+			RewardAddress: "rewardAddress",
 		},
 	}
 	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
-	for _, test := range readActiveBlockProducersByHeightTests {
+	for _, test := range readConsensusBlockProducersByHeightTests {
 		var pol poll.Protocol
 		if test.protocolType == "lifeLongDelegates" {
 			cfg.Genesis.Delegates = delegates
@@ -829,7 +930,7 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.Register(poll.ProtocolID, pol))
+		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -837,13 +938,13 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.height)},
 		})
 		require.NoError(err)
-		var activeBlockProducers pollpb.BlockProducerList
-		require.NoError(proto.Unmarshal(res.Data, &activeBlockProducers))
-		require.Equal(test.numActiveBlockProducers, len(activeBlockProducers.BlockProducers))
+		var consensusBlockProducers state.CandidateList
+		require.NoError(consensusBlockProducers.Deserialize(res.Data))
+		require.Equal(test.numConsensusBlockProducers, len(consensusBlockProducers))
 	}
 }
 
-func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
+func TestServer_ReadActiveConsensusBlockProducersByHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -853,15 +954,19 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
-			Address: "address1",
+			Address:       "address1",
+			Votes:         big.NewInt(1),
+			RewardAddress: "rewardAddress",
 		},
 		{
-			Address: "address2",
+			Address:       "address2",
+			Votes:         big.NewInt(1),
+			RewardAddress: "rewardAddress",
 		},
 	}
 	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
-	for _, test := range readCommitteeProducersByHeightTests {
+	for _, test := range readActiveConsensusProducersByHeightTests {
 		var pol poll.Protocol
 		if test.protocolType == "lifeLongDelegates" {
 			cfg.Genesis.Delegates = delegates
@@ -880,7 +985,7 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.Register(poll.ProtocolID, pol))
+		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -888,9 +993,109 @@ func TestServer_ReadCommitteeBlockProducersByHeight(t *testing.T) {
 			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.height)},
 		})
 		require.NoError(err)
-		var committeeBlockProducers pollpb.BlockProducerList
-		require.NoError(proto.Unmarshal(res.Data, &committeeBlockProducers))
-		require.Equal(test.numCommitteeBlockProducers, len(committeeBlockProducers.BlockProducers))
+		var activeConsensusBlockProducers state.CandidateList
+		require.NoError(activeConsensusBlockProducers.Deserialize(res.Data))
+		require.Equal(test.numActiveConsensusBlockProducers, len(activeConsensusBlockProducers))
+	}
+}
+
+func TestServer_GetEpochMeta(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	for _, test := range getEpochMetaTests {
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		if test.pollProtocolType == "lifeLongDelegates" {
+			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		} else if test.pollProtocolType == "governanceChainCommittee" {
+			committee := mock_committee.NewMockCommittee(ctrl)
+			mbc := mock_blockchain.NewMockBlockchain(ctrl)
+			msf := mock_factory.NewMockFactory(ctrl)
+			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
+				mbc,
+				committee,
+				uint64(123456),
+				func(uint64) (time.Time, error) { return time.Now(), nil },
+				func(uint64) uint64 { return 1 },
+				func(uint64) uint64 { return 1 },
+				cfg.Genesis.NumCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+			)
+			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
+			mbc.EXPECT().GetFactory().Return(msf).Times(2)
+			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
+
+			candidates := []*state.Candidate{
+				{
+					Address:       "address1",
+					Votes:         big.NewInt(6),
+					RewardAddress: "rewardAddress",
+				},
+				{
+					Address:       "address2",
+					Votes:         big.NewInt(5),
+					RewardAddress: "rewardAddress",
+				},
+				{
+					Address:       "address3",
+					Votes:         big.NewInt(4),
+					RewardAddress: "rewardAddress",
+				},
+				{
+					Address:       "address4",
+					Votes:         big.NewInt(3),
+					RewardAddress: "rewardAddress",
+				},
+				{
+					Address:       "address5",
+					Votes:         big.NewInt(2),
+					RewardAddress: "rewardAddress",
+				},
+				{
+					Address:       "address6",
+					Votes:         big.NewInt(1),
+					RewardAddress: "rewardAddress",
+				},
+			}
+			blksPerDelegate := map[string]uint64{
+				"address1": uint64(1),
+				"address2": uint64(1),
+				"address3": uint64(1),
+				"address4": uint64(1),
+			}
+			mbc.EXPECT().ProductivityByEpoch(test.EpochNumber).Return(uint64(4), blksPerDelegate, nil).Times(1)
+			mbc.EXPECT().CandidatesByHeight(uint64(1)).
+				Return(candidates, nil).Times(1)
+			svr.bc = mbc
+		}
+		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
+		require.NoError(err)
+		require.Equal(test.epochData.Num, res.EpochData.Num)
+		require.Equal(test.epochData.Height, res.EpochData.Height)
+		require.Equal(test.epochData.GravityChainStartHeight, res.EpochData.GravityChainStartHeight)
+		require.Equal(test.numBlksInEpoch, int(res.TotalBlocks))
+		require.Equal(test.numConsenusBlockProducers, len(res.BlockProducersInfo))
+		var numActiveConsensusBlockProducers int
+		var prevInfo *iotexapi.BlockProducerInfo
+		for _, bp := range res.BlockProducersInfo {
+			if bp.Active {
+				numActiveConsensusBlockProducers++
+			}
+			if prevInfo != nil {
+				prevVotes, _ := strconv.Atoi(prevInfo.Votes)
+				currVotes, _ := strconv.Atoi(bp.Votes)
+				require.True(prevVotes >= currVotes)
+			}
+			prevInfo = bp
+		}
+		require.Equal(test.numActiveCensusBlockProducers, numActiveConsensusBlockProducers)
 	}
 }
 
@@ -1100,6 +1305,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	acc := account.NewProtocol()
 	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
+	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
@@ -1120,6 +1326,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		return nil, nil, err
 	}
 	if err := registry.Register(rewarding.ProtocolID, r); err != nil {
+		return nil, nil, err
+	}
+	if err := registry.Register(poll.ProtocolID, p); err != nil {
 		return nil, nil, err
 	}
 	sf.AddActionHandlers(acc, v, evm, r)
@@ -1152,6 +1361,7 @@ func newConfig() config.Config {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	return cfg
 }
@@ -1191,7 +1401,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		}
 	}
 
-	apiCfg := config.API{TpsWindow: 10, GasStation: cfg.API.GasStation}
+	apiCfg := config.API{TpsWindow: cfg.API.TpsWindow, GasStation: cfg.API.GasStation}
 
 	svr := &Server{
 		bc:       bc,

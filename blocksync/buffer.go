@@ -9,6 +9,7 @@ package blocksync
 import (
 	"sync"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/actpool"
@@ -76,8 +77,7 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 			break
 		}
 		delete(b.blocks, heightToSync)
-		if err := commitBlock(b.bc, b.ap, b.cs, blk); err != nil {
-			// TODO: if the error is because the block has been committed, continue
+		if err := commitBlock(b.bc, b.ap, b.cs, blk); err != nil && errors.Cause(err) != blockchain.ErrInvalidTipHeight {
 			l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
 			break
 		}

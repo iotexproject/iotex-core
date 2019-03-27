@@ -14,15 +14,17 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // actionTransferCmd represents the action transfer command
 var actionTransferCmd = &cobra.Command{
-	Use:   "transfer RECIPIENT AMOUNT_IOTX DATA -l GAS_LIMIT -p GAS_PRICE -s OPERATOR",
+	Use: "transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX [DATA]" +
+		" -l GAS_LIMIT -p GAS_PRICE -s OPERATOR",
 	Short: "Transfer tokens on IoTeX blokchain",
-	Args:  cobra.ExactArgs(3),
+	Args:  cobra.RangeArgs(2, 3),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(transfer(args))
 	},
@@ -30,7 +32,7 @@ var actionTransferCmd = &cobra.Command{
 
 // transfer transfers tokens on IoTeX blockchain
 func transfer(args []string) string {
-	recipient, err := account.Address(args[0])
+	recipient, err := alias.Address(args[0])
 	if err != nil {
 		return err.Error()
 	}
@@ -38,8 +40,11 @@ func transfer(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
-	payload := args[2]
-	sender, err := account.Address(signer)
+	payload := make([]byte, 0)
+	if len(args) == 3 {
+		payload = []byte(args[2])
+	}
+	sender, err := alias.Address(signer)
 	if err != nil {
 		return err.Error()
 	}
@@ -57,7 +62,7 @@ func transfer(args []string) string {
 	tx, err := action.NewTransfer(nonce, amount,
 		recipient, []byte(payload), gasLimit, gasPriceRau)
 	if err != nil {
-		log.L().Error("cannot make a Transfer instance", zap.Error(err))
+		log.L().Error("failed to make a Transfer instance", zap.Error(err))
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
