@@ -9,7 +9,7 @@ package blockchain
 import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
-	"math/big"
+	//"math/big"
 
 	"github.com/iotexproject/iotex-core/address"
 )
@@ -23,8 +23,8 @@ type (
 	// FpToken is an interface for an fp token
 	Erc721Token interface {
 		Contract
-		CreateToken(string, string, string, int64, int64, int64, int64) (string, error)
-
+		CreateToken(string,string) (string, error)
+		Balance(string) (string, error)
 		//Transfer(string, string, string, string, int64) (string, error)
 		SetRegistry(string) Erc721Token
 	}
