@@ -8,8 +8,6 @@ package blockchain
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	//"math/big"
 
@@ -82,10 +80,11 @@ func (f *erc721Token) Balance(creditor string) (string, error) {
 	//function mint(address _to,uint256 _tokenId)
 	//keccak256("Deposit(address,hash256,uint256)")
 	//hash:=keccak256("mint(address,uint256)")
-	hash:=crypto.Keccak256([]byte("balanceOf(address)"))[:4]
-	//h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
-	hashString:=common.Bytes2Hex(hash)
-	h, err := f.Call(hashString,addrCreditor.Bytes())
+	//hash:=crypto.Keccak256([]byte("balanceOf(address)"))[:4]
+	////h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
+	//hashString:=common.Bytes2Hex(hash)
+
+	h, err := f.Call("70a08231",addrCreditor.Bytes())
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to get balance")
 	}
