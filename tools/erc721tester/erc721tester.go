@@ -58,7 +58,7 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	// Deploy contracts
-	erc721Token, _, err := assetcontract.StartContracts(cfg)
+	erc721Token, err := assetcontract.StartContracts(cfg)
 	if err != nil {
 		log.L().Fatal("Failed to deploy contracts.", zap.Error(err))
 	}
