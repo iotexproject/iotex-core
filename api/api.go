@@ -615,8 +615,12 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 // getBlockMetas gets block within the height range
 func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
+	tipHeight := api.bc.TipHeight()
+	if start > tipHeight {
+		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
+	}
 	var res []*iotextypes.BlockMeta
-	for height := int(start); height <= int(api.bc.TipHeight()); height++ {
+	for height := int(start); height <= int(tipHeight); height++ {
 		if uint64(len(res)) >= number {
 			break
 		}
