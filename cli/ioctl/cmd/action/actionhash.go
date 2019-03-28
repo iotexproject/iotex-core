@@ -135,18 +135,21 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
-	lines := make([]string, 0)
+	logs := make([]string, 0)
 	for _, l := range receipt.Logs {
-		line := fmt.Sprintf("#%d block:%d txHash:%s address:%s data:%s\n",
+		log := fmt.Sprintf("#%d block:%d txHash:%s address:%s data:%s\n",
 			l.Index, l.BlockNumber, l.TxnHash, l.Address, l.Data)
 		for _, t := range l.Topics {
-			line += fmt.Sprintf("  %s\n", t)
+			log += fmt.Sprintf("  %s\n", t)
 		}
-		lines = append(lines, line)
+		logs = append(logs, log)
 	}
-	output := fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue) +
-		fmt.Sprintf("status: %d %s\n", receipt.Status,
-			match(strconv.Itoa(int(receipt.Status)), "status")) +
+	output := ""
+	if len(receipt.ReturnValue) != 0 {
+		output += fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue)
+	}
+	output += fmt.Sprintf("status: %d %s\n", receipt.Status,
+		match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		// TODO: blkHash
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed)
@@ -154,8 +157,8 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 		output += fmt.Sprintf("contractAddress: %s %s", receipt.ContractAddress,
 			match(receipt.ContractAddress, "address"))
 	}
-	if len(lines) != 0 {
-		output += fmt.Sprintf("\nlogs:\n%s", lines)
+	if len(logs) != 0 {
+		output += fmt.Sprintf("\nlogs:\n%s", logs)
 	}
 	return output
 }
