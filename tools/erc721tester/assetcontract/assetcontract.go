@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/tools/erc721tester/blockchain"
+	executiontester"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
 const (
@@ -33,7 +34,7 @@ func StartContracts(cfg config.Config) (blockchain.Erc721Token,error) {
 	}
 	erc721Token := blockchain.NewErc721Token(endpoint)
 	erc721Token.SetAddress(addr)
-	erc721Token.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	erc721Token.SetOwner(executiontester.Producer, executiontester.ProducerPrivKey)
 
 	if err := erc721Token.Start(); err != nil {
 		return nil, err
@@ -57,10 +58,10 @@ func GenerateAssetID() string {
 
 func deployContract(code, endpoint string, args ...[]byte) (string, error) {
 	// deploy the contract
-	contract := blockchain.NewContract(endpoint)
+	contract := executiontester.NewContract(endpoint)
 	h, err := contract.
-		SetExecutor(blockchain.Producer).
-		SetPrvKey(blockchain.ProducerPrivKey).
+		SetExecutor(executiontester.Producer).
+		SetPrvKey(executiontester.ProducerPrivKey).
 		Deploy(code, args...)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to deploy contract, txhash = %s", h)
