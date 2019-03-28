@@ -89,7 +89,7 @@ func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid s
 	h, err := f.SetAddress(token).
 		SetExecutor(sender).
 		SetPrvKey(prvkey).
-		Call("b88d4fde", from.Bytes(),addrReceiver.Bytes(), TokenId.Bytes())
+		Call("23b872dd", from.Bytes(),addrReceiver.Bytes(), TokenId.Bytes())
 	if err != nil {
 		return h, errors.Wrap(err, "call transfer failed")
 	}
