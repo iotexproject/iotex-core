@@ -8,9 +8,7 @@ package blockchain
 
 import (
 	"fmt"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	//"math/big"
 

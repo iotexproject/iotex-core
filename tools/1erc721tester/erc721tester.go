@@ -79,7 +79,7 @@ func main() {
 	if _, err := erc721Token.CreateToken(assetID,creditorAddr); err != nil {
 		log.L().Fatal("Failed to create token", zap.Error(err))
 	}
-	
+
 	creditorBalance, err := erc721Token.ReadValue(erc721Token.Address(), "70a08231", creditorAddr)
 	if err != nil {
 		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
