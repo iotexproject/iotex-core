@@ -8,7 +8,8 @@ package main
 
 import (
 	"context"
-	"flag"
+	"fmt"
+
 	//"fmt"
 	"math/big"
 	"time"
@@ -25,22 +26,6 @@ import (
 )
 
 func main() {
-	// total indicates the total amount value of a fp token
-	var total int64
-	// risk indicates the risk amount value of a fp token
-	var risk int64
-	// transfer indicates the transfer amount value of a fp token
-	var transfer int64
-
-	flag.Int64Var(&total, "total", 10000, "total amount value of a fp token")
-	flag.Int64Var(&risk, "risk", 2000, "risk amount value of a fp token")
-	flag.Int64Var(&transfer, "transfer", 1000, "transfer amount value of a fp token")
-	flag.Parse()
-
-	if risk > total {
-		log.L().Fatal("risk amount cannot be greater than total amount")
-	}
-
 	ctx := context.Background()
 	// Start iotex-server
 	cfg := config.Default
@@ -62,7 +47,6 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to deploy contracts.", zap.Error(err))
 	}
-	//log.L().Info("//////////////////////////////:",erc721Token)
 	// Create two accounts
 	_, _, debtorAddr, err := createAccount()
 	if err != nil {
@@ -73,10 +57,10 @@ func main() {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
 
-	// Create fp token
-	assetID := assetcontract.GenerateAssetID()
-
-	if _, err := erc721Token.CreateToken(assetID,creditorAddr); err != nil {
+	// Create erc721 token
+	tokenID := assetcontract.GenerateAssetID()
+	fmt.Println("///////////////////tokenid:",tokenID)
+	if _, err := erc721Token.CreateToken(tokenID,creditorAddr); err != nil {
 		log.L().Fatal("Failed to create token", zap.Error(err))
 	}
 
@@ -84,17 +68,14 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to get creditor's asset balance.", zap.Error(err))
 	}
-	log.L().Info("creditor's asset balance: ", zap.Int64("balance", creditorBalance))
+	log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 
 
-	//// Transfer fp token
-	if _, err := erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, assetID); err != nil {
+	//// Transfer erc721 token
+	if _, err := erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, tokenID); err != nil {
 		log.L().Fatal("Failed to transfer 1 token from creditor to debtor", zap.Error(err))
 	}
-	//if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
-	//	log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
-	//}
-	//
+
 	debtorBalance, err := erc721Token.ReadValue(erc721Token.Address(), "70a08231", debtorAddr)
 	if err != nil {
 		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
@@ -105,20 +86,9 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
 	}
-	log.L().Info("creditor's asset balance: ", zap.Int64("balance", creditorBalance))
-	//creditorBalance, err := fpToken.ReadValue(contractAddr, "70a08231", creditorAddr)
-	//if err != nil {
-	//	log.L().Fatal("Failed to get creditor's asset balance.", zap.Error(err))
-	//}
-	//log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
-	//
-	//if debtorBalance+creditorBalance != total-risk {
-	//	log.L().Fatal("Sum of balance is incorrect.")
-	//}
-	//
-	//log.L().Info("Fp token transfer test pass!")
-	//var ch chan struct{}
-	//<-ch
+	log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
+
+	log.L().Info("Token transfer test pass!")
 }
 
 func createAccount() (string, string, string, error) {

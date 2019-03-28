@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	//"math/big"
 
@@ -53,15 +52,6 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	if err != nil {
 		return "", errors.Errorf("invalid creditor address = %s", creditor)
 	}
-	//function mint(address _to,uint256 _tokenId)
-	//keccak256("Deposit(address,hash256,uint256)")
-	//hash:=keccak256("mint(address,uint256)")
-	//hash:=crypto.Keccak256([]byte("mint(address,uint256)"))[:4]
-	////h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
-	//hashString:=common.Bytes2Hex(hash)
-	//fmt.Println("////////////////////////hash mint:",hashString)
-	//h, err := f.SetAddress(f.registry).Call(hashString,addrCreditor.Bytes(),[]byte(tokenid))
-	fmt.Println("//////////////////////contract addr:",f.Address())
 	h,err:=f.RunAsOwner().Call("fdb05e85",addrCreditor.Bytes(),[]byte(tokenid))
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to create")
