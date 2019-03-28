@@ -58,6 +58,9 @@ func getActionByHash(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
+	if len(response.ActionInfo) == 0 {
+		return "no action info returned"
+	}
 	action := response.ActionInfo[0]
 	output, err := printActionProto(action.Action)
 	if err != nil {

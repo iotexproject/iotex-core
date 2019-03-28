@@ -79,7 +79,7 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	request := &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
-				Start: height - 1,
+				Start: height,
 				Count: 1,
 			},
 		},
@@ -89,7 +89,10 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		return nil, err
 	}
-	return response.BlkMetas[0], err
+	if len(response.BlkMetas) == 0 {
+		return nil, fmt.Errorf("no block returned")
+	}
+	return response.BlkMetas[0], nil
 }
 
 // GetBlockMetaByHash gets block metadata by hash
@@ -110,5 +113,8 @@ func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		return nil, err
 	}
-	return response.BlkMetas[0], err
+	if len(response.BlkMetas) == 0 {
+		return nil, fmt.Errorf("no block returned")
+	}
+	return response.BlkMetas[0], nil
 }
