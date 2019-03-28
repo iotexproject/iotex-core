@@ -10,7 +10,6 @@ import (
 	"context"
 	"flag"
 	"math/big"
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -64,19 +63,19 @@ func main() {
 	}
 
 	// Create two accounts
-	debtorPubKey, debtorPriKey, debtorAddr, err := createAccount()
+	_, debtorPriKey, debtorAddr, err := createAccount()
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
-	creditorPubKey, creditorPriKey, creditorAddr, err := createAccount()
+	_, creditorPriKey, creditorAddr, err := createAccount()
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
 
 	// Create fp token
 	assetID := assetcontract.GenerateAssetID()
-	open := strconv.Itoa(int(time.Now().UnixNano() / 1e6))
-	exp := strconv.Itoa(int(time.Now().UnixNano()/1e6 + 1000000))
+	open := time.Now().Unix()
+	exp := open + 100000
 
 	if _, err := fpToken.CreateToken(assetID, debtorAddr, creditorAddr, total, risk, open, exp); err != nil {
 		log.L().Fatal("Failed to create fp token", zap.Error(err))
@@ -88,10 +87,10 @@ func main() {
 	}
 
 	// Transfer fp token
-	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPubKey, debtorPriKey, creditorAddr, total); err != nil {
+	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPriKey, creditorAddr, total); err != nil {
 		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
 	}
-	if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPubKey, creditorPriKey, risk); err != nil {
+	if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
 		log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
 	}
 

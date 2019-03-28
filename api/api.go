@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/poll/pollpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/address"
@@ -139,11 +138,16 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	numActions, err := api.bc.GetActionCountByAddress(in.Address)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
 	accountMeta := &iotextypes.AccountMeta{
 		Address:      in.Address,
 		Balance:      state.Balance.String(),
 		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
+		NumActions:   numActions,
 	}
 	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta}, nil
 }
@@ -218,6 +222,12 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if len(blks) == 0 {
 		return nil, status.Error(codes.NotFound, "get 0 blocks! not able to calculate aps")
 	}
+
+	var numActions int64
+	for _, blk := range blks {
+		numActions += blk.NumActions
+	}
+
 	p, ok := api.registry.Find(rolldpos.ProtocolID)
 	if !ok {
 		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
@@ -239,7 +249,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		timeDuration = 1
 	}
 
-	tps := int64(totalActions) / timeDuration
+	tps := numActions / timeDuration
 
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
@@ -373,42 +383,46 @@ func (api *Server) GetEpochMeta(
 		Height:                  epochHeight,
 		GravityChainStartHeight: gravityChainStartHeight,
 	}
-	productivity, err := api.getProductivity(in.EpochNumber)
+
+	numBlks, produce, err := api.bc.ProductivityByEpoch(in.EpochNumber)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	nextEpochHeight := rp.GetEpochHeight(in.EpochNumber + 1)
 
 	readStateRequest := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte(poll.ProtocolID),
-		MethodName: []byte("CommitteeBlockProducersByHeight"),
-		Arguments:  [][]byte{byteutil.Uint64ToBytes(nextEpochHeight)},
+		MethodName: []byte("ConsensusBlockProducersByHeight"),
+		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
 	}
 	res, err := api.readState(context.Background(), readStateRequest)
-	var nextEpochBlockProducers *iotexapi.NextEpochBlockProducers
-	switch errors.Cause(err) {
-	case nil:
-		var committeeBlockProducers pollpb.BlockProducerList
-		if err := proto.Unmarshal(res.Data, &committeeBlockProducers); err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		nextEpochBlockProducers = &iotexapi.NextEpochBlockProducers{
-			Ready:          true,
-			BlockProducers: committeeBlockProducers.BlockProducers,
-		}
-	case state.ErrStateNotExist:
-		nextEpochBlockProducers = &iotexapi.NextEpochBlockProducers{
-			Ready:          false,
-			BlockProducers: make([]string, 0),
-		}
-	default:
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	var consensusBlockProducers state.CandidateList
+	if err := consensusBlockProducers.Deserialize(res.Data); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	var blockProducersInfo []*iotexapi.BlockProducerInfo
+	for _, bp := range consensusBlockProducers {
+		var active bool
+		var blockProduction uint64
+		if production, ok := produce[bp.Address]; ok {
+			active = true
+			blockProduction = production
+		}
+		blockProducersInfo = append(blockProducersInfo, &iotexapi.BlockProducerInfo{
+			Address:    bp.Address,
+			Votes:      bp.Votes.String(),
+			Active:     active,
+			Production: blockProduction,
+		})
+	}
+
 	return &iotexapi.GetEpochMetaResponse{
-		EpochData:               epochData,
-		Productivity:            productivity,
-		NextEpochBlockProducers: nextEpochBlockProducers,
+		EpochData:          epochData,
+		TotalBlocks:        numBlks,
+		BlockProducersInfo: blockProducersInfo,
 	}, nil
 }
 
@@ -511,28 +525,10 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	var res []*iotexapi.ActionInfo
-	var actions []hash.Hash256
-	if api.cfg.UseRDS {
-		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-		actions = append(actions, actionHistory...)
-	} else {
-		actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-
-		actionsToAddress, err := api.bc.GetActionsToAddress(address)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-
-		actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
-		actions = append(actions, actionsFromAddress...)
+	actions, err := api.getTotalActionsByAddress(address)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
-
 	var actionCount uint64
 	for i := 0; i < len(actions); i++ {
 		actionCount++
@@ -619,8 +615,12 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 // getBlockMetas gets block within the height range
 func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
+	tipHeight := api.bc.TipHeight()
+	if start > tipHeight {
+		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
+	}
 	var res []*iotextypes.BlockMeta
-	for height := int(start); height <= int(api.bc.TipHeight()); height++ {
+	for height := int(start); height <= int(tipHeight); height++ {
 		if uint64(len(res)) >= number {
 			break
 		}
@@ -704,14 +704,6 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 	return gravityChainStartHeight, nil
 }
 
-func (api *Server) getProductivity(epochNumber uint64) (*iotexapi.Productivity, error) {
-	numBlks, produce, err := api.bc.ProductivityByEpoch(epochNumber)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-	return &iotexapi.Productivity{TotalBlks: numBlks, BlksPerDelegate: produce}, nil
-}
-
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
 	blkHash := hash.ZeroHash256
@@ -727,6 +719,7 @@ func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool)
 		BlkHash: hex.EncodeToString(blkHash[:]),
 	}, nil
 }
+
 func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
 	var selp action.SealedEnvelope
 	var err error
@@ -740,6 +733,31 @@ func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi
 		return nil, err
 	}
 	return api.convertToAction(selp, !checkPending)
+}
+
+func (api *Server) getTotalActionsByAddress(address string) ([]hash.Hash256, error) {
+	var actions []hash.Hash256
+	if api.cfg.UseRDS {
+		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
+		if err != nil {
+			return nil, err
+		}
+		actions = append(actions, actionHistory...)
+	} else {
+		actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
+		if err != nil {
+			return nil, err
+		}
+
+		actionsToAddress, err := api.bc.GetActionsToAddress(address)
+		if err != nil {
+			return nil, err
+		}
+
+		actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
+		actions = append(actions, actionsFromAddress...)
+	}
+	return actions, nil
 }
 
 func toHash256(hashString string) (hash.Hash256, error) {

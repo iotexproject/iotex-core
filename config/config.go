@@ -125,6 +125,7 @@ var (
 					AcceptBlockTTL:               4 * time.Second,
 					AcceptProposalEndorsementTTL: 2 * time.Second,
 					AcceptLockEndorsementTTL:     2 * time.Second,
+					CommitTTL:                    2 * time.Second,
 					EventChanSize:                10000,
 				},
 				ToleratedOvertime: 2 * time.Second,

@@ -16,7 +16,6 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -211,8 +210,8 @@ func main() {
 
 			// Create fp token
 			assetID := assetcontract.GenerateAssetID()
-			open := strconv.Itoa(int(time.Now().UnixNano() / 1e6))
-			exp := strconv.Itoa(int(time.Now().UnixNano()/1e6+d.Nanoseconds()/1e6) + 10000)
+			open := time.Now().Unix()
+			exp := open + 100000
 
 			if _, err := fpToken.CreateToken(assetID, debtor.EncodedAddr, creditor.EncodedAddr, fpTotal, fpRisk, open,
 				exp); err != nil {
@@ -225,23 +224,22 @@ func main() {
 			}
 
 			// Transfer full amount from debtor to creditor
-			debtorPubKey := debtor.PriKey.PublicKey().HexString()
 			debtorPriKey := debtor.PriKey.HexString()
-			if _, err := fpToken.Transfer(fpContract, debtor.EncodedAddr, debtorPubKey, debtorPriKey,
+			if _, err := fpToken.Transfer(fpContract, debtor.EncodedAddr, debtorPriKey,
 				creditor.EncodedAddr, fpTotal); err != nil {
 				log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
 			}
 
 			// Transfer amount of risk from creditor to contract
-			creditorPubKey := creditor.PriKey.PublicKey().HexString()
 			creditorPriKey := creditor.PriKey.HexString()
-			if _, err := fpToken.RiskLock(fpContract, creditor.EncodedAddr, creditorPubKey, creditorPriKey,
+			if _, err := fpToken.RiskLock(fpContract, creditor.EncodedAddr, creditorPriKey,
 				fpRisk); err != nil {
 				log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
 			}
 		}
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
+		pendingActionMap := new(sync.Map)
 
 		log.L().Info("Start action injections.")
 
@@ -249,18 +247,25 @@ func main() {
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
 			fpContract, debtor, creditor, client, admins, delegates, d, retryNum, retryInterval, resetInterval,
-			&expectedBalancesMap)
+			&expectedBalancesMap, svrs[0].ChainService(1), pendingActionMap)
 		wg.Wait()
 
 		err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			actionCleared := true
-			for i := 0; i < numNodes; i++ {
-				if apsize := svrs[i].ChainService(configs[i].Chain.ID).ActionPool().GetSize(); apsize != 0 {
-					actionCleared = false
-				}
+			empty, err := util.CheckPendingActionList(
+				svrs[0].ChainService(1),
+				pendingActionMap,
+				&expectedBalancesMap,
+			)
+			if err != nil {
+				log.L().Error(err.Error())
+				return false, err
 			}
-			return actionCleared, nil
+			return empty, nil
 		})
+
+		if err != nil {
+			log.L().Error("Not all actions are settled")
+		}
 
 		chains := make([]blockchain.Blockchain, numNodes)
 		stateHeights := make([]uint64, numNodes)
@@ -372,6 +377,7 @@ func newConfig(
 	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 1800 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 1800 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 1800 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.CommitTTL = 600 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second

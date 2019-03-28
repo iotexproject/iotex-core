@@ -54,6 +54,7 @@ const (
 	eReceiveLockEndorsement           fsm.EventType = "E_RECEIVE_LOCK_ENDORSEMENT"
 	eStopReceivingLockEndorsement     fsm.EventType = "E_STOP_RECEIVING_LOCK_ENDORSEMENT"
 	eReceivePreCommitEndorsement      fsm.EventType = "E_RECEIVE_PRECOMMIT_ENDORSEMENT"
+	eBroadcastPreCommitEndorsement    fsm.EventType = "E_BROADCAST_PRECOMMIT_ENDORSEMENT"
 
 	// BackdoorEvent indicates a backdoor event type
 	BackdoorEvent fsm.EventType = "E_BACKDOOR"
@@ -87,6 +88,7 @@ type Config struct {
 	AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
 	AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
 	AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
+	CommitTTL                    time.Duration `yaml:"commitTTL"`
 }
 
 // ConsensusFSM wraps over the general purpose FSM and implements the consensus logic
@@ -146,6 +148,14 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 			}).
 		AddTransition(
 			sAcceptProposalEndorsement,
+			eReceivePreCommitEndorsement,
+			cm.onReceiveProposalEndorsement,
+			[]fsm.State{
+				sAcceptProposalEndorsement, // not enough endorsements
+				sAcceptLockEndorsement,     // enough endorsements
+			}).
+		AddTransition(
+			sAcceptProposalEndorsement,
 			eStopReceivingProposalEndorsement,
 			cm.onStopReceivingProposalEndorsement,
 			[]fsm.State{
@@ -158,6 +168,21 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 			[]fsm.State{
 				sAcceptLockEndorsement,      // not enough endorsements
 				sAcceptPreCommitEndorsement, // reach commit agreement, jump to next step
+			}).
+		AddTransition(
+			sAcceptLockEndorsement,
+			eReceivePreCommitEndorsement,
+			cm.onReceiveLockEndorsement,
+			[]fsm.State{
+				sAcceptLockEndorsement,      // not enough endorsements
+				sAcceptPreCommitEndorsement, // reach commit agreement, jump to next step
+			}).
+		AddTransition(
+			sAcceptPreCommitEndorsement,
+			eBroadcastPreCommitEndorsement,
+			cm.onBroadcastPreCommitEndorsement,
+			[]fsm.State{
+				sAcceptPreCommitEndorsement,
 			}).
 		AddTransition(
 			sAcceptLockEndorsement,
@@ -288,11 +313,11 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 
 func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 	if m.ctx.IsStaleEvent(evt) {
-		m.ctx.Logger().Debug("stale event", zap.Any("event", evt))
+		m.ctx.Logger().Debug("stale event", zap.Any("event", evt.Type()))
 		return nil
 	}
 	if m.ctx.IsFutureEvent(evt) {
-		m.ctx.Logger().Debug("future event", zap.Any("event", evt))
+		m.ctx.Logger().Debug("future event", zap.Any("event", evt.Type()))
 		// TODO: find a more appropriate delay
 		m.produce(evt, m.cfg.UnmatchedEventInterval)
 		return nil
@@ -453,7 +478,19 @@ func (m *ConsensusFSM) onReceiveLockEndorsement(evt fsm.Event) (fsm.State, error
 		return sAcceptLockEndorsement, nil
 	}
 	m.ProduceReceivePreCommitEndorsementEvent(preCommitEndorsement)
-	m.ctx.Broadcast(preCommitEndorsement)
+	m.produce(m.ctx.NewConsensusEvent(eBroadcastPreCommitEndorsement, preCommitEndorsement), 0)
+
+	return sAcceptPreCommitEndorsement, nil
+}
+
+func (m *ConsensusFSM) onBroadcastPreCommitEndorsement(evt fsm.Event) (fsm.State, error) {
+	cEvt, ok := evt.(*ConsensusEvent)
+	if !ok {
+		return sAcceptPreCommitEndorsement, errors.Wrap(ErrEvtCast, "failed to cast to consensus event")
+	}
+	m.ctx.Logger().Debug("broadcast pre-commit endorsement")
+	m.ctx.Broadcast(cEvt.Data())
+	m.produce(cEvt, m.cfg.CommitTTL)
 
 	return sAcceptPreCommitEndorsement, nil
 }
