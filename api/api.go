@@ -273,7 +273,7 @@ func (api *Server) GetServerMeta(ctx context.Context,
 		PackageCommitID: version.PackageCommitID,
 		GitStatus:       version.GitStatus,
 		GoVersion:       version.GoVersion,
-		BuidTime:        version.BuildTime,
+		BuildTime:       version.BuildTime,
 	}}, nil
 }
 
