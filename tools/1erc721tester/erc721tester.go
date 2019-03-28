@@ -64,11 +64,11 @@ func main() {
 	}
 	//log.L().Info("//////////////////////////////:",erc721Token)
 	// Create two accounts
-	//_, debtorPriKey, debtorAddr, err := createAccount()
-	//if err != nil {
-	//	log.L().Fatal("Failed to create account.", zap.Error(err))
-	//}
-	_, _, creditorAddr, err := createAccount()
+	_, _, debtorAddr, err := createAccount()
+	if err != nil {
+		log.L().Fatal("Failed to create account.", zap.Error(err))
+	}
+	_, creditorPriv, creditorAddr, err := createAccount()
 	if err != nil {
 		log.L().Fatal("Failed to create account.", zap.Error(err))
 	}
@@ -82,30 +82,25 @@ func main() {
 
 	creditorBalance, err := erc721Token.ReadValue(erc721Token.Address(), "70a08231", creditorAddr)
 	if err != nil {
-		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
+		log.L().Fatal("Failed to get creditor's asset balance.", zap.Error(err))
 	}
-	log.L().Info("Debtor's asset balance: ", zap.Int64("balance", creditorBalance))
+	log.L().Info("creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 
-	//
-	//contractAddr, err := fpToken.TokenAddress(assetID)
-	//if err != nil {
-	//	log.L().Fatal("Failed to get token contract address", zap.Error(err))
-	//}
-	//
+
 	//// Transfer fp token
-	//if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPriKey, creditorAddr, total); err != nil {
-	//	log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
-	//}
+	if _, err := fpToken.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, 1); err != nil {
+		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
+	}
 	//if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
 	//	log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
 	//}
 	//
-	//debtorBalance, err := fpToken.ReadValue(contractAddr, "70a08231", debtorAddr)
-	//if err != nil {
-	//	log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
-	//}
-	//log.L().Info("Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
-	//
+	debtorBalance, err := erc721Token.ReadValue(erc721Token.Address(), "70a08231", debtorAddr)
+	if err != nil {
+		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
+	}
+	log.L().Info("Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
+
 	//creditorBalance, err := fpToken.ReadValue(contractAddr, "70a08231", creditorAddr)
 	//if err != nil {
 	//	log.L().Fatal("Failed to get creditor's asset balance.", zap.Error(err))

@@ -9,6 +9,7 @@ package blockchain
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"math/big"
 
 	//"math/big"
 
@@ -106,27 +107,27 @@ func (f *erc721Token) SetRegistry(reg string) Erc721Token {
 	return f
 }
 //
-//func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, amount int64) (string, error) {
-//	_, err := address.FromString(sender)
-//	if err != nil {
-//		return "", errors.Errorf("invalid account address = %s", sender)
-//	}
-//	addrReceiver, err := address.FromString(receiver)
-//	if err != nil {
-//		return "", errors.Errorf("invalid account address = %s", receiver)
-//	}
-//	// transfer to receiver
-//	h, err := f.SetAddress(token).
-//		SetExecutor(sender).
-//		SetPrvKey(prvkey).
-//		Call("a9059cbb", addrReceiver.Bytes(), big.NewInt(amount).Bytes())
-//	if err != nil {
-//		return h, errors.Wrap(err, "call transfer failed")
-//	}
-//
-//	if _, err := f.CheckCallResult(h); err != nil {
-//		return h, errors.Wrap(err, "check transfer failed")
-//	}
-//	return h, nil
-//}
+func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, amount int64) (string, error) {
+	_, err := address.FromString(sender)
+	if err != nil {
+		return "", errors.Errorf("invalid account address = %s", sender)
+	}
+	addrReceiver, err := address.FromString(receiver)
+	if err != nil {
+		return "", errors.Errorf("invalid account address = %s", receiver)
+	}
+	// transfer to receiver
+	h, err := f.SetAddress(token).
+		SetExecutor(sender).
+		SetPrvKey(prvkey).
+		Call("a9059cbb", addrReceiver.Bytes(), big.NewInt(amount).Bytes())
+	if err != nil {
+		return h, errors.Wrap(err, "call transfer failed")
+	}
+
+	if _, err := f.CheckCallResult(h); err != nil {
+		return h, errors.Wrap(err, "check transfer failed")
+	}
+	return h, nil
+}
 
