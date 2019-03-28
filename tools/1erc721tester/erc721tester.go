@@ -85,7 +85,7 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to get balance", zap.Error(err))
 	}
-	fmt.Println("Fp token transfer test pass!",b)
+	fmt.Println("Fp token transfer test pass!",zap.String("balance", b))
 	//
 	//contractAddr, err := fpToken.TokenAddress(assetID)
 	//if err != nil {
