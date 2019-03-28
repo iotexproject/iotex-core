@@ -9,7 +9,7 @@ package blockchain
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"math/big"
+	//"math/big"
 
 	//"math/big"
 
@@ -26,7 +26,7 @@ type (
 	Erc721Token interface {
 		Contract
 		CreateToken(string,string) (string, error)
-		Transfer(string, string, string, string, int64) (string, error)
+		Transfer(string, string, string, string, string) (string, error)
 		SetRegistry(string) Erc721Token
 	}
 
@@ -77,7 +77,7 @@ func (f *erc721Token) SetRegistry(reg string) Erc721Token {
 	return f
 }
 //
-func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, amount int64) (string, error) {
+func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid string) (string, error) {
 	from, err := address.FromString(sender)
 	if err != nil {
 		return "", errors.Errorf("invalid account address = %s", sender)
@@ -90,7 +90,7 @@ func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, amount in
 	h, err := f.SetAddress(token).
 		SetExecutor(sender).
 		SetPrvKey(prvkey).
-		Call("b88d4fde", from.Bytes(),addrReceiver.Bytes(), big.NewInt(amount).Bytes())
+		Call("b88d4fde", from.Bytes(),addrReceiver.Bytes(), []byte(tokenid))
 	if err != nil {
 		return h, errors.Wrap(err, "call transfer failed")
 	}
