@@ -295,12 +295,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:86b243928710a2d34d9261679e3c68b40ee90438a2f2a0831e6ae9627051c02e"
+  digest = "1:7e0bbd926a9e28f6375d08496c5b116aa765a21503bacea8f7647e85f6fccb41"
   name = "github.com/iotexproject/go-p2p"
   packages = ["."]
   pruneopts = "UT"
-  revision = "bc6d08ad79474feada73d6c04d01b30296a3c1e6"
-  version = "v0.2.0"
+  revision = "aa1340aff2178b69878d96d02837af8fb56c1a0a"
+  version = "v0.2.1"
 
 [[projects]]
   digest = "1:964ac86c1fd96ae838081062b32a3db466c0e6eaea41b6de4aac5a23e4a096c9"
