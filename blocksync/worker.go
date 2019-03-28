@@ -8,6 +8,7 @@ package blocksync
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 
 	"go.uber.org/zap"
@@ -29,7 +30,6 @@ type syncWorker struct {
 	targetHeight     uint64
 	unicastHandler   UnicastOutbound
 	neighborsHandler Neighbors
-	rrIdx            int
 	buf              *blockBuffer
 	task             *routine.RecurringTask
 }
@@ -47,7 +47,6 @@ func newSyncWorker(
 		neighborsHandler: neighborsHandler,
 		buf:              buf,
 		targetHeight:     0,
-		rrIdx:            0,
 	}
 	if cfg.BlockSync.Interval != 0 {
 		w.task = routine.NewRecurringTask(w.Sync, cfg.BlockSync.Interval)
@@ -98,14 +97,15 @@ func (w *syncWorker) Sync() {
 			zap.Any("intervals", intervals),
 			zap.Uint64("targetHeight", w.targetHeight))
 	}
+	rrIdx := rand.Intn(len(peers))
 	for _, interval := range intervals {
-		w.rrIdx %= len(peers)
-		p := peers[w.rrIdx]
+		rrIdx %= len(peers)
+		p := peers[rrIdx]
 		if err := w.unicastHandler(ctx, p, &iotexrpc.BlockSync{
 			Start: interval.Start, End: interval.End,
 		}); err != nil {
 			log.L().Warn("Failed to sync block.", zap.Error(err))
 		}
-		w.rrIdx++
+		rrIdx++
 	}
 }
