@@ -39,7 +39,7 @@ func main() {
 		log.L().Fatal("Failed to start itxServer.", zap.Error(err))
 	}
 	go itx.StartServer(ctx, itxsvr, probe.New(7799), cfg)
-
+	time.Sleep(time.Second*2)
 	// Deploy contracts
 	erc721Token, err := assetcontract.StartContracts(cfg)
 	if err != nil {
