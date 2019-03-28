@@ -210,6 +210,9 @@ type (
 		ExternalPort   int      `yaml:"externalPort"`
 		BootstrapNodes []string `yaml:"bootstrapNodes"`
 		MasterKey      string   `yaml:"masterKey"` // master key will be PrivateKey if not set.
+		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
+		// are supported: active, nat.
+		RelayType string `yaml:"relayType"`
 	}
 
 	// Chain is the config struct for blockchain package
