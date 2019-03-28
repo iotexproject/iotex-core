@@ -47,7 +47,8 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	if err != nil {
 		return "", errors.Errorf("invalid creditor address = %s", creditor)
 	}
-	h,err:=f.RunAsOwner().Call("fdb05e85",addrCreditor.Bytes(),TokenID.Bytes())
+	owner:=f.RunAsOwner()
+	h,err:=owner.Call("fdb05e85",addrCreditor.Bytes(),TokenID.Bytes())
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to create")
 	}
