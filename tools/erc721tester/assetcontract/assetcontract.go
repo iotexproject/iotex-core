@@ -17,7 +17,7 @@ const (
 	chainIP = "localhost"
 )
 
-// StartContracts deploys and starts fp token smart contract and stable token smart contract
+// StartContracts deploys and starts erc721 token smart contract
 func StartContracts(cfg config.Config) (blockchain.Erc721Token,error) {
 	endpoint := chainIP + ":" + strconv.Itoa(cfg.API.Port)
 
