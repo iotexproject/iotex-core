@@ -63,14 +63,13 @@ func accountCreate() string {
 		}
 		newAccounts = append(newAccounts, newAccount)
 	}
+	output := make([]byte, 0)
+	var err error
 	if numAccounts == 1 {
-		output, err := json.Marshal(&newAccounts[0])
-		if err != nil {
-			return err.Error()
-		}
-		return string(output)
+		output, err = json.Marshal(&newAccounts[0])
+	} else {
+		output, err = json.Marshal(&generatedAccounts{Accounts: newAccounts})
 	}
-	output, err := json.Marshal(&generatedAccounts{Accounts: newAccounts})
 	if err != nil {
 		return err.Error()
 	}
