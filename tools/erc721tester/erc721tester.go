@@ -10,7 +10,9 @@ import (
 	"context"
 	"math/big"
 	"time"
+
 	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -83,6 +85,8 @@ func main() {
 	log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 
 	log.L().Info("Token transfer test pass!")
+
+	<-ctx.Done()
 }
 
 func createAccount() (string, string, string, error) {
