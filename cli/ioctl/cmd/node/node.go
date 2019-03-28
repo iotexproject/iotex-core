@@ -12,7 +12,8 @@ import (
 
 // Flags
 var (
-	epochNum uint64
+	epochNum  uint64
+	nextEpoch bool
 )
 
 // NodeCmd represents the node command
@@ -24,6 +25,6 @@ var NodeCmd = &cobra.Command{
 
 func init() {
 	NodeCmd.AddCommand(nodeDelegateCmd)
+	NodeCmd.AddCommand(nodeOrderCmd)
 	NodeCmd.AddCommand(nodeRewardCmd)
-	nodeDelegateCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0, "specify specific epoch")
 }

@@ -24,15 +24,19 @@ import (
 // nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
 	Use:   "delegate",
-	Short: "print consensus delegates information in certain epoch",
+	Short: "Print consensus delegates information in certain epoch",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(delegate())
 	},
 }
 
+func init() {
+	nodeDelegateCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0, "specify specific epoch")
+}
+
 func delegate() string {
-	status := map[bool]string{true: "active", false: ""}
+	nodeStatus := map[bool]string{true: "active", false: ""}
 	if epochNum == 0 {
 		chainMeta, err := bc.GetChainMeta()
 		if err != nil {
@@ -53,9 +57,9 @@ func delegate() string {
 		return err.Error()
 	}
 
-	epockData := response.EpochData
+	epochData := response.EpochData
 	aliases := alias.GetAliasMap()
-	formataliasLen := 0
+	formataliasLen := 5
 	for _, delegateInfo := range response.BlockProducersInfo {
 		if len(aliases[delegateInfo.Address]) > formataliasLen {
 			formataliasLen = len(aliases[delegateInfo.Address])
@@ -63,7 +67,7 @@ func delegate() string {
 	}
 	lines := make([]string, 0)
 	lines = append(lines, fmt.Sprintf("Epoch: %d,  Start block height: %d,"+
-		"  Total blocks in epoch: %d\n", epockData.Num, epockData.Height, response.TotalBlocks))
+		"  Total blocks in epoch: %d\n", epochData.Num, epochData.Height, response.TotalBlocks))
 	formatTitleString := "%-41s   %-5s   %-" + strconv.Itoa(formataliasLen) +
 		"s   %-6s   %-6s   %s"
 	formatDataString := "%-41s   %5d   %-" + strconv.Itoa(formataliasLen) +
@@ -80,7 +84,7 @@ func delegate() string {
 			production = strconv.Itoa(int(bp.Production))
 		}
 		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, index+1,
-			aliases[bp.Address], status[bp.Active], production,
+			aliases[bp.Address], nodeStatus[bp.Active], production,
 			util.RauToString(votes, util.IotxDecimalNum)))
 	}
 	return strings.Join(lines, "\n")
