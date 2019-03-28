@@ -8,6 +8,9 @@ package main
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/testutil"
 	"math/big"
 	"time"
 
@@ -23,8 +26,7 @@ import (
 )
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	ctx:=context.Background()
 	// Start iotex-server
 	cfg := config.Default
 	cfg.Plugins[config.GatewayPlugin] = true
@@ -37,8 +39,6 @@ func main() {
 		log.L().Fatal("Failed to start itxServer.", zap.Error(err))
 	}
 	go itx.StartServer(ctx, itxsvr, probe.New(7799), cfg)
-
-	time.Sleep(2 * time.Second)
 
 	// Deploy contracts
 	erc721Token, err := assetcontract.StartContracts(cfg)
@@ -69,7 +69,7 @@ func main() {
 
 
 	//// Transfer erc721 token
-	if _, err := erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, tokenID); err != nil {
+	if transferHashString, err := erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, tokenID); err != nil {
 		log.L().Fatal("Failed to transfer 1 token from creditor to debtor", zap.Error(err))
 	}
 
@@ -87,7 +87,15 @@ func main() {
 
 	log.L().Info("Token transfer test pass!")
 
-	<-ctx.Done()
+	// Wait until the smart contract is successfully deployed
+	transferHash:=hash.Hash256b([]byte(transferHashString))
+	var receipt *action.Receipt
+	if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		receipt, err = itxsvr.ChainService(uint32(1)).Blockchain().GetReceiptByActionHash(transferHash)
+		return receipt != nil, nil
+	}); err != nil {
+		log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
+	}
 }
 
 func createAccount() (string, string, string, error) {
