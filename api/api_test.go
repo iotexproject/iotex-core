@@ -402,12 +402,12 @@ var (
 		},
 	}
 
-	readBlockProducersByHeightTests = []struct {
+	readBlockProducersByEpochTests = []struct {
 		// Arguments
 		protocolID            string
 		protocolType          string
 		methodName            string
-		height                uint64
+		epoch                 uint64
 		numCandidateDelegates uint64
 		// Expected Values
 		numBlockProducers int
@@ -415,41 +415,34 @@ var (
 		{
 			protocolID:        "poll",
 			protocolType:      "lifeLongDelegates",
-			methodName:        "BlockProducersByHeight",
-			height:            1,
-			numBlockProducers: 3,
-		},
-		{
-			protocolID:        "poll",
-			protocolType:      "lifeLongDelegates",
-			methodName:        "BlockProducersByHeight",
-			height:            4,
+			methodName:        "BlockProducersByEpoch",
+			epoch:             1,
 			numBlockProducers: 3,
 		},
 		{
 			protocolID:            "poll",
 			protocolType:          "governanceChainCommittee",
-			methodName:            "BlockProducersByHeight",
-			height:                1,
+			methodName:            "BlockProducersByEpoch",
+			epoch:                 1,
 			numCandidateDelegates: 2,
 			numBlockProducers:     2,
 		},
 		{
 			protocolID:            "poll",
 			protocolType:          "governanceChainCommittee",
-			methodName:            "BlockProducersByHeight",
-			height:                4,
+			methodName:            "BlockProducersByEpoch",
+			epoch:                 1,
 			numCandidateDelegates: 1,
 			numBlockProducers:     1,
 		},
 	}
 
-	readActiveBlockProducersByHeightTests = []struct {
+	readActiveBlockProducersByEpochTests = []struct {
 		// Arguments
 		protocolID   string
 		protocolType string
 		methodName   string
-		height       uint64
+		epoch        uint64
 		numDelegates uint64
 		// Expected Values
 		numActiveBlockProducers int
@@ -457,30 +450,23 @@ var (
 		{
 			protocolID:              "poll",
 			protocolType:            "lifeLongDelegates",
-			methodName:              "ActiveBlockProducersByHeight",
-			height:                  1,
-			numActiveBlockProducers: 3,
-		},
-		{
-			protocolID:              "poll",
-			protocolType:            "lifeLongDelegates",
-			methodName:              "ActiveBlockProducersByHeight",
-			height:                  4,
+			methodName:              "ActiveBlockProducersByEpoch",
+			epoch:                   1,
 			numActiveBlockProducers: 3,
 		},
 		{
 			protocolID:              "poll",
 			protocolType:            "governanceChainCommittee",
-			methodName:              "ActiveBlockProducersByHeight",
-			height:                  1,
+			methodName:              "ActiveBlockProducersByEpoch",
+			epoch:                   1,
 			numDelegates:            2,
 			numActiveBlockProducers: 2,
 		},
 		{
 			protocolID:              "poll",
 			protocolType:            "governanceChainCommittee",
-			methodName:              "ActiveBlockProducersByHeight",
-			height:                  4,
+			methodName:              "ActiveBlockProducersByEpoch",
+			epoch:                   1,
 			numDelegates:            1,
 			numActiveBlockProducers: 1,
 		},
@@ -889,7 +875,7 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	}
 }
 
-func TestServer_ReadBlockProducersByHeight(t *testing.T) {
+func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -911,7 +897,7 @@ func TestServer_ReadBlockProducersByHeight(t *testing.T) {
 	}
 	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
-	for _, test := range readBlockProducersByHeightTests {
+	for _, test := range readBlockProducersByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == "lifeLongDelegates" {
 			cfg.Genesis.Delegates = delegates
@@ -935,7 +921,7 @@ func TestServer_ReadBlockProducersByHeight(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.height)},
+			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
 		})
 		require.NoError(err)
 		var BlockProducers state.CandidateList
@@ -944,7 +930,7 @@ func TestServer_ReadBlockProducersByHeight(t *testing.T) {
 	}
 }
 
-func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
+func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -966,7 +952,7 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 	}
 	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
-	for _, test := range readActiveBlockProducersByHeightTests {
+	for _, test := range readActiveBlockProducersByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == "lifeLongDelegates" {
 			cfg.Genesis.Delegates = delegates
@@ -990,7 +976,7 @@ func TestServer_ReadActiveBlockProducersByHeight(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.height)},
+			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
 		})
 		require.NoError(err)
 		var activeBlockProducers state.CandidateList

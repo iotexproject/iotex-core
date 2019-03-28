@@ -38,10 +38,10 @@ var ErrNoElectionCommittee = errors.New("no election committee specified")
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
 
-// GetEpochHeight defines a function to get the corresponding epoch height
+// GetEpochHeight defines a function to get the corresponding epoch height given an epoch number
 type GetEpochHeight func(uint64) uint64
 
-// GetEpochNum defines a function to get epoch number
+// GetEpochNum defines a function to get epoch number given a block height
 type GetEpochNum func(uint64) uint64
 
 // Protocol defines the protocol of handling votes
@@ -107,9 +107,9 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "BlockProducersByHeight":
+	case "BlockProducersByEpoch":
 		fallthrough
-	case "ActiveBlockProducersByHeight":
+	case "ActiveBlockProducersByEpoch":
 		return p.readBlockProducers()
 	case "GetGravityChainStartHeight":
 		if len(args) != 1 {
@@ -253,20 +253,20 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "BlockProducersByHeight":
+	case "BlockProducersByEpoch":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		blockProducers, err := p.readBlockProducersByHeight(byteutil.BytesToUint64(args[0]))
+		blockProducers, err := p.readBlockProducersByEpoch(byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
 		return blockProducers.Serialize()
-	case "ActiveBlockProducersByHeight":
+	case "ActiveBlockProducersByEpoch":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		activeBlockProducers, err := p.readActiveBlockProducersByHeight(byteutil.BytesToUint64(args[0]))
+		activeBlockProducers, err := p.readActiveBlockProducersByEpoch(byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -286,8 +286,9 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	}
 }
 
-func (p *governanceChainCommitteeProtocol) readBlockProducersByHeight(height uint64) (state.CandidateList, error) {
-	delegates, err := p.cm.CandidatesByHeight(height)
+func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(epochNum uint64) (state.CandidateList, error) {
+	epochHeight := p.getEpochHeight(epochNum)
+	delegates, err := p.cm.CandidatesByHeight(epochHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -301,10 +302,10 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByHeight(height uin
 	return blockProducers, nil
 }
 
-func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(height uint64) (state.CandidateList, error) {
-	blockProducers, err := p.readBlockProducersByHeight(height)
+func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(epochNum uint64) (state.CandidateList, error) {
+	blockProducers, err := p.readBlockProducersByEpoch(epochNum)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get active block producers on height %d", height)
+		return nil, errors.Wrapf(err, "failed to get active block producers in epoch %d", epochNum)
 	}
 
 	var blockProducerList []string
@@ -314,8 +315,8 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(heig
 		blockProducerMap[bp.Address] = bp
 	}
 
-	epochStartHeight := p.getEpochHeight(height)
-	crypto.SortCandidates(blockProducerList, epochStartHeight, crypto.CryptoSeed)
+	epochHeight := p.getEpochHeight(epochNum)
+	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
 
 	length := int(p.numDelegates)
 	if len(blockProducerList) < int(p.numDelegates) {
@@ -330,7 +331,8 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(heig
 }
 
 func (p *governanceChainCommitteeProtocol) getGravityHeight(height uint64) (uint64, error) {
-	epochHeight := p.getEpochHeight(height)
+	epochNumber := p.getEpochNum(height)
+	epochHeight := p.getEpochHeight(epochNumber)
 	blkTime, err := p.getBlockTime(epochHeight)
 	if err != nil {
 		return 0, err
