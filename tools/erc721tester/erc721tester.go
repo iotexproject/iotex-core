@@ -77,7 +77,7 @@ func main() {
 	// Wait until transfer is successfully
 	transferHash:=hash.Hash256b([]byte(transferHashString))
 	var receipt *action.Receipt
-	if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+	if err := testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
 		receipt, err = itxsvr.ChainService(uint32(1)).Blockchain().GetReceiptByActionHash(transferHash)
 		return receipt != nil, nil
 	}); err != nil {
