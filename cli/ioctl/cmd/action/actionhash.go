@@ -111,15 +111,20 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		output += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				match(transfer.Recipient, "address")) +
-			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount) +
-			fmt.Sprintf("  payload: %s\n", transfer.Payload) + ">\n"
+			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount)
+		if len(transfer.Payload) != 0 {
+			output += fmt.Sprintf("  payload: %s\n", transfer.Payload)
+		}
+		output += ">\n"
 	case action.Core.GetExecution() != nil:
 		execution := action.Core.GetExecution()
 		output += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
-				match(execution.Contract, "address")) +
-			fmt.Sprintf("  amount: %s Rau\n", execution.Amount) +
-			fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
+				match(execution.Contract, "address"))
+		if execution.Amount != "0" {
+			output += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
+		}
+		output += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
 	default:
 		output += proto.MarshalTextString(action.Core)
 	}
@@ -139,15 +144,20 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 		}
 		lines = append(lines, line)
 	}
-	return fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue) +
+	output := fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue) +
 		fmt.Sprintf("status: %d %s\n", receipt.Status,
 			match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		// TODO: blkHash
-		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
-		fmt.Sprintf("contractAddress: %s %s\n", receipt.ContractAddress,
-			match(receipt.ContractAddress, "address")) +
-		fmt.Sprintf("logs:\n%s", lines)
+		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed)
+	if len(receipt.ContractAddress) != 0 {
+		output += fmt.Sprintf("contractAddress: %s %s", receipt.ContractAddress,
+			match(receipt.ContractAddress, "address"))
+	}
+	if len(lines) != 0 {
+		output += fmt.Sprintf("\nlogs:\n%s", lines)
+	}
+	return output
 }
 
 func match(in string, matchType string) string {
