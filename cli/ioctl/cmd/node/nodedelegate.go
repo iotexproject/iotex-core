@@ -62,8 +62,8 @@ func delegate() string {
 		}
 	}
 	lines := make([]string, 0)
-	lines = append(lines, fmt.Sprintf("Epoch: %d,  Start block height: %d,  Total blocks: %d\n",
-		epockData.Num, epockData.Height, response.TotalBlocks))
+	lines = append(lines, fmt.Sprintf("Epoch: %d,  Start block height: %d,"+
+		"  Total blocks in epoch: %d\n", epockData.Num, epockData.Height, response.TotalBlocks))
 	formatTitleString := "%-41s   %-5s   %-" + strconv.Itoa(formataliasLen) +
 		"s   %-6s   %-6s   %s"
 	formatDataString := "%-41s   %5d   %-" + strconv.Itoa(formataliasLen) +

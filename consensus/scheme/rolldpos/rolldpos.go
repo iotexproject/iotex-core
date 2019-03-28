@@ -108,14 +108,21 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 // HandleConsensusMsg handles incoming consensus message
 func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	<-r.ready
-	if r.ctx.Height() == 0 {
+	consensusHeight := r.ctx.Height()
+	switch {
+	case consensusHeight == 0:
 		log.L().Debug("consensus component is not ready yet")
 		return nil
-	}
-	consensusHeight := r.ctx.Height()
-	if consensusHeight != 0 && msg.Height < consensusHeight {
+	case msg.Height < consensusHeight:
 		log.L().Debug(
 			"old consensus message",
+			zap.Uint64("consensusHeight", consensusHeight),
+			zap.Uint64("msgHeight", msg.Height),
+		)
+		return nil
+	case msg.Height > consensusHeight+1:
+		log.L().Debug(
+			"future consensus message",
 			zap.Uint64("consensusHeight", consensusHeight),
 			zap.Uint64("msgHeight", msg.Height),
 		)
