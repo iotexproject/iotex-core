@@ -16,5 +16,5 @@ message ServerMeta {
     string packageCommitID = 2;
     string gitStatus = 3;
     string goVersion = 4;
-    string buidTime = 5;
+    string buildTime = 5;
 }
