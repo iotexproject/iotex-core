@@ -69,8 +69,19 @@ func main() {
 
 
 	//// Transfer erc721 token
-	if transferHashString, err := erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, tokenID); err != nil {
+	transferHashString, err := erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, tokenID)
+	if err != nil {
 		log.L().Fatal("Failed to transfer 1 token from creditor to debtor", zap.Error(err))
+	}
+
+	// Wait until transfer is successfully
+	transferHash:=hash.Hash256b([]byte(transferHashString))
+	var receipt *action.Receipt
+	if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
+		receipt, err = itxsvr.ChainService(uint32(1)).Blockchain().GetReceiptByActionHash(transferHash)
+		return receipt != nil, nil
+	}); err != nil {
+		log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
 	}
 
 	debtorBalance, err := erc721Token.ReadValue(erc721Token.Address(), "70a08231", debtorAddr)
@@ -86,16 +97,6 @@ func main() {
 	log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 
 	log.L().Info("Token transfer test pass!")
-
-	// Wait until the smart contract is successfully deployed
-	transferHash:=hash.Hash256b([]byte(transferHashString))
-	var receipt *action.Receipt
-	if err := testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-		receipt, err = itxsvr.ChainService(uint32(1)).Blockchain().GetReceiptByActionHash(transferHash)
-		return receipt != nil, nil
-	}); err != nil {
-		log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
-	}
 }
 
 func createAccount() (string, string, string, error) {
