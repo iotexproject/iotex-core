@@ -67,7 +67,7 @@ func main() {
 	log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 
 
-	//// Transfer erc721 token
+	// Transfer erc721 token
 	_, err = erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, tokenID)
 	if err != nil {
 		log.L().Fatal("Failed to transfer 1 token from creditor to debtor", zap.Error(err))
