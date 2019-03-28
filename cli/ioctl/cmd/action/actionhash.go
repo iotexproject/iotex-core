@@ -66,23 +66,10 @@ func getActionByHash(args []string) string {
 		return err.Error()
 	}
 
-	request := &iotexapi.GetActionsRequest{
-		Lookup: &iotexapi.GetActionsRequest_ByHash{
-			ByHash: &iotexapi.GetActionByHashRequest{
-				ActionHash:   hash,
-				CheckPending: false,
-			},
-		},
-	}
-	_, err = cli.GetActions(ctx, request)
-	if err != nil {
-		return output + "\n#This action is pending\n"
-	}
-
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
-		return err.Error()
+		return output + "\n#This action is pending"
 	}
 	return output + "\n#This action has been written on blockchain\n" +
 		printReceiptProto(responseReceipt.Receipt)
