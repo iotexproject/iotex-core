@@ -23,7 +23,8 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
 	// Start iotex-server
 	cfg := config.Default
 	cfg.Plugins[config.GatewayPlugin] = true
