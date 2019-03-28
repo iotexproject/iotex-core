@@ -23,7 +23,7 @@ const (
 	// ChainIP is the ip address of iotex api endpoint
 	chainIP = "localhost"
 )
-type setExecutor func(string) executiontester.Contract
+//type setExecutor func(string) executiontester.Contract
 // StartContracts deploys and starts erc721 token smart contract
 func StartContracts(cfg config.Config) (blockchain.Erc721Token,error) {
 	endpoint := chainIP + ":" + strconv.Itoa(cfg.API.Port)
