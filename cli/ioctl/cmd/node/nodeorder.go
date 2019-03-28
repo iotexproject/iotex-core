@@ -14,8 +14,6 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
-
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // nodeOrderCmd represents the node delegate command
