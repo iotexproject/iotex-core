@@ -8,7 +8,6 @@ package action
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -100,72 +99,68 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		log.L().Error("failed to convert bytes into address", zap.Error(err))
 		return "", err
 	}
+	output := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
+		fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
+		fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
+		fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
+		fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
+			match(senderAddress.String(), "address"))
 	switch {
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
-		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
-			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
-			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
-			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
-			fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-				match(senderAddress.String(), "address")) +
-			"transfer: <\n" +
+		output += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				match(transfer.Recipient, "address")) +
-			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount) +
-			fmt.Sprintf("  payload: %s\n", transfer.Payload) +
-			">\n" +
-			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
-			fmt.Sprintf("signature: %x\n", action.Signature), nil
+			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount)
+		if len(transfer.Payload) != 0 {
+			output += fmt.Sprintf("  payload: %s\n", transfer.Payload)
+		}
+		output += ">\n"
 	case action.Core.GetExecution() != nil:
 		execution := action.Core.GetExecution()
-		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
-			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
-			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
-			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
-			fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-				match(senderAddress.String(), "address")) +
-			"execution: <\n" +
+		output += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
-				match(execution.Contract, "address")) +
-			fmt.Sprintf("  amount: %s Rau\n", execution.Amount) +
-			fmt.Sprintf("  data: %x\n", execution.Data) +
-			">\n" +
-			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
-			fmt.Sprintf("signature: %x\n", action.Signature), nil
-	case action.Core.GetClaimFromRewardingFund() != nil:
-		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
-			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
-			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
-			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
-			fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-				match(senderAddress.String(), "address")) +
-			proto.MarshalTextString(action.Core) +
-			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
-			fmt.Sprintf("signature: %x\n", action.Signature), nil
+				match(execution.Contract, "address"))
+		if execution.Amount != "0" {
+			output += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
+		}
+		output += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
+	default:
+		output += proto.MarshalTextString(action.Core)
 	}
-	return "", errors.New("action can not match")
+	output += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
+		fmt.Sprintf("signature: %x\n", action.Signature)
+
+	return output, nil
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
-	lines := make([]string, 0)
+	logs := make([]string, 0)
 	for _, l := range receipt.Logs {
-		line := fmt.Sprintf("#%d block:%d txHash:%s address:%s data:%s\n",
+		log := fmt.Sprintf("#%d block:%d txHash:%s address:%s data:%s\n",
 			l.Index, l.BlockNumber, l.TxnHash, l.Address, l.Data)
 		for _, t := range l.Topics {
-			line += fmt.Sprintf("  %s\n", t)
+			log += fmt.Sprintf("  %s\n", t)
 		}
-		lines = append(lines, line)
+		logs = append(logs, log)
 	}
-	return fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue) +
-		fmt.Sprintf("status: %d %s\n", receipt.Status,
-			match(strconv.Itoa(int(receipt.Status)), "status")) +
+	output := ""
+	if len(receipt.ReturnValue) != 0 {
+		output += fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue)
+	}
+	output += fmt.Sprintf("status: %d %s\n", receipt.Status,
+		match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		// TODO: blkHash
-		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
-		fmt.Sprintf("contractAddress: %s %s\n", receipt.ContractAddress,
-			match(receipt.ContractAddress, "address")) +
-		fmt.Sprintf("logs:\n%s", lines)
+		fmt.Sprintf("gasConsumed: %d", receipt.GasConsumed)
+	if len(receipt.ContractAddress) != 0 {
+		output += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
+			match(receipt.ContractAddress, "address"))
+	}
+	if len(logs) != 0 {
+		output += fmt.Sprintf("\nlogs:\n%s", logs)
+	}
+	return output
 }
 
 func match(in string, matchType string) string {
