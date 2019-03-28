@@ -42,5 +42,5 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 	if err != nil {
 		return nil, err
 	}
-	return response.ChainMeta, err
+	return response.ChainMeta, nil
 }
