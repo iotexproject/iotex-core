@@ -89,7 +89,7 @@ func main() {
 
 	//// Transfer fp token
 	if _, err := erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, 1); err != nil {
-		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
+		log.L().Fatal("Failed to transfer 1 token from creditor to debtor", zap.Error(err))
 	}
 	//if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
 	//	log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
@@ -101,6 +101,11 @@ func main() {
 	}
 	log.L().Info("Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
 
+	creditorBalance, err = erc721Token.ReadValue(erc721Token.Address(), "70a08231", creditorAddr)
+	if err != nil {
+		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
+	}
+	log.L().Info("creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 	//creditorBalance, err := fpToken.ReadValue(contractAddr, "70a08231", creditorAddr)
 	//if err != nil {
 	//	log.L().Fatal("Failed to get creditor's asset balance.", zap.Error(err))
