@@ -97,13 +97,13 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
 		fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
 		fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-			match(senderAddress.String(), "address"))
+			Match(senderAddress.String(), "address"))
 	switch {
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
 		output += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
-				match(transfer.Recipient, "address")) +
+				Match(transfer.Recipient, "address")) +
 			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount)
 		if len(transfer.Payload) != 0 {
 			output += fmt.Sprintf("  payload: %s\n", transfer.Payload)
@@ -113,7 +113,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		execution := action.Core.GetExecution()
 		output += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
-				match(execution.Contract, "address"))
+				Match(execution.Contract, "address"))
 		if execution.Amount != "0" {
 			output += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
 		}
@@ -142,13 +142,13 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 		output += fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue)
 	}
 	output += fmt.Sprintf("status: %d %s\n", receipt.Status,
-		match(strconv.Itoa(int(receipt.Status)), "status")) +
+		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		// TODO: blkHash
 		fmt.Sprintf("gasConsumed: %d", receipt.GasConsumed)
 	if len(receipt.ContractAddress) != 0 {
 		output += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
-			match(receipt.ContractAddress, "address"))
+			Match(receipt.ContractAddress, "address"))
 	}
 	if len(logs) != 0 {
 		output += fmt.Sprintf("\nlogs:\n%s", logs)
@@ -156,7 +156,8 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 	return output
 }
 
-func match(in string, matchType string) string {
+// Match returns human readable expression
+func Match(in string, matchType string) string {
 	switch matchType {
 	case "address":
 		alias, err := alias.Alias(in)
