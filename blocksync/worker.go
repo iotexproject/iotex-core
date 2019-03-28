@@ -97,15 +97,13 @@ func (w *syncWorker) Sync() {
 			zap.Any("intervals", intervals),
 			zap.Uint64("targetHeight", w.targetHeight))
 	}
-	rrIdx := rand.Intn(len(peers))
 	for _, interval := range intervals {
-		rrIdx %= len(peers)
+		rrIdx := rand.Intn(len(peers))
 		p := peers[rrIdx]
 		if err := w.unicastHandler(ctx, p, &iotexrpc.BlockSync{
 			Start: interval.Start, End: interval.End,
 		}); err != nil {
-			log.L().Warn("Failed to sync block.", zap.Error(err))
+			log.L().Debug("Failed to sync block.", zap.Error(err))
 		}
-		rrIdx++
 	}
 }
