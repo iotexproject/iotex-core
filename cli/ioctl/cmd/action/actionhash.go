@@ -14,6 +14,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
@@ -69,7 +71,11 @@ func getActionByHash(args []string) string {
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
-		return output + "\n#This action is pending"
+		status, ok := status.FromError(err)
+		if ok && status.Code() == codes.NotFound {
+			return output + "\n#This action is pending"
+		}
+		return fmt.Sprintln(output) + err.Error()
 	}
 	return output + "\n#This action has been written on blockchain\n" +
 		printReceiptProto(responseReceipt.Receipt)
