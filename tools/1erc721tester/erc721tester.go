@@ -8,8 +8,6 @@ package main
 
 import (
 	"context"
-	"fmt"
-
 	//"fmt"
 	"math/big"
 	"time"
@@ -59,7 +57,6 @@ func main() {
 
 	// Create erc721 token
 	tokenID := assetcontract.GenerateAssetID()
-	fmt.Println("///////////////////tokenid:",tokenID)
 	if _, err := erc721Token.CreateToken(tokenID,creditorAddr); err != nil {
 		log.L().Fatal("Failed to create token", zap.Error(err))
 	}

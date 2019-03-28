@@ -8,6 +8,8 @@ package blockchain
 
 import (
 	"github.com/pkg/errors"
+	"math/big"
+
 	//"math/big"
 
 	//"math/big"
@@ -47,12 +49,15 @@ func NewErc721Token(exp string) Erc721Token {
 }
 
 func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
-
+	TokenId,ok:=big.NewInt(0).SetString(tokenid,10)
+	if !ok {
+		return "", errors.Errorf("invalid tokenid = %s", tokenid)
+	}
 	addrCreditor, err := address.FromString(creditor)
 	if err != nil {
 		return "", errors.Errorf("invalid creditor address = %s", creditor)
 	}
-	h,err:=f.RunAsOwner().Call("fdb05e85",addrCreditor.Bytes(),[]byte(tokenid))
+	h,err:=f.RunAsOwner().Call("fdb05e85",addrCreditor.Bytes(),TokenId.Bytes())
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to create")
 	}
@@ -68,6 +73,10 @@ func (f *erc721Token) SetRegistry(reg string) Erc721Token {
 }
 //
 func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid string) (string, error) {
+	TokenId,ok:=big.NewInt(0).SetString(tokenid,10)
+	if !ok {
+		return "", errors.Errorf("invalid tokenid = %s", tokenid)
+	}
 	from, err := address.FromString(sender)
 	if err != nil {
 		return "", errors.Errorf("invalid account address = %s", sender)
@@ -80,7 +89,7 @@ func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid s
 	h, err := f.SetAddress(token).
 		SetExecutor(sender).
 		SetPrvKey(prvkey).
-		Call("b88d4fde", from.Bytes(),addrReceiver.Bytes(), []byte(tokenid))
+		Call("b88d4fde", from.Bytes(),addrReceiver.Bytes(), TokenId.Bytes())
 	if err != nil {
 		return h, errors.Wrap(err, "call transfer failed")
 	}
