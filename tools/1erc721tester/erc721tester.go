@@ -9,8 +9,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-
 	//"fmt"
 	"math/big"
 	"time"
@@ -81,11 +79,13 @@ func main() {
 	if _, err := erc721Token.CreateToken(assetID,creditorAddr); err != nil {
 		log.L().Fatal("Failed to create token", zap.Error(err))
 	}
-	b, err := erc721Token.Balance(creditorAddr)
+	
+	creditorBalance, err := erc721Token.ReadValue(erc721Token.Address(), "70a08231", creditorAddr)
 	if err != nil {
-		log.L().Fatal("Failed to get balance", zap.Error(err))
+		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
 	}
-	fmt.Println("Fp token transfer test pass!",zap.String("balance", b))
+	log.L().Info("Debtor's asset balance: ", zap.Int64("balance", creditorBalance))
+
 	//
 	//contractAddr, err := fpToken.TokenAddress(assetID)
 	//if err != nil {

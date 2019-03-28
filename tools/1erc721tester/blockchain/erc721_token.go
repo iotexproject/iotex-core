@@ -8,7 +8,10 @@ package blockchain
 
 import (
 	"fmt"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
 	//"math/big"
 
 	"github.com/iotexproject/iotex-core/address"
@@ -71,28 +74,34 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	}
 	return h, nil
 }
-func (f *erc721Token) Balance(creditor string) (string, error) {
+func (f *erc721Token) Balance(creditorAddr string) (string, error) {
 
-	addrCreditor, err := address.FromString(creditor)
-	if err != nil {
-		return "", errors.Errorf("invalid creditor address = %s", creditor)
-	}
-	//function mint(address _to,uint256 _tokenId)
-	//keccak256("Deposit(address,hash256,uint256)")
-	//hash:=keccak256("mint(address,uint256)")
-	//hash:=crypto.Keccak256([]byte("balanceOf(address)"))[:4]
-	////h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
-	//hashString:=common.Bytes2Hex(hash)
-
-	h, err := f.Call("70a08231",addrCreditor.Bytes())
-	if err != nil {
-		return h, errors.Wrapf(err, "call failed to get balance")
-	}
-
-	if _, err := f.CheckCallResult(h); err != nil {
-		return h, errors.Wrapf(err, "check failed to get balance")
-	}
-	return h, nil
+	//addrCreditor, err := address.FromString(creditor)
+	//if err != nil {
+	//	return "", errors.Errorf("invalid creditor address = %s", creditor)
+	//}
+	////function mint(address _to,uint256 _tokenId)
+	////keccak256("Deposit(address,hash256,uint256)")
+	////hash:=keccak256("mint(address,uint256)")
+	////hash:=crypto.Keccak256([]byte("balanceOf(address)"))[:4]
+	//////h, err := f.Call("5582e770",addrCreditor.Bytes(),[]byte(tokenid))
+	////hashString:=common.Bytes2Hex(hash)
+	//
+	//h, err := f.Call("70a08231",addrCreditor.Bytes())
+	//if err != nil {
+	//	return h, errors.Wrapf(err, "call failed to get balance")
+	//}
+	//
+	//if _, err := f.CheckCallResult(h); err != nil {
+	//	return h, errors.Wrapf(err, "check failed to get balance")
+	//}
+	//creditorBalance, err := f.ReadValue(f.Address(), "70a08231", creditorAddr)
+	//if err != nil {
+	//	log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
+	//}
+	//log.L().Info("Debtor's asset balance: ", zap.Int64("balance", creditorBalance))
+	//return h, nil
+	return "",nil
 }
 func (f *erc721Token) SetRegistry(reg string) Erc721Token {
 	f.registry = reg
