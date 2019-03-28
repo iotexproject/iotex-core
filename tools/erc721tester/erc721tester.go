@@ -8,20 +8,19 @@ package main
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/testutil"
 	"math/big"
 	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/erc721tester/assetcontract"
 )
 
@@ -69,17 +68,16 @@ func main() {
 
 
 	//// Transfer erc721 token
-	transferHashString, err := erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, tokenID)
+	_, err = erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, tokenID)
 	if err != nil {
 		log.L().Fatal("Failed to transfer 1 token from creditor to debtor", zap.Error(err))
 	}
 
 	// Wait until transfer is successfully
-	transferHash:=hash.Hash256b([]byte(transferHashString))
-	var receipt *action.Receipt
+	var block *block.Block
 	if err := testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
-		receipt, err = itxsvr.ChainService(uint32(1)).Blockchain().GetReceiptByActionHash(transferHash)
-		return receipt != nil, nil
+		block, err = itxsvr.ChainService(uint32(1)).Blockchain().GetBlockByHeight(10)
+		return block != nil, nil
 	}); err != nil {
 		log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
 	}
