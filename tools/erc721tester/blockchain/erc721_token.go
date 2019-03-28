@@ -11,6 +11,7 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
 const (
@@ -21,19 +22,19 @@ const (
 type (
 	// Erc721Token erc721 token interface
 	Erc721Token interface {
-		Contract
+		blockchain.Contract
 		CreateToken(string,string) (string, error)
 		Transfer(string, string, string, string, string) (string, error)
 	}
 
 	erc721Token struct {
-		Contract
+		blockchain.Contract
 	}
 )
 
 // NewErc721Token creates a new Erc721Token
 func NewErc721Token(exp string) Erc721Token {
-	return &erc721Token{Contract: NewContract(exp)}
+	return &erc721Token{Contract: blockchain.NewContract(exp)}
 }
 
 func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
