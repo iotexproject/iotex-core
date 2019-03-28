@@ -65,11 +65,7 @@ func accountCreate() string {
 	}
 	var output []byte
 	var err error
-	if numAccounts == 1 {
-		output, err = json.Marshal(&newAccounts[0])
-	} else {
-		output, err = json.Marshal(&generatedAccounts{Accounts: newAccounts})
-	}
+	output, err = json.MarshalIndent(&generatedAccounts{Accounts: newAccounts}, "", "  ")
 	if err != nil {
 		return err.Error()
 	}
