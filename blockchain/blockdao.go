@@ -66,7 +66,7 @@ type blockDAO struct {
 	timerFactory  *prometheustimer.TimerFactory
 	lifecycle     lifecycle.Lifecycle
 	cache         *lru.Cache
-	cacheMutex    sync.RWMutex
+	cacheMutex    sync.Mutex
 }
 
 // newBlockDAO instantiates a block DAO
@@ -156,9 +156,9 @@ func (dao *blockDAO) getBlockHeight(hash hash.Hash256) (uint64, error) {
 // getBlock returns a block
 func (dao *blockDAO) getBlock(hash hash.Hash256) (*block.Block, error) {
 	if dao.cache != nil {
-		dao.cacheMutex.RLock()
+		dao.cacheMutex.Lock()
 		cblk, ok := dao.cache.Get(hash)
-		dao.cacheMutex.RUnlock()
+		dao.cacheMutex.Unlock()
 		if ok {
 			cacheMtc.WithLabelValues("hit").Inc()
 			return cblk.(*block.Block), nil
