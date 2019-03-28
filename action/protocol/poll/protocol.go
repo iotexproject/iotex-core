@@ -107,9 +107,9 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "ConsensusBlockProducersByHeight":
+	case "BlockProducersByHeight":
 		fallthrough
-	case "ActiveConsensusBlockProducersByHeight":
+	case "ActiveBlockProducersByHeight":
 		return p.readBlockProducers()
 	case "GetGravityChainStartHeight":
 		if len(args) != 1 {
@@ -253,20 +253,20 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "ConsensusBlockProducersByHeight":
+	case "BlockProducersByHeight":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		blockProducers, err := p.readConsensusProducersByHeight(byteutil.BytesToUint64(args[0]))
+		blockProducers, err := p.readBlockProducersByHeight(byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
 		return blockProducers.Serialize()
-	case "ActiveConsensusBlockProducersByHeight":
+	case "ActiveBlockProducersByHeight":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		activeBlockProducers, err := p.readActiveConsensusProducersByHeight(byteutil.BytesToUint64(args[0]))
+		activeBlockProducers, err := p.readActiveBlockProducersByHeight(byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -286,7 +286,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	}
 }
 
-func (p *governanceChainCommitteeProtocol) readConsensusProducersByHeight(height uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) readBlockProducersByHeight(height uint64) (state.CandidateList, error) {
 	delegates, err := p.cm.CandidatesByHeight(height)
 	if err != nil {
 		return nil, err
@@ -301,8 +301,8 @@ func (p *governanceChainCommitteeProtocol) readConsensusProducersByHeight(height
 	return blockProducers, nil
 }
 
-func (p *governanceChainCommitteeProtocol) readActiveConsensusProducersByHeight(height uint64) (state.CandidateList, error) {
-	blockProducers, err := p.readConsensusProducersByHeight(height)
+func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByHeight(height uint64) (state.CandidateList, error) {
+	blockProducers, err := p.readBlockProducersByHeight(height)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get active block producers on height %d", height)
 	}
