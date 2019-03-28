@@ -35,7 +35,7 @@ func version() string {
 		PackageCommitID: ver.PackageCommitID,
 		GitStatus:       ver.GitStatus,
 		GoVersion:       ver.GoVersion,
-		BuidTime:        ver.BuildTime,
+		BuildTime:       ver.BuildTime,
 	}
 	fmt.Printf("Client:\n%+v\n\n", versionInfo)
 	conn, err := util.ConnectToEndpoint()
