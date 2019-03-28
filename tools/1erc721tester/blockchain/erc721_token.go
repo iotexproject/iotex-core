@@ -108,7 +108,7 @@ func (f *erc721Token) SetRegistry(reg string) Erc721Token {
 }
 //
 func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, amount int64) (string, error) {
-	_, err := address.FromString(sender)
+	from, err := address.FromString(sender)
 	if err != nil {
 		return "", errors.Errorf("invalid account address = %s", sender)
 	}
@@ -120,7 +120,7 @@ func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, amount in
 	h, err := f.SetAddress(token).
 		SetExecutor(sender).
 		SetPrvKey(prvkey).
-		Call("a9059cbb", addrReceiver.Bytes(), big.NewInt(amount).Bytes())
+		Call("b88d4fde", from.Bytes(),addrReceiver.Bytes(), big.NewInt(amount).Bytes())
 	if err != nil {
 		return h, errors.Wrap(err, "call transfer failed")
 	}
