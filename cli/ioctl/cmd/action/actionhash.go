@@ -8,13 +8,14 @@ package action
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
@@ -58,29 +59,23 @@ func getActionByHash(args []string) string {
 	if err != nil {
 		return err.Error()
 	}
+	if len(response.ActionInfo) == 0 {
+		return "no action info returned"
+	}
 	action := response.ActionInfo[0]
 	output, err := printActionProto(action.Action)
 	if err != nil {
 		return err.Error()
 	}
 
-	request := &iotexapi.GetActionsRequest{
-		Lookup: &iotexapi.GetActionsRequest_ByHash{
-			ByHash: &iotexapi.GetActionByHashRequest{
-				ActionHash:   hash,
-				CheckPending: false,
-			},
-		},
-	}
-	_, err = cli.GetActions(ctx, request)
-	if err != nil {
-		return output + "\n#This action is pending\n"
-	}
-
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
-		return err.Error()
+		status, ok := status.FromError(err)
+		if ok && status.Code() == codes.NotFound {
+			return output + "\n#This action is pending"
+		}
+		return fmt.Sprintln(output) + err.Error()
 	}
 	return output + "\n#This action has been written on blockchain\n" +
 		printReceiptProto(responseReceipt.Receipt)
@@ -97,75 +92,72 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		log.L().Error("failed to convert bytes into address", zap.Error(err))
 		return "", err
 	}
+	output := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
+		fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
+		fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
+		fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
+		fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
+			Match(senderAddress.String(), "address"))
 	switch {
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
-		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
-			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
-			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
-			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
-			fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-				match(senderAddress.String(), "address")) +
-			"transfer: <\n" +
+		output += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
-				match(transfer.Recipient, "address")) +
-			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount) +
-			fmt.Sprintf("  payload: %s\n", transfer.Payload) +
-			">\n" +
-			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
-			fmt.Sprintf("signature: %x\n", action.Signature), nil
+				Match(transfer.Recipient, "address")) +
+			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount)
+		if len(transfer.Payload) != 0 {
+			output += fmt.Sprintf("  payload: %s\n", transfer.Payload)
+		}
+		output += ">\n"
 	case action.Core.GetExecution() != nil:
 		execution := action.Core.GetExecution()
-		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
-			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
-			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
-			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
-			fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-				match(senderAddress.String(), "address")) +
-			"execution: <\n" +
+		output += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
-				match(execution.Contract, "address")) +
-			fmt.Sprintf("  amount: %s Rau\n", execution.Amount) +
-			fmt.Sprintf("  data: %x\n", execution.Data) +
-			">\n" +
-			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
-			fmt.Sprintf("signature: %x\n", action.Signature), nil
-	case action.Core.GetClaimFromRewardingFund() != nil:
-		return fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
-			fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
-			fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
-			fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
-			fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
-				match(senderAddress.String(), "address")) +
-			proto.MarshalTextString(action.Core) +
-			fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
-			fmt.Sprintf("signature: %x\n", action.Signature), nil
+				Match(execution.Contract, "address"))
+		if execution.Amount != "0" {
+			output += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
+		}
+		output += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
+	default:
+		output += proto.MarshalTextString(action.Core)
 	}
-	return "", errors.New("action can not match")
+	output += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
+		fmt.Sprintf("signature: %x\n", action.Signature)
+
+	return output, nil
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
-	lines := make([]string, 0)
+	logs := make([]string, 0)
 	for _, l := range receipt.Logs {
-		line := fmt.Sprintf("#%d block:%d txHash:%s address:%s data:%s\n",
+		log := fmt.Sprintf("#%d block:%d txHash:%s address:%s data:%s\n",
 			l.Index, l.BlockNumber, l.TxnHash, l.Address, l.Data)
 		for _, t := range l.Topics {
-			line += fmt.Sprintf("  %s\n", t)
+			log += fmt.Sprintf("  %s\n", t)
 		}
-		lines = append(lines, line)
+		logs = append(logs, log)
 	}
-	return fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue) +
-		fmt.Sprintf("status: %d %s\n", receipt.Status,
-			match(strconv.Itoa(int(receipt.Status)), "status")) +
+	output := ""
+	if len(receipt.ReturnValue) != 0 {
+		output += fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue)
+	}
+	output += fmt.Sprintf("status: %d %s\n", receipt.Status,
+		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		// TODO: blkHash
-		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
-		fmt.Sprintf("contractAddress: %s %s\n", receipt.ContractAddress,
-			match(receipt.ContractAddress, "address")) +
-		fmt.Sprintf("logs:\n%s", lines)
+		fmt.Sprintf("gasConsumed: %d", receipt.GasConsumed)
+	if len(receipt.ContractAddress) != 0 {
+		output += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
+			Match(receipt.ContractAddress, "address"))
+	}
+	if len(logs) != 0 {
+		output += fmt.Sprintf("\nlogs:\n%s", logs)
+	}
+	return output
 }
 
-func match(in string, matchType string) string {
+// Match returns human readable expression
+func Match(in string, matchType string) string {
 	switch matchType {
 	case "address":
 		alias, err := alias.Alias(in)

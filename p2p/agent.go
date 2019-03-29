@@ -110,6 +110,9 @@ func (p *Agent) Start(ctx context.Context) error {
 		opts = append(opts, p2p.ExternalHostName(p.cfg.ExternalHost))
 		opts = append(opts, p2p.ExternalPort(p.cfg.ExternalPort))
 	}
+	if p.cfg.RelayType != "" {
+		opts = append(opts, p2p.WithRelay(p.cfg.RelayType))
+	}
 	host, err := p2p.NewHost(ctx, opts...)
 	if err != nil {
 		return errors.Wrap(err, "error when instantiating Agent host")

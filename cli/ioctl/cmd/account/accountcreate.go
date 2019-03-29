@@ -7,8 +7,8 @@
 package account
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -26,16 +26,26 @@ var accountCreateCmd = &cobra.Command{
 	Short: "Create N new accounts and print them",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(accountCreate(args))
+		fmt.Println(accountCreate())
 	},
+}
+
+type generatedAccounts struct {
+	Accounts []generatedAccount `json:"accounts"`
+}
+
+type generatedAccount struct {
+	Address    string `json:"address"`
+	PrivateKey string `json:"privateKey"`
+	PublicKey  string `json:"publicKey"`
 }
 
 func init() {
 	accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
 }
 
-func accountCreate(_ []string) string {
-	items := make([]string, numAccounts)
+func accountCreate() string {
+	newAccounts := make([]generatedAccount, 0)
 	for i := 0; i < int(numAccounts); i++ {
 		private, err := keypair.GenerateKey()
 		if err != nil {
@@ -46,11 +56,18 @@ func accountCreate(_ []string) string {
 			log.L().Error("failed to convert bytes into address", zap.Error(err))
 			return err.Error()
 		}
-		priKeyBytes := private.Bytes()
-		pubKeyBytes := private.PublicKey().Bytes()
-		items[i] = fmt.Sprintf(
-			"{address: \"%s\", privateKey: \"%x\", publicKey: \"%x\"}",
-			addr.String(), priKeyBytes, pubKeyBytes)
+		newAccount := generatedAccount{
+			Address:    addr.String(),
+			PrivateKey: fmt.Sprintf("%x", private.Bytes()),
+			PublicKey:  fmt.Sprintf("%x", private.PublicKey().Bytes()),
+		}
+		newAccounts = append(newAccounts, newAccount)
 	}
-	return strings.Join(items, "\n")
+	var output []byte
+	var err error
+	output, err = json.MarshalIndent(&generatedAccounts{Accounts: newAccounts}, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(output)
 }
