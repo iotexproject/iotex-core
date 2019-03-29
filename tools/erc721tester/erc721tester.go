@@ -8,13 +8,14 @@ package main
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-core/tools/erc721tester/blockchain"
 	"math/big"
 	"time"
 
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -60,7 +61,7 @@ func main() {
 		log.L().Fatal("Failed to create token", zap.Error(err))
 	}
 
-	creditorBalance, err := erc721Token.ReadValue(erc721Token.Address(), "70a08231", creditorAddr)
+	creditorBalance, err := erc721Token.ReadValue(erc721Token.Address(), blockchain.BalanceOf, creditorAddr)
 	if err != nil {
 		log.L().Fatal("Failed to get creditor's asset balance.", zap.Error(err))
 	}
@@ -82,13 +83,13 @@ func main() {
 		log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
 	}
 
-	debtorBalance, err := erc721Token.ReadValue(erc721Token.Address(), "70a08231", debtorAddr)
+	debtorBalance, err := erc721Token.ReadValue(erc721Token.Address(), blockchain.BalanceOf, debtorAddr)
 	if err != nil {
 		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
 	}
 	log.L().Info("Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
 
-	creditorBalance, err = erc721Token.ReadValue(erc721Token.Address(), "70a08231", creditorAddr)
+	creditorBalance, err = erc721Token.ReadValue(erc721Token.Address(), blockchain.BalanceOf, creditorAddr)
 	if err != nil {
 		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
 	}
