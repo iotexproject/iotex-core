@@ -18,6 +18,7 @@ set -e
 
 RELEASES_URL="https://github.com/iotexproject/iotex-core/releases"
 S3URL="https://s3-ap-southeast-1.amazonaws.com/ioctl"
+INSTALL_DIRECTORY='/usr/local/bin'
 
 downloadJSON() {
     url="$2"
@@ -64,30 +65,6 @@ downloadFile() {
     fi
 }
 
-findGoBinDirectory() {
-    if [ -z "$GOPATH" ]; then
-        eval "$1='/usr/local/bin'"
-    else
-        EFFECTIVE_GOPATH="$GOPATH"
-        # CYGWIN: Convert Windows-style path into sh-compatible path
-        if [ "$OS_CYGWIN" = "1" ]; then
-            EFFECTIVE_GOPATH=$(cygpath "$EFFECTIVE_GOPATH")
-        fi
-        if [ -z "$EFFECTIVE_GOPATH" ]; then
-            echo "Installation could not determine your \$GOPATH."
-            exit 1
-        fi
-        if [ -z "$GOBIN" ]; then
-            GOBIN=$(echo "${EFFECTIVE_GOPATH%%:*}/bin" | sed s#//*#/#g)
-        fi
-        if [ ! -d "$GOBIN" ]; then
-            echo "Installation requires your GOBIN directory $GOBIN to exist. Please create it."
-            exit 1
-        fi
-        eval "$1='$GOBIN'"
-    fi
-}
-
 initArch() {
     ARCH=$(uname -m)
     case $ARCH in
@@ -126,12 +103,6 @@ initOS() {
 # identify platform based on uname output
 initArch
 initOS
-
-# determine install directory if required
-if [ -z "$INSTALL_DIRECTORY" ]; then
-    findGoBinDirectory INSTALL_DIRECTORY
-fi
-echo "Will install into $INSTALL_DIRECTORY"
 
 # assemble expected release artifact name
 if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
@@ -172,7 +143,11 @@ INSTALL_NAME="ioctl"
 
 if [ "$OS" = "windows" ]; then
     INSTALL_NAME="$INSTALL_NAME.exe"
+    echo "Moving executable to $HOME/$INSTALL_NAME"
+    mv "$DOWNLOAD_FILE" "$HOME/$INSTALL_NAME"
+else
+    echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
+    sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
 fi
 
-echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
-sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
+
