@@ -36,8 +36,23 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+type claimTestCaseID int
+
 const (
-	numNodes = 4
+	//To claim amount 0
+	caseClaimZero claimTestCaseID = iota
+	//To claim all unclaimed balance
+	caseClaimAll
+	//To claim more than unclaimed balance
+	caseClaimMoreThanBalance
+	//To claim only part of available balance
+	caseClaimPartOfBalance
+	//To claim a negative amount
+	caseClaimNegative
+	//To claim with an operator address other than the rewarding address
+	caseClaimToNonRewardingAddr
+	//Total number of claim test cases, keep this at the bottom the enum
+	totalClaimCasesNum
 )
 
 func TestBlockReward(t *testing.T) {
@@ -91,11 +106,12 @@ func TestBlockReward(t *testing.T) {
 func TestBlockEpochReward(t *testing.T) {
 
 	dbFilePaths := make([]string, 0)
-	//a flag to indicate whether the DB files should be cleaned up upon completion of the minicluster.
-	deleteDBFiles := false
 
 	//Test will stop after reaching this height
 	runToHeight := uint64(60)
+
+	//Number of nodes
+	numNodes := 4
 
 	// Set mini-cluster configurations
 	rand.Seed(time.Now().UnixNano())
@@ -108,7 +124,7 @@ func TestBlockEpochReward(t *testing.T) {
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		config := newConfig(chainDBPath, trieDBPath, identityset.PrivateKey(i),
-			networkPort, apiPort)
+			networkPort, apiPort, uint64(numNodes))
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
 			config.Network.MasterKey = "bootnode"
@@ -129,9 +145,6 @@ func TestBlockEpochReward(t *testing.T) {
 	}
 
 	defer func() {
-		if !deleteDBFiles {
-			return
-		}
 		for _, dbFilePath := range dbFilePaths {
 			if fileutil.FileExists(dbFilePath) && os.RemoveAll(dbFilePath) != nil {
 				log.L().Error("Failed to delete db file")
@@ -249,8 +262,6 @@ func TestBlockEpochReward(t *testing.T) {
 		//New height is reached, need to update block reward
 		if height > preHeight {
 
-			//fmt.Println("height ", height, " preHeight ", preHeight, " Epoch ", epochNum)
-
 			err = testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
 				//This Waituntil block guarantees that we can get a consistent snapshot of the followings at some height:
 				// 1) all unclaimed balance live
@@ -342,24 +353,24 @@ func TestBlockEpochReward(t *testing.T) {
 				expectedSuccess := true
 
 				rand.Seed(time.Now().UnixNano())
-				switch r := rand.Intn(7); r {
-				case 0:
+				switch r := rand.Intn(int(totalClaimCasesNum)); claimTestCaseID(r) {
+				case caseClaimZero:
 					//Claim 0
 					amount = big.NewInt(0)
-				case 1:
+				case caseClaimAll:
 					//Claim all
 					amount = exptUnclaimed[rewardAddrStr]
-				case 2:
-					//Claim more than available
+				case caseClaimMoreThanBalance:
+					//Claim more than available unclaimed balance
 					amount = big.NewInt(0).Mul(exptUnclaimed[rewardAddrStr], big.NewInt(2))
-				case 3:
+				case caseClaimPartOfBalance:
 					//Claim random part of available
 					amount = big.NewInt(0).Div(exptUnclaimed[rewardAddrStr], big.NewInt(int64(rand.Intn(100000))))
-				case 4:
+				case caseClaimNegative:
 					//Claim negative
 					amount = big.NewInt(-100000)
 					expectedSuccess = false
-				case 5:
+				case caseClaimToNonRewardingAddr:
 					//Claim to operator address instead of reward address
 					rewardPriKey = identityset.PrivateKey(i)
 					amount = big.NewInt(12345)
@@ -368,7 +379,6 @@ func TestBlockEpochReward(t *testing.T) {
 					continue
 				}
 
-				//fmt.Println("Injected claimed amount: ", amount.String(), " at height ", chains[0].TipHeight())
 				injectClaim(t, nil, client, rewardPriKey, amount,
 					expectedSuccess, 3, 1, pendingClaimActions)
 			}
@@ -404,7 +414,6 @@ func TestBlockEpochReward(t *testing.T) {
 		require.Equal(t, initBalances[operatorAddrStr], operatorBalance)
 	}
 
-	deleteDBFiles = true
 	return
 
 }
@@ -506,6 +515,7 @@ func newConfig(
 	producerPriKey keypair.PrivateKey,
 	networkPort,
 	apiPort int,
+	numNodes uint64,
 ) config.Config {
 	cfg := config.Default
 
