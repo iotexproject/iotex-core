@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/tools/erc721tester/blockchain"
-	executiontester"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
+	executiontester "github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
 const (
