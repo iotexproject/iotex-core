@@ -263,6 +263,12 @@ func main() {
 			return empty, nil
 		})
 
+		totalPendingActions := 0
+		pendingActionMap.Range(func(selphash, vi interface{}) bool {
+			totalPendingActions++
+			return true
+		})
+
 		if err != nil {
 			log.L().Error("Not all actions are settled")
 		}
@@ -313,16 +319,26 @@ func main() {
 		}
 
 		m := util.GetAllBalanceMap(client, chainAddrs)
+		balanceCheckPass := true
 		for k, v := range m {
 			if len(expectedBalancesMap) != 0 && v.Cmp(expectedBalancesMap[k]) != 0 {
-				log.S().Error("Balance mismatch:")
-				log.S().Info("Account ", k)
+				balanceCheckPass = false
+				log.S().Info("Balance mismatch on account ", k)
 				log.S().Info("Real balance: ", v.String(), " Expected balance: ", expectedBalancesMap[k].String())
-				return
+
 			}
 		}
+		if balanceCheckPass {
+			log.S().Info("Balance Check PASS")
+		} else {
+			log.S().Error("Balance Mismatch")
+		}
 
-		log.S().Info("Balance Check PASS")
+		log.S().Info("Total Transfer created: ", util.GetTotalTsfCreated())
+		log.S().Info("Total Transfer inject through grpc: ", util.GetTotalTsfSentToAPI())
+		log.S().Info("Total Transfer succeed: ", util.GetTotalTsfSucceeded())
+		log.S().Info("Total Transfer failed: ", util.GetTotalTsfFailed())
+		log.S().Info("Total pending actions: ", totalPendingActions)
 
 		if testFpToken {
 			// Check fp token asset balance

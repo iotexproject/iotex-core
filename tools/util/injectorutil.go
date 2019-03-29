@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -46,6 +47,33 @@ type KeyPair struct {
 type AddressKey struct {
 	EncodedAddr string
 	PriKey      keypair.PrivateKey
+}
+
+var (
+	totalTsfCreated   = uint64(0)
+	totalTsfSentToAPI = uint64(0)
+	totalTsfSucceeded = uint64(0)
+	totalTsfFailed    = uint64(0)
+)
+
+//GetTotalTsfCreated returns number of total transfer action created
+func GetTotalTsfCreated() uint64 {
+	return totalTsfCreated
+}
+
+//GetTotalTsfSentToAPI returns number of total transfer action successfully send through GRPC
+func GetTotalTsfSentToAPI() uint64 {
+	return totalTsfSentToAPI
+}
+
+//GetTotalTsfSucceeded returns number of total transfer action created
+func GetTotalTsfSucceeded() uint64 {
+	return totalTsfSucceeded
+}
+
+//GetTotalTsfFailed returns number of total transfer action failed
+func GetTotalTsfFailed() uint64 {
+	return totalTsfFailed
 }
 
 // LoadAddresses loads key pairs from key pair path and construct addresses
@@ -135,9 +163,9 @@ func InjectByAps(
 	reset := time.NewTicker(time.Duration(resetInterval) * time.Second)
 	rand.Seed(time.Now().UnixNano())
 
-	randRange := 3
+	randRange := 2
 	if fpToken == nil {
-		randRange = 2
+		randRange = 1
 	}
 loop:
 	for {
@@ -189,14 +217,15 @@ loop:
 			switch randNum := rand.Intn(randRange); randNum {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
+				atomic.AddUint64(&totalTsfCreated, 1)
 				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
 					big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval, pendingActionMap)
-			case 1:
+			case 2:
 				executor, nonce := createExecutionInjection(counter, delegates)
 				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 					uint64(executionGasLimit), big.NewInt(executionGasPrice),
 					executionData, retryNum, retryInterval, pendingActionMap)
-			case 2:
+			case 1:
 				go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
 			// vote injection is currently suspended
 			case 3:
@@ -380,6 +409,7 @@ func injectTransfer(
 		log.L().Error("Failed to inject transfer", zap.Error(err))
 	} else if pendingActionMap != nil {
 		pendingActionMap.Store(selp.Hash(), 1)
+		atomic.AddUint64(&totalTsfSentToAPI, 1)
 	}
 
 	if wg != nil {
@@ -692,6 +722,7 @@ func CheckPendingActionList(
 
 					updateTransferExpectedBalanceMap(balancemap, senderaddr.String(),
 						act.Recipient(), act.Amount(), act.Payload(), selp.GasLimit(), selp.GasPrice())
+					atomic.AddUint64(&totalTsfSucceeded, 1)
 
 				case pbAct.GetVote() != nil:
 					act := &action.Vote{}
@@ -723,6 +754,8 @@ func CheckPendingActionList(
 					retErr = errors.New("Unsupported action type for balance check")
 					return false
 				}
+			} else {
+				atomic.AddUint64(&totalTsfFailed, 1)
 			}
 			pendingActionMap.Delete(selphash)
 		}
