@@ -336,6 +336,14 @@ func TestBlockEpochReward(t *testing.T) {
 			//Comparing the expected and real unclaimed balance
 			for i := 0; i < numNodes; i++ {
 				rewardAddrStr := identityset.Address(i + numNodes).String()
+
+				//This to work around the rare case that a balance is deducted from unclaimed while the receipt
+				//is not received yet to update the expectation.
+				if unClaimedBalances[rewardAddrStr].Cmp(exptUnclaimed[rewardAddrStr]) < 0 {
+					log.L().Info("Claim action execution status not in sync, recalibrating...")
+					waitActionToSettle(t, rewardAddrStr, chains[0], exptUnclaimed, claimedAmount, unClaimedBalances, pendingClaimActions)
+					require.NoError(t, err)
+				}
 				fmt.Println("Server ", i, " ", rewardAddrStr,
 					" unclaimed ", unClaimedBalances[rewardAddrStr].String(), " height ", preHeight)
 				fmt.Println("Server ", i, " ", rewardAddrStr,
@@ -507,6 +515,59 @@ func updateExpectationWithPendingClaimList(
 	}
 
 	return updated
+}
+
+//waitActionToSettle wait the claim action on given reward address to settle to update expection correctly
+func waitActionToSettle(
+	t *testing.T,
+	rewardAddrStr string,
+	bc blockchain.Blockchain,
+	exptUnclaimed map[string]*big.Int,
+	claimedAmount map[string]*big.Int,
+	unClaimedBalances map[string]*big.Int,
+	pendingClaimActions map[hash.Hash256]bool,
+) error {
+	err := testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
+		for selpHash, expectedSuccess := range pendingClaimActions {
+			receipt, receipterr := bc.GetReceiptByActionHash(selpHash)
+			selp, err := bc.GetActionByActionHash(selpHash)
+			require.Equal(t, err == nil, receipterr == nil)
+
+			if err == nil {
+				addr, err := address.FromBytes(selp.SrcPubkey().Hash())
+				require.NoError(t, err)
+				if addr.String() != rewardAddrStr {
+					continue
+				}
+
+				act := &action.ClaimFromRewardingFund{}
+				err = act.LoadProto(selp.Proto().Core.GetClaimFromRewardingFund())
+				require.NoError(t, err)
+				amount := act.Amount()
+
+				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr.String()], amount)
+
+				if newExpectUnclaimed.Cmp(unClaimedBalances[rewardAddrStr]) != 0 {
+					continue
+				}
+				require.Equal(t, receipt.Status, action.SuccessReceiptStatus)
+
+				exptUnclaimed[addr.String()] = newExpectUnclaimed
+
+				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr.String()], amount)
+				claimedAmount[addr.String()] = newClaimedAmount
+
+				//An test case expected to fail should never success
+				require.NotEqual(t, expectedSuccess, false)
+
+				delete(pendingClaimActions, selpHash)
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+
+	return err
 }
 
 func newConfig(
