@@ -21,18 +21,33 @@ import (
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
 
+var (
+	epochNum  uint64
+	nextEpoch bool
+)
+
 // nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
 	Use:   "delegate",
 	Short: "print consensus delegates information in certain epoch",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(delegate())
+		if nextEpoch {
+			fmt.Println(nextDelegates())
+		} else {
+			fmt.Println(delegates())
+		}
 	},
 }
 
-func delegate() string {
-	status := map[bool]string{true: "active", false: ""}
+func init() {
+	nodeDelegateCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0, "specify specific epoch")
+	nodeDelegateCmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
+		"query delegate of upcoming epoch")
+}
+
+func delegates() string {
+	nodeStatus := map[bool]string{true: "active", false: ""}
 	if epochNum == 0 {
 		chainMeta, err := bc.GetChainMeta()
 		if err != nil {
@@ -80,8 +95,12 @@ func delegate() string {
 			production = strconv.Itoa(int(bp.Production))
 		}
 		lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, index+1,
-			aliases[bp.Address], status[bp.Active], production,
+			aliases[bp.Address], nodeStatus[bp.Active], production,
 			util.RauToString(votes, util.IotxDecimalNum)))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func nextDelegates() {
+	
 }
