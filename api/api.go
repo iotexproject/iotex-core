@@ -391,8 +391,8 @@ func (api *Server) GetEpochMeta(
 
 	readStateRequest := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte(poll.ProtocolID),
-		MethodName: []byte("BlockProducersByHeight"),
-		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
+		MethodName: []byte("BlockProducersByEpoch"),
+		Arguments:  [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)},
 	}
 	res, err := api.readState(context.Background(), readStateRequest)
 	if err != nil {
