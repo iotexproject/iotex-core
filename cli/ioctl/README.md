@@ -25,7 +25,7 @@ specific release so install-cli.sh can download them.
       help        Help about any command
       node        Deal with nodes of IoTeX blockchain
       update      Update ioctl with latest version
-      version     Print the version number of ioctl
+      version     Print the version of ioctl and node
 
     Flags:
       -h, --help   help for ioctl

@@ -22,7 +22,7 @@ import (
 // VersionCmd represents the version command
 var VersionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of ioctl",
+	Short: "Print the version of ioctl and node",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(version())
@@ -35,9 +35,9 @@ func version() string {
 		PackageCommitID: ver.PackageCommitID,
 		GitStatus:       ver.GitStatus,
 		GoVersion:       ver.GoVersion,
-		BuidTime:        ver.BuildTime,
+		BuildTime:       ver.BuildTime,
 	}
-	res := fmt.Sprintf("Client:\n%+v\n\n", versionInfo)
+	fmt.Printf("Client:\n%+v\n\n", versionInfo)
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
 		return err.Error()
@@ -48,9 +48,7 @@ func version() string {
 	ctx := context.Background()
 	response, err := cli.GetServerMeta(ctx, request)
 	if err != nil {
-		res += "failed to get version from server: " + err.Error()
-	} else {
-		res += fmt.Sprintf("Server: %s\n%+v", config.ReadConfig.Endpoint, response.ServerMeta)
+		return "failed to get version from server: " + err.Error()
 	}
-	return res
+	return fmt.Sprintf("Server: %s\n%+v", config.ReadConfig.Endpoint, response.ServerMeta)
 }

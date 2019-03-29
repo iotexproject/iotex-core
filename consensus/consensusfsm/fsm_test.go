@@ -60,7 +60,7 @@ func TestBackdoorEvt(t *testing.T) {
 	}
 }
 
-func TestStateTransitions(t *testing.T) {
+func TestStateTransitionFunctions(t *testing.T) {
 	t.Parallel()
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -76,6 +76,7 @@ func TestStateTransitions(t *testing.T) {
 			}
 		}).AnyTimes()
 	cfsm, err := NewConsensusFSM(Config{
+		UnmatchedEventInterval:       100 * time.Millisecond,
 		EventChanSize:                10,
 		AcceptBlockTTL:               4 * time.Second,
 		AcceptProposalEndorsementTTL: 2 * time.Second,
@@ -231,18 +232,23 @@ func TestStateTransitions(t *testing.T) {
 			require.Equal(sAcceptProposalEndorsement, state)
 		})
 		t.Run("is-not-locked", func(t *testing.T) {
-			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(nil, nil).Times(1)
-			mockEndorsement := NewMockEndorsement(ctrl)
+			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(nil, nil).Times(2)
 			state, err := cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
 				eventType: eReceiveProposalEndorsement,
-				data:      mockEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptProposalEndorsement, state)
+			state, err = cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
+				eventType: eReceivePreCommitEndorsement,
+				data:      NewMockEndorsement(ctrl),
 			})
 			require.NoError(err)
 			require.Equal(sAcceptProposalEndorsement, state)
 		})
 		t.Run("is-locked", func(t *testing.T) {
-			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(NewMockEndorsement(ctrl), nil).Times(1)
-			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(1)
+			mockCtx.EXPECT().NewLockEndorsement(gomock.Any()).Return(NewMockEndorsement(ctrl), nil).Times(2)
+			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(2)
 			state, err := cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
 				eventType: eReceiveProposalEndorsement,
 				data:      NewMockEndorsement(ctrl),
@@ -250,6 +256,14 @@ func TestStateTransitions(t *testing.T) {
 			require.NoError(err)
 			require.Equal(sAcceptLockEndorsement, state)
 			evt := <-cfsm.evtq
+			require.Equal(eReceiveLockEndorsement, evt.Type())
+			state, err = cfsm.onReceiveProposalEndorsement(&ConsensusEvent{
+				eventType: eReceivePreCommitEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptLockEndorsement, state)
+			evt = <-cfsm.evtq
 			require.Equal(eReceiveLockEndorsement, evt.Type())
 		})
 	})
@@ -275,9 +289,15 @@ func TestStateTransitions(t *testing.T) {
 			require.Equal(sAcceptLockEndorsement, state)
 		})
 		t.Run("not-ready-to-pre-commit", func(t *testing.T) {
-			mockCtx.EXPECT().NewPreCommitEndorsement(gomock.Any()).Return(nil, nil).Times(1)
+			mockCtx.EXPECT().NewPreCommitEndorsement(gomock.Any()).Return(nil, nil).Times(2)
 			state, err := cfsm.onReceiveLockEndorsement(&ConsensusEvent{
 				eventType: eReceiveLockEndorsement,
+				data:      NewMockEndorsement(ctrl),
+			})
+			require.NoError(err)
+			require.Equal(sAcceptLockEndorsement, state)
+			state, err = cfsm.onReceiveLockEndorsement(&ConsensusEvent{
+				eventType: eReceivePreCommitEndorsement,
 				data:      NewMockEndorsement(ctrl),
 			})
 			require.NoError(err)
@@ -384,40 +404,67 @@ func TestStateTransitions(t *testing.T) {
 		})
 		require.NoError(err)
 		require.Equal(sPrepare, state)
+		evt := <-cfsm.evtq
+		require.Equal(ePrepare, evt.Type())
 	})
 	t.Run("handle", func(t *testing.T) {
 		t.Run("is-stale-event", func(t *testing.T) {
-
+			mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(true).Times(1)
+			require.NoError(cfsm.handle(&ConsensusEvent{
+				eventType: ePrepare,
+				height:    10,
+				round:     2,
+			}))
 		})
 		t.Run("is-future-event", func(t *testing.T) {
-
-		})
-		t.Run("transition-not-found", func(t *testing.T) {
 			mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(false).Times(1)
-			mockCtx.EXPECT().IsFutureEvent(gomock.Any()).Return(false).Times(1)
-			mockCtx.EXPECT().IsStaleUnmatchedEvent(gomock.Any()).Return(false).Times(1)
-			err := cfsm.handle(&ConsensusEvent{
-				eventType: eCalibrate,
-				data:      uint64(1),
+			mockCtx.EXPECT().IsFutureEvent(gomock.Any()).Return(true).Times(1)
+			cEvt := &ConsensusEvent{
+				eventType: ePrepare,
+				height:    10,
+				round:     2,
+			}
+			require.NoError(cfsm.handle(cEvt))
+			time.Sleep(10 * time.Millisecond)
+			mockClock.Add(cfsm.cfg.UnmatchedEventInterval)
+			evt := <-cfsm.evtq
+			require.Equal(cEvt, evt)
+		})
+		mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(false).AnyTimes()
+		mockCtx.EXPECT().IsFutureEvent(gomock.Any()).Return(false).AnyTimes()
+		t.Run("transition-not-found", func(t *testing.T) {
+			cEvt := &ConsensusEvent{
+				eventType: eFailedToReceiveBlock,
+				height:    10,
+				round:     2,
+			}
+			require.NoError(cfsm.handle(
+				&ConsensusEvent{eventType: BackdoorEvent, data: sPrepare},
+			))
+			t.Run("is-stale-unmatched-event", func(t *testing.T) {
+				mockCtx.EXPECT().IsStaleUnmatchedEvent(gomock.Any()).Return(true).Times(1)
+				require.NoError(cfsm.handle(cEvt))
 			})
-			require.NoError(err)
+			t.Run("not-stale-unmatched-event", func(t *testing.T) {
+				mockCtx.EXPECT().IsStaleUnmatchedEvent(gomock.Any()).Return(false).Times(1)
+				require.NoError(cfsm.handle(cEvt))
+				time.Sleep(10 * time.Millisecond)
+				mockClock.Add(cfsm.cfg.UnmatchedEventInterval)
+				evt := <-cfsm.evtq
+				require.Equal(evt, cEvt)
+			})
 		})
 		t.Run("transition-success", func(t *testing.T) {
-			mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(false).Times(2)
-			mockCtx.EXPECT().IsFutureEvent(gomock.Any()).Return(false).Times(2)
 			mockCtx.EXPECT().Height().Return(uint64(0)).Times(1)
 			require.NoError(cfsm.handle(
 				&ConsensusEvent{eventType: BackdoorEvent, data: sAcceptBlockProposal},
 			))
-			require.NoError(err)
 			require.Equal(sAcceptBlockProposal, cfsm.CurrentState())
 			require.NoError(cfsm.handle(&ConsensusEvent{
 				eventType: eCalibrate,
 				data:      uint64(1),
 			}))
-		})
-		t.Run("other-errors", func(t *testing.T) {
-
+			require.Equal(sPrepare, cfsm.CurrentState())
 		})
 	})
 }

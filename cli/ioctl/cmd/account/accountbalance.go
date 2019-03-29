@@ -38,7 +38,7 @@ func balance(args []string) string {
 	}
 	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
 	if !ok {
-		return "failed to convert balance to big int"
+		return "failed to convert balance into big int"
 	}
 	return fmt.Sprintf("%s: %s IOTX", address,
 		util.RauToString(balance, util.IotxDecimalNum))
