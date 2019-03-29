@@ -278,25 +278,21 @@ func TestLocalTransfer(t *testing.T) {
 
 	// Start server
 	go itx.StartServer(context.Background(), svr, probeSvr, cfg)
-
-	chainID := cfg.Chain.ID
-
-	// target address for grpc connection. Default is "127.0.0.1:14014"
-	grpcAddr := fmt.Sprintf("127.0.0.1:%d", apiPort)
-	grpcctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	conn, err := grpc.DialContext(grpcctx, grpcAddr, grpc.WithBlock(), grpc.WithInsecure())
-	require.NoError(err)
-
-	client := iotexapi.NewAPIServiceClient(conn)
-
 	defer func() {
 		require.Nil(svr.Stop(ctx))
 	}()
 
+	// target address for grpc connection. Default is "127.0.0.1:14014"
+	grpcAddr := fmt.Sprintf("127.0.0.1:%d", apiPort)
+	grpcctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(grpcctx, grpcAddr, grpc.WithBlock(), grpc.WithInsecure())
+	require.NoError(err)
+	client := iotexapi.NewAPIServiceClient(conn)
+
+	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	ap := svr.ChainService(chainID).ActionPool()
-
 	preProcessTestCases(t, bc)
 	initExistingAccounts(t, big.NewInt(30000), bc)
 
@@ -311,9 +307,9 @@ func TestLocalTransfer(t *testing.T) {
 			tsfTest.payload, tsfTest.gasLimit, tsfTest.gasPrice)
 		require.NoError(err, tsfTest.message)
 
-		retryNum := 5
-		retryInterval := 1
-		bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
+		// wait 2 block time, retry 5 times
+		retryInterval := cfg.Genesis.BlockInterval * 2 / 5
+		bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(retryInterval), 5)
 		err = backoff.Retry(func() error {
 			_, err := client.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: tsf.Proto()})
 			return err
@@ -324,8 +320,12 @@ func TestLocalTransfer(t *testing.T) {
 		case TsfSuccess:
 			//Wait long enough for a block to be minted, and check the balance of both
 			//sender and receiver.
-			time.Sleep(cfg.Genesis.BlockInterval + 1*time.Second)
-			selp, err := bc.GetActionByActionHash(tsf.Hash())
+			var selp action.SealedEnvelope
+			err := backoff.Retry(func() error {
+				var err error
+				selp, err = bc.GetActionByActionHash(tsf.Hash())
+				return err
+			}, bo)
 			require.NoError(err, tsfTest.message)
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
 			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
@@ -351,9 +351,12 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(expectedRecvrBalance.String(), newRecvBalance.String(), tsfTest.message)
 		case TsfFail:
 			//The transfer should be rejected right after we inject it
-			time.Sleep(1 * time.Second)
-			//In case of failed transfer, the transfer should not exit in either action pool or blockchain
-			_, err := ap.GetActionByHash(tsf.Hash())
+			//Wait long enough to make sure the failed transfer does not exit in either action pool or blockchain
+			err := backoff.Retry(func() error {
+				var err error
+				_, err = ap.GetActionByHash(tsf.Hash())
+				return err
+			}, bo)
 			require.Error(err, tsfTest.message)
 			_, err = bc.GetActionByActionHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
@@ -365,8 +368,11 @@ func TestLocalTransfer(t *testing.T) {
 
 		case TsfPending:
 			//Need to wait long enough to make sure the pending transfer is not minted, only stay in action pool
-			time.Sleep(cfg.Genesis.BlockInterval + 1*time.Second)
-			_, err := ap.GetActionByHash(tsf.Hash())
+			err := backoff.Retry(func() error {
+				var err error
+				_, err = ap.GetActionByHash(tsf.Hash())
+				return err
+			}, bo)
 			require.NoError(err, tsfTest.message)
 			_, err = bc.GetActionByActionHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
@@ -374,7 +380,7 @@ func TestLocalTransfer(t *testing.T) {
 			//After a blocked is minted, check all the pending transfers in action pool are cleared
 			//This checking procedure is simplified for this test case, because of the complexity of
 			//handling pending transfers.
-			time.Sleep(cfg.Genesis.BlockInterval + 1*time.Second)
+			time.Sleep(cfg.Genesis.BlockInterval + time.Second)
 			require.Equal(0, lenPendingActionMap(ap.PendingActionMap()), tsfTest.message)
 
 		default:

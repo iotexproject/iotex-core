@@ -12,19 +12,19 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-circuit"
-	"github.com/libp2p/go-libp2p-crypto"
-	"github.com/libp2p/go-libp2p-host"
-	"github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p-net"
-	"github.com/libp2p/go-libp2p-peerstore"
-	"github.com/libp2p/go-libp2p-protocol"
-	"github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-libp2p-transport-upgrader"
+	relay "github.com/libp2p/go-libp2p-circuit"
+	crypto "github.com/libp2p/go-libp2p-crypto"
+	host "github.com/libp2p/go-libp2p-host"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	net "github.com/libp2p/go-libp2p-net"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	protocol "github.com/libp2p/go-libp2p-protocol"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	stream "github.com/libp2p/go-libp2p-transport-upgrader"
 	"github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
-	"github.com/whyrusleeping/go-smux-yamux"
+	sm_yamux "github.com/whyrusleeping/go-smux-yamux"
 	"go.uber.org/zap"
 )
 
@@ -405,12 +405,12 @@ func (h *Host) Info() peerstore.PeerInfo {
 
 // Neighbors returns the closest peer addresses
 func (h *Host) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
-	peers, err := h.kad.GetClosestPeers(ctx, h.kadKey.String())
-	if err != nil {
-		return nil, err
-	}
+	peers := h.host.Peerstore().Peers()
 	neighbors := make([]peerstore.PeerInfo, 0)
-	for peer := range peers {
+	for _, peer := range peers {
+		if peer == h.host.ID() {
+			continue
+		}
 		neighbors = append(neighbors, h.kad.FindLocal(peer))
 	}
 	return neighbors, nil

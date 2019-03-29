@@ -36,7 +36,7 @@ var (
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
 	Use:   "account",
-	Short: "Deal with accounts of IoTeX blockchain",
+	Short: "Manage accounts of IoTeX blockchain",
 	Args:  cobra.MinimumNArgs(1),
 }
 

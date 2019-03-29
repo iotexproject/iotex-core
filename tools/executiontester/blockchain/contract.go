@@ -12,13 +12,14 @@ import (
 	"log"
 	"math/big"
 	"strconv"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -26,8 +27,6 @@ import (
 )
 
 const (
-	// ChainIP is the ip address of iotex api endpoint
-	ChainIP = "localhost"
 	// Producer indicates block producer's encoded address
 	Producer = "io13rjq2c07mqhe8sdd7nf9a4vcmnyk9mn72hu94e"
 	// ProducerPubKey indicates block producer's public key
@@ -46,9 +45,8 @@ type (
 		Start() error
 		Exist(string) bool
 		Explorer() string
-		ChainConfig() config.Config
-		Deploy(string) (string, error)
-		Read(string, []byte) (string, error)
+		Deploy(string, ...[]byte) (string, error)
+		Read(string, ...[]byte) (string, error)
 		ReadValue(string, string, string) (int64, error)
 		ReadAndParseToDecimal(string, string, string) (string, error)
 		Call(string, ...[]byte) (string, error)
@@ -57,28 +55,25 @@ type (
 
 		Address() string
 		SetAddress(string) Contract
-		SetOwner(string, string, string) Contract
+		SetOwner(string, string) Contract
 		SetExecutor(string) Contract
-		SetPubKey(string) Contract
 		SetPrvKey(string) Contract
 		RunAsOwner() Contract
 	}
 
 	contract struct {
-		chainConfig config.Config // blockchain service configuration
-		owner       string        // owner of the smart contract
-		ownerPk     string        // owner's public key
-		ownerSk     string        // owner's private key
-		addr        string        // address of the smart contract
-		executor    string        // executor of the smart contract
-		pubkey      string        // public key of executor
-		prvkey      string        // private key of executor
+		cs       string // blockchain service endpoint
+		owner    string // owner of the smart contract
+		ownerSk  string // owner's private key
+		addr     string // address of the smart contract
+		executor string // executor of the smart contract
+		prvkey   string // private key of executor
 	}
 )
 
 // NewContract creates a new contract
-func NewContract(cfg config.Config) Contract {
-	return &contract{chainConfig: cfg}
+func NewContract(exp string) Contract {
+	return &contract{cs: exp}
 }
 
 func (c *contract) Start() error {
@@ -91,11 +86,7 @@ func (c *contract) Exist(addr string) bool {
 }
 
 func (c *contract) Explorer() string {
-	return c.explorer()
-}
-
-func (c *contract) ChainConfig() config.Config {
-	return c.chainConfig
+	return c.cs
 }
 
 // ReadValue reads the value
@@ -107,30 +98,30 @@ func (c *contract) ReadValue(token, method, sender string) (int64, error) {
 	// check sender balance
 	res, err := c.RunAsOwner().SetAddress(token).Read(method, addrSender.Bytes())
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to check balance")
+		return 0, errors.Wrapf(err, "failed to read bytes")
 	}
 	return strconv.ParseInt(res, 16, 64)
 }
 
 // ReadAndParseToDecimal reads the value and parse to decimal string
-func (c *contract) ReadAndParseToDecimal(token, method, sender string) (string, error) {
+func (c *contract) ReadAndParseToDecimal(contract, method, sender string) (string, error) {
 	addrSender, err := address.FromString(sender)
 	if err != nil {
 		return "", errors.Errorf("invalid account address = %s", sender)
 	}
 	// check sender balance
-	res, err := c.RunAsOwner().SetAddress(token).Read(method, addrSender.Bytes())
+	res, err := c.RunAsOwner().SetAddress(contract).Read(method, addrSender.Bytes())
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to check balance")
+		return "", errors.Wrapf(err, "failed to read bytes")
 	}
 	bal, err := strconv.ParseInt(res, 16, 64)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to convert balance")
+		return "", errors.Wrapf(err, "failed to convert bytes")
 	}
 	return strconv.FormatInt(bal, 10), nil
 }
 
-func (c *contract) Read(method string, addr []byte) (string, error) {
+func (c *contract) Read(method string, args ...[]byte) (string, error) {
 	data, err := hex.DecodeString(method)
 	if err != nil {
 		return "", err
@@ -138,9 +129,15 @@ func (c *contract) Read(method string, addr []byte) (string, error) {
 	if len(data) != 4 {
 		return "", errors.Errorf("invalid method id format, length = %d", len(data))
 	}
-	if addr != nil {
-		value := hash.BytesToHash256(addr)
-		data = append(data, value[:]...)
+	for _, arg := range args {
+		if arg != nil {
+			if len(arg) < 32 {
+				value := hash.BytesToHash256(arg)
+				data = append(data, value[:]...)
+			} else {
+				data = append(data, arg...)
+			}
+		}
 	}
 	return c.Transact(data, true)
 }
@@ -155,24 +152,38 @@ func (c *contract) Call(method string, args ...[]byte) (string, error) {
 	}
 	for _, arg := range args {
 		if arg != nil {
-			value := hash.BytesToHash256(arg)
-			data = append(data, value[:]...)
+			if len(arg) < 32 {
+				value := hash.BytesToHash256(arg)
+				data = append(data, value[:]...)
+			} else {
+				data = append(data, arg...)
+			}
 		}
 	}
 	return c.Transact(data, false)
 }
 
-func (c *contract) Deploy(code string) (string, error) {
-	data, err := hex.DecodeString(code)
+func (c *contract) Deploy(hexCode string, args ...[]byte) (string, error) {
+	data, err := hex.DecodeString(hexCode)
 	if err != nil {
 		return "", err
+	}
+	for _, arg := range args {
+		if arg != nil {
+			if len(arg) < 32 {
+				value := hash.BytesToHash256(arg)
+				data = append(data, value[:]...)
+			} else {
+				data = append(data, arg...)
+			}
+		}
 	}
 	// deploy send to empty address
 	return c.SetAddress("").Transact(data, false)
 }
 
 func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
-	conn, err := grpc.Dial(c.explorer(), grpc.WithInsecure())
+	conn, err := grpc.Dial(c.cs, grpc.WithInsecure())
 	if err != nil {
 		return "", err
 	}
@@ -231,7 +242,21 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 }
 
 func (c *contract) CheckCallResult(h string) (*iotextypes.Receipt, error) {
-	conn, err := grpc.Dial(c.explorer(), grpc.WithInsecure())
+	var rec *iotextypes.Receipt
+	// max retry 120 times with interval = 500ms
+	checkNum := 120
+	err := backoff.Retry(func() error {
+		var err error
+		rec, err = c.checkCallResult(h)
+		log.Printf("Hash: %s <= CheckNum: %d", h, checkNum)
+		checkNum--
+		return err
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Millisecond*500), uint64(checkNum)))
+	return rec, err
+}
+
+func (c *contract) checkCallResult(h string) (*iotextypes.Receipt, error) {
+	conn, err := grpc.Dial(c.cs, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
@@ -259,20 +284,14 @@ func (c *contract) SetAddress(addr string) Contract {
 	return c
 }
 
-func (c *contract) SetOwner(owner, pk, sk string) Contract {
+func (c *contract) SetOwner(owner, sk string) Contract {
 	c.owner = owner
-	c.ownerPk = pk
 	c.ownerSk = sk
 	return c
 }
 
 func (c *contract) SetExecutor(exec string) Contract {
 	c.executor = exec
-	return c
-}
-
-func (c *contract) SetPubKey(pubk string) Contract {
-	c.pubkey = pubk
 	return c
 }
 
@@ -283,11 +302,6 @@ func (c *contract) SetPrvKey(prvk string) Contract {
 
 func (c *contract) RunAsOwner() Contract {
 	c.executor = c.owner
-	c.pubkey = c.ownerPk
 	c.prvkey = c.ownerSk
 	return c
-}
-
-func (c *contract) explorer() string {
-	return ChainIP + ":" + strconv.Itoa(c.chainConfig.API.Port)
 }
