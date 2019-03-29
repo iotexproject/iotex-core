@@ -392,8 +392,8 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	if err != nil {
 		return 0, nil, err
 	}
-	s, err := p.ReadState(ctx, ws, []byte("ActiveBlockProducersByHeight"),
-		byteutil.Uint64ToBytes(epochStartHeight))
+	s, err := p.ReadState(ctx, ws, []byte("ActiveBlockProducersByEpoch"),
+		byteutil.Uint64ToBytes(epochNum))
 	if err != nil {
 		return 0, nil, status.Error(codes.NotFound, err.Error())
 	}
