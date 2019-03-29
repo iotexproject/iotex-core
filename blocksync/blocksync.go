@@ -174,7 +174,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 	case sync.End < end:
 		end = sync.End
 	case sync.End > end:
-		log.L().Info(
+		log.L().Debug(
 			"Do not have requested blocks",
 			zap.String("peerID", peer.ID.Pretty()),
 			zap.Uint64("start", sync.Start),
@@ -191,7 +191,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		if err := bs.unicastHandler(context.Background(), peer,
 			blk.ConvertToBlockPb(),
 		); err != nil {
-			log.L().Warn("Failed to response to ProcessSyncRequest.", zap.Error(err))
+			log.L().Debug("Failed to response to ProcessSyncRequest.", zap.Error(err))
 		}
 	}
 	return nil
