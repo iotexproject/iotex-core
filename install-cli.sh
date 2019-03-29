@@ -65,31 +65,6 @@ downloadFile() {
     fi
 }
 
-findGoBinDirectory() {
-    if [ -z "$GOPATH" ]; then
-        eval "$1='/usr/local/bin'"
-    else
-        EFFECTIVE_GOPATH="$GOPATH"
-        # CYGWIN: Convert Windows-style path into sh-compatible path
-        if [ "$OS_CYGWIN" = "1" ]; then
-            EFFECTIVE_GOPATH=$(cygpath "$EFFECTIVE_GOPATH")
-        fi
-        if [ -z "$EFFECTIVE_GOPATH" ]; then
-            echo "Installation could not determine your \$GOPATH."
-            exit 1
-        fi
-        if [ -z "$GOROOT" ]; then
-            #GOBIN=$(echo "${EFFECTIVE_GOPATH%%:*}/bin" | sed s#//*#/#g)
-	    GOBIN=$GOROOT/bin
-        fi
-        if [ ! -d "$GOROOT" ]; then
-            echo "Installation requires your GOBIN directory $GOROOT to exist. Please create it."
-            exit 1
-        fi
-        eval "$1='$GOBIN'"
-    fi
-}
-
 initArch() {
     ARCH=$(uname -m)
     case $ARCH in
@@ -128,11 +103,6 @@ initOS() {
 # identify platform based on uname output
 initArch
 initOS
-
-# determine install directory if required
-#if [ -z "$INSTALL_DIRECTORY" ]; then
-#    findGoBinDirectory INSTALL_DIRECTORY
-#fi
 
 # assemble expected release artifact name
 if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
