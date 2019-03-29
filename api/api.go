@@ -273,7 +273,7 @@ func (api *Server) GetServerMeta(ctx context.Context,
 		PackageCommitID: version.PackageCommitID,
 		GitStatus:       version.GitStatus,
 		GoVersion:       version.GoVersion,
-		BuidTime:        version.BuildTime,
+		BuildTime:       version.BuildTime,
 	}}, nil
 }
 
@@ -391,20 +391,20 @@ func (api *Server) GetEpochMeta(
 
 	readStateRequest := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte(poll.ProtocolID),
-		MethodName: []byte("ConsensusBlockProducersByHeight"),
-		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
+		MethodName: []byte("BlockProducersByEpoch"),
+		Arguments:  [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)},
 	}
 	res, err := api.readState(context.Background(), readStateRequest)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	var consensusBlockProducers state.CandidateList
-	if err := consensusBlockProducers.Deserialize(res.Data); err != nil {
+	var BlockProducers state.CandidateList
+	if err := BlockProducers.Deserialize(res.Data); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	var blockProducersInfo []*iotexapi.BlockProducerInfo
-	for _, bp := range consensusBlockProducers {
+	for _, bp := range BlockProducers {
 		var active bool
 		var blockProduction uint64
 		if production, ok := produce[bp.Address]; ok {
