@@ -58,9 +58,7 @@ func GenerateAssetID() string {
 func deployContract(code, endpoint string, args ...[]byte) (string, error) {
 	// deploy the contract
 	contract := executiontester.NewContract(endpoint)
-	// extract this method
-	setE:=contract.SetExecutor
-	h, err := setE(executiontester.Producer).
+	h, err := contract.SetExecutor(executiontester.Producer).
 		SetPrvKey(executiontester.ProducerPrivKey).
 		Deploy(code, args...)
 	if err != nil {
