@@ -194,7 +194,7 @@ func main() {
 		var creditor *util.AddressKey
 		if testFpToken {
 			// Deploy asset smart contracts
-			fpToken, _, err = assetcontract.StartContracts(configs[0])
+			fpToken, _, _, err = assetcontract.StartContracts(configs[0])
 			if err != nil {
 				log.L().Fatal("Failed to deploy asset contracts.", zap.Error(err))
 			}
