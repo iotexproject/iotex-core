@@ -120,13 +120,13 @@ func main() {
 	}
 
 	log.L().Info("Fp token transfer test pass!")
-
+	// get debtor balance,should be 1
 	debtorBalance, err = erc721Token.ReadValue(erc721Token.Address(), blockchain.BalanceOf, debtorAddr)
 	if err != nil {
 		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
 	}
 	log.L().Info("Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
-
+	// get creditor balance,should be 0
 	creditorBalance, err = erc721Token.ReadValue(erc721Token.Address(), blockchain.BalanceOf, creditorAddr)
 	if err != nil {
 		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
@@ -135,7 +135,7 @@ func main() {
 	if (debtorBalance) != 1 && (creditorBalance != 0) {
 		log.L().Fatal("Sum of balance is incorrect.")
 	}
-	log.L().Info("erc721s token transfer test pass!")
+	log.L().Info("erc721 token transfer test pass!")
 }
 
 func createAccount() (string, string, string, error) {
