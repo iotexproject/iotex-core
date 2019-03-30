@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
+	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
 func main() {
@@ -95,7 +97,7 @@ func main() {
 		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
 	}
 	// Transfer erc721 token
-	_, err = erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriv, debtorAddr, tokenID)
+	_, err = erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriKey, debtorAddr, assetID)
 	if err != nil {
 		log.L().Fatal("Failed to transfer 1 token from creditor to debtor", zap.Error(err))
 	}
