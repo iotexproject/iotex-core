@@ -18,7 +18,7 @@ const (
 )
 
 // StartContracts deploys and starts fp token smart contract and stable token smart contract,erc721 token smart contract
-func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blockchain.StableToken,erc721Token blockchain.Erc721Token,err error){
+func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blockchain.StableToken, erc721Token blockchain.Erc721Token, err error) {
 	endpoint := chainIP + ":" + strconv.Itoa(cfg.API.Port)
 
 	// deploy allowance sheet
@@ -49,7 +49,7 @@ func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blo
 
 	// create stable token
 	// TODO: query total supply and call stbToken.SetTotal()
-	stbToken := blockchain.NewStableToken(endpoint).
+	stbToken = blockchain.NewStableToken(endpoint).
 		SetAllowance(allowance).
 		SetBalance(balance).
 		SetRegistry(reg).
@@ -58,7 +58,7 @@ func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blo
 	stbToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
 	// stable token set-up
-	if err := stbToken.Start(); err != nil {
+	if err = stbToken.Start(); err != nil {
 		return
 	}
 
@@ -89,7 +89,7 @@ func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blo
 	}
 
 	// create fp token
-	fpToken := blockchain.NewFpToken(endpoint).
+	fpToken = blockchain.NewFpToken(endpoint).
 		SetManagement(manage).
 		SetManagementProxy(proxy).
 		SetEapStorage(eap).
@@ -100,7 +100,7 @@ func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blo
 	fpToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
 	// fp token set-up
-	if err := fpToken.Start(); err != nil {
+	if err = fpToken.Start(); err != nil {
 		return
 	}
 
@@ -113,10 +113,7 @@ func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blo
 	erc721Token.SetAddress(addr)
 	erc721Token.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
-	if err := erc721Token.Start(); err != nil 
-	{
-		return
-	}
+	err = erc721Token.Start()
 	return
 }
 
