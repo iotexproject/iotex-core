@@ -14,7 +14,9 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
@@ -79,4 +81,16 @@ func RauToString(amount *big.Int, numDecimals int) string {
 		return amountInt.String() + "." + decString
 	}
 	return amountInt.String()
+}
+
+// IoAddrToEvmAddr converts IoTeX address into evm address
+func IoAddrToEvmAddr(ioAddr string) ([]byte, error) {
+	if err := validator.ValidateAddress(ioAddr); err != nil {
+		return nil, err
+	}
+	address, err := address.FromString(ioAddr)
+	if err != nil {
+		return nil, err
+	}
+	return address.Bytes(), nil
 }
