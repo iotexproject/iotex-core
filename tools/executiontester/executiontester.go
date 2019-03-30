@@ -90,7 +90,7 @@ func main() {
 	}
 	// create erc721 token with tokenID using assetID
 	if _, err := erc721Token.CreateToken(assetID, creditorAddr); err != nil {
-		log.L().Fatal("Failed to create token", zap.Error(err))
+		log.L().Fatal("Failed to create erc721 token", zap.Error(err))
 	}
 	// Transfer fp token
 	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPriKey, creditorAddr, total); err != nil {
@@ -135,17 +135,17 @@ func main() {
 	// get debtor balance,should be 1
 	debtorBalance, err = erc721Token.ReadValue(erc721Token.Address(), blockchain.BalanceOf, debtorAddr)
 	if err != nil {
-		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
+		log.L().Fatal("Failed to get erc721 debtor's asset balance.", zap.Error(err))
 	}
-	log.L().Info("Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
+	log.L().Info("erc721 Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
 	// get creditor balance,should be 0
 	creditorBalance, err = erc721Token.ReadValue(erc721Token.Address(), blockchain.BalanceOf, creditorAddr)
 	if err != nil {
-		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
+		log.L().Fatal("Failed to get erc721 creditor's asset balance.", zap.Error(err))
 	}
-	log.L().Info("Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
+	log.L().Info("erc721 Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
 	if (debtorBalance) != 1 && (creditorBalance != 0) {
-		log.L().Fatal("Sum of balance is incorrect.")
+		log.L().Fatal("erc721 balance is incorrect.")
 	}
 	log.L().Info("erc721 token transfer test pass!")
 }
