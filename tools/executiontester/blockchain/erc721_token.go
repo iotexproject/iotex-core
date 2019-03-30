@@ -12,29 +12,28 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
 type (
 	// Erc721Token erc721 token interface
 	Erc721Token interface {
-		blockchain.Contract
-		CreateToken(string,string) (string, error)
+		Contract
+		CreateToken(string, string) (string, error)
 		Transfer(string, string, string, string, string) (string, error)
 	}
 
 	erc721Token struct {
-		blockchain.Contract
+		Contract
 	}
 )
 
 // NewErc721Token creates a new Erc721Token
 func NewErc721Token(exp string) Erc721Token {
-	return &erc721Token{Contract: blockchain.NewContract(exp)}
+	return &erc721Token{Contract: NewContract(exp)}
 }
 
 func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
-	TokenID,ok:=big.NewInt(0).SetString(tokenid,10)
+	TokenID, ok := big.NewInt(0).SetString(tokenid, 10)
 	if !ok {
 		return "", errors.Errorf("invalid tokenid = %s", tokenid)
 	}
@@ -42,8 +41,8 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	if err != nil {
 		return "", errors.Errorf("invalid creditor address = %s", creditor)
 	}
-	owner:=f.RunAsOwner()
-	h,err:=owner.Call(CreateTo,addrCreditor.Bytes(),TokenID.Bytes())
+	owner := f.RunAsOwner()
+	h, err := owner.Call(CreateTo, addrCreditor.Bytes(), TokenID.Bytes())
 	if err != nil {
 		return h, errors.Wrapf(err, "call failed to create")
 	}
@@ -53,9 +52,10 @@ func (f *erc721Token) CreateToken(tokenid, creditor string) (string, error) {
 	}
 	return h, nil
 }
+
 //
 func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid string) (string, error) {
-	TokenID,ok:=big.NewInt(0).SetString(tokenid,10)
+	TokenID, ok := big.NewInt(0).SetString(tokenid, 10)
 	if !ok {
 		return "", errors.Errorf("invalid tokenid = %s", tokenid)
 	}
@@ -71,7 +71,7 @@ func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid s
 	h, err := f.SetAddress(token).
 		SetExecutor(sender).
 		SetPrvKey(prvkey).
-		Call(TransferFrom, from.Bytes(),addrReceiver.Bytes(), TokenID.Bytes())
+		Call(TransferFrom, from.Bytes(), addrReceiver.Bytes(), TokenID.Bytes())
 	if err != nil {
 		return h, errors.Wrap(err, "call transfer failed")
 	}
@@ -81,4 +81,3 @@ func (f *erc721Token) Transfer(token, sender, prvkey, receiver string, tokenid s
 	}
 	return h, nil
 }
-
