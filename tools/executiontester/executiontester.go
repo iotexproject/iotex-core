@@ -15,13 +15,11 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/address"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
@@ -105,15 +103,6 @@ func main() {
 
 	if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
 		log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
-	}
-
-	// Wait until transfer is successfully
-	var block *block.Block
-	if err := testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
-		block, err = itxsvr.ChainService(uint32(1)).Blockchain().GetBlockByHeight(10)
-		return block != nil, nil
-	}); err != nil {
-		log.L().Fatal("Failed to get receipt of execution deployment", zap.Error(err))
 	}
 
 	debtorBalance, err := fpToken.ReadValue(contractAddr, blockchain.BalanceOf, debtorAddr)
