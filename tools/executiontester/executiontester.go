@@ -88,8 +88,9 @@ func main() {
 	if err != nil {
 		log.L().Fatal("Failed to get token contract address", zap.Error(err))
 	}
-	// create erc721 token with tokenID using assetID
-	if _, err := erc721Token.CreateToken(assetID, creditorAddr); err != nil {
+	tokenID := assetcontract.GenerateAssetID()
+	// create erc721 token with tokenID
+	if _, err := erc721Token.CreateToken(tokenID, creditorAddr); err != nil {
 		log.L().Fatal("Failed to create erc721 token", zap.Error(err))
 	}
 	// Transfer fp token
@@ -97,7 +98,7 @@ func main() {
 		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
 	}
 	// Transfer erc721 token
-	_, err = erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriKey, debtorAddr, assetID)
+	_, err = erc721Token.Transfer(erc721Token.Address(), creditorAddr, creditorPriKey, debtorAddr, tokenID)
 	if err != nil {
 		log.L().Fatal("Failed to transfer 1 token from creditor to debtor", zap.Error(err))
 	}
