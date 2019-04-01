@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var (
@@ -254,8 +253,6 @@ func TestDBBatch(t *testing.T) {
 	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
@@ -306,8 +303,6 @@ func TestCacheKV(t *testing.T) {
 	testPath := testFile.Name()
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testFunc(NewOnDiskDB(cfg), t)
 	})
 
@@ -316,8 +311,6 @@ func TestCacheKV(t *testing.T) {
 	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testFunc(NewOnDiskDB(cfg), t)
 	})
 }
