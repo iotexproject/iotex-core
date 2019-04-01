@@ -70,6 +70,10 @@ func delegates() string {
 	ctx := context.Background()
 	response, err := cli.GetEpochMeta(ctx, request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return sta.Message()
+		}
 		return err.Error()
 	}
 
@@ -127,9 +131,11 @@ func nextDelegates() string {
 	}
 	abpResponse, err := cli.ReadState(ctx, request)
 	if err != nil {
-		status, ok := status.FromError(err)
-		if ok && status.Code() == codes.NotFound {
+		sta, ok := status.FromError(err)
+		if ok && sta.Code() == codes.NotFound {
 			return fmt.Sprintf("delegates of upcoming epoch #%d are not determined", epochNum)
+		} else if ok {
+			return sta.Message()
 		}
 		return err.Error()
 	}
@@ -144,6 +150,10 @@ func nextDelegates() string {
 	}
 	bpResponse, err := cli.ReadState(ctx, request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return sta.Message()
+		}
 		return err.Error()
 	}
 	var BPs state.CandidateList
