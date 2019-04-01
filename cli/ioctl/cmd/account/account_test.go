@@ -20,21 +20,16 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
-var (
-	testPath = "./kstest"
+const (
+	testPath = "kstest"
 )
 
 func TestAccount(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testPath)
 	require.NoError(testInit())
-	defer func() {
-		testutil.CleanupPath(t, testPath)
-	}()
 
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
@@ -58,10 +53,9 @@ func TestAccount(t *testing.T) {
 }
 
 func testInit() error {
-	config.ConfigDir = testPath
-	if err := os.MkdirAll(config.ConfigDir, 0700); err != nil {
-		return err
-	}
+	testPathd, _ := ioutil.TempDir(os.TempDir(), testPath)
+	config.ConfigDir = testPathd
+
 	var err error
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
 	config.ReadConfig, err = config.LoadConfig()
