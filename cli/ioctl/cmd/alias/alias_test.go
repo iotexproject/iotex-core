@@ -7,7 +7,6 @@
 package alias
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -67,7 +66,6 @@ func TestAlias(t *testing.T) {
 
 func testInit() error {
 	testPathd, _ := ioutil.TempDir(os.TempDir(), testPath)
-	fmt.Println(testPathd)
 	config.ConfigDir = testPathd
 	var err error
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
