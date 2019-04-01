@@ -20,7 +20,8 @@ const (
 
 func TestSQLite3StorePutGet(t *testing.T) {
 	testRDSStorePutGet := TestStorePutGet
-	testPath, _ := ioutil.TempDir(os.TempDir(), path)
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
 	cfg := config.SQLITE3{
 		SQLite3File: testPath,
 	}
