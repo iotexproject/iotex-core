@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -351,8 +352,10 @@ func TestBlockDAO(t *testing.T) {
 	})
 
 	path := "/tmp/test-kv-store-" + string(rand.Int())
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
 	cfg := config.Default.DB
-	cfg.DbPath = path
+	cfg.DbPath = testPath
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
