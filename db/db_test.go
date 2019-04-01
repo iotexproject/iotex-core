@@ -68,11 +68,10 @@ func TestKVStorePutGet(t *testing.T) {
 	path = "test-kv-store.badger"
 	testFile, _ = ioutil.TempFile(os.TempDir(), path)
 	testPath = testFile.Name()
-	cfg2 := config.Default.DB
-	cfg2.DbPath = testPath
-	cfg2.UseBadgerDB = true
+	cfg.DbPath = testPath
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testKVStorePutGet(NewOnDiskDB(cfg2), t)
+		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 }
 
@@ -132,11 +131,10 @@ func TestBatchRollback(t *testing.T) {
 	path = "test-batch-rollback.badger"
 	testFile, _ = ioutil.TempFile(os.TempDir(), path)
 	testPath = testFile.Name()
-	cfg2 := config.Default.DB
-	cfg2.DbPath = testPath
-	cfg2.UseBadgerDB = true
+	cfg.DbPath = testPath
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testBatchRollback(NewOnDiskDB(cfg2), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
 
@@ -258,11 +256,10 @@ func TestDBBatch(t *testing.T) {
 	path = "test-batch-commit.badger"
 	testFile, _ = ioutil.TempFile(os.TempDir(), path)
 	testPath = testFile.Name()
-	cfg2 := config.Default.DB
-	cfg2.DbPath = testPath
-	cfg2.UseBadgerDB = true
+	cfg.DbPath = testPath
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testBatchRollback(NewOnDiskDB(cfg2), t)
+		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
 
@@ -319,10 +316,9 @@ func TestCacheKV(t *testing.T) {
 	path = "test-cache-kv.badger"
 	testFile, _ = ioutil.TempFile(os.TempDir(), path)
 	testPath = testFile.Name()
-	cfg2 := config.Default.DB
-	cfg2.DbPath = testPath
-	cfg2.UseBadgerDB = true
+	cfg.DbPath = testPath
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testFunc(NewOnDiskDB(cfg2), t)
+		testFunc(NewOnDiskDB(cfg), t)
 	})
 }
