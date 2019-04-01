@@ -66,11 +66,11 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path = "test-kv-store.badger"
-	testFile, _ = ioutil.TempFile(os.TempDir(), path)
-	testPath = testFile.Name()
-	cfg.DbPath = testPath
+	cfg.DbPath = path
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 }
@@ -129,6 +129,7 @@ func TestBatchRollback(t *testing.T) {
 
 	path = "test-batch-rollback.badger"
 	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
@@ -252,6 +253,7 @@ func TestDBBatch(t *testing.T) {
 
 	path = "test-batch-commit.badger"
 	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
@@ -310,6 +312,7 @@ func TestCacheKV(t *testing.T) {
 
 	path = "test-cache-kv.badger"
 	cfg.DbPath = path
+	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, path)
 		defer testutil.CleanupPath(t, path)
