@@ -376,8 +376,8 @@ func TestBlockDAO(t *testing.T) {
 	})
 
 	t.Run("Bolt DB deletions", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
+		//testutil.CleanupPath(t, path)
+		//defer testutil.CleanupPath(t, path)
 		testDeleteDao(db.NewOnDiskDB(cfg), t)
 	})
 }
