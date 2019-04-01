@@ -351,7 +351,7 @@ func TestBlockDAO(t *testing.T) {
 		testBlockDao(db.NewMemKVStore(), t)
 	})
 
-	path := "/tmp/test-kv-store-" + string(rand.Int())
+	path := "test-kv-store-" + string(rand.Int())
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
 	cfg := config.Default.DB
