@@ -58,17 +58,15 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path := "test-kv-store.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, _ := ioutil.TempDir(os.TempDir(), path)
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-kv-store.badger"
-	testBadgerFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testBadgerPath := testBadgerFile.Name()
-	cfg.DbPath = testBadgerPath
+	testPath, _ = ioutil.TempDir(os.TempDir(), path)
+	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
@@ -120,17 +118,15 @@ func TestBatchRollback(t *testing.T) {
 	}
 
 	path := "test-batch-rollback.bolt"
-	testBoltFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testBoltPath := testBoltFile.Name()
-	cfg.DbPath = testBoltPath
+	testPath, _ := ioutil.TempDir(os.TempDir(), path)
+	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-batch-rollback.badger"
-	testBadgerFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testBadgerPath := testBadgerFile.Name()
-	cfg.DbPath = testBadgerPath
+	testPath, _ = ioutil.TempDir(os.TempDir(), path)
+	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testBatchRollback(NewOnDiskDB(cfg), t)
