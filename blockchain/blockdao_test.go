@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -350,12 +351,12 @@ func TestBlockDAO(t *testing.T) {
 		testBlockDao(db.NewMemKVStore(), t)
 	})
 
-	path := "/tmp/test-kv-store-" + string(rand.Int())
+	path := "test-kv-store"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
 	cfg := config.Default.DB
-	cfg.DbPath = path
+	cfg.DbPath = testPath
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testBlockDao(db.NewOnDiskDB(cfg), t)
 	})
 
@@ -364,8 +365,6 @@ func TestBlockDAO(t *testing.T) {
 	})
 
 	t.Run("Bolt DB for actions", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testActionsDao(db.NewOnDiskDB(cfg), t)
 	})
 
@@ -374,8 +373,6 @@ func TestBlockDAO(t *testing.T) {
 	})
 
 	t.Run("Bolt DB deletions", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testDeleteDao(db.NewOnDiskDB(cfg), t)
 	})
 }
