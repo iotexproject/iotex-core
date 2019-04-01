@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
@@ -112,6 +113,10 @@ func sendAction(elp action.Envelope) string {
 	ctx := context.Background()
 	_, err = cli.SendAction(ctx, request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return sta.Message()
+		}
 		return err.Error()
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
