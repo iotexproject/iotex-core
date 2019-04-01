@@ -18,10 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 )
 
-var (
-	testPath = "kstest"
-)
-
 func TestAlias(t *testing.T) {
 	require := require.New(t)
 
@@ -65,7 +61,7 @@ func TestAlias(t *testing.T) {
 }
 
 func testInit() error {
-	testPathd, _ := ioutil.TempDir(os.TempDir(), testPath)
+	testPathd, _ := ioutil.TempDir(os.TempDir(), "kstest")
 	config.ConfigDir = testPathd
 	var err error
 	config.DefaultConfigFile = config.ConfigDir + "/config.default"
