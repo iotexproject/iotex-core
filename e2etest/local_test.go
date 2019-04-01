@@ -47,6 +47,13 @@ func TestLocalCommit(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
+
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	testDBPath := testDBFile.Name()
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 
 	// create server
 	ctx := context.Background()
@@ -141,14 +148,8 @@ func TestLocalCommit(t *testing.T) {
 	require.True(5 == bc.TipHeight())
 
 	// create local chain
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
-	testTriePath := testTrieFile.Name()
-
 	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
 	testTriePath2 := testTrieFile2.Name()
-
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
-	testDBPath := testDBFile.Name()
 
 	testDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
 	testDBPath2 := testDBFile2.Name()
@@ -557,15 +558,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 }
 
 func newTestConfig() (config.Config, error) {
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
-	testDBPath := testDBFile.Name()
-
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
-	testTriePath := testTrieFile.Name()
-
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.TrieDBPath = triePath
+	cfg.Chain.ChainDBPath = dBPath
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
