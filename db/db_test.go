@@ -66,8 +66,7 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path = "test-kv-store.badger"
-	testFile, _ = ioutil.TempFile(os.TempDir(), path)
-	testPath = testFile.Name()
+	testPath, _ = ioutil.TempDir(os.TempDir(), path)
 	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
