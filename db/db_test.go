@@ -8,6 +8,8 @@ package db
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,19 +58,19 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path := "test-kv-store.bolt"
-	cfg.DbPath = path
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-kv-store.badger"
-	cfg.DbPath = path
+	testFile, _ = ioutil.TempFile(os.TempDir(), path)
+	testPath = testFile.Name()
+	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 }
