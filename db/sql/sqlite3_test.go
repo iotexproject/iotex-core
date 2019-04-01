@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestSQLite3StorePutGet(t *testing.T) {
@@ -34,12 +33,12 @@ func TestSQLite3StoreTransaction(t *testing.T) {
 	testSQLite3StoreTransaction := TestStoreTransaction
 
 	path := "explorer.db"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
 	cfg := config.SQLITE3{
-		SQLite3File: path,
+		SQLite3File: testPath,
 	}
 	t.Run("SQLite3 Store", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testSQLite3StoreTransaction(NewSQLite3(cfg), t)
 	})
 }
