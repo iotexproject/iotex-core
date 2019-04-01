@@ -209,7 +209,7 @@ func TestIndexServiceOnSqlite3(t *testing.T) {
 	cfg := config.Default.DB
 	cfg.SQLITE3.SQLite3File = testPath
 	t.Run("Indexer", func(t *testing.T) {
-		testSQLite3StorePutGet(sql.NewSQLite3(config.Default.DB.SQLITE3), t)
+		testSQLite3StorePutGet(sql.NewSQLite3(cfg.SQLITE3), t)
 	})
 }
 

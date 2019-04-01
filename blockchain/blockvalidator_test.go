@@ -81,11 +81,11 @@ func TestWrongNonce(t *testing.T) {
 	cfg := config.Default
 
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	TestTriePath := testTrieFile.Name()
-	cfg.Chain.TrieDBPath = TestTriePath
+	testTriePath := testTrieFile.Name()
+	cfg.Chain.TrieDBPath = testTriePath
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	TestDBPath := testDBFile.Name()
-	cfg.Chain.ChainDBPath = TestDBPath
+	testDBPath := testDBFile.Name()
+	cfg.Chain.ChainDBPath = testDBPath
 
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
