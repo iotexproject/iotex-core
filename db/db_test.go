@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var (
@@ -67,6 +68,8 @@ func TestKVStorePutGet(t *testing.T) {
 	path = "test-kv-store.badger"
 	cfg.DbPath = path
 	t.Run("Badger DB", func(t *testing.T) {
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 }
@@ -124,11 +127,10 @@ func TestBatchRollback(t *testing.T) {
 	})
 
 	path = "test-batch-rollback.badger"
-	testFile, _ = ioutil.TempFile(os.TempDir(), path)
-	testPath = testFile.Name()
-	cfg.DbPath = testPath
-	cfg.UseBadgerDB = true
+	cfg.DbPath = path
 	t.Run("Badger DB", func(t *testing.T) {
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
@@ -248,11 +250,10 @@ func TestDBBatch(t *testing.T) {
 	})
 
 	path = "test-batch-commit.badger"
-	testFile, _ = ioutil.TempFile(os.TempDir(), path)
-	testPath = testFile.Name()
-	cfg.DbPath = testPath
-	cfg.UseBadgerDB = true
+	cfg.DbPath = path
 	t.Run("Badger DB", func(t *testing.T) {
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
@@ -307,11 +308,10 @@ func TestCacheKV(t *testing.T) {
 	})
 
 	path = "test-cache-kv.badger"
-	testFile, _ = ioutil.TempFile(os.TempDir(), path)
-	testPath = testFile.Name()
-	cfg.DbPath = testPath
-	cfg.UseBadgerDB = true
+	cfg.DbPath = path
 	t.Run("Badger DB", func(t *testing.T) {
+		testutil.CleanupPath(t, path)
+		defer testutil.CleanupPath(t, path)
 		testFunc(NewOnDiskDB(cfg), t)
 	})
 }
