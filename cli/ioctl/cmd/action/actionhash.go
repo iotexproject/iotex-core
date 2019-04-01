@@ -57,6 +57,10 @@ func getActionByHash(args []string) string {
 	}
 	response, err := cli.GetActions(ctx, &requestCheckPending)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return sta.Message()
+		}
 		return err.Error()
 	}
 	if len(response.ActionInfo) == 0 {
@@ -71,9 +75,11 @@ func getActionByHash(args []string) string {
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
-		status, ok := status.FromError(err)
-		if ok && status.Code() == codes.NotFound {
+		sta, ok := status.FromError(err)
+		if ok && sta.Code() == codes.NotFound {
 			return output + "\n#This action is pending"
+		} else if ok {
+			return sta.Message()
 		}
 		return fmt.Sprintln(output) + err.Error()
 	}
