@@ -7,36 +7,35 @@
 package sql
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/testutil"
+)
+
+const (
+	path = "explorer.db"
 )
 
 func TestSQLite3StorePutGet(t *testing.T) {
 	testRDSStorePutGet := TestStorePutGet
-
-	path := "explorer.db"
+	testPath, _ := ioutil.TempDir(os.TempDir(), path)
 	cfg := config.SQLITE3{
-		SQLite3File: path,
+		SQLite3File: testPath,
 	}
 	t.Run("SQLite3 Store", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testRDSStorePutGet(NewSQLite3(cfg), t)
 	})
 }
 
 func TestSQLite3StoreTransaction(t *testing.T) {
 	testSQLite3StoreTransaction := TestStoreTransaction
-
-	path := "explorer.db"
+	testPath, _ := ioutil.TempDir(os.TempDir(), path)
 	cfg := config.SQLITE3{
-		SQLite3File: path,
+		SQLite3File: testPath,
 	}
 	t.Run("SQLite3 Store", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testSQLite3StoreTransaction(NewSQLite3(cfg), t)
 	})
 }
