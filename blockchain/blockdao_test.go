@@ -359,15 +359,12 @@ func TestBlockDAO(t *testing.T) {
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
 		testBlockDao(db.NewOnDiskDB(cfg), t)
 	})
-
 	t.Run("In-memory KV Store for actions", func(t *testing.T) {
 		testActionsDao(db.NewMemKVStore(), t)
 	})
-
 	t.Run("Bolt DB for actions", func(t *testing.T) {
 		testActionsDao(db.NewOnDiskDB(cfg), t)
 	})
-
 	t.Run("In-memory KV Store deletions", func(t *testing.T) {
 		testDeleteDao(db.NewMemKVStore(), t)
 	})

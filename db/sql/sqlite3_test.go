@@ -14,13 +14,14 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 )
 
+const (
+	path = "explorer.db"
+)
+
 func TestSQLite3StorePutGet(t *testing.T) {
 	testRDSStorePutGet := TestStorePutGet
-
-	path := "test-kv-store"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
-
 	cfg := config.SQLITE3{
 		SQLite3File: testPath,
 	}
@@ -31,8 +32,6 @@ func TestSQLite3StorePutGet(t *testing.T) {
 
 func TestSQLite3StoreTransaction(t *testing.T) {
 	testSQLite3StoreTransaction := TestStoreTransaction
-
-	path := "explorer.db"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
 	cfg := config.SQLITE3{
