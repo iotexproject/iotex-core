@@ -8,6 +8,8 @@ package db
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,19 +58,19 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path := "test-kv-store.bolt"
-	cfg.DbPath = path
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-kv-store.badger"
-	cfg.DbPath = path
+	testBadgerFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testBadgerPath := testBadgerFile.Name()
+	cfg.DbPath = testBadgerPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 }
@@ -118,19 +120,19 @@ func TestBatchRollback(t *testing.T) {
 	}
 
 	path := "test-batch-rollback.bolt"
-	cfg.DbPath = path
+	testBoltFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testBoltPath := testBoltFile.Name()
+	cfg.DbPath = testBoltPath
 	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-batch-rollback.badger"
-	cfg.DbPath = path
+	testBadgerFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testBadgerPath := testBadgerFile.Name()
+	cfg.DbPath = testBadgerPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
