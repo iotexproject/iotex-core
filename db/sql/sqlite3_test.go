@@ -7,6 +7,8 @@
 package sql
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -16,13 +18,14 @@ import (
 func TestSQLite3StorePutGet(t *testing.T) {
 	testRDSStorePutGet := TestStorePutGet
 
-	path := "explorer.db"
+	path := "test-kv-store"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+
 	cfg := config.SQLITE3{
-		SQLite3File: path,
+		SQLite3File: testPath,
 	}
 	t.Run("SQLite3 Store", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testRDSStorePutGet(NewSQLite3(cfg), t)
 	})
 }
