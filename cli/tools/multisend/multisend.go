@@ -32,8 +32,13 @@ func main() {
 var rootCmd = &cobra.Command{
 	Use:  "multisend [command]",
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(multiSend(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		output, err := multiSend(args)
+		if err != nil {
+			return err
+		}
+		fmt.Println(output)
+		return nil
 	},
 }
 
@@ -55,33 +60,33 @@ type target struct {
 	Amount    string `json:"amount"`
 }
 
-func multiSend(args []string) string {
+func multiSend(args []string) (string, error) {
 	var targetSet targets
 	if err := json.Unmarshal([]byte(args[0]), &targetSet); err != nil {
-		return err.Error()
+		return "", err
 	}
 	recipients := make([]common.Address, 0)
 	amounts := make([]*big.Int, 0)
 	for _, target := range targetSet.Targets {
 		recipient, err := util.IoAddrToEvmAddr(target.Recipient)
 		if err != nil {
-			return err.Error()
+			return "", err
 		}
-		recipients = append(recipients, common.BytesToAddress(recipient))
+		recipients = append(recipients, recipient)
 		amount, ok := big.NewInt(0).SetString(target.Amount, 10)
 		if !ok {
-			return "failed to convert string to big int"
+			return "", fmt.Errorf("failed to convert string to big int")
 		}
 		amounts = append(amounts, amount)
 	}
 	reader := strings.NewReader(abiJSON)
 	multisendABI, err := abi.JSON(reader)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	bytecode, err := multisendABI.Pack(abiFunc, recipients, amounts)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
-	return hex.EncodeToString(bytecode)
+	return hex.EncodeToString(bytecode), nil
 }
