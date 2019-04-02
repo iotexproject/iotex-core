@@ -125,6 +125,7 @@ func TestBatchRollback(t *testing.T) {
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
@@ -134,6 +135,7 @@ func TestBatchRollback(t *testing.T) {
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, path)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
