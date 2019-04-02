@@ -12,6 +12,7 @@ import (
 	"math/big"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
@@ -48,6 +49,10 @@ func reward(args []string) string {
 	}
 	response, err := cli.ReadState(ctx, request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return sta.Message()
+		}
 		return err.Error()
 	}
 	rewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)

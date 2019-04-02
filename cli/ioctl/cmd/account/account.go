@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
@@ -45,6 +46,7 @@ func init() {
 	AccountCmd.AddCommand(accountCreateCmd)
 	AccountCmd.AddCommand(accountCreateAddCmd)
 	AccountCmd.AddCommand(accountDeleteCmd)
+	AccountCmd.AddCommand(accountExportCmd)
 	AccountCmd.AddCommand(accountImportCmd)
 	AccountCmd.AddCommand(accountListCmd)
 	AccountCmd.AddCommand(accountNonceCmd)
@@ -85,6 +87,10 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	request := iotexapi.GetAccountRequest{Address: addr}
 	response, err := cli.GetAccount(ctx, &request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, fmt.Errorf(sta.Message())
+		}
 		return nil, err
 	}
 	return response.AccountMeta, nil

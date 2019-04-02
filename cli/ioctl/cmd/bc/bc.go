@@ -8,8 +8,10 @@ package bc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -40,6 +42,10 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 	ctx := context.Background()
 	response, err := cli.GetChainMeta(ctx, &request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, fmt.Errorf(sta.Message())
+		}
 		return nil, err
 	}
 	return response.ChainMeta, nil

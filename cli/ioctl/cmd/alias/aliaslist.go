@@ -8,6 +8,7 @@ package alias
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -27,8 +28,13 @@ var aliasListCmd = &cobra.Command{
 
 func aliasList() string {
 	lines := make([]string, 0)
-	for alias, addr := range config.ReadConfig.Aliases {
-		lines = append(lines, addr+" - "+alias)
+	var keys []string
+	for alias := range config.ReadConfig.Aliases {
+		keys = append(keys, alias)
+	}
+	sort.Strings(keys)
+	for _, alias := range keys {
+		lines = append(lines, config.ReadConfig.Aliases[alias]+" - "+alias)
 	}
 	return strings.Join(lines, "\n")
 }

@@ -19,7 +19,7 @@ var (
 
 // UpdateCmd represents the update command
 var UpdateCmd = &cobra.Command{
-	Use:   "update",
+	Use:   "update [-t version-type]",
 	Short: "Update ioctl with latest version",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -28,8 +28,8 @@ var UpdateCmd = &cobra.Command{
 }
 
 func init() {
-	UpdateCmd.Flags().StringVarP(&versionType, "versionType", "t", "stable",
-		"set version type, \"stable\" or \"unstable\"")
+	UpdateCmd.Flags().StringVarP(&versionType, "version-type", "t", "stable",
+		`set version type, "stable" or "unstable"`)
 }
 
 func update() string {
