@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/pkg/hash"
+
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
@@ -310,24 +312,29 @@ var (
 	}
 
 	getReceiptByActionTests = []struct {
-		in     string
-		status uint64
+		in        string
+		status    uint64
+		blkHeight uint64
 	}{
 		{
 			hex.EncodeToString(transferHash1[:]),
 			action.SuccessReceiptStatus,
+			1,
 		},
 		{
 			hex.EncodeToString(voteHash1[:]),
 			action.SuccessReceiptStatus,
+			2,
 		},
 		{
 			hex.EncodeToString(executionHash2[:]),
 			action.SuccessReceiptStatus,
+			2,
 		},
 		{
 			hex.EncodeToString(executionHash3[:]),
 			action.SuccessReceiptStatus,
+			4,
 		},
 	}
 
@@ -793,8 +800,10 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
 		res, err := svr.GetReceiptByAction(context.Background(), request)
 		require.NoError(err)
-		receiptPb := res.Receipt
+		receiptPb := res.ReceiptInfo.Receipt
 		require.Equal(test.status, receiptPb.Status)
+		require.Equal(test.blkHeight, receiptPb.BlkHeight)
+		require.NotEqual(hash.ZeroHash256, res.ReceiptInfo.BlkHash)
 	}
 }
 

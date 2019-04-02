@@ -52,7 +52,7 @@ func (p *Protocol) handleDeposit(
 	if err != nil {
 		return nil, err
 	}
-	return p.mutateDeposit(raCtx.Caller, deposit, account, subChainInOp, sm)
+	return p.mutateDeposit(raCtx.Caller, raCtx.BlockHeight, deposit, account, subChainInOp, sm)
 }
 
 func (p *Protocol) validateDeposit(
@@ -81,6 +81,7 @@ func (p *Protocol) validateDeposit(
 
 func (p *Protocol) mutateDeposit(
 	caller address.Address,
+	blkHeight uint64,
 	deposit *action.CreateDeposit,
 	acct *state.Account,
 	subChainInOp InOperation,
@@ -134,7 +135,8 @@ func (p *Protocol) mutateDeposit(
 	receipt := action.Receipt{
 		ReturnValue:     value[:],
 		Status:          0,
-		ActHash:         deposit.Hash(),
+		BlockHeight:     blkHeight,
+		ActionHash:      deposit.Hash(),
 		GasConsumed:     gas,
 		ContractAddress: addr.String(),
 	}
