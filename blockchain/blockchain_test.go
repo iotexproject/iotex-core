@@ -521,9 +521,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	height, err = bc.GetHeightByHash(hash1)
 	require.NoError(err)
 	require.Equal(uint64(1), height)
-	blk, err := bc.GetBlockByHash(hash1)
+	header, err := bc.BlockHeaderByHash(hash1)
 	require.NoError(err)
-	require.Equal(hash1, blk.HashBlock())
+	require.Equal(hash1, header.HashBlock())
 	fmt.Printf("block 1 hash = %x\n", hash1)
 
 	hash2, err := bc.GetHashByHeight(2)
@@ -531,9 +531,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	height, err = bc.GetHeightByHash(hash2)
 	require.NoError(err)
 	require.Equal(uint64(2), height)
-	blk, err = bc.GetBlockByHash(hash2)
+	header, err = bc.BlockHeaderByHash(hash2)
 	require.NoError(err)
-	require.Equal(hash2, blk.HashBlock())
+	require.Equal(hash2, header.HashBlock())
 	fmt.Printf("block 2 hash = %x\n", hash2)
 
 	hash3, err := bc.GetHashByHeight(3)
@@ -541,9 +541,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	height, err = bc.GetHeightByHash(hash3)
 	require.NoError(err)
 	require.Equal(uint64(3), height)
-	blk, err = bc.GetBlockByHash(hash3)
+	header, err = bc.BlockHeaderByHash(hash3)
 	require.NoError(err)
-	require.Equal(hash3, blk.HashBlock())
+	require.Equal(hash3, header.HashBlock())
 	fmt.Printf("block 3 hash = %x\n", hash3)
 
 	hash4, err := bc.GetHashByHeight(4)
@@ -551,9 +551,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	height, err = bc.GetHeightByHash(hash4)
 	require.NoError(err)
 	require.Equal(uint64(4), height)
-	blk, err = bc.GetBlockByHash(hash4)
+	header, err = bc.BlockHeaderByHash(hash4)
 	require.NoError(err)
-	require.Equal(hash4, blk.HashBlock())
+	require.Equal(hash4, header.HashBlock())
 	fmt.Printf("block 4 hash = %x\n", hash4)
 
 	hash5, err := bc.GetHashByHeight(5)
@@ -561,25 +561,25 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	height, err = bc.GetHeightByHash(hash5)
 	require.NoError(err)
 	require.Equal(uint64(5), height)
-	blk, err = bc.GetBlockByHash(hash5)
+	header, err = bc.BlockHeaderByHash(hash5)
 	require.NoError(err)
-	require.Equal(hash5, blk.HashBlock())
+	require.Equal(hash5, header.HashBlock())
 	fmt.Printf("block 5 hash = %x\n", hash5)
 
 	empblk, err := bc.GetBlockByHash(hash.ZeroHash256)
 	require.Nil(empblk)
 	require.NotNil(err.Error())
 
-	blk, err = bc.GetBlockByHeight(60000)
-	require.Nil(blk)
+	header, err = bc.BlockHeaderByHeight(60000)
+	require.Nil(header)
 	require.Error(err)
 
 	// add wrong blocks
 	h := bc.TipHeight()
 	blkhash := bc.TipHash()
-	blk, err = bc.GetBlockByHeight(h)
+	header, err = bc.BlockHeaderByHeight(h)
 	require.NoError(err)
-	require.Equal(blkhash, blk.HashBlock())
+	require.Equal(blkhash, header.HashBlock())
 	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 
 	// add block with wrong height
@@ -595,7 +595,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 	err = bc.ValidateBlock(&nblk)
 	require.Error(err)
-	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
+	fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
 	// add block with zero prev hash
 	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
@@ -609,19 +609,19 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk)
 	require.Error(err)
-	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
+	fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
 	// add existing block again will have no effect
-	blk, err = bc.GetBlockByHeight(3)
+	blk, err := bc.GetBlockByHeight(3)
 	require.NotNil(blk)
 	require.NoError(err)
 	require.NoError(bc.(*blockchain).commitBlock(blk))
 	fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 	// check all Tx from block 4
-	blk, err = bc.GetBlockByHeight(5)
+	header, err = bc.BlockHeaderByHeight(5)
 	require.NoError(err)
-	require.Equal(hash5, blk.HashBlock())
+	require.Equal(hash5, header.HashBlock())
 	_, err = bc.StateByAddr("")
 	require.Error(err)
 }

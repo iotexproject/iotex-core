@@ -286,10 +286,10 @@ func TestBlockEpochReward(t *testing.T) {
 				//add expected block/epoch reward
 				for h := preExpectHigh + 1; h <= curHigh; h++ {
 					//Add block reward to current block producer
-					blk, err := chains[0].GetBlockByHeight(h)
+					header, err := chains[0].BlockHeaderByHeight(h)
 					require.NoError(t, err)
-					exptUnclaimed[getRewardAddStr[blk.ProducerAddress()]] =
-						big.NewInt(0).Add(exptUnclaimed[getRewardAddStr[blk.ProducerAddress()]], blockReward)
+					exptUnclaimed[getRewardAddStr[header.ProducerAddress()]] =
+						big.NewInt(0).Add(exptUnclaimed[getRewardAddStr[header.ProducerAddress()]], blockReward)
 
 					//update Epoch rewards
 					epochNum := h / blocksPerEpoch

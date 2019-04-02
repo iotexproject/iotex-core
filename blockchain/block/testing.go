@@ -103,7 +103,9 @@ func NewBlockDeprecated(
 			txRoot:        hash.ZeroHash256,
 			receiptRoot:   hash.ZeroHash256,
 		},
-		Actions: actions,
+		Body: Body{
+			Actions: actions,
+		},
 	}
 
 	block.Header.txRoot = block.CalculateTxRoot()
