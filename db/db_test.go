@@ -63,6 +63,8 @@ func TestKVStorePutGet(t *testing.T) {
 	testPath := testFile.Name()
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 
@@ -134,8 +136,6 @@ func TestBatchRollback(t *testing.T) {
 	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
@@ -261,8 +261,6 @@ func TestDBBatch(t *testing.T) {
 	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
@@ -313,6 +311,8 @@ func TestCacheKV(t *testing.T) {
 	testPath := testFile.Name()
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
 		testFunc(NewOnDiskDB(cfg), t)
 	})
 
