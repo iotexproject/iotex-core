@@ -124,7 +124,7 @@ type boltDB struct {
 	numRetries uint8
 }
 
-// NewBoltDB creates a new boltdb
+// NewBoltDB creates a new boltDB
 func NewBoltDB(cfg Config) KVStoreWithNamespace {
 	return &boltDB{
 		numRetries: cfg.NumOfRetries,

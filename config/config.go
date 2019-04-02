@@ -101,7 +101,7 @@ var (
 			EmptyGenesis:    false,
 			GravityChainDB:  DB{DbPath: "./poll.db", NumRetries: 10},
 			Committee: committee.Config{
-				BeaconChainAPIs: []string{},
+				GravityChainAPIs: []string{},
 			},
 			EnableFallBackToFreshDB: false,
 			EnableTrielessStateDB:   true,
