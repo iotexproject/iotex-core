@@ -89,18 +89,23 @@ func (p *Protocol) Handle(
 		switch act.RewardType() {
 		case action.BlockReward:
 			si := sm.Snapshot()
-			if err := p.GrantBlockReward(ctx, sm); err != nil {
+			rewardLog, err := p.GrantBlockReward(ctx, sm)
+			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
 				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 			}
-			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
+			if rewardLog == nil {
+				return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
+			}
+			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si, rewardLog)
 		case action.EpochReward:
 			si := sm.Snapshot()
-			if err := p.GrantEpochReward(ctx, sm); err != nil {
+			rewardLogs, err := p.GrantEpochReward(ctx, sm)
+			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
 				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
 			}
-			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
+			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si, rewardLogs...)
 		}
 	}
 	return nil, nil
@@ -161,6 +166,7 @@ func (p *Protocol) settleAction(
 	sm protocol.StateManager,
 	status uint64,
 	si int,
+	logs ...*action.Log,
 ) (*action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if status == action.FailureReceiptStatus {
@@ -175,7 +181,7 @@ func (p *Protocol) settleAction(
 	if err := p.increaseNonce(sm, raCtx.Caller, raCtx.Nonce); err != nil {
 		return nil, err
 	}
-	return p.createReceipt(status, raCtx.ActionHash, raCtx.IntrinsicGas), nil
+	return p.createReceipt(status, raCtx.ActionHash, raCtx.IntrinsicGas, logs...), nil
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
@@ -190,7 +196,12 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 	return accountutil.StoreAccount(sm, addr.String(), acc)
 }
 
-func (p *Protocol) createReceipt(status uint64, actHash hash.Hash256, gasConsumed uint64) *action.Receipt {
+func (p *Protocol) createReceipt(
+	status uint64,
+	actHash hash.Hash256,
+	gasConsumed uint64,
+	logs ...*action.Log,
+) *action.Receipt {
 	// TODO: need to review the fields
 	return &action.Receipt{
 		ReturnValue:     nil,
@@ -198,6 +209,6 @@ func (p *Protocol) createReceipt(status uint64, actHash hash.Hash256, gasConsume
 		ActHash:         actHash,
 		GasConsumed:     gasConsumed,
 		ContractAddress: p.addr.String(),
-		Logs:            nil,
+		Logs:            logs,
 	}
 }
