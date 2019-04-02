@@ -37,11 +37,16 @@ message BlockFooter {
   google.protobuf.Timestamp timestamp = 2;
 }
 
+// body of a block
+message BlockBody {
+  repeated Action actions = 1;
+}
+
 // block consists of header followed by transactions
 // hash of current block can be computed from header hence not stored
 message Block {
   BlockHeader header = 1;
-  repeated Action actions = 2;
+  BlockBody body = 2;
   BlockFooter footer = 3;
 }
 

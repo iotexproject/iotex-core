@@ -12,7 +12,9 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -61,7 +63,8 @@ func getBlock(args []string) string {
 		fmt.Sprintf("Height: %d\n", blockMeta.Height) +
 		fmt.Sprintf("Total Amount: %s\n", blockMeta.TransferAmount) +
 		fmt.Sprintf("Timestamp: %d\n", blockMeta.Timestamp) +
-		fmt.Sprintf("Producer Public Key: %s\n", blockMeta.ProducerAddress) +
+		fmt.Sprintf("Producer Address: %s %s\n", blockMeta.ProducerAddress,
+			action.Match(blockMeta.ProducerAddress, "address")) +
 		fmt.Sprintf("Transactions Root: %s\n", blockMeta.TxRoot) +
 		fmt.Sprintf("Receipt Root: %s\n", blockMeta.ReceiptRoot) +
 		fmt.Sprintf("Delta State Digest: %s\n", blockMeta.DeltaStateDigest) +
@@ -87,6 +90,10 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	ctx := context.Background()
 	response, err := cli.GetBlockMetas(ctx, request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, fmt.Errorf(sta.Message())
+		}
 		return nil, err
 	}
 	if len(response.BlkMetas) == 0 {
@@ -111,6 +118,10 @@ func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	ctx := context.Background()
 	response, err := cli.GetBlockMetas(ctx, request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, fmt.Errorf(sta.Message())
+		}
 		return nil, err
 	}
 	if len(response.BlkMetas) == 0 {

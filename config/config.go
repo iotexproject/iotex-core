@@ -133,9 +133,11 @@ var (
 			},
 		},
 		BlockSync: BlockSync{
-			Interval:     10 * time.Second,
-			BufferSize:   50,
-			IntervalSize: 10,
+			Interval:        10 * time.Second,
+			BufferSize:      100,
+			IntervalSize:    10,
+			MaxRepeat:       3,
+			RepeatDecayStep: 1,
 		},
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
@@ -210,6 +212,9 @@ type (
 		ExternalPort   int      `yaml:"externalPort"`
 		BootstrapNodes []string `yaml:"bootstrapNodes"`
 		MasterKey      string   `yaml:"masterKey"` // master key will be PrivateKey if not set.
+		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
+		// are supported: active, nat.
+		RelayType string `yaml:"relayType"`
 	}
 
 	// Chain is the config struct for blockchain package
@@ -247,6 +252,10 @@ type (
 		Interval     time.Duration `yaml:"interval"` // update duration
 		BufferSize   uint64        `yaml:"bufferSize"`
 		IntervalSize uint64        `yaml:"intervalSize"`
+		// MaxRepeat is the maximal number of repeat of a block sync request
+		MaxRepeat int `yaml:"maxRepeat"`
+		// RepeatDecayStep is the step for repeat number decreasing by 1
+		RepeatDecayStep int `yaml:"repeatDecayStep"`
 	}
 
 	// RollDPoS is the config struct for RollDPoS consensus package
