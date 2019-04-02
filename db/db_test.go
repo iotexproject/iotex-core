@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var (
@@ -128,8 +127,8 @@ func TestBatchRollback(t *testing.T) {
 		}
 		testPath := testFile.Name()
 		cfg.DbPath = testPath
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
+		//testutil.CleanupPath(t, testPath)
+		//defer testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
