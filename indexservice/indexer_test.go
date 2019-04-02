@@ -9,6 +9,8 @@ package indexservice
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes"
@@ -22,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/test/testaddress"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
@@ -202,10 +203,13 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 }
 
 func TestIndexServiceOnSqlite3(t *testing.T) {
+	path := "explorer.db"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg := config.Default.DB
+	cfg.SQLITE3.SQLite3File = testPath
 	t.Run("Indexer", func(t *testing.T) {
-		testutil.CleanupPath(t, config.Default.DB.SQLITE3.SQLite3File)
-		defer testutil.CleanupPath(t, config.Default.DB.SQLITE3.SQLite3File)
-		testSQLite3StorePutGet(sql.NewSQLite3(config.Default.DB.SQLITE3), t)
+		testSQLite3StorePutGet(sql.NewSQLite3(cfg.SQLITE3), t)
 	})
 }
 

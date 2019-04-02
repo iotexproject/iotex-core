@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
@@ -48,6 +49,10 @@ func version() string {
 	ctx := context.Background()
 	response, err := cli.GetServerMeta(ctx, request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return sta.Message()
+		}
 		return "failed to get version from server: " + err.Error()
 	}
 	return fmt.Sprintf("Server: %s\n%+v", config.ReadConfig.Endpoint, response.ServerMeta)

@@ -57,6 +57,10 @@ func getActionByHash(args []string) string {
 	}
 	response, err := cli.GetActions(ctx, &requestCheckPending)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return sta.Message()
+		}
 		return err.Error()
 	}
 	if len(response.ActionInfo) == 0 {
@@ -71,9 +75,11 @@ func getActionByHash(args []string) string {
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
-		status, ok := status.FromError(err)
-		if ok && status.Code() == codes.NotFound {
+		sta, ok := status.FromError(err)
+		if ok && sta.Code() == codes.NotFound {
 			return output + "\n#This action is pending"
+		} else if ok {
+			return sta.Message()
 		}
 		return fmt.Sprintln(output) + err.Error()
 	}
@@ -128,15 +134,6 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
-	logs := make([]string, 0)
-	for _, l := range receipt.Logs {
-		log := fmt.Sprintf("#%d block:%d txHash:%s address:%s data:%s\n",
-			l.Index, l.BlockNumber, l.TxnHash, l.Address, l.Data)
-		for _, t := range l.Topics {
-			log += fmt.Sprintf("  %s\n", t)
-		}
-		logs = append(logs, log)
-	}
 	output := ""
 	if len(receipt.ReturnValue) != 0 {
 		output += fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue)
@@ -145,13 +142,11 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		// TODO: blkHash
-		fmt.Sprintf("gasConsumed: %d", receipt.GasConsumed)
+		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
+		fmt.Sprintf("logs: %d", len(receipt.Logs))
 	if len(receipt.ContractAddress) != 0 {
 		output += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
 			Match(receipt.ContractAddress, "address"))
-	}
-	if len(logs) != 0 {
-		output += fmt.Sprintf("\nlogs:\n%s", logs)
 	}
 	return output
 }
