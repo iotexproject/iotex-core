@@ -33,7 +33,7 @@ var (
 
 // nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
-	Use:   "delegate",
+	Use:   "delegate [-e epoch-num|-n]",
 	Short: "print consensus delegates information in certain epoch",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
