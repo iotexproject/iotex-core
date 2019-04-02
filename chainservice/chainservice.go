@@ -111,8 +111,8 @@ func New(
 	var electionCommittee committee.Committee
 	if cfg.Genesis.EnableGravityChainVoting {
 		committeeConfig := cfg.Chain.Committee
-		committeeConfig.BeaconChainStartHeight = cfg.Genesis.GravityChainStartHeight
-		committeeConfig.BeaconChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
+		committeeConfig.GravityChainStartHeight = cfg.Genesis.GravityChainStartHeight
+		committeeConfig.GravityChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
 		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
@@ -121,7 +121,7 @@ func New(
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
 		kvstore := db.NewOnDiskDB(cfg.Chain.GravityChainDB)
-		if committeeConfig.BeaconChainStartHeight != 0 {
+		if committeeConfig.GravityChainStartHeight != 0 {
 			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
 				kvstore,
 				committeeConfig,

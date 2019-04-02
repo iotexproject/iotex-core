@@ -303,7 +303,7 @@
   version = "v0.2.2"
 
 [[projects]]
-  digest = "1:964ac86c1fd96ae838081062b32a3db466c0e6eaea41b6de4aac5a23e4a096c9"
+  digest = "1:706a64a2e4ae89a9a1ea27eaa2ba8ee6efece484b7fe58d015996d67025dfcdd"
   name = "github.com/iotexproject/iotex-election"
   packages = [
     "carrier",
@@ -316,8 +316,8 @@
     "util",
   ]
   pruneopts = "UT"
-  revision = "718d809a98aecb004f1f7440b27adb23aa22a92b"
-  version = "v0.1.3"
+  revision = "b2877eb003e57ff661efc14e7fe57a3d288c1869"
+  version = "v0.1.6"
 
 [[projects]]
   digest = "1:ff780041e005869242b2cf977f1d4fa3b8f9bdd302fd254b4a19f78502a6ee10"
@@ -1390,6 +1390,7 @@
     "github.com/coopernurse/barrister-go",
     "github.com/dgraph-io/badger",
     "github.com/ethereum/go-ethereum/accounts",
+    "github.com/ethereum/go-ethereum/accounts/abi",
     "github.com/ethereum/go-ethereum/accounts/keystore",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/math",
@@ -1399,6 +1400,7 @@
     "github.com/ethereum/go-ethereum/params",
     "github.com/facebookgo/clock",
     "github.com/go-sql-driver/mysql",
+    "github.com/gogo/protobuf/proto",
     "github.com/golang/groupcache/lru",
     "github.com/golang/mock/gomock",
     "github.com/golang/protobuf/jsonpb",
