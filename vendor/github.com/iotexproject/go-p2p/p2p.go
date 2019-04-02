@@ -17,6 +17,7 @@ import (
 	host "github.com/libp2p/go-libp2p-host"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	net "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -406,12 +407,17 @@ func (h *Host) Info() peerstore.PeerInfo {
 // Neighbors returns the closest peer addresses
 func (h *Host) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 	peers := h.host.Peerstore().Peers()
-	neighbors := make([]peerstore.PeerInfo, 0)
-	for _, peer := range peers {
-		if peer == h.host.ID() {
+	dedupedPeers := make(map[string]peer.ID)
+	for _, p := range peers {
+		idStr := p.Pretty()
+		if idStr == h.host.ID().Pretty() || idStr == "" {
 			continue
 		}
-		neighbors = append(neighbors, h.kad.FindLocal(peer))
+		dedupedPeers[idStr] = p
+	}
+	neighbors := make([]peerstore.PeerInfo, 0)
+	for _, p := range dedupedPeers {
+		neighbors = append(neighbors, h.kad.FindLocal(p))
 	}
 	return neighbors, nil
 }
