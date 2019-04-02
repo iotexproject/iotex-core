@@ -8,6 +8,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -120,7 +121,11 @@ func TestBatchRollback(t *testing.T) {
 
 	path := "test-batch-rollback.bolt"
 	t.Run("Bolt DB", func(t *testing.T) {
-		testFile, _ := ioutil.TempFile(os.TempDir(), path)
+		testFile, err := ioutil.TempFile(os.TempDir(), path)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 		testPath := testFile.Name()
 		cfg.DbPath = testPath
 		testutil.CleanupPath(t, testPath)
