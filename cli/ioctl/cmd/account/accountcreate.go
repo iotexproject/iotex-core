@@ -54,7 +54,7 @@ func accountCreate() (string, error) {
 	for i := 0; i < int(numAccounts); i++ {
 		private, err := keypair.GenerateKey()
 		if err != nil {
-			log.L().Fatal("failed to create key pair", zap.Error(err))
+			return "", err
 		}
 		addr, err := address.FromBytes(private.PublicKey().Hash())
 		if err != nil {
