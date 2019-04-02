@@ -46,6 +46,7 @@ PackageFlags += -X '$(VersionImportPath).PackageCommitID=$(PACKAGE_COMMIT_ID)'
 PackageFlags += -X '$(VersionImportPath).GitStatus=$(GIT_STATUS)'
 PackageFlags += -X '$(VersionImportPath).GoVersion=$(GO_VERSION)'
 PackageFlags += -X '$(VersionImportPath).BuildTime=$(BUILD_TIME)'
+PackageFlags += -s -w
 
 TEST_IGNORE= ".git,vendor"
 COV_OUT := profile.coverprofile
