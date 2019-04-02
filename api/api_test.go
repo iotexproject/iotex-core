@@ -634,9 +634,9 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 	require.NoError(err)
 
 	for _, test := range getActionsByBlockTests {
-		blk, err := svr.bc.GetBlockByHeight(test.blkHeight)
+		header, err := svr.bc.BlockHeaderByHeight(test.blkHeight)
 		require.NoError(err)
-		blkHash := blk.HashBlock()
+		blkHash := header.HashBlock()
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByBlk{
 				ByBlk: &iotexapi.GetActionsByBlockRequest{
@@ -689,9 +689,9 @@ func TestServer_GetBlockMeta(t *testing.T) {
 	require.NoError(err)
 
 	for _, test := range getBlockMetaTests {
-		blk, err := svr.bc.GetBlockByHeight(test.blkHeight)
+		header, err := svr.bc.BlockHeaderByHeight(test.blkHeight)
 		require.NoError(err)
-		blkHash := blk.HashBlock()
+		blkHash := header.HashBlock()
 		request := &iotexapi.GetBlockMetasRequest{
 			Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
 				ByHash: &iotexapi.GetBlockMetaByHashRequest{

@@ -9,6 +9,7 @@ package block
 import (
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -74,4 +75,22 @@ func (f *Footer) CommitTime() time.Time {
 // Endorsements returns the number of commit endorsements froms delegates
 func (f *Footer) Endorsements() []*endorsement.Endorsement {
 	return f.endorsements
+}
+
+// Serialize returns the serialized byte stream of the block footer
+func (f *Footer) Serialize() ([]byte, error) {
+	pb, err := f.ConvertToBlockFooterPb()
+	if err != nil {
+		return nil, err
+	}
+	return proto.Marshal(pb)
+}
+
+// Deserialize loads from the serialized byte stream
+func (f *Footer) Deserialize(buf []byte) error {
+	pb := &iotextypes.BlockFooter{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return err
+	}
+	return f.ConvertFromBlockFooterPb(pb)
 }
