@@ -8,10 +8,11 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/iotexproject/iotex-core/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,18 +59,18 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path := "test-kv-store.bolt"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
-		testFile, _ := ioutil.TempFile(os.TempDir(), path)
-		testPath := testFile.Name()
-		cfg.DbPath = testPath
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-kv-store.badger"
+	testPath, _ = ioutil.TempDir(os.TempDir(), path)
+	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testPath, _ := ioutil.TempDir(os.TempDir(), path)
-		cfg.DbPath = testPath
 		testKVStorePutGet(NewOnDiskDB(cfg), t)
 	})
 }
@@ -119,24 +120,22 @@ func TestBatchRollback(t *testing.T) {
 	}
 
 	path := "test-batch-rollback.bolt"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
-		testFile, err := ioutil.TempFile(os.TempDir(), path)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		testPath := testFile.Name()
-		cfg.DbPath = testPath
-		//testutil.CleanupPath(t, testPath)
-		//defer testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-batch-rollback.badger"
+	testPath, _ = ioutil.TempDir(os.TempDir(), path)
+	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testPath2, _ := ioutil.TempDir(os.TempDir(), path)
-		cfg.DbPath = testPath2
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
@@ -248,18 +247,22 @@ func TestDBBatch(t *testing.T) {
 	}
 
 	path := "test-batch-commit.bolt"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
-		testFile, _ := ioutil.TempFile(os.TempDir(), path)
-		testPath := testFile.Name()
-		cfg.DbPath = testPath
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-batch-commit.badger"
+	testPath, _ = ioutil.TempDir(os.TempDir(), path)
+	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testPath, _ := ioutil.TempDir(os.TempDir(), path)
-		cfg.DbPath = testPath
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
@@ -306,18 +309,18 @@ func TestCacheKV(t *testing.T) {
 	})
 
 	path := "test-cache-kv.bolt"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
-		testFile, _ := ioutil.TempFile(os.TempDir(), path)
-		testPath := testFile.Name()
-		cfg.DbPath = testPath
 		testFunc(NewOnDiskDB(cfg), t)
 	})
 
 	path = "test-cache-kv.badger"
+	testPath, _ = ioutil.TempDir(os.TempDir(), path)
+	cfg.DbPath = testPath
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		testPath, _ := ioutil.TempDir(os.TempDir(), path)
-		cfg.DbPath = testPath
 		testFunc(NewOnDiskDB(cfg), t)
 	})
 }
