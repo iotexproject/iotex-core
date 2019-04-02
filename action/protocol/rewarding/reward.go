@@ -13,6 +13,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
@@ -65,17 +66,17 @@ func (a *rewardAccount) Deserialize(data []byte) error {
 func (p *Protocol) GrantBlockReward(
 	ctx context.Context,
 	sm protocol.StateManager,
-) error {
+) (*action.Log, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Get the reward address for the block producer
 	epochNum := p.rp.GetEpochNum(raCtx.BlockHeight)
 	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	producerAddrStr := raCtx.Producer.String()
 	rewardAddrStr := ""
@@ -88,68 +89,107 @@ func (p *Protocol) GrantBlockReward(
 	// If reward address doesn't exist, do nothing
 	if rewardAddrStr == "" {
 		log.S().Warnf("Producer %s doesn't have a reward address", producerAddrStr)
-		return nil
+		return nil, nil
 	}
 	rewardAddr, err := address.FromString(rewardAddrStr)
 
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
-		return err
+		return nil, err
 	}
 	if err := p.updateAvailableBalance(sm, a.blockReward); err != nil {
-		return err
+		return nil, err
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := p.grantToAccount(sm, rewardAddr, a.blockReward); err != nil {
-		return err
+		return nil, err
 	}
-	return p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight)
+	if err := p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
+		return nil, err
+	}
+	rewardLog := rewardingpb.RewardLog{
+		Type:   rewardingpb.RewardLog_BLOCK_REWARD,
+		Addr:   rewardAddrStr,
+		Amount: a.blockReward.String(),
+	}
+	data, err := proto.Marshal(&rewardLog)
+	if err != nil {
+		return nil, err
+	}
+	return &action.Log{
+		Address:     p.addr.String(),
+		Topics:      nil,
+		Data:        data,
+		BlockNumber: raCtx.BlockHeight,
+		TxnHash:     raCtx.ActionHash,
+	}, nil
 }
 
 // GrantEpochReward grants the epoch reward (token) to all beneficiaries of a epoch
 func (p *Protocol) GrantEpochReward(
 	ctx context.Context,
 	sm protocol.StateManager,
-) error {
+) ([]*action.Log, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	epochNum := p.rp.GetEpochNum(raCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
-		return err
+		return nil, err
 	}
 	if err := p.assertLastBlockInEpoch(raCtx.BlockHeight, epochNum); err != nil {
-		return err
+		return nil, err
 	}
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
-		return err
+		return nil, err
 	}
 	// We need to consistently use the votes on of first block height in this epoch
 	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Get unqualified delegate list
 	uqd, err := p.unqualifiedDelegates(raCtx.Producer, epochNum, a.productivityThreshold)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward, uqd)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	actualTotalReward := big.NewInt(0)
+	rewardLogs := make([]*action.Log, 0)
 	for i := range addrs {
 		// If reward address doesn't exist, do nothing
 		if addrs[i] == nil {
 			continue
 		}
-		if err := p.grantToAccount(sm, addrs[i], amounts[i]); err != nil {
-			return err
+		// If 0 epoch reward due to low productivity, do nothing
+		if amounts[i].Cmp(big.NewInt(0)) == 0 {
+			continue
 		}
+		if err := p.grantToAccount(sm, addrs[i], amounts[i]); err != nil {
+			return nil, err
+		}
+		rewardLog := rewardingpb.RewardLog{
+			Type:   rewardingpb.RewardLog_EPOCH_REWARD,
+			Addr:   addrs[i].String(),
+			Amount: amounts[i].String(),
+		}
+		data, err := proto.Marshal(&rewardLog)
+		if err != nil {
+			return nil, err
+		}
+		rewardLogs = append(rewardLogs, &action.Log{
+			Address:     p.addr.String(),
+			Topics:      nil,
+			Data:        data,
+			BlockNumber: raCtx.BlockHeight,
+			TxnHash:     raCtx.ActionHash,
+		})
 		actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
 	}
 
@@ -167,20 +207,39 @@ func (p *Protocol) GrantEpochReward(
 			}
 			rewardAddr, err := address.FromString(candidates[i].RewardAddress)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if err := p.grantToAccount(sm, rewardAddr, a.foundationBonus); err != nil {
-				return err
+				return nil, err
 			}
+			rewardLog := rewardingpb.RewardLog{
+				Type:   rewardingpb.RewardLog_FOUNDATION_BONUS,
+				Addr:   candidates[i].RewardAddress,
+				Amount: a.foundationBonus.String(),
+			}
+			data, err := proto.Marshal(&rewardLog)
+			if err != nil {
+				return nil, err
+			}
+			rewardLogs = append(rewardLogs, &action.Log{
+				Address:     p.addr.String(),
+				Topics:      nil,
+				Data:        data,
+				BlockNumber: raCtx.BlockHeight,
+				TxnHash:     raCtx.ActionHash,
+			})
 			actualTotalReward = big.NewInt(0).Add(actualTotalReward, a.foundationBonus)
 		}
 	}
 
 	// Update actual reward
 	if err := p.updateAvailableBalance(sm, actualTotalReward); err != nil {
-		return err
+		return nil, err
 	}
-	return p.updateRewardHistory(sm, epochRewardHistoryKeyPrefix, epochNum)
+	if err := p.updateRewardHistory(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
+		return nil, err
+	}
+	return rewardLogs, nil
 }
 
 // Claim claims the token from the rewarding fund

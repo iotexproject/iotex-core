@@ -256,6 +256,7 @@ func TestProtocol_Handle(t *testing.T) {
 	receipt, err := p.Handle(ctx, se.Action(), ws)
 	require.NoError(t, err)
 	assert.Equal(t, action.SuccessReceiptStatus, receipt.Status)
+	assert.Equal(t, 1, len(receipt.Logs))
 	// Grant the block reward again should fail
 	receipt, err = p.Handle(ctx, se.Action(), ws)
 	require.NoError(t, err)
