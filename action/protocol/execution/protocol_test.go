@@ -52,6 +52,7 @@ type execCfg struct {
 	gasPrice            int64
 	hasReturnValue      bool
 	expectedReturnValue interface{}
+	expectedGasConsumed uint64
 	expectedBalances    map[string]*big.Int
 }
 
@@ -89,7 +90,8 @@ func runExecution(
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
 		SetNonce(exec.Nonce()).
-		SetGasLimit(exec.GasLimit()).
+		SetGasLimit(ecfg.gasLimit).
+		SetGasPrice(big.NewInt(ecfg.gasPrice)).
 		Build()
 	selp, err := action.Sign(elp, ecfg.privateKey)
 	if err != nil {
@@ -168,6 +170,9 @@ func (sct *smartContractTest) deployContract(
 	r.NoError(err)
 	r.NotNil(receipt)
 	contractAddress := receipt.ContractAddress
+	if sct.deploy.expectedGasConsumed != 0 {
+		r.Equal(sct.deploy.expectedGasConsumed, receipt.GasConsumed)
+	}
 
 	ws, err := bc.GetFactory().NewWorkingSet()
 	r.NoError(err)
@@ -198,6 +203,9 @@ func (sct *smartContractTest) run(r *require.Assertions) {
 		r.NotNil(receipt)
 		if exec.hasReturnValue {
 			r.Equal(exec.expectedReturnValue, receipt.ReturnValue)
+		}
+		if exec.expectedGasConsumed != 0 {
+			r.Equal(exec.expectedGasConsumed, receipt.GasConsumed)
 		}
 		for addr, expectedBalance := range exec.expectedBalances {
 			balance, err := bc.Balance(addr)
@@ -949,5 +957,105 @@ func TestDelegateERC20(t *testing.T) {
 		},
 		executions: []execCfg{},
 	}
+	sct.run(require.New(t))
+}
+
+/*
+ * Source code: https://kovan.etherscan.io/address/0x81f85886749cbbf3c2ec742db7255c6b07c63c69
+ */
+func TestInfiniteLoop(t *testing.T) {
+	producer := testaddress.Addrinfo["producer"].String()
+	prvkey := testaddress.Keyinfo["producer"].PriKey
+	init := unit.ConvertIotxToRau(10)
+	// deploy cost 196971 gas
+	consume0 := uint64(196971)
+	a := big.NewInt(0).Sub(init, big.NewInt(int64(consume0)))
+	// 1st func invoke cost 34894 gas
+	consume1 := uint64(34894)
+	b := big.NewInt(0).Sub(a, big.NewInt(int64(consume1)))
+	// 2nd func invoke cost 15709 gas
+	consume2 := uint64(15709)
+	c := big.NewInt(0).Sub(b, big.NewInt(int64(consume2)))
+	// 3rd func invoke is infinite loop, should cost all 5000000 gas
+	consume3 := uint64(5000000)
+	d := big.NewInt(0).Sub(c, big.NewInt(int64(consume3)))
+
+	sct := &smartContractTest{
+		prepare: map[string]*big.Int{
+			producer: init,
+		},
+		deploy: execCfg{
+			codeHex:             "608060405234801561001057600080fd5b50610264806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680635bec9e671461005c57806360fe47b114610073578063c2bc2efc146100a0575b600080fd5b34801561006857600080fd5b506100716100f7565b005b34801561007f57600080fd5b5061009e60048036038101908080359060200190929190505050610143565b005b3480156100ac57600080fd5b506100e1600480360381019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610184565b6040518082815260200191505060405180910390f35b5b6001156101155760008081548092919060010191905055506100f8565b7f8bfaa460932ccf8751604dd60efa3eafa220ec358fccb32ef703f91c509bc3ea60405160405180910390a1565b806000819055507fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b816040518082815260200191505060405180910390a150565b60008073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff16141515156101c157600080fd5b7fbde7a70c2261170a87678200113c8e12f82f63d0a1d1cfa45681cbac328e87e382600054604051808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018281526020019250505060405180910390a160005490509190505600a165627a7a723058203431995c8cdf253ee2ba4d02ff0480cbff0908cb1ce19c626b6c4c61f69b054b0029",
+			executor:            producer,
+			privateKey:          prvkey,
+			amount:              0,
+			gasLimit:            uint64(5000000),
+			gasPrice:            1,
+			hasReturnValue:      false,
+			expectedGasConsumed: consume0,
+			expectedBalances: map[string]*big.Int{
+				producer: a,
+			},
+		},
+		executions: []execCfg{
+			func() execCfg {
+				// set x = 0x1f40
+				data, _ := hex.DecodeString("60fe47b1")
+				x := hash.BytesToHash256([]byte{0x1f, 0x40})
+				data = append(data, x[:]...)
+				return execCfg{
+					executor:            producer,
+					privateKey:          prvkey,
+					codeHex:             hex.EncodeToString(data),
+					amount:              0,
+					gasLimit:            uint64(1000000),
+					gasPrice:            1,
+					hasReturnValue:      false,
+					expectedGasConsumed: consume1,
+					expectedBalances: map[string]*big.Int{
+						producer: b,
+					},
+				}
+			}(),
+			func() execCfg {
+				data, _ := hex.DecodeString("c2bc2efc")
+				x := hash.BytesToHash256([]byte{0x01})
+				data = append(data, x[:]...)
+				// read and verify x = 0x1f40
+				retval, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000001f40")
+				return execCfg{
+					executor:            producer,
+					privateKey:          prvkey,
+					codeHex:             hex.EncodeToString(data),
+					amount:              0,
+					gasLimit:            uint64(1000000),
+					gasPrice:            1,
+					hasReturnValue:      true,
+					expectedReturnValue: retval,
+					expectedGasConsumed: consume2,
+					expectedBalances: map[string]*big.Int{
+						producer: c,
+					},
+				}
+			}(),
+			func() execCfg {
+				// enter infinite loop, test it can exit with all gas consumed
+				return execCfg{
+					executor:            producer,
+					privateKey:          prvkey,
+					codeHex:             "5bec9e67",
+					amount:              0,
+					gasLimit:            uint64(5000000),
+					gasPrice:            1,
+					hasReturnValue:      false,
+					expectedGasConsumed: consume3,
+					expectedBalances: map[string]*big.Int{
+						producer: d,
+					},
+				}
+			}(),
+		},
+	}
+
 	sct.run(require.New(t))
 }
