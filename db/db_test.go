@@ -12,6 +12,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/testutil"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -122,7 +124,7 @@ func TestBatchRollback(t *testing.T) {
 	testPath := testFile.Name()
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
-		//testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 
@@ -131,7 +133,7 @@ func TestBatchRollback(t *testing.T) {
 	cfg.DbPath = testPath2
 	cfg.UseBadgerDB = true
 	t.Run("Badger DB", func(t *testing.T) {
-		//testutil.CleanupPath(t, testPath)
+		testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
 }
