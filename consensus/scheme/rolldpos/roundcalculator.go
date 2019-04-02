@@ -127,8 +127,8 @@ func (c *roundCalculator) roundInfo(
 ) (roundNum uint32, roundStartTime time.Time, err error) {
 	lastBlockTime := time.Unix(c.chain.GenesisTimestamp(), 0)
 	if height > 1 {
-		var lastBlock *block.Block
-		if lastBlock, err = c.chain.GetBlockByHeight(height - 1); err != nil {
+		var lastBlock *block.Footer
+		if lastBlock, err = c.chain.BlockFooterByHeight(height - 1); err != nil {
 			return
 		}
 		lastBlockCommitTime := lastBlock.CommitTime()

@@ -159,21 +159,12 @@ func (exp *Service) GetReceiptByActionID(id string) (explorer.Receipt, error) {
 	}
 
 	// get receipt from indexer
-	blkHash, err := exp.idx.Indexer().GetBlockByIndex(config.IndexReceipt, actionHash)
-	if err != nil {
-		return explorer.Receipt{}, err
-	}
-	blk, err := exp.bc.GetBlockByHash(blkHash)
+	receipt, err := exp.bc.GetReceiptByActionHash(actionHash)
 	if err != nil {
 		return explorer.Receipt{}, err
 	}
 
-	for _, receipt := range blk.Receipts {
-		if receipt.Hash() == actionHash {
-			return convertReceiptToExplorerReceipt(receipt)
-		}
-	}
-	return explorer.Receipt{}, err
+	return convertReceiptToExplorerReceipt(receipt)
 }
 
 // GetCreateDeposit gets create deposit by ID
@@ -1010,7 +1001,7 @@ func getCreateDeposit(
 	if err != nil {
 		return explorer.CreateDeposit{}, err
 	}
-	blk, err := bc.GetBlockByHash(blkHash)
+	header, err := bc.BlockHeaderByHash(blkHash)
 	if err != nil {
 		return explorer.CreateDeposit{}, err
 	}
@@ -1019,7 +1010,7 @@ func getCreateDeposit(
 	if err != nil {
 		return explorer.CreateDeposit{}, err
 	}
-	cd.Timestamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp().GetSeconds()
+	cd.Timestamp = header.BlockHeaderProto().GetCore().GetTimestamp().GetSeconds()
 	cd.BlockID = hex.EncodeToString(blkHash[:])
 	return cd, nil
 }
@@ -1071,7 +1062,7 @@ func getSettleDeposit(
 	if err != nil {
 		return explorer.SettleDeposit{}, err
 	}
-	blk, err := bc.GetBlockByHash(blkHash)
+	header, err := bc.BlockHeaderByHash(blkHash)
 	if err != nil {
 		return explorer.SettleDeposit{}, err
 	}
@@ -1080,7 +1071,7 @@ func getSettleDeposit(
 	if err != nil {
 		return explorer.SettleDeposit{}, err
 	}
-	sd.Timestamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp().GetSeconds()
+	sd.Timestamp = header.BlockHeaderProto().GetCore().GetTimestamp().GetSeconds()
 	sd.BlockID = hex.EncodeToString(blkHash[:])
 	return sd, nil
 }
