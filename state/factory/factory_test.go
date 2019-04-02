@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -42,8 +43,10 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-const testTriePath = "trie.test"
-const testStateDBPath = "stateDB.test"
+const (
+	triePath    = "trie.test"
+	stateDBPath = "stateDB.test"
+)
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
@@ -65,8 +68,8 @@ func voteForm(height uint64, cs []*state.Candidate) []string {
 
 func TestSnapshot(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -83,8 +86,8 @@ func TestSnapshot(t *testing.T) {
 
 func TestSDBSnapshot(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testStateDBPath)
-	defer testutil.CleanupPath(t, testStateDBPath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testStateDBPath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testStateDBPath
@@ -180,8 +183,8 @@ func testCandidates(sf Factory, t *testing.T) {
 }
 
 func TestState(t *testing.T) {
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -191,11 +194,11 @@ func TestState(t *testing.T) {
 }
 
 func TestSDBState(t *testing.T) {
-	testutil.CleanupPath(t, testStateDBPath)
-	defer testutil.CleanupPath(t, testStateDBPath)
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Chain.TrieDBPath = testDBPath
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
 	testState(sdb, t)
@@ -253,8 +256,8 @@ func testState(sf Factory, t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -263,11 +266,11 @@ func TestNonce(t *testing.T) {
 	testNonce(sf, t)
 }
 func TestSDBNonce(t *testing.T) {
-	testutil.CleanupPath(t, testStateDBPath)
-	defer testutil.CleanupPath(t, testStateDBPath)
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Chain.TrieDBPath = testDBPath
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
 
@@ -325,8 +328,8 @@ func testNonce(sf Factory, t *testing.T) {
 }
 
 func TestUnvote(t *testing.T) {
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -336,10 +339,10 @@ func TestUnvote(t *testing.T) {
 }
 
 func TestSDBUnvote(t *testing.T) {
-	testutil.CleanupPath(t, testStateDBPath)
-	defer testutil.CleanupPath(t, testStateDBPath)
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBPath := testDBFile.Name()
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Chain.TrieDBPath = testDBPath
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
 	testUnvote(sdb, t)
@@ -449,8 +452,8 @@ func testUnvote(sf Factory, t *testing.T) {
 
 func TestLoadStoreHeight(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -463,11 +466,10 @@ func TestLoadStoreHeight(t *testing.T) {
 func TestLoadStoreHeightInMem(t *testing.T) {
 	require := require.New(t)
 
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
-
-	testutil.CleanupPath(t, testTriePath)
-	defer testutil.CleanupPath(t, testTriePath)
 	statefactory, err := NewFactory(cfg, InMemTrieOption())
 	require.NoError(err)
 	testLoadStoreHeight(statefactory, t)
@@ -475,11 +477,11 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 
 func TestSDBLoadStoreHeight(t *testing.T) {
 	require := require.New(t)
-	testutil.CleanupPath(t, testStateDBPath)
-	defer testutil.CleanupPath(t, testStateDBPath)
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Chain.TrieDBPath = testDBPath
 	db, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
 
@@ -489,11 +491,10 @@ func TestSDBLoadStoreHeight(t *testing.T) {
 func TestSDBLoadStoreHeightInMem(t *testing.T) {
 	require := require.New(t)
 
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBPath := testDBFile.Name()
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testStateDBPath
-
-	testutil.CleanupPath(t, testStateDBPath)
-	defer testutil.CleanupPath(t, testStateDBPath)
+	cfg.Chain.TrieDBPath = testDBPath
 	db, err := NewStateDB(cfg, InMemStateDBOption())
 	require.NoError(err)
 
@@ -680,7 +681,7 @@ func BenchmarkInMemRunAction(b *testing.B) {
 }
 
 func BenchmarkDBRunAction(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), testTriePath)
+	tp := filepath.Join(os.TempDir(), triePath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
@@ -708,7 +709,7 @@ func BenchmarkSDBInMemRunAction(b *testing.B) {
 }
 
 func BenchmarkSDBRunAction(b *testing.B) {
-	tp := filepath.Join(os.TempDir(), testStateDBPath)
+	tp := filepath.Join(os.TempDir(), stateDBPath)
 	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
 		b.Error("Fail to remove testDB file")
 	}
