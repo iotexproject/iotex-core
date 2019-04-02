@@ -12,9 +12,12 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
@@ -29,7 +32,7 @@ const (
 func ConnectToEndpoint() (*grpc.ClientConn, error) {
 	endpoint := config.ReadConfig.Endpoint
 	if endpoint == config.ErrEmptyEndpoint {
-		return nil, errors.New("use \"ioctl config set endpoint\" to config endpoint first")
+		return nil, errors.New(`use "ioctl config set endpoint" to config endpoint first`)
 	}
 	return grpc.Dial(endpoint, grpc.WithInsecure())
 }
@@ -79,4 +82,16 @@ func RauToString(amount *big.Int, numDecimals int) string {
 		return amountInt.String() + "." + decString
 	}
 	return amountInt.String()
+}
+
+// IoAddrToEvmAddr converts IoTeX address into evm address
+func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
+	if err := validator.ValidateAddress(ioAddr); err != nil {
+		return common.Address{}, err
+	}
+	address, err := address.FromString(ioAddr)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return common.BytesToAddress(address.Bytes()), nil
 }
