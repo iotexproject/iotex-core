@@ -34,11 +34,10 @@ var rootCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		output, err := multiSend(args)
-		if err != nil {
-			return err
+		if err == nil {
+			fmt.Println(output)
 		}
-		fmt.Println(output)
-		return nil
+		return err
 	},
 }
 
