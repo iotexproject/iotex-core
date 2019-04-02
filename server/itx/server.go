@@ -290,14 +290,14 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 				electionCommittee,
 				gravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
-					blk, err := cs.Blockchain().GetBlockByHeight(height)
+					header, err := cs.Blockchain().BlockHeaderByHeight(height)
 					if err != nil {
 						return time.Now(), errors.Wrapf(
 							err, "error when getting the block at height: %d",
 							height,
 						)
 					}
-					return blk.Header.Timestamp(), nil
+					return header.Timestamp(), nil
 				},
 				rolldposProtocol.GetEpochHeight,
 				rolldposProtocol.GetEpochNum,

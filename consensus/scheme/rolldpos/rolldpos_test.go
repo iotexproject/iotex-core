@@ -23,7 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -35,7 +34,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/p2p/node"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state"
@@ -155,19 +153,11 @@ func TestRollDPoS_Metrics(t *testing.T) {
 
 	clock := clock.NewMock()
 	blockHeight := uint64(8)
-	sk := identityset.PrivateKey(0)
-	blk := block.NewBlockDeprecated(
-		1,
-		blockHeight,
-		hash.Hash256{},
-		testutil.TimestampNowFromClock(clock),
-		sk.PublicKey(),
-		make([]action.SealedEnvelope, 0),
-	)
+	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
 	blockchain.EXPECT().TipHeight().Return(blockHeight).Times(1)
 	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(2)
-	blockchain.EXPECT().GetBlockByHeight(blockHeight).Return(blk, nil).Times(2)
+	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
 		{Address: candidates[1]},
@@ -574,8 +564,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}()
 		time.Sleep(5 * time.Second)
 		for _, chain := range chains {
-			blk, err := chain.GetBlockByHeight(1)
-			assert.Nil(t, blk)
+			header, err := chain.BlockHeaderByHeight(1)
+			assert.Nil(t, header)
 			assert.Error(t, err)
 		}
 	})
@@ -616,12 +606,12 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}()
 		time.Sleep(5 * time.Second)
 		for i, chain := range chains {
-			blk, err := chain.GetBlockByHeight(1)
+			header, err := chain.BlockHeaderByHeight(1)
 			if i == 0 {
-				assert.Nil(t, blk)
+				assert.Nil(t, header)
 				assert.Error(t, err)
 			} else {
-				assert.NotNil(t, blk)
+				assert.NotNil(t, header)
 				assert.NoError(t, err)
 			}
 		}
