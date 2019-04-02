@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/pkg/hash"
+
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
