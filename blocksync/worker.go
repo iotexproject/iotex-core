@@ -32,6 +32,8 @@ type syncWorker struct {
 	neighborsHandler Neighbors
 	buf              *blockBuffer
 	task             *routine.RecurringTask
+	maxRepeat        int
+	repeatDecayStep  int
 }
 
 func newSyncWorker(
@@ -47,6 +49,8 @@ func newSyncWorker(
 		neighborsHandler: neighborsHandler,
 		buf:              buf,
 		targetHeight:     0,
+		maxRepeat:        cfg.BlockSync.MaxRepeat,
+		repeatDecayStep:  cfg.BlockSync.RepeatDecayStep,
 	}
 	if cfg.BlockSync.Interval != 0 {
 		w.task = routine.NewRecurringTask(w.Sync, cfg.BlockSync.Interval)
@@ -93,17 +97,24 @@ func (w *syncWorker) Sync() {
 	}
 	intervals := w.buf.GetBlocksIntervalsToSync(w.targetHeight)
 	if intervals != nil {
-		log.L().Debug("block sync intervals.",
+		log.L().Info("block sync intervals.",
 			zap.Any("intervals", intervals),
 			zap.Uint64("targetHeight", w.targetHeight))
 	}
-	for _, interval := range intervals {
-		rrIdx := rand.Intn(len(peers))
-		p := peers[rrIdx]
-		if err := w.unicastHandler(ctx, p, &iotexrpc.BlockSync{
-			Start: interval.Start, End: interval.End,
-		}); err != nil {
-			log.L().Debug("Failed to sync block.", zap.Error(err))
+
+	for i, interval := range intervals {
+		repeat := w.maxRepeat - i/w.repeatDecayStep
+		if repeat <= 0 {
+			repeat = 1
+		}
+		for j := 0; j < repeat; j++ {
+			rrIdx := rand.Intn(len(peers))
+			p := peers[rrIdx]
+			if err := w.unicastHandler(ctx, p, &iotexrpc.BlockSync{
+				Start: interval.Start, End: interval.End,
+			}); err != nil {
+				log.L().Debug("Failed to sync block.", zap.Error(err))
+			}
 		}
 	}
 }

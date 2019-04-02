@@ -133,9 +133,11 @@ var (
 			},
 		},
 		BlockSync: BlockSync{
-			Interval:     10 * time.Second,
-			BufferSize:   50,
-			IntervalSize: 10,
+			Interval:        10 * time.Second,
+			BufferSize:      100,
+			IntervalSize:    10,
+			MaxRepeat:       3,
+			RepeatDecayStep: 1,
 		},
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
@@ -250,6 +252,10 @@ type (
 		Interval     time.Duration `yaml:"interval"` // update duration
 		BufferSize   uint64        `yaml:"bufferSize"`
 		IntervalSize uint64        `yaml:"intervalSize"`
+		// MaxRepeat is the maximal number of repeat of a block sync request
+		MaxRepeat int `yaml:"maxRepeat"`
+		// RepeatDecayStep is the step for repeat number decreasing by 1
+		RepeatDecayStep int `yaml:"repeatDecayStep"`
 	}
 
 	// RollDPoS is the config struct for RollDPoS consensus package
