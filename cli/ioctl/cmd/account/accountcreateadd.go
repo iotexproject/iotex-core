@@ -39,7 +39,7 @@ func accountCreateAdd(args []string) (string, error) {
 	}
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
-		return "", fmt.Errorf("Alias \"%s\" has already used for %s", alias, addr)
+		return "", fmt.Errorf("alias \"%s\" has already used for %s", alias, addr)
 	}
 	addr, err := newAccount(alias, config.ReadConfig.Wallet)
 	if err != nil {
@@ -51,7 +51,7 @@ func accountCreateAdd(args []string) (string, error) {
 		return "", err
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("Failed to write to config file %s", config.DefaultConfigFile)
+		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
 	}
 	return fmt.Sprintf(
 		"New account \"%s\" is created.\n"+

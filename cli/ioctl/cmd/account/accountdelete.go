@@ -73,5 +73,5 @@ func accountDelete(args []string) (string, error) {
 			return fmt.Sprintf("Account #%s has been deleted.", addr), nil
 		}
 	}
-	return "", fmt.Errorf("Account #%s not found", addr)
+	return "", fmt.Errorf("account #%s not found", addr)
 }

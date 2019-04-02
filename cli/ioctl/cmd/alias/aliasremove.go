@@ -44,7 +44,7 @@ func remove(arg string) (string, error) {
 		return "", err
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("Failed to write to config file %s", config.DefaultConfigFile)
+		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
 	}
 	return alias + " is removed", nil
 }

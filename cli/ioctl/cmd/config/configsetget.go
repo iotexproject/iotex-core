@@ -94,7 +94,7 @@ func set(args []string) (string, error) {
 		return "", err
 	}
 	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("Failed to write to config file %s", DefaultConfigFile)
+		return "", fmt.Errorf("failed to write to config file %s", DefaultConfigFile)
 	}
 	return args[0] + " is set to " + args[1], nil
 }

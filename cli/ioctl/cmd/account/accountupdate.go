@@ -88,5 +88,5 @@ func accountUpdate(args []string) (string, error) {
 			return fmt.Sprintf("Account #%s has been updated.", account), nil
 		}
 	}
-	return "", fmt.Errorf("Account #%s not found", account)
+	return "", fmt.Errorf("account #%s not found", account)
 }
