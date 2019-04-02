@@ -123,6 +123,7 @@ func TestBatchRollback(t *testing.T) {
 		testFile, _ := ioutil.TempFile(os.TempDir(), path)
 		testPath := testFile.Name()
 		cfg.DbPath = testPath
+		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
 		testBatchRollback(NewOnDiskDB(cfg), t)
 	})
