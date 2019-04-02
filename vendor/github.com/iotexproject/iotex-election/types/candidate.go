@@ -113,7 +113,7 @@ func (c *Candidate) Name() []byte {
 	return util.CopyBytes(c.name)
 }
 
-// Address returns the address of this candidate on beacon chain
+// Address returns the address of this candidate on gravity chain
 func (c *Candidate) Address() []byte {
 	return util.CopyBytes(c.address)
 }
@@ -133,9 +133,19 @@ func (c *Candidate) Score() *big.Int {
 	return new(big.Int).Set(c.score)
 }
 
+// SetScore set score value in Candidate
+func (c *Candidate) SetScore(score *big.Int) {
+	c.score = score
+}
+
 // SelfStakingTokens returns the total self votes (weighted)
 func (c *Candidate) SelfStakingTokens() *big.Int {
 	return new(big.Int).Set(c.selfStakingTokens)
+}
+
+// SetSelfStakingTokens set selfStakingTokens value in Candidate
+func (c *Candidate) SetSelfStakingTokens(selfStakingTokens *big.Int) {
+	c.selfStakingTokens = selfStakingTokens
 }
 
 // SelfStakingWeight returns the extra weight for self staking
