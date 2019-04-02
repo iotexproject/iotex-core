@@ -121,17 +121,19 @@ func TestBatchRollback(t *testing.T) {
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
 	cfg.DbPath = testPath
-	//t.Run("Bolt DB", func(t *testing.T) {
-	testBatchRollback(NewOnDiskDB(cfg), t)
-	//})
+	t.Run("Bolt DB", func(t *testing.T) {
+		//testutil.CleanupPath(t, testPath)
+		testBatchRollback(NewOnDiskDB(cfg), t)
+	})
 
 	path = "test-batch-rollback.badger"
-	testPath, _ = ioutil.TempDir(os.TempDir(), path)
-	cfg.DbPath = testPath
+	testPath2, _ := ioutil.TempDir(os.TempDir(), path)
+	cfg.DbPath = testPath2
 	cfg.UseBadgerDB = true
-	//t.Run("Badger DB", func(t *testing.T) {
-	testBatchRollback(NewOnDiskDB(cfg), t)
-	//})
+	t.Run("Badger DB", func(t *testing.T) {
+		//testutil.CleanupPath(t, testPath)
+		testBatchRollback(NewOnDiskDB(cfg), t)
+	})
 }
 
 func TestDBInMemBatchCommit(t *testing.T) {
