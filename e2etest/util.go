@@ -48,9 +48,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -102,9 +99,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -141,9 +135,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -174,9 +165,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		testutil.TimestampNow(),
 	)
 	if err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -217,9 +205,6 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		testutil.TimestampNow(),
 	)
 	if err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
