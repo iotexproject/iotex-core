@@ -10,11 +10,14 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 const (
@@ -27,11 +30,19 @@ const (
 
 // Protocol defines the protocol of handling executions
 type Protocol struct {
-	cm protocol.ChainManager
+	cm   protocol.ChainManager
+	addr address.Address
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} }
+func NewProtocol(cm protocol.ChainManager) *Protocol {
+	h := hash.Hash160b([]byte(ProtocolID))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
+	}
+	return &Protocol{cm: cm, addr: addr}
+}
 
 // Handle handles an execution
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

@@ -11,6 +11,7 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -18,6 +19,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -32,11 +35,19 @@ const (
 
 // Protocol defines the protocol of handling votes
 type Protocol struct {
-	cm protocol.ChainManager
+	cm   protocol.ChainManager
+	addr address.Address
 }
 
 // NewProtocol instantiates the protocol of vote
-func NewProtocol(cm protocol.ChainManager) *Protocol { return &Protocol{cm: cm} }
+func NewProtocol(cm protocol.ChainManager) *Protocol {
+	h := hash.Hash160b([]byte(ProtocolID))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
+	}
+	return &Protocol{cm: cm, addr: addr}
+}
 
 // Initialize initializes the rewarding protocol by setting the original admin, block and epoch reward
 func (p *Protocol) Initialize(ctx context.Context, sm protocol.StateManager, addrs []address.Address) error {
@@ -161,10 +172,11 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 
 	return &action.Receipt{
-		Status:      action.SuccessReceiptStatus,
-		BlockHeight: raCtx.BlockHeight,
-		ActionHash:  raCtx.ActionHash,
-		GasConsumed: raCtx.IntrinsicGas,
+		Status:          action.SuccessReceiptStatus,
+		BlockHeight:     raCtx.BlockHeight,
+		ActionHash:      raCtx.ActionHash,
+		GasConsumed:     raCtx.IntrinsicGas,
+		ContractAddress: p.addr.String(),
 	}, nil
 }
 
