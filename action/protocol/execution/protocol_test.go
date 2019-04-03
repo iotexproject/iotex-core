@@ -286,7 +286,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		eHash := execution.Hash()
 		r, _ := bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.ActHash)
+		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
 		ws, err = sf.NewWorkingSet()
@@ -346,7 +346,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		eHash = execution.Hash()
 		r, _ = bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.ActHash)
+		require.Equal(eHash, r.ActionHash)
 
 		// read from key 0
 		data, _ = hex.DecodeString("6d4ce63c")
@@ -374,7 +374,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		eHash = execution.Hash()
 		r, _ = bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.ActHash)
+		require.Equal(eHash, r.ActionHash)
 
 		data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
 		execution1, err := action.NewExecution(action.EmptyAddress, 4, big.NewInt(0), uint64(100000), big.NewInt(10), data)
@@ -479,7 +479,7 @@ func TestProtocol_Handle(t *testing.T) {
 		log.S().Info("======= Test RollDice")
 		eHash := execution.Hash()
 		r, _ := bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.ActHash)
+		require.Equal(eHash, r.ActionHash)
 		contractAddr := r.ContractAddress
 		data, _ = hex.DecodeString("d0e30db0")
 		execution, err = action.NewExecution(contractAddr, 2, big.NewInt(500000000), uint64(120000), big.NewInt(0), data)
@@ -649,7 +649,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		eHash := execution.Hash()
 		r, _ := bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.ActHash)
+		require.Equal(eHash, r.ActionHash)
 		contract := r.ContractAddress
 		contractAddr, err := address.FromString(contract)
 		require.NoError(err)
@@ -771,7 +771,7 @@ func TestProtocol_Handle(t *testing.T) {
 		// verify balance
 		eHash = execution.Hash()
 		r, _ = bc.GetReceiptByActionHash(eHash)
-		require.Equal(eHash, r.ActHash)
+		require.Equal(eHash, r.ActionHash)
 		h = r.ReturnValue[len(r.ReturnValue)-8:]
 		amount := binary.BigEndian.Uint64(h)
 		require.Equal(uint64(8000), amount)

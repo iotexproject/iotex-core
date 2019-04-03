@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/gasstation"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -310,24 +311,29 @@ var (
 	}
 
 	getReceiptByActionTests = []struct {
-		in     string
-		status uint64
+		in        string
+		status    uint64
+		blkHeight uint64
 	}{
 		{
 			hex.EncodeToString(transferHash1[:]),
 			action.SuccessReceiptStatus,
+			1,
 		},
 		{
 			hex.EncodeToString(voteHash1[:]),
 			action.SuccessReceiptStatus,
+			2,
 		},
 		{
 			hex.EncodeToString(executionHash2[:]),
 			action.SuccessReceiptStatus,
+			2,
 		},
 		{
 			hex.EncodeToString(executionHash3[:]),
 			action.SuccessReceiptStatus,
+			4,
 		},
 	}
 
@@ -793,8 +799,10 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
 		res, err := svr.GetReceiptByAction(context.Background(), request)
 		require.NoError(err)
-		receiptPb := res.Receipt
+		receiptPb := res.ReceiptInfo.Receipt
 		require.Equal(test.status, receiptPb.Status)
+		require.Equal(test.blkHeight, receiptPb.BlkHeight)
+		require.NotEqual(hash.ZeroHash256, res.ReceiptInfo.BlkHash)
 	}
 }
 

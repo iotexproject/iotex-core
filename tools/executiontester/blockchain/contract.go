@@ -268,11 +268,11 @@ func (c *contract) checkCallResult(h string) (*iotextypes.Receipt, error) {
 	if err != nil {
 		return nil, err
 	}
-	if response.Receipt.Status != 1 {
+	if response.ReceiptInfo.Receipt.Status != 1 {
 		return nil, errors.Errorf("tx 0x%s execution on Blockchain failed", h)
 	}
 	// TODO: check topics
-	return response.Receipt, nil
+	return response.ReceiptInfo.Receipt, nil
 }
 
 func (c *contract) Address() string {
