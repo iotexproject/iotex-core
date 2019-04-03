@@ -194,11 +194,11 @@ func main() {
 		var creditor *util.AddressKey
 		if testFpToken {
 			// Deploy asset smart contracts
-			fpToken, _, _, err = assetcontract.StartContracts(configs[0])
+			ret, err := assetcontract.StartContracts(configs[0])
 			if err != nil {
 				log.L().Fatal("Failed to deploy asset contracts.", zap.Error(err))
 			}
-
+			fpToken = ret.FpToken
 			// Randomly pick two accounts from delegate list as fp_token debtor and creditor
 			first := rand.Intn(len(admins))
 			second := first
