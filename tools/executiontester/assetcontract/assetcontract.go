@@ -17,6 +17,7 @@ const (
 	chainIP = "localhost"
 )
 
+// ReturnedContract include all contract as return value
 type ReturnedContract struct {
 	FpToken     blockchain.FpToken
 	StbToken    blockchain.StableToken
