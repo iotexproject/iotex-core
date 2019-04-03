@@ -33,12 +33,17 @@ func Sort(hashes [][]byte, nonce uint64) {
 
 // SortCandidates sorts a given slices of hashes cryptographically using hash function
 func SortCandidates(candidates []string, epochNum uint64, cryptoSeed []byte) {
+
 	nb := make([]byte, 8)
 	enc.MachineEndian.PutUint64(nb, epochNum)
 
 	sort.Slice(candidates, func(i, j int) bool {
 		hi := hash.Hash256b(append(append([]byte(candidates[i]), cryptoSeed...), nb...))
 		hj := hash.Hash256b(append(append([]byte(candidates[j]), cryptoSeed...), nb...))
+		// The sorting algorithm will be changed from from the 151-st epoch, the 54001-th block
+		if epochNum >= 151 {
+			return bytes.Compare(hi[:], hj[:]) > 0
+		}
 		return bytes.Compare(hi[:], hj[:]) < 0
 	})
 }
