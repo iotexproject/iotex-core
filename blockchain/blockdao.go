@@ -265,7 +265,7 @@ func (dao *blockDAO) Footer(h hash.Hash256) (*block.Footer, error) {
 
 func (dao *blockDAO) footer(h hash.Hash256) (*block.Footer, error) {
 	if dao.footerCache != nil {
-		footer, ok := dao.bodyCache.Get(h)
+		footer, ok := dao.footerCache.Get(h)
 		if ok {
 			cacheMtc.WithLabelValues("hit_footer").Inc()
 			return footer.(*block.Footer), nil
