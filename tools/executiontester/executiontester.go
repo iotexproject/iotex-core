@@ -144,7 +144,7 @@ func main() {
 }
 func testArrayDelete(arr blockchain.ArrayDelete) {
 	// get creditor balance,should be 0
-	ret, err := arr.MainFunc()
+	ret, err := arr.GetArray()
 	if err != nil {
 		log.L().Fatal("Failed to call array-delete Main Func", zap.Error(err))
 	}
