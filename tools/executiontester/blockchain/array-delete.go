@@ -15,7 +15,7 @@ type (
 	// ArrayDelete interface for array-delete.sol
 	ArrayDelete interface {
 		Contract
-		MainFunc() (ret []*big.Int, err error)
+		GetArray() (ret []*big.Int, err error)
 	}
 
 	arrayDelete struct {
@@ -29,7 +29,7 @@ func NewArrayDelete(exp string) ArrayDelete {
 }
 
 // MainFunc is function main() returns (uint[])
-func (f *arrayDelete) MainFunc() (ret []*big.Int, err error) {
+func (f *arrayDelete) GetArray() (ret []*big.Int, err error) {
 	retString, err := f.RunAsOwner().SetAddress(f.Address()).Read(ArrayDeleteMain, []byte(Producer))
 	retBytes, err := hex.DecodeString(retString)
 	if err != nil {
