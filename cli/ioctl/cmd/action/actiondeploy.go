@@ -7,7 +7,6 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/spf13/cobra"
@@ -25,31 +24,37 @@ var actionDeployCmd = &cobra.Command{
 	Use:   "deploy -l GAS_LIMIT -p GAS_PRICE -s SIGNER -b BYTE_CODE",
 	Short: "Deploy smart contract on IoTeX blockchain",
 	Args:  cobra.MaximumNArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(deploy())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := deploy()
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // deploy deploys smart contract on IoTeX blockchain
-func deploy() string {
+func deploy() (string, error) {
 	executor, err := alias.Address(signer)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	if nonce == 0 {
 		accountMeta, err := account.GetAccountMeta(executor)
 		if err != nil {
-			return err.Error()
+			return "", err
 		}
 		nonce = accountMeta.PendingNonce
 	}
 	gasPriceRau, err := util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	tx, err := action.NewExecution("", nonce, big.NewInt(0), gasLimit, gasPriceRau, bytecode)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
+		return "", err
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).

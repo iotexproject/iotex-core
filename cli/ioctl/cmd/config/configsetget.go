@@ -30,8 +30,13 @@ var configGetCmd = &cobra.Command{
 		}
 		return cobra.OnlyValidArgs(cmd, args)
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(Get(args[0]))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := Get(args[0])
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
@@ -47,42 +52,49 @@ var configSetCmd = &cobra.Command{
 		}
 		return cobra.OnlyValidArgs(cmd, args[:1])
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(set(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := set(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // Get gets config variable
-func Get(arg string) string {
+func Get(arg string) (string, error) {
 	switch arg {
+	default:
+		return "", ErrConfigNotMatch
 	case "endpoint":
 		if ReadConfig.Endpoint == "" {
-			return ErrEmptyEndpoint
+			return "", ErrEmptyEndpoint
 		}
-		return ReadConfig.Endpoint
+		return ReadConfig.Endpoint, nil
 	case "wallet":
-		return ReadConfig.Wallet
-	default:
-		return ErrConfigNotMatch
+		return ReadConfig.Wallet, nil
+
 	}
 }
 
 // set sets config variable
-func set(args []string) string {
+func set(args []string) (string, error) {
 	switch args[0] {
+	default:
+		return "", ErrConfigNotMatch
 	case "endpoint":
 		ReadConfig.Endpoint = args[1]
 	case "wallet":
 		ReadConfig.Wallet = args[1]
-	default:
-		return ErrConfigNotMatch
+
 	}
 	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-		return fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile)
+		return "", fmt.Errorf("failed to write to config file %s", DefaultConfigFile)
 	}
-	return args[0] + " is set to " + args[1]
+	return args[0] + " is set to " + args[1], nil
 }

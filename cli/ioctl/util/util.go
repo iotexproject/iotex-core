@@ -7,7 +7,6 @@
 package util
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -31,8 +30,8 @@ const (
 // ConnectToEndpoint starts a new connection
 func ConnectToEndpoint() (*grpc.ClientConn, error) {
 	endpoint := config.ReadConfig.Endpoint
-	if endpoint == config.ErrEmptyEndpoint {
-		return nil, errors.New(`use "ioctl config set endpoint" to config endpoint first`)
+	if endpoint == "" {
+		return nil, fmt.Errorf(`use "ioctl config set endpoint" to config endpoint first`)
 	}
 	return grpc.Dial(endpoint, grpc.WithInsecure())
 }

@@ -25,8 +25,13 @@ var accountCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create N new accounts and print them",
 	Args:  cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(accountCreate())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := accountCreate()
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
@@ -44,17 +49,17 @@ func init() {
 	accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
 }
 
-func accountCreate() string {
+func accountCreate() (string, error) {
 	newAccounts := make([]generatedAccount, 0)
 	for i := 0; i < int(numAccounts); i++ {
 		private, err := keypair.GenerateKey()
 		if err != nil {
-			log.L().Fatal("failed to create key pair", zap.Error(err))
+			return "", err
 		}
 		addr, err := address.FromBytes(private.PublicKey().Hash())
 		if err != nil {
 			log.L().Error("failed to convert bytes into address", zap.Error(err))
-			return err.Error()
+			return "", err
 		}
 		newAccount := generatedAccount{
 			Address:    addr.String(),
@@ -67,7 +72,7 @@ func accountCreate() string {
 	var err error
 	output, err = json.MarshalIndent(&generatedAccounts{Accounts: newAccounts}, "", "  ")
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
-	return string(output)
+	return string(output), nil
 }
