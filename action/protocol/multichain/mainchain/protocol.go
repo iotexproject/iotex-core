@@ -71,6 +71,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 			return nil, errors.Wrapf(err, "error when handling stop sub-chain action")
 		}
 	}
+	// TODO: consider add receipt later
 	// The action is not handled by this handler or no error
 	return nil, nil
 }
