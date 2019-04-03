@@ -133,10 +133,11 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 	}
 	return &action.Receipt{
-		Status:      action.SuccessReceiptStatus,
-		BlockHeight: raCtx.BlockHeight,
-		ActionHash:  raCtx.ActionHash,
-		GasConsumed: raCtx.IntrinsicGas,
+		Status:          action.SuccessReceiptStatus,
+		BlockHeight:     raCtx.BlockHeight,
+		ActionHash:      raCtx.ActionHash,
+		GasConsumed:     raCtx.IntrinsicGas,
+		ContractAddress: p.addr.String(),
 	}, nil
 }
 
