@@ -211,10 +211,10 @@ func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVSto
 	for _, r := range blkReceipts {
 		batch.Put(
 			blockActionReceiptMappingNS,
-			r.ActHash[hashOffset:],
+			r.ActionHash[hashOffset:],
 			heightBytes[:],
 			"Failed to put receipt index for action %x",
-			r.ActHash[:],
+			r.ActionHash[:],
 		)
 	}
 }

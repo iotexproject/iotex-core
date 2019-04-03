@@ -339,7 +339,7 @@ func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, er
 	for _, receipt := range receipts.Receipts {
 		r := action.Receipt{}
 		r.ConvertFromReceiptPb(receipt)
-		if r.ActHash == h {
+		if r.ActionHash == h {
 			return &r, nil
 		}
 	}
@@ -428,10 +428,10 @@ func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 		}
 		batch.Put(
 			blockActionReceiptMappingNS,
-			r.ActHash[hashOffset:],
+			r.ActionHash[hashOffset:],
 			heightBytes[:],
 			"Failed to put receipt index for action %x",
-			r.ActHash[:],
+			r.ActionHash[:],
 		)
 	}
 	receiptsBytes, err := proto.Marshal(&receipts)
@@ -525,7 +525,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 // deleteReceipts deletes receipt information from db
 func deleteReceipts(blk *block.Block, batch db.KVStoreBatch) error {
 	for _, r := range blk.Receipts {
-		batch.Delete(blockActionReceiptMappingNS, r.ActHash[hashOffset:], "failed to delete receipt for action %x", r.ActHash[:])
+		batch.Delete(blockActionReceiptMappingNS, r.ActionHash[hashOffset:], "failed to delete receipt for action %x", r.ActionHash[:])
 	}
 	return nil
 }

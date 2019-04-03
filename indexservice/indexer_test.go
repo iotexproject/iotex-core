@@ -99,7 +99,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	require.NoError(err)
 	receipts := []*action.Receipt{
 		{
-			ActHash:         hash.Hash256b([]byte("1")),
+			ActionHash:      hash.Hash256b([]byte("1")),
 			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
@@ -107,7 +107,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 		{
-			ActHash:         hash.Hash256b([]byte("2")),
+			ActionHash:      hash.Hash256b([]byte("2")),
 			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,

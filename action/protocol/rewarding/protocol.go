@@ -181,7 +181,7 @@ func (p *Protocol) settleAction(
 	if err := p.increaseNonce(sm, raCtx.Caller, raCtx.Nonce); err != nil {
 		return nil, err
 	}
-	return p.createReceipt(status, raCtx.ActionHash, raCtx.IntrinsicGas, logs...), nil
+	return p.createReceipt(status, raCtx.BlockHeight, raCtx.ActionHash, raCtx.IntrinsicGas, logs...), nil
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
@@ -198,6 +198,7 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 
 func (p *Protocol) createReceipt(
 	status uint64,
+	blkHeight uint64,
 	actHash hash.Hash256,
 	gasConsumed uint64,
 	logs ...*action.Log,
@@ -206,7 +207,8 @@ func (p *Protocol) createReceipt(
 	return &action.Receipt{
 		ReturnValue:     nil,
 		Status:          status,
-		ActHash:         actHash,
+		BlockHeight:     blkHeight,
+		ActionHash:      actHash,
 		GasConsumed:     gasConsumed,
 		ContractAddress: p.addr.String(),
 		Logs:            logs,

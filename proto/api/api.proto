@@ -111,6 +111,11 @@ message ActionInfo {
   string blkHash = 3;
 }
 
+message ReceiptInfo {
+  iotextypes.Receipt receipt = 1;
+  string blkHash = 2;
+}
+
 message BlockProducerInfo {
     string address = 1;
     string votes = 2;
@@ -165,7 +170,7 @@ message GetReceiptByActionRequest {
 }
 
 message GetReceiptByActionResponse {
-  iotextypes.Receipt receipt = 1;
+  ReceiptInfo receiptInfo = 1;
 }
 
 message ReadContractRequest {

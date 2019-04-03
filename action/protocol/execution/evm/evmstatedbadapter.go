@@ -391,8 +391,8 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		Address:     addr.String(),
 		Topics:      topics,
 		Data:        evmLog.Data,
-		BlockNumber: stateDB.blockHeight,
-		TxnHash:     stateDB.executionHash,
+		BlockHeight: stateDB.blockHeight,
+		ActionHash:  stateDB.executionHash,
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }
