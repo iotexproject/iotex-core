@@ -395,7 +395,7 @@ func TestBlockEpochReward(t *testing.T) {
 		return height > runToHeight, nil
 	}); err != nil {
 
-		log.L().Info("Done")
+		log.L().Error(err.Error())
 	}
 
 	//Wait until all the pending actions are settled
@@ -408,7 +408,7 @@ func TestBlockEpochReward(t *testing.T) {
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
 		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endBalance, err := chains[i].Balance(rewardAddrStr)
+		endBalance, err := chains[0].Balance(rewardAddrStr)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endBalance.String())
 		require.NoError(t, err)
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
