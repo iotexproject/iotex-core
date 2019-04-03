@@ -90,7 +90,7 @@ func getActionByHash(args []string) (string, error) {
 		return "", err
 	}
 	return "\n#This action has been written on blockchain\n" +
-		printReceiptProto(responseReceipt.Receipt), nil
+		printReceiptProto(responseReceipt.ReceiptInfo.Receipt), nil
 }
 
 func printActionProto(action *iotextypes.Action) (string, error) {
