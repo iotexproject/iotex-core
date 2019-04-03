@@ -36,12 +36,20 @@ var nodeDelegateCmd = &cobra.Command{
 	Use:   "delegate [-e epoch-num|-n]",
 	Short: "print consensus delegates information in certain epoch",
 	Args:  cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		var output string
+		var err error
 		if nextEpoch {
-			fmt.Println(nextDelegates())
+			output, err = nextDelegates()
 		} else {
-			fmt.Println(delegates())
+			output, err = delegates()
 		}
+		if err == nil {
+			println(output)
+		}
+		return err
+
 	},
 }
 
@@ -51,18 +59,18 @@ func init() {
 		"query delegate of upcoming epoch")
 }
 
-func delegates() string {
+func delegates() (string, error) {
 	nodeStatus := map[bool]string{true: "active", false: ""}
 	if epochNum == 0 {
 		chainMeta, err := bc.GetChainMeta()
 		if err != nil {
-			return err.Error()
+			return "", err
 		}
 		epochNum = chainMeta.Epoch.Num
 	}
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -72,9 +80,9 @@ func delegates() string {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return sta.Message()
+			return "", fmt.Errorf(sta.Message())
 		}
-		return err.Error()
+		return "", err
 	}
 
 	epochData := response.EpochData
@@ -97,7 +105,7 @@ func delegates() string {
 	for rank, bp := range response.BlockProducersInfo {
 		votes, ok := big.NewInt(0).SetString(bp.Votes, 10)
 		if !ok {
-			return "failed to convert votes into big int"
+			return "", fmt.Errorf("failed to convert votes into big int")
 		}
 		production := ""
 		if bp.Active {
@@ -107,19 +115,19 @@ func delegates() string {
 			aliases[bp.Address], nodeStatus[bp.Active], production,
 			util.RauToString(votes, util.IotxDecimalNum)))
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n"), nil
 }
 
-func nextDelegates() string {
+func nextDelegates() (string, error) {
 	nodeStatus := map[bool]string{true: "active", false: ""}
 	chainMeta, err := bc.GetChainMeta()
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	epochNum = chainMeta.Epoch.Num + 1
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -133,15 +141,15 @@ func nextDelegates() string {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok && sta.Code() == codes.NotFound {
-			return fmt.Sprintf("delegates of upcoming epoch #%d are not determined", epochNum)
+			return fmt.Sprintf("delegates of upcoming epoch #%d are not determined", epochNum), nil
 		} else if ok {
-			return sta.Message()
+			return "", fmt.Errorf(sta.Message())
 		}
-		return err.Error()
+		return "", err
 	}
 	var ABPs state.CandidateList
 	if err := ABPs.Deserialize(abpResponse.Data); err != nil {
-		return err.Error()
+		return "", err
 	}
 	request = &iotexapi.ReadStateRequest{
 		ProtocolID: []byte(poll.ProtocolID),
@@ -152,13 +160,13 @@ func nextDelegates() string {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return sta.Message()
+			return "", fmt.Errorf(sta.Message())
 		}
-		return err.Error()
+		return "", err
 	}
 	var BPs state.CandidateList
 	if err := BPs.Deserialize(bpResponse.Data); err != nil {
-		return err.Error()
+		return "", err
 	}
 	isActive := make(map[string]bool)
 	for _, abp := range ABPs {
@@ -187,5 +195,5 @@ func nextDelegates() string {
 			aliases[bp.Address], nodeStatus[isActive[bp.Address]],
 			util.RauToString(votes, util.IotxDecimalNum)))
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n"), nil
 }

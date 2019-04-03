@@ -25,19 +25,24 @@ var nodeRewardCmd = &cobra.Command{
 	Use:   "reward (ALIAS|DELEGATE_ADDRESS)",
 	Short: "Query unclaimed rewards",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(reward(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := reward(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
-func reward(args []string) string {
+func reward(args []string) (string, error) {
 	address, err := alias.Address(args[0])
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -51,14 +56,14 @@ func reward(args []string) string {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return sta.Message()
+			return "", fmt.Errorf(sta.Message())
 		}
-		return err.Error()
+		return "", err
 	}
 	rewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
 	if !ok {
-		return "failed to convert string into big int"
+		return "", fmt.Errorf("failed to convert string into big int")
 	}
 	return fmt.Sprintf("%s: %s IOTX", address,
-		util.RauToString(rewardRau, util.IotxDecimalNum))
+		util.RauToString(rewardRau, util.IotxDecimalNum)), nil
 }

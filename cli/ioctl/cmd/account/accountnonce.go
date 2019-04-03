@@ -19,21 +19,26 @@ var accountNonceCmd = &cobra.Command{
 	Use:   "nonce (ALIAS|ADDRESS)",
 	Short: "Get nonce of an account",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(nonce(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := nonce(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // nonce gets nonce and pending nonce of an IoTeX blockchain address
-func nonce(args []string) string {
+func nonce(args []string) (string, error) {
 	address, err := alias.Address(args[0])
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	accountMeta, err := GetAccountMeta(address)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
-		address, accountMeta.Nonce, accountMeta.PendingNonce)
+		address, accountMeta.Nonce, accountMeta.PendingNonce), nil
 }
