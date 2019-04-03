@@ -28,9 +28,9 @@ var (
 // Error strings
 var (
 	// ErrConfigNotMatch indicates error for no config matchs
-	ErrConfigNotMatch = "no config matchs"
+	ErrConfigNotMatch = fmt.Errorf("no config matchs")
 	// ErrEmptyEndpoint indicates error for empty endpoint
-	ErrEmptyEndpoint = "no endpoint has been set"
+	ErrEmptyEndpoint = fmt.Errorf("no endpoint has been set")
 )
 
 // ConfigCmd represents the config command

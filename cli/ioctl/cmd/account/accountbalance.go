@@ -21,25 +21,30 @@ var accountBalanceCmd = &cobra.Command{
 	Use:   "balance (ALIAS|ADDRESS)",
 	Short: "Get balance of an account",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(balance(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := balance(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // balance gets balance of an IoTeX blockchain address
-func balance(args []string) string {
+func balance(args []string) (string, error) {
 	address, err := alias.Address(args[0])
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	accountMeta, err := GetAccountMeta(address)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
 	if !ok {
-		return "failed to convert balance into big int"
+		return "", fmt.Errorf("failed to convert balance into big int")
 	}
 	return fmt.Sprintf("%s: %s IOTX", address,
-		util.RauToString(balance, util.IotxDecimalNum))
+		util.RauToString(balance, util.IotxDecimalNum)), nil
 }

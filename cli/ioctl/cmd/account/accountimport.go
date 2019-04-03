@@ -27,25 +27,30 @@ var accountImportCmd = &cobra.Command{
 	Use:   "import ALIAS",
 	Short: "Import IoTeX private key into wallet",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(accountImport(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := accountImport(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
-func accountImport(args []string) string {
+func accountImport(args []string) (string, error) {
 	// Validate inputs
 	if err := validator.ValidateAlias(args[0]); err != nil {
-		return err.Error()
+		return "", err
 	}
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
-		return fmt.Sprintf("alias \"%s\" has already used for %s.", alias, addr)
+		return "", fmt.Errorf("alias \"%s\" has already used for %s", alias, addr)
 	}
 	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", alias)
 	privateKeyBytes, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("failed to get private key", zap.Error(err))
-		return err.Error()
+		return "", err
 	}
 	privateKey := strings.TrimSpace(string(privateKeyBytes))
 	for i := 0; i < len(privateKeyBytes); i++ {
@@ -54,18 +59,17 @@ func accountImport(args []string) string {
 	addr, err := newAccountByKey(alias, privateKey, config.ReadConfig.Wallet)
 	privateKey = ""
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
+		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
 	}
 	return fmt.Sprintf(
 		"New account #%s is created. Keep your password, or your will lose your private key.",
-		alias,
-	)
+		alias), nil
 }

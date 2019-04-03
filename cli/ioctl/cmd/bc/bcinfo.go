@@ -17,18 +17,23 @@ var bcInfoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Get current block chain information",
 	Args:  cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(bcInfo())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := bcInfo()
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // bcInfo get current information of block chain from server
-func bcInfo() string {
+func bcInfo() (string, error) {
 	chainMeta, err := GetChainMeta()
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	return fmt.Sprintf("height:%d  numActions:%d  tps:%d\nepochNum:%d  epochStartHeight:%d"+
 		"  gravityChainStartHeight:%d", chainMeta.Height, chainMeta.NumActions, chainMeta.Tps,
-		chainMeta.Epoch.Num, chainMeta.Epoch.Height, chainMeta.Epoch.GravityChainStartHeight)
+		chainMeta.Epoch.Num, chainMeta.Epoch.Height, chainMeta.Epoch.GravityChainStartHeight), nil
 }
