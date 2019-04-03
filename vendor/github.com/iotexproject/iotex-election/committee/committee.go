@@ -10,7 +10,9 @@ import (
 	"context"
 	"math"
 	"math/big"
+	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -27,26 +29,39 @@ import (
 // Namespace to store the result in db
 const Namespace = "electionNS"
 
-// CalcBeaconChainHeight calculates the corresponding beacon chain height for an epoch
-type CalcBeaconChainHeight func(uint64) (uint64, error)
+// CalcGravityChainHeight calculates the corresponding gravity chain height for an epoch
+type CalcGravityChainHeight func(uint64) (uint64, error)
 
 // Config defines the config of the committee
 type Config struct {
-	NumOfRetries              uint8    `yaml:"numOfRetries"`
-	BeaconChainAPIs           []string `yaml:"beaconChainAPIs"`
-	BeaconChainHeightInterval uint64   `yaml:"beaconChainHeightInterval"`
-	BeaconChainStartHeight    uint64   `yaml:"beaconChainStartHeight"`
-	RegisterContractAddress   string   `yaml:"registerContractAddress"`
-	StakingContractAddress    string   `yaml:"stakingContractAddress"`
-	PaginationSize            uint8    `yaml:"paginationSize"`
-	VoteThreshold             string   `yaml:"voteThreshold"`
-	ScoreThreshold            string   `yaml:"scoreThreshold"`
-	SelfStakingThreshold      string   `yaml:"selfStakingThreshold"`
-	CacheSize                 uint32   `yaml:"cacheSize"`
+	NumOfRetries               uint8    `yaml:"numOfRetries"`
+	GravityChainAPIs           []string `yaml:"gravityChainAPIs"`
+	GravityChainHeightInterval uint64   `yaml:"gravityChainHeightInterval"`
+	GravityChainStartHeight    uint64   `yaml:"gravityChainStartHeight"`
+	RegisterContractAddress    string   `yaml:"registerContractAddress"`
+	StakingContractAddress     string   `yaml:"stakingContractAddress"`
+	PaginationSize             uint8    `yaml:"paginationSize"`
+	VoteThreshold              string   `yaml:"voteThreshold"`
+	ScoreThreshold             string   `yaml:"scoreThreshold"`
+	SelfStakingThreshold       string   `yaml:"selfStakingThreshold"`
+	CacheSize                  uint32   `yaml:"cacheSize"`
+	NumOfFetchInParallel       uint8    `yaml:"numOfFetchInParallel"`
 }
 
+// STATUS represents the status of committee
+type STATUS uint8
+
+const (
+	// STARTING stands for a starting status
+	STARTING STATUS = iota
+	// ACTIVE stands for an active status
+	ACTIVE
+	// INACTIVE stands for an inactive status
+	INACTIVE
+)
+
 // Committee defines an interface of an election committee
-// It could be considered as a light state db of beacon chain, that
+// It could be considered as a light state db of gravity chain, that
 type Committee interface {
 	// Start starts the committee service
 	Start(context.Context) error
@@ -60,6 +75,8 @@ type Committee interface {
 	HeightByTime(timestamp time.Time) (uint64, error)
 	// LatestHeight returns the height with latest result
 	LatestHeight() uint64
+	// Status returns the committee status
+	Status() STATUS
 }
 
 type committee struct {
@@ -67,17 +84,21 @@ type committee struct {
 	carrier              carrier.Carrier
 	retryLimit           uint8
 	paginationSize       uint8
+	fetchInParallel      uint8
 	voteThreshold        *big.Int
 	scoreThreshold       *big.Int
 	selfStakingThreshold *big.Int
 	interval             uint64
-	cache                *resultCache
-	heightManager        *heightManager
-	startHeight          uint64
-	nextHeight           uint64
-	currentHeight        uint64
-	terminate            chan bool
-	mutex                sync.RWMutex
+
+	cache         *resultCache
+	heightManager *heightManager
+
+	startHeight         uint64
+	nextHeight          uint64
+	currentHeight       uint64
+	lastUpdateTimestamp int64
+	terminate           chan bool
+	mutex               sync.RWMutex
 }
 
 // NewCommitteeWithKVStoreWithNamespace creates a committee with kvstore with namespace
@@ -91,7 +112,7 @@ func NewCommittee(kvstore db.KVStore, cfg Config) (Committee, error) {
 		return nil, errors.New("Invalid staking contract address")
 	}
 	carrier, err := carrier.NewEthereumVoteCarrier(
-		cfg.BeaconChainAPIs,
+		cfg.GravityChainAPIs,
 		common.HexToAddress(cfg.RegisterContractAddress),
 		common.HexToAddress(cfg.StakingContractAddress),
 	)
@@ -115,6 +136,10 @@ func NewCommittee(kvstore db.KVStore, cfg Config) (Committee, error) {
 	if !ok {
 		return nil, errors.New("Invalid self staking threshold")
 	}
+	fetchInParallel := uint8(10)
+	if cfg.NumOfFetchInParallel > 0 {
+		fetchInParallel = cfg.NumOfFetchInParallel
+	}
 	return &committee{
 		db:                   kvstore,
 		cache:                newResultCache(cfg.CacheSize),
@@ -122,14 +147,15 @@ func NewCommittee(kvstore db.KVStore, cfg Config) (Committee, error) {
 		carrier:              carrier,
 		retryLimit:           cfg.NumOfRetries,
 		paginationSize:       cfg.PaginationSize,
+		fetchInParallel:      fetchInParallel,
 		voteThreshold:        voteThreshold,
 		scoreThreshold:       scoreThreshold,
 		selfStakingThreshold: selfStakingThreshold,
 		terminate:            make(chan bool),
-		startHeight:          cfg.BeaconChainStartHeight,
-		interval:             cfg.BeaconChainHeightInterval,
+		startHeight:          cfg.GravityChainStartHeight,
+		interval:             cfg.GravityChainHeightInterval,
 		currentHeight:        0,
-		nextHeight:           cfg.BeaconChainStartHeight,
+		nextHeight:           cfg.GravityChainStartHeight,
 	}, nil
 }
 
@@ -197,6 +223,18 @@ func (ec *committee) Stop(ctx context.Context) error {
 	return ec.db.Stop(ctx)
 }
 
+func (ec *committee) Status() STATUS {
+	lastUpdateTimestamp := atomic.LoadInt64(&ec.lastUpdateTimestamp)
+	switch {
+	case lastUpdateTimestamp == 0:
+		return STARTING
+	case lastUpdateTimestamp > time.Now().Add(-60*time.Second).Unix():
+		return ACTIVE
+	default:
+		return INACTIVE
+	}
+}
+
 func (ec *committee) Sync(tipHeight uint64) error {
 	ec.mutex.Lock()
 	defer ec.mutex.Unlock()
@@ -209,28 +247,50 @@ func (ec *committee) sync(tipHeight uint64) error {
 	if ec.currentHeight < tipHeight {
 		ec.currentHeight = tipHeight
 	}
-	for {
-		if ec.nextHeight >= ec.currentHeight {
+	var wg sync.WaitGroup
+	limiter := make(chan bool, ec.fetchInParallel)
+	results := map[uint64]*types.ElectionResult{}
+	errs := map[uint64]error{}
+	for nextHeight := ec.nextHeight; nextHeight < ec.currentHeight; nextHeight += ec.interval {
+		if nextHeight > ec.currentHeight-12 {
 			break
 		}
-		result, err := ec.retryFetchResultByHeight()
-		if err != nil {
+		wg.Add(1)
+		go func(height uint64) {
+			defer func() {
+				<-limiter
+				wg.Done()
+			}()
+			limiter <- true
+			results[height], errs[height] = ec.retryFetchResultByHeight(height)
+		}(nextHeight)
+	}
+	wg.Wait()
+	var heights []uint64
+	for height := range results {
+		heights = append(heights, height)
+	}
+	sort.Slice(heights, func(i, j int) bool {
+		return heights[i] < heights[j]
+	})
+	for _, height := range heights {
+		result := results[height]
+		if err := errs[height]; err != nil {
 			return err
 		}
-		if result == nil {
-			return errors.Errorf("failed to fetch result for height %d", ec.nextHeight)
-		}
-		if err = ec.heightManager.validate(ec.nextHeight, result.MintTime()); err != nil {
+		if err := ec.heightManager.validate(height, result.MintTime()); err != nil {
 			zap.L().Fatal(
 				"Unexpected status that the upcoming block height or time is invalid",
 				zap.Error(err),
 			)
 		}
-		if err = ec.storeResult(ec.nextHeight, result); err != nil {
-			return errors.Wrapf(err, "failed to store result of height %d", ec.nextHeight)
+		if err := ec.storeResult(height, result); err != nil {
+			return errors.Wrapf(err, "failed to store result of height %d", height)
 		}
-		ec.nextHeight += ec.interval
+		ec.nextHeight = height + ec.interval
 	}
+	atomic.StoreInt64(&ec.lastUpdateTimestamp, time.Now().Unix())
+
 	return nil
 }
 
@@ -323,7 +383,13 @@ func (ec *committee) fetchVotesByHeight(height uint64) ([]*types.Vote, error) {
 
 	return allVotes, nil
 }
-
+func (ec *committee) voteFilter(v *types.Vote) bool {
+	return ec.voteThreshold.Cmp(v.Amount()) > 0
+}
+func (ec *committee) candidateFilter(c *types.Candidate) bool {
+	return ec.selfStakingThreshold.Cmp(c.SelfStakingTokens()) > 0 ||
+		ec.scoreThreshold.Cmp(c.Score()) > 0
+}
 func (ec *committee) calculator(height uint64) (*types.ResultCalculator, error) {
 	mintTime, err := ec.carrier.BlockTimestamp(height)
 	switch errors.Cause(err) {
@@ -336,14 +402,9 @@ func (ec *committee) calculator(height uint64) (*types.ResultCalculator, error) 
 	}
 	return types.NewResultCalculator(
 		mintTime,
-		func(v *types.Vote) bool {
-			return ec.voteThreshold.Cmp(v.Amount()) > 0
-		},
+		ec.voteFilter,
 		ec.calcWeightedVotes,
-		func(c *types.Candidate) bool {
-			return ec.selfStakingThreshold.Cmp(c.SelfStakingTokens()) > 0 &&
-				ec.scoreThreshold.Cmp(c.Score()) > 0
-		},
+		ec.candidateFilter,
 	), nil
 }
 
@@ -423,17 +484,17 @@ func (ec *committee) storeResult(height uint64, result *types.ElectionResult) er
 	return ec.heightManager.add(height, result.MintTime())
 }
 
-func (ec *committee) retryFetchResultByHeight() (*types.ElectionResult, error) {
+func (ec *committee) retryFetchResultByHeight(height uint64) (*types.ElectionResult, error) {
 	var result *types.ElectionResult
 	var err error
 	for i := uint8(0); i < ec.retryLimit; i++ {
-		if result, err = ec.fetchResultByHeight(ec.nextHeight); err == nil {
+		if result, err = ec.fetchResultByHeight(height); err == nil {
 			return result, nil
 		}
 		zap.L().Error(
 			"failed to fetch result by height",
 			zap.Error(err),
-			zap.Uint64("height", ec.nextHeight),
+			zap.Uint64("height", height),
 			zap.Uint8("tried", i+1),
 		)
 	}

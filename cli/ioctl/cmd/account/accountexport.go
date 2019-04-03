@@ -23,26 +23,31 @@ var accountExportCmd = &cobra.Command{
 	Use:   "export (ALIAS|ADDRESS)",
 	Short: "Export IoTeX private key from wallet",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(accountExport(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := accountExport(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
-func accountExport(args []string) string {
+func accountExport(args []string) (string, error) {
 	addr, err := alias.Address(args[0])
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	fmt.Printf("Enter password #%s:\n", args[0])
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
-		return err.Error()
+		return "", err
 	}
 	prvKey, err := KsAccountToPrivateKey(addr, string(bytePassword))
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	defer prvKey.Zero()
-	return prvKey.HexString()
+	return prvKey.HexString(), nil
 }

@@ -22,19 +22,24 @@ var aliasSetCmd = &cobra.Command{
 	Use:   "set ALIAS ADDRESS",
 	Short: "Set alias for address",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(set(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := set(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // set sets alias
-func set(args []string) string {
+func set(args []string) (string, error) {
 	if err := validator.ValidateAlias(args[0]); err != nil {
-		return err.Error()
+		return "", err
 	}
 	alias := args[0]
 	if err := validator.ValidateAddress(args[1]); err != nil {
-		return err.Error()
+		return "", err
 	}
 	addr := args[1]
 	aliases := GetAliasMap()
@@ -44,10 +49,10 @@ func set(args []string) string {
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
+		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
 	}
-	return "set"
+	return "set", nil
 }

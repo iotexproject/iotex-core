@@ -8,7 +8,9 @@ package types
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -30,7 +32,7 @@ type ElectionResult struct {
 	totalVotedStakes *big.Int
 }
 
-// MintTime returns the mint time of the corresponding beacon chain block
+// MintTime returns the mint time of the corresponding gravity chain block
 func (r *ElectionResult) MintTime() time.Time {
 	return r.mintTime
 }
@@ -152,6 +154,30 @@ func (r *ElectionResult) Deserialize(data []byte) error {
 	}
 
 	return r.FromProtoMsg(pb)
+}
+
+func (r *ElectionResult) String() string {
+	var builder strings.Builder
+	fmt.Fprintf(
+		&builder,
+		"Timestamp: %s\nTotal Voted Stakes: %d\nTotal Votes: %d\n",
+		r.mintTime,
+		r.totalVotedStakes,
+		r.totalVotes,
+	)
+	for i, d := range r.delegates {
+		fmt.Fprintf(
+			&builder,
+			"%d: %s %x\n\toperator address: %s\n\treward: %s\n\tvotes: %s\n",
+			i,
+			string(d.name),
+			d.name,
+			string(d.operatorAddress),
+			string(d.rewardAddress),
+			d.score,
+		)
+	}
+	return builder.String()
 }
 
 // NewElectionResultForTest creates an election result for test purpose only

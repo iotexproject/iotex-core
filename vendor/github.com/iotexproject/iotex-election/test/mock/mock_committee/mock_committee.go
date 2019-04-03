@@ -7,6 +7,7 @@ package mock_committee
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
+	committee "github.com/iotexproject/iotex-election/committee"
 	types "github.com/iotexproject/iotex-election/types"
 	reflect "reflect"
 	time "time"
@@ -120,4 +121,18 @@ func (m *MockCommittee) LatestHeight() uint64 {
 func (mr *MockCommitteeMockRecorder) LatestHeight() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestHeight", reflect.TypeOf((*MockCommittee)(nil).LatestHeight))
+}
+
+// Status mocks base method
+func (m *MockCommittee) Status() committee.STATUS {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Status")
+	ret0, _ := ret[0].(committee.STATUS)
+	return ret0
+}
+
+// Status indicates an expected call of Status
+func (mr *MockCommitteeMockRecorder) Status() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockCommittee)(nil).Status))
 }
