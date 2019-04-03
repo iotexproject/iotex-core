@@ -7,7 +7,6 @@
 package account
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -25,12 +24,17 @@ var accountListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List existing account for ioctl",
 	Args:  cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(accountList())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := accountList()
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
-func accountList() string {
+func accountList() (string, error) {
 	lines := make([]string, 0)
 	aliases := alias.GetAliasMap()
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
@@ -39,7 +43,7 @@ func accountList() string {
 		address, err := address.FromBytes(v.Address.Bytes())
 		if err != nil {
 			log.L().Error("failed to convert bytes into address", zap.Error(err))
-			return err.Error()
+			return "", err
 		}
 		line := address.String()
 		if len(aliases[line]) != 0 {
@@ -47,5 +51,5 @@ func accountList() string {
 		}
 		lines = append(lines, line)
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n"), nil
 }

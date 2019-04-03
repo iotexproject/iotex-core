@@ -7,7 +7,6 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/spf13/cobra"
@@ -26,43 +25,48 @@ var actionInvokeCmd = &cobra.Command{
 		" -l GAS_LIMIT -p GAS_PRICE -s SIGNER -b BYTE_CODE",
 	Short: "Invoke smart contract on IoTeX blockchain",
 	Args:  cobra.RangeArgs(1, 2),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(invoke(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := invoke(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // invoke invokes smart contract on IoTeX blockchain
-func invoke(args []string) string {
+func invoke(args []string) (string, error) {
 	contract, err := alias.Address(args[0])
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	amount := big.NewInt(0)
 	if len(args) == 2 {
 		amount, err = util.StringToRau(args[1], util.IotxDecimalNum)
 		if err != nil {
-			return err.Error()
+			return "", err
 		}
 	}
 	executor, err := alias.Address(signer)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	gasPriceRau, err := util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	if nonce == 0 {
 		accountMeta, err := account.GetAccountMeta(executor)
 		if err != nil {
-			return err.Error()
+			return "", err
 		}
 		nonce = accountMeta.PendingNonce
 	}
 	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
-		return err.Error()
+		return "", err
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).

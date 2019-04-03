@@ -7,8 +7,6 @@
 package action
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -25,20 +23,25 @@ var actionTransferCmd = &cobra.Command{
 		" -l GAS_LIMIT -p GAS_PRICE -s SIGNER",
 	Short: "Transfer tokens on IoTeX blokchain",
 	Args:  cobra.RangeArgs(2, 3),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(transfer(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := transfer(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // transfer transfers tokens on IoTeX blockchain
-func transfer(args []string) string {
+func transfer(args []string) (string, error) {
 	recipient, err := alias.Address(args[0])
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	amount, err := util.StringToRau(args[1], util.IotxDecimalNum)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	payload := make([]byte, 0)
 	if len(args) == 3 {
@@ -46,16 +49,16 @@ func transfer(args []string) string {
 	}
 	sender, err := alias.Address(signer)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	gasPriceRau, err := util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	if nonce == 0 {
 		accountMeta, err := account.GetAccountMeta(sender)
 		if err != nil {
-			return err.Error()
+			return "", err
 		}
 		nonce = accountMeta.PendingNonce
 	}
@@ -63,6 +66,7 @@ func transfer(args []string) string {
 		recipient, []byte(payload), gasLimit, gasPriceRau)
 	if err != nil {
 		log.L().Error("failed to make a Transfer instance", zap.Error(err))
+		return "", err
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).

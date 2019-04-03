@@ -22,33 +22,38 @@ var accountCreateAddCmd = &cobra.Command{
 	Use:   "createadd ALIAS",
 	Short: "Create new account for ioctl",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(accountCreateAdd(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := accountCreateAdd(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
-func accountCreateAdd(args []string) string {
+func accountCreateAdd(args []string) (string, error) {
 	// Validate inputs
 	if err := validator.ValidateAlias(args[0]); err != nil {
-		return err.Error()
+		return "", err
 	}
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
-		return fmt.Sprintf("Alias \"%s\" has already used for %s.", alias, addr)
+		return "", fmt.Errorf("alias \"%s\" has already used for %s", alias, addr)
 	}
 	addr, err := newAccount(alias, config.ReadConfig.Wallet)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile)
+		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
 	}
 	return fmt.Sprintf(
 		"New account \"%s\" is created.\n"+
-			"Please Keep your password, or your will lose your private key.", alias)
+			"Please Keep your password, or your will lose your private key.", alias), nil
 }
