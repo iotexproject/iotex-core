@@ -364,13 +364,21 @@ func validateDelegates(cs state.CandidateList) error {
 }
 
 func handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	r, ok := act.(*action.PutPollResult)
 	if !ok {
 		return nil, nil
 	}
 	zap.L().Debug("Handle PutPollResult Action", zap.Uint64("height", r.Height()))
 
-	return nil, setCandidates(sm, r.Candidates(), r.Height())
+	if err := setCandidates(sm, r.Candidates(), r.Height()); err != nil {
+		return nil, errors.Wrap(err, "failed to set candidates")
+	}
+	return &action.Receipt{
+		Status:      action.SuccessReceiptStatus,
+		ActHash:     raCtx.ActionHash,
+		GasConsumed: raCtx.IntrinsicGas,
+	}, nil
 }
 
 func validate(ctx context.Context, p Protocol, act action.Action) error {
