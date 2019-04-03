@@ -148,7 +148,7 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 	output += fmt.Sprintf("status: %d %s\n", receipt.Status,
 		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
-		// TODO: blkHash
+		fmt.Sprintf("blkHeight: %d\n", receipt.BlkHeight) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		fmt.Sprintf("logs: %d", len(receipt.Logs))
 	if len(receipt.ContractAddress) != 0 {

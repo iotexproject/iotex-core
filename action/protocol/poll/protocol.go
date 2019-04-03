@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -60,6 +61,7 @@ type Protocol interface {
 
 type lifeLongDelegatesProtocol struct {
 	delegates state.CandidateList
+	addr      address.Address
 }
 
 // NewLifeLongDelegatesProtocol creates a poll protocol with life long delegates
@@ -77,7 +79,12 @@ func NewLifeLongDelegatesProtocol(delegates []genesis.Delegate) Protocol {
 			RewardAddress: rewardAddress.String(),
 		})
 	}
-	return &lifeLongDelegatesProtocol{delegates: l}
+	h := hash.Hash160b([]byte(ProtocolID))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
+	}
+	return &lifeLongDelegatesProtocol{delegates: l, addr: addr}
 }
 
 func (p *lifeLongDelegatesProtocol) Initialize(
@@ -89,7 +96,7 @@ func (p *lifeLongDelegatesProtocol) Initialize(
 }
 
 func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	return handle(ctx, act, sm)
+	return handle(ctx, act, sm, p.addr.String())
 }
 
 func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Action) error {
@@ -134,6 +141,7 @@ type governanceChainCommitteeProtocol struct {
 	initGravityChainHeight uint64
 	numCandidateDelegates  uint64
 	numDelegates           uint64
+	addr                   address.Address
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
@@ -161,6 +169,12 @@ func NewGovernanceChainCommitteeProtocol(
 		return nil, errors.New("getEpochNum api is not provided")
 	}
 
+	h := hash.Hash160b([]byte(ProtocolID))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
+	}
+
 	return &governanceChainCommitteeProtocol{
 		cm:                     cm,
 		electionCommittee:      electionCommittee,
@@ -170,6 +184,7 @@ func NewGovernanceChainCommitteeProtocol(
 		getEpochNum:            getEpochNum,
 		numCandidateDelegates:  numCandidateDelegates,
 		numDelegates:           numDelegates,
+		addr:                   addr,
 	}, nil
 }
 
@@ -191,7 +206,7 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 }
 
 func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	return handle(ctx, act, sm)
+	return handle(ctx, act, sm, p.addr.String())
 }
 
 func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act action.Action) error {
@@ -363,14 +378,24 @@ func validateDelegates(cs state.CandidateList) error {
 	return nil
 }
 
-func handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func handle(ctx context.Context, act action.Action, sm protocol.StateManager, protocolAddr string) (*action.Receipt, error) {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	r, ok := act.(*action.PutPollResult)
 	if !ok {
 		return nil, nil
 	}
 	zap.L().Debug("Handle PutPollResult Action", zap.Uint64("height", r.Height()))
 
-	return nil, setCandidates(sm, r.Candidates(), r.Height())
+	if err := setCandidates(sm, r.Candidates(), r.Height()); err != nil {
+		return nil, errors.Wrap(err, "failed to set candidates")
+	}
+	return &action.Receipt{
+		Status:          action.SuccessReceiptStatus,
+		ActionHash:      raCtx.ActionHash,
+		BlockHeight:     raCtx.BlockHeight,
+		GasConsumed:     raCtx.IntrinsicGas,
+		ContractAddress: protocolAddr,
+	}, nil
 }
 
 func validate(ctx context.Context, p Protocol, act action.Action) error {
