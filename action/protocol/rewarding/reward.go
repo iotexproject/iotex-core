@@ -122,8 +122,8 @@ func (p *Protocol) GrantBlockReward(
 		Address:     p.addr.String(),
 		Topics:      nil,
 		Data:        data,
-		BlockNumber: raCtx.BlockHeight,
-		TxnHash:     raCtx.ActionHash,
+		BlockHeight: raCtx.BlockHeight,
+		ActionHash:  raCtx.ActionHash,
 	}, nil
 }
 
@@ -187,8 +187,8 @@ func (p *Protocol) GrantEpochReward(
 			Address:     p.addr.String(),
 			Topics:      nil,
 			Data:        data,
-			BlockNumber: raCtx.BlockHeight,
-			TxnHash:     raCtx.ActionHash,
+			BlockHeight: raCtx.BlockHeight,
+			ActionHash:  raCtx.ActionHash,
 		})
 		actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
 	}
@@ -225,8 +225,8 @@ func (p *Protocol) GrantEpochReward(
 				Address:     p.addr.String(),
 				Topics:      nil,
 				Data:        data,
-				BlockNumber: raCtx.BlockHeight,
-				TxnHash:     raCtx.ActionHash,
+				BlockHeight: raCtx.BlockHeight,
+				ActionHash:  raCtx.ActionHash,
 			})
 			actualTotalReward = big.NewInt(0).Add(actualTotalReward, a.foundationBonus)
 		}

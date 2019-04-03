@@ -144,6 +144,7 @@ func TestMutateDeposit(t *testing.T) {
 	act := action.NewCreateDeposit(2, 2, big.NewInt(1000), addr.String(), testutil.TestGasLimit, big.NewInt(0))
 	receipt, err := p.mutateDeposit(
 		addr,
+		1,
 		act,
 		&state.Account{
 			Nonce:   1,
@@ -175,7 +176,7 @@ func TestMutateDeposit(t *testing.T) {
 
 	require.NotNil(t, receipt)
 	assert.Equal(t, uint64(300), enc.MachineEndian.Uint64(receipt.ReturnValue))
-	assert.Equal(t, act.Hash(), receipt.ActHash)
+	assert.Equal(t, act.Hash(), receipt.ActionHash)
 	assert.Equal(t, uint64(0), receipt.Status)
 	gas, err := act.IntrinsicGas()
 	assert.NoError(t, err)
