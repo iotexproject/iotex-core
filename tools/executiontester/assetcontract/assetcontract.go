@@ -17,79 +17,88 @@ const (
 	chainIP = "localhost"
 )
 
-// StartContracts deploys and starts fp token smart contract and stable token smart contract
-func StartContracts(cfg config.Config) (blockchain.FpToken, blockchain.StableToken, error) {
+// ReturnedContract include all contract as return value
+type ReturnedContract struct {
+	FpToken     blockchain.FpToken
+	StbToken    blockchain.StableToken
+	Erc721Token blockchain.Erc721Token
+	ArrDelete   blockchain.ArrayDelete
+	ArrString   blockchain.ArrayString
+}
+
+// StartContracts deploys and starts fp token smart contract and stable token smart contract,erc721 token smart contract
+func StartContracts(cfg config.Config) (ret ReturnedContract, err error) {
 	endpoint := chainIP + ":" + strconv.Itoa(cfg.API.Port)
 
 	// deploy allowance sheet
 	allowance, err := deployContract(blockchain.AllowanceSheetBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	// deploy balance sheet
 	balance, err := deployContract(blockchain.BalanceSheetBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	// deploy registry
 	reg, err := deployContract(blockchain.RegistryBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	// deploy global pause
 	pause, err := deployContract(blockchain.GlobalPauseBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	// deploy stable token
 	stable, err := deployContract(blockchain.StableTokenBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	// create stable token
 	// TODO: query total supply and call stbToken.SetTotal()
-	stbToken := blockchain.NewStableToken(endpoint).
+	ret.StbToken = blockchain.NewStableToken(endpoint).
 		SetAllowance(allowance).
 		SetBalance(balance).
 		SetRegistry(reg).
 		SetPause(pause).
 		SetStable(stable)
-	stbToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	ret.StbToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
 	// stable token set-up
-	if err := stbToken.Start(); err != nil {
-		return nil, nil, err
+	if err = ret.StbToken.Start(); err != nil {
+		return
 	}
 
 	// deploy fp token
 	fpReg, err := deployContract(blockchain.FpRegistryBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	cdp, err := deployContract(blockchain.CdpManageBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	manage, err := deployContract(blockchain.ManageBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	proxy, err := deployContract(blockchain.ManageProxyBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	eap, err := deployContract(blockchain.EapStorageBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 	riskLock, err := deployContract(blockchain.TokenRiskLockBinary, endpoint)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
 	// create fp token
-	fpToken := blockchain.NewFpToken(endpoint).
+	ret.FpToken = blockchain.NewFpToken(endpoint).
 		SetManagement(manage).
 		SetManagementProxy(proxy).
 		SetEapStorage(eap).
@@ -97,14 +106,46 @@ func StartContracts(cfg config.Config) (blockchain.FpToken, blockchain.StableTok
 		SetRegistry(fpReg).
 		SetCdpManager(cdp).
 		SetStableToken(stable)
-	fpToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	ret.FpToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
 	// fp token set-up
-	if err := fpToken.Start(); err != nil {
-		return nil, nil, err
+	if err = ret.FpToken.Start(); err != nil {
+		return
 	}
 
-	return fpToken, stbToken, nil
+	// erc721 token set-up
+	addr, err := deployContract(blockchain.Erc721Binary, endpoint)
+	if err != nil {
+		return
+	}
+	ret.Erc721Token = blockchain.NewErc721Token(endpoint)
+	ret.Erc721Token.SetAddress(addr)
+	ret.Erc721Token.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+
+	if err = ret.Erc721Token.Start(); err != nil {
+		return
+	}
+	// array-delete.sol set-up
+	addr, err = deployContract(blockchain.ArrayDeleteBin, endpoint)
+	if err != nil {
+		return
+	}
+	ret.ArrDelete = blockchain.NewArrayDelete(endpoint)
+	ret.ArrDelete.SetAddress(addr)
+	ret.ArrDelete.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	if err = ret.ArrDelete.Start(); err != nil {
+		return
+	}
+	// array-of-strings.sol set-up
+	addr, err = deployContract(blockchain.ArrayStringBin, endpoint)
+	if err != nil {
+		return
+	}
+	ret.ArrString = blockchain.NewArrayString(endpoint)
+	ret.ArrString.SetAddress(addr)
+	ret.ArrString.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	err = ret.ArrString.Start()
+	return
 }
 
 // GenerateAssetID generates an asset ID

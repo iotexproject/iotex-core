@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
@@ -25,13 +26,18 @@ var bcBlockCmd = &cobra.Command{
 	Use:   "block [HEIGHT|HASH]",
 	Short: "Get block from block chain",
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(getBlock(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := getBlock(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // getBlock get block from block chain
-func getBlock(args []string) string {
+func getBlock(args []string) (string, error) {
 	var height uint64
 	var err error
 	isHeight := true
@@ -40,12 +46,12 @@ func getBlock(args []string) string {
 		if err != nil {
 			isHeight = false
 		} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-			return err.Error()
+			return "", err
 		}
 	} else {
 		chainMeta, err := GetChainMeta()
 		if err != nil {
-			return err.Error()
+			return "", err
 		}
 		height = chainMeta.Height
 	}
@@ -56,7 +62,7 @@ func getBlock(args []string) string {
 		blockMeta, err = GetBlockMetaByHash(args[0])
 	}
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	return fmt.Sprintf("Transactions: %d\n", blockMeta.NumActions) +
 		fmt.Sprintf("Height: %d\n", blockMeta.Height) +
@@ -67,7 +73,7 @@ func getBlock(args []string) string {
 		fmt.Sprintf("Transactions Root: %s\n", blockMeta.TxRoot) +
 		fmt.Sprintf("Receipt Root: %s\n", blockMeta.ReceiptRoot) +
 		fmt.Sprintf("Delta State Digest: %s\n", blockMeta.DeltaStateDigest) +
-		fmt.Sprintf("Hash: %s", blockMeta.Hash)
+		fmt.Sprintf("Hash: %s", blockMeta.Hash), nil
 }
 
 // GetBlockMetaByHeight gets block metadata by height
@@ -89,6 +95,10 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	ctx := context.Background()
 	response, err := cli.GetBlockMetas(ctx, request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, fmt.Errorf(sta.Message())
+		}
 		return nil, err
 	}
 	if len(response.BlkMetas) == 0 {
@@ -113,6 +123,10 @@ func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	ctx := context.Background()
 	response, err := cli.GetBlockMetas(ctx, request)
 	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, fmt.Errorf(sta.Message())
+		}
 		return nil, err
 	}
 	if len(response.BlkMetas) == 0 {

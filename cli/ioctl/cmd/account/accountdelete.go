@@ -27,20 +27,25 @@ var accountDeleteCmd = &cobra.Command{
 	Use:   "delete (ALIAS|ADDRESS)",
 	Short: "Delete an IoTeX account/address from wallet/config",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(accountDelete(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := accountDelete(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
-func accountDelete(args []string) string {
+func accountDelete(args []string) (string, error) {
 	addr, err := alias.Address(args[0])
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	account, err := address.FromString(addr)
 	if err != nil {
 		log.L().Error("failed to convert string into address", zap.Error(err))
-		return err.Error()
+		return "", err
 	}
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
@@ -52,21 +57,21 @@ func accountDelete(args []string) string {
 				"Type 'YES' to continue, quit for anything else.")
 			fmt.Scanf("%s", &confirm)
 			if confirm != "YES" && confirm != "yes" {
-				return "Quit"
+				return "Quit", nil
 			}
 
 			fmt.Printf("Enter password #%s:\n", addr)
 			bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
 				log.L().Error("failed to get password", zap.Error(err))
-				return err.Error()
+				return "", err
 			}
 			password := string(bytePassword)
 			if err := ks.Delete(v, password); err != nil {
-				return err.Error()
+				return "", err
 			}
-			return fmt.Sprintf("Account #%s has been deleted.", addr)
+			return fmt.Sprintf("Account #%s has been deleted.", addr), nil
 		}
 	}
-	return fmt.Sprintf("Account #%s not found", addr)
+	return "", fmt.Errorf("account #%s not found", addr)
 }

@@ -8,7 +8,9 @@ package e2etest
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -34,20 +36,24 @@ import (
 )
 
 const (
-	testDBPath    = "db.test"
-	testDBPath2   = "db.test2"
-	testTriePath  = "trie.test"
-	testTriePath2 = "trie.test2"
+	dBPath    = "db.test"
+	dBPath2   = "db.test2"
+	triePath  = "trie.test"
+	triePath2 = "trie.test2"
 )
 
 func TestLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-
 	cfg, err := newTestConfig()
 	require.Nil(err)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
+
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	testDBPath := testDBFile.Name()
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 
 	// create server
 	ctx := context.Background()
@@ -80,8 +86,6 @@ func TestLocalCommit(t *testing.T) {
 	defer func() {
 		require.Nil(p.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	// check balance
@@ -144,8 +148,11 @@ func TestLocalCommit(t *testing.T) {
 	require.True(5 == bc.TipHeight())
 
 	// create local chain
-	testutil.CleanupPath(t, testTriePath2)
-	testutil.CleanupPath(t, testDBPath2)
+	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
+	testTriePath2 := testTrieFile2.Name()
+
+	testDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
+	testDBPath2 := testDBFile2.Name()
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
@@ -175,8 +182,6 @@ func TestLocalCommit(t *testing.T) {
 	require.True(5 == bc.TipHeight())
 	defer func() {
 		require.NoError(chain.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath2)
-		testutil.CleanupPath(t, testDBPath2)
 	}()
 
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
@@ -202,7 +207,6 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk1))
 	require.Nil(chain.CommitBlock(blk1))
 
 	// transfer 2
@@ -218,7 +222,6 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk2))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act2 := tsf2.Proto()
@@ -244,7 +247,6 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk3))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act3 := tsf3.Proto()
@@ -270,7 +272,6 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk4))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act4 := tsf4.Proto()
@@ -356,13 +357,15 @@ func TestLocalCommit(t *testing.T) {
 func TestLocalSync(t *testing.T) {
 	require := require.New(t)
 
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-	testutil.CleanupPath(t, testTriePath2)
-	testutil.CleanupPath(t, testDBPath2)
-
 	cfg, err := newTestConfig()
 	require.Nil(err)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
+
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	testDBPath := testDBFile.Name()
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 
 	// Create server
 	ctx := context.Background()
@@ -393,8 +396,10 @@ func TestLocalSync(t *testing.T) {
 	hash5 := blk.HashBlock()
 	require.NotNil(svr.P2PAgent())
 
-	testutil.CleanupPath(t, testTriePath2)
-	testutil.CleanupPath(t, testDBPath2)
+	testDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
+	testDBPath2 := testDBFile2.Name()
+	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
+	testTriePath2 := testTrieFile2.Name()
 
 	cfg, err = newTestConfig()
 	require.Nil(err)
@@ -413,10 +418,6 @@ func TestLocalSync(t *testing.T) {
 	defer func() {
 		require.Nil(cli.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testTriePath2)
-		testutil.CleanupPath(t, testDBPath2)
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
@@ -482,10 +483,11 @@ func TestLocalSync(t *testing.T) {
 func TestStartExistingBlockchain(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	testDBPath := testDBFile.Name()
 
-	testutil.CleanupPath(t, testTriePath)
-	testutil.CleanupPath(t, testDBPath)
-
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -503,8 +505,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	defer func() {
 		require.NoError(svr.Stop(ctx))
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
 	}()
 
 	require.NoError(addTestingTsfBlocks(bc))
@@ -562,8 +562,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 func newTestConfig() (config.Config, error) {
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.TrieDBPath = triePath
+	cfg.Chain.ChainDBPath = dBPath
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()

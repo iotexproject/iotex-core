@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
@@ -63,34 +64,34 @@ func setActionFlags(cmds ...*cobra.Command) {
 		cmd.MarkFlagRequired("signer")
 		if cmd == actionDeployCmd || cmd == actionInvokeCmd {
 			cmd.Flags().BytesHexVarP(&bytecode, "bytecode", "b", nil, "set the byte code")
-			actionInvokeCmd.MarkFlagRequired("bytecode")
+			cmd.MarkFlagRequired("bytecode")
 		}
 	}
 }
 
-func sendAction(elp action.Envelope) string {
+func sendAction(elp action.Envelope) (string, error) {
 	fmt.Printf("Enter password #%s:\n", signer)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
-		return err.Error()
+		return "", err
 	}
 	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	defer prvKey.Zero()
 	sealed, err := action.Sign(elp, prvKey)
 	prvKey.Zero()
 	if err != nil {
 		log.L().Error("failed to sign action", zap.Error(err))
-		return err.Error()
+		return "", err
 	}
 	selp := sealed.Proto()
 
 	actionInfo, err := printActionProto(selp)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	var confirm string
 	fmt.Println("\n" + actionInfo + "\n" +
@@ -98,24 +99,28 @@ func sendAction(elp action.Envelope) string {
 		"Type 'YES' to continue, quit for anything else.")
 	fmt.Scanf("%s", &confirm)
 	if confirm != "YES" && confirm != "yes" {
-		return "Quit"
+		return "Quit", nil
 	}
 	fmt.Println()
 
 	request := &iotexapi.SendActionRequest{Action: selp}
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	_, err = cli.SendAction(ctx, request)
 	if err != nil {
-		return err.Error()
+		sta, ok := status.FromError(err)
+		if ok {
+			return "", fmt.Errorf(sta.Message())
+		}
+		return "", err
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	return "Action has been sent to blockchain.\n" +
 		"Wait for several seconds and query this action by hash:\n" +
-		hex.EncodeToString(shash[:])
+		hex.EncodeToString(shash[:]), nil
 }

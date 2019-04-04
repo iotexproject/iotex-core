@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
@@ -24,12 +25,17 @@ var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version of ioctl and node",
 	Args:  cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(version())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := version()
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
-func version() string {
+func version() (string, error) {
 	versionInfo := &iotextypes.ServerMeta{
 		PackageVersion:  ver.PackageVersion,
 		PackageCommitID: ver.PackageCommitID,
@@ -40,7 +46,7 @@ func version() string {
 	fmt.Printf("Client:\n%+v\n\n", versionInfo)
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -48,7 +54,11 @@ func version() string {
 	ctx := context.Background()
 	response, err := cli.GetServerMeta(ctx, request)
 	if err != nil {
-		return "failed to get version from server: " + err.Error()
+		sta, ok := status.FromError(err)
+		if ok {
+			return "", fmt.Errorf(sta.Message())
+		}
+		return "", fmt.Errorf("failed to get version from server: " + err.Error())
 	}
-	return fmt.Sprintf("Server: %s\n%+v", config.ReadConfig.Endpoint, response.ServerMeta)
+	return fmt.Sprintf("Server: %s\n%+v", config.ReadConfig.Endpoint, response.ServerMeta), nil
 }

@@ -86,6 +86,14 @@ type Blockchain interface {
 	GetBlockByHeight(height uint64) (*block.Block, error)
 	// GetBlockByHash returns Block by hash
 	GetBlockByHash(h hash.Hash256) (*block.Block, error)
+	// BlockHeaderByHeight return block header by height
+	BlockHeaderByHeight(height uint64) (*block.Header, error)
+	// BlockHeaderByHash return block header by hash
+	BlockHeaderByHash(h hash.Hash256) (*block.Header, error)
+	// BlockFooterByHeight return block footer by height
+	BlockFooterByHeight(height uint64) (*block.Footer, error)
+	// BlockFooterByHash return block footer by hash
+	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
 	// GetTotalActions returns the total number of actions
 	GetTotalActions() (uint64, error)
 	// GetReceiptByActionHash returns the receipt by action hash
@@ -407,7 +415,7 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 		produce[bp.Address] = 0
 	}
 	for i := uint64(0); i < numBlks; i++ {
-		blk, err := bc.getBlockByHeight(epochStartHeight + i)
+		blk, err := bc.blockHeaderByHeight(epochStartHeight + i)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -439,6 +447,22 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
 // GetBlockByHash returns block from the blockchain hash by hash
 func (bc *blockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
 	return bc.dao.getBlock(h)
+}
+
+func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
+	return bc.blockHeaderByHeight(height)
+}
+
+func (bc *blockchain) BlockHeaderByHash(h hash.Hash256) (*block.Header, error) {
+	return bc.dao.Header(h)
+}
+
+func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
+	return bc.blockFooterByHeight(height)
+}
+
+func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
+	return bc.dao.Footer(h)
 }
 
 // GetTotalActions returns the total number of actions
@@ -672,7 +696,7 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 	// use latest block as carrier to run the offline execution
 	// the block itself is not used
 	h := bc.TipHeight()
-	blk, err := bc.GetBlockByHeight(h)
+	header, err := bc.BlockHeaderByHeight(h)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")
 	}
@@ -680,14 +704,14 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	producer, err := address.FromString(blk.ProducerAddress())
+	producer, err := address.FromString(header.ProducerAddress())
 	if err != nil {
 		return nil, err
 	}
 	gasLimit := bc.config.Genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		BlockHeight:    blk.Height(),
-		BlockTimeStamp: blk.Timestamp(),
+		BlockHeight:    header.Height(),
+		BlockTimeStamp: header.Timestamp(),
 		Producer:       producer,
 		Caller:         caller,
 		GasLimit:       gasLimit,
@@ -812,6 +836,22 @@ func (bc *blockchain) getBlockByHeight(height uint64) (*block.Block, error) {
 		return nil, err
 	}
 	return bc.dao.getBlock(hash)
+}
+
+func (bc *blockchain) blockHeaderByHeight(height uint64) (*block.Header, error) {
+	hash, err := bc.dao.getBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return bc.dao.Header(hash)
+}
+
+func (bc *blockchain) blockFooterByHeight(height uint64) (*block.Footer, error) {
+	hash, err := bc.dao.getBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return bc.dao.Footer(hash)
 }
 
 func (bc *blockchain) startEmptyBlockchain() error {

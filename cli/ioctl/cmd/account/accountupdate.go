@@ -28,21 +28,26 @@ var accountUpdateCmd = &cobra.Command{
 	Use:   "update (ALIAS|ADDRESS)",
 	Short: "Update password for IoTeX account",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(accountUpdate(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := accountUpdate(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
-func accountUpdate(args []string) string {
+func accountUpdate(args []string) (string, error) {
 	account := args[0]
 	addr, err := alias.Address(account)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	address, err := address.FromString(addr)
 	if err != nil {
 		log.L().Error("failed to convert string into address", zap.Error(err))
-		return err.Error()
+		return "", err
 	}
 	// find the keystore and update
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
@@ -53,35 +58,35 @@ func accountUpdate(args []string) string {
 			byteCurrentPassword, err := terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
 				log.L().Error("failed to get current password", zap.Error(err))
-				return err.Error()
+				return "", err
 			}
 			currentPassword := string(byteCurrentPassword)
 			_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
 			if err != nil {
-				return "wrong password"
+				return "", err
 			}
 			fmt.Printf("#%s: Enter new password\n", account)
 			bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
 				log.L().Error("failed to get password", zap.Error(err))
-				return err.Error()
+				return "", err
 			}
 			password := string(bytePassword)
 			fmt.Printf("#%s: Enter new password again\n", account)
 			bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
 				log.L().Error("failed to get password", zap.Error(err))
-				return err.Error()
+				return "", err
 			}
 			if password != string(bytePassword) {
-				return ErrPasswdNotMatch.Error()
+				return "", ErrPasswdNotMatch
 			}
 			if err := ks.Update(v, currentPassword, password); err != nil {
 				log.L().Error("failed to update keystore", zap.Error(err))
-				return err.Error()
+				return "", err
 			}
-			return fmt.Sprintf("Account #%s has been updated.", account)
+			return fmt.Sprintf("Account #%s has been updated.", account), nil
 		}
 	}
-	return fmt.Sprintf("Account #%s not found", account)
+	return "", fmt.Errorf("account #%s not found", account)
 }

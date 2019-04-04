@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -350,32 +351,25 @@ func TestBlockDAO(t *testing.T) {
 		testBlockDao(db.NewMemKVStore(), t)
 	})
 
-	path := "/tmp/test-kv-store-" + string(rand.Int())
+	path := "test-kv-store"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
 	cfg := config.Default.DB
-	cfg.DbPath = path
+	cfg.DbPath = testPath
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testBlockDao(db.NewOnDiskDB(cfg), t)
 	})
-
 	t.Run("In-memory KV Store for actions", func(t *testing.T) {
 		testActionsDao(db.NewMemKVStore(), t)
 	})
-
 	t.Run("Bolt DB for actions", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testActionsDao(db.NewOnDiskDB(cfg), t)
 	})
-
 	t.Run("In-memory KV Store deletions", func(t *testing.T) {
 		testDeleteDao(db.NewMemKVStore(), t)
 	})
 
 	t.Run("Bolt DB deletions", func(t *testing.T) {
-		testutil.CleanupPath(t, path)
-		defer testutil.CleanupPath(t, path)
 		testDeleteDao(db.NewOnDiskDB(cfg), t)
 	})
 }
@@ -384,7 +378,8 @@ func TestBlockDao_putReceipts(t *testing.T) {
 	blkDao := newBlockDAO(db.NewMemKVStore(), true, false, 0)
 	receipts := []*action.Receipt{
 		{
-			ActHash:         hash.Hash256b([]byte("1")),
+			BlockHeight:     1,
+			ActionHash:      hash.Hash256b([]byte("1")),
 			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
@@ -392,7 +387,8 @@ func TestBlockDao_putReceipts(t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 		{
-			ActHash:         hash.Hash256b([]byte("1")),
+			BlockHeight:     1,
+			ActionHash:      hash.Hash256b([]byte("1")),
 			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,
@@ -402,9 +398,9 @@ func TestBlockDao_putReceipts(t *testing.T) {
 	}
 	require.NoError(t, blkDao.putReceipts(1, receipts))
 	for _, receipt := range receipts {
-		r, err := blkDao.getReceiptByActionHash(receipt.ActHash)
+		r, err := blkDao.getReceiptByActionHash(receipt.ActionHash)
 		require.NoError(t, err)
-		assert.Equal(t, receipt.ActHash, r.ActHash)
+		assert.Equal(t, receipt.ActionHash, r.ActionHash)
 	}
 }
 

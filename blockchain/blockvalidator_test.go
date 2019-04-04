@@ -8,7 +8,9 @@ package blockchain
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 
@@ -77,10 +79,14 @@ func TestSignBlock(t *testing.T) {
 
 func TestWrongNonce(t *testing.T) {
 	cfg := config.Default
-	testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-	defer testutil.CleanupPath(t, cfg.Chain.TrieDBPath)
-	testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
-	defer testutil.CleanupPath(t, cfg.Chain.ChainDBPath)
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	cfg.Chain.TrieDBPath = testTriePath
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+	cfg.Chain.ChainDBPath = testDBPath
+
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)

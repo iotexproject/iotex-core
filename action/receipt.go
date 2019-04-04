@@ -25,7 +25,8 @@ const (
 type Receipt struct {
 	ReturnValue     []byte
 	Status          uint64
-	ActHash         hash.Hash256
+	BlockHeight     uint64
+	ActionHash      hash.Hash256
 	GasConsumed     uint64
 	ContractAddress string
 	Logs            []*Log
@@ -36,8 +37,8 @@ type Log struct {
 	Address     string
 	Topics      []hash.Hash256
 	Data        []byte
-	BlockNumber uint64
-	TxnHash     hash.Hash256
+	BlockHeight uint64
+	ActionHash  hash.Hash256
 	Index       uint
 }
 
@@ -46,7 +47,8 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r := &iotextypes.Receipt{}
 	r.ReturnValue = receipt.ReturnValue
 	r.Status = receipt.Status
-	r.ActHash = receipt.ActHash[:]
+	r.BlkHeight = receipt.BlockHeight
+	r.ActHash = receipt.ActionHash[:]
 	r.GasConsumed = receipt.GasConsumed
 	r.ContractAddress = receipt.ContractAddress
 	r.Logs = []*iotextypes.Log{}
@@ -60,7 +62,8 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 	receipt.ReturnValue = pbReceipt.GetReturnValue()
 	receipt.Status = pbReceipt.GetStatus()
-	copy(receipt.ActHash[:], pbReceipt.GetActHash())
+	receipt.BlockHeight = pbReceipt.GetBlkHeight()
+	copy(receipt.ActionHash[:], pbReceipt.GetActHash())
 	receipt.GasConsumed = pbReceipt.GetGasConsumed()
 	receipt.ContractAddress = pbReceipt.GetContractAddress()
 	logs := pbReceipt.GetLogs()
@@ -98,29 +101,29 @@ func (receipt *Receipt) Hash() hash.Hash256 {
 // ConvertToLogPb converts a Log to protobuf's Log
 func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l := &iotextypes.Log{}
-	l.Address = log.Address
+	l.ContractAddress = log.Address
 	l.Topics = [][]byte{}
 	for _, topic := range log.Topics {
 		l.Topics = append(l.Topics, topic[:])
 	}
 	l.Data = log.Data
-	l.BlockNumber = log.BlockNumber
-	l.TxnHash = log.TxnHash[:]
+	l.BlkHeight = log.BlockHeight
+	l.ActHash = log.ActionHash[:]
 	l.Index = uint32(log.Index)
 	return l
 }
 
 // ConvertFromLogPb converts a protobuf's LogPb to Log
 func (log *Log) ConvertFromLogPb(pbLog *iotextypes.Log) {
-	log.Address = pbLog.GetAddress()
+	log.Address = pbLog.GetContractAddress()
 	pbLogs := pbLog.GetTopics()
 	log.Topics = make([]hash.Hash256, len(pbLogs))
 	for i, topic := range pbLogs {
 		copy(log.Topics[i][:], topic)
 	}
 	log.Data = pbLog.GetData()
-	log.BlockNumber = pbLog.GetBlockNumber()
-	copy(log.TxnHash[:], pbLog.GetTxnHash())
+	log.BlockHeight = pbLog.GetBlkHeight()
+	copy(log.ActionHash[:], pbLog.GetActHash())
 	log.Index = uint(pbLog.GetIndex())
 }
 

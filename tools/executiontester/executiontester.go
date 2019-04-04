@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
+	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 )
 
 func main() {
@@ -57,7 +58,7 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	// Deploy contracts
-	fpToken, _, err := assetcontract.StartContracts(cfg)
+	ret, err := assetcontract.StartContracts(cfg)
 	if err != nil {
 		log.L().Fatal("Failed to deploy contracts.", zap.Error(err))
 	}
@@ -77,30 +78,40 @@ func main() {
 	open := time.Now().Unix()
 	exp := open + 100000
 
-	if _, err := fpToken.CreateToken(assetID, debtorAddr, creditorAddr, total, risk, open, exp); err != nil {
+	if _, err := ret.FpToken.CreateToken(assetID, debtorAddr, creditorAddr, total, risk, open, exp); err != nil {
 		log.L().Fatal("Failed to create fp token", zap.Error(err))
 	}
-
-	contractAddr, err := fpToken.TokenAddress(assetID)
+	// create fpToken with assetID
+	contractAddr, err := ret.FpToken.TokenAddress(assetID)
 	if err != nil {
 		log.L().Fatal("Failed to get token contract address", zap.Error(err))
 	}
-
+	tokenID := assetcontract.GenerateAssetID()
+	// create erc721 token with tokenID
+	if _, err := ret.Erc721Token.CreateToken(tokenID, creditorAddr); err != nil {
+		log.L().Fatal("Failed to create erc721 token", zap.Error(err))
+	}
 	// Transfer fp token
-	if _, err := fpToken.Transfer(contractAddr, debtorAddr, debtorPriKey, creditorAddr, total); err != nil {
+	if _, err := ret.FpToken.Transfer(contractAddr, debtorAddr, debtorPriKey, creditorAddr, total); err != nil {
 		log.L().Fatal("Failed to transfer total amount from debtor to creditor", zap.Error(err))
 	}
-	if _, err := fpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
+	// Transfer erc721 token
+	_, err = ret.Erc721Token.Transfer(ret.Erc721Token.Address(), creditorAddr, creditorPriKey, debtorAddr, tokenID)
+	if err != nil {
+		log.L().Fatal("Failed to transfer 1 token from creditor to debtor", zap.Error(err))
+	}
+
+	if _, err := ret.FpToken.RiskLock(contractAddr, creditorAddr, creditorPriKey, risk); err != nil {
 		log.L().Fatal("Failed to transfer amount of risk from creditor to contract", zap.Error(err))
 	}
 
-	debtorBalance, err := fpToken.ReadValue(contractAddr, "70a08231", debtorAddr)
+	debtorBalance, err := ret.FpToken.ReadValue(contractAddr, blockchain.BalanceOf, debtorAddr)
 	if err != nil {
 		log.L().Fatal("Failed to get debtor's asset balance.", zap.Error(err))
 	}
 	log.L().Info("Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
 
-	creditorBalance, err := fpToken.ReadValue(contractAddr, "70a08231", creditorAddr)
+	creditorBalance, err := ret.FpToken.ReadValue(contractAddr, blockchain.BalanceOf, creditorAddr)
 	if err != nil {
 		log.L().Fatal("Failed to get creditor's asset balance.", zap.Error(err))
 	}
@@ -111,8 +122,54 @@ func main() {
 	}
 
 	log.L().Info("Fp token transfer test pass!")
-}
+	// get debtor balance,should be 1
+	debtorBalance, err = ret.Erc721Token.ReadValue(ret.Erc721Token.Address(), blockchain.BalanceOf, debtorAddr)
+	if err != nil {
+		log.L().Fatal("Failed to get erc721 debtor's asset balance.", zap.Error(err))
+	}
+	log.L().Info("erc721 Debtor's asset balance: ", zap.Int64("balance", debtorBalance))
+	// get creditor balance,should be 0
+	creditorBalance, err = ret.Erc721Token.ReadValue(ret.Erc721Token.Address(), blockchain.BalanceOf, creditorAddr)
+	if err != nil {
+		log.L().Fatal("Failed to get erc721 creditor's asset balance.", zap.Error(err))
+	}
+	log.L().Info("erc721 Creditor's asset balance: ", zap.Int64("balance", creditorBalance))
+	if (debtorBalance) != 1 && (creditorBalance != 0) {
+		log.L().Fatal("erc721 balance is incorrect.")
+	}
+	log.L().Info("erc721 token transfer test pass!")
 
+	// test ArrayDelete func
+	testArrayDelete(ret.ArrDelete)
+	// test ArrayString func
+	testArrayString(ret.ArrString)
+}
+func testArrayString(arr blockchain.ArrayString) {
+	ret, err := arr.GetString()
+	if err != nil {
+		log.L().Fatal("Failed to call array-of-strings Func", zap.Error(err))
+	}
+	expected := "bye"
+	if ret != expected {
+		log.L().Fatal("one return is incorrect:", zap.String("string", ret))
+	}
+	log.L().Info("array-of-strings test pass!")
+}
+func testArrayDelete(arr blockchain.ArrayDelete) {
+	ret, err := arr.GetArray()
+	if err != nil {
+		log.L().Fatal("Failed to call array-delete Main Func", zap.Error(err))
+	}
+	expected := []*big.Int{big.NewInt(100), big.NewInt(200), big.NewInt(0), big.NewInt(400), big.NewInt(500)}
+
+	for i, v := range ret {
+		if v.Cmp(expected[i]) != 0 {
+			log.L().Fatal("one return is incorrect:", zap.Int("array", i))
+		}
+	}
+
+	log.L().Info("array-delete test pass!")
+}
 func createAccount() (string, string, string, error) {
 	priKey, err := keypair.GenerateKey()
 	if err != nil {

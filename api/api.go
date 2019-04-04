@@ -301,8 +301,16 @@ func (api *Server) GetReceiptByAction(ctx context.Context, in *iotexapi.GetRecei
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-
-	return &iotexapi.GetReceiptByActionResponse{Receipt: receipt.ConvertToReceiptPb()}, nil
+	blkHash, err := api.bc.GetBlockHashByActionHash(actHash)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return &iotexapi.GetReceiptByActionResponse{
+		ReceiptInfo: &iotexapi.ReceiptInfo{
+			Receipt: receipt.ConvertToReceiptPb(),
+			BlkHash: hex.EncodeToString(blkHash[:]),
+		},
+	}, nil
 }
 
 // ReadContract reads the state in a contract address specified by the slot
