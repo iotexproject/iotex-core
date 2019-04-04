@@ -541,6 +541,7 @@ func TestProtocol_Handle(t *testing.T) {
 	 * Source code: https://kovan.etherscan.io/address/0x81f85886749cbbf3c2ec742db7255c6b07c63c69
 	 */
 	t.Run("InfiniteLoop", func(t *testing.T) {
+		t.Skip()
 		NewSmartContractTest(t, "testdata/infiniteloop.json")
 	})
 	// RollDice
