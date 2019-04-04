@@ -7,7 +7,7 @@
 package blockchain
 
 type (
-	// ArrayString interface for array-of-strings.sol
+	// ArrayPassing interface for array-of-strings.sol
 	ArrayPassing interface {
 		Contract
 		GetNum() (ret int64, err error)
