@@ -4,18 +4,18 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package crypto
+package lib
 
-//#include "lib/ecckey.h"
-//#include "lib/ecdsa.h"
-//#include "lib/sect283k1.h"
-//#include "lib/gfp.h"
-//#include "lib/blake256.h"
-//#include "lib/schnorr.h"
-//#include "lib/random.h"
-//#include "lib/gf2283.h"
-//#cgo darwin LDFLAGS: -L${SRCDIR}/lib -lsect283k1_macos
-//#cgo linux LDFLAGS: -L${SRCDIR}/lib -lsect283k1_ubuntu
+//#include "ecckey.h"
+//#include "ecdsa.h"
+//#include "sect283k1.h"
+//#include "gfp.h"
+//#include "blake256.h"
+//#include "schnorr.h"
+//#include "random.h"
+//#include "gf2283.h"
+//#cgo darwin LDFLAGS: -L${SRCDIR} -lsect283k1_macos
+//#cgo linux LDFLAGS: -L${SRCDIR} -lsect283k1_ubuntu
 import "C"
 import (
 	"bytes"
