@@ -130,10 +130,10 @@ func StartContracts(cfg config.Config) (ret ReturnedContract, err error) {
 	if err != nil {
 		return
 	}
-	ret.ArrDelete = blockchain.NewArrayDelete(endpoint)
-	ret.ArrDelete.SetAddress(addr)
-	ret.ArrDelete.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
-	if err = ret.ArrDelete.Start(); err != nil {
+	ret.ArrDeletePassing = blockchain.NewArrayDelete(endpoint)
+	ret.ArrDeletePassing.SetAddress(addr)
+	ret.ArrDeletePassing.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	if err = ret.ArrDeletePassing.Start(); err != nil {
 		return
 	}
 	// array-of-strings.sol set-up
