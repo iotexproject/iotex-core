@@ -527,7 +527,7 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 	storage := common.Hash{}
 	v, err := stateDB.getContractState(hash.BytesToHash160(evmAddr[:]), hash.BytesToHash256(k[:]))
 	if err != nil {
-		log.L().Error("Failed to get state.", zap.Error(err))
+		log.L().Debug("Failed to get state.", zap.Error(err))
 		return storage
 	}
 	log.L().Debug("Called GetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
