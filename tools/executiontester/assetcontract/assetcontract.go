@@ -23,6 +23,7 @@ type ReturnedContract struct {
 	StbToken    blockchain.StableToken
 	Erc721Token blockchain.Erc721Token
 	ArrDelete   blockchain.ArrayDelete
+	ArrString   blockchain.ArrayString
 }
 
 // StartContracts deploys and starts fp token smart contract and stable token smart contract,erc721 token smart contract
@@ -132,7 +133,18 @@ func StartContracts(cfg config.Config) (ret ReturnedContract, err error) {
 	ret.ArrDelete = blockchain.NewArrayDelete(endpoint)
 	ret.ArrDelete.SetAddress(addr)
 	ret.ArrDelete.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
-	err = ret.ArrDelete.Start()
+	if err = ret.ArrDelete.Start(); err != nil {
+		return
+	}
+	// array-of-strings.sol set-up
+	addr, err = deployContract(blockchain.ArrayStringBin, endpoint)
+	if err != nil {
+		return
+	}
+	ret.ArrString = blockchain.NewArrayString(endpoint)
+	ret.ArrString.SetAddress(addr)
+	ret.ArrString.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	err = ret.ArrString.Start()
 	return
 }
 
