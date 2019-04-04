@@ -136,6 +136,13 @@ DOWNLOAD_FILE=$(mktemp)
 
 downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
 
+
+if [ "$OS" = "linux" ]; then
+    CRYPTO_BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/libsect283k1_ubuntu.so"
+    CRYPTO_DOWNLOAD_FILE=$(mktemp)
+    downloadFile "$CRYPTO_BINARY_URL" "$CRYPTO_DOWNLOAD_FILE"
+fi
+
 echo "Setting executable permissions."
 chmod +x "$DOWNLOAD_FILE"
 
@@ -148,6 +155,12 @@ if [ "$OS" = "windows" ]; then
 else
     echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
     sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
+fi
+
+if [ "$OS" = "linux" ]; then
+    CRYPTO_LIB_NAME="libsect283k1_ubuntu.so"
+    echo "Moving $CRYPTO_LIB_NAME to /usr/lib/$CRYPTO_LIB_NAME"
+    sudo mv "$CRYPTO_DOWNLOAD_FILE" "/usr/lib/$CRYPTO_LIB_NAME"
 fi
 
 
