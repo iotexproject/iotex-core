@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -144,9 +145,9 @@ func ExecuteContract(
 	if err != nil {
 		return nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, err := executeInEVM(ps, stateDB, raCtx.GasLimit)
-	if errors.Cause(err) == action.ErrHitGasLimit {
-		return nil, action.ErrHitGasLimit
+	retval, depositGas, remainingGas, contractAddress, failed, err := executeInEVM(ps, stateDB, raCtx.GasLimit)
+	if err != nil {
+		return nil, err
 	}
 	receipt := &action.Receipt{
 		ReturnValue:     retval,
@@ -155,7 +156,7 @@ func ExecuteContract(
 		ActionHash:      execution.Hash(),
 		ContractAddress: contractAddress,
 	}
-	if err != nil {
+	if failed {
 		receipt.Status = action.FailureReceiptStatus
 	} else {
 		receipt.Status = action.SuccessReceiptStatus
@@ -188,61 +189,58 @@ func getChainConfig() *params.ChainConfig {
 	return &chainConfig
 }
 
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) ([]byte, uint64, uint64, string, error) {
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) ([]byte, uint64, uint64, string, bool, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
-		return nil, 0, 0, action.EmptyAddress, err
+		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
+		return nil, 0, 0, action.EmptyAddress, true, err
 	}
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, err
 	}
 	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.ErrOutOfGas
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, action.ErrOutOfGas
 	}
 	remainingGas -= intriGas
 	contractRawAddress := action.EmptyAddress
 	executor := vm.AccountRef(evmParams.context.Origin)
 	var ret []byte
+	var evmErr error
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
-		ret, evmContractAddress, remainingGas, err = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
 		log.L().Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
-		if err != nil {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
+		if evmErr == nil {
+			if contractAddress, err := address.FromBytes(evmContractAddress.Bytes()); err == nil {
+				contractRawAddress = contractAddress.String()
+			}
 		}
-		contractAddress, err := address.FromBytes(evmContractAddress.Bytes())
-		if err != nil {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
-		}
-		contractRawAddress = contractAddress.String()
 	} else {
 		stateDB.SetNonce(evmParams.context.Origin, stateDB.GetNonce(evmParams.context.Origin)+1)
 		// process contract
 		ret, remainingGas, err = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
 	}
-	if err == nil {
-		err = stateDB.Error()
+	if evmErr != nil {
+		log.L().Debug("evm error", zap.Error(err))
+		if err == vm.ErrInsufficientBalance {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, evmErr
+		}
 	}
-	if err == vm.ErrInsufficientBalance {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, err
+	if stateDB.Error() != nil {
+		log.L().Debug("statedb error", zap.Error(stateDB.Error()))
 	}
 	refund := (evmParams.gas - remainingGas) / 2
 	if refund > stateDB.GetRefund() {
 		refund = stateDB.GetRefund()
 	}
 	remainingGas += refund
-	if err != nil {
-		// TODO (zhi) should we refund if any error
-		// return nil, evmParams.gas, 0, contractRawAddress, err
-	}
-	// TODO (zhi) figure out what the following function does
-	// stateDB.Finalise(true)
-	return ret, evmParams.gas, remainingGas, contractRawAddress, nil
+
+	return ret, evmParams.gas, remainingGas, contractRawAddress, evmErr != nil, nil
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
