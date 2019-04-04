@@ -122,15 +122,6 @@ if [ -z "$CLI_RELEASE_TAG" ]; then
     CLI_RELEASE_TAG=$(echo "${LATEST_RELEASE}" | tr -s '\n' ' ' | sed 's/.*"tag_name":"//' | sed 's/".*//' )
 fi
 
-if [ "$OS" = "linux" ]; then
-    CRYPTO_LIB_NAME=libsect283k1_ubuntu.so
-    CRYPTO_BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/$CRYPTO_LIB_NAME"
-    CRYPTO_DOWNLOAD_FILE=$(mktemp)
-    downloadFile "$CRYPTO_BINARY_URL" ${CRYPTO_DOWNLOAD_FILE}
-    echo "Moving $CRYPTO_LIB_NAME  to /usr/lib/$CRYPTO_LIB_NAME"
-    sudo mv $CRYPTO_DOWNLOAD_FILE /usr/lib/$CRYPTO_LIB_NAME
-fi
-
 if [ "$1" = "unstable" ]; then
     BINARY_URL="$S3URL/$BINARY"
 
