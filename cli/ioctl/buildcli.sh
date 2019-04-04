@@ -26,7 +26,8 @@ initVersion() {
     PACKAGE_VERSION=$(git describe --tags)
     PACKAGE_COMMIT_ID=$(git rev-parse HEAD)
     GIT_STATUS=$(git status --porcelain)
-    if git_status=$(git status --porcelain) && [[ -z ${git_status} ]]; then
+    if ! [ -z "$GIT_STATUS" ];then
+    #if git_status=$(git status --porcelain) && [[ -z ${git_status} ]]; then
         GIT_STATUS="dirty"
     else
     	GIT_STATUS="clean"
@@ -35,11 +36,20 @@ initVersion() {
     BUILD_TIME=$(date +%F-%Z/%T)
     VersionImportPath='github.com/iotexproject/iotex-core/pkg/version'
     PackageFlags="-X '${VersionImportPath}.PackageVersion=${PACKAGE_VERSION}' "
-    PackageFlags+="-X '${VersionImportPath}.PackageCommitID=${PACKAGE_COMMIT_ID}' "
-    PackageFlags+="-X '${VersionImportPath}.GitStatus=${GIT_STATUS}' "
-    PackageFlags+="-X '${VersionImportPath}.GoVersion=${GO_VERSION}' "
-    PackageFlags+="-X '${VersionImportPath}.BuildTime=${BUILD_TIME}' "
-    PackageFlags+="-s -w"
+    ## Ubuntu PackageFlags+="-X " have fault
+    if [ "$OS" = "linux" ]; then
+    	PackageFlags=${PackageFlags}"-X '${VersionImportPath}.PackageCommitID=${PACKAGE_COMMIT_ID}' "
+    	PackageFlags=${PackageFlags}"-X '${VersionImportPath}.GitStatus=${GIT_STATUS}' "
+    	PackageFlags=${PackageFlags}"-X '${VersionImportPath}.GoVersion=${GO_VERSION}' "
+    	PackageFlags=${PackageFlags}"-X '${VersionImportPath}.BuildTime=${BUILD_TIME}' "
+    	PackageFlags=${PackageFlags}"-s -w"
+    else
+    	PackageFlags+="-X '${VersionImportPath}.PackageCommitID=${PACKAGE_COMMIT_ID}' "
+    	PackageFlags+="-X '${VersionImportPath}.GitStatus=${GIT_STATUS}' "
+    	PackageFlags+="-X '${VersionImportPath}.GoVersion=${GO_VERSION}' "
+    	PackageFlags+="-X '${VersionImportPath}.BuildTime=${BUILD_TIME}' "
+    	PackageFlags+="-s -w"
+   fi
 }
 initOS
 initVersion
