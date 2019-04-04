@@ -142,12 +142,14 @@ func main() {
 	// test ArrayDelete func
 	testArrayDelete(ret.ArrDelete)
 	// test ArrayString func
-	testArrayString(ret.ArrayPassing)
+	testArrayString(ret.ArrString)
+	// test ArrayString func
+	testArrayPassing(ret.ArrPassing)
 }
 func testArrayPassing(arr blockchain.ArrayPassing) {
 	ret, err := arr.GetNum()
 	if err != nil {
-		log.L().Fatal("Failed to call array-of-strings Func", zap.Error(err))
+		log.L().Fatal("Failed to call array-passing Func", zap.Error(err))
 	}
 	expected := int64(10)
 	if ret != expected {
