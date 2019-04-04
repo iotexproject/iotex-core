@@ -158,14 +158,12 @@ reboot:
 	$(ECHO_V)rm -rf *trie*.db
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
 	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway
 
 .PHONY: run
 run:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
 	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway
 
 .PHONY: docker
@@ -177,7 +175,6 @@ minicluster:
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
 	./bin/$(BUILD_TARGET_MINICLUSTER)
 
 .PHONY: nightlybuild
@@ -185,14 +182,12 @@ nightlybuild:
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
 	./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400 -fp-token=true
 
 .PHONY: recover
 recover:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
-	export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(PWD)/crypto/lib
 	./bin/$(BUILD_TARGET_RECOVER) -plugin=gateway
 
 .PHONY: ioctl
