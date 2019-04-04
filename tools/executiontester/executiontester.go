@@ -141,9 +141,21 @@ func main() {
 
 	// test ArrayDelete func
 	testArrayDelete(ret.ArrDelete)
+	// test ArrayString func
+	testArrayString(ret.ArrString)
+}
+func testArrayString(arr blockchain.ArrayString) {
+	ret, err := arr.GetString()
+	if err != nil {
+		log.L().Fatal("Failed to call array-of-strings Func", zap.Error(err))
+	}
+	expected := "bye"
+	if ret != expected {
+		log.L().Fatal("one return is incorrect:", zap.String("string", ret))
+	}
+	log.L().Info("array-of-strings test pass!")
 }
 func testArrayDelete(arr blockchain.ArrayDelete) {
-	// get creditor balance,should be 0
 	ret, err := arr.GetArray()
 	if err != nil {
 		log.L().Fatal("Failed to call array-delete Main Func", zap.Error(err))

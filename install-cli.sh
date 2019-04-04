@@ -117,16 +117,24 @@ if [ "$OS" = "windows" ]; then
     BINARY="$BINARY.exe"
 fi
 
+if [ -z "$CLI_RELEASE_TAG" ]; then
+    downloadJSON LATEST_RELEASE "$RELEASES_URL/latest"
+    CLI_RELEASE_TAG=$(echo "${LATEST_RELEASE}" | tr -s '\n' ' ' | sed 's/.*"tag_name":"//' | sed 's/".*//' )
+fi
+
+if [ "$OS" = "linux" ]; then
+    CRYPTO_LIB_NAME=libsect283k1_ubuntu.so
+    CRYPTO_BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/$CRYPTO_LIB_NAME"
+    CRYPTO_DOWNLOAD_FILE=$(mktemp)
+    downloadFile "$CRYPTO_BINARY_URL" ${CRYPTO_DOWNLOAD_FILE}
+    echo "Moving $CRYPTO_LIB_NAME  to /usr/lib/$CRYPTO_LIB_NAME"
+    sudo mv $CRYPTO_DOWNLOAD_FILE /usr/lib/$CRYPTO_LIB_NAME
+fi
+
 if [ "$1" = "unstable" ]; then
     BINARY_URL="$S3URL/$BINARY"
 
 else
-    # if DEP_RELEASE_TAG was not provided, assume latest
-    if [ -z "$CLI_RELEASE_TAG" ]; then
-        downloadJSON LATEST_RELEASE "$RELEASES_URL/latest"
-        CLI_RELEASE_TAG=$(echo "${LATEST_RELEASE}" | tr -s '\n' ' ' | sed 's/.*"tag_name":"//' | sed 's/".*//' )
-    fi
-    echo "Release Tag = $CLI_RELEASE_TAG"
     # fetch the real release data to make sure it exists before we attempt a download
     downloadJSON RELEASE_DATA "$RELEASES_URL/tag/$CLI_RELEASE_TAG"
     BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/$BINARY"
