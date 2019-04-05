@@ -54,6 +54,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 			return nil, errors.Wrapf(err, "error when handling deposit settlement action")
 		}
 	}
+	// TODO: consider add receipt later
 	return nil, nil
 }
 

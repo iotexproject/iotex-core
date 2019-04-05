@@ -161,6 +161,9 @@ func (stx *stateTX) State(hash hash.Hash160, s interface{}) error {
 			return errors.Wrapf(state.ErrStateNotExist, "k = %x doesn't exist", hash)
 		}
 	}
+	if errors.Cause(err) == db.ErrAlreadyDeleted {
+		return errors.Wrapf(state.ErrStateNotExist, "k = %x doesn't exist", hash)
+	}
 	if err != nil {
 		return errors.Wrapf(err, "failed to get account of %x", hash)
 	}

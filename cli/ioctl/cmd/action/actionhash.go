@@ -9,6 +9,7 @@ package action
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
@@ -31,17 +32,22 @@ var actionHashCmd = &cobra.Command{
 	Use:   "hash ACTION_HASH",
 	Short: "Get action by hash",
 	Args:  cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(getActionByHash(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := getActionByHash(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // getActionByHash gets action of IoTeX Blockchain by hash
-func getActionByHash(args []string) string {
+func getActionByHash(args []string) (string, error) {
 	hash := args[0]
 	conn, err := util.ConnectToEndpoint()
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -59,32 +65,33 @@ func getActionByHash(args []string) string {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return sta.Message()
+			return "", fmt.Errorf(sta.Message())
 		}
-		return err.Error()
+		return "", err
 	}
 	if len(response.ActionInfo) == 0 {
-		return "no action info returned"
+		return "", fmt.Errorf("no action info returned")
 	}
 	action := response.ActionInfo[0]
 	output, err := printActionProto(action.Action)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
+	fmt.Println(output)
 
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok && sta.Code() == codes.NotFound {
-			return output + "\n#This action is pending"
+			return "\n#This action is pending", nil
 		} else if ok {
-			return sta.Message()
+			return "", fmt.Errorf(sta.Message())
 		}
-		return fmt.Sprintln(output) + err.Error()
+		return "", err
 	}
-	return output + "\n#This action has been written on blockchain\n" +
-		printReceiptProto(responseReceipt.Receipt)
+	return "\n#This action has been written on blockchain\n" +
+		printReceiptProto(responseReceipt.ReceiptInfo.Receipt), nil
 }
 
 func printActionProto(action *iotextypes.Action) (string, error) {
@@ -105,6 +112,8 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		fmt.Sprintf("senderAddress: %s %s\n", senderAddress.String(),
 			Match(senderAddress.String(), "address"))
 	switch {
+	default:
+		output += proto.MarshalTextString(action.Core)
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
 		output += "transfer: <\n" +
@@ -124,8 +133,21 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			output += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
 		}
 		output += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
-	default:
-		output += proto.MarshalTextString(action.Core)
+	case action.Core.GetPutPollResult() != nil:
+		putPollResult := action.Core.GetPutPollResult()
+		output += "putPollResult: <\n" +
+			fmt.Sprintf("  height: %d\n", putPollResult.Height) +
+			"  candidates: <\n"
+		for _, candidate := range putPollResult.Candidates.Candidates {
+			output += "    candidate: <\n" +
+				fmt.Sprintf("      address: %s\n", candidate.Address)
+			votes := big.NewInt(0).SetBytes(candidate.Votes)
+			output += fmt.Sprintf("      votes: %s\n", votes.String()) +
+				fmt.Sprintf("      rewardAdress: %s\n", candidate.RewardAddress) +
+				"    >\n"
+		}
+		output += "  >\n" +
+			">\n"
 	}
 	output += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 		fmt.Sprintf("signature: %x\n", action.Signature)
@@ -134,15 +156,6 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
-	logs := make([]string, 0)
-	for _, l := range receipt.Logs {
-		log := fmt.Sprintf("#%d block:%d txHash:%s address:%s data:%s\n",
-			l.Index, l.BlockNumber, l.TxnHash, l.Address, l.Data)
-		for _, t := range l.Topics {
-			log += fmt.Sprintf("  %s\n", t)
-		}
-		logs = append(logs, log)
-	}
 	output := ""
 	if len(receipt.ReturnValue) != 0 {
 		output += fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue)
@@ -150,14 +163,12 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 	output += fmt.Sprintf("status: %d %s\n", receipt.Status,
 		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
-		// TODO: blkHash
-		fmt.Sprintf("gasConsumed: %d", receipt.GasConsumed)
+		fmt.Sprintf("blkHeight: %d\n", receipt.BlkHeight) +
+		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
+		fmt.Sprintf("logs: %d", len(receipt.Logs))
 	if len(receipt.ContractAddress) != 0 {
 		output += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
 			Match(receipt.ContractAddress, "address"))
-	}
-	if len(logs) != 0 {
-		output += fmt.Sprintf("\nlogs:\n%s", logs)
 	}
 	return output
 }

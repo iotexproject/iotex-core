@@ -11,11 +11,14 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // ProtocolID is the protocol ID
@@ -23,10 +26,17 @@ import (
 const ProtocolID = "account"
 
 // Protocol defines the protocol of handling account
-type Protocol struct{}
+type Protocol struct{ addr address.Address }
 
 // NewProtocol instantiates the protocol of account
-func NewProtocol() *Protocol { return &Protocol{} }
+func NewProtocol() *Protocol {
+	h := hash.Hash160b([]byte(ProtocolID))
+	addr, err := address.FromBytes(h[:])
+	if err != nil {
+		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
+	}
+	return &Protocol{addr: addr}
+}
 
 // Handle handles an account
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

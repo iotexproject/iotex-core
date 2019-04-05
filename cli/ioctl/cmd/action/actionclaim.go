@@ -7,8 +7,6 @@
 package action
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -22,16 +20,21 @@ var actionClaimCmd = &cobra.Command{
 	Use:   "claim AMOUNT_IOTX [DATA] -l GAS_LIMIT -p GASPRICE -s SIGNER",
 	Short: "Claim rewards from rewarding fund",
 	Args:  cobra.RangeArgs(1, 2),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(claim(args))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := claim(args)
+		if err == nil {
+			println(output)
+		}
+		return err
 	},
 }
 
 // claim claims rewards from rewarding fund
-func claim(args []string) string {
+func claim(args []string) (string, error) {
 	amount, err := util.StringToRau(args[0], util.IotxDecimalNum)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	payload := make([]byte, 0)
 	if len(args) == 2 {
@@ -39,16 +42,16 @@ func claim(args []string) string {
 	}
 	sender, err := alias.Address(signer)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	gasPriceRau, err := util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	if err != nil {
-		return err.Error()
+		return "", err
 	}
 	if nonce == 0 {
 		accountMeta, err := account.GetAccountMeta(sender)
 		if err != nil {
-			return err.Error()
+			return "", err
 		}
 		nonce = accountMeta.PendingNonce
 	}

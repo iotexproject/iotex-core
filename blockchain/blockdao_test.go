@@ -378,7 +378,8 @@ func TestBlockDao_putReceipts(t *testing.T) {
 	blkDao := newBlockDAO(db.NewMemKVStore(), true, false, 0)
 	receipts := []*action.Receipt{
 		{
-			ActHash:         hash.Hash256b([]byte("1")),
+			BlockHeight:     1,
+			ActionHash:      hash.Hash256b([]byte("1")),
 			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
@@ -386,7 +387,8 @@ func TestBlockDao_putReceipts(t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 		{
-			ActHash:         hash.Hash256b([]byte("1")),
+			BlockHeight:     1,
+			ActionHash:      hash.Hash256b([]byte("1")),
 			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,
@@ -396,9 +398,9 @@ func TestBlockDao_putReceipts(t *testing.T) {
 	}
 	require.NoError(t, blkDao.putReceipts(1, receipts))
 	for _, receipt := range receipts {
-		r, err := blkDao.getReceiptByActionHash(receipt.ActHash)
+		r, err := blkDao.getReceiptByActionHash(receipt.ActionHash)
 		require.NoError(t, err)
-		assert.Equal(t, receipt.ActHash, r.ActHash)
+		assert.Equal(t, receipt.ActionHash, r.ActionHash)
 	}
 }
 

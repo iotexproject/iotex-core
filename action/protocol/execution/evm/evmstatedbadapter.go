@@ -391,8 +391,8 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		Address:     addr.String(),
 		Topics:      topics,
 		Data:        evmLog.Data,
-		BlockNumber: stateDB.blockHeight,
-		TxnHash:     stateDB.executionHash,
+		BlockHeight: stateDB.blockHeight,
+		ActionHash:  stateDB.executionHash,
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }
@@ -527,7 +527,7 @@ func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) c
 	storage := common.Hash{}
 	v, err := stateDB.getContractState(hash.BytesToHash160(evmAddr[:]), hash.BytesToHash256(k[:]))
 	if err != nil {
-		log.L().Error("Failed to get state.", zap.Error(err))
+		log.L().Debug("Failed to get state.", zap.Error(err))
 		return storage
 	}
 	log.L().Debug("Called GetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))

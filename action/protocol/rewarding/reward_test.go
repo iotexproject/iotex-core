@@ -11,6 +11,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,7 +40,8 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		// Grant block reward will fail because of no available balance
 		ws, err := stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.Error(t, p.GrantBlockReward(ctx, ws))
+		_, err = p.GrantBlockReward(ctx, ws)
+		require.Error(t, err)
 
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
@@ -47,7 +51,13 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		// Grant block reward
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.NoError(t, p.GrantBlockReward(ctx, ws))
+		rewardLog, err := p.GrantBlockReward(ctx, ws)
+		require.NoError(t, err)
+		require.Equal(t, p.addr.String(), rewardLog.Address)
+		var rl rewardingpb.RewardLog
+		require.NoError(t, proto.Unmarshal(rewardLog.Data, &rl))
+		require.Equal(t, rewardingpb.RewardLog_BLOCK_REWARD, rl.Type)
+		require.Equal(t, "10", rl.Amount)
 		require.NoError(t, stateDB.Commit(ws))
 
 		ws, err = stateDB.NewWorkingSet()
@@ -67,7 +77,8 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		// Grant the same block reward again will fail
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.Error(t, p.GrantBlockReward(ctx, ws))
+		_, err = p.GrantBlockReward(ctx, ws)
+		require.Error(t, err)
 	}, false)
 }
 
@@ -84,7 +95,9 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		// Grant epoch reward
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.NoError(t, p.GrantEpochReward(ctx, ws))
+		rewardLogs, err := p.GrantEpochReward(ctx, ws)
+		require.NoError(t, err)
+		require.Equal(t, 8, len(rewardLogs))
 		require.NoError(t, stateDB.Commit(ws))
 
 		ws, err = stateDB.NewWorkingSet()
@@ -115,16 +128,74 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 
+		// Assert logs
+		expectedResults := []struct {
+			t      rewardingpb.RewardLog_RewardType
+			addr   string
+			amount string
+		}{
+			{
+				rewardingpb.RewardLog_EPOCH_REWARD,
+				identityset.Address(0).String(),
+				"40",
+			},
+			{
+				rewardingpb.RewardLog_EPOCH_REWARD,
+				testaddress.Addrinfo["alfa"].String(),
+				"30",
+			},
+			{
+				rewardingpb.RewardLog_EPOCH_REWARD,
+				testaddress.Addrinfo["charlie"].String(),
+				"10",
+			},
+			{
+				rewardingpb.RewardLog_FOUNDATION_BONUS,
+				identityset.Address(0).String(),
+				"5",
+			},
+			{
+				rewardingpb.RewardLog_FOUNDATION_BONUS,
+				testaddress.Addrinfo["alfa"].String(),
+				"5",
+			},
+			{
+				rewardingpb.RewardLog_FOUNDATION_BONUS,
+				testaddress.Addrinfo["bravo"].String(),
+				"5",
+			},
+			{
+				rewardingpb.RewardLog_FOUNDATION_BONUS,
+				testaddress.Addrinfo["charlie"].String(),
+				"5",
+			},
+			{
+				rewardingpb.RewardLog_FOUNDATION_BONUS,
+				testaddress.Addrinfo["delta"].String(),
+				"5",
+			},
+		}
+		for i := 0; i < 8; i++ {
+			require.Equal(t, p.addr.String(), rewardLogs[i].Address)
+			var rl rewardingpb.RewardLog
+			require.NoError(t, proto.Unmarshal(rewardLogs[i].Data, &rl))
+			assert.Equal(t, expectedResults[i].t, rl.Type)
+			assert.Equal(t, expectedResults[i].addr, rl.Addr)
+			assert.Equal(t, expectedResults[i].amount, rl.Amount)
+		}
+
 		// Grant the same epoch reward again will fail
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.Error(t, p.GrantEpochReward(ctx, ws))
+		_, err = p.GrantEpochReward(ctx, ws)
+		require.Error(t, err)
 
 		// Grant the epoch reward on a block that is not the last one in an epoch will fail
 		raCtx.BlockHeight++
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.Error(t, p.GrantEpochReward(protocol.WithRunActionsCtx(context.Background(), raCtx), ws))
+		_, err = p.GrantEpochReward(protocol.WithRunActionsCtx(context.Background(), raCtx), ws)
+		require.Error(t, err)
 	}, false)
 
 	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
@@ -136,7 +207,8 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		// Grant epoch reward
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.NoError(t, p.GrantEpochReward(ctx, ws))
+		_, err = p.GrantEpochReward(ctx, ws)
+		require.NoError(t, err)
 		require.NoError(t, stateDB.Commit(ws))
 
 		ws, err = stateDB.NewWorkingSet()
@@ -159,7 +231,13 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		// Grant block reward
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		require.NoError(t, p.GrantBlockReward(ctx, ws))
+		rewardLog, err := p.GrantBlockReward(ctx, ws)
+		require.NoError(t, err)
+		require.Equal(t, p.addr.String(), rewardLog.Address)
+		var rl rewardingpb.RewardLog
+		require.NoError(t, proto.Unmarshal(rewardLog.Data, &rl))
+		require.Equal(t, rewardingpb.RewardLog_BLOCK_REWARD, rl.Type)
+		require.Equal(t, "10", rl.Amount)
 		require.NoError(t, stateDB.Commit(ws))
 
 		// Claim 5 token
@@ -329,7 +407,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	// Grant block reward
 	ws, err = stateDB.NewWorkingSet()
 	require.NoError(t, err)
-	require.NoError(t, p.GrantBlockReward(ctx, ws))
+	rewardLog, err := p.GrantBlockReward(ctx, ws)
+	require.NoError(t, err)
+	require.Nil(t, rewardLog)
 	require.NoError(t, stateDB.Commit(ws))
 
 	ws, err = stateDB.NewWorkingSet()
@@ -344,7 +424,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	// Grant epoch reward
 	ws, err = stateDB.NewWorkingSet()
 	require.NoError(t, err)
-	require.NoError(t, p.GrantEpochReward(ctx, ws))
+	rewardLogs, err := p.GrantEpochReward(ctx, ws)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(rewardLogs))
 	require.NoError(t, stateDB.Commit(ws))
 
 	ws, err = stateDB.NewWorkingSet()
@@ -359,4 +441,15 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(1))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(55), unclaimedBalance)
+	require.Equal(t, p.addr.String(), rewardLogs[0].Address)
+	var rl rewardingpb.RewardLog
+	require.NoError(t, proto.Unmarshal(rewardLogs[0].Data, &rl))
+	assert.Equal(t, rewardingpb.RewardLog_EPOCH_REWARD, rl.Type)
+	assert.Equal(t, identityset.Address(1).String(), rl.Addr)
+	assert.Equal(t, "50", rl.Amount)
+	require.Equal(t, p.addr.String(), rewardLogs[1].Address)
+	require.NoError(t, proto.Unmarshal(rewardLogs[1].Data, &rl))
+	assert.Equal(t, rewardingpb.RewardLog_FOUNDATION_BONUS, rl.Type)
+	assert.Equal(t, identityset.Address(1).String(), rl.Addr)
+	assert.Equal(t, "5", rl.Amount)
 }

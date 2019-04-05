@@ -286,10 +286,10 @@ func TestBlockEpochReward(t *testing.T) {
 				//add expected block/epoch reward
 				for h := preExpectHigh + 1; h <= curHigh; h++ {
 					//Add block reward to current block producer
-					blk, err := chains[0].GetBlockByHeight(h)
+					header, err := chains[0].BlockHeaderByHeight(h)
 					require.NoError(t, err)
-					exptUnclaimed[getRewardAddStr[blk.ProducerAddress()]] =
-						big.NewInt(0).Add(exptUnclaimed[getRewardAddStr[blk.ProducerAddress()]], blockReward)
+					exptUnclaimed[getRewardAddStr[header.ProducerAddress()]] =
+						big.NewInt(0).Add(exptUnclaimed[getRewardAddStr[header.ProducerAddress()]], blockReward)
 
 					//update Epoch rewards
 					epochNum := h / blocksPerEpoch
@@ -594,10 +594,10 @@ func newConfig(
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 40 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 30 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 30 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 30 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 400 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 300 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 300 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 300 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
@@ -609,7 +609,7 @@ func newConfig(
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[0:numNodes]
 
-	cfg.Genesis.BlockInterval = 100 * time.Millisecond
+	cfg.Genesis.BlockInterval = 1000 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
 
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2

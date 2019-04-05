@@ -61,43 +61,45 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 			},
 			ProducerPubkey: pubKey1.Bytes(),
 		},
-		Actions: []*iotextypes.Action{
-			{
-				Core: &iotextypes.ActionCore{
-					Action: &iotextypes.ActionCore_Transfer{
-						Transfer: &iotextypes.Transfer{Recipient: addr2},
+		Body: &iotextypes.BlockBody{
+			Actions: []*iotextypes.Action{
+				{
+					Core: &iotextypes.ActionCore{
+						Action: &iotextypes.ActionCore_Transfer{
+							Transfer: &iotextypes.Transfer{Recipient: addr2},
+						},
+						Version: version.ProtocolVersion,
+						Nonce:   101,
 					},
-					Version: version.ProtocolVersion,
-					Nonce:   101,
+					SenderPubKey: pubKey1.Bytes(),
 				},
-				SenderPubKey: pubKey1.Bytes(),
-			},
-			{
-				Core: &iotextypes.ActionCore{
-					Action: &iotextypes.ActionCore_Vote{
-						Vote: &iotextypes.Vote{VoteeAddress: addr2},
+				{
+					Core: &iotextypes.ActionCore{
+						Action: &iotextypes.ActionCore_Vote{
+							Vote: &iotextypes.Vote{VoteeAddress: addr2},
+						},
+						Version: version.ProtocolVersion,
+						Nonce:   103,
 					},
-					Version: version.ProtocolVersion,
-					Nonce:   103,
+					SenderPubKey: pubKey1.Bytes(),
 				},
-				SenderPubKey: pubKey1.Bytes(),
-			},
-			{
-				Core: &iotextypes.ActionCore{
-					Action: &iotextypes.ActionCore_Execution{
-						Execution: &iotextypes.Execution{Contract: addr2},
+				{
+					Core: &iotextypes.ActionCore{
+						Action: &iotextypes.ActionCore_Execution{
+							Execution: &iotextypes.Execution{Contract: addr2},
+						},
+						Version: version.ProtocolVersion,
+						Nonce:   104,
 					},
-					Version: version.ProtocolVersion,
-					Nonce:   104,
+					SenderPubKey: pubKey1.Bytes(),
 				},
-				SenderPubKey: pubKey1.Bytes(),
 			},
 		},
 	})
 	require.NoError(err)
 	receipts := []*action.Receipt{
 		{
-			ActHash:         hash.Hash256b([]byte("1")),
+			ActionHash:      hash.Hash256b([]byte("1")),
 			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
@@ -105,7 +107,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 		{
-			ActHash:         hash.Hash256b([]byte("2")),
+			ActionHash:      hash.Hash256b([]byte("2")),
 			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,

@@ -31,7 +31,9 @@ func NewBuilder(ra RunnableActions) *Builder {
 				txRoot:    ra.txHash,
 				pubkey:    ra.blockProducerPubKey,
 			},
-			Actions: ra.actions,
+			Body: Body{
+				Actions: ra.actions,
+			},
 		},
 	}
 }

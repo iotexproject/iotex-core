@@ -671,6 +671,30 @@ func testGetDB(ws WorkingSet, t *testing.T) {
 	require.Equal(memDB, ws.GetDB())
 }
 
+func TestDeleteAndPutSameKey(t *testing.T) {
+	testDeleteAndPutSameKey := func(t *testing.T, ws WorkingSet) {
+		key := hash.Hash160b([]byte("test"))
+		acc := state.Account{
+			Nonce: 1,
+		}
+		require.NoError(t, ws.PutState(key, acc))
+		require.NoError(t, ws.DelState(key))
+		require.Equal(t, state.ErrStateNotExist, errors.Cause(ws.State(key, &acc)))
+		require.Equal(t, state.ErrStateNotExist, errors.Cause(ws.State(hash.Hash160b([]byte("other")), &acc)))
+	}
+	t.Run("workingSet", func(t *testing.T) {
+		sf, err := NewFactory(config.Default, InMemTrieOption())
+		require.NoError(t, err)
+		ws, err := sf.NewWorkingSet()
+		require.NoError(t, err)
+		testDeleteAndPutSameKey(t, ws)
+	})
+	t.Run("stateTx", func(t *testing.T) {
+		ws := newStateTX(0, db.NewMemKVStore(), nil)
+		testDeleteAndPutSameKey(t, ws)
+	})
+}
+
 func BenchmarkInMemRunAction(b *testing.B) {
 	cfg := config.Default
 	sf, err := NewFactory(cfg, InMemTrieOption())

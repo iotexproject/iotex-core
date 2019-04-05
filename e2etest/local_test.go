@@ -207,7 +207,6 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk1))
 	require.Nil(chain.CommitBlock(blk1))
 
 	// transfer 2
@@ -223,7 +222,6 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk2))
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act2 := tsf2.Proto()
@@ -249,7 +247,6 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk3))
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act3 := tsf3.Proto()
@@ -275,7 +272,6 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
-	require.Nil(chain.ValidateBlock(blk4))
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act4 := tsf4.Proto()
@@ -363,6 +359,13 @@ func TestLocalSync(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
+
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	testDBPath := testDBFile.Name()
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
 
 	// Create server
 	ctx := context.Background()

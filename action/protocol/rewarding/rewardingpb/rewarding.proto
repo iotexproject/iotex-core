@@ -34,3 +34,14 @@ message Account {
 message Exempt {
     repeated bytes addrs = 1;
 }
+
+message RewardLog {
+    enum RewardType {
+        BLOCK_REWARD = 0;
+        EPOCH_REWARD = 1;
+        FOUNDATION_BONUS= 2;
+    }
+    RewardType type = 1;
+    string addr = 2;
+    string amount = 3;
+}

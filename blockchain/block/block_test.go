@@ -80,46 +80,48 @@ func TestConvertFromBlockPb(t *testing.T) {
 			},
 			ProducerPubkey: senderPubKey.Bytes(),
 		},
-		Actions: []*iotextypes.Action{
-			{
-				Core: &iotextypes.ActionCore{
-					Action: &iotextypes.ActionCore_Transfer{
-						Transfer: &iotextypes.Transfer{},
+		Body: &iotextypes.BlockBody{
+			Actions: []*iotextypes.Action{
+				{
+					Core: &iotextypes.ActionCore{
+						Action: &iotextypes.ActionCore_Transfer{
+							Transfer: &iotextypes.Transfer{},
+						},
+						Version: version.ProtocolVersion,
+						Nonce:   101,
 					},
-					Version: version.ProtocolVersion,
-					Nonce:   101,
+					SenderPubKey: senderPubKey.Bytes(),
 				},
-				SenderPubKey: senderPubKey.Bytes(),
-			},
-			{
-				Core: &iotextypes.ActionCore{
-					Action: &iotextypes.ActionCore_Transfer{
-						Transfer: &iotextypes.Transfer{},
+				{
+					Core: &iotextypes.ActionCore{
+						Action: &iotextypes.ActionCore_Transfer{
+							Transfer: &iotextypes.Transfer{},
+						},
+						Version: version.ProtocolVersion,
+						Nonce:   102,
 					},
-					Version: version.ProtocolVersion,
-					Nonce:   102,
+					SenderPubKey: senderPubKey.Bytes(),
 				},
-				SenderPubKey: senderPubKey.Bytes(),
-			},
-			{
-				Core: &iotextypes.ActionCore{
-					Action: &iotextypes.ActionCore_Vote{
-						Vote: &iotextypes.Vote{},
+				{
+					Core: &iotextypes.ActionCore{
+						Action: &iotextypes.ActionCore_Vote{
+							Vote: &iotextypes.Vote{},
+						},
+						Version: version.ProtocolVersion,
+						Nonce:   103,
 					},
-					Version: version.ProtocolVersion,
-					Nonce:   103,
+					SenderPubKey: senderPubKey.Bytes(),
 				},
-				SenderPubKey: senderPubKey.Bytes(),
-			},
-			{
-				Core: &iotextypes.ActionCore{
-					Action: &iotextypes.ActionCore_Vote{
-						Vote: &iotextypes.Vote{},
+				{
+					Core: &iotextypes.ActionCore{
+						Action: &iotextypes.ActionCore_Vote{
+							Vote: &iotextypes.Vote{},
+						},
+						Version: version.ProtocolVersion,
+						Nonce:   104,
 					},
-					Version: version.ProtocolVersion,
-					Nonce:   104,
+					SenderPubKey: senderPubKey.Bytes(),
 				},
-				SenderPubKey: senderPubKey.Bytes(),
 			},
 		},
 	}))
