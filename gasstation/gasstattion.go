@@ -51,9 +51,15 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 		}
 
 		smallestPrice := blk.Actions[0].GasPrice()
-		for _, action := range blk.Actions {
-			if smallestPrice.Cmp(action.GasPrice()) == 1 {
-				smallestPrice = action.GasPrice()
+		for _, act := range blk.Actions {
+			switch act.Action().(type) {
+			case *action.GrantReward:
+				continue
+			default:
+				break
+			}
+			if smallestPrice.Cmp(act.GasPrice()) == 1 {
+				smallestPrice = act.GasPrice()
 			}
 		}
 		smallestPrices = append(smallestPrices, smallestPrice)
