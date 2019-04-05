@@ -23,7 +23,7 @@ var aliasExportCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := aliasExport(cmd, args)
+		output, err := aliasExport(cmd)
 		if err == nil {
 			println(output)
 		}
@@ -36,7 +36,7 @@ func init() {
 		"format", "f", "json", "set format: json/yaml")
 }
 
-func aliasExport(cmd *cobra.Command, args []string) (string, error) {
+func aliasExport(cmd *cobra.Command) (string, error) {
 	exportAliases := aliases{}
 	for name, address := range config.ReadConfig.Aliases {
 		exportAliases.Aliases = append(exportAliases.Aliases, alias{Name: name, Address: address})
