@@ -47,6 +47,7 @@
         "rawGasLimit": 5000000,
         "rawGasPrice": "1",
         "rawExpectedGasConsumed": 5000000,
+        "failed": true,
         "expectedBalances": [{
             "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
             "rawBalance": "9999999999994752426"
