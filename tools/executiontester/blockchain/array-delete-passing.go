@@ -12,25 +12,26 @@ import (
 )
 
 type (
-	// ArrayDelete interface for array-delete.sol
-	ArrayDelete interface {
+	// ArrayDeletePassing interface for array-delete.sol
+	ArrayDeletePassing interface {
 		Contract
 		GetArray() (ret []*big.Int, err error)
+		GetNum() (ret int64, err error)
 	}
 
-	arrayDelete struct {
+	arrayDeletePassing struct {
 		Contract
 	}
 )
 
 // NewArrayDelete creates a new ArrayDelete contract
-func NewArrayDelete(exp string) ArrayDelete {
-	return &arrayDelete{Contract: NewContract(exp)}
+func NewArrayDelete(exp string) ArrayDeletePassing {
+	return &arrayDeletePassing{Contract: NewContract(exp)}
 }
 
 // MainFunc is function main() returns (uint[])
-func (f *arrayDelete) GetArray() (ret []*big.Int, err error) {
-	retString, err := f.RunAsOwner().SetAddress(f.Address()).Read(ArrayDeleteMain, []byte(Producer))
+func (f *arrayDeletePassing) GetArray() (ret []*big.Int, err error) {
+	retString, err := f.RunAsOwner().SetAddress(f.Address()).Read(ArrayDeletePassingGetArray, []byte(Producer))
 	retBytes, err := hex.DecodeString(retString)
 	if err != nil {
 		return
@@ -41,5 +42,11 @@ func (f *arrayDelete) GetArray() (ret []*big.Int, err error) {
 		retBig := new(big.Int).SetBytes(b)
 		ret = append(ret, retBig)
 	}
+	return
+}
+
+// GetNum is calling function makeA() returns (uint256)
+func (f *arrayDeletePassing) GetNum() (ret int64, err error) {
+	ret, err = f.RunAsOwner().SetAddress(f.Address()).ReadValue(f.Address(), ArrayDeletePassingMakeA, Producer)
 	return
 }
