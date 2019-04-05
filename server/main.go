@@ -105,7 +105,7 @@ func main() {
 
 func initLogger(cfg config.Config) {
 	addr := cfg.ProducerAddress()
-	if err := log.InitGlobal(cfg.Log, zap.Fields(
+	if err := log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
 		zap.String("ioAddr", addr.String()),
 		zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
 	)); err != nil {

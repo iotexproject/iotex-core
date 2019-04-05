@@ -84,6 +84,7 @@ var (
 	// Default is the default config
 	Default = Config{
 		Plugins: make(map[int]interface{}),
+		SubLogs: make(map[string]log.GlobalConfig),
 		Network: Network{
 			Host:           "0.0.0.0",
 			Port:           4689,
@@ -367,20 +368,21 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Plugins    map[int]interface{} `ymal:"plugins"`
-		Network    Network             `yaml:"network"`
-		Chain      Chain               `yaml:"chain"`
-		ActPool    ActPool             `yaml:"actPool"`
-		Consensus  Consensus           `yaml:"consensus"`
-		BlockSync  BlockSync           `yaml:"blockSync"`
-		Dispatcher Dispatcher          `yaml:"dispatcher"`
-		Explorer   Explorer            `yaml:"explorer"`
-		API        API                 `yaml:"api"`
-		Indexer    Indexer             `yaml:"indexer"`
-		System     System              `yaml:"system"`
-		DB         DB                  `yaml:"db"`
-		Log        log.GlobalConfig    `yaml:"log"`
-		Genesis    genesis.Genesis     `yaml:"genesis"`
+		Plugins    map[int]interface{}         `ymal:"plugins"`
+		Network    Network                     `yaml:"network"`
+		Chain      Chain                       `yaml:"chain"`
+		ActPool    ActPool                     `yaml:"actPool"`
+		Consensus  Consensus                   `yaml:"consensus"`
+		BlockSync  BlockSync                   `yaml:"blockSync"`
+		Dispatcher Dispatcher                  `yaml:"dispatcher"`
+		Explorer   Explorer                    `yaml:"explorer"`
+		API        API                         `yaml:"api"`
+		Indexer    Indexer                     `yaml:"indexer"`
+		System     System                      `yaml:"system"`
+		DB         DB                          `yaml:"db"`
+		Log        log.GlobalConfig            `yaml:"log"`
+		SubLogs    map[string]log.GlobalConfig `yaml:"subLogs"`
+		Genesis    genesis.Genesis             `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config
