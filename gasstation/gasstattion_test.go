@@ -113,19 +113,26 @@ func TestEstimateGasForAction(t *testing.T) {
 	require := require.New(t)
 	act := getAction()
 	require.NotNil(act)
-
 	cfg := config.Default
 	bc := blockchain.NewBlockchain(cfg, blockchain.InMemDaoOption(), blockchain.InMemStateFactoryOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-
 	gs := NewGasStation(bc, config.Default.API)
 	require.NotNil(gs)
-
 	ret, err := gs.EstimateGasForAction(act)
 	require.NoError(err)
 	// base intrinsic gas 10000
 	require.Equal(uint64(10000), ret)
+
+	// test for payload
+	act = getActionWithPayload()
+	require.NotNil(act)
+	require.NoError(bc.Start(context.Background()))
+	require.NotNil(bc)
+	ret, err = gs.EstimateGasForAction(act)
+	require.NoError(err)
+	// base intrinsic gas 10000,plus data size*ExecutionDataGas
+	require.Equal(uint64(10000)+uint64(10*action.ExecutionDataGas), ret)
 }
 func getAction() (act *iotextypes.Action) {
 	pubKey1 := testaddress.Keyinfo["alfa"].PubKey
@@ -135,6 +142,22 @@ func getAction() (act *iotextypes.Action) {
 		Core: &iotextypes.ActionCore{
 			Action: &iotextypes.ActionCore_Transfer{
 				Transfer: &iotextypes.Transfer{Recipient: addr2},
+			},
+			Version: version.ProtocolVersion,
+			Nonce:   101,
+		},
+		SenderPubKey: pubKey1.Bytes(),
+	}
+	return
+}
+func getActionWithPayload() (act *iotextypes.Action) {
+	pubKey1 := testaddress.Keyinfo["alfa"].PubKey
+	addr2 := testaddress.Addrinfo["bravo"].String()
+
+	act = &iotextypes.Action{
+		Core: &iotextypes.ActionCore{
+			Action: &iotextypes.ActionCore_Transfer{
+				Transfer: &iotextypes.Transfer{Recipient: addr2, Payload: []byte("1234567890")},
 			},
 			Version: version.ProtocolVersion,
 			Nonce:   101,
