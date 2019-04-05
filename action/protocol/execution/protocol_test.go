@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -26,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
@@ -153,7 +154,7 @@ func (cfg *ExecutionConfig) ExpectedReturnValue() []byte {
 
 type SmartContractTest struct {
 	InitBalances []ExpectedBalance `json:"initBalances"`
-	Deploy       ExecutionConfig   `json:"deploy"`
+	Deploy       []ExecutionConfig `json:"deploy"`
 	// the order matters
 	Executions []ExecutionConfig `json:"executions"`
 }
@@ -267,26 +268,29 @@ func (sct *SmartContractTest) deployContract(
 	bc blockchain.Blockchain,
 	r *require.Assertions,
 ) string {
-	receipt, err := runExecution(bc, &sct.Deploy, action.EmptyAddress)
-	r.NoError(err)
-	r.NotNil(receipt)
-	if sct.Deploy.Failed {
-		r.Equal(action.FailureReceiptStatus, receipt.Status)
-		return ""
-	}
-	contractAddress := receipt.ContractAddress
-	if sct.Deploy.ExpectedGasConsumed() != 0 {
-		r.Equal(sct.Deploy.ExpectedGasConsumed(), receipt.GasConsumed)
-	}
+	var contractAddress string
+	for i, contract := range sct.Deploy {
+		receipt, err := runExecution(bc, &contract, action.EmptyAddress)
+		r.NoError(err)
+		r.NotNil(receipt)
+		if sct.Deploy[i].Failed {
+			r.Equal(action.FailureReceiptStatus, receipt.Status)
+			return ""
+		}
+		contractAddress = receipt.ContractAddress
+		if sct.Deploy[i].ExpectedGasConsumed() != 0 {
+			r.Equal(sct.Deploy[i].ExpectedGasConsumed(), receipt.GasConsumed)
+		}
 
-	ws, err := bc.GetFactory().NewWorkingSet()
-	r.NoError(err)
-	stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
-	var evmContractAddrHash common.Address
-	addr, _ := address.FromString(contractAddress)
-	copy(evmContractAddrHash[:], addr.Bytes())
-	r.True(bytes.Contains(sct.Deploy.ByteCode(), stateDB.GetCode(evmContractAddrHash)))
-
+		ws, err := bc.GetFactory().NewWorkingSet()
+		r.NoError(err)
+		stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
+		var evmContractAddrHash common.Address
+		addr, _ := address.FromString(contractAddress)
+		fmt.Printf("contract address:0x%x\n", addr.Bytes())
+		copy(evmContractAddrHash[:], addr.Bytes())
+		r.True(bytes.Contains(sct.Deploy[i].ByteCode(), stateDB.GetCode(evmContractAddrHash)))
+	}
 	return contractAddress
 }
 
@@ -550,6 +554,30 @@ func TestProtocol_Handle(t *testing.T) {
 	// ChangeState
 	t.Run("ChangeState", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/changestate.json")
+	})
+	// array-return
+	t.Run("ArrayReturn", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/array-return.json")
+	})
+	// basic-token
+	t.Run("BasicToken", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/basic-token.json")
+	})
+	// call-dynamic
+	t.Run("CallDynamic", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/call-dynamic.json")
+	})
+	// factory
+	t.Run("Factory", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/factory.json")
+	})
+	// mapping-delete
+	t.Run("MappingDelete", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/mapping-delete.json")
+	})
+	// f.value
+	t.Run("F.value", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/f.value.json")
 	})
 }
 
