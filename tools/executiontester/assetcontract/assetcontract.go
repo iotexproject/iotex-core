@@ -19,11 +19,11 @@ const (
 
 // ReturnedContract include all contract as return value
 type ReturnedContract struct {
-	FpToken     blockchain.FpToken
-	StbToken    blockchain.StableToken
-	Erc721Token blockchain.Erc721Token
-	ArrDelete   blockchain.ArrayDelete
-	ArrString   blockchain.ArrayString
+	FpToken          blockchain.FpToken
+	StbToken         blockchain.StableToken
+	Erc721Token      blockchain.Erc721Token
+	ArrDeletePassing blockchain.ArrayDeletePassing
+	ArrString        blockchain.ArrayString
 }
 
 // StartContracts deploys and starts fp token smart contract and stable token smart contract,erc721 token smart contract
@@ -125,15 +125,15 @@ func StartContracts(cfg config.Config) (ret ReturnedContract, err error) {
 	if err = ret.Erc721Token.Start(); err != nil {
 		return
 	}
-	// array-delete.sol set-up
-	addr, err = deployContract(blockchain.ArrayDeleteBin, endpoint)
+	// array-delete-passing.sol set-up
+	addr, err = deployContract(blockchain.ArrayDeletePassingBin, endpoint)
 	if err != nil {
 		return
 	}
-	ret.ArrDelete = blockchain.NewArrayDelete(endpoint)
-	ret.ArrDelete.SetAddress(addr)
-	ret.ArrDelete.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
-	if err = ret.ArrDelete.Start(); err != nil {
+	ret.ArrDeletePassing = blockchain.NewArrayDelete(endpoint)
+	ret.ArrDeletePassing.SetAddress(addr)
+	ret.ArrDeletePassing.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	if err = ret.ArrDeletePassing.Start(); err != nil {
 		return
 	}
 	// array-of-strings.sol set-up
