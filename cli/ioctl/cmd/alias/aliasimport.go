@@ -34,7 +34,7 @@ var aliasImportCmd = &cobra.Command{
 
 func init() {
 	aliasImportCmd.Flags().StringVarP(&format,
-		"format", "f", "json", "set format: json/yaml")
+		"format=", "f", "json", "set format: json/yaml")
 	aliasImportCmd.Flags().BoolVarP(&forceImport,
 		"force-import", "F", false, "cover existed aliases forcely")
 }
