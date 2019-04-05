@@ -547,6 +547,10 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("RollDice", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/rolldice.json")
 	})
+	// ChangeState
+	t.Run("ChangeState", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/changestate.json")
+	})
 }
 
 func TestProtocol_Validate(t *testing.T) {
