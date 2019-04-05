@@ -87,7 +87,8 @@ func TestExecuteContractFailure(t *testing.T) {
 		GasLimit: testutil.TestGasLimit,
 	})
 
-	receipt, err := ExecuteContract(ctx, sm, e, cm)
+	retval, receipt, err := ExecuteContract(ctx, sm, e, cm)
+	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
 }

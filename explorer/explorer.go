@@ -760,11 +760,11 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	if err != nil {
 		return "", err
 	}
-	res, err := exp.bc.ExecuteContractRead(callerAddr, sc)
+	retval, _, err := exp.bc.ExecuteContractRead(callerAddr, sc)
 	if err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(res.ReturnValue), nil
+	return hex.EncodeToString(retval), nil
 }
 
 // GetBlockOrActionByHash get block or action by a hash
