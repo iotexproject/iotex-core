@@ -26,7 +26,7 @@ const (
 var _ hasDestination = (*CreateDeposit)(nil)
 
 // CreateDeposit represents the action to deposit the token from main-chain to sub-chain. The recipient address must be a
-// sub-chain address, but it doesn't need to be owned by the sender.
+// sub-chain address, but it doesn'rewardType need to be owned by the sender.
 type CreateDeposit struct {
 	AbstractAction
 

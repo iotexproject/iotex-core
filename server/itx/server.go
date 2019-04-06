@@ -248,7 +248,11 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	if cfg.System.HTTPAdminPort > 0 {
 		mux := http.NewServeMux()
 		log.RegisterLevelConfigMux(mux)
-		mux.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
+		mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+		mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 
 		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
 		adminserv = http.Server{Addr: port, Handler: mux}
