@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 // TODO: HeartbeatHandler opens encapsulation of a few structs to inspect the internal status, we need to find a better
@@ -32,8 +33,17 @@ var heartbeatMtc = prometheus.NewGaugeVec(
 	[]string{"status_type", "source"},
 )
 
+var versionMtc = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "iotex_version_status",
+		Help: "Node software version status.",
+	},
+	[]string{"type", "value"},
+)
+
 func init() {
 	prometheus.MustRegister(heartbeatMtc)
+	prometheus.MustRegister(versionMtc)
 }
 
 // HeartbeatHandler is the handler to periodically log the system key metrics
@@ -119,6 +129,9 @@ func (h *HeartbeatHandler) Log() {
 		heartbeatMtc.WithLabelValues("actpoolSize", chainIDStr).Set(float64(actPoolSize))
 		heartbeatMtc.WithLabelValues("actpoolCapacity", chainIDStr).Set(float64(actPoolCapacity))
 		heartbeatMtc.WithLabelValues("targetHeight", chainIDStr).Set(float64(targetHeight))
+		heartbeatMtc.WithLabelValues("packageVersion", version.PackageVersion).Set(1)
+		heartbeatMtc.WithLabelValues("packageCommitID", version.PackageCommitID).Set(1)
+		heartbeatMtc.WithLabelValues("goVersion", version.GoVersion).Set(1)
 	}
 
 }
