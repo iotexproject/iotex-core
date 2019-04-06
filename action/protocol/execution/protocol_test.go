@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -61,6 +60,7 @@ func (eb *ExpectedBalance) Balance() *big.Int {
 
 type ExecutionConfig struct {
 	Comment                string            `json:"comment"`
+	ContractIndex          int               `json:"contractIndex"`
 	RawPrivateKey          string            `json:"rawPrivateKey"`
 	RawByteCode            string            `json:"rawByteCode"`
 	RawAmount              string            `json:"rawAmount"`
@@ -153,10 +153,10 @@ func (cfg *ExecutionConfig) ExpectedReturnValue() []byte {
 }
 
 type SmartContractTest struct {
-	InitBalances []ExpectedBalance `json:"initBalances"`
-	Deploy       []ExecutionConfig `json:"deploy"`
 	// the order matters
-	Executions []ExecutionConfig `json:"executions"`
+	InitBalances []ExpectedBalance `json:"initBalances"`
+	Deployments  []ExecutionConfig `json:"deployments"`
+	Executions   []ExecutionConfig `json:"executions"`
 }
 
 func NewSmartContractTest(t *testing.T, file string) {
@@ -264,34 +264,32 @@ func (sct *SmartContractTest) prepareBlockchain(
 	return bc
 }
 
-func (sct *SmartContractTest) deployContract(
+func (sct *SmartContractTest) deployContracts(
 	bc blockchain.Blockchain,
 	r *require.Assertions,
-) string {
-	var contractAddress string
-	for i, contract := range sct.Deploy {
+) (contractAddresses []string) {
+	for i, contract := range sct.Deployments {
 		receipt, err := runExecution(bc, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
-		if sct.Deploy[i].Failed {
+		if sct.Deployments[i].Failed {
 			r.Equal(action.FailureReceiptStatus, receipt.Status)
-			return ""
+			return []string{}
 		}
-		contractAddress = receipt.ContractAddress
-		if sct.Deploy[i].ExpectedGasConsumed() != 0 {
-			r.Equal(sct.Deploy[i].ExpectedGasConsumed(), receipt.GasConsumed)
+		if sct.Deployments[i].ExpectedGasConsumed() != 0 {
+			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
 		ws, err := bc.GetFactory().NewWorkingSet()
 		r.NoError(err)
 		stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
-		addr, _ := address.FromString(contractAddress)
-		fmt.Printf("contract address:0x%x\n", addr.Bytes())
+		addr, _ := address.FromString(receipt.ContractAddress)
 		copy(evmContractAddrHash[:], addr.Bytes())
-		r.True(bytes.Contains(sct.Deploy[i].ByteCode(), stateDB.GetCode(evmContractAddrHash)))
+		r.True(bytes.Contains(sct.Deployments[i].ByteCode(), stateDB.GetCode(evmContractAddrHash)))
+		contractAddresses = append(contractAddresses, receipt.ContractAddress)
 	}
-	return contractAddress
+	return
 }
 
 func (sct *SmartContractTest) run(r *require.Assertions) {
@@ -301,14 +299,15 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	defer r.NoError(bc.Stop(ctx))
 
 	// deploy smart contract
-	contractAddress := sct.deployContract(bc, r)
-	if contractAddress == "" {
+	contractAddresses := sct.deployContracts(bc, r)
+	if len(contractAddresses) == 0 {
 		return
 	}
 
 	// run executions
 	for _, exec := range sct.Executions {
-		receipt, err := runExecution(bc, &exec, contractAddress)
+		contractAddr := contractAddresses[exec.ContractIndex]
+		receipt, err := runExecution(bc, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
 		if exec.Failed {
@@ -325,7 +324,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		for _, expectedBalance := range exec.ExpectedBalances {
 			account := expectedBalance.Account
 			if account == "" {
-				account = contractAddress
+				account = contractAddr
 			}
 			balance, err := bc.Balance(account)
 			r.NoError(err)
