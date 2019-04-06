@@ -578,6 +578,14 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("F.value", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/f.value.json")
 	})
+	// proposal
+	t.Run("Proposal", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/proposal.json")
+	})
+	// public-length
+	t.Run("PublicLength", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/public-length.json")
+	})
 }
 
 func TestProtocol_Validate(t *testing.T) {
