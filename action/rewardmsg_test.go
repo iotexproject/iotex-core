@@ -40,7 +40,7 @@ func TestClaimFromRewardingFund(t *testing.T) {
 
 func TestGrantBlockReward(t *testing.T) {
 	b := GrantRewardBuilder{}
-	s1 := b.SetRewardType(BlockReward).Build()
+	s1 := b.SetRewardType(BlockReward).SetHeight(1).Build()
 	proto := s1.Proto()
 	s2 := GrantReward{}
 	require.NoError(t, s2.LoadProto(proto))
