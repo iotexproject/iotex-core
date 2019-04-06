@@ -30,8 +30,9 @@ func main() {
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:  "multisend [command]",
-	Args: cobra.ExactArgs(1),
+	Use:   "multisend 'JSON_DATA'",
+	Short: "multisend bytecode generator",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		output, err := multiSend(args)
 		if err == nil {
@@ -42,12 +43,13 @@ var rootCmd = &cobra.Command{
 }
 
 var abiJSON = `[{"constant":false,"inputs":[{"name":"recipients","type":"address[]"},
-{"name":"amounts","type":"uint256[]"}],"name":"multiSend","outputs":[],"payable":true,
-"stateMutability":"payable","type":"function"},{"anonymous":false,
-"inputs":[{"indexed":false,"name":"recipient","type":"address"},
-{"indexed":false,"name":"amount","type":"uint256"}],"name":"Transfer",
-"type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"refund",
-"type":"uint256"}],"name":"Refund","type":"event"}]`
+{"name":"amounts","type":"uint256[]"},{"name":"payload","type":"string"}],
+"name":"multiSend","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},
+{"anonymous":false,"inputs":[{"indexed":false,"name":"recipient","type":"address"},
+{"indexed":false,"name":"amount","type":"uint256"}],"name":"Transfer","type":"event"},
+{"anonymous":false,"inputs":[{"indexed":false,"name":"refund","type":"uint256"}],
+"name":"Refund","type":"event"},{"anonymous":false,
+"inputs":[{"indexed":false,"name":"payload","type":"string"}],"name":"Payload","type":"event"}]`
 var abiFunc = "multiSend"
 
 type targets struct {
@@ -83,7 +85,7 @@ func multiSend(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	bytecode, err := multisendABI.Pack(abiFunc, recipients, amounts)
+	bytecode, err := multisendABI.Pack(abiFunc, recipients, amounts, targetSet.Payload)
 	if err != nil {
 		return "", err
 	}
