@@ -8,7 +8,6 @@ package actpool
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -1124,11 +1123,4 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 		l += len(part)
 	}
 	return l
-}
-
-func TestSingedTsf(t *testing.T) {
-	selp, _ := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(1), nil, 0, big.NewInt(0))
-	fmt.Printf("%x\n", selp.Hash())
-	selp, _ = testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(1), nil, 0, big.NewInt(0))
-	fmt.Printf("%x\n", selp.Hash())
 }
