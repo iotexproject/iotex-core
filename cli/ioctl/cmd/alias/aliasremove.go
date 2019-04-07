@@ -26,7 +26,7 @@ var aliasRemoveCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := remove(args[0])
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},

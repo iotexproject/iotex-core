@@ -21,7 +21,7 @@ var bcInfoCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := bcInfo()
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},
