@@ -30,7 +30,7 @@ var bcBlockCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := getBlock(args)
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},
