@@ -23,7 +23,7 @@ var accountNonceCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := nonce(args)
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},
