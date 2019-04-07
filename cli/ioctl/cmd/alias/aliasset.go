@@ -26,7 +26,7 @@ var aliasSetCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := set(args)
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},

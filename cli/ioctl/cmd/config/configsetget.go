@@ -34,7 +34,7 @@ var configGetCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := Get(args[0])
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},
@@ -56,7 +56,7 @@ var configSetCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := set(args)
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},

@@ -7,6 +7,8 @@
 package action
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -27,7 +29,7 @@ var actionTransferCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := transfer(args)
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},
