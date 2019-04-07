@@ -586,6 +586,30 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("PublicLength", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/public-length.json")
 	})
+	// public-mapping
+	t.Run("PublicMapping", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/public-mapping.json")
+	})
+	// no-variable-length-returns
+	t.Run("NoVariableLengthReturns", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/no-variable-length-returns.json")
+	})
+	// tuple
+	t.Run("Tuple", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/tuple.json")
+	})
+	// tail-recursion
+	t.Run("TailRecursion", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/tail-recursion.json")
+	})
+	// sha3
+	t.Run("Sha3", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/sha3.json")
+	})
+	// remove-from-array
+	t.Run("RemoveFromArray", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/remove-from-array.json")
+	})
 }
 
 func TestProtocol_Validate(t *testing.T) {
