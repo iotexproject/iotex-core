@@ -232,9 +232,6 @@ func (ap *actPool) GetSize() uint64 {
 
 // GetCapacity returns the act pool capacity
 func (ap *actPool) GetCapacity() uint64 {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
-
 	return ap.cfg.MaxNumActsPerPool
 }
 
@@ -248,9 +245,6 @@ func (ap *actPool) GetGasSize() uint64 {
 
 // GetGasCapacity returns the act pool gas capacity
 func (ap *actPool) GetGasCapacity() uint64 {
-	ap.mutex.RLock()
-	defer ap.mutex.RUnlock()
-
 	return ap.cfg.MaxGasLimitPerPool
 }
 
