@@ -59,18 +59,21 @@ func (eb *ExpectedBalance) Balance() *big.Int {
 }
 
 type ExecutionConfig struct {
-	Comment                string            `json:"comment"`
-	ContractIndex          int               `json:"contractIndex"`
-	RawPrivateKey          string            `json:"rawPrivateKey"`
-	RawByteCode            string            `json:"rawByteCode"`
-	RawAmount              string            `json:"rawAmount"`
-	RawGasLimit            uint              `json:"rawGasLimit"`
-	RawGasPrice            string            `json:"rawGasPrice"`
-	Failed                 bool              `json:"failed"`
-	HasReturnValue         bool              `json:"hasReturnValue"`
-	RawReturnValue         string            `json:"rawReturnValue"`
-	RawExpectedGasConsumed uint              `json:"rawExpectedGasConsumed"`
-	ExpectedBalances       []ExpectedBalance `json:"expectedBalances"`
+	Comment                 string `json:"comment"`
+	ContractIndex           int    `json:"contractIndex"`
+	RawPrivateKey           string `json:"rawPrivateKey"`
+	RawByteCode             string `json:"rawByteCode"`
+	AppendContractAddress   bool   `json:"appendContractAddress"`
+	ContractIndexToAppend   int    `json:"contractIndexToAppend"`
+	ContractAddressToAppend string
+	RawAmount               string            `json:"rawAmount"`
+	RawGasLimit             uint              `json:"rawGasLimit"`
+	RawGasPrice             string            `json:"rawGasPrice"`
+	Failed                  bool              `json:"failed"`
+	HasReturnValue          bool              `json:"hasReturnValue"`
+	RawReturnValue          string            `json:"rawReturnValue"`
+	RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
+	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
 }
 
 func (cfg *ExecutionConfig) PrivateKey() keypair.PrivateKey {
@@ -108,6 +111,19 @@ func (cfg *ExecutionConfig) ByteCode() []byte {
 			zap.String("byteCode", cfg.RawByteCode),
 			zap.Error(err),
 		)
+	}
+	if cfg.AppendContractAddress {
+		addr, err := address.FromString(cfg.ContractAddressToAppend)
+		if err != nil {
+			log.L().Panic(
+				"invalid contract address to append",
+				zap.String("contractAddressToAppend", cfg.ContractAddressToAppend),
+				zap.Error(err),
+			)
+		}
+		ba := addr.Bytes()
+		ba = append(make([]byte, 12), ba...)
+		byteCode = append(byteCode, ba...)
 	}
 
 	return byteCode
@@ -307,6 +323,9 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	// run executions
 	for _, exec := range sct.Executions {
 		contractAddr := contractAddresses[exec.ContractIndex]
+		if exec.AppendContractAddress {
+			exec.ContractAddressToAppend = contractAddresses[exec.ContractIndexToAppend]
+		}
 		receipt, err := runExecution(bc, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
@@ -585,6 +604,10 @@ func TestProtocol_Handle(t *testing.T) {
 	// public-length
 	t.Run("PublicLength", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/public-length.json")
+	})
+	// public-mapping
+	t.Run("PublicMapping", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/public-mapping.json")
 	})
 }
 
