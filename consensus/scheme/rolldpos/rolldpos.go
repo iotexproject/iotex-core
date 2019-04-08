@@ -236,6 +236,15 @@ func (r *RollDPoS) CurrentState() fsm.State {
 	return r.cfsm.CurrentState()
 }
 
+// Activate activates or pauses the roll-DPoS consensus. When it is deactivated, the node will finish the current
+// consensus round if it is doing the work and then return the the initial state
+func (r *RollDPoS) Activate(active bool) { r.ctx.Activate(active) }
+
+// Active is true if the roll-DPoS consensus is active, or false if it is stand-by
+func (r *RollDPoS) Active() bool {
+	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
+}
+
 // Builder is the builder for RollDPoS
 type Builder struct {
 	cfg config.Config
@@ -334,6 +343,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	}
 	ctx := newRollDPoSCtx(
 		b.cfg.Consensus.RollDPoS,
+		b.cfg.System.Active,
 		b.cfg.Genesis.Blockchain.BlockInterval,
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
 		b.cfg.Genesis.TimeBasedRotation,
