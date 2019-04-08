@@ -75,7 +75,7 @@ func newRollDPoSCtx(
 	}
 	round, err := roundCalc.NewRoundWithToleration(0, clock.Now())
 	if err != nil {
-		log.L().Panic("failed to generate round context", zap.Error(err))
+		log.Logger("consensus").Panic("failed to generate round context", zap.Error(err))
 	}
 
 	return &rollDPoSCtx{
@@ -92,7 +92,7 @@ func newRollDPoSCtx(
 	}
 }
 
-func (ctx *rollDPoSCtx) VerifyVote(
+func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	height uint64,
 	vote *ConsensusVote,
 	en *endorsement.Endorsement,
@@ -108,7 +108,7 @@ func (ctx *rollDPoSCtx) VerifyVote(
 	return nil
 }
 
-func (ctx *rollDPoSCtx) VerifyBlockProposal(
+func (ctx *rollDPoSCtx) CheckBlockProposer(
 	height uint64,
 	proposal *blockProposal,
 	en *endorsement.Endorsement,
@@ -257,6 +257,8 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		if !ok {
 			return nil, errors.New("invalid endorsed block")
 		}
+		blkHash := proposal.block.HashBlock()
+		blockHash = blkHash[:]
 		if proposal.block.WorkingSet == nil {
 			if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
 				return nil, errors.Wrapf(err, "error when validating the proposed block")
@@ -265,8 +267,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		if err := ctx.round.AddBlock(proposal.block); err != nil {
 			return nil, err
 		}
-		blkHash := proposal.block.HashBlock()
-		blockHash = blkHash[:]
+		ctx.loggerWithStats().Debug("accept block proposal", log.Hex("block", blockHash))
 	} else if ctx.round.IsLocked() {
 		blockHash = ctx.round.HashOfBlockInLock()
 	}
@@ -292,7 +293,7 @@ func (ctx *rollDPoSCtx) NewLockEndorsement(
 		return nil, nil
 	case nil:
 		if len(blkHash) != 0 {
-			ctx.loggerWithStats().Info("Locked", log.Hex("block", blkHash))
+			ctx.loggerWithStats().Debug("Locked", log.Hex("block", blkHash))
 			return ctx.newEndorsement(
 				blkHash,
 				LOCK,
@@ -301,7 +302,7 @@ func (ctx *rollDPoSCtx) NewLockEndorsement(
 				),
 			)
 		}
-		ctx.loggerWithStats().Info("Unlocked")
+		ctx.loggerWithStats().Debug("Unlocked")
 	}
 	return nil, err
 }
@@ -319,7 +320,7 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 	case ErrInsufficientEndorsements:
 		return nil, nil
 	case nil:
-		ctx.loggerWithStats().Info("Ready to pre-commit")
+		ctx.loggerWithStats().Debug("Ready to pre-commit")
 		return ctx.newEndorsement(
 			blkHash,
 			COMMIT,
@@ -450,7 +451,7 @@ func (ctx *rollDPoSCtx) mintBlock() (*EndorsedConsensusMessage, error) {
 		)
 	} else {
 		actionMap := ctx.actPool.PendingActionMap()
-		log.L().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
+		ctx.logger().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
 		blk, err := ctx.chain.MintNewBlock(
 			actionMap,
 			ctx.round.StartTime(),
@@ -479,7 +480,7 @@ func (ctx *rollDPoSCtx) mintBlock() (*EndorsedConsensusMessage, error) {
 }
 
 func (ctx *rollDPoSCtx) logger() *zap.Logger {
-	return ctx.round.Log(log.L())
+	return ctx.round.Log(log.Logger("consensus"))
 }
 
 func (ctx *rollDPoSCtx) newConsensusEvent(
@@ -519,7 +520,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 }
 
 func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
-	return ctx.round.LogWithStats(log.L())
+	return ctx.round.LogWithStats(log.Logger("consensus"))
 }
 
 func (ctx *rollDPoSCtx) verifyVote(
@@ -535,9 +536,16 @@ func (ctx *rollDPoSCtx) verifyVote(
 		return nil, errors.New("invalid msg")
 	}
 	blkHash := vote.BlockHash()
-	if err := ctx.round.AddVoteEndorsement(vote, consensusMsg.Endorsement()); err != nil {
+	endorsement := consensusMsg.Endorsement()
+	if err := ctx.round.AddVoteEndorsement(vote, endorsement); err != nil {
 		return blkHash, err
 	}
+	ctx.loggerWithStats().Debug(
+		"verified consensus vote",
+		log.Hex("block", blkHash),
+		zap.Uint8("topic", uint8(vote.Topic())),
+		zap.String("endorser", endorsement.Endorser().HexString()),
+	)
 	if !ctx.round.EndorsedByMajority(blkHash, topics) {
 		return blkHash, ErrInsufficientEndorsements
 	}
