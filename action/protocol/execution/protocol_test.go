@@ -610,6 +610,10 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("RemoveFromArray", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/remove-from-array.json")
 	})
+	// send-eth
+	t.Run("SendEth", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/send-eth.json")
+	})
 }
 
 func TestProtocol_Validate(t *testing.T) {
