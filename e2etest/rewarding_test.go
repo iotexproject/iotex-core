@@ -410,7 +410,7 @@ func TestBlockEpochReward(t *testing.T) {
 		return height > runToHeight, nil
 	}); err != nil {
 
-		log.L().Info("Done")
+		log.L().Error(err.Error())
 	}
 
 	//Wait until all the pending actions are settled
@@ -423,7 +423,7 @@ func TestBlockEpochReward(t *testing.T) {
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
 		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endBalance, err := chains[i].Balance(rewardAddrStr)
+		endBalance, err := chains[0].Balance(rewardAddrStr)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endBalance.String())
 		require.NoError(t, err)
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
@@ -609,10 +609,10 @@ func newConfig(
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 400 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 300 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 300 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 300 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 40 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 30 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 30 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 30 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
@@ -624,7 +624,7 @@ func newConfig(
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[0:numNodes]
 
-	cfg.Genesis.BlockInterval = 1000 * time.Millisecond
+	cfg.Genesis.BlockInterval = 100 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
 
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
