@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -215,13 +216,14 @@ func (p *Agent) Start(ctx context.Context) error {
 	}
 
 	if len(p.cfg.BootstrapNodes) > 0 {
-		var (
-			tryNum  int
-			errNum  int
-			connNum int
-		)
+		var tryNum, errNum, connNum, desiredConnNum int
+
 		conn := make(chan interface{}, len(p.cfg.BootstrapNodes))
 		connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
+		desiredConnNum = int(math.RoundToEven(float64(len(p.cfg.BootstrapNodes)) / 2))
+		if float64(desiredConnNum) <= float64(len(p.cfg.BootstrapNodes))/2 {
+			desiredConnNum++
+		}
 
 		// try to connect to all bootstrap node beside itself.
 		for _, bootstrapNode := range p.cfg.BootstrapNodes {
@@ -258,7 +260,7 @@ func (p *Agent) Start(ctx context.Context) error {
 				connNum++
 			}
 			// can add more condition later
-			if connNum >= 1 {
+			if connNum >= desiredConnNum {
 				break
 			}
 		}
