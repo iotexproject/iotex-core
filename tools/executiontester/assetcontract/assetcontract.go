@@ -17,8 +17,17 @@ const (
 	chainIP = "localhost"
 )
 
+// ReturnedContract include all contract as return value
+type ReturnedContract struct {
+	FpToken          blockchain.FpToken
+	StbToken         blockchain.StableToken
+	Erc721Token      blockchain.Erc721Token
+	ArrDeletePassing blockchain.ArrayDeletePassing
+	ArrString        blockchain.ArrayString
+}
+
 // StartContracts deploys and starts fp token smart contract and stable token smart contract,erc721 token smart contract
-func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blockchain.StableToken, erc721Token blockchain.Erc721Token, err error) {
+func StartContracts(cfg config.Config) (ret ReturnedContract, err error) {
 	endpoint := chainIP + ":" + strconv.Itoa(cfg.API.Port)
 
 	// deploy allowance sheet
@@ -49,16 +58,16 @@ func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blo
 
 	// create stable token
 	// TODO: query total supply and call stbToken.SetTotal()
-	stbToken = blockchain.NewStableToken(endpoint).
+	ret.StbToken = blockchain.NewStableToken(endpoint).
 		SetAllowance(allowance).
 		SetBalance(balance).
 		SetRegistry(reg).
 		SetPause(pause).
 		SetStable(stable)
-	stbToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	ret.StbToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
 	// stable token set-up
-	if err = stbToken.Start(); err != nil {
+	if err = ret.StbToken.Start(); err != nil {
 		return
 	}
 
@@ -89,7 +98,7 @@ func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blo
 	}
 
 	// create fp token
-	fpToken = blockchain.NewFpToken(endpoint).
+	ret.FpToken = blockchain.NewFpToken(endpoint).
 		SetManagement(manage).
 		SetManagementProxy(proxy).
 		SetEapStorage(eap).
@@ -97,10 +106,10 @@ func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blo
 		SetRegistry(fpReg).
 		SetCdpManager(cdp).
 		SetStableToken(stable)
-	fpToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	ret.FpToken.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
 	// fp token set-up
-	if err = fpToken.Start(); err != nil {
+	if err = ret.FpToken.Start(); err != nil {
 		return
 	}
 
@@ -109,11 +118,33 @@ func StartContracts(cfg config.Config) (fpToken blockchain.FpToken, stbToken blo
 	if err != nil {
 		return
 	}
-	erc721Token = blockchain.NewErc721Token(endpoint)
-	erc721Token.SetAddress(addr)
-	erc721Token.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	ret.Erc721Token = blockchain.NewErc721Token(endpoint)
+	ret.Erc721Token.SetAddress(addr)
+	ret.Erc721Token.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
 
-	err = erc721Token.Start()
+	if err = ret.Erc721Token.Start(); err != nil {
+		return
+	}
+	// array-delete-passing.sol set-up
+	addr, err = deployContract(blockchain.ArrayDeletePassingBin, endpoint)
+	if err != nil {
+		return
+	}
+	ret.ArrDeletePassing = blockchain.NewArrayDelete(endpoint)
+	ret.ArrDeletePassing.SetAddress(addr)
+	ret.ArrDeletePassing.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	if err = ret.ArrDeletePassing.Start(); err != nil {
+		return
+	}
+	// array-of-strings.sol set-up
+	addr, err = deployContract(blockchain.ArrayStringBin, endpoint)
+	if err != nil {
+		return
+	}
+	ret.ArrString = blockchain.NewArrayString(endpoint)
+	ret.ArrString.SetAddress(addr)
+	ret.ArrString.SetOwner(blockchain.Producer, blockchain.ProducerPrivKey)
+	err = ret.ArrString.Start()
 	return
 }
 

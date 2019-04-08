@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -89,7 +88,6 @@ func TestExecuteContractFailure(t *testing.T) {
 	})
 
 	receipt, err := ExecuteContract(ctx, sm, e, cm)
-	require.NotNil(t, receipt)
-	assert.Equal(t, action.FailureReceiptStatus, receipt.Status)
-	require.NoError(t, err)
+	require.Nil(t, receipt)
+	require.Error(t, err)
 }

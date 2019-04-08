@@ -111,17 +111,17 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	consensusHeight := r.ctx.Height()
 	switch {
 	case consensusHeight == 0:
-		log.L().Debug("consensus component is not ready yet")
+		log.Logger("consensus").Debug("consensus component is not ready yet")
 		return nil
 	case msg.Height < consensusHeight:
-		log.L().Debug(
+		log.Logger("consensus").Debug(
 			"old consensus message",
 			zap.Uint64("consensusHeight", consensusHeight),
 			zap.Uint64("msgHeight", msg.Height),
 		)
 		return nil
 	case msg.Height > consensusHeight+1:
-		log.L().Debug(
+		log.Logger("consensus").Debug(
 			"future consensus message",
 			zap.Uint64("consensusHeight", consensusHeight),
 			zap.Uint64("msgHeight", msg.Height),
@@ -138,13 +138,13 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	en := endorsedMessage.Endorsement()
 	switch consensusMessage := endorsedMessage.Document().(type) {
 	case *blockProposal:
-		if err := r.ctx.VerifyBlockProposal(endorsedMessage.Height(), consensusMessage, en); err != nil {
+		if err := r.ctx.CheckBlockProposer(endorsedMessage.Height(), consensusMessage, en); err != nil {
 			return errors.Wrap(err, "failed to verify block proposal")
 		}
 		r.cfsm.ProduceReceiveBlockEvent(endorsedMessage)
 		return nil
 	case *ConsensusVote:
-		if err := r.ctx.VerifyVote(endorsedMessage.Height(), consensusMessage, en); err != nil {
+		if err := r.ctx.CheckVoteEndorser(endorsedMessage.Height(), consensusMessage, en); err != nil {
 			return errors.Wrapf(err, "failed to verify vote")
 		}
 		switch consensusMessage.Topic() {

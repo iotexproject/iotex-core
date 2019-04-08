@@ -38,7 +38,7 @@ message CandidateList {
 
 message PutPollResult {
   uint64 height = 1;
-	CandidateList	candidates = 2;
+  CandidateList	candidates = 2;
 }
 
 message Execution {
@@ -233,4 +233,5 @@ enum RewardType {
 
 message GrantReward {
   RewardType type = 1;
+  uint64 height = 2;
 }

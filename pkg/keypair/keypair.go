@@ -24,6 +24,10 @@ const (
 var (
 	// ErrInvalidKey is the error that the key format is invalid
 	ErrInvalidKey = errors.New("invalid key format")
+	// ErrPublicKey indicates the error of public key
+	ErrPublicKey = errors.New("invalid public key")
+	// ErrPrivateKey indicates the error of private key
+	ErrPrivateKey = errors.New("invalid private key")
 )
 
 type (

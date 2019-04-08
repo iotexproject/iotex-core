@@ -9,6 +9,7 @@ package action
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
@@ -35,7 +36,7 @@ var actionHashCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := getActionByHash(args)
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},
@@ -132,7 +133,21 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			output += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
 		}
 		output += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
-
+	case action.Core.GetPutPollResult() != nil:
+		putPollResult := action.Core.GetPutPollResult()
+		output += "putPollResult: <\n" +
+			fmt.Sprintf("  height: %d\n", putPollResult.Height) +
+			"  candidates: <\n"
+		for _, candidate := range putPollResult.Candidates.Candidates {
+			output += "    candidate: <\n" +
+				fmt.Sprintf("      address: %s\n", candidate.Address)
+			votes := big.NewInt(0).SetBytes(candidate.Votes)
+			output += fmt.Sprintf("      votes: %s\n", votes.String()) +
+				fmt.Sprintf("      rewardAdress: %s\n", candidate.RewardAddress) +
+				"    >\n"
+		}
+		output += "  >\n" +
+			">\n"
 	}
 	output += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 		fmt.Sprintf("signature: %x\n", action.Signature)
@@ -148,7 +163,7 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 	output += fmt.Sprintf("status: %d %s\n", receipt.Status,
 		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
-		// TODO: blkHash
+		fmt.Sprintf("blkHeight: %d\n", receipt.BlkHeight) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		fmt.Sprintf("logs: %d", len(receipt.Logs))
 	if len(receipt.ContractAddress) != 0 {

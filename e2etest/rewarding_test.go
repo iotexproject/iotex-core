@@ -101,6 +101,21 @@ func TestBlockReward(t *testing.T) {
 	balance, err := rp.UnclaimedBalance(ctx, ws, addr)
 	require.NoError(t, err)
 	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) >= 0)
+
+	for i := 1; i <= 5; i++ {
+		blk, err := svr.ChainService(1).Blockchain().GetBlockByHeight(uint64(i))
+		require.NoError(t, err)
+		ok := false
+		var gr *action.GrantReward
+		for _, act := range blk.Body.Actions {
+			gr, ok = act.Action().(*action.GrantReward)
+			if ok {
+				assert.Equal(t, uint64(i), gr.Height())
+				break
+			}
+		}
+		assert.True(t, ok)
+	}
 }
 
 func TestBlockEpochReward(t *testing.T) {

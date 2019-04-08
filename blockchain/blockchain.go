@@ -1098,7 +1098,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		return hash.ZeroHash256, nil, nil, err
 	}
 	// Process grant block reward action
-	grant, err := bc.createGrantRewardAction(action.BlockReward)
+	grant, err := bc.createGrantRewardAction(action.BlockReward, raCtx.BlockHeight)
 	if err != nil {
 		return hash.ZeroHash256, nil, nil, err
 	}
@@ -1113,7 +1113,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 	// Process grant epoch reward action if the block is the last one in an epoch
 	if raCtx.BlockHeight == lastBlkHeight {
-		grant, err = bc.createGrantRewardAction(action.EpochReward)
+		grant, err = bc.createGrantRewardAction(action.EpochReward, raCtx.BlockHeight)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
@@ -1248,9 +1248,9 @@ func (bc *blockchain) refreshStateDB() error {
 	return nil
 }
 
-func (bc *blockchain) createGrantRewardAction(rewardType int) (action.SealedEnvelope, error) {
+func (bc *blockchain) createGrantRewardAction(rewardType int, height uint64) (action.SealedEnvelope, error) {
 	gb := action.GrantRewardBuilder{}
-	grant := gb.SetRewardType(rewardType).Build()
+	grant := gb.SetRewardType(rewardType).SetHeight(height).Build()
 	eb := action.EnvelopeBuilder{}
 	envelope := eb.SetNonce(0).
 		SetGasPrice(big.NewInt(0)).

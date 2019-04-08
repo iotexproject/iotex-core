@@ -38,7 +38,8 @@ initVersion() {
     PackageFlags+="-X '${VersionImportPath}.PackageCommitID=${PACKAGE_COMMIT_ID}' "
     PackageFlags+="-X '${VersionImportPath}.GitStatus=${GIT_STATUS}' "
     PackageFlags+="-X '${VersionImportPath}.GoVersion=${GO_VERSION}' "
-    PackageFlags+="-X '${VersionImportPath}.BuildTime=${BUILD_TIME}'"
+    PackageFlags+="-X '${VersionImportPath}.BuildTime=${BUILD_TIME}' "
+    PackageFlags+="-s -w"
 }
 initOS
 initVersion

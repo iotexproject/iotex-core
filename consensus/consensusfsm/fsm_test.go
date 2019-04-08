@@ -29,7 +29,7 @@ func TestBackdoorEvt(t *testing.T) {
 	mockCtx := NewMockContext(ctrl)
 	mockCtx.EXPECT().IsFutureEvent(gomock.Any()).Return(false).AnyTimes()
 	mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(false).AnyTimes()
-	mockCtx.EXPECT().Logger().Return(log.L()).AnyTimes()
+	mockCtx.EXPECT().Logger().Return(log.Logger("consensus")).AnyTimes()
 	mockCtx.EXPECT().Prepare().Return(false, nil, true, false, time.Duration(0), nil).AnyTimes()
 	mockCtx.EXPECT().NewConsensusEvent(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(eventType fsm.EventType, data interface{}) *ConsensusEvent {
@@ -67,7 +67,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 	defer ctrl.Finish()
 	mockClock := clock.NewMock()
 	mockCtx := NewMockContext(ctrl)
-	mockCtx.EXPECT().Logger().Return(log.L()).AnyTimes()
+	mockCtx.EXPECT().Logger().Return(log.Logger("consensus")).AnyTimes()
 	mockCtx.EXPECT().NewConsensusEvent(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(eventType fsm.EventType, data interface{}) *ConsensusEvent {
 			return &ConsensusEvent{
