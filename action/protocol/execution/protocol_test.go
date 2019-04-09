@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
@@ -58,12 +58,17 @@ func (eb *ExpectedBalance) Balance() *big.Int {
 	return balance
 }
 
+type Log struct {
+	Topics []string `json:"topics"`
+	Data   string   `json:"data"`
+}
+
 type ExecutionConfig struct {
-	Comment                 string `json:"comment"`
-	ContractIndex           int    `json:"contractIndex"`
-	AppendContractAddress   bool   `json:"appendContractAddress"`
-	ContractIndexToAppend   int    `json:"contractIndexToAppend"`
-	ContractAddressToAppend string
+	Comment                 string            `json:"comment"`
+	ContractIndex           int               `json:"contractIndex"`
+	AppendContractAddress   bool              `json:"appendContractAddress"`
+	ContractIndexToAppend   int               `json:"contractIndexToAppend"`
+	ContractAddressToAppend string            `json:"contractAddressToAppend"`
 	ReadOnly                bool              `json:"readOnly"`
 	RawPrivateKey           string            `json:"rawPrivateKey"`
 	RawByteCode             string            `json:"rawByteCode"`
@@ -74,6 +79,7 @@ type ExecutionConfig struct {
 	RawReturnValue          string            `json:"rawReturnValue"`
 	RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
 	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
+	ExpectedLogs            []Log             `json:"expectedLogs"`
 }
 
 func (cfg *ExecutionConfig) PrivateKey() keypair.PrivateKey {
@@ -363,6 +369,8 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			r.NoError(err)
 			r.Equal(0, balance.Cmp(expectedBalance.Balance()))
 		}
+		r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
+		// TODO: check value of logs
 	}
 }
 
@@ -622,6 +630,10 @@ func TestProtocol_Handle(t *testing.T) {
 	// public-mapping
 	t.Run("PublicMapping", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/public-mapping.json")
+	})
+	// multisend
+	t.Run("Multisend", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/multisend.json")
 	})
 }
 
