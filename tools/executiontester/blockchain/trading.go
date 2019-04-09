@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"time"
@@ -453,11 +452,12 @@ func (t *trading) QuoteRate(srcToken, dstToken string, amount, rating int64) (st
 		return h, errors.Wrapf(err, "call failed to get expected rate for token %s:%s", srcToken, dstToken)
 	}
 
-	receipt, err := t.CheckCallResult(h)
+	// TODO (dustinxie): fix the rate checking
+	_, err = t.CheckCallResult(h)
 	if err != nil {
 		return h, errors.Wrapf(err, "check failed to get expected rate for token %s:%s", srcToken, dstToken)
 	}
-	return hex.EncodeToString(receipt.ReturnValue), nil
+	return "", nil
 }
 
 func (t *trading) Trade(trader, prvkey, srcToken, dstToken string, amount, minConvRate int64) (string, error) {

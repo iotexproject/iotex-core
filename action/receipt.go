@@ -23,7 +23,6 @@ const (
 
 // Receipt represents the result of a contract
 type Receipt struct {
-	ReturnValue     []byte
 	Status          uint64
 	BlockHeight     uint64
 	ActionHash      hash.Hash256
@@ -45,7 +44,6 @@ type Log struct {
 // ConvertToReceiptPb converts a Receipt to protobuf's Receipt
 func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r := &iotextypes.Receipt{}
-	r.ReturnValue = receipt.ReturnValue
 	r.Status = receipt.Status
 	r.BlkHeight = receipt.BlockHeight
 	r.ActHash = receipt.ActionHash[:]
@@ -60,7 +58,6 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 
 // ConvertFromReceiptPb converts a protobuf's Receipt to Receipt
 func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
-	receipt.ReturnValue = pbReceipt.GetReturnValue()
 	receipt.Status = pbReceipt.GetStatus()
 	receipt.BlockHeight = pbReceipt.GetBlkHeight()
 	copy(receipt.ActionHash[:], pbReceipt.GetActHash())
