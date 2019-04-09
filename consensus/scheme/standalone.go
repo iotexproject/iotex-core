@@ -63,34 +63,42 @@ func NewStandalone(create CreateBlockCB, commit ConsensusDoneCB, pub BroadcastCB
 }
 
 // Start starts the service for a standalone
-func (n *Standalone) Start(ctx context.Context) error {
-	return n.task.Start(ctx)
+func (s *Standalone) Start(ctx context.Context) error {
+	return s.task.Start(ctx)
 }
 
 // Stop stops the service for a standalone
-func (n *Standalone) Stop(ctx context.Context) error {
-	return n.task.Stop(ctx)
+func (s *Standalone) Stop(ctx context.Context) error {
+	return s.task.Stop(ctx)
 }
 
 // HandleConsensusMsg handles incoming consensus message
-func (n *Standalone) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
+func (s *Standalone) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	log.L().Warn("Noop scheme does not handle incoming block propose requests.")
 	return nil
 }
 
 // Calibrate triggers an event to calibrate consensus context
-func (n *Standalone) Calibrate(uint64) {}
+func (s *Standalone) Calibrate(uint64) {}
 
 // ValidateBlockFooter validates signatures in block footer
-func (n *Standalone) ValidateBlockFooter(*block.Block) error {
+func (s *Standalone) ValidateBlockFooter(*block.Block) error {
 	log.L().Warn("Standalone scheme always return true for block footer validation")
 	return nil
 }
 
 // Metrics is not implemented for standalone scheme
-func (n *Standalone) Metrics() (ConsensusMetrics, error) {
+func (s *Standalone) Metrics() (ConsensusMetrics, error) {
 	return ConsensusMetrics{}, errors.Wrapf(
 		ErrNotImplemented,
 		"standalone scheme does not supported metrics yet",
 	)
 }
+
+// Activate is not implemented for standalone scheme
+func (s *Standalone) Activate(_ bool) {
+	log.S().Warn("Standalone scheme could not support activate")
+}
+
+// Active is always true for standalone scheme
+func (s *Standalone) Active() bool { return true }
