@@ -760,11 +760,11 @@ func (exp *Service) ReadExecutionState(execution explorer.Execution) (string, er
 	if err != nil {
 		return "", err
 	}
-	res, err := exp.bc.ExecuteContractRead(callerAddr, sc)
+	retval, _, err := exp.bc.ExecuteContractRead(callerAddr, sc)
 	if err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(res.ReturnValue), nil
+	return hex.EncodeToString(retval), nil
 }
 
 // GetBlockOrActionByHash get block or action by a hash
@@ -1198,7 +1198,6 @@ func convertReceiptToExplorerReceipt(receipt *action.Receipt) (explorer.Receipt,
 	}
 
 	return explorer.Receipt{
-		ReturnValue:     hex.EncodeToString(receipt.ReturnValue),
 		Status:          int64(receipt.Status),
 		Hash:            hex.EncodeToString(receipt.ActionHash[:]),
 		GasConsumed:     int64(receipt.GasConsumed),

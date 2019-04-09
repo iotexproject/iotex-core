@@ -21,7 +21,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -175,7 +174,6 @@ func TestMutateDeposit(t *testing.T) {
 	assert.False(t, deposit.Confirmed)
 
 	require.NotNil(t, receipt)
-	assert.Equal(t, uint64(300), enc.MachineEndian.Uint64(receipt.ReturnValue))
 	assert.Equal(t, act.Hash(), receipt.ActionHash)
 	assert.Equal(t, uint64(0), receipt.Status)
 	gas, err := act.IntrinsicGas()
