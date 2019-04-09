@@ -641,7 +641,6 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("SendEth", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/send-eth.json")
 	})
-	})
 }
 
 func TestProtocol_Validate(t *testing.T) {
