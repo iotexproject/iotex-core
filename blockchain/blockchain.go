@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
@@ -110,6 +111,8 @@ type Blockchain interface {
 	GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
 	// GetFactory returns the state factory
 	GetFactory() factory.Factory
+	// GetBlockDAO returns the block DAO
+	GetBlockDAO() blockdao.BlockDAO
 	// GetChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -158,7 +161,7 @@ type Blockchain interface {
 // blockchain implements the Blockchain interface
 type blockchain struct {
 	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao           *blockDAO
+	dao           blockdao.BlockDAO
 	config        config.Config
 	tipHeight     uint64
 	tipHash       hash.Hash256
@@ -215,7 +218,7 @@ func InMemStateFactoryOption() Option {
 }
 
 // PrecreatedDaoOption sets blockchain's dao
-func PrecreatedDaoOption(dao *blockDAO) Option {
+func PrecreatedDaoOption(dao blockdao.BlockDAO) Option {
 	return func(bc *blockchain, conf config.Config) error {
 		bc.dao = dao
 
@@ -228,7 +231,7 @@ func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		_, gateway := cfg.Plugins[config.GatewayPlugin]
-		bc.dao = newBlockDAO(
+		bc.dao = blockdao.NewBlockDAO(
 			db.NewOnDiskDB(cfg.DB),
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
@@ -242,7 +245,7 @@ func BoltDBDaoOption() Option {
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		_, gateway := cfg.Plugins[config.GatewayPlugin]
-		bc.dao = newBlockDAO(
+		bc.dao = blockdao.NewBlockDAO(
 			db.NewMemKVStore(),
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
@@ -323,14 +326,14 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 		return err
 	}
 	// get blockchain tip height
-	if bc.tipHeight, err = bc.dao.getBlockchainHeight(); err != nil {
+	if bc.tipHeight, err = bc.dao.GetBlockchainHeight(); err != nil {
 		return err
 	}
 	if bc.tipHeight == 0 {
 		return bc.startEmptyBlockchain()
 	}
 	// get blockchain tip hash
-	if bc.tipHash, err = bc.dao.getBlockHash(bc.tipHeight); err != nil {
+	if bc.tipHash, err = bc.dao.GetBlockHash(bc.tipHeight); err != nil {
 		return err
 	}
 	return bc.startExistingBlockchain()
@@ -426,12 +429,12 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 
 // GetHeightByHash returns block's height by hash
 func (bc *blockchain) GetHeightByHash(h hash.Hash256) (uint64, error) {
-	return bc.dao.getBlockHeight(h)
+	return bc.dao.GetBlockHeight(h)
 }
 
 // GetHashByHeight returns block's hash by height
 func (bc *blockchain) GetHashByHeight(height uint64) (hash.Hash256, error) {
-	return bc.dao.getBlockHash(height)
+	return bc.dao.GetBlockHash(height)
 }
 
 // GetBlockByHeight returns block from the blockchain hash by height
@@ -446,7 +449,7 @@ func (bc *blockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
 
 // GetBlockByHash returns block from the blockchain hash by hash
 func (bc *blockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
-	return bc.dao.getBlock(h)
+	return bc.dao.GetBlock(h)
 }
 
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
@@ -467,12 +470,12 @@ func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 
 // GetTotalActions returns the total number of actions
 func (bc *blockchain) GetTotalActions() (uint64, error) {
-	return bc.dao.getTotalActions()
+	return bc.dao.GetTotalActions()
 }
 
 // GetReceiptByActionHash returns the receipt by action hash
 func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	return bc.dao.getReceiptByActionHash(h)
+	return bc.dao.GetReceiptByActionHash(h)
 }
 
 // GetActionsFromAddress returns actions from address
@@ -481,7 +484,7 @@ func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, err
 	if err != nil {
 		return nil, err
 	}
-	return getActionsBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	return blockdao.GetActionsBySenderAddress(bc.dao.KVStore(), hash.BytesToHash160(addr.Bytes()))
 }
 
 // GetActionToAddress returns action to address
@@ -490,7 +493,7 @@ func (bc *blockchain) GetActionsToAddress(addrStr string) ([]hash.Hash256, error
 	if err != nil {
 		return nil, err
 	}
-	return getActionsByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	return blockdao.GetActionsByRecipientAddress(bc.dao.KVStore(), hash.BytesToHash160(addr.Bytes()))
 }
 
 // GetActionCountByAddress returns action count by address
@@ -499,11 +502,11 @@ func (bc *blockchain) GetActionCountByAddress(addrStr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	fromCount, err := getActionCountBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	fromCount, err := blockdao.GetActionCountBySenderAddress(bc.dao.KVStore(), hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
 		return 0, err
 	}
-	toCount, err := getActionCountByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	toCount, err := blockdao.GetActionCountByRecipientAddress(bc.dao.KVStore(), hash.BytesToHash160(addr.Bytes()))
 	if err != nil {
 		return 0, err
 	}
@@ -511,7 +514,7 @@ func (bc *blockchain) GetActionCountByAddress(addrStr string) (uint64, error) {
 }
 
 func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256, error) {
-	return getBlockHashByActionHash(bc.dao.kvstore, h)
+	return blockdao.GetBlockHashByActionHash(bc.dao.KVStore(), h)
 }
 
 // GetActionByActionHash returns action by action hash
@@ -521,7 +524,7 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 		return action.SealedEnvelope{}, err
 	}
 
-	blk, err := bc.dao.getBlock(blkHash)
+	blk, err := bc.dao.GetBlock(blkHash)
 	if err != nil {
 		return action.SealedEnvelope{}, err
 	}
@@ -535,12 +538,17 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 
 // GetBlockHashByActionHash returns Block hash by action hash
 func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	return getBlockHashByActionHash(bc.dao.kvstore, h)
+	return blockdao.GetBlockHashByActionHash(bc.dao.KVStore(), h)
 }
 
 // GetFactory returns the state factory
 func (bc *blockchain) GetFactory() factory.Factory {
 	return bc.sf
+}
+
+// GetBlockDAO returns the block DAO
+func (bc *blockchain) GetBlockDAO() blockdao.BlockDAO {
+	return bc.dao
 }
 
 // TipHash returns tip block's hash
@@ -831,15 +839,15 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 }
 
 func (bc *blockchain) getBlockByHeight(height uint64) (*block.Block, error) {
-	hash, err := bc.dao.getBlockHash(height)
+	hash, err := bc.dao.GetBlockHash(height)
 	if err != nil {
 		return nil, err
 	}
-	return bc.dao.getBlock(hash)
+	return bc.dao.GetBlock(hash)
 }
 
 func (bc *blockchain) blockHeaderByHeight(height uint64) (*block.Header, error) {
-	hash, err := bc.dao.getBlockHash(height)
+	hash, err := bc.dao.GetBlockHash(height)
 	if err != nil {
 		return nil, err
 	}
@@ -847,7 +855,7 @@ func (bc *blockchain) blockHeaderByHeight(height uint64) (*block.Header, error) 
 }
 
 func (bc *blockchain) blockFooterByHeight(height uint64) (*block.Footer, error) {
-	hash, err := bc.dao.getBlockHash(height)
+	hash, err := bc.dao.GetBlockHash(height)
 	if err != nil {
 		return nil, err
 	}
@@ -955,7 +963,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 // commitBlock commits a block to the chain
 func (bc *blockchain) commitBlock(blk *block.Block) error {
 	// Check if it is already exists, and return earlier
-	blkHash, err := bc.dao.getBlockHash(blk.Height())
+	blkHash, err := bc.dao.GetBlockHash(blk.Height())
 	if blkHash != hash.ZeroHash256 {
 		log.L().Debug("Block already exists.", zap.Uint64("height", blk.Height()))
 		return nil
@@ -966,7 +974,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
-	err = bc.dao.putBlock(blk)
+	err = bc.dao.PutBlock(blk)
 	putTimer.End()
 	if err != nil {
 		return err
@@ -988,7 +996,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 		// write smart contract receipt into DB
 		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
-		err = bc.dao.putReceipts(blk.Height(), blk.Receipts)
+		err = bc.dao.PutReceipts(blk.Height(), blk.Receipts)
 		receiptTimer.End()
 		if err != nil {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
@@ -1214,7 +1222,7 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 // RecoverToHeight recovers the blockchain to target height
 func (bc *blockchain) recoverToHeight(targetHeight uint64) error {
 	for bc.tipHeight > targetHeight {
-		if err := bc.dao.deleteTipBlock(); err != nil {
+		if err := bc.dao.DeleteTipBlock(); err != nil {
 			return err
 		}
 		bc.tipHeight--

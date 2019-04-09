@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
@@ -49,7 +50,7 @@ type ChainService struct {
 	rDPoSProtocol     *rolldpos.Protocol
 	explorer          *explorer.Server
 	api               *api.Server
-	indexBuilder      *blockchain.IndexBuilder
+	indexBuilder      *blockdao.IndexBuilder
 	indexservice      *indexservice.Server
 	registry          *protocol.Registry
 }
@@ -143,9 +144,9 @@ func New(
 		chain = blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption(), blockchain.BoltDBDaoOption())
 	}
 
-	var indexBuilder *blockchain.IndexBuilder
+	var indexBuilder *blockdao.IndexBuilder
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
+		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), chain.GetBlockDAO().KVStore()); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {

@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package blockdao
 
 import (
 	"context"
@@ -18,12 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
-
-	"github.com/iotexproject/iotex-core/pkg/unit"
-
-	"github.com/iotexproject/iotex-core/test/identityset"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,6 +28,9 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -150,7 +147,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, config.Default.Explorer.Enabled, false, 0)
+		dao := NewBlockDAO(kvstore, config.Default.Explorer.Enabled, false, 0)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -158,71 +155,71 @@ func TestBlockDAO(t *testing.T) {
 			assert.Nil(t, err)
 		}()
 
-		height, err := dao.getBlockchainHeight()
+		height, err := dao.GetBlockchainHeight()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(0), height)
 
 		// block put order is 0 2 1
-		err = dao.putBlock(blks[0])
+		err = dao.PutBlock(blks[0])
 		assert.Nil(t, err)
-		blk, err := dao.getBlock(blks[0].HashBlock())
+		blk, err := dao.GetBlock(blks[0].HashBlock())
 		assert.Nil(t, err)
 		require.NotNil(t, blk)
 		assert.Equal(t, blks[0].Actions[0].Hash(), blk.Actions[0].Hash())
-		height, err = dao.getBlockchainHeight()
+		height, err = dao.GetBlockchainHeight()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(1), height)
 
-		err = dao.putBlock(blks[2])
+		err = dao.PutBlock(blks[2])
 		assert.Nil(t, err)
-		blk, err = dao.getBlock(blks[2].HashBlock())
+		blk, err = dao.GetBlock(blks[2].HashBlock())
 		assert.Nil(t, err)
 		assert.NotNil(t, blk)
 		assert.Equal(t, blks[2].Actions[0].Hash(), blk.Actions[0].Hash())
-		height, err = dao.getBlockchainHeight()
+		height, err = dao.GetBlockchainHeight()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(3), height)
 
-		err = dao.putBlock(blks[1])
+		err = dao.PutBlock(blks[1])
 		assert.Nil(t, err)
-		blk, err = dao.getBlock(blks[1].HashBlock())
+		blk, err = dao.GetBlock(blks[1].HashBlock())
 		assert.Nil(t, err)
 		assert.NotNil(t, blk)
 		assert.Equal(t, blks[1].Actions[0].Hash(), blk.Actions[0].Hash())
-		height, err = dao.getBlockchainHeight()
+		height, err = dao.GetBlockchainHeight()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(3), height)
 
 		// test getting hash by height
-		hash, err := dao.getBlockHash(1)
+		hash, err := dao.GetBlockHash(1)
 		assert.Nil(t, err)
 		assert.Equal(t, blks[0].HashBlock(), hash)
 
-		hash, err = dao.getBlockHash(2)
+		hash, err = dao.GetBlockHash(2)
 		assert.Nil(t, err)
 		assert.Equal(t, blks[1].HashBlock(), hash)
 
-		hash, err = dao.getBlockHash(3)
+		hash, err = dao.GetBlockHash(3)
 		assert.Nil(t, err)
 		assert.Equal(t, blks[2].HashBlock(), hash)
 
 		// test getting height by hash
-		height, err = dao.getBlockHeight(blks[0].HashBlock())
+		height, err = dao.GetBlockHeight(blks[0].HashBlock())
 		assert.Nil(t, err)
 		assert.Equal(t, blks[0].Height(), height)
 
-		height, err = dao.getBlockHeight(blks[1].HashBlock())
+		height, err = dao.GetBlockHeight(blks[1].HashBlock())
 		assert.Nil(t, err)
 		assert.Equal(t, blks[1].Height(), height)
 
-		height, err = dao.getBlockHeight(blks[2].HashBlock())
+		height, err = dao.GetBlockHeight(blks[2].HashBlock())
 		assert.Nil(t, err)
 		assert.Equal(t, blks[2].Height(), height)
 	}
 
 	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false, 0)
+		dao := NewBlockDAO(kvstore, true, false, 0)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -230,11 +227,11 @@ func TestBlockDAO(t *testing.T) {
 			assert.Nil(t, err)
 		}()
 
-		err = dao.putBlock(blks[0])
+		err = dao.PutBlock(blks[0])
 		assert.Nil(t, err)
-		err = dao.putBlock(blks[1])
+		err = dao.PutBlock(blks[1])
 		assert.Nil(t, err)
-		err = dao.putBlock(blks[2])
+		err = dao.PutBlock(blks[2])
 
 		depositHash1 := blks[0].Actions[3].Hash()
 		depositHash2 := blks[1].Actions[3].Hash()
@@ -245,63 +242,63 @@ func TestBlockDAO(t *testing.T) {
 		blkHash3 := blks[2].HashBlock()
 
 		// Test getBlockHashByActionHash
-		blkHash, err := getBlockHashByActionHash(dao.kvstore, depositHash1)
+		blkHash, err := GetBlockHashByActionHash(dao.KVStore(), depositHash1)
 		require.NoError(t, err)
 		require.Equal(t, blkHash1, blkHash)
-		blkHash, err = getBlockHashByActionHash(dao.kvstore, depositHash2)
+		blkHash, err = GetBlockHashByActionHash(dao.KVStore(), depositHash2)
 		require.NoError(t, err)
 		require.Equal(t, blkHash2, blkHash)
-		blkHash, err = getBlockHashByActionHash(dao.kvstore, depositHash3)
+		blkHash, err = GetBlockHashByActionHash(dao.KVStore(), depositHash3)
 		require.NoError(t, err)
 		require.Equal(t, blkHash3, blkHash)
 
 		// Test get actions
-		senderActionCount, err := getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()))
+		senderActionCount, err := getActionCountBySenderAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err := getActionsBySenderAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()))
+		senderActions, err := GetActionsBySenderAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash1, senderActions[3])
-		recipientActionCount, err := getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()))
+		recipientActionCount, err := getActionCountByRecipientAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err := getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()))
+		recipientActions, err := GetActionsByRecipientAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(recipientActions))
 
-		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes()))
+		senderActionCount, err = getActionCountBySenderAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = getActionsBySenderAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes()))
+		senderActions, err = GetActionsBySenderAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash2, senderActions[3])
-		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes()))
+		recipientActionCount, err = getActionCountByRecipientAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes()))
+		recipientActions, err = GetActionsByRecipientAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(recipientActions))
 
-		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes()))
+		senderActionCount, err = getActionCountBySenderAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = getActionsBySenderAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes()))
+		senderActions, err = GetActionsBySenderAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash3, senderActions[3])
-		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes()))
+		recipientActionCount, err = getActionCountByRecipientAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(2), recipientActionCount)
-		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes()))
+		recipientActions, err = GetActionsByRecipientAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(recipientActions))
 
-		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["delta"].Bytes()))
+		recipientActionCount, err = getActionCountByRecipientAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["delta"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(6), recipientActionCount)
-		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(testaddress.Addrinfo["delta"].Bytes()))
+		recipientActions, err = GetActionsByRecipientAddress(dao.KVStore(), hash.BytesToHash160(testaddress.Addrinfo["delta"].Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 6, len(recipientActions))
 		require.Equal(t, depositHash1, recipientActions[1])
@@ -313,7 +310,7 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false, 0)
+		dao := NewBlockDAO(kvstore, true, false, 0)
 		err := dao.Start(ctx)
 		require.NoError(err)
 		defer func() {
@@ -322,27 +319,27 @@ func TestBlockDAO(t *testing.T) {
 		}()
 
 		// Put blocks first
-		err = dao.putBlock(blks[0])
+		err = dao.PutBlock(blks[0])
 		require.NoError(err)
-		err = dao.putBlock(blks[1])
+		err = dao.PutBlock(blks[1])
 		require.NoError(err)
-		err = dao.putBlock(blks[2])
+		err = dao.PutBlock(blks[2])
 		require.NoError(err)
 
-		tipHeight, err := dao.getBlockchainHeight()
+		tipHeight, err := dao.GetBlockchainHeight()
 		require.NoError(err)
 		require.Equal(uint64(3), tipHeight)
-		blk, err := dao.getBlock(blks[2].HashBlock())
+		blk, err := dao.GetBlock(blks[2].HashBlock())
 		require.NoError(err)
 		require.NotNil(blk)
 
 		// Delete tip block
-		err = dao.deleteTipBlock()
+		err = dao.DeleteTipBlock()
 		require.NoError(err)
-		tipHeight, err = dao.getBlockchainHeight()
+		tipHeight, err = dao.GetBlockchainHeight()
 		require.NoError(err)
 		require.Equal(uint64(2), tipHeight)
-		blk, err = dao.getBlock(blks[2].HashBlock())
+		blk, err = dao.GetBlock(blks[2].HashBlock())
 		require.Equal(db.ErrNotExist, errors.Cause(err))
 		require.Nil(blk)
 	}
@@ -375,7 +372,7 @@ func TestBlockDAO(t *testing.T) {
 }
 
 func TestBlockDao_putReceipts(t *testing.T) {
-	blkDao := newBlockDAO(db.NewMemKVStore(), true, false, 0)
+	blkDao := NewBlockDAO(db.NewMemKVStore(), true, false, 0)
 	receipts := []*action.Receipt{
 		{
 			BlockHeight:     1,
@@ -394,9 +391,9 @@ func TestBlockDao_putReceipts(t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 	}
-	require.NoError(t, blkDao.putReceipts(1, receipts))
+	require.NoError(t, blkDao.PutReceipts(1, receipts))
 	for _, receipt := range receipts {
-		r, err := blkDao.getReceiptByActionHash(receipt.ActionHash)
+		r, err := blkDao.GetReceiptByActionHash(receipt.ActionHash)
 		require.NoError(t, err)
 		assert.Equal(t, receipt.ActionHash, r.ActionHash)
 	}
@@ -418,7 +415,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		}()
 		store := db.NewOnDiskDB(cfg)
 
-		blkDao := newBlockDAO(store, false, false, cacheSize)
+		blkDao := NewBlockDAO(store, false, false, cacheSize)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))
@@ -448,14 +445,14 @@ func BenchmarkBlockCache(b *testing.B) {
 				AddActions(actions...).
 				SignAndBuild(identityset.PrivateKey(0).PublicKey(), identityset.PrivateKey(0))
 			require.NoError(b, err)
-			require.NoError(b, blkDao.putBlock(&blk))
+			require.NoError(b, blkDao.PutBlock(&blk))
 			prevHash = blk.HashBlock()
 		}
 		b.ResetTimer()
 		b.StartTimer()
 		for n := 0; n < b.N; n++ {
-			hash, _ := blkDao.getBlockHash(uint64(rand.Intn(numBlks) + 1))
-			_, _ = blkDao.getBlock(hash)
+			hash, _ := blkDao.GetBlockHash(uint64(rand.Intn(numBlks) + 1))
+			_, _ = blkDao.GetBlock(hash)
 		}
 		b.StopTimer()
 	}
