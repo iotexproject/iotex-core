@@ -138,19 +138,18 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
-) (*action.Receipt, error) {
+) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	stateDB := NewStateDBAdapter(cm, sm, raCtx.BlockHeight, execution.Hash())
 	ps, err := NewParams(raCtx, execution, stateDB)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	retval, depositGas, remainingGas, contractAddress, failed, err := executeInEVM(ps, stateDB, raCtx.GasLimit)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	receipt := &action.Receipt{
-		ReturnValue:     retval,
 		GasConsumed:     ps.gas - remainingGas,
 		BlockHeight:     raCtx.BlockHeight,
 		ActionHash:      execution.Hash(),
@@ -168,17 +167,17 @@ func ExecuteContract(
 	if depositGas-remainingGas > 0 {
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
 		if err := rewarding.DepositGas(ctx, sm, gasValue, raCtx.Registry); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	if err := stateDB.CommitContracts(); err != nil {
-		return nil, errors.Wrap(err, "failed to commit contracts to underlying db")
+		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
 	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
-	return receipt, nil
+	return retval, receipt, nil
 }
 
 func getChainConfig() *params.ChainConfig {

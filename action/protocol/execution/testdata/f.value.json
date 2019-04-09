@@ -29,6 +29,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "readOnly": true,
         "failed": true,
         "comment": "get msg"
     }]

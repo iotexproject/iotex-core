@@ -42,13 +42,12 @@ func TestLogReceipt(t *testing.T) {
 	require.Equal(log.ActionHash, actuallog.ActionHash)
 	require.Equal(log.Index, actuallog.Index)
 
-	receipt := action.Receipt{ReturnValue: []byte("12345"), Status: 5, GasConsumed: 6, ContractAddress: "aaaaa", Logs: []*action.Log{&log}}
+	receipt := action.Receipt{Status: 5, GasConsumed: 6, ContractAddress: "aaaaa", Logs: []*action.Log{&log}}
 	receipt.ActionHash = hash.Hash256b([]byte("33333"))
 	s, err = receipt.Serialize()
 	require.NoError(err)
 	actualReceipt := action.Receipt{}
 	require.NoError(actualReceipt.Deserialize(s))
-	require.Equal(receipt.ReturnValue, actualReceipt.ReturnValue)
 	require.Equal(receipt.Status, actualReceipt.Status)
 	require.Equal(receipt.GasConsumed, actualReceipt.GasConsumed)
 	require.Equal(receipt.ContractAddress, actualReceipt.ContractAddress)
@@ -87,7 +86,8 @@ func TestExecuteContractFailure(t *testing.T) {
 		GasLimit: testutil.TestGasLimit,
 	})
 
-	receipt, err := ExecuteContract(ctx, sm, e, cm)
+	retval, receipt, err := ExecuteContract(ctx, sm, e, cm)
+	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
 }
