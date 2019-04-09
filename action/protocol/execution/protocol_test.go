@@ -302,7 +302,7 @@ func (sct *SmartContractTest) deployContracts(
 		if contract.AppendContractAddress {
 			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
 		}
-		receipt, err := runExecution(bc, &contract, action.EmptyAddress)
+		_, receipt, err := runExecution(bc, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
 		if sct.Deployments[i].Failed {
@@ -662,6 +662,7 @@ func TestProtocol_Handle(t *testing.T) {
 	// send-eth
 	t.Run("SendEth", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/send-eth.json")
+	})
 	// multisend
 	t.Run("Multisend", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/multisend.json")
