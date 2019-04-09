@@ -46,10 +46,18 @@ func (n *Noop) ValidateBlockFooter(*block.Block) error {
 	return nil
 }
 
-// Metrics is not implemented for standalone scheme
+// Metrics is not implemented for noop scheme
 func (n *Noop) Metrics() (ConsensusMetrics, error) {
 	return ConsensusMetrics{}, errors.Wrapf(
 		ErrNotImplemented,
 		"noop scheme does not supported metrics yet",
 	)
 }
+
+// Activate is not implemented for noop scheme
+func (n *Noop) Activate(_ bool) {
+	log.S().Warn("Noop scheme could not support activate")
+}
+
+// Active is always true for noop scheme
+func (n *Noop) Active() bool { return true }
