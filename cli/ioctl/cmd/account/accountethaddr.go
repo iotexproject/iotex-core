@@ -18,7 +18,7 @@ import (
 // accountEthaddrCmd represents the account ethaddr command
 var accountEthaddrCmd = &cobra.Command{
 	Use:   "ethaddr [ALIAS|IOTEX_ADDRESS]",
-	Short: "Calculate ETH address from IoTeX address",
+	Short: "Derive ETH address from IoTeX address",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
