@@ -15,6 +15,8 @@ import (
 
 // Context defines the context of the fsm
 type Context interface {
+	Activate(bool)
+	Active() bool
 	IsStaleEvent(*ConsensusEvent) bool
 	IsFutureEvent(*ConsensusEvent) bool
 	IsStaleUnmatchedEvent(*ConsensusEvent) bool
@@ -27,7 +29,7 @@ type Context interface {
 
 	Broadcast(interface{})
 
-	Prepare() (bool, interface{}, bool, bool, time.Duration, error)
+	Prepare() (bool, bool, interface{}, bool, bool, time.Duration, error)
 	NewProposalEndorsement(interface{}) (interface{}, error)
 	NewLockEndorsement(interface{}) (interface{}, error)
 	NewPreCommitEndorsement(interface{}) (interface{}, error)
