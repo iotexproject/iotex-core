@@ -205,7 +205,6 @@ func (p *Protocol) createReceipt(
 ) *action.Receipt {
 	// TODO: need to review the fields
 	return &action.Receipt{
-		ReturnValue:     nil,
 		Status:          status,
 		BlockHeight:     blkHeight,
 		ActionHash:      actHash,

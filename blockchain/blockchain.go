@@ -146,7 +146,7 @@ type Blockchain interface {
 	// For smart contract operations
 	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 	// cause any state change
-	ExecuteContractRead(caller address.Address, ex *action.Execution) (*action.Receipt, error)
+	ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
 
 	// AddSubscriber make you listen to every single produced block
 	AddSubscriber(BlockCreationSubscriber) error
@@ -692,21 +692,21 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 
 // ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 // cause any state change
-func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Execution) (*action.Receipt, error) {
+func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
 	// use latest block as carrier to run the offline execution
 	// the block itself is not used
 	h := bc.TipHeight()
 	header, err := bc.BlockHeaderByHeight(h)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")
+		return nil, nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")
 	}
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to obtain working set from state factory")
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	producer, err := address.FromString(header.ProducerAddress())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	gasLimit := bc.config.Genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{

@@ -61,16 +61,16 @@ func (eb *ExpectedBalance) Balance() *big.Int {
 type ExecutionConfig struct {
 	Comment                 string `json:"comment"`
 	ContractIndex           int    `json:"contractIndex"`
-	RawPrivateKey           string `json:"rawPrivateKey"`
-	RawByteCode             string `json:"rawByteCode"`
 	AppendContractAddress   bool   `json:"appendContractAddress"`
 	ContractIndexToAppend   int    `json:"contractIndexToAppend"`
 	ContractAddressToAppend string
+	ReadOnly                bool              `json:"readOnly"`
+	RawPrivateKey           string            `json:"rawPrivateKey"`
+	RawByteCode             string            `json:"rawByteCode"`
 	RawAmount               string            `json:"rawAmount"`
 	RawGasLimit             uint              `json:"rawGasLimit"`
 	RawGasPrice             string            `json:"rawGasPrice"`
 	Failed                  bool              `json:"failed"`
-	HasReturnValue          bool              `json:"hasReturnValue"`
 	RawReturnValue          string            `json:"rawReturnValue"`
 	RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
 	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
@@ -190,11 +190,11 @@ func runExecution(
 	bc blockchain.Blockchain,
 	ecfg *ExecutionConfig,
 	contractAddr string,
-) (*action.Receipt, error) {
+) ([]byte, *action.Receipt, error) {
 	log.S().Info(ecfg.Comment)
 	nonce, err := bc.Nonce(ecfg.Executor().String())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	exec, err := action.NewExecution(
 		contractAddr,
@@ -205,7 +205,14 @@ func runExecution(
 		ecfg.ByteCode(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	if ecfg.ReadOnly { // read
+		addr, err := address.FromBytes(ecfg.PrivateKey().PublicKey().Hash())
+		if err != nil {
+			return nil, nil, err
+		}
+		return bc.ExecuteContractRead(addr, exec)
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
@@ -215,7 +222,7 @@ func runExecution(
 		Build()
 	selp, err := action.Sign(elp, ecfg.PrivateKey())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[ecfg.Executor().String()] = []action.SealedEnvelope{selp}
@@ -224,16 +231,17 @@ func runExecution(
 		testutil.TimestampNow(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := bc.ValidateBlock(blk); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	receipt, err := bc.GetReceiptByActionHash(exec.Hash())
 
-	return bc.GetReceiptByActionHash(exec.Hash())
+	return nil, receipt, err
 }
 
 func (sct *SmartContractTest) prepareBlockchain(
@@ -285,7 +293,7 @@ func (sct *SmartContractTest) deployContracts(
 	r *require.Assertions,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
-		receipt, err := runExecution(bc, &contract, action.EmptyAddress)
+		_, receipt, err := runExecution(bc, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
 		if sct.Deployments[i].Failed {
@@ -326,7 +334,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		if exec.AppendContractAddress {
 			exec.ContractAddressToAppend = contractAddresses[exec.ContractIndexToAppend]
 		}
-		receipt, err := runExecution(bc, &exec, contractAddr)
+		retval, receipt, err := runExecution(bc, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
 		if exec.Failed {
@@ -334,11 +342,17 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		} else {
 			r.Equal(action.SuccessReceiptStatus, receipt.Status)
 		}
-		if exec.HasReturnValue {
-			r.Equal(exec.ExpectedReturnValue(), receipt.ReturnValue)
-		}
 		if exec.ExpectedGasConsumed() != 0 {
 			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed)
+		}
+		if exec.ReadOnly {
+			expected := exec.ExpectedReturnValue()
+			if len(expected) == 0 {
+				r.Equal(0, len(retval))
+			} else {
+				r.Equal(expected, retval)
+			}
+			return
 		}
 		for _, expectedBalance := range exec.ExpectedBalances {
 			account := expectedBalance.Account
