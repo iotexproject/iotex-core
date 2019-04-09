@@ -106,3 +106,25 @@ func (m *MockConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 func (mr *MockConsensusMockRecorder) Metrics() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockConsensus)(nil).Metrics))
 }
+
+// Activate mocks base method
+func (m *MockConsensus) Activate(arg0 bool) {
+	m.ctrl.Call(m, "Activate", arg0)
+}
+
+// Activate indicates an expected call of Activate
+func (mr *MockConsensusMockRecorder) Activate(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Activate", reflect.TypeOf((*MockConsensus)(nil).Activate), arg0)
+}
+
+// Active mocks base method
+func (m *MockConsensus) Active() bool {
+	ret := m.ctrl.Call(m, "Active")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Active indicates an expected call of Active
+func (mr *MockConsensusMockRecorder) Active() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Active", reflect.TypeOf((*MockConsensus)(nil).Active))
+}

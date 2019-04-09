@@ -223,6 +223,7 @@ func makeTestRollDPoSCtx(
 	}
 	return newRollDPoSCtx(
 		cfg.Consensus.RollDPoS,
+		cfg.System.Active,
 		cfg.Genesis.BlockInterval,
 		cfg.Consensus.RollDPoS.ToleratedOvertime,
 		cfg.Genesis.TimeBasedRotation,
