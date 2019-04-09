@@ -37,6 +37,8 @@ type Consensus interface {
 	Calibrate(uint64)
 	ValidateBlockFooter(*block.Block) error
 	Metrics() (scheme.ConsensusMetrics, error)
+	Activate(bool)
+	Active() bool
 }
 
 // IotxConsensus implements Consensus
@@ -231,3 +233,11 @@ func (c *IotxConsensus) ValidateBlockFooter(blk *block.Block) error {
 func (c *IotxConsensus) Scheme() scheme.Scheme {
 	return c.scheme
 }
+
+// Activate activates or pauses the consensus component
+func (c *IotxConsensus) Activate(active bool) {
+	c.scheme.Activate(active)
+}
+
+// Active returns true if the consensus component is active or false if it stands by
+func (c *IotxConsensus) Active() bool { return c.scheme.Active() }
