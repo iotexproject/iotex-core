@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -492,7 +494,7 @@ var (
 
 	getEpochMetaTests = []struct {
 		// Arguments
-		EpochNumber      uint64
+		epochNumber      uint64
 		pollProtocolType string
 		// Expected Values
 		epochData                     iotextypes.EpochData
@@ -523,6 +525,54 @@ var (
 			4,
 			6,
 			4,
+		},
+	}
+
+	getCandidatesByHeightTests = []struct {
+		// Arguments
+		height uint64
+		// Expected Values
+		numCandidates int
+	}{
+		{
+			1,
+			2,
+		},
+	}
+
+	getDepositsTests = []struct {
+		// Arguments
+		subchainID uint32
+		offset     uint64
+		limit      uint64
+		// Expected Values
+		errString     string
+		numDeposits   int
+		depositAmount []string
+	}{
+		{
+			3,
+			0,
+			1,
+			"is not found in operation",
+			0,
+			nil,
+		},
+		{
+			2,
+			0,
+			1,
+			"",
+			1,
+			[]string{"100"},
+		},
+		{
+			2,
+			1,
+			2,
+			"",
+			2,
+			[]string{"200", "100"},
 		},
 	}
 )
@@ -1088,12 +1138,12 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				"address3": uint64(1),
 				"address4": uint64(1),
 			}
-			mbc.EXPECT().ProductivityByEpoch(test.EpochNumber).Return(uint64(4), blksPerDelegate, nil).Times(1)
+			mbc.EXPECT().ProductivityByEpoch(test.epochNumber).Return(uint64(4), blksPerDelegate, nil).Times(1)
 			mbc.EXPECT().CandidatesByHeight(uint64(1)).
 				Return(candidates, nil).Times(1)
 			svr.bc = mbc
 		}
-		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
+		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.epochNumber})
 		require.NoError(err)
 		require.Equal(test.epochData.Num, res.EpochData.Num)
 		require.Equal(test.epochData.Height, res.EpochData.Height)
@@ -1114,6 +1164,112 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			prevInfo = bp
 		}
 		require.Equal(test.numActiveCensusBlockProducers, numActiveBlockProducers)
+	}
+}
+
+func TestServer_GetCandidatesByHeight(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mbc := mock_blockchain.NewMockBlockchain(ctrl)
+	candidates := []*state.Candidate{
+		{
+			Address:       "address1",
+			Votes:         big.NewInt(1),
+			RewardAddress: "rewardAddress",
+		},
+		{
+			Address:       "address2",
+			Votes:         big.NewInt(1),
+			RewardAddress: "rewardAddress",
+		},
+	}
+	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(1)
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+	svr.bc = mbc
+
+	for _, test := range getCandidatesByHeightTests {
+		res, err := svr.GetCandidatesByHeight(context.Background(), &iotexapi.GetCandidatesByHeightRequest{Height: test.height})
+		require.NoError(err)
+		require.Equal(test.numCandidates, len(res.CandidateList.Candidates))
+	}
+}
+
+func TestServer_GetDeposits(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	cfg := newConfig()
+	ctx := context.Background()
+	bc := mock_blockchain.NewMockBlockchain(ctrl)
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	require.NoError(sf.Start(ctx))
+	bc.EXPECT().GetFactory().Return(sf).AnyTimes()
+
+	subChainAddr := ta.Addrinfo["producer"]
+	ws, err := sf.NewWorkingSet()
+	require.NoError(err)
+	require.NoError(ws.PutState(
+		mainchain.SubChainsInOperationKey,
+		mainchain.SubChainsInOperation{
+			mainchain.InOperation{
+				ID:   2,
+				Addr: subChainAddr.Bytes(),
+			},
+		},
+	))
+	require.NoError(ws.PutState(
+		hash.BytesToHash160(subChainAddr.Bytes()),
+		&mainchain.SubChain{
+			DepositCount:   2,
+			OwnerPublicKey: ta.Keyinfo["producer"].PubKey,
+		},
+	))
+	depositAddr1 := ta.Addrinfo["alfa"]
+	require.NoError(ws.PutState(
+		mainchain.DepositAddress(subChainAddr.Bytes(), 0),
+		&mainchain.Deposit{
+			Amount:    big.NewInt(100),
+			Addr:      depositAddr1.Bytes(),
+			Confirmed: false,
+		},
+	))
+	depositAddr2 := ta.Addrinfo["bravo"]
+	require.NoError(ws.PutState(
+		mainchain.DepositAddress(subChainAddr.Bytes(), 1),
+		&mainchain.Deposit{
+			Amount:    big.NewInt(200),
+			Addr:      depositAddr2.Bytes(),
+			Confirmed: false,
+		},
+	))
+	require.NoError(sf.Commit(ws))
+
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+		ctrl.Finish()
+	}()
+
+	p := mainchain.NewProtocol(bc)
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+	svr.SetMainChainProtocol(p)
+
+	for _, test := range getDepositsTests {
+		req := &iotexapi.GetDepositsRequest{SubChainID: test.subchainID, Offset: test.offset, Limit: test.limit}
+		res, err := svr.GetDeposits(ctx, req)
+		if err != nil {
+			require.True(strings.Contains(err.Error(), test.errString))
+			continue
+		}
+		require.Equal(test.numDeposits, len(res.Deposits))
+		for i, deposit := range res.Deposits {
+			require.Equal(test.depositAmount[i], deposit.Amount)
+		}
 	}
 }
 

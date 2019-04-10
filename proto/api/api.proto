@@ -58,6 +58,12 @@ service APIService {
 
   // get epoch metadata
   rpc GetEpochMeta(GetEpochMetaRequest) returns (GetEpochMetaResponse) {}
+
+  // get candidate list
+  rpc GetCandidatesByHeight(GetCandidatesByHeightRequest) returns (GetCandidatesByHeightResponse) {}
+
+  // get deposits on a sub-chain
+  rpc GetDeposits(GetDepositsRequest) returns (GetDepositsResponse) {}
 }
 
 message GetAccountRequest {
@@ -123,6 +129,12 @@ message BlockProducerInfo {
     string votes = 2;
     bool active = 3;
     uint64 production = 4;
+}
+
+message Deposit {
+    string amount = 1;
+    string address = 2;
+    bool confirmed = 3;
 }
 
 message GetActionsResponse {
@@ -219,3 +231,22 @@ message GetEpochMetaResponse {
     uint64 totalBlocks = 2;
     repeated BlockProducerInfo blockProducersInfo = 3;
 }
+
+message GetCandidatesByHeightRequest {
+    uint64 height = 1;
+}
+
+message GetCandidatesByHeightResponse {
+    iotextypes.CandidateList candidateList = 1;
+}
+
+message GetDepositsRequest {
+    uint32 subChainID = 1;
+    uint64 offset = 2;
+    uint64 limit = 3;
+}
+
+message GetDepositsResponse {
+    repeated Deposit deposits = 1;
+}
+
