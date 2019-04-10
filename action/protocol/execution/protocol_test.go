@@ -299,6 +299,9 @@ func (sct *SmartContractTest) deployContracts(
 	r *require.Assertions,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
+		if contract.AppendContractAddress {
+			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
+		}
 		_, receipt, err := runExecution(bc, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
@@ -316,7 +319,12 @@ func (sct *SmartContractTest) deployContracts(
 		var evmContractAddrHash common.Address
 		addr, _ := address.FromString(receipt.ContractAddress)
 		copy(evmContractAddrHash[:], addr.Bytes())
-		r.True(bytes.Contains(sct.Deployments[i].ByteCode(), stateDB.GetCode(evmContractAddrHash)))
+		if contract.AppendContractAddress {
+			lenOfByteCode:=len(contract.ByteCode())
+			r.True(bytes.Contains(contract.ByteCode()[:lenOfByteCode-32], stateDB.GetCode(evmContractAddrHash)))
+		}else{
+			r.True(bytes.Contains(sct.Deployments[i].ByteCode(), stateDB.GetCode(evmContractAddrHash)))
+		}
 		contractAddresses = append(contractAddresses, receipt.ContractAddress)
 	}
 	return
@@ -630,6 +638,30 @@ func TestProtocol_Handle(t *testing.T) {
 	// public-mapping
 	t.Run("PublicMapping", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/public-mapping.json")
+	})
+	// no-variable-length-returns
+	t.Run("NoVariableLengthReturns", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/no-variable-length-returns.json")
+	})
+	// tuple
+	t.Run("Tuple", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/tuple.json")
+	})
+	// tail-recursion
+	t.Run("TailRecursion", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/tail-recursion.json")
+	})
+	// sha3
+	t.Run("Sha3", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/sha3.json")
+	})
+	// remove-from-array
+	t.Run("RemoveFromArray", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/remove-from-array.json")
+	})
+	// send-eth
+	t.Run("SendEth", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/send-eth.json")
 	})
 	// multisend
 	t.Run("Multisend", func(t *testing.T) {
