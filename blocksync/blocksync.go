@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 )
 
@@ -74,7 +73,6 @@ type blockSyncer struct {
 	bc               blockchain.Blockchain
 	unicastHandler   UnicastOutbound
 	neighborsHandler Neighbors
-	chaser           *routine.RecurringTask
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -106,7 +104,6 @@ func NewBlockSyncer(
 		neighborsHandler: bsCfg.neighborsHandler,
 		worker:           newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
 	}
-	bs.chaser = routine.NewRecurringTask(bs.Chase, cfg.BlockSync.Interval*10)
 	return bs, nil
 }
 
@@ -121,18 +118,12 @@ func (bs *blockSyncer) TargetHeight() uint64 {
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	log.L().Debug("Starting block syncer.")
 	bs.commitHeight = bs.buf.CommitHeight()
-	if err := bs.chaser.Start(ctx); err != nil {
-		return err
-	}
 	return bs.worker.Start(ctx)
 }
 
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop(ctx context.Context) error {
 	log.L().Debug("Stopping block syncer.")
-	if err := bs.chaser.Stop(ctx); err != nil {
-		return err
-	}
 	return bs.worker.Stop(ctx)
 }
 
@@ -195,15 +186,4 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		}
 	}
 	return nil
-}
-
-// Chase sets the block sync target height to be blockchain height + 1
-func (bs *blockSyncer) Chase() {
-	if bs.commitHeight != bs.buf.CommitHeight() {
-		bs.commitHeight = bs.buf.CommitHeight()
-		return
-	}
-	// commit height hasn't changed since last chase interval
-	bs.worker.SetTargetHeight(bs.bc.TipHeight() + 1)
-	log.L().Info("Chaser is chasing.", zap.Uint64("stuck", bs.commitHeight))
 }

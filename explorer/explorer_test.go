@@ -228,11 +228,12 @@ func TestExplorerApi(t *testing.T) {
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
+		blockchain.EnableExperimentalActions(),
 	)
 	require.NotNil(bc)
 	vp := vote.NewProtocol(bc)
 	require.NoError(registry.Register(vote.ProtocolID, vp))
-	ap, err := actpool.NewActPool(bc, cfg.ActPool)
+	ap, err := actpool.NewActPool(bc, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
@@ -522,7 +523,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	exe := execution.Action().(*action.Execution)
 	explorerExecution.ExecutorPubKey = exe.ExecutorPublicKey().HexString()
 	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
-	chain.EXPECT().ExecuteContractRead(gomock.Any(), gomock.Any()).Return(&action.Receipt{GasConsumed: 1000}, nil)
+	chain.EXPECT().ExecuteContractRead(gomock.Any(), gomock.Any()).Return(nil, &action.Receipt{GasConsumed: 1000}, nil)
 
 	gas, err := svc.EstimateGasForSmartContract(explorerExecution)
 	require.Nil(err)

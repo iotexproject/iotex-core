@@ -36,7 +36,7 @@ var actionHashCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := getActionByHash(args)
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},
@@ -156,11 +156,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
-	output := ""
-	if len(receipt.ReturnValue) != 0 {
-		output += fmt.Sprintf("returnValue: %x\n", receipt.ReturnValue)
-	}
-	output += fmt.Sprintf("status: %d %s\n", receipt.Status,
+	output := fmt.Sprintf("status: %d %s\n", receipt.Status,
 		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		fmt.Sprintf("blkHeight: %d\n", receipt.BlkHeight) +

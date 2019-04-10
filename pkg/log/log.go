@@ -20,12 +20,8 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-)
 
-var (
-	_globalCfg   GlobalConfig
-	_globalCfgMu sync.RWMutex
-	_globalMux   = http.NewServeMux()
+	"github.com/pkg/errors"
 )
 
 // GlobalConfig defines the global logger configurations.
@@ -34,6 +30,14 @@ type GlobalConfig struct {
 	StderrRedirectFile *string     `json:"stderrRedirectFile" yaml:"stderrRedirectFile"`
 	RedirectStdLog     bool        `json:"stdLogRedirect" yaml:"stdLogRedirect"`
 }
+
+var (
+	_globalCfg        GlobalConfig
+	_logMu            sync.RWMutex
+	_logServeMux      = http.NewServeMux()
+	_subLoggers       map[string]*zap.Logger
+	_globalLoggerName = "global"
+)
 
 func init() {
 	zapCfg := zap.NewDevelopmentConfig()
@@ -44,9 +48,9 @@ func init() {
 		log.Println("Failed to init zap global logger, no zap log will be shown till zap is properly initialized: ", err)
 		return
 	}
-	_globalCfgMu.Lock()
+	_logMu.Lock()
 	_globalCfg.Zap = &zapCfg
-	_globalCfgMu.Unlock()
+	_logMu.Unlock()
 	zap.ReplaceGlobals(l)
 }
 
@@ -56,46 +60,64 @@ func L() *zap.Logger { return zap.L() }
 // S wraps zap.S().
 func S() *zap.SugaredLogger { return zap.S() }
 
-// InitGlobal initializes the global logger.
-func InitGlobal(cfg GlobalConfig, opts ...zap.Option) error {
-	if cfg.Zap == nil {
-		zapCfg := zap.NewProductionConfig()
-		cfg.Zap = &zapCfg
-	} else {
-		cfg.Zap.EncoderConfig = zap.NewProductionEncoderConfig()
+// Logger returns logger of the given name
+func Logger(name string) *zap.Logger {
+	logger, ok := _subLoggers[name]
+	if !ok {
+		return L()
 	}
+	return logger
+}
 
-	l, err := cfg.Zap.Build(opts...)
-	if err != nil {
-		return err
+// InitLoggers initializes the global logger and other sub loggers.
+func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts ...zap.Option) error {
+	if _, exists := subCfgs[_globalLoggerName]; exists {
+		return errors.New("'" + _globalLoggerName + "' is a reserved name for global logger")
 	}
-
-	if cfg.StderrRedirectFile != nil {
-		stderrF, err := os.OpenFile(*cfg.StderrRedirectFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0644)
+	subCfgs[_globalLoggerName] = globalCfg
+	for name, cfg := range subCfgs {
+		if _, exists := _subLoggers[name]; exists {
+			return errors.Errorf("duplicate sub logger name: %s", name)
+		}
+		if cfg.Zap == nil {
+			zapCfg := zap.NewProductionConfig()
+			cfg.Zap = &zapCfg
+		} else {
+			cfg.Zap.EncoderConfig = zap.NewProductionEncoderConfig()
+		}
+		logger, err := cfg.Zap.Build(opts...)
 		if err != nil {
 			return err
 		}
-		if err := redirectStderr(stderrF); err != nil {
-			return err
+		if cfg.StderrRedirectFile != nil {
+			stderrF, err := os.OpenFile(*cfg.StderrRedirectFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0644)
+			if err != nil {
+				return err
+			}
+			if err := redirectStderr(stderrF); err != nil {
+				return err
+			}
 		}
+		_logMu.Lock()
+		if name == _globalLoggerName {
+			_globalCfg = cfg
+			if cfg.RedirectStdLog {
+				zap.RedirectStdLog(logger)
+			}
+			zap.ReplaceGlobals(logger)
+		} else {
+			_subLoggers[name] = logger
+		}
+		_logServeMux.HandleFunc("/"+name, cfg.Zap.Level.ServeHTTP)
+		_logMu.Unlock()
 	}
 
-	if cfg.RedirectStdLog {
-		zap.RedirectStdLog(l)
-	}
-
-	_globalCfgMu.Lock()
-	_globalCfg = cfg
-	_globalMux.HandleFunc("/global", _globalCfg.Zap.Level.ServeHTTP)
-	_globalCfgMu.Unlock()
-
-	zap.ReplaceGlobals(l)
 	return nil
 }
 
 // RegisterLevelConfigMux registers log's level config http mux.
 func RegisterLevelConfigMux(root *http.ServeMux) {
-	_globalCfgMu.Lock()
-	root.Handle("/logging/", http.StripPrefix("/logging", _globalMux))
-	_globalCfgMu.Unlock()
+	_logMu.Lock()
+	root.Handle("/logging/", http.StripPrefix("/logging", _logServeMux))
+	_logMu.Unlock()
 }

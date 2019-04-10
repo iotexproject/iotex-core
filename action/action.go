@@ -377,3 +377,22 @@ func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Vote, []*Executi
 	}
 	return tsfs, votes, exes
 }
+
+// IsExperimentalAction test it the action is experimental
+func IsExperimentalAction(action Action) bool {
+	switch action.(type) {
+	case *StartSubChain:
+		return true
+	case *StopSubChain:
+		return true
+	case *PutBlock:
+		return true
+	case *CreateDeposit:
+		return true
+	case *SettleDeposit:
+		return true
+	case *Vote:
+		return true
+	}
+	return false
+}

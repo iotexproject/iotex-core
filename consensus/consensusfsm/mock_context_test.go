@@ -35,6 +35,28 @@ func (m *MockContext) EXPECT() *MockContextMockRecorder {
 	return m.recorder
 }
 
+// Activate mocks base method
+func (m *MockContext) Activate(arg0 bool) {
+	m.ctrl.Call(m, "Activate", arg0)
+}
+
+// Activate indicates an expected call of Activate
+func (mr *MockContextMockRecorder) Activate(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Activate", reflect.TypeOf((*MockContext)(nil).Activate), arg0)
+}
+
+// Active mocks base method
+func (m *MockContext) Active() bool {
+	ret := m.ctrl.Call(m, "Active")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Active indicates an expected call of Active
+func (mr *MockContextMockRecorder) Active() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Active", reflect.TypeOf((*MockContext)(nil).Active))
+}
+
 // IsStaleEvent mocks base method
 func (m *MockContext) IsStaleEvent(arg0 *ConsensusEvent) bool {
 	ret := m.ctrl.Call(m, "IsStaleEvent", arg0)
@@ -130,15 +152,16 @@ func (mr *MockContextMockRecorder) Broadcast(arg0 interface{}) *gomock.Call {
 }
 
 // Prepare mocks base method
-func (m *MockContext) Prepare() (bool, interface{}, bool, bool, time.Duration, error) {
+func (m *MockContext) Prepare() (bool, bool, interface{}, bool, bool, time.Duration, error) {
 	ret := m.ctrl.Call(m, "Prepare")
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(interface{})
-	ret2, _ := ret[2].(bool)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(interface{})
 	ret3, _ := ret[3].(bool)
-	ret4, _ := ret[4].(time.Duration)
-	ret5, _ := ret[5].(error)
-	return ret0, ret1, ret2, ret3, ret4, ret5
+	ret4, _ := ret[4].(bool)
+	ret5, _ := ret[5].(time.Duration)
+	ret6, _ := ret[6].(error)
+	return ret0, ret1, ret2, ret3, ret4, ret5, ret6
 }
 
 // Prepare indicates an expected call of Prepare

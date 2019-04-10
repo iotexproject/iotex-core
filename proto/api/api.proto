@@ -179,6 +179,7 @@ message ReadContractRequest {
 
 message ReadContractResponse {
   string data = 1;
+  iotextypes.Receipt receipt = 2;
 }
 
 message SuggestGasPriceRequest {}

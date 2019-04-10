@@ -26,7 +26,7 @@ var UpdateCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := update()
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},

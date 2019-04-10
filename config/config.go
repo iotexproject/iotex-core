@@ -84,6 +84,7 @@ var (
 	// Default is the default config
 	Default = Config{
 		Plugins: make(map[int]interface{}),
+		SubLogs: make(map[string]log.GlobalConfig),
 		Network: Network{
 			Host:           "0.0.0.0",
 			Port:           4689,
@@ -111,10 +112,11 @@ var (
 			MaxCacheSize:            0,
 		},
 		ActPool: ActPool{
-			MaxNumActsPerPool: 32000,
-			MaxNumActsPerAcct: 2000,
-			ActionExpiry:      10 * time.Minute,
-			MinGasPriceStr:    big.NewInt(unit.Qev).String(),
+			MaxNumActsPerPool:  32000,
+			MaxGasLimitPerPool: 320000000,
+			MaxNumActsPerAcct:  2000,
+			ActionExpiry:       10 * time.Minute,
+			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 		},
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
@@ -172,10 +174,12 @@ var (
 			IndexHistoryList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction},
 		},
 		System: System{
-			HeartbeatInterval:     10 * time.Second,
-			HTTPStatsPort:         8080,
-			HTTPAdminPort:         9009,
-			StartSubChainInterval: 10 * time.Second,
+			Active:                    true,
+			HeartbeatInterval:         10 * time.Second,
+			HTTPStatsPort:             8080,
+			HTTPAdminPort:             9009,
+			StartSubChainInterval:     10 * time.Second,
+			EnableExperimentalActions: false,
 		},
 		DB: DB{
 			UseBadgerDB: false,
@@ -310,18 +314,24 @@ type (
 
 	// System is the system config
 	System struct {
+		// Active is the status of the node. True means active and false means stand-by
+		Active            bool          `yaml:"active"`
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
 		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
 		// 0 by default, meaning performance profiling has been disabled
 		HTTPAdminPort         int           `yaml:"httpAdminPort"`
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
+		// EnableExperimentalActions is the flag to enable experimental actions
+		EnableExperimentalActions bool `yaml:"enableExperimentalActions"`
 	}
 
 	// ActPool is the actpool config
 	ActPool struct {
 		// MaxNumActsPerPool indicates maximum number of actions the whole actpool can hold
 		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
+		// MaxGasLimitPerPool indicates maximum gas limit the whole actpool can hold
+		MaxGasLimitPerPool uint64
 		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
 		// ActionExpiry defines how long an action will be kept in action pool.
@@ -367,20 +377,21 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Plugins    map[int]interface{} `ymal:"plugins"`
-		Network    Network             `yaml:"network"`
-		Chain      Chain               `yaml:"chain"`
-		ActPool    ActPool             `yaml:"actPool"`
-		Consensus  Consensus           `yaml:"consensus"`
-		BlockSync  BlockSync           `yaml:"blockSync"`
-		Dispatcher Dispatcher          `yaml:"dispatcher"`
-		Explorer   Explorer            `yaml:"explorer"`
-		API        API                 `yaml:"api"`
-		Indexer    Indexer             `yaml:"indexer"`
-		System     System              `yaml:"system"`
-		DB         DB                  `yaml:"db"`
-		Log        log.GlobalConfig    `yaml:"log"`
-		Genesis    genesis.Genesis     `yaml:"genesis"`
+		Plugins    map[int]interface{}         `ymal:"plugins"`
+		Network    Network                     `yaml:"network"`
+		Chain      Chain                       `yaml:"chain"`
+		ActPool    ActPool                     `yaml:"actPool"`
+		Consensus  Consensus                   `yaml:"consensus"`
+		BlockSync  BlockSync                   `yaml:"blockSync"`
+		Dispatcher Dispatcher                  `yaml:"dispatcher"`
+		Explorer   Explorer                    `yaml:"explorer"`
+		API        API                         `yaml:"api"`
+		Indexer    Indexer                     `yaml:"indexer"`
+		System     System                      `yaml:"system"`
+		DB         DB                          `yaml:"db"`
+		Log        log.GlobalConfig            `yaml:"log"`
+		SubLogs    map[string]log.GlobalConfig `yaml:"subLogs"`
+		Genesis    genesis.Genesis             `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config

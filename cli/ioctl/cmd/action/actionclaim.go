@@ -7,6 +7,8 @@
 package action
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -24,7 +26,7 @@ var actionClaimCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := claim(args)
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},

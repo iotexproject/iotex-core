@@ -27,7 +27,7 @@ var accountExportCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		output, err := accountExport(args)
 		if err == nil {
-			println(output)
+			fmt.Println(output)
 		}
 		return err
 	},
