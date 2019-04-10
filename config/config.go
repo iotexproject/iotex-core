@@ -112,10 +112,11 @@ var (
 			MaxCacheSize:            0,
 		},
 		ActPool: ActPool{
-			MaxNumActsPerPool: 32000,
-			MaxNumActsPerAcct: 2000,
-			ActionExpiry:      10 * time.Minute,
-			MinGasPriceStr:    big.NewInt(unit.Qev).String(),
+			MaxNumActsPerPool:  32000,
+			MaxGasLimitPerPool: 320000000,
+			MaxNumActsPerAcct:  2000,
+			ActionExpiry:       10 * time.Minute,
+			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 		},
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
@@ -326,6 +327,8 @@ type (
 	ActPool struct {
 		// MaxNumActsPerPool indicates maximum number of actions the whole actpool can hold
 		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
+		// MaxGasLimitPerPool indicates maximum gas limit the whole actpool can hold
+		MaxGasLimitPerPool uint64
 		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
 		// ActionExpiry defines how long an action will be kept in action pool.
