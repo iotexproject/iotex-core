@@ -366,7 +366,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
 
-			actPool, err := actpool.NewActPool(chain, cfg.ActPool)
+			actPool, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
 			require.NoError(t, err)
 
 			p2p := &directOverlay{

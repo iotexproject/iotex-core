@@ -51,21 +51,33 @@ type ActPool interface {
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 }
 
+// Option sets action pool construction parameter
+type Option func(pool *actPool) error
+
+// EnableExperimentalActions enables the action pool to take experimental actions
+func EnableExperimentalActions() Option {
+	return func(pool *actPool) error {
+		pool.enableExperimentalActions = true
+		return nil
+	}
+}
+
 // actPool implements ActPool interface
 type actPool struct {
-	mutex                    sync.RWMutex
-	cfg                      config.ActPool
-	bc                       blockchain.Blockchain
-	accountActs              map[string]ActQueue
-	allActions               map[hash.Hash256]action.SealedEnvelope
-	gasInPool                uint64
-	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
-	validators               []protocol.ActionValidator
-	timerFactory             *prometheustimer.TimerFactory
+	mutex                     sync.RWMutex
+	cfg                       config.ActPool
+	bc                        blockchain.Blockchain
+	accountActs               map[string]ActQueue
+	allActions                map[hash.Hash256]action.SealedEnvelope
+	gasInPool                 uint64
+	actionEnvelopeValidators  []protocol.ActionEnvelopeValidator
+	validators                []protocol.ActionValidator
+	timerFactory              *prometheustimer.TimerFactory
+	enableExperimentalActions bool
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
+func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (ActPool, error) {
 	if bc == nil {
 		return nil, errors.New("Try to attach a nil blockchain")
 	}
@@ -74,6 +86,11 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool) (ActPool, error) {
 		bc:          bc,
 		accountActs: make(map[string]ActQueue),
 		allActions:  make(map[hash.Hash256]action.SealedEnvelope),
+	}
+	for _, opt := range opts {
+		if err := opt(ap); err != nil {
+			return nil, err
+		}
 	}
 	timerFactory, err := prometheustimer.New(
 		"iotex_action_pool_perf",
@@ -130,6 +147,9 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 func (ap *actPool) Add(act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+	if !ap.enableExperimentalActions && action.IsExperimentalAction(act.Action()) {
+		return errors.New("Experimental action is not enabled")
+	}
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
 		return errors.Wrap(action.ErrActPool, "insufficient space for action")
