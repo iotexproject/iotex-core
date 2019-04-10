@@ -478,33 +478,3 @@ func newTestConfig() (config.Config, error) {
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
 	return cfg, nil
 }
-
-func TestBlockSyncerChaser(t *testing.T) {
-	t.Parallel()
-
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-
-	ctx := context.Background()
-	cfg, err := newTestConfig()
-	require.NoError(err)
-
-	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption())
-	require.NoError(chain.Start(ctx))
-	ap, err := actpool.NewActPool(chain, cfg.ActPool)
-	require.NoError(err)
-	cs := mock_consensus.NewMockConsensus(ctrl)
-	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
-	require.NoError(err)
-	require.NoError(bs.Start(ctx))
-
-	defer func() {
-		require.NoError(chain.Stop(ctx))
-		require.NoError(bs.Stop(ctx))
-		ctrl.Finish()
-	}()
-
-	require.NoError(testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (bool, error) {
-		return bs.TargetHeight() == 1, nil
-	}))
-}
