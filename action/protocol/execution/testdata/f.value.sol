@@ -12,8 +12,8 @@ contract One{
 
 contract Two{
     One o;
-   function Two(){
-       One o = One(0x675f1057f81e9e768e33faddbd5609c09f4c0a5c);
+   function Two(address one){
+       o = One(one);
        o.setMsg("test");
    }
    function getMsg() returns(string){
