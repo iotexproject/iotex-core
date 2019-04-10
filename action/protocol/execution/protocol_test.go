@@ -375,7 +375,14 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			}
 			balance, err := bc.Balance(account)
 			r.NoError(err)
-			r.Equal(0, balance.Cmp(expectedBalance.Balance()))
+			r.Equal(
+				0,
+				balance.Cmp(expectedBalance.Balance()),
+				"balance of account %s is different from expectation, %d vs %d",
+				account,
+				balance,
+				expectedBalance.Balance(),
+			)
 		}
 		r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
 		// TODO: check value of logs
@@ -666,6 +673,9 @@ func TestProtocol_Handle(t *testing.T) {
 	// multisend
 	t.Run("Multisend", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/multisend.json")
+	})
+	t.Run("reentry-attack", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/reentry-attack.json")
 	})
 }
 

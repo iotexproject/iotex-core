@@ -141,18 +141,24 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 		return
 	}
 	// stateDB.GetBalance(evmAddr)
-	log.L().Debug(fmt.Sprintf("AddBalance %v from %s", amount, evmAddr.Hex()))
+	log.L().Debug(fmt.Sprintf("AddBalance %v to %s", amount, evmAddr.Hex()))
 
 	addr, err := address.FromBytes(evmAddr.Bytes())
 	if err != nil {
 		log.L().Error("Failed to convert evm address.", zap.Error(err))
 		return
 	}
-	state, err := accountutil.LoadOrCreateAccount(stateDB.sm, addr.String(), big.NewInt(0))
-	if err != nil {
-		log.L().Error("Failed to add balance.", log.Hex("addrHash", evmAddr[:]))
-		stateDB.logError(err)
-		return
+	var state *state.Account
+	addrHash := hash.BytesToHash160(evmAddr[:])
+	if contract, ok := stateDB.cachedContract[addrHash]; ok {
+		state = contract.SelfState()
+	} else {
+		state, err = accountutil.LoadOrCreateAccount(stateDB.sm, addr.String(), big.NewInt(0))
+		if err != nil {
+			log.L().Error("Failed to add balance.", log.Hex("addrHash", evmAddr[:]))
+			stateDB.logError(err)
+			return
+		}
 	}
 	if err := state.AddBalance(amount); err != nil {
 		log.L().Error("Failed to add balance.", zap.Error(err))
