@@ -228,11 +228,12 @@ func TestExplorerApi(t *testing.T) {
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
+		blockchain.EnableExperimentalActions(),
 	)
 	require.NotNil(bc)
 	vp := vote.NewProtocol(bc)
 	require.NoError(registry.Register(vote.ProtocolID, vp))
-	ap, err := actpool.NewActPool(bc, cfg.ActPool)
+	ap, err := actpool.NewActPool(bc, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.Nil(err)
 	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil), execution.NewProtocol(bc))
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
