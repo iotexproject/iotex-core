@@ -27,7 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -38,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -143,42 +143,42 @@ func makeBlock(t *testing.T, i int) *block.Block {
 	ra := rap.
 		SetHeight(9).
 		SetTimeStamp(time.Now()).
-		Build(identityset.PrivateKey(i+1).PublicKey())
+		Build(identityset.PrivateKey(i + 1).PublicKey())
 	blk, err := block.NewBuilder(ra).
 		SetVersion(1).
 		SetReceiptRoot(hash.Hash256b([]byte("hello, world!"))).
 		SetDeltaStateDigest(hash.Hash256b([]byte("world, hello!"))).
 		SetPrevBlockHash(hash.Hash256b([]byte("hello, block!"))).
-		SignAndBuild(identityset.PrivateKey(i+1))
+		SignAndBuild(identityset.PrivateKey(i + 1))
 	require.NoError(t, err)
-	footerForBlk:=&block.Footer{}
-	typesFooter:=iotextypes.BlockFooter{}
+	footerForBlk := &block.Footer{}
+	typesFooter := iotextypes.BlockFooter{}
 
-	for i:=0;i<4;i++{
-		ttt:=time.Unix(int64(1500000000),0)
-		ts,err:=ptypes.TimestampProto(ttt)
-		require.NoError(t,err)
-		hs:=blk.HashBlock()
-		consensusVote:=NewConsensusVote(hs[:], COMMIT)
-		consensusVoteHash,err:=consensusVote.Hash()
-		require.NoError(t,err)
+	for i := 0; i < 4; i++ {
+		ttt := time.Unix(int64(1500000000), 0)
+		ts, err := ptypes.TimestampProto(ttt)
+		require.NoError(t, err)
+		hs := blk.HashBlock()
+		consensusVote := NewConsensusVote(hs[:], COMMIT)
+		consensusVoteHash, err := consensusVote.Hash()
+		require.NoError(t, err)
 
 		consensusVoteHash = append(consensusVoteHash, byteutil.Uint64ToBytes(uint64(1500000000))...)
 		consensusVoteHashAddTime := hash.Hash256b(append(consensusVoteHash, byteutil.Uint32ToBytes(uint32(0))...))
 
-		sig,err:=identityset.PrivateKey(i).Sign(consensusVoteHashAddTime[:])
-		require.NoError(t,err)
-		en:=iotextypes.Endorsement{Endorser:identityset.PrivateKey(i).PublicKey().Bytes(),Signature:sig}
-		en.Timestamp=ts
-		typesFooter.Endorsements=append(typesFooter.Endorsements,&en)
+		sig, err := identityset.PrivateKey(i).Sign(consensusVoteHashAddTime[:])
+		require.NoError(t, err)
+		en := iotextypes.Endorsement{Endorser: identityset.PrivateKey(i).PublicKey().Bytes(), Signature: sig}
+		en.Timestamp = ts
+		typesFooter.Endorsements = append(typesFooter.Endorsements, &en)
 	}
-	ts,err:=ptypes.TimestampProto(time.Unix(int64(1500000000),0))
-	require.NoError(t,err)
-	typesFooter.Timestamp=ts
-	require.NotNil(t,typesFooter.Timestamp)
-	err=footerForBlk.ConvertFromBlockFooterPb(&typesFooter)
-	require.NoError(t,err)
-	blk.Footer=*footerForBlk
+	ts, err := ptypes.TimestampProto(time.Unix(int64(1500000000), 0))
+	require.NoError(t, err)
+	typesFooter.Timestamp = ts
+	require.NotNil(t, typesFooter.Timestamp)
+	err = footerForBlk.ConvertFromBlockFooterPb(&typesFooter)
+	require.NoError(t, err)
+	blk.Footer = *footerForBlk
 	return &blk
 }
 
@@ -229,14 +229,14 @@ func TestValidateBlockFooter(t *testing.T) {
 	require.NotNil(t, r)
 
 	// all right
-	blk:=makeBlock(t,0)
-	err=r.ValidateBlockFooter(blk)
-	require.NoError(t,err)
+	blk := makeBlock(t, 0)
+	err = r.ValidateBlockFooter(blk)
+	require.NoError(t, err)
 
 	// sig error
-	blk=makeBlock(t,1)
-	err=r.ValidateBlockFooter(blk)
-	require.Error(t,err)
+	blk = makeBlock(t, 1)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
 }
 
 func TestRollDPoS_Metrics(t *testing.T) {
