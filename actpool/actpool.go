@@ -41,6 +41,10 @@ type ActPool interface {
 	GetSize() uint64
 	// GetCapacity returns the act pool capacity
 	GetCapacity() uint64
+	// GetGasSize returns the act pool gas size
+	GetGasSize() uint64
+	// GetGasCapacity returns the act pool gas capacity
+	GetGasCapacity() uint64
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
 
@@ -54,6 +58,7 @@ type actPool struct {
 	bc                       blockchain.Blockchain
 	accountActs              map[string]ActQueue
 	allActions               map[hash.Hash256]action.SealedEnvelope
+	gasInPool                uint64
 	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
 	validators               []protocol.ActionValidator
 	timerFactory             *prometheustimer.TimerFactory
@@ -128,6 +133,13 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
 		return errors.Wrap(action.ErrActPool, "insufficient space for action")
+	}
+	intrinsicGas, err := act.IntrinsicGas()
+	if err != nil {
+		return errors.Wrap(err, "failed to get action's intrinsic gas")
+	}
+	if ap.gasInPool+intrinsicGas > ap.cfg.MaxGasLimitPerPool {
+		return errors.Wrap(action.ErrActPool, "insufficient gas space for action")
 	}
 	hash := act.Hash()
 	// Reject action if it already exists in pool
@@ -220,10 +232,20 @@ func (ap *actPool) GetSize() uint64 {
 
 // GetCapacity returns the act pool capacity
 func (ap *actPool) GetCapacity() uint64 {
+	return ap.cfg.MaxNumActsPerPool
+}
+
+// GetGasSize returns the act pool gas size
+func (ap *actPool) GetGasSize() uint64 {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
 
-	return ap.cfg.MaxNumActsPerPool
+	return ap.gasInPool
+}
+
+// GetGasCapacity returns the act pool gas capacity
+func (ap *actPool) GetGasCapacity() uint64 {
+	return ap.cfg.MaxGasLimitPerPool
 }
 
 //======================================
@@ -283,6 +305,9 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 		return errors.Wrapf(err, "cannot put action %x into ActQueue", hash)
 	}
 	ap.allActions[hash] = act
+
+	intrinsicGas, _ := act.IntrinsicGas()
+	ap.gasInPool += intrinsicGas
 	// If the pending nonce equals this nonce, update queue
 	nonce := queue.PendingNonce()
 	if actNonce == nonce {
@@ -316,6 +341,8 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 		hash := act.Hash()
 		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		delete(ap.allActions, hash)
+		intrinsicGas, _ := act.IntrinsicGas()
+		ap.gasInPool -= intrinsicGas
 	}
 }
 
