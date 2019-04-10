@@ -97,6 +97,7 @@ func TestMutateDeposit(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
+		blockchain.EnableExperimentalActions(),
 	)
 	require.NoError(t, bc.Start(ctx))
 	exp := mock_explorer.NewMockExplorer(ctrl)

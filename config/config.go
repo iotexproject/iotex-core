@@ -174,11 +174,12 @@ var (
 			IndexHistoryList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction},
 		},
 		System: System{
-			Active:                true,
-			HeartbeatInterval:     10 * time.Second,
-			HTTPStatsPort:         8080,
-			HTTPAdminPort:         9009,
-			StartSubChainInterval: 10 * time.Second,
+			Active:                    true,
+			HeartbeatInterval:         10 * time.Second,
+			HTTPStatsPort:             8080,
+			HTTPAdminPort:             9009,
+			StartSubChainInterval:     10 * time.Second,
+			EnableExperimentalActions: false,
 		},
 		DB: DB{
 			UseBadgerDB: false,
@@ -321,6 +322,8 @@ type (
 		HTTPAdminPort         int           `yaml:"httpAdminPort"`
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
+		// EnableExperimentalActions is the flag to enable experimental actions
+		EnableExperimentalActions bool `yaml:"enableExperimentalActions"`
 	}
 
 	// ActPool is the actpool config

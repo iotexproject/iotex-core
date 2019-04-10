@@ -320,9 +320,9 @@ func (sct *SmartContractTest) deployContracts(
 		addr, _ := address.FromString(receipt.ContractAddress)
 		copy(evmContractAddrHash[:], addr.Bytes())
 		if contract.AppendContractAddress {
-			lenOfByteCode:=len(contract.ByteCode())
+			lenOfByteCode := len(contract.ByteCode())
 			r.True(bytes.Contains(contract.ByteCode()[:lenOfByteCode-32], stateDB.GetCode(evmContractAddrHash)))
-		}else{
+		} else {
 			r.True(bytes.Contains(sct.Deployments[i].ByteCode(), stateDB.GetCode(evmContractAddrHash)))
 		}
 		contractAddresses = append(contractAddresses, receipt.ContractAddress)
