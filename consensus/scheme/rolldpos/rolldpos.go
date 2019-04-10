@@ -111,17 +111,17 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	consensusHeight := r.ctx.Height()
 	switch {
 	case consensusHeight == 0:
-		log.L().Debug("consensus component is not ready yet")
+		log.Logger("consensus").Debug("consensus component is not ready yet")
 		return nil
 	case msg.Height < consensusHeight:
-		log.L().Debug(
+		log.Logger("consensus").Debug(
 			"old consensus message",
 			zap.Uint64("consensusHeight", consensusHeight),
 			zap.Uint64("msgHeight", msg.Height),
 		)
 		return nil
 	case msg.Height > consensusHeight+1:
-		log.L().Debug(
+		log.Logger("consensus").Debug(
 			"future consensus message",
 			zap.Uint64("consensusHeight", consensusHeight),
 			zap.Uint64("msgHeight", msg.Height),
@@ -138,13 +138,13 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	en := endorsedMessage.Endorsement()
 	switch consensusMessage := endorsedMessage.Document().(type) {
 	case *blockProposal:
-		if err := r.ctx.VerifyBlockProposal(endorsedMessage.Height(), consensusMessage, en); err != nil {
+		if err := r.ctx.CheckBlockProposer(endorsedMessage.Height(), consensusMessage, en); err != nil {
 			return errors.Wrap(err, "failed to verify block proposal")
 		}
 		r.cfsm.ProduceReceiveBlockEvent(endorsedMessage)
 		return nil
 	case *ConsensusVote:
-		if err := r.ctx.VerifyVote(endorsedMessage.Height(), consensusMessage, en); err != nil {
+		if err := r.ctx.CheckVoteEndorser(endorsedMessage.Height(), consensusMessage, en); err != nil {
 			return errors.Wrapf(err, "failed to verify vote")
 		}
 		switch consensusMessage.Topic() {
@@ -234,6 +234,15 @@ func (r *RollDPoS) NumPendingEvts() int {
 // CurrentState returns the current state
 func (r *RollDPoS) CurrentState() fsm.State {
 	return r.cfsm.CurrentState()
+}
+
+// Activate activates or pauses the roll-DPoS consensus. When it is deactivated, the node will finish the current
+// consensus round if it is doing the work and then return the the initial state
+func (r *RollDPoS) Activate(active bool) { r.ctx.Activate(active) }
+
+// Active is true if the roll-DPoS consensus is active, or false if it is stand-by
+func (r *RollDPoS) Active() bool {
+	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
 }
 
 // Builder is the builder for RollDPoS
@@ -334,6 +343,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	}
 	ctx := newRollDPoSCtx(
 		b.cfg.Consensus.RollDPoS,
+		b.cfg.System.Active,
 		b.cfg.Genesis.Blockchain.BlockInterval,
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
 		b.cfg.Genesis.TimeBasedRotation,

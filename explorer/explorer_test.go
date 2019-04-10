@@ -522,7 +522,7 @@ func TestService_SendSmartContract(t *testing.T) {
 	exe := execution.Action().(*action.Execution)
 	explorerExecution.ExecutorPubKey = exe.ExecutorPublicKey().HexString()
 	explorerExecution.Signature = hex.EncodeToString(execution.Signature())
-	chain.EXPECT().ExecuteContractRead(gomock.Any(), gomock.Any()).Return(&action.Receipt{GasConsumed: 1000}, nil)
+	chain.EXPECT().ExecuteContractRead(gomock.Any(), gomock.Any()).Return(nil, &action.Receipt{GasConsumed: 1000}, nil)
 
 	gas, err := svc.EstimateGasForSmartContract(explorerExecution)
 	require.Nil(err)

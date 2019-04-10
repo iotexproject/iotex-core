@@ -100,7 +100,6 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	receipts := []*action.Receipt{
 		{
 			ActionHash:      hash.Hash256b([]byte("1")),
-			ReturnValue:     []byte("1"),
 			Status:          1,
 			GasConsumed:     1,
 			ContractAddress: "1",
@@ -108,7 +107,6 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 		},
 		{
 			ActionHash:      hash.Hash256b([]byte("2")),
-			ReturnValue:     []byte("2"),
 			Status:          2,
 			GasConsumed:     2,
 			ContractAddress: "2",

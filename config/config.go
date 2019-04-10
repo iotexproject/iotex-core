@@ -84,6 +84,7 @@ var (
 	// Default is the default config
 	Default = Config{
 		Plugins: make(map[int]interface{}),
+		SubLogs: make(map[string]log.GlobalConfig),
 		Network: Network{
 			Host:           "0.0.0.0",
 			Port:           4689,
@@ -172,6 +173,7 @@ var (
 			IndexHistoryList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction},
 		},
 		System: System{
+			Active:                true,
 			HeartbeatInterval:     10 * time.Second,
 			HTTPStatsPort:         8080,
 			HTTPAdminPort:         9009,
@@ -310,6 +312,8 @@ type (
 
 	// System is the system config
 	System struct {
+		// Active is the status of the node. True means active and false means stand-by
+		Active            bool          `yaml:"active"`
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
 		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
 		// 0 by default, meaning performance profiling has been disabled
@@ -367,20 +371,21 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Plugins    map[int]interface{} `ymal:"plugins"`
-		Network    Network             `yaml:"network"`
-		Chain      Chain               `yaml:"chain"`
-		ActPool    ActPool             `yaml:"actPool"`
-		Consensus  Consensus           `yaml:"consensus"`
-		BlockSync  BlockSync           `yaml:"blockSync"`
-		Dispatcher Dispatcher          `yaml:"dispatcher"`
-		Explorer   Explorer            `yaml:"explorer"`
-		API        API                 `yaml:"api"`
-		Indexer    Indexer             `yaml:"indexer"`
-		System     System              `yaml:"system"`
-		DB         DB                  `yaml:"db"`
-		Log        log.GlobalConfig    `yaml:"log"`
-		Genesis    genesis.Genesis     `yaml:"genesis"`
+		Plugins    map[int]interface{}         `ymal:"plugins"`
+		Network    Network                     `yaml:"network"`
+		Chain      Chain                       `yaml:"chain"`
+		ActPool    ActPool                     `yaml:"actPool"`
+		Consensus  Consensus                   `yaml:"consensus"`
+		BlockSync  BlockSync                   `yaml:"blockSync"`
+		Dispatcher Dispatcher                  `yaml:"dispatcher"`
+		Explorer   Explorer                    `yaml:"explorer"`
+		API        API                         `yaml:"api"`
+		Indexer    Indexer                     `yaml:"indexer"`
+		System     System                      `yaml:"system"`
+		DB         DB                          `yaml:"db"`
+		Log        log.GlobalConfig            `yaml:"log"`
+		SubLogs    map[string]log.GlobalConfig `yaml:"subLogs"`
+		Genesis    genesis.Genesis             `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config

@@ -37,6 +37,8 @@ type Consensus interface {
 	Calibrate(uint64)
 	ValidateBlockFooter(*block.Block) error
 	Metrics() (scheme.ConsensusMetrics, error)
+	Activate(bool)
+	Active() bool
 }
 
 // IotxConsensus implements Consensus
@@ -96,13 +98,13 @@ func NewConsensus(
 	cs := &IotxConsensus{cfg: cfg.Consensus}
 	mintBlockCB := func() (*block.Block, error) {
 		actionMap := ap.PendingActionMap()
-		log.L().Debug("Pick actions.", zap.Int("actions", len(actionMap)))
+		log.Logger("consensus").Debug("Pick actions.", zap.Int("actions", len(actionMap)))
 		blk, err := bc.MintNewBlock(actionMap, clock.Now())
 		if err != nil {
-			log.L().Error("Failed to mint a block.", zap.Error(err))
+			log.Logger("consensus").Error("Failed to mint a block.", zap.Error(err))
 			return nil, err
 		}
-		log.L().Info("Created a new block.",
+		log.Logger("consensus").Info("Created a new block.",
 			zap.Uint64("height", blk.Height()),
 			zap.Int("length", len(blk.Actions)))
 		return blk, nil
@@ -111,7 +113,7 @@ func NewConsensus(
 	commitBlockCB := func(blk *block.Block) error {
 		err := bc.CommitBlock(blk)
 		if err != nil {
-			log.L().Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+			log.Logger("consensus").Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 		}
 		// Remove transfers in this block from ActPool and reset ActPool state
 		ap.Reset()
@@ -153,7 +155,7 @@ func NewConsensus(
 					}
 					votes, ok := big.NewInt(0).SetString(rawc.TotalVote, 10)
 					if !ok {
-						log.L().Error("Error when setting candidate total votes.", zap.Error(err))
+						log.Logger("consensus").Error("Error when setting candidate total votes.", zap.Error(err))
 					}
 					cs = append(cs, &state.Candidate{
 						Address: addr.String(),
@@ -166,7 +168,7 @@ func NewConsensus(
 		}
 		cs.scheme, err = bd.Build()
 		if err != nil {
-			log.L().Panic("Error when constructing RollDPoS.", zap.Error(err))
+			log.Logger("consensus").Panic("Error when constructing RollDPoS.", zap.Error(err))
 		}
 	case config.NOOPScheme:
 		cs.scheme = scheme.NewNoop()
@@ -187,7 +189,7 @@ func NewConsensus(
 
 // Start starts running the consensus algorithm
 func (c *IotxConsensus) Start(ctx context.Context) error {
-	log.L().Info("Starting IotxConsensus scheme.", zap.String("scheme", c.cfg.Scheme))
+	log.Logger("consensus").Info("Starting IotxConsensus scheme.", zap.String("scheme", c.cfg.Scheme))
 
 	err := c.scheme.Start(ctx)
 	if err != nil {
@@ -198,7 +200,7 @@ func (c *IotxConsensus) Start(ctx context.Context) error {
 
 // Stop stops running the consensus algorithm
 func (c *IotxConsensus) Stop(ctx context.Context) error {
-	log.L().Info("Stopping IotxConsensus scheme.", zap.String("scheme", c.cfg.Scheme))
+	log.Logger("consensus").Info("Stopping IotxConsensus scheme.", zap.String("scheme", c.cfg.Scheme))
 
 	err := c.scheme.Stop(ctx)
 	if err != nil {
@@ -231,3 +233,11 @@ func (c *IotxConsensus) ValidateBlockFooter(blk *block.Block) error {
 func (c *IotxConsensus) Scheme() scheme.Scheme {
 	return c.scheme
 }
+
+// Activate activates or pauses the consensus component
+func (c *IotxConsensus) Activate(active bool) {
+	c.scheme.Activate(active)
+}
+
+// Active returns true if the consensus component is active or false if it stands by
+func (c *IotxConsensus) Active() bool { return c.scheme.Active() }
