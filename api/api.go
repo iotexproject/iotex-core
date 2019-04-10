@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -83,6 +84,9 @@ type Server struct {
 	idx              *indexservice.Server
 	registry         *protocol.Registry
 	grpcserver       *grpc.Server
+	// TODO: the way to make explorer to access the data model managed by main-chain protocol is hack. We need to
+	// refactor the code later
+	mainChain *mainchain.Protocol
 }
 
 // NewServer creates a new server
@@ -132,6 +136,9 @@ func NewServer(
 
 	return svr, nil
 }
+
+// SetMainChainProtocol sets the main-chain side multi-chain protocol
+func (api *Server) SetMainChainProtocol(mainChain *mainchain.Protocol) { api.mainChain = mainChain }
 
 // GetAccount returns the metadata of an account
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
@@ -446,6 +453,74 @@ func (api *Server) GetEpochMeta(
 		TotalBlocks:        numBlks,
 		BlockProducersInfo: blockProducersInfo,
 	}, nil
+}
+
+// GetCandidatesByHeight gets candidates on the given height
+func (api *Server) GetCandidatesByHeight(
+	ctx context.Context,
+	in *iotexapi.GetCandidatesByHeightRequest,
+) (*iotexapi.GetCandidatesByHeightResponse, error) {
+	candidates, err := api.bc.CandidatesByHeight(in.Height)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	var candidateList state.CandidateList = candidates
+	return &iotexapi.GetCandidatesByHeightResponse{CandidateList: candidateList.Proto()}, nil
+}
+
+// GetDeposits returns the deposits of a sub-chain in the given range in descending order by the index
+func (api *Server) GetDeposits(
+	ctx context.Context,
+	in *iotexapi.GetDepositsRequest,
+) (*iotexapi.GetDepositsResponse, error) {
+	subChainsInOp, err := api.mainChain.SubChainsInOperation()
+	if err != nil {
+		return nil, err
+	}
+	var targetSubChain mainchain.InOperation
+	for _, subChainInOp := range subChainsInOp {
+		if subChainInOp.ID == in.SubChainID {
+			targetSubChain = subChainInOp
+		}
+	}
+	if targetSubChain.ID != in.SubChainID {
+		return nil, status.Errorf(codes.InvalidArgument, "sub-chain %d is not found in operation", in.SubChainID)
+	}
+	subChainAddr, err := address.FromBytes(targetSubChain.Addr)
+	if err != nil {
+		return nil, err
+	}
+	subChain, err := api.mainChain.SubChain(subChainAddr)
+	if err != nil {
+		return nil, err
+	}
+	idx := in.Offset
+	// If the last deposit index is lower than the start index, reset it
+	if subChain.DepositCount-1 < idx {
+		idx = subChain.DepositCount - 1
+	}
+	var deposits []*iotexapi.Deposit
+	for count := int64(0); count < int64(in.Limit); count++ {
+		deposit, err := api.mainChain.Deposit(subChainAddr, idx)
+		if err != nil {
+			return nil, err
+		}
+		recipient, err := address.FromBytes(deposit.Addr)
+		if err != nil {
+			return nil, err
+		}
+		deposits = append(deposits, &iotexapi.Deposit{
+			Amount:    deposit.Amount.String(),
+			Address:   recipient.String(),
+			Confirmed: deposit.Confirmed,
+		})
+		if idx > 0 {
+			idx--
+		} else {
+			break
+		}
+	}
+	return &iotexapi.GetDepositsResponse{Deposits: deposits}, nil
 }
 
 // Start starts the API server
