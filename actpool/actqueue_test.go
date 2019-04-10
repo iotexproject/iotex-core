@@ -137,7 +137,7 @@ func TestActQueuePendingActs(t *testing.T) {
 	cfg := config.Default
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().Nonce(gomock.Any()).Return(uint64(1), nil).Times(1)
-	ap, err := NewActPool(bc, cfg.ActPool)
+	ap, err := NewActPool(bc, cfg.ActPool, EnableExperimentalActions())
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), "").(*actQueue)
 	vote1, err := testutil.SignedVote(addr2, priKey1, 2, 0, big.NewInt(0))

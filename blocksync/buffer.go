@@ -114,8 +114,13 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 		return bi
 	}
 
+	// The sync range shouldn't go beyond tip height + buffer size to avoid being too aggressive
 	if targetHeight > confirmedHeight+b.bufferSize {
 		targetHeight = confirmedHeight + b.bufferSize
+	}
+	// The sync range should at least contain one interval to speculatively fetch missing blocks
+	if targetHeight < confirmedHeight+b.intervalSize {
+		targetHeight = confirmedHeight + b.intervalSize
 	}
 
 	var iLen uint64

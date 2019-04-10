@@ -35,6 +35,7 @@ func TestAddSubChainActions(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
+		blockchain.EnableExperimentalActions(),
 	)
 	require.NoError(t, bc.Start(ctx))
 	_, err := bc.CreateState(
@@ -42,7 +43,7 @@ func TestAddSubChainActions(t *testing.T) {
 		big.NewInt(0).Mul(big.NewInt(10000000000), big.NewInt(unit.Iotx)),
 	)
 	require.NoError(t, err)
-	ap, err := actpool.NewActPool(bc, cfg.ActPool)
+	ap, err := actpool.NewActPool(bc, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NoError(t, err)
 	p := NewProtocol(bc)
 	ap.AddActionValidators(p)

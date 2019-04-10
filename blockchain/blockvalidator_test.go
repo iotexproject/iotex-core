@@ -33,7 +33,7 @@ import (
 
 func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
-	val := validator{sf: nil, validatorAddr: ""}
+	val := validator{sf: nil, validatorAddr: "", enableExperimentalActions: true}
 
 	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
@@ -57,7 +57,7 @@ func TestWrongRootHash(t *testing.T) {
 
 func TestSignBlock(t *testing.T) {
 	require := require.New(t)
-	val := validator{sf: nil, validatorAddr: ""}
+	val := validator{sf: nil, validatorAddr: "", enableExperimentalActions: true}
 
 	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
@@ -101,7 +101,7 @@ func TestWrongNonce(t *testing.T) {
 
 	require.NoError(addCreatorToFactory(sf))
 
-	val := &validator{sf: sf, validatorAddr: ""}
+	val := &validator{sf: sf, validatorAddr: "", enableExperimentalActions: true}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 
@@ -243,7 +243,7 @@ func TestWrongAddress(t *testing.T) {
 		err := bc.Stop(ctx)
 		require.NoError(t, err)
 	}()
-	val := &validator{sf: bc.GetFactory(), validatorAddr: ""}
+	val := &validator{sf: bc.GetFactory(), validatorAddr: "", enableExperimentalActions: true}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	val.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
@@ -320,24 +320,4 @@ func TestWrongAddress(t *testing.T) {
 	)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating contract's address"))
-}
-
-func TestCoinbaseTransferValidation(t *testing.T) {
-	t.Skip("It is skipped because testnet_actions.yaml doesn't match the chain ID")
-	ctx := context.Background()
-	cfg := config.Default
-	cfg.Chain.ID = 1
-	chain := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
-	require.NotNil(t, chain)
-	require.NoError(t, chain.Start(ctx))
-	defer require.NoError(t, chain.Stop(ctx))
-
-	blk, err := chain.MintNewBlock(nil, testutil.TimestampNow())
-	require.NoError(t, err)
-	validator := validator{}
-	require.NoError(t, validator.validateActionsOnly(
-		blk.Actions,
-		blk.PublicKey(),
-		blk.Height(),
-	))
 }
