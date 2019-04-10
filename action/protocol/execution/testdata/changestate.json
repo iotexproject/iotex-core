@@ -18,7 +18,7 @@
         "rawAmount": "0",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
-        "hasReturnValue": true,
+        "readOnly": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
         "comment": "query state"
     }, {
@@ -35,7 +35,7 @@
         "rawAmount": "0",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
-        "hasReturnValue": true,
+        "readOnly": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
         "comment": "query state"
     }]

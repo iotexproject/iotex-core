@@ -26,7 +26,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "hasReturnValue": true,
+        "readOnly": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000002710",
         "expectedBalances": [],
         "comment": "read the balance"

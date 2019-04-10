@@ -131,6 +131,30 @@ func (mr *MockActPoolMockRecorder) GetCapacity() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCapacity", reflect.TypeOf((*MockActPool)(nil).GetCapacity))
 }
 
+// GetGasSize mocks base method
+func (m *MockActPool) GetGasSize() uint64 {
+	ret := m.ctrl.Call(m, "GetGasSize")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// GetGasSize indicates an expected call of GetGasSize
+func (mr *MockActPoolMockRecorder) GetGasSize() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGasSize", reflect.TypeOf((*MockActPool)(nil).GetGasSize))
+}
+
+// GetGasCapacity mocks base method
+func (m *MockActPool) GetGasCapacity() uint64 {
+	ret := m.ctrl.Call(m, "GetGasCapacity")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// GetGasCapacity indicates an expected call of GetGasCapacity
+func (mr *MockActPoolMockRecorder) GetGasCapacity() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGasCapacity", reflect.TypeOf((*MockActPool)(nil).GetGasCapacity))
+}
+
 // AddActionValidators mocks base method
 func (m *MockActPool) AddActionValidators(arg0 ...protocol.ActionValidator) {
 	varargs := []interface{}{}

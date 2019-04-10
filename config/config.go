@@ -112,10 +112,11 @@ var (
 			MaxCacheSize:            0,
 		},
 		ActPool: ActPool{
-			MaxNumActsPerPool: 32000,
-			MaxNumActsPerAcct: 2000,
-			ActionExpiry:      10 * time.Minute,
-			MinGasPriceStr:    big.NewInt(unit.Qev).String(),
+			MaxNumActsPerPool:  32000,
+			MaxGasLimitPerPool: 320000000,
+			MaxNumActsPerAcct:  2000,
+			ActionExpiry:       10 * time.Minute,
+			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
 		},
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
@@ -173,6 +174,7 @@ var (
 			IndexHistoryList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction},
 		},
 		System: System{
+			Active:                true,
 			HeartbeatInterval:     10 * time.Second,
 			HTTPStatsPort:         8080,
 			HTTPAdminPort:         9009,
@@ -311,6 +313,8 @@ type (
 
 	// System is the system config
 	System struct {
+		// Active is the status of the node. True means active and false means stand-by
+		Active            bool          `yaml:"active"`
 		HeartbeatInterval time.Duration `yaml:"heartbeatInterval"`
 		// HTTPProfilingPort is the port number to access golang performance profiling data of a blockchain node. It is
 		// 0 by default, meaning performance profiling has been disabled
@@ -323,6 +327,8 @@ type (
 	ActPool struct {
 		// MaxNumActsPerPool indicates maximum number of actions the whole actpool can hold
 		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
+		// MaxGasLimitPerPool indicates maximum gas limit the whole actpool can hold
+		MaxGasLimitPerPool uint64
 		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
 		// ActionExpiry defines how long an action will be kept in action pool.

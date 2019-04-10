@@ -34,6 +34,7 @@ import (
 
 const (
 	maxNumActsPerPool = 8192
+	maxGasLimitPerPool = 81920000
 	maxNumActsPerAcct = 256
 )
 
@@ -205,7 +206,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Error(err)
 	err = ap.Add(vote4)
 	require.Error(err)
-	// Case II: Pool space is full
+	// Case II: Pool space/gas space is full
 	mockBC := mock_blockchain.NewMockBlockchain(ctrl)
 	Ap2, err := NewActPool(mockBC, apConfig)
 	require.NoError(err)
@@ -221,6 +222,24 @@ func TestActPool_AddActs(t *testing.T) {
 	require.Equal(action.ErrActPool, errors.Cause(err))
 	err = ap2.Add(vote4)
 	require.Equal(action.ErrActPool, errors.Cause(err))
+
+	Ap3, err := NewActPool(mockBC, apConfig)
+	require.NoError(err)
+	ap3, ok := Ap3.(*actPool)
+	require.True(ok)
+	for i := uint64(1); i < apConfig.MaxGasLimitPerPool / 10000; i++ {
+		nTsf, err := testutil.SignedTransfer(addr2, priKey2, i, big.NewInt(50), nil, uint64(10000), big.NewInt(0))
+		require.NoError(err)
+		ap3.allActions[nTsf.Hash()] = nTsf
+		intrinsicGas, err := nTsf.IntrinsicGas()
+		require.NoError(err)
+		ap3.gasInPool += intrinsicGas
+	}
+	tsf10, err := testutil.SignedTransfer(addr2, priKey2, uint64(apConfig.MaxGasLimitPerPool / 10000), big.NewInt(50), []byte{1,2,3}, uint64(20000), big.NewInt(0))
+	require.NoError(err)
+	err = ap3.Add(tsf10)
+	require.True(strings.Contains(err.Error(), "insufficient gas space for action"))
+
 	// Case III: Nonce already exists
 	replaceTsf, err := testutil.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -1001,6 +1020,7 @@ func TestActPool_GetCapacity(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	require.Equal(uint64(maxNumActsPerPool), ap.GetCapacity())
+	require.Equal(uint64(maxGasLimitPerPool), ap.GetGasCapacity())
 }
 
 func TestActPool_GetSize(t *testing.T) {
@@ -1023,6 +1043,7 @@ func TestActPool_GetSize(t *testing.T) {
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc))
 	require.Zero(ap.GetSize())
+	require.Zero(ap.GetGasSize())
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
@@ -1037,6 +1058,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(ap.Add(tsf3))
 	require.NoError(ap.Add(vote4))
 	require.Equal(uint64(4), ap.GetSize())
+	require.Equal(uint64(40000), ap.GetGasSize())
 	sf := bc.GetFactory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
@@ -1053,6 +1075,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.Nil(sf.Commit(ws))
 	ap.removeConfirmedActs()
 	require.Equal(uint64(0), ap.GetSize())
+	require.Equal(uint64(0), ap.GetGasSize())
 }
 
 func TestActPool_AddActionNotEnoughGasPride(t *testing.T) {
@@ -1104,6 +1127,7 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 func getActPoolCfg() config.ActPool {
 	return config.ActPool{
 		MaxNumActsPerPool: maxNumActsPerPool,
+		MaxGasLimitPerPool: maxGasLimitPerPool,
 		MaxNumActsPerAcct: maxNumActsPerAcct,
 		MinGasPriceStr:    "0",
 	}

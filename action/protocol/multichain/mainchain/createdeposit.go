@@ -126,14 +126,11 @@ func (p *Protocol) mutateDeposit(
 		return nil, err
 	}
 
-	var value [8]byte
-	enc.MachineEndian.PutUint64(value[:], depositIndex)
 	gas, err := deposit.IntrinsicGas()
 	if err != nil {
 		return nil, err
 	}
 	receipt := action.Receipt{
-		ReturnValue:     value[:],
 		Status:          0,
 		BlockHeight:     blkHeight,
 		ActionHash:      deposit.Hash(),

@@ -193,13 +193,12 @@ message Action {
 }
 
 message Receipt {
-  bytes returnValue = 1;
-  uint64 status = 2;
-  uint64 blkHeight = 3;
-  bytes actHash = 4;
-  uint64 gasConsumed = 5;
-  string contractAddress = 6;
-  repeated Log logs = 7;
+  uint64 status = 1;
+  uint64 blkHeight = 2;
+  bytes actHash = 3;
+  uint64 gasConsumed = 4;
+  string contractAddress = 5;
+  repeated Log logs = 6;
 }
 
 message Log{

@@ -44,11 +44,13 @@ type rollDPoSCtx struct {
 	priKey      keypair.PrivateKey
 	round       *roundCtx
 	clock       clock.Clock
+	active      bool
 	mutex       sync.RWMutex
 }
 
 func newRollDPoSCtx(
 	cfg config.RollDPoS,
+	active bool,
 	blockInterval time.Duration,
 	toleratedOvertime time.Duration,
 	timeBasedRotation bool,
@@ -80,6 +82,7 @@ func newRollDPoSCtx(
 
 	return &rollDPoSCtx{
 		cfg:              cfg,
+		active:           active,
 		encodedAddr:      encodedAddr,
 		priKey:           priKey,
 		chain:            chain,
@@ -203,6 +206,7 @@ func (ctx *rollDPoSCtx) Logger() *zap.Logger {
 }
 
 func (ctx *rollDPoSCtx) Prepare() (
+	active bool,
 	isProposer bool,
 	proposal interface{},
 	isDelegate bool,
@@ -227,6 +231,11 @@ func (ctx *rollDPoSCtx) Prepare() (
 		zap.String("roundStartTime", newRound.roundStartTime.String()),
 	)
 	ctx.round = newRound
+	if active = ctx.active; !active {
+		ctx.logger().Info("current node is in standby mode")
+		delay = ctx.round.NextRoundStartTime().Sub(ctx.clock.Now())
+		return
+	}
 	if isDelegate = ctx.round.IsDelegate(ctx.encodedAddr); !isDelegate {
 		ctx.logger().Info("current node is not a delegate")
 		delay = ctx.round.NextRoundStartTime().Sub(ctx.clock.Now())
@@ -241,7 +250,7 @@ func (ctx *rollDPoSCtx) Prepare() (
 	}
 	delay = ctx.round.StartTime().Sub(ctx.clock.Now())
 
-	return isProposer, proposal, isDelegate, locked, delay, nil
+	return active, isProposer, proposal, isDelegate, locked, delay, nil
 }
 
 func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, error) {
@@ -436,6 +445,20 @@ func (ctx *rollDPoSCtx) Height() uint64 {
 	defer ctx.mutex.RUnlock()
 
 	return ctx.round.Height()
+}
+
+func (ctx *rollDPoSCtx) Activate(active bool) {
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
+
+	ctx.active = active
+}
+
+func (ctx *rollDPoSCtx) Active() bool {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+
+	return ctx.active
 }
 
 ///////////////////////////////////////////
