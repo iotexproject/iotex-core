@@ -14,7 +14,7 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -288,7 +288,13 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	// send to actpool via dispatcher
 	api.dp.HandleBroadcast(context.Background(), api.bc.ChainID(), in.Action)
 
-	return &iotexapi.SendActionResponse{}, nil
+	selp := &action.SealedEnvelope{}
+	if err = selp.LoadProto(in.Action); err != nil {
+		return
+	}
+	hash := selp.Hash()
+
+	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
 }
 
 // GetReceiptByAction gets receipt with corresponding action hash
@@ -718,16 +724,23 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
 	blkHash := hash.ZeroHash256
+	var timeStamp int64
 	var err error
 	if pullBlkHash {
 		if blkHash, err = api.bc.GetBlockHashByActionHash(actHash); err != nil {
 			return nil, err
 		}
+		blk, err := api.bc.GetBlockByHash(blkHash)
+		if err != nil {
+			return nil, err
+		}
+		timeStamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp().GetSeconds()
 	}
 	return &iotexapi.ActionInfo{
-		Action:  selp.Proto(),
-		ActHash: hex.EncodeToString(actHash[:]),
-		BlkHash: hex.EncodeToString(blkHash[:]),
+		Action:    selp.Proto(),
+		ActHash:   hex.EncodeToString(actHash[:]),
+		BlkHash:   hex.EncodeToString(blkHash[:]),
+		Timestamp: timeStamp,
 	}, nil
 }
 

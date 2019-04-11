@@ -109,6 +109,7 @@ message ActionInfo {
   iotextypes.Action action = 1;
   string actHash = 2;
   string blkHash = 3;
+  int64 timestamp = 4;
 }
 
 message ReceiptInfo {
@@ -163,7 +164,9 @@ message SendActionRequest {
   iotextypes.Action action = 1;
 }
 
-message SendActionResponse {}
+message SendActionResponse {
+    string actionHash = 1;
+}
 
 message GetReceiptByActionRequest {
   string actionHash = 1;
