@@ -18,9 +18,9 @@ const (
 // Server creates a HTTP server with time out settings.
 func Server(addr string, handler http.Handler) http.Server {
 	return http.Server{
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  _readTimeout,
+		WriteTimeout: _writeTimeout,
+		IdleTimeout:  _idleTimeout,
 		Addr:         addr,
 		Handler:      handler,
 	}
