@@ -63,7 +63,7 @@ func Address(in string) (string, error) {
 	if ok {
 		return addr, nil
 	}
-	return "", fmt.Errorf("cannot find account from #%s", in)
+	return "", fmt.Errorf("cannot find address from " + in)
 }
 
 // Alias returns the alias corresponding to address
