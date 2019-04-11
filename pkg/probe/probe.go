@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/netutil"
 )
 
 const (
@@ -71,7 +72,12 @@ func New(port int, opts ...Option) *Server {
 // Start starts the probe server and starts returning success status on liveness endpoint.
 func (s *Server) Start(_ context.Context) error {
 	go func() {
-		if err := s.server.ListenAndServe(); err != nil {
+		ln, err := netutil.LimitHTTPListener(s.server.Addr)
+		if err != nil {
+			log.L().Error("Failed to listen on probe port", zap.Error(err))
+			return
+		}
+		if err := s.server.Serve(ln); err != nil {
 			log.L().Info("Probe server stopped.", zap.Error(err))
 		}
 	}()

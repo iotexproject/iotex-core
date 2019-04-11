@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/routine"
+	"github.com/iotexproject/iotex-core/pkg/util/netutil"
 )
 
 // Server is the iotex server instance containing all components.
@@ -262,7 +263,12 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		go func() {
 			runtime.SetMutexProfileFraction(1)
 			runtime.SetBlockProfileRate(1)
-			if err := adminserv.ListenAndServe(); err != nil {
+			ln, err := netutil.LimitHTTPListener(adminserv.Addr)
+			if err != nil {
+				log.L().Error("Error when listen to profiling port.", zap.Error(err))
+				return
+			}
+			if err := adminserv.Serve(ln); err != nil {
 				log.L().Error("Error when serving performance profiling data.", zap.Error(err))
 			}
 		}()
