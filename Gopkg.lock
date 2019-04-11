@@ -1203,7 +1203,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:14a1e7337880043e23fd2dceafb0894813934792e9e897d449908fe38ba8f2b9"
+  digest = "1:19e95deb765d11ec0c462f85f0934947db0dfcad39b12d8174295561ef3cf8e6"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -1215,6 +1215,7 @@
     "http2/hpack",
     "idna",
     "internal/timeseries",
+    "netutil",
     "trace",
     "websocket",
   ]
@@ -1431,6 +1432,7 @@
     "go.uber.org/zap/zapcore",
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/net/context",
+    "golang.org/x/net/netutil",
     "golang.org/x/sync/errgroup",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
