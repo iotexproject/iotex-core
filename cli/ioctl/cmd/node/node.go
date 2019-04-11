@@ -7,6 +7,7 @@
 package node
 
 import (
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/spf13/cobra"
 )
 
@@ -20,4 +21,6 @@ var NodeCmd = &cobra.Command{
 func init() {
 	NodeCmd.AddCommand(nodeDelegateCmd)
 	NodeCmd.AddCommand(nodeRewardCmd)
+	NodeCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
+		config.ReadConfig.Endpoint, "set endpoint for once")
 }
