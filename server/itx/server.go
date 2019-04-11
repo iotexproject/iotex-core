@@ -37,7 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/routine"
-	"github.com/iotexproject/iotex-core/pkg/util/netutil"
+	"github.com/iotexproject/iotex-core/pkg/util/httputil"
 )
 
 // Server is the iotex server instance containing all components.
@@ -259,11 +259,11 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 
 		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
-		adminserv = http.Server{Addr: port, Handler: mux}
+		adminserv = httputil.Server(port, mux)
 		go func() {
 			runtime.SetMutexProfileFraction(1)
 			runtime.SetBlockProfileRate(1)
-			ln, err := netutil.LimitHTTPListener(adminserv.Addr)
+			ln, err := httputil.LimitListener(adminserv.Addr)
 			if err != nil {
 				log.L().Error("Error when listen to profiling port.", zap.Error(err))
 				return
