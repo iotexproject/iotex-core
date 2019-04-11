@@ -45,7 +45,6 @@ jobs:
           command: |
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
-            export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
@@ -69,7 +68,6 @@ jobs:
           command: |
             export GOROOT="/usr/local/go"
             export GOPATH=~/go
-            export LD_LIBRARY_PATH=:"/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib"
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
@@ -113,12 +111,12 @@ jobs:
           command: |
             curl -o go1.11.6.darwin-amd64.tar.gz https://dl.google.com/go/go1.11.6.darwin-amd64.tar.gz
             sudo tar -C /usr/local -xzf go1.11.6.darwin-amd64.tar.gz
+            rm go1.11.6.darwin-amd64.tar.gz
       - run:
           name: SET GO ENV AND buildcli.sh
           command: |
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
-            export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
             cd cli/ioctl/ && ./buildcli.sh
             sudo pip install awscli
