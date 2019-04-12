@@ -14,7 +14,8 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -243,7 +244,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	timeDuration := blks[len(blks)-1].Timestamp - blks[0].Timestamp
+	timeDuration := blks[len(blks)-1].Timestamp.GetSeconds() - blks[0].Timestamp.GetSeconds()
 	// if time duration is less than 1 second, we set it to be 1 second
 	if timeDuration < 1 {
 		timeDuration = 1
@@ -288,7 +289,13 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	// send to actpool via dispatcher
 	api.dp.HandleBroadcast(context.Background(), api.bc.ChainID(), in.Action)
 
-	return &iotexapi.SendActionResponse{}, nil
+	var selp action.SealedEnvelope
+	if err = selp.LoadProto(in.Action); err != nil {
+		return
+	}
+	hash := selp.Hash()
+
+	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
 }
 
 // GetReceiptByAction gets receipt with corresponding action hash
@@ -650,7 +657,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		blockMeta := &iotextypes.BlockMeta{
 			Hash:             hex.EncodeToString(hash[:]),
 			Height:           blk.Height(),
-			Timestamp:        blockHeaderPb.GetCore().GetTimestamp().GetSeconds(),
+			Timestamp:        blockHeaderPb.GetCore().GetTimestamp(),
 			NumActions:       int64(len(blk.Actions)),
 			ProducerAddress:  blk.ProducerAddress(),
 			TransferAmount:   transferAmount.String(),
@@ -686,7 +693,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	blockMeta := &iotextypes.BlockMeta{
 		Hash:             blkHash,
 		Height:           blk.Height(),
-		Timestamp:        blkHeaderPb.GetCore().GetTimestamp().GetSeconds(),
+		Timestamp:        blkHeaderPb.GetCore().GetTimestamp(),
 		NumActions:       int64(len(blk.Actions)),
 		ProducerAddress:  blk.ProducerAddress(),
 		TransferAmount:   transferAmount.String(),
@@ -718,16 +725,23 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
 	blkHash := hash.ZeroHash256
+	var timeStamp *timestamp.Timestamp
 	var err error
 	if pullBlkHash {
 		if blkHash, err = api.bc.GetBlockHashByActionHash(actHash); err != nil {
 			return nil, err
 		}
+		blk, err := api.bc.GetBlockByHash(blkHash)
+		if err != nil {
+			return nil, err
+		}
+		timeStamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 	}
 	return &iotexapi.ActionInfo{
-		Action:  selp.Proto(),
-		ActHash: hex.EncodeToString(actHash[:]),
-		BlkHash: hex.EncodeToString(blkHash[:]),
+		Action:    selp.Proto(),
+		ActHash:   hex.EncodeToString(actHash[:]),
+		BlkHash:   hex.EncodeToString(blkHash[:]),
+		Timestamp: timeStamp,
 	}, nil
 }
 
