@@ -265,10 +265,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			}
 		}
 	}
-
-	if err := host.JoinOverlay(ctx); err != nil {
-		return errors.Wrap(err, "error when joining overlay")
-	}
+	host.JoinOverlay(ctx)
 	p.host = host
 	close(ready)
 	return nil

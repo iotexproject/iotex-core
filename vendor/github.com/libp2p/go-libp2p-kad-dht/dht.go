@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	logging "github.com/ipfs/go-log"
 	goprocess "github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-	ci "github.com/libp2p/go-libp2p-crypto"
 	host "github.com/libp2p/go-libp2p-host"
 	kb "github.com/libp2p/go-libp2p-kbucket"
 	inet "github.com/libp2p/go-libp2p-net"
@@ -251,17 +249,6 @@ func (dht *IpfsDHT) getLocal(key string) (*recpb.Record, error) {
 
 	}
 	return rec, nil
-}
-
-// getOwnPrivateKey attempts to load the local peers private
-// key from the peerstore.
-func (dht *IpfsDHT) getOwnPrivateKey() (ci.PrivKey, error) {
-	sk := dht.peerstore.PrivKey(dht.self)
-	if sk == nil {
-		logger.Warningf("%s dht cannot get own private key!", dht.self)
-		return nil, fmt.Errorf("cannot get private key to sign record!")
-	}
-	return sk, nil
 }
 
 // putLocal stores the key value pair in the datastore

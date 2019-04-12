@@ -99,8 +99,12 @@ func (cfg *Config) NewNode(ctx context.Context) (host.Host, error) {
 	}
 
 	if !cfg.Insecure {
-		cfg.Peerstore.AddPrivKey(pid, cfg.PeerKey)
-		cfg.Peerstore.AddPubKey(pid, cfg.PeerKey.GetPublic())
+		if err := cfg.Peerstore.AddPrivKey(pid, cfg.PeerKey); err != nil {
+			return nil, err
+		}
+		if err := cfg.Peerstore.AddPubKey(pid, cfg.PeerKey.GetPublic()); err != nil {
+			return nil, err
+		}
 	}
 
 	// TODO: Make the swarm implementation configurable.
@@ -109,16 +113,27 @@ func (cfg *Config) NewNode(ctx context.Context) (host.Host, error) {
 		swrm.Filters = cfg.Filters
 	}
 
-	var h host.Host
-	h, err = bhost.NewHost(ctx, swrm, &bhost.HostOpts{
+	h, err := bhost.NewHost(ctx, swrm, &bhost.HostOpts{
 		ConnManager:  cfg.ConnManager,
 		AddrsFactory: cfg.AddrsFactory,
 		NATManager:   cfg.NATManager,
 		EnablePing:   !cfg.DisablePing,
 	})
+
 	if err != nil {
 		swrm.Close()
 		return nil, err
+	}
+
+	if cfg.Relay {
+		// If we've enabled the relay, we should filter out relay
+		// addresses by default.
+		//
+		// TODO: We shouldn't be doing this here.
+		oldFactory := h.AddrsFactory
+		h.AddrsFactory = func(addrs []ma.Multiaddr) []ma.Multiaddr {
+			return oldFactory(relay.Filter(addrs))
+		}
 	}
 
 	upgrader := new(tptu.Upgrader)
@@ -206,18 +221,16 @@ func (cfg *Config) NewNode(ctx context.Context) (host.Host, error) {
 		}
 
 		if hop {
-			h = relay.NewRelayHost(swrm.Context(), h.(*bhost.BasicHost), discovery)
+			// advertise ourselves
+			relay.Advertise(ctx, discovery)
 		} else {
-			h = relay.NewAutoRelayHost(swrm.Context(), h.(*bhost.BasicHost), discovery, router)
+			_ = relay.NewAutoRelay(swrm.Context(), h, discovery, router)
 		}
 	}
 
 	if router != nil {
-		h = routed.Wrap(h, router)
+		return routed.Wrap(h, router), nil
 	}
-
-	// TODO: Bootstrapping.
-
 	return h, nil
 }
 
