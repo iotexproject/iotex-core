@@ -43,6 +43,10 @@
   name = "github.com/libp2p/go-libp2p-kad-dht"
   version = "v0.0.7"
 
+[[override]]
+  name = "github.com/libp2p/go-libp2p-net"
+  version = "v0.0.2"
+
 [[constraint]]
   name = "github.com/libp2p/go-libp2p-peerstore"
   version = "v0.0.1"
