@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"context"
+	"net"
 	"time"
 
 	logging "github.com/ipfs/go-log"
@@ -19,6 +20,29 @@ import (
 var DefaultConnectTimeout = 5 * time.Second
 
 var log = logging.Logger("tcp-tpt")
+
+// try to set linger on the connection, if possible.
+func tryLinger(conn net.Conn, sec int) {
+	if lingerConn, ok := conn.(interface {
+		SetLinger(int) error
+	}); ok {
+		_ = lingerConn.SetLinger(sec)
+	}
+}
+
+type lingerListener struct {
+	manet.Listener
+	sec int
+}
+
+func (ll *lingerListener) Accept() (manet.Conn, error) {
+	c, err := ll.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	tryLinger(c, ll.sec)
+	return c, nil
+}
 
 // TcpTransport is the TCP transport.
 type TcpTransport struct {
@@ -73,6 +97,10 @@ func (t *TcpTransport) Dial(ctx context.Context, raddr ma.Multiaddr, p peer.ID) 
 	if err != nil {
 		return nil, err
 	}
+	// Set linger to 0 so we never get stuck in the TIME-WAIT state. When
+	// linger is 0, connections are _reset_ instead of closed with a FIN.
+	// This means we can immediately reuse the 5-tuple and reconnect.
+	tryLinger(conn, 0)
 	return t.Upgrader.UpgradeOutbound(ctx, t, conn, p)
 }
 
@@ -94,6 +122,7 @@ func (t *TcpTransport) Listen(laddr ma.Multiaddr) (tpt.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
+	list = &lingerListener{list, 0}
 	return t.Upgrader.UpgradeListener(t, list), nil
 }
 

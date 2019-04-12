@@ -132,7 +132,7 @@ func NewHost(ctx context.Context, net inet.Network, opts *HostOpts) (*BasicHost,
 		h.ids = opts.IdentifyService
 	} else {
 		// we can't set this as a default above because it depends on the *BasicHost.
-		h.ids = identify.NewIDService(h)
+		h.ids = identify.NewIDService(ctx, h)
 	}
 
 	if uint64(opts.NegotiationTimeout) != 0 {
