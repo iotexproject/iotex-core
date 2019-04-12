@@ -250,7 +250,6 @@ func TestValidateBlockFooter(t *testing.T) {
 
 	// round information is wrong
 	blk = makeBlock(t, 1, 4, false, 0)
-	fmt.Println(blk.Timestamp().Unix())
 	err = r.ValidateBlockFooter(blk)
 	require.Error(t, err)
 
