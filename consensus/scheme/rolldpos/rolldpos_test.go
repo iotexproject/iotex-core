@@ -9,7 +9,6 @@ package rolldpos
 import (
 	"encoding/hex"
 	"fmt"
-
 	"math/big"
 	"net"
 	"sync"
@@ -27,7 +26,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
