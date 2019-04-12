@@ -108,6 +108,9 @@ func (p *Agent) Start(ctx context.Context) error {
 		p2p.MasterKey(p.cfg.MasterKey),
 		p2p.RateLimit(),
 	}
+	if p.cfg.EnableRateLimit {
+		opts = append(opts, p2p.WithRateLimit(p.cfg.RateLimit))
+	}
 	if p.cfg.ExternalHost != "" {
 		opts = append(opts, p2p.ExternalHostName(p.cfg.ExternalHost))
 		opts = append(opts, p2p.ExternalPort(p.cfg.ExternalPort))
