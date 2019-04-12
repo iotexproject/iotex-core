@@ -116,9 +116,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qma3Xp3FXFSP4prirEiRYHJ2tgGE8EAx9i6JLziPLpAQjq",
+      "hash": "QmQVoMEL1CxrVusTSUdYsiJXVBnvSqNUpBsGybkwSfksEF",
       "name": "go-libp2p-swarm",
-      "version": "3.0.34"
+      "version": "3.0.35"
     },
     {
       "author": "whyrusleeping",
@@ -146,9 +146,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmcVFwGS6sjfxVico2bd1gQGRu5A2ymwZunVmMdeV5zEYb",
+      "hash": "QmcqwxmCsWjNvQFzeZ4rzYVycWDY8C7Ejtiw2G3djArQzf",
       "name": "go-smux-yamux",
-      "version": "2.0.9"
+      "version": "2.0.10"
     },
     {
       "author": "whyrusleeping",
@@ -164,9 +164,9 @@
     },
     {
       "author": "vyzo",
-      "hash": "QmZBfqr863PYD7BKbmCFSNmzsqYmtr2DKgzubsQaiTQkMc",
+      "hash": "QmRTkLxADQRbgnhpt2zzQQJr8Ri764b7dujoDkZw33b3iE",
       "name": "go-libp2p-circuit",
-      "version": "2.3.14"
+      "version": "2.3.15"
     },
     {
       "author": "lgierth",
@@ -229,15 +229,15 @@
     },
     {
       "author": "vyzo",
-      "hash": "QmWXhsJTd4eTVAy9n8mDYiFmcMv1VHJ73qGkkeDHZfDhui",
+      "hash": "QmWA8k8apx6egshEjemkuxpKNJS7W7heCgzTnBhAvX9yoB",
       "name": "go-libp2p-discovery",
-      "version": "1.0.14"
+      "version": "1.0.15"
     },
     {
       "author": "vyzo",
-      "hash": "QmUkgXU9YiNQG1jMjc2cscD96BcLWSocrXFXtZvyobBeGE",
+      "hash": "QmNnJhrc4ZtcPZg3oXDVdJ7HRtxDfLE2ccH56cZZjZ6y3p",
       "name": "go-libp2p-autonat",
-      "version": "1.0.13"
+      "version": "1.0.14"
     },
     {
       "hash": "QmYxUdYY9S6yg5tSPVin5GFTvtfsLauVcr7reHDD3dM8xf",
@@ -250,5 +250,5 @@
   "license": "MIT",
   "name": "go-libp2p",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "6.0.40"
+  "version": "6.0.41"
 }

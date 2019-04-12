@@ -52,6 +52,8 @@ func init() {
 	AccountCmd.AddCommand(accountListCmd)
 	AccountCmd.AddCommand(accountNonceCmd)
 	AccountCmd.AddCommand(accountUpdateCmd)
+	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
+		config.ReadConfig.Endpoint, "set endpoint for once")
 }
 
 // KsAccountToPrivateKey generates our PrivateKey interface from Keystore account

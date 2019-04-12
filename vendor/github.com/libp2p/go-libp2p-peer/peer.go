@@ -48,13 +48,17 @@ func (id ID) Loggable() map[string]interface{} {
 	}
 }
 
+func (id ID) String() string {
+	return id.Pretty()
+}
+
 // String prints out the peer.
 //
 // TODO(brian): ensure correctness at ID generation and
 // enforce this by only exposing functions that generate
 // IDs safely. Then any peer.ID type found in the
 // codebase is known to be correct.
-func (id ID) String() string {
+func (id ID) ShortString() string {
 	pid := id.Pretty()
 	if len(pid) <= 10 {
 		return fmt.Sprintf("<peer.ID %s>", pid)
