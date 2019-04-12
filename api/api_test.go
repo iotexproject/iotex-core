@@ -598,13 +598,13 @@ func TestServer_GetAction(t *testing.T) {
 		if !test.checkPending {
 			blk, err := svr.bc.GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
-			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp().GetSeconds()
+			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
 			require.Equal(hex.EncodeToString(blkHash[:]), act.BlkHash)
 			require.Equal(timeStamp, act.Timestamp)
 		} else {
 			require.Equal(hex.EncodeToString(hash.ZeroHash256[:]), act.BlkHash)
-			require.Equal(int64(0), act.Timestamp)
+			require.Nil(act.Timestamp)
 		}
 	}
 }

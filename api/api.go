@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -288,7 +289,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	// send to actpool via dispatcher
 	api.dp.HandleBroadcast(context.Background(), api.bc.ChainID(), in.Action)
 
-	selp := &action.SealedEnvelope{}
+	var selp action.SealedEnvelope
 	if err = selp.LoadProto(in.Action); err != nil {
 		return
 	}
@@ -724,7 +725,7 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
 	blkHash := hash.ZeroHash256
-	var timeStamp int64
+	var timeStamp *timestamp.Timestamp
 	var err error
 	if pullBlkHash {
 		if blkHash, err = api.bc.GetBlockHashByActionHash(actHash); err != nil {
@@ -734,7 +735,7 @@ func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool)
 		if err != nil {
 			return nil, err
 		}
-		timeStamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp().GetSeconds()
+		timeStamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 	}
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),

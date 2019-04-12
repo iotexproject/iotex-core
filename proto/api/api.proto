@@ -13,6 +13,7 @@ option go_package = "github.com/iotexproject/iotex-core/protogen/iotexapi";
 import "proto/types/action.proto";
 import "proto/types/blockchain.proto";
 import "proto/types/node.proto";
+import "google/protobuf/timestamp.proto";
 
 service APIService {
   // get the address detail of an address
@@ -109,7 +110,7 @@ message ActionInfo {
   iotextypes.Action action = 1;
   string actHash = 2;
   string blkHash = 3;
-  int64 timestamp = 4;
+  google.protobuf.Timestamp timestamp = 4;
 }
 
 message ReceiptInfo {
