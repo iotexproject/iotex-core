@@ -244,7 +244,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	timeDuration := blks[len(blks)-1].Timestamp - blks[0].Timestamp
+	timeDuration := blks[len(blks)-1].Timestamp.GetSeconds() - blks[0].Timestamp.GetSeconds()
 	// if time duration is less than 1 second, we set it to be 1 second
 	if timeDuration < 1 {
 		timeDuration = 1
@@ -657,7 +657,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		blockMeta := &iotextypes.BlockMeta{
 			Hash:             hex.EncodeToString(hash[:]),
 			Height:           blk.Height(),
-			Timestamp:        blockHeaderPb.GetCore().GetTimestamp().GetSeconds(),
+			Timestamp:        blockHeaderPb.GetCore().GetTimestamp(),
 			NumActions:       int64(len(blk.Actions)),
 			ProducerAddress:  blk.ProducerAddress(),
 			TransferAmount:   transferAmount.String(),
@@ -693,7 +693,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	blockMeta := &iotextypes.BlockMeta{
 		Hash:             blkHash,
 		Height:           blk.Height(),
-		Timestamp:        blkHeaderPb.GetCore().GetTimestamp().GetSeconds(),
+		Timestamp:        blkHeaderPb.GetCore().GetTimestamp(),
 		NumActions:       int64(len(blk.Actions)),
 		ProducerAddress:  blk.ProducerAddress(),
 		TransferAmount:   transferAmount.String(),
