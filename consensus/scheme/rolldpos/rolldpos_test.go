@@ -9,6 +9,7 @@ package rolldpos
 import (
 	"encoding/hex"
 	"fmt"
+
 	"math/big"
 	"net"
 	"sync"
@@ -26,7 +27,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -34,10 +35,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/p2p/node"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -138,41 +139,45 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.Nil(t, r)
 	})
 }
-func makeBlock(t *testing.T, i int) *block.Block {
+func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndorse bool, height int) *block.Block {
+	unixTime := 1500000000
+	blkTime := int64(-1)
+	if height != 9 {
+		height = 9
+		blkTime = int64(-7723372030)
+	}
+	timeT := time.Unix(blkTime, 0)
 	rap := block.RunnableActionsBuilder{}
 	ra := rap.
-		SetHeight(9).
-		SetTimeStamp(time.Now()).
-		Build(identityset.PrivateKey(i + 1).PublicKey())
+		SetHeight(uint64(height)).
+		SetTimeStamp(timeT).
+		Build(identityset.PrivateKey(accountIndex).PublicKey())
 	blk, err := block.NewBuilder(ra).
 		SetVersion(1).
 		SetReceiptRoot(hash.Hash256b([]byte("hello, world!"))).
 		SetDeltaStateDigest(hash.Hash256b([]byte("world, hello!"))).
 		SetPrevBlockHash(hash.Hash256b([]byte("hello, block!"))).
-		SignAndBuild(identityset.PrivateKey(i + 1))
+		SignAndBuild(identityset.PrivateKey(accountIndex))
 	require.NoError(t, err)
 	footerForBlk := &block.Footer{}
 	typesFooter := iotextypes.BlockFooter{}
 
-	for i := 0; i < 4; i++ {
-		ttt := time.Unix(int64(1500000000), 0)
-		ts, err := ptypes.TimestampProto(ttt)
-		require.NoError(t, err)
+	for i := 0; i < numOfEndosements; i++ {
+		timeTime := time.Unix(int64(unixTime), 0)
 		hs := blk.HashBlock()
-		consensusVote := NewConsensusVote(hs[:], COMMIT)
-		consensusVoteHash, err := consensusVote.Hash()
+		var consensusVote *ConsensusVote
+		if makeInvalidEndorse {
+			consensusVote = NewConsensusVote(hs[:], LOCK)
+		} else {
+			consensusVote = NewConsensusVote(hs[:], COMMIT)
+		}
+		en, err := endorsement.Endorse(identityset.PrivateKey(i), consensusVote, timeTime)
 		require.NoError(t, err)
-
-		consensusVoteHash = append(consensusVoteHash, byteutil.Uint64ToBytes(uint64(1500000000))...)
-		consensusVoteHashAddTime := hash.Hash256b(append(consensusVoteHash, byteutil.Uint32ToBytes(uint32(0))...))
-
-		sig, err := identityset.PrivateKey(i).Sign(consensusVoteHashAddTime[:])
+		enProto, err := en.Proto()
 		require.NoError(t, err)
-		en := iotextypes.Endorsement{Endorser: identityset.PrivateKey(i).PublicKey().Bytes(), Signature: sig}
-		en.Timestamp = ts
-		typesFooter.Endorsements = append(typesFooter.Endorsements, &en)
+		typesFooter.Endorsements = append(typesFooter.Endorsements, enProto)
 	}
-	ts, err := ptypes.TimestampProto(time.Unix(int64(1500000000), 0))
+	ts, err := ptypes.TimestampProto(time.Unix(int64(unixTime), 0))
 	require.NoError(t, err)
 	typesFooter.Timestamp = ts
 	require.NotNil(t, typesFooter.Timestamp)
@@ -193,8 +198,8 @@ func TestValidateBlockFooter(t *testing.T) {
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(2)
-	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
+	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(5)
+	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
 		{Address: candidates[1]},
@@ -229,12 +234,28 @@ func TestValidateBlockFooter(t *testing.T) {
 	require.NotNil(t, r)
 
 	// all right
-	blk := makeBlock(t, 0)
+	blk := makeBlock(t, 1, 4, false, 9)
 	err = r.ValidateBlockFooter(blk)
 	require.NoError(t, err)
 
-	// sig error
-	blk = makeBlock(t, 1)
+	// Proposer is wrong
+	blk = makeBlock(t, 0, 4, false, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
+
+	// Not enough endorsements
+	blk = makeBlock(t, 1, 2, false, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
+
+	// round information is wrong
+	blk = makeBlock(t, 1, 4, false, 0)
+	fmt.Println(blk.Timestamp().Unix())
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
+
+	// Some endorsement is invalid
+	blk = makeBlock(t, 1, 4, true, 9)
 	err = r.ValidateBlockFooter(blk)
 	require.Error(t, err)
 }
