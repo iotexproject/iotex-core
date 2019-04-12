@@ -118,7 +118,7 @@ func (dht *IpfsDHT) checkLocalDatastore(k []byte) (*recpb.Record, error) {
 		recordIsBad = true
 	}
 
-	if time.Now().Sub(recvtime) > MaxRecordAge {
+	if time.Since(recvtime) > MaxRecordAge {
 		logger.Debug("old record found, tossing.")
 		recordIsBad = true
 	}
@@ -320,7 +320,7 @@ func (dht *IpfsDHT) handleGetProviders(ctx context.Context, p peer.ID, pmes *pb.
 		logger.Debugf("%s have the value. added self as provider", reqDesc)
 	}
 
-	if providers != nil && len(providers) > 0 {
+	if len(providers) > 0 {
 		infos := pstore.PeerInfos(dht.peerstore, providers)
 		resp.ProviderPeers = pb.PeerInfosToPBPeers(dht.host.Network(), infos)
 		logger.Debugf("%s have %d providers: %s", reqDesc, len(providers), infos)

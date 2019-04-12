@@ -10,7 +10,7 @@ require (
 	github.com/ipfs/go-todocounter v0.0.1
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99
 	github.com/jbenet/goprocess v0.0.0-20160826012719-b497e2f366b8
-	github.com/libp2p/go-libp2p v0.0.2
+	github.com/libp2p/go-libp2p v0.0.4
 	github.com/libp2p/go-libp2p-crypto v0.0.1
 	github.com/libp2p/go-libp2p-host v0.0.1
 	github.com/libp2p/go-libp2p-kbucket v0.0.1

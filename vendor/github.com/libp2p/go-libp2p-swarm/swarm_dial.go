@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	logging "github.com/ipfs/go-log"
 	addrutil "github.com/libp2p/go-addr-util"
 	lgbl "github.com/libp2p/go-libp2p-loggables"
@@ -84,7 +86,7 @@ const DefaultPerPeerRateLimit = 8
 
 // DialBackoff is a type for tracking peer dial backoffs.
 //
-// * It's safe to use it's zero value.
+// * It's safe to use its zero value.
 // * It's thread-safe.
 // * It's *not* safe to move this type after using.
 type DialBackoff struct {
@@ -289,7 +291,11 @@ func (s *Swarm) dial(ctx context.Context, p peer.ID) (*Conn, error) {
 		the improved rate limiter, while maintaining the outward behaviour
 		that we previously had (halting a dial when we run out of addrs)
 	*/
-	goodAddrs := s.filterKnownUndialables(s.peers.Addrs(p))
+	peerAddrs := s.peers.Addrs(p)
+	if len(peerAddrs) == 0 {
+		return nil, errors.New("no addresses")
+	}
+	goodAddrs := s.filterKnownUndialables(peerAddrs)
 	if len(goodAddrs) == 0 {
 		return nil, errors.New("no good addresses")
 	}
@@ -354,9 +360,7 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 
 	// use a single response type instead of errs and conns, reduces complexity *a ton*
 	respch := make(chan dialResult)
-
-	defaultDialFail := inet.ErrNoRemoteAddrs
-	exitErr := defaultDialFail
+	var dialErrors *multierror.Error
 
 	defer s.limiter.clearAllPeerDials(p)
 
@@ -365,16 +369,17 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 		// Check for context cancellations and/or responses first.
 		select {
 		case <-ctx.Done():
-			if exitErr == defaultDialFail {
-				exitErr = ctx.Err()
+			if dialError := dialErrors.ErrorOrNil(); dialError != nil {
+				return nil, dialError
 			}
-			return nil, exitErr
+
+			return nil, ctx.Err()
 		case resp := <-respch:
 			active--
 			if resp.Err != nil {
-				log.Infof("got error on dial to %s: %s", resp.Addr, resp.Err)
 				// Errors are normal, lots of dials will fail
-				exitErr = resp.Err
+				log.Infof("got error on dial: %s", resp.Err)
+				dialErrors = multierror.Append(dialErrors, resp.Err)
 			} else if resp.Conn != nil {
 				return resp.Conn, nil
 			}
@@ -395,22 +400,28 @@ func (s *Swarm) dialAddrs(ctx context.Context, p peer.ID, remoteAddrs <-chan ma.
 			s.limitedDial(ctx, p, addr, respch)
 			active++
 		case <-ctx.Done():
-			if exitErr == defaultDialFail {
-				exitErr = ctx.Err()
+			if dialError := dialErrors.ErrorOrNil(); dialError != nil {
+				return nil, dialError
 			}
-			return nil, exitErr
+
+			return nil, ctx.Err()
 		case resp := <-respch:
 			active--
 			if resp.Err != nil {
-				log.Infof("got error on dial to %s: %s", resp.Addr, resp.Err)
 				// Errors are normal, lots of dials will fail
-				exitErr = resp.Err
+				log.Infof("got error on dial: %s", resp.Err)
+				dialErrors = multierror.Append(dialErrors, resp.Err)
 			} else if resp.Conn != nil {
 				return resp.Conn, nil
 			}
 		}
 	}
-	return nil, exitErr
+
+	if dialError := dialErrors.ErrorOrNil(); dialError != nil {
+		return nil, dialError
+	}
+
+	return nil, inet.ErrNoRemoteAddrs
 }
 
 // limitedDial will start a dial to the given peer when
@@ -439,7 +450,7 @@ func (s *Swarm) dialAddr(ctx context.Context, p peer.ID, addr ma.Multiaddr) (tra
 
 	connC, err := tpt.Dial(ctx, addr, p)
 	if err != nil {
-		return nil, fmt.Errorf("%s --> %s dial attempt failed: %s", s.local, p, err)
+		return nil, fmt.Errorf("%s --> %s (%s) dial attempt failed: %s", s.local, p, addr, err)
 	}
 
 	// Trust the transport? Yeah... right.

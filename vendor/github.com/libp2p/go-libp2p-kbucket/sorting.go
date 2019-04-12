@@ -26,7 +26,7 @@ func (p peerSorterArr) Less(a, b int) bool {
 
 func copyPeersFromList(target ID, peerArr peerSorterArr, peerList *list.List) peerSorterArr {
 	if cap(peerArr) < len(peerArr)+peerList.Len() {
-		newArr := make(peerSorterArr, 0, len(peerArr)+peerList.Len())
+		newArr := make(peerSorterArr, len(peerArr), len(peerArr)+peerList.Len())
 		copy(newArr, peerArr)
 		peerArr = newArr
 	}

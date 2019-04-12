@@ -31,12 +31,10 @@ type ProviderManager struct {
 	// all non channel fields are meant to be accessed only within
 	// the run method
 	providers *lru.Cache
-	lpeer     peer.ID
 	dstore    ds.Datastore
 
 	newprovs chan *addProv
 	getprovs chan *getProv
-	period   time.Duration
 	proc     goprocess.Process
 
 	cleanupInterval time.Duration
