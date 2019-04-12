@@ -44,24 +44,31 @@ type HandleUnicast func(ctx context.Context, w io.Writer, data []byte) error
 
 // Config enumerates the configs required by a host
 type Config struct {
-	HostName                 string
-	Port                     int
-	ExternalHostName         string
-	ExternalPort             int
-	SecureIO                 bool
-	Gossip                   bool
-	ConnectTimeout           time.Duration
-	MasterKey                string
-	Relay                    string // could be `active`, `nat`, `disable`
-	ConnLowWater             int
-	ConnHighWater            int
-	RateLimiterLRUSize       int
-	BlackListLRUSize         int
-	BlackListCleanupInterval time.Duration
-	AvgNumMsgsPerSec         int
-	BurstNumMsgsPerSec       int
-	ConnGracePeriod          time.Duration
-	RateLimit                bool
+	HostName                 string          `yaml:"hostName"`
+	Port                     int             `yaml:"port"`
+	ExternalHostName         string          `yaml:"externalHostName"`
+	ExternalPort             int             `yaml:"externalPort"`
+	SecureIO                 bool            `yaml:"secureIO"`
+	Gossip                   bool            `yaml:"gossip"`
+	ConnectTimeout           time.Duration   `yaml:"connectTimeout"`
+	MasterKey                string          `yaml:"masterKey"`
+	Relay                    string          `yaml:"relay"` // could be `active`, `nat`, `disable`
+	ConnLowWater             int             `yaml:"connLowWater"`
+	ConnHighWater            int             `yaml:"connHighWater"`
+	RateLimiterLRUSize       int             `yaml:"rateLimiterLRUSize"`
+	BlackListLRUSize         int             `yaml:"blackListLRUSize"`
+	BlackListCleanupInterval time.Duration   `yaml:"blackListCleanupInterval"`
+	ConnGracePeriod          time.Duration   `yaml:"connGracePeriod"`
+	EnableRateLimit          bool            `yaml:"enableRateLimit"`
+	RateLimit                RateLimitConfig `yaml:"rateLimit"`
+}
+
+// RateLimitConfig all numbers are per second value.
+type RateLimitConfig struct {
+	GlobalUnicastAvg   int `yaml:"globalUnicastAvg"`
+	GlobalUnicastBurst int `yaml:"globalUnicastBurst"`
+	PeerAvg            int `yaml:"peerAvg"`
+	PeerBurst          int `yaml:"peerBurst"`
 }
 
 // DefaultConfig is a set of default configs
@@ -80,10 +87,16 @@ var DefaultConfig = Config{
 	RateLimiterLRUSize:       1000,
 	BlackListLRUSize:         1000,
 	BlackListCleanupInterval: 600 * time.Second,
-	AvgNumMsgsPerSec:         300,
-	BurstNumMsgsPerSec:       500,
 	ConnGracePeriod:          0,
-	RateLimit:                false,
+	EnableRateLimit:          false,
+	RateLimit:                DefaultRatelimitConfig,
+}
+
+var DefaultRatelimitConfig = RateLimitConfig{
+	GlobalUnicastAvg:   300,
+	GlobalUnicastBurst: 500,
+	PeerAvg:            300,
+	PeerBurst:          500,
 }
 
 // Option defines the option function to modify the config for a host
@@ -154,9 +167,10 @@ func MasterKey(masterKey string) Option {
 }
 
 // RateLimit is to indicate limiting msg rate from peers
-func RateLimit() Option {
+func WithRateLimit(rcfg RateLimitConfig) Option {
 	return func(cfg *Config) error {
-		cfg.RateLimit = true
+		cfg.EnableRateLimit = true
+		cfg.RateLimit = rcfg
 		return nil
 	}
 }
@@ -181,18 +195,19 @@ func WithConnectionManagerConfig(lo, hi int, grace time.Duration) Option {
 
 // Host is the main struct that represents a host that communicating with the rest of the P2P networks
 type Host struct {
-	host       host.Host
-	cfg        Config
-	topics     map[string]interface{}
-	kad        *dht.IpfsDHT
-	kadKey     cid.Cid
-	newPubSub  func(ctx context.Context, h host.Host, opts ...pubsub.Option) (*pubsub.PubSub, error)
-	pubs       map[string]*pubsub.PubSub
-	blacklists map[string]*LRUBlacklist
-	subs       map[string]*pubsub.Subscription
-	close      chan interface{}
-	ctx        context.Context
-	limiters   *lru.Cache
+	host           host.Host
+	cfg            Config
+	topics         map[string]interface{}
+	kad            *dht.IpfsDHT
+	kadKey         cid.Cid
+	newPubSub      func(ctx context.Context, h host.Host, opts ...pubsub.Option) (*pubsub.PubSub, error)
+	pubs           map[string]*pubsub.PubSub
+	blacklists     map[string]*LRUBlacklist
+	subs           map[string]*pubsub.Subscription
+	close          chan interface{}
+	ctx            context.Context
+	peersLimiters  *lru.Cache
+	unicastLimiter *rate.Limiter
 }
 
 // NewHost constructs a host struct
@@ -289,18 +304,19 @@ func NewHost(ctx context.Context, options ...Option) (*Host, error) {
 		return nil, err
 	}
 	myHost := Host{
-		host:       host,
-		cfg:        cfg,
-		topics:     make(map[string]interface{}),
-		kad:        kad,
-		kadKey:     cid,
-		newPubSub:  newPubSub,
-		pubs:       make(map[string]*pubsub.PubSub),
-		blacklists: make(map[string]*LRUBlacklist),
-		subs:       make(map[string]*pubsub.Subscription),
-		close:      make(chan interface{}),
-		ctx:        ctx,
-		limiters:   limiters,
+		host:           host,
+		cfg:            cfg,
+		topics:         make(map[string]interface{}),
+		kad:            kad,
+		kadKey:         cid,
+		newPubSub:      newPubSub,
+		pubs:           make(map[string]*pubsub.PubSub),
+		blacklists:     make(map[string]*LRUBlacklist),
+		subs:           make(map[string]*pubsub.Subscription),
+		close:          make(chan interface{}),
+		ctx:            ctx,
+		peersLimiters:  limiters,
+		unicastLimiter: rate.NewLimiter(rate.Limit(cfg.RateLimit.GlobalUnicastAvg), cfg.RateLimit.GlobalUnicastBurst),
 	}
 
 	addrs := make([]string, 0)
@@ -331,6 +347,10 @@ func (h *Host) AddUnicastPubSub(topic string, callback HandleUnicast) error {
 				Logger().Error("Error when closing a unicast stream.", zap.Error(err))
 			}
 		}()
+		if h.cfg.EnableRateLimit && !h.unicastLimiter.Allow() {
+			Logger().Warn("Drop unicast sream due to high traffic volume.")
+			return
+		}
 		/*
 			src := stream.Conn().RemotePeer()
 			allowed, err := h.allowSource(src)
@@ -532,19 +552,19 @@ func (h *Host) Close() error {
 }
 
 func (h *Host) allowSource(src peer.ID) (bool, error) {
-	if !h.cfg.RateLimit {
+	if !h.cfg.EnableRateLimit {
 		return true, nil
 	}
 	var limiter *rate.Limiter
-	val, ok := h.limiters.Get(src)
+	val, ok := h.peersLimiters.Get(src)
 	if ok {
 		limiter, ok = val.(*rate.Limiter)
 		if !ok {
 			return false, errors.New("error when casting to limiter struct")
 		}
 	} else {
-		limiter = rate.NewLimiter(rate.Limit(h.cfg.AvgNumMsgsPerSec), h.cfg.BurstNumMsgsPerSec)
-		h.limiters.Add(src, limiter)
+		limiter = rate.NewLimiter(rate.Limit(h.cfg.RateLimit.PeerAvg), h.cfg.RateLimit.PeerBurst)
+		h.peersLimiters.Add(src, limiter)
 	}
 	return limiter.Allow(), nil
 }
