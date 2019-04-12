@@ -13,7 +13,7 @@ var _ inet.Notifiee = (*RelayNotifiee)(nil)
 
 type RelayNotifiee Relay
 
-func (r *Relay) Notifiee() inet.Notifiee {
+func (r *Relay) notifiee() inet.Notifiee {
 	return (*RelayNotifiee)(r)
 }
 

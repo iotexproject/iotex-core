@@ -10,11 +10,15 @@ import (
 
 type NullConnMgr struct{}
 
-func (_ NullConnMgr) TagPeer(peer.ID, string, int)  {}
-func (_ NullConnMgr) UntagPeer(peer.ID, string)     {}
-func (_ NullConnMgr) GetTagInfo(peer.ID) *TagInfo   { return &TagInfo{} }
-func (_ NullConnMgr) TrimOpenConns(context.Context) {}
-func (_ NullConnMgr) Notifee() inet.Notifiee        { return &cmNotifee{} }
+var _ ConnManager = (*NullConnMgr)(nil)
+
+func (_ NullConnMgr) TagPeer(peer.ID, string, int)   {}
+func (_ NullConnMgr) UntagPeer(peer.ID, string)      {}
+func (_ NullConnMgr) GetTagInfo(peer.ID) *TagInfo    { return &TagInfo{} }
+func (_ NullConnMgr) TrimOpenConns(context.Context)  {}
+func (_ NullConnMgr) Notifee() inet.Notifiee         { return &cmNotifee{} }
+func (_ NullConnMgr) Protect(peer.ID, string)        {}
+func (_ NullConnMgr) Unprotect(peer.ID, string) bool { return false }
 
 type cmNotifee struct{}
 

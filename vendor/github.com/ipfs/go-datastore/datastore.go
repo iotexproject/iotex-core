@@ -102,14 +102,6 @@ type Batching interface {
 // actually support batching.
 var ErrBatchUnsupported = errors.New("this datastore does not support batching")
 
-// ThreadSafeDatastore is an interface that all threadsafe datastore should
-// implement to leverage type safety checks.
-type ThreadSafeDatastore interface {
-	Datastore
-
-	IsThreadSafe()
-}
-
 // CheckedDatastore is an interface that should be implemented by datastores
 // which may need checking on-disk data integrity.
 type CheckedDatastore interface {
