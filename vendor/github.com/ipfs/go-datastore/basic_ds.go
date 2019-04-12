@@ -13,7 +13,9 @@ type MapDatastore struct {
 	values map[Key][]byte
 }
 
-// NewMapDatastore constructs a MapDatastore
+// NewMapDatastore constructs a MapDatastore. It is _not_ thread-safe by
+// default, wrap using sync.MutexWrap if you need thread safety (the answer here
+// is usually yes).
 func NewMapDatastore() (d *MapDatastore) {
 	return &MapDatastore{
 		values: make(map[Key][]byte),

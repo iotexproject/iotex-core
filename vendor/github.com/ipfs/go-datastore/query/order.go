@@ -46,3 +46,21 @@ type OrderByKeyDescending struct{}
 func (o OrderByKeyDescending) Compare(a, b Entry) int {
 	return -strings.Compare(a.Key, b.Key)
 }
+
+// Less returns true if a comes before b with the requested orderings.
+func Less(orders []Order, a, b Entry) bool {
+	for _, cmp := range orders {
+		switch cmp.Compare(a, b) {
+		case 0:
+		case -1:
+			return true
+		case 1:
+			return false
+		}
+	}
+
+	// This gives us a *stable* sort for free. We don't care
+	// preserving the order from the underlying datastore
+	// because it's undefined.
+	return a.Key < b.Key
+}

@@ -49,7 +49,9 @@ func (c *client) DialBack(ctx context.Context, p peer.ID) (ma.Multiaddr, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer s.Close()
+	// Might as well just reset the stream. Once we get to this point, we
+	// don't care about being nice.
+	defer inet.FullClose(s)
 
 	r := ggio.NewDelimitedReader(s, inet.MessageSizeMax)
 	w := ggio.NewDelimitedWriter(s)
@@ -57,12 +59,14 @@ func (c *client) DialBack(ctx context.Context, p peer.ID) (ma.Multiaddr, error) 
 	req := newDialMessage(pstore.PeerInfo{ID: c.h.ID(), Addrs: c.getAddrs()})
 	err = w.WriteMsg(req)
 	if err != nil {
+		s.Reset()
 		return nil, err
 	}
 
 	var res pb.Message
 	err = r.ReadMsg(&res)
 	if err != nil {
+		s.Reset()
 		return nil, err
 	}
 
