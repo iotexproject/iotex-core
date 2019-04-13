@@ -150,6 +150,17 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	if !ap.enableExperimentalActions && action.IsExperimentalAction(act.Action()) {
 		return errors.New("Experimental action is not enabled")
 	}
+	// Reject action if action source address is blacklisted
+	pubKeyHash := act.SrcPubkey().Hash()
+	srcAddr, err := address.FromBytes(pubKeyHash)
+	if err != nil {
+		return errors.Wrap(err, "failed to get address from bytes")
+	}
+	for _, addr := range ap.cfg.BlackList {
+		if srcAddr.String() == addr {
+			return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
+		}
+	}
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
 		return errors.Wrap(action.ErrActPool, "insufficient space for action")

@@ -121,6 +121,7 @@ var (
 			MaxNumActsPerAcct:  2000,
 			ActionExpiry:       10 * time.Minute,
 			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
+			BlackList:          []string{},
 		},
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
@@ -346,6 +347,8 @@ type (
 		ActionExpiry time.Duration `yaml:"actionExpiry"`
 		// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
 		MinGasPriceStr string `yaml:"minGasPrice"`
+		// BlackList lists the account address that are banned from initiating actions
+		BlackList []string `yaml:"blackList"`
 	}
 
 	// DB is the config for database
