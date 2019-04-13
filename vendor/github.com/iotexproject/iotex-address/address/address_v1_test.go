@@ -7,22 +7,19 @@
 package address
 
 import (
+	"encoding/hex"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 func TestAddress(t *testing.T) {
 	runTest := func(t *testing.T) {
-		sk, err := keypair.GenerateKey()
+		pkHash, err := hex.DecodeString("02ae2a956d21e8d481c3a69e146633470cf625ec")
 		require.NoError(t, err)
-
-		pkHash := sk.PublicKey().Hash()
 		addr1, err := _v1.FromBytes(pkHash)
 		require.NoError(t, err)
 		assert.Equal(t, pkHash, addr1.Bytes())
@@ -56,10 +53,9 @@ func TestAddress(t *testing.T) {
 func TestAddressError(t *testing.T) {
 	t.Parallel()
 
-	sk, err := keypair.GenerateKey()
+	pkHash, err := hex.DecodeString("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	require.NoError(t, err)
-
-	addr1, err := _v1.FromBytes(sk.PublicKey().Hash())
+	addr1, err := _v1.FromBytes(pkHash)
 	require.NoError(t, err)
 
 	encodedAddr := addr1.String()

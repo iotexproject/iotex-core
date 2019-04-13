@@ -11,7 +11,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/pkg/errors"
 )
