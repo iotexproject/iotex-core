@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-address/address"
 )
 
 const (

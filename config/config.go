@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/iotex-election/committee"
 
-	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
