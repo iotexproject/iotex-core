@@ -295,6 +295,10 @@ func (s *Swarm) NewStream(ctx context.Context, p peer.ID) (inet.Stream, error) {
 	for {
 		c := s.bestConnToPeer(p)
 		if c == nil {
+			if nodial, _ := inet.GetNoDial(ctx); nodial {
+				return nil, inet.ErrNoConn
+			}
+
 			if dials >= DialAttempts {
 				return nil, errors.New("max dial attempts exceeded")
 			}

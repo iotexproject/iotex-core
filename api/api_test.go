@@ -57,13 +57,15 @@ var (
 		ta.Keyinfo["alfa"].PriKey, 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
 
-	testTransferPb = testTransfer.Proto()
+	testTransferHash = testTransfer.Hash()
+	testTransferPb   = testTransfer.Proto()
 
 	testExecution, _ = testutil.SignedExecution(ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["bravo"].PriKey, 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
-	testExecutionPb = testExecution.Proto()
+	testExecutionHash = testExecution.Hash()
+	testExecutionPb   = testExecution.Proto()
 
 	testTransfer1, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -143,28 +145,33 @@ var (
 	}
 
 	getActionTests = []struct {
+		// Arguments
 		checkPending bool
 		in           string
+		// Expected Values
 		nonce        uint64
 		senderPubKey string
+		blkNumber    uint64
 	}{
 		{
-			false,
-			hex.EncodeToString(transferHash1[:]),
-			1,
-			testTransfer1.SrcPubkey().HexString(),
+			checkPending: false,
+			in:           hex.EncodeToString(transferHash1[:]),
+			nonce:        1,
+			senderPubKey: testTransfer1.SrcPubkey().HexString(),
+			blkNumber:    1,
 		},
 		{
-			false,
-			hex.EncodeToString(voteHash1[:]),
-			5,
-			testVote1.SrcPubkey().HexString(),
+			checkPending: false,
+			in:           hex.EncodeToString(voteHash1[:]),
+			nonce:        5,
+			senderPubKey: testVote1.SrcPubkey().HexString(),
+			blkNumber:    2,
 		},
 		{
-			true,
-			hex.EncodeToString(executionHash1[:]),
-			5,
-			testExecution1.SrcPubkey().HexString(),
+			checkPending: true,
+			in:           hex.EncodeToString(executionHash1[:]),
+			nonce:        5,
+			senderPubKey: testExecution1.SrcPubkey().HexString(),
 		},
 	}
 
@@ -300,13 +307,18 @@ var (
 	}
 
 	sendActionTests = []struct {
+		// Arguments
 		actionPb *iotextypes.Action
+		// Expected Values
+		actionHash string
 	}{
 		{
 			testTransferPb,
+			hex.EncodeToString(testTransferHash[:]),
 		},
 		{
 			testExecutionPb,
+			hex.EncodeToString(testExecutionHash[:]),
 		},
 	}
 
@@ -583,6 +595,17 @@ func TestServer_GetAction(t *testing.T) {
 		act := res.ActionInfo[0]
 		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
+		if !test.checkPending {
+			blk, err := svr.bc.GetBlockByHeight(test.blkNumber)
+			require.NoError(err)
+			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
+			blkHash := blk.HashBlock()
+			require.Equal(hex.EncodeToString(blkHash[:]), act.BlkHash)
+			require.Equal(timeStamp, act.Timestamp)
+		} else {
+			require.Equal(hex.EncodeToString(hash.ZeroHash256[:]), act.BlkHash)
+			require.Nil(act.Timestamp)
+		}
 	}
 }
 
@@ -782,9 +805,10 @@ func TestServer_SendAction(t *testing.T) {
 
 	for i, test := range sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
-		_, err := svr.SendAction(context.Background(), request)
+		res, err := svr.SendAction(context.Background(), request)
 		require.NoError(err)
 		require.Equal(i+1, broadcastHandlerCount)
+		require.Equal(test.actionHash, res.ActionHash)
 	}
 }
 

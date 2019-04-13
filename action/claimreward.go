@@ -18,8 +18,10 @@ import (
 )
 
 var (
-	claimFromRewardingFundBaseGas    = uint64(10000)
-	claimFromRewardingFundGasPerByte = uint64(100)
+	// ClaimFromRewardingFundBaseGas represents the base intrinsic gas for claimFromRewardingFund
+	ClaimFromRewardingFundBaseGas = uint64(10000)
+	// ClaimFromRewardingFundGasPerByte represents the claimFromRewardingFund payload gas per uint
+	ClaimFromRewardingFundGasPerByte = uint64(100)
 )
 
 // ClaimFromRewardingFund is the action to claim reward from the rewarding fund
@@ -64,10 +66,10 @@ func (c *ClaimFromRewardingFund) LoadProto(claim *iotextypes.ClaimFromRewardingF
 // IntrinsicGas returns the intrinsic gas of a claim action
 func (c *ClaimFromRewardingFund) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(c.Data()))
-	if (math.MaxUint64-claimFromRewardingFundBaseGas)/claimFromRewardingFundGasPerByte < dataLen {
+	if (math.MaxUint64-ClaimFromRewardingFundBaseGas)/ClaimFromRewardingFundGasPerByte < dataLen {
 		return 0, ErrOutOfGas
 	}
-	return claimFromRewardingFundBaseGas + claimFromRewardingFundGasPerByte*dataLen, nil
+	return ClaimFromRewardingFundBaseGas + ClaimFromRewardingFundGasPerByte*dataLen, nil
 }
 
 // Cost returns the total cost of a claim action

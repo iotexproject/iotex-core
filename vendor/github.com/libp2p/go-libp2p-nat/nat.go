@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	nat "github.com/fd/go-nat"
 	logging "github.com/ipfs/go-log"
 	goprocess "github.com/jbenet/goprocess"
 	periodic "github.com/jbenet/goprocess/periodic"
+	nat "github.com/libp2p/go-nat"
 )
 
 var (
