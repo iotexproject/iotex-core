@@ -85,7 +85,7 @@ jobs:
       # specify any bash command here prefixed with `run: `
       - run: make nightlybuild
 
-  nightly_ioctl_build_docker:
+  nightly_bin_build_docker:
     docker:
       # specify the version
       - image: iotex/iotex-core-ci:latest
@@ -99,7 +99,8 @@ jobs:
       - run: aws s3 sync cli/ioctl/release/ ${S3_BUCKET_DIR}
       - run: cd tools/actioninjector.v2/ && ./build_injector.sh
       - run: aws s3 sync tools/actioninjector.v2/release/ ${S3_BUCKET_DIR}  
-  nightly_ioctl_build_darwin:
+
+  nightly_bin_build_darwin:
     macos:
       xcode: "10.2.0"   # not supported > 10.2.0
 
@@ -142,5 +143,5 @@ workflows:
                 - master
     jobs:
       - nightly_build_docker
-      - nightly_ioctl_build_docker
-      - nightly_ioctl_build_darwin
+      - nightly_bin_build_docker
+      - nightly_bin_build_darwin
