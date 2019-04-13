@@ -7,7 +7,7 @@
 package testaddress
 
 import (
-	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
