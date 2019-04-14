@@ -23,7 +23,7 @@
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
   pruneopts = "UT"
-  revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
+  revision = "234731a4f01687625231ac651d6b2776e3f3142e"
 
 [[projects]]
   branch = "master"
@@ -311,6 +311,17 @@
   version = "v0.2.7"
 
 [[projects]]
+  digest = "1:36b33bdfeab512dc87e88eed34156b0e5cacf3b24cb3a29d9c90f8cb8462b2eb"
+  name = "github.com/iotexproject/iotex-address"
+  packages = [
+    "address",
+    "address/bech32",
+  ]
+  pruneopts = "UT"
+  revision = "6f79c578a9766e0caf7e5fd88613d48f59f00bb4"
+  source = "github.com/iotexproject/iotex-address"
+
+[[projects]]
   digest = "1:706a64a2e4ae89a9a1ea27eaa2ba8ee6efece484b7fe58d015996d67025dfcdd"
   name = "github.com/iotexproject/iotex-election"
   packages = [
@@ -336,7 +347,7 @@
   version = "v0.0.1"
 
 [[projects]]
-  digest = "1:72285c7e6e0ead8551b2e87229cee64320b8a4c8984d8fcda80e7a4c9c085e8f"
+  digest = "1:f5a0cb034468f685197cfeb52d34667366b833b674617423dec48dee54265727"
   name = "github.com/ipfs/go-datastore"
   packages = [
     ".",
@@ -345,8 +356,8 @@
     "sync",
   ]
   pruneopts = "UT"
-  revision = "5525660611aadee5872c08cdd3d77e2150c3d927"
-  version = "v0.0.3"
+  revision = "0f659c796fe624d18e89f3989361141e0f3a64b5"
+  version = "v0.0.4"
 
 [[projects]]
   digest = "1:0b4439ae69776549e6489b261f66894a1390140dad53f1c3b1fbfc074478590d"
@@ -474,7 +485,7 @@
   version = "v0.0.1"
 
 [[projects]]
-  digest = "1:49d1445488f2e7568107972db81afabcc6eee6de6a560a411f58c1550d2208d2"
+  digest = "1:fc20c307a1e6752c762a837f2eafdcc4ac1461ef57a81e1b60757efb523b0101"
   name = "github.com/libp2p/go-libp2p"
   packages = [
     ".",
@@ -487,8 +498,8 @@
     "p2p/protocol/ping",
   ]
   pruneopts = "UT"
-  revision = "53ee3dda337d9add8e34ccb3d3aa827c2135f295"
-  version = "v0.0.10"
+  revision = "f106bf7f74f573d33505b7173ef2f7f0596b5d67"
+  version = "v0.0.13"
 
 [[projects]]
   digest = "1:7a9b53c8925819845e9ae47579cac5de87b66eddfc72988578f318504136a68c"
@@ -502,15 +513,15 @@
   version = "v0.0.4"
 
 [[projects]]
-  digest = "1:5ec57f80b314e207ed2328246dc9483bfc747e82436014dfa98ca7590fff14e7"
+  digest = "1:1289f34bbc72cfe59de1528e793e27c67a44a9597e1537ef03597abef8641f6e"
   name = "github.com/libp2p/go-libp2p-circuit"
   packages = [
     ".",
     "pb",
   ]
   pruneopts = "UT"
-  revision = "d3284feba7e459b6126ab58474f1653612fa2ca9"
-  version = "v0.0.3"
+  revision = "d07cd5f739a7878121b10e54a8ead734f93e2ddf"
+  version = "v0.0.4"
 
 [[projects]]
   digest = "1:b218b4385ba83a014018f63f6bcb78eae8fb51b86b410471c1ccc1ee2fac4d10"
@@ -564,7 +575,7 @@
   version = "v0.0.1"
 
 [[projects]]
-  digest = "1:b580f818f7026b4c26c70a94ecd8b76689fb5c903fd79c73d05641a2c5073920"
+  digest = "1:2be36a07f6b26c3ef4aeeeaca301adfa9ef0f66ae0e79a181fe3584468b04941"
   name = "github.com/libp2p/go-libp2p-kad-dht"
   packages = [
     ".",
@@ -573,8 +584,8 @@
     "providers",
   ]
   pruneopts = "UT"
-  revision = "ec1ba23f0ba7fc028c848201e1763cca0b190dd9"
-  version = "v0.0.7"
+  revision = "b99a6ee931a8331ccfb8292bee6d3e5c03edf5e1"
+  version = "v0.0.8"
 
 [[projects]]
   digest = "1:029a31918e966dba732de956af5af626c92d9e1296b2b34c6e68d4e6c5cf1b7e"
@@ -604,12 +615,12 @@
   version = "v0.0.1"
 
 [[projects]]
-  digest = "1:f5010b294f754b249772f8daae8c5f05d87628c06798874c053cd8897bcc657d"
+  digest = "1:4614c7d351b9cc24ef6457107fad9830664615bb7d7de91de10c4a4ab1919545"
   name = "github.com/libp2p/go-libp2p-nat"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4009b3c3a054211d682348d2bb636de9744a9095"
-  version = "v0.0.3"
+  revision = "c50c291a61bceccb914366d93eb24f58594e9134"
+  version = "v0.0.4"
 
 [[projects]]
   digest = "1:a87f13baa72a09a5d6fea78e3a1af82f2bc1f0637a4eb4304c5cba765720ccd3"
@@ -631,7 +642,7 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:bd675ce3368b6c46d2ab17ebe34f9a6fe2b5e9f6bcfafcfd7a15a81db19eb36b"
+  digest = "1:b59240e2a8b6eeaa1a0a3c21b8dfc03932b57ba9f207e769e3789c5a12a9c9d1"
   name = "github.com/libp2p/go-libp2p-peerstore"
   packages = [
     ".",
@@ -640,8 +651,8 @@
     "queue",
   ]
   pruneopts = "UT"
-  revision = "d2a21b6d4a88bd06c1cd5700b38df4529e556b28"
-  version = "v0.0.1"
+  revision = "deb2163a68539428cc60859cf2a21235d871aa60"
+  version = "v0.0.2"
 
 [[projects]]
   digest = "1:861a4351f79c9e2bca75407d8801b55da0526feec15ec98b433c2f800ad1f393"
@@ -745,12 +756,12 @@
   version = "v0.0.1"
 
 [[projects]]
-  digest = "1:044e8360439e292811413ffb3ac69fec6c4a60aa0ed2114c1de5c5a4ae675aa0"
+  digest = "1:82e0411449d8af0c34e200cd6b90e70689d692d17f836906194fa9fc28692e80"
   name = "github.com/libp2p/go-nat"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2c696e86d01ce80b791ca755f4cc62a099d025a4"
-  version = "v0.0.2"
+  revision = "d13fdefb3bbb2fde2c6fc090a7ea992cec8b26df"
+  version = "v0.0.3"
 
 [[projects]]
   digest = "1:3218d9edf75d814d2994ce4b14fae01c657a3284af84522efcc8dee89806f4ca"
@@ -842,7 +853,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4e3b113f547147da4f7fcdd5d36fdc01e36d7416f87a51651642b4ae3451b1cf"
+  digest = "1:4f24fffd27b601421dfb4aabdcb377439688fe1002f21848d7c54745c4089685"
   name = "github.com/mmcloughlin/avo"
   packages = [
     "attr",
@@ -860,7 +871,7 @@
     "x86",
   ]
   pruneopts = "UT"
-  revision = "138eaf8dc34d1c265aab931e3541149d667426ca"
+  revision = "5d3176b111e16ae92514c410a718e55459588db1"
 
 [[projects]]
   digest = "1:cf5b7fbff2c87cff6c0e11f87b30edc21abc6592e6a76f41003ca6d5a712cf48"
@@ -996,11 +1007,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f806b417865e83457c3659232926203f5b0d39aa741b71d9e3e4c0c774e71a5c"
+  digest = "1:5e412e2a03bd0cfdb102db97212be2e625df74fa8b2d4a8a51f107b1456e256b"
   name = "github.com/prometheus/procfs"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ea9eea63887261e4d8ed8315f4078e88d540c725"
+  revision = "e22ddced71425e65e388b17b7d0289c5ea77d06e"
 
 [[projects]]
   digest = "1:31d83d1b1c288073c91abadee3caec87de2a1fb5dbe589039264a802e67a26b8"
@@ -1280,11 +1291,11 @@
   name = "golang.org/x/sync"
   packages = ["errgroup"]
   pruneopts = "UT"
-  revision = "e225da77a7e68af35c70ccbf71af2b83e6acac3c"
+  revision = "56d357773e8497dfd526f0727e187720d1093757"
 
 [[projects]]
   branch = "master"
-  digest = "1:d0b38da2ee2333b658d6e96a4b37cf35f2402622eab3d06b766aa9d8cfa7d057"
+  digest = "1:64a65240cb9eefc6d1adba9a6c58a2c7ea509e45a3e2dfa8dde5f8e8290d675c"
   name = "golang.org/x/sys"
   packages = [
     "cpu",
@@ -1292,7 +1303,7 @@
     "windows",
   ]
   pruneopts = "UT"
-  revision = "b44545bcd369ef9ff9bebcfebf5f3370ef9b1932"
+  revision = "97732733099d6a942a73b889770774366de963ed"
 
 [[projects]]
   digest = "1:436b24586f8fee329e0dd65fd67c817681420cda1d7f934345c13fe78c212a73"
@@ -1471,6 +1482,7 @@
     "github.com/grpc-ecosystem/go-grpc-prometheus",
     "github.com/iotexproject/go-fsm",
     "github.com/iotexproject/go-p2p",
+    "github.com/iotexproject/iotex-address/address",
     "github.com/iotexproject/iotex-election/committee",
     "github.com/iotexproject/iotex-election/test/mock/mock_committee",
     "github.com/iotexproject/iotex-election/types",

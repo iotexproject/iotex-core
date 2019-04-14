@@ -55,6 +55,11 @@
   source = "github.com/iotexproject/go-ethereum"
 
 [[constraint]]
+  name = "github.com/iotexproject/iotex-address"
+  revision = "6f79c578a9766e0caf7e5fd88613d48f59f00bb4"
+  source = "github.com/iotexproject/iotex-address"
+
+[[constraint]]
   name = "github.com/iotexproject/go-fsm"
   version = "v1.0.0"
 
