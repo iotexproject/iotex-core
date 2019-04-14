@@ -1420,7 +1420,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		}
 	}
 
-	apiCfg := config.API{TpsWindow: cfg.API.TpsWindow, GasStation: cfg.API.GasStation}
+	apiCfg := config.API{TpsWindow: cfg.API.TpsWindow, GasStation: cfg.API.GasStation, RangeQueryLimit: 100}
 
 	svr := &Server{
 		bc:       bc,
