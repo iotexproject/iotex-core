@@ -460,11 +460,22 @@ func (api *Server) GetCandidatesByHeight(
 	ctx context.Context,
 	in *iotexapi.GetCandidatesByHeightRequest,
 ) (*iotexapi.GetCandidatesByHeightResponse, error) {
+	if in.Count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	candidates, err := api.bc.CandidatesByHeight(in.Height)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	var candidateList state.CandidateList = candidates
+	if int(in.Start) >= len(candidates) {
+		return nil, status.Error(codes.InvalidArgument, "invalid start index")
+	}
+	endIndex := int(in.Start + in.Count)
+	if endIndex > len(candidates) {
+		endIndex = len(candidates)
+	}
+	var candidateList state.CandidateList = candidates[int(in.Start):endIndex]
 	return &iotexapi.GetCandidatesByHeightResponse{CandidateList: candidateList.Proto()}, nil
 }
 
@@ -475,7 +486,7 @@ func (api *Server) GetDeposits(
 ) (*iotexapi.GetDepositsResponse, error) {
 	subChainsInOp, err := api.mainChain.SubChainsInOperation()
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	var targetSubChain mainchain.InOperation
 	for _, subChainInOp := range subChainsInOp {
@@ -488,11 +499,11 @@ func (api *Server) GetDeposits(
 	}
 	subChainAddr, err := address.FromBytes(targetSubChain.Addr)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	subChain, err := api.mainChain.SubChain(subChainAddr)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	idx := in.Offset
 	// If the last deposit index is lower than the start index, reset it
@@ -503,11 +514,11 @@ func (api *Server) GetDeposits(
 	for count := int64(0); count < int64(in.Limit); count++ {
 		deposit, err := api.mainChain.Deposit(subChainAddr, idx)
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		recipient, err := address.FromBytes(deposit.Addr)
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.Internal, err.Error())
 		}
 		deposits = append(deposits, &iotexapi.Deposit{
 			Amount:    deposit.Amount.String(),
