@@ -460,11 +460,22 @@ func (api *Server) GetCandidatesByHeight(
 	ctx context.Context,
 	in *iotexapi.GetCandidatesByHeightRequest,
 ) (*iotexapi.GetCandidatesByHeightResponse, error) {
+	if in.Count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	candidates, err := api.bc.CandidatesByHeight(in.Height)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	var candidateList state.CandidateList = candidates
+	if int(in.Start) >= len(candidates) {
+		return nil, status.Error(codes.InvalidArgument, "invalid start index")
+	}
+	endIndex := int(in.Start + in.Count)
+	if endIndex > len(candidates) {
+		endIndex = len(candidates)
+	}
+	var candidateList state.CandidateList = candidates[int(in.Start):endIndex]
 	return &iotexapi.GetCandidatesByHeightResponse{CandidateList: candidateList.Proto()}, nil
 }
 

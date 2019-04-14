@@ -531,12 +531,25 @@ var (
 	getCandidatesByHeightTests = []struct {
 		// Arguments
 		height uint64
+		start uint64
+		count uint64
+		errString string
 		// Expected Values
 		numCandidates int
 	}{
 		{
 			1,
+			0,
+			3,
+			"",
 			2,
+		},
+		{
+			1,
+			2,
+			1,
+			"invalid start index",
+			0,
 		},
 	}
 
@@ -1186,13 +1199,18 @@ func TestServer_GetCandidatesByHeight(t *testing.T) {
 			RewardAddress: "rewardAddress",
 		},
 	}
-	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(1)
+	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(len(getCandidatesByHeightTests))
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 	svr.bc = mbc
 
 	for _, test := range getCandidatesByHeightTests {
-		res, err := svr.GetCandidatesByHeight(context.Background(), &iotexapi.GetCandidatesByHeightRequest{Height: test.height})
+		request := &iotexapi.GetCandidatesByHeightRequest{Height: test.height, Start: test.start, Count: test.count}
+		res, err := svr.GetCandidatesByHeight(context.Background(), request)
+		if test.errString != "" {
+			require.True(strings.Contains(err.Error(), test.errString))
+			continue
+		}
 		require.NoError(err)
 		require.Equal(test.numCandidates, len(res.CandidateList.Candidates))
 	}
