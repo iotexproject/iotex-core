@@ -169,6 +169,7 @@ var (
 				DefaultGas:         1,
 				Percentile:         60,
 			},
+			RangeQueryLimit: 1000,
 		},
 		Indexer: Indexer{
 			Enabled:           false,
@@ -294,10 +295,11 @@ type (
 
 	// API is the api service config
 	API struct {
-		UseRDS     bool       `yaml:"useRDS"`
-		Port       int        `yaml:"port"`
-		TpsWindow  int        `yaml:"tpsWindow"`
-		GasStation GasStation `yaml:"gasStation"`
+		UseRDS          bool       `yaml:"useRDS"`
+		Port            int        `yaml:"port"`
+		TpsWindow       int        `yaml:"tpsWindow"`
+		GasStation      GasStation `yaml:"gasStation"`
+		RangeQueryLimit uint64     `yaml:"rangeQueryLimit"`
 	}
 
 	// GasStation is the gas station config
