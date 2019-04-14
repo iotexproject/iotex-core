@@ -107,6 +107,10 @@ func NewServer(
 		cfg = config.Default.API
 	}
 
+	if cfg.RangeQueryLimit < uint64(cfg.TpsWindow) {
+		return nil, errors.New("range query upper limit cannot be less than tps window")
+	}
+
 	svr := &Server{
 		bc:               chain,
 		dp:               dispatcher,
@@ -496,9 +500,12 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
 	var actionCount uint64
-
 	tipHeight := api.bc.TipHeight()
 	for height := 1; height <= int(tipHeight); height++ {
 		blk, err := api.bc.GetBlockByHeight(uint64(height))
@@ -542,6 +549,10 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
 	actions, err := api.getTotalActionsByAddress(address)
 	if err != nil {
@@ -572,9 +583,12 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
 	var actionCount uint64
-
 	selps := api.ap.GetUnconfirmedActs(address)
 	for i := 0; i < len(selps); i++ {
 		actionCount++
@@ -598,6 +612,10 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
 	hash, err := toHash256(blkHash)
 	if err != nil {
@@ -633,6 +651,10 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 // getBlockMetas gets block within the height range
 func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
+	if number > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	tipHeight := api.bc.TipHeight()
 	if start > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
