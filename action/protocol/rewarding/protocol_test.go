@@ -69,6 +69,11 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			Votes:         unit.ConvertIotxToRau(500000),
 			RewardAddress: testaddress.Addrinfo["delta"].String(),
 		},
+		{
+			Address:       testaddress.Addrinfo["echo"].String(),
+			Votes:         unit.ConvertIotxToRau(500000),
+			RewardAddress: testaddress.Addrinfo["echo"].String(),
+		},
 	}, nil).AnyTimes()
 	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
 		uint64(19),
