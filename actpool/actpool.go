@@ -74,6 +74,7 @@ type actPool struct {
 	validators                []protocol.ActionValidator
 	timerFactory              *prometheustimer.TimerFactory
 	enableExperimentalActions bool
+	senderBlackList           map[string]bool
 }
 
 // NewActPool constructs a new actpool
@@ -81,9 +82,16 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 	if bc == nil {
 		return nil, errors.New("Try to attach a nil blockchain")
 	}
+
+	senderBlackList := make(map[string]bool)
+	for _, bannedSender := range cfg.BlackList{
+		senderBlackList[bannedSender] = true
+	}
+
 	ap := &actPool{
 		cfg:         cfg,
 		bc:          bc,
+		senderBlackList: senderBlackList,
 		accountActs: make(map[string]ActQueue),
 		allActions:  make(map[hash.Hash256]action.SealedEnvelope),
 	}
@@ -149,6 +157,15 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	defer ap.mutex.Unlock()
 	if !ap.enableExperimentalActions && action.IsExperimentalAction(act.Action()) {
 		return errors.New("Experimental action is not enabled")
+	}
+	// Reject action if action source address is blacklisted
+	pubKeyHash := act.SrcPubkey().Hash()
+	srcAddr, err := address.FromBytes(pubKeyHash)
+	if err != nil {
+		return errors.Wrap(err, "failed to get address from bytes")
+	}
+	if _, ok := ap.senderBlackList[srcAddr.String()]; ok {
+		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
