@@ -84,16 +84,16 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 	}
 
 	senderBlackList := make(map[string]bool)
-	for _, bannedSender := range cfg.BlackList{
+	for _, bannedSender := range cfg.BlackList {
 		senderBlackList[bannedSender] = true
 	}
 
 	ap := &actPool{
-		cfg:         cfg,
-		bc:          bc,
+		cfg:             cfg,
+		bc:              bc,
 		senderBlackList: senderBlackList,
-		accountActs: make(map[string]ActQueue),
-		allActions:  make(map[hash.Hash256]action.SealedEnvelope),
+		accountActs:     make(map[string]ActQueue),
+		allActions:      make(map[hash.Hash256]action.SealedEnvelope),
 	}
 	for _, opt := range opts {
 		if err := opt(ap); err != nil {
