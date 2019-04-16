@@ -19,7 +19,8 @@ if [ "$VERSION" = "0" ]; then
 fi
 
 CIRCLEJOBS="nightly_bin_build_docker nightly_bin_build_darwin"
-for CIRCLE_JOB in $CIRCLEJOBS; do
-    curl -d "build_parameters[CIRCLE_JOB]=${CIRCLE_JOB}" -d "build_parameters[VERSION]=${VERSION}" \
-    https://circleci.com/api/v1.1/PROJECT/github/${USER}/${PROJECT}/build?branch=${BRANCH}&circle-token=${CIRCLE_TOKEN}
+
+
+for CIRCLE_JOB in ${CIRCLEJOBS} ; do
+   curl -d "build_parameters[CIRCLE_JOB]=${CIRCLE_JOB}" -d "build_parameters[VERSION]=$VERSION" "https://circleci.com/api/v1.1/project/github/${USER}/${PROJECT}/tree/${BRANCH}?circle-token=${CIRCLE_TOKEN}"
 done
