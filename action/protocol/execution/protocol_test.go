@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -30,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"

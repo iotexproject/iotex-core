@@ -6,17 +6,18 @@ package mock_blockchain
 
 import (
 	context "context"
+	big "math/big"
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
+	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
-	address "github.com/iotexproject/iotex-core/address"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
-	big "math/big"
-	reflect "reflect"
-	time "time"
 )
 
 // MockBlockchain is a mock of Blockchain interface

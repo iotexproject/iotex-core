@@ -12,12 +12,12 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/state"
 )
 

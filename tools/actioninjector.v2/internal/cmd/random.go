@@ -22,8 +22,8 @@ import (
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"

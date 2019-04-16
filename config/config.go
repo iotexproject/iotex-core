@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/iotex-election/committee"
 
-	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -121,6 +121,7 @@ var (
 			MaxNumActsPerAcct:  2000,
 			ActionExpiry:       10 * time.Minute,
 			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
+			BlackList:          []string{},
 		},
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
@@ -169,6 +170,7 @@ var (
 				DefaultGas:         1,
 				Percentile:         60,
 			},
+			RangeQueryLimit: 1000,
 		},
 		Indexer: Indexer{
 			Enabled:           false,
@@ -294,10 +296,11 @@ type (
 
 	// API is the api service config
 	API struct {
-		UseRDS     bool       `yaml:"useRDS"`
-		Port       int        `yaml:"port"`
-		TpsWindow  int        `yaml:"tpsWindow"`
-		GasStation GasStation `yaml:"gasStation"`
+		UseRDS          bool       `yaml:"useRDS"`
+		Port            int        `yaml:"port"`
+		TpsWindow       int        `yaml:"tpsWindow"`
+		GasStation      GasStation `yaml:"gasStation"`
+		RangeQueryLimit uint64     `yaml:"rangeQueryLimit"`
 	}
 
 	// GasStation is the gas station config
@@ -344,6 +347,8 @@ type (
 		ActionExpiry time.Duration `yaml:"actionExpiry"`
 		// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
 		MinGasPriceStr string `yaml:"minGasPrice"`
+		// BlackList lists the account address that are banned from initiating actions
+		BlackList []string `yaml:"blackList"`
 	}
 
 	// DB is the config for database
