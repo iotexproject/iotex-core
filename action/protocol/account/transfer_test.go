@@ -61,39 +61,55 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.NoError(ws.PutState(pubKeyHash2, &account2))
 	require.NoError(ws.PutState(pubKeyHash3, &account3))
 
-	transfer, err := action.NewTransfer(uint64(1), big.NewInt(2),
-		testaddress.Addrinfo["bravo"].String(), []byte{}, uint64(10000), big.NewInt(0))
+	transfer, err := action.NewTransfer(
+		uint64(1),
+		big.NewInt(2),
+		testaddress.Addrinfo["bravo"].String(),
+		[]byte{},
+		uint64(10000),
+		big.NewInt(0),
+	)
 	require.NoError(err)
 
-	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: testaddress.Addrinfo["producer"],
 			Caller:   testaddress.Addrinfo["alfa"],
-			GasLimit: gasLimit,
+			GasLimit: testutil.TestGasLimit,
 		})
-	_, err = p.Handle(ctx, transfer, ws)
+	receipt, err := p.Handle(ctx, transfer, ws)
 	require.NoError(err)
+	require.Equal(action.SuccessReceiptStatus, receipt.Status)
 	require.NoError(sf.Commit(ws))
 
-	var s1 state.Account
-	err = sf.State(pubKeyHash1, &s1)
-	require.NoError(err)
-	var s2 state.Account
-	err = sf.State(pubKeyHash2, &s2)
-	require.NoError(err)
-	var s3 state.Account
-	err = sf.State(pubKeyHash3, &s3)
-	require.NoError(err)
-	var s4 state.Account
-	err = sf.State(pubKeyHash4, &s4)
-	require.NoError(err)
+	var acct state.Account
+	require.NoError(sf.State(pubKeyHash1, &acct))
+	require.Equal("3", acct.Balance.String())
+	require.Equal(uint64(1), acct.Nonce)
+	require.NoError(sf.State(pubKeyHash2, &acct))
+	require.Equal("2", acct.Balance.String())
+	require.NoError(sf.State(pubKeyHash3, &acct))
+	require.Equal("3", acct.VotingWeight.String())
+	require.NoError(sf.State(pubKeyHash4, &acct))
+	require.Equal("2", acct.VotingWeight.String())
 
-	require.Equal("3", s1.Balance.String())
-	require.Equal(uint64(1), s1.Nonce)
-	require.Equal("2", s2.Balance.String())
-	require.Equal("3", s3.VotingWeight.String())
-	require.Equal("2", s4.VotingWeight.String())
+	contractAcct := state.Account{
+		CodeHash: []byte("codeHash"),
+	}
+	contractAddr := hash.BytesToHash160(testaddress.Addrinfo["echo"].Bytes())
+	require.NoError(ws.PutState(contractAddr, &contractAcct))
+	transfer, err = action.NewTransfer(
+		uint64(2),
+		big.NewInt(3),
+		testaddress.Addrinfo["echo"].String(),
+		[]byte{},
+		uint64(10000),
+		big.NewInt(0),
+	)
+	require.NoError(err)
+	receipt, err = p.Handle(ctx, transfer, ws)
+	require.NoError(err)
+	require.Equal(action.FailureReceiptStatus, receipt.Status)
 }
 
 func TestProtocol_ValidateTransfer(t *testing.T) {

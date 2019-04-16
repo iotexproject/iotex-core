@@ -107,6 +107,11 @@ func (st *Account) SubBalance(amount *big.Int) error {
 	return nil
 }
 
+// IsContract returns true for contract account
+func (st *Account) IsContract() bool {
+	return len(st.CodeHash) > 0
+}
+
 // Clone clones the account state
 func (st *Account) Clone() *Account {
 	s := *st

@@ -32,14 +32,6 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if !ok {
 		return nil, nil
 	}
-	recipientAddr, err := address.FromString(tsf.Recipient())
-	if err != nil {
-		return nil, errors.Errorf("failed to decode recipient address %s", tsf.Recipient())
-	}
-	recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
-	if err == nil && len(recipientAcct.CodeHash) > 0 {
-		return nil, errors.New("failed to transfer to a contract address directly")
-	}
 	// check sender
 	sender, err := accountutil.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
@@ -67,6 +59,20 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 	if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
 		return nil, err
+	}
+	recipientAddr, err := address.FromString(tsf.Recipient())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
+	}
+	recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
+	if err == nil && recipientAcct.IsContract() {
+		return &action.Receipt{
+			Status:          action.FailureReceiptStatus,
+			BlockHeight:     raCtx.BlockHeight,
+			ActionHash:      raCtx.ActionHash,
+			GasConsumed:     raCtx.IntrinsicGas,
+			ContractAddress: p.addr.String(),
+		}, nil
 	}
 
 	if tsf.Amount().Cmp(sender.Balance) == 1 {
