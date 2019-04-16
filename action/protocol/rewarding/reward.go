@@ -150,13 +150,23 @@ func (p *Protocol) GrantEpochReward(
 		return nil, err
 	}
 
+	// Get the delegate list who exempts epoch reward
+	e := exempt{}
+	if err := p.state(sm, exemptKey, &e); err != nil {
+		return nil, err
+	}
+	exemptAddrs := make(map[string]interface{})
+	for _, addr := range e.addrs {
+		exemptAddrs[addr.String()] = nil
+	}
+
 	// Get unqualified delegate list
 	uqd, err := p.unqualifiedDelegates(raCtx.Producer, epochNum, a.productivityThreshold)
 	if err != nil {
 		return nil, err
 	}
 
-	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward, uqd)
+	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
 	if err != nil {
 		return nil, err
 	}
@@ -195,11 +205,11 @@ func (p *Protocol) GrantEpochReward(
 
 	// Reward additional bootstrap bonus
 	if epochNum <= a.foundationBonusLastEpoch {
-		l := uint64(len(candidates))
-		if l > a.numDelegatesForFoundationBonus {
-			l = a.numDelegatesForFoundationBonus
-		}
-		for i := uint64(0); i < l; i++ {
+		for i, count := 0, uint64(0); i < len(candidates) && count < a.numDelegatesForFoundationBonus; i++ {
+			if _, ok := exemptAddrs[candidates[i].Address]; ok {
+				continue
+			}
+			count++
 			// If reward address doesn't exist, do nothing
 			if candidates[i].RewardAddress == "" {
 				log.S().Warnf("Candidate %s doesn't have a reward address", candidates[i].Address)
@@ -354,17 +364,10 @@ func (p *Protocol) splitEpochReward(
 	candidates []*state.Candidate,
 	totalAmount *big.Int,
 	numDelegatesForEpochReward uint64,
+	exemptAddrs map[string]interface{},
 	uqd map[string]interface{},
 ) ([]address.Address, []*big.Int, error) {
-	// Remove the candidates who exempt from the epoch reward
-	e := exempt{}
-	if err := p.state(sm, exemptKey, &e); err != nil {
-		return nil, nil, err
-	}
-	exemptAddrs := make(map[string]interface{})
-	for _, addr := range e.addrs {
-		exemptAddrs[addr.String()] = nil
-	}
+
 	filteredCandidates := make([]*state.Candidate, 0)
 	for _, candidate := range candidates {
 		if _, ok := exemptAddrs[candidate.Address]; ok {
