@@ -19,7 +19,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
@@ -52,6 +52,8 @@ func init() {
 	AccountCmd.AddCommand(accountListCmd)
 	AccountCmd.AddCommand(accountNonceCmd)
 	AccountCmd.AddCommand(accountUpdateCmd)
+	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
+		config.ReadConfig.Endpoint, "set endpoint for once")
 }
 
 // KsAccountToPrivateKey generates our PrivateKey interface from Keystore account

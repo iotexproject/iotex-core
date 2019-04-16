@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -68,6 +68,11 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			Address:       testaddress.Addrinfo["delta"].String(),
 			Votes:         unit.ConvertIotxToRau(500000),
 			RewardAddress: testaddress.Addrinfo["delta"].String(),
+		},
+		{
+			Address:       testaddress.Addrinfo["echo"].String(),
+			Votes:         unit.ConvertIotxToRau(500000),
+			RewardAddress: testaddress.Addrinfo["echo"].String(),
 		},
 	}, nil).AnyTimes()
 	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(

@@ -14,9 +14,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
@@ -34,10 +34,11 @@ type Validator interface {
 }
 
 type validator struct {
-	sf                       factory.Factory
-	validatorAddr            string
-	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
-	actionValidators         []protocol.ActionValidator
+	sf                        factory.Factory
+	validatorAddr             string
+	actionEnvelopeValidators  []protocol.ActionEnvelopeValidator
+	actionValidators          []protocol.ActionValidator
+	enableExperimentalActions bool
 }
 
 var (
@@ -152,6 +153,9 @@ func (v *validator) validateActions(
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {
+		if !v.enableExperimentalActions && action.IsExperimentalAction(selp.Action()) {
+			return errors.New("Enable to process experimental action")
+		}
 		caller, err := address.FromBytes(selp.SrcPubkey().Hash())
 		if err != nil {
 			return err

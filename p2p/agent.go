@@ -107,6 +107,9 @@ func (p *Agent) Start(ctx context.Context) error {
 		p2p.SecureIO(),
 		p2p.MasterKey(p.cfg.MasterKey),
 	}
+	if p.cfg.EnableRateLimit {
+		opts = append(opts, p2p.WithRateLimit(p.cfg.RateLimit))
+	}
 	if p.cfg.ExternalHost != "" {
 		opts = append(opts, p2p.ExternalHostName(p.cfg.ExternalHost))
 		opts = append(opts, p2p.ExternalPort(p.cfg.ExternalPort))
@@ -265,10 +268,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			}
 		}
 	}
-
-	if err := host.JoinOverlay(ctx); err != nil {
-		return errors.Wrap(err, "error when joining overlay")
-	}
+	host.JoinOverlay(ctx)
 	p.host = host
 	close(ready)
 	return nil

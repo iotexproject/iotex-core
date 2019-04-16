@@ -17,13 +17,15 @@ import (
 	uconfig "go.uber.org/config"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/go-p2p"
+	"github.com/iotexproject/iotex-election/committee"
+
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-election/committee"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -86,12 +88,14 @@ var (
 		Plugins: make(map[int]interface{}),
 		SubLogs: make(map[string]log.GlobalConfig),
 		Network: Network{
-			Host:           "0.0.0.0",
-			Port:           4689,
-			ExternalHost:   "",
-			ExternalPort:   4689,
-			BootstrapNodes: []string{},
-			MasterKey:      "",
+			Host:            "0.0.0.0",
+			Port:            4689,
+			ExternalHost:    "",
+			ExternalPort:    4689,
+			BootstrapNodes:  []string{},
+			MasterKey:       "",
+			RateLimit:       p2p.DefaultRatelimitConfig,
+			EnableRateLimit: true,
 		},
 		Chain: Chain{
 			ChainDBPath:     "./chain.db",
@@ -112,10 +116,12 @@ var (
 			MaxCacheSize:            0,
 		},
 		ActPool: ActPool{
-			MaxNumActsPerPool: 32000,
-			MaxNumActsPerAcct: 2000,
-			ActionExpiry:      10 * time.Minute,
-			MinGasPriceStr:    big.NewInt(unit.Qev).String(),
+			MaxNumActsPerPool:  32000,
+			MaxGasLimitPerPool: 320000000,
+			MaxNumActsPerAcct:  2000,
+			ActionExpiry:       10 * time.Minute,
+			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
+			BlackList:          []string{},
 		},
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
@@ -164,6 +170,7 @@ var (
 				DefaultGas:         1,
 				Percentile:         60,
 			},
+			RangeQueryLimit: 1000,
 		},
 		Indexer: Indexer{
 			Enabled:           false,
@@ -173,11 +180,12 @@ var (
 			IndexHistoryList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction},
 		},
 		System: System{
-			Active:                true,
-			HeartbeatInterval:     10 * time.Second,
-			HTTPStatsPort:         8080,
-			HTTPAdminPort:         9009,
-			StartSubChainInterval: 10 * time.Second,
+			Active:                    true,
+			HeartbeatInterval:         10 * time.Second,
+			HTTPStatsPort:             8080,
+			HTTPAdminPort:             9009,
+			StartSubChainInterval:     10 * time.Second,
+			EnableExperimentalActions: false,
 		},
 		DB: DB{
 			UseBadgerDB: false,
@@ -216,7 +224,9 @@ type (
 		MasterKey      string   `yaml:"masterKey"` // master key will be PrivateKey if not set.
 		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
 		// are supported: active, nat.
-		RelayType string `yaml:"relayType"`
+		RelayType       string              `yaml:"relayType"`
+		RateLimit       p2p.RateLimitConfig `yaml:"rateLimit"`
+		EnableRateLimit bool                `yaml:"enableRateLimit"`
 	}
 
 	// Chain is the config struct for blockchain package
@@ -286,10 +296,11 @@ type (
 
 	// API is the api service config
 	API struct {
-		UseRDS     bool       `yaml:"useRDS"`
-		Port       int        `yaml:"port"`
-		TpsWindow  int        `yaml:"tpsWindow"`
-		GasStation GasStation `yaml:"gasStation"`
+		UseRDS          bool       `yaml:"useRDS"`
+		Port            int        `yaml:"port"`
+		TpsWindow       int        `yaml:"tpsWindow"`
+		GasStation      GasStation `yaml:"gasStation"`
+		RangeQueryLimit uint64     `yaml:"rangeQueryLimit"`
 	}
 
 	// GasStation is the gas station config
@@ -320,18 +331,24 @@ type (
 		HTTPAdminPort         int           `yaml:"httpAdminPort"`
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
+		// EnableExperimentalActions is the flag to enable experimental actions
+		EnableExperimentalActions bool `yaml:"enableExperimentalActions"`
 	}
 
 	// ActPool is the actpool config
 	ActPool struct {
 		// MaxNumActsPerPool indicates maximum number of actions the whole actpool can hold
 		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
+		// MaxGasLimitPerPool indicates maximum gas limit the whole actpool can hold
+		MaxGasLimitPerPool uint64
 		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
 		// ActionExpiry defines how long an action will be kept in action pool.
 		ActionExpiry time.Duration `yaml:"actionExpiry"`
 		// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
 		MinGasPriceStr string `yaml:"minGasPrice"`
+		// BlackList lists the account address that are banned from initiating actions
+		BlackList []string `yaml:"blackList"`
 	}
 
 	// DB is the config for database

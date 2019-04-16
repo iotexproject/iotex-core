@@ -1,4 +1,4 @@
-//+build !noasm !appengine
+//+build !noasm,!appengine
 
 // SHA intrinsic version of SHA256
 

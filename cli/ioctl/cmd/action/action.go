@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"syscall"
 
 	"github.com/golang/protobuf/proto"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -49,6 +51,8 @@ func init() {
 	ActionCmd.AddCommand(actionDeployCmd)
 	ActionCmd.AddCommand(actionInvokeCmd)
 	ActionCmd.AddCommand(actionClaimCmd)
+	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
+		config.ReadConfig.Endpoint, "set endpoint for once")
 	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionClaimCmd)
 }
 
@@ -59,14 +63,30 @@ func setActionFlags(cmds ...*cobra.Command) {
 			"set gas price (unit: 10^(-6)Iotx)")
 		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
 		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
-		cmd.MarkFlagRequired("gas-limit")
-		cmd.MarkFlagRequired("gas-price")
 		cmd.MarkFlagRequired("signer")
 		if cmd == actionDeployCmd || cmd == actionInvokeCmd {
 			cmd.Flags().BytesHexVarP(&bytecode, "bytecode", "b", nil, "set the byte code")
+			cmd.MarkFlagRequired("gas-limit")
 			cmd.MarkFlagRequired("bytecode")
 		}
 	}
+}
+
+// GetGasPrice gets the suggest gas price
+func GetGasPrice() (*big.Int, error) {
+	conn, err := util.ConnectToEndpoint()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	ctx := context.Background()
+	request := &iotexapi.SuggestGasPriceRequest{}
+	response, err := cli.SuggestGasPrice(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return new(big.Int).SetUint64(response.GasPrice), nil
 }
 
 func sendAction(elp action.Envelope) (string, error) {

@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/config"
 	exp "github.com/iotexproject/iotex-core/explorer"
 	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
@@ -54,6 +54,7 @@ func TestTwoChains(t *testing.T) {
 	cfg.Explorer.Enabled = true
 	cfg.Explorer.Port = testutil.RandomPort()
 	cfg.Network.Port = testutil.RandomPort()
+	cfg.System.EnableExperimentalActions = true
 
 	svr, err := itx.NewServer(cfg)
 	require.NoError(t, err)

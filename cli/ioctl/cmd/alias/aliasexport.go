@@ -33,7 +33,7 @@ var aliasExportCmd = &cobra.Command{
 
 func init() {
 	aliasExportCmd.Flags().StringVarP(&format,
-		"format=", "f", "json", "set format: json/yaml")
+		"format", "f", "json", "set format: json/yaml")
 }
 
 func aliasExport(cmd *cobra.Command) (string, error) {

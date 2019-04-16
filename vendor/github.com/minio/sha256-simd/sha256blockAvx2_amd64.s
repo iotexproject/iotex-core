@@ -1,4 +1,4 @@
-//+build !noasm !appengine
+//+build !noasm,!appengine
 
 // SHA256 implementation for AVX2
 

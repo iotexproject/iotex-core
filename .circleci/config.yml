@@ -45,7 +45,6 @@ jobs:
           command: |
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
-            export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
@@ -69,7 +68,6 @@ jobs:
           command: |
             export GOROOT="/usr/local/go"
             export GOPATH=~/go
-            export LD_LIBRARY_PATH=:"/home/circleci/go/src/github.com/iotexproject/iotex-core/crypto/lib"
             export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
@@ -87,7 +85,7 @@ jobs:
       # specify any bash command here prefixed with `run: `
       - run: make nightlybuild
 
-  nightly_ioctl_build_docker:
+  nightly_bin_build_docker:
     docker:
       # specify the version
       - image: iotex/iotex-core-ci:latest
@@ -99,8 +97,10 @@ jobs:
       - run: sudo apt-get install python python-pip 
       - run: sudo pip install awscli
       - run: aws s3 sync cli/ioctl/release/ ${S3_BUCKET_DIR}
+      - run: cd tools/actioninjector.v2/ && ./build_injector.sh
+      - run: aws s3 sync tools/actioninjector.v2/release/ ${S3_BUCKET_DIR}  
 
-  nightly_ioctl_build_darwin:
+  nightly_bin_build_darwin:
     macos:
       xcode: "10.2.0"   # not supported > 10.2.0
 
@@ -113,17 +113,18 @@ jobs:
           command: |
             curl -o go1.11.6.darwin-amd64.tar.gz https://dl.google.com/go/go1.11.6.darwin-amd64.tar.gz
             sudo tar -C /usr/local -xzf go1.11.6.darwin-amd64.tar.gz
+            rm go1.11.6.darwin-amd64.tar.gz
       - run:
           name: SET GO ENV AND buildcli.sh
           command: |
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
-            export LD_LIBRARY_PATH=:~/go/src/github.com/iotexproject/iotex-core/crypto/lib
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
             cd cli/ioctl/ && ./buildcli.sh
             sudo pip install awscli
             aws s3 sync release/ ${S3_BUCKET_DIR}
-
+            cd tools/actioninjector.v2/ && ./build_injector.sh
+            aws s3 sync tools/actioninjector.v2/release/ ${S3_BUCKET_DIR}
 workflows:
   version: 2
   commit:
@@ -142,5 +143,5 @@ workflows:
                 - master
     jobs:
       - nightly_build_docker
-      - nightly_ioctl_build_docker
-      - nightly_ioctl_build_darwin
+      - nightly_bin_build_docker
+      - nightly_bin_build_darwin

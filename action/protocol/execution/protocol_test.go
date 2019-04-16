@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -30,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -320,9 +320,9 @@ func (sct *SmartContractTest) deployContracts(
 		addr, _ := address.FromString(receipt.ContractAddress)
 		copy(evmContractAddrHash[:], addr.Bytes())
 		if contract.AppendContractAddress {
-			lenOfByteCode:=len(contract.ByteCode())
+			lenOfByteCode := len(contract.ByteCode())
 			r.True(bytes.Contains(contract.ByteCode()[:lenOfByteCode-32], stateDB.GetCode(evmContractAddrHash)))
-		}else{
+		} else {
 			r.True(bytes.Contains(sct.Deployments[i].ByteCode(), stateDB.GetCode(evmContractAddrHash)))
 		}
 		contractAddresses = append(contractAddresses, receipt.ContractAddress)
@@ -375,7 +375,14 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			}
 			balance, err := bc.Balance(account)
 			r.NoError(err)
-			r.Equal(0, balance.Cmp(expectedBalance.Balance()))
+			r.Equal(
+				0,
+				balance.Cmp(expectedBalance.Balance()),
+				"balance of account %s is different from expectation, %d vs %d",
+				account,
+				balance,
+				expectedBalance.Balance(),
+			)
 		}
 		r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
 		// TODO: check value of logs
@@ -666,6 +673,9 @@ func TestProtocol_Handle(t *testing.T) {
 	// multisend
 	t.Run("Multisend", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/multisend.json")
+	})
+	t.Run("reentry-attack", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/reentry-attack.json")
 	})
 }
 

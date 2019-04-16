@@ -104,7 +104,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.NoError(t, err)
 		availableBalance, err := p.AvailableBalance(ctx, ws)
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(95), availableBalance)
+		assert.Equal(t, big.NewInt(90+5), availableBalance)
 		// Operator shouldn't get reward
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["producer"])
 		require.NoError(t, err)
@@ -112,21 +112,25 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		// Beneficiary should get reward
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(0))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(45), unclaimedBalance)
+		assert.Equal(t, big.NewInt(40+5), unclaimedBalance)
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["alfa"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(35), unclaimedBalance)
+		assert.Equal(t, big.NewInt(30+5), unclaimedBalance)
 		// The 3-th candidate can't get the reward because it doesn't meet the productivity requirement
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["bravo"])
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["charlie"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(15), unclaimedBalance)
-		// The 5-th candidate can't get the reward because being out of the range
+		assert.Equal(t, big.NewInt(10+5), unclaimedBalance)
+		// The 5-th candidate can't get the reward because of being out of the range
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["delta"])
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
+		// The 6-th candidate can't get the foundation bonus because of being out of the range
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["echo"])
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 
 		// Assert logs
 		expectedResults := []struct {
@@ -213,10 +217,14 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
-		// The 5-th candidate can't get the reward because excempting from the epoch reward
+		// The 5-th candidate can't get the reward because exempting from the epoch reward
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["delta"])
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(5), unclaimedBalance)
+		assert.Equal(t, big.NewInt(0), unclaimedBalance)
+		// The 6-th candidate can get the foundation bonus because it's still within the rage after excluding 5-th one
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["echo"])
+		require.NoError(t, err)
+		assert.Equal(t, big.NewInt(4+5), unclaimedBalance)
 	}, true)
 }
 

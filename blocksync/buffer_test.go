@@ -50,7 +50,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
-	ap, err := actpool.NewActPool(chain, cfg.ActPool)
+	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.Nil(err)
 	ctrl := gomock.NewController(t)
@@ -150,7 +150,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	vp := vote.NewProtocol(chain)
 	require.NoError(registry.Register(vote.ProtocolID, vp))
 	require.NoError(chain.Start(ctx))
-	ap, err := actpool.NewActPool(chain, cfg.ActPool)
+	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.Nil(err)
 	ctrl := gomock.NewController(t)
@@ -185,10 +185,12 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.Equal(uint64(1), out[0].Start)
 	require.Equal(uint64(16), out[0].End)
 
-	out = b.GetBlocksIntervalsToSync(10)
+	out = b.GetBlocksIntervalsToSync(8)
 	require.Equal(1, len(out))
 	require.Equal(uint64(1), out[0].Start)
-	require.Equal(uint64(10), out[0].End)
+	require.Equal(uint64(16), out[0].End)
+
+	b.intervalSize = 8
 
 	blk := block.NewBlockDeprecated(
 		uint32(123),
@@ -269,8 +271,11 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.Equal(bCheckinValid, result)
 	assert.Len(b.GetBlocksIntervalsToSync(32), 5)
 	assert.Len(b.GetBlocksIntervalsToSync(7), 3)
+
+	b.intervalSize = 4
+
 	assert.Len(b.GetBlocksIntervalsToSync(5), 2)
-	assert.Len(b.GetBlocksIntervalsToSync(1), 1)
+	assert.Len(b.GetBlocksIntervalsToSync(1), 2)
 
 	blk, err = chain.MintNewBlock(
 		nil,
