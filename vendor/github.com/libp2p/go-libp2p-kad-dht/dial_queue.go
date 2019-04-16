@@ -2,8 +2,8 @@ package dht
 
 import (
 	"context"
-	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -31,8 +31,9 @@ const (
 type dialQueue struct {
 	*dqParams
 
-	nWorkers uint
-	out      *queue.ChanQueue
+	nWorkers  uint
+	out       *queue.ChanQueue
+	startOnce sync.Once
 
 	waitingCh chan waitingCh
 	dieCh     chan struct{}
@@ -74,25 +75,15 @@ func dqDefaultConfig() dqConfig {
 	}
 }
 
-func (dqc *dqConfig) validate() error {
-	if dqc.minParallelism > dqc.maxParallelism {
-		return fmt.Errorf("minParallelism must be below maxParallelism; actual values: min=%d, max=%d",
-			dqc.minParallelism, dqc.maxParallelism)
-	}
-	if dqc.scalingFactor < 1 {
-		return fmt.Errorf("scalingFactor must be >= 1; actual value: %f", dqc.scalingFactor)
-	}
-	return nil
-}
-
 type waitingCh struct {
 	ch chan<- peer.ID
 	ts time.Time
 }
 
-// newDialQueue returns an adaptive dial queue that spawns a dynamically sized set of goroutines to preemptively
-// stage dials for later handoff to the DHT protocol for RPC. It identifies backpressure on both ends (dial consumers
-// and dial producers), and takes compensating action by adjusting the worker pool.
+// newDialQueue returns an _unstarted_ adaptive dial queue that spawns a dynamically sized set of goroutines to
+// preemptively stage dials for later handoff to the DHT protocol for RPC. It identifies backpressure on both
+// ends (dial consumers and dial producers), and takes compensating action by adjusting the worker pool. To
+// activate the dial queue, call Start().
 //
 // Why? Dialing is expensive. It's orders of magnitude slower than running an RPC on an already-established
 // connection, as it requires establishing a TCP connection, multistream handshake, crypto handshake, mux handshake,
@@ -112,7 +103,6 @@ type waitingCh struct {
 func newDialQueue(params *dqParams) (*dialQueue, error) {
 	dq := &dialQueue{
 		dqParams:  params,
-		nWorkers:  params.config.minParallelism,
 		out:       queue.NewChanQueue(params.ctx, queue.NewXORDistancePQ(params.target)),
 		growCh:    make(chan struct{}, 1),
 		shrinkCh:  make(chan struct{}, 1),
@@ -120,11 +110,14 @@ func newDialQueue(params *dqParams) (*dialQueue, error) {
 		dieCh:     make(chan struct{}, params.config.maxParallelism),
 	}
 
-	for i := 0; i < int(params.config.minParallelism); i++ {
-		go dq.worker()
-	}
-	go dq.control()
 	return dq, nil
+}
+
+// Start initiates action on this dial queue. It should only be called once; subsequent calls are ignored.
+func (dq *dialQueue) Start() {
+	dq.startOnce.Do(func() {
+		go dq.control()
+	})
 }
 
 func (dq *dialQueue) control() {
@@ -140,6 +133,16 @@ func (dq *dialQueue) control() {
 		}
 		waiting = nil
 	}()
+
+	// start workers
+
+	tgt := int(dq.dqParams.config.minParallelism)
+	for i := 0; i < tgt; i++ {
+		go dq.worker()
+	}
+	dq.nWorkers = uint(tgt)
+
+	// control workers
 
 	for {
 		// First process any backlog of dial jobs and waiters -- making progress is the priority.

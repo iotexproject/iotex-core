@@ -68,9 +68,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "Qma3Xp3FXFSP4prirEiRYHJ2tgGE8EAx9i6JLziPLpAQjq",
+      "hash": "QmQVoMEL1CxrVusTSUdYsiJXVBnvSqNUpBsGybkwSfksEF",
       "name": "go-libp2p-swarm",
-      "version": "3.0.34"
+      "version": "3.0.35"
     },
     {
       "author": "steb",
@@ -84,6 +84,5 @@
   "license": "MIT",
   "name": "go-libp2p-circuit",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "2.3.14"
+  "version": "2.3.15"
 }
-

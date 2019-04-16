@@ -169,9 +169,12 @@ func (rh *RoutedHost) NewStream(ctx context.Context, p peer.ID, pids ...protocol
 	// Ensure we have a connection, with peer addresses resolved by the routing system (#207)
 	// It is not sufficient to let the underlying host connect, it will most likely not have
 	// any addresses for the peer without any prior connections.
-	err := rh.Connect(ctx, pstore.PeerInfo{ID: p})
-	if err != nil {
-		return nil, err
+	// If the caller wants to prevent the host from dialing, it should use the NoDial option.
+	if nodial, _ := inet.GetNoDial(ctx); !nodial {
+		err := rh.Connect(ctx, pstore.PeerInfo{ID: p})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return rh.host.NewStream(ctx, p, pids...)

@@ -10,10 +10,17 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/pkg/errors"
+
+	"golang.org/x/time/rate"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
 	relay "github.com/libp2p/go-libp2p-circuit"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	crypto "github.com/libp2p/go-libp2p-crypto"
+	discovery "github.com/libp2p/go-libp2p-discovery"
 	host "github.com/libp2p/go-libp2p-host"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	net "github.com/libp2p/go-libp2p-net"
@@ -37,28 +44,59 @@ type HandleUnicast func(ctx context.Context, w io.Writer, data []byte) error
 
 // Config enumerates the configs required by a host
 type Config struct {
-	HostName         string
-	Port             int
-	ExternalHostName string
-	ExternalPort     int
-	SecureIO         bool
-	Gossip           bool
-	ConnectTimeout   time.Duration
-	MasterKey        string
-	Relay            string // could be `active`, `nat`, `disable`
+	HostName                 string          `yaml:"hostName"`
+	Port                     int             `yaml:"port"`
+	ExternalHostName         string          `yaml:"externalHostName"`
+	ExternalPort             int             `yaml:"externalPort"`
+	SecureIO                 bool            `yaml:"secureIO"`
+	Gossip                   bool            `yaml:"gossip"`
+	ConnectTimeout           time.Duration   `yaml:"connectTimeout"`
+	MasterKey                string          `yaml:"masterKey"`
+	Relay                    string          `yaml:"relay"` // could be `active`, `nat`, `disable`
+	ConnLowWater             int             `yaml:"connLowWater"`
+	ConnHighWater            int             `yaml:"connHighWater"`
+	RateLimiterLRUSize       int             `yaml:"rateLimiterLRUSize"`
+	BlackListLRUSize         int             `yaml:"blackListLRUSize"`
+	BlackListCleanupInterval time.Duration   `yaml:"blackListCleanupInterval"`
+	ConnGracePeriod          time.Duration   `yaml:"connGracePeriod"`
+	EnableRateLimit          bool            `yaml:"enableRateLimit"`
+	RateLimit                RateLimitConfig `yaml:"rateLimit"`
+}
+
+// RateLimitConfig all numbers are per second value.
+type RateLimitConfig struct {
+	GlobalUnicastAvg   int `yaml:"globalUnicastAvg"`
+	GlobalUnicastBurst int `yaml:"globalUnicastBurst"`
+	PeerAvg            int `yaml:"peerAvg"`
+	PeerBurst          int `yaml:"peerBurst"`
 }
 
 // DefaultConfig is a set of default configs
 var DefaultConfig = Config{
-	HostName:         "127.0.0.1",
-	Port:             30001,
-	ExternalHostName: "",
-	ExternalPort:     30001,
-	SecureIO:         false,
-	Gossip:           false,
-	ConnectTimeout:   time.Minute,
-	MasterKey:        "",
-	Relay:            "disable",
+	HostName:                 "127.0.0.1",
+	Port:                     30001,
+	ExternalHostName:         "",
+	ExternalPort:             30001,
+	SecureIO:                 false,
+	Gossip:                   false,
+	ConnectTimeout:           time.Minute,
+	MasterKey:                "",
+	Relay:                    "disable",
+	ConnLowWater:             200,
+	ConnHighWater:            500,
+	RateLimiterLRUSize:       1000,
+	BlackListLRUSize:         1000,
+	BlackListCleanupInterval: 600 * time.Second,
+	ConnGracePeriod:          0,
+	EnableRateLimit:          false,
+	RateLimit:                DefaultRatelimitConfig,
+}
+
+var DefaultRatelimitConfig = RateLimitConfig{
+	GlobalUnicastAvg:   300,
+	GlobalUnicastBurst: 500,
+	PeerAvg:            300,
+	PeerBurst:          500,
 }
 
 // Option defines the option function to modify the config for a host
@@ -115,7 +153,7 @@ func Gossip() Option {
 // ConnectTimeout is the option to override the connect timeout
 func ConnectTimeout(timout time.Duration) Option {
 	return func(cfg *Config) error {
-		cfg.Gossip = true
+		cfg.ConnectTimeout = timout
 		return nil
 	}
 }
@@ -128,6 +166,15 @@ func MasterKey(masterKey string) Option {
 	}
 }
 
+// RateLimit is to indicate limiting msg rate from peers
+func WithRateLimit(rcfg RateLimitConfig) Option {
+	return func(cfg *Config) error {
+		cfg.EnableRateLimit = true
+		cfg.RateLimit = rcfg
+		return nil
+	}
+}
+
 // WithRelay config relay option.
 func WithRelay(relayType string) Option {
 	return func(cfg *Config) error {
@@ -136,18 +183,31 @@ func WithRelay(relayType string) Option {
 	}
 }
 
+// WithConnectionManagerConfig set configuration for connection manager.
+func WithConnectionManagerConfig(lo, hi int, grace time.Duration) Option {
+	return func(cfg *Config) error {
+		cfg.ConnLowWater = lo
+		cfg.ConnHighWater = hi
+		cfg.ConnGracePeriod = grace
+		return nil
+	}
+}
+
 // Host is the main struct that represents a host that communicating with the rest of the P2P networks
 type Host struct {
-	host      host.Host
-	cfg       Config
-	topics    map[string]interface{}
-	kad       *dht.IpfsDHT
-	kadKey    cid.Cid
-	newPubSub func(ctx context.Context, h host.Host, opts ...pubsub.Option) (*pubsub.PubSub, error)
-	pubs      map[string]*pubsub.PubSub
-	subs      map[string]*pubsub.Subscription
-	close     chan interface{}
-	ctx       context.Context
+	host           host.Host
+	cfg            Config
+	topics         map[string]interface{}
+	kad            *dht.IpfsDHT
+	kadKey         cid.Cid
+	newPubSub      func(ctx context.Context, h host.Host, opts ...pubsub.Option) (*pubsub.PubSub, error)
+	pubs           map[string]*pubsub.PubSub
+	blacklists     map[string]*LRUBlacklist
+	subs           map[string]*pubsub.Subscription
+	close          chan interface{}
+	ctx            context.Context
+	peersLimiters  *lru.Cache
+	unicastLimiter *rate.Limiter
 }
 
 // NewHost constructs a host struct
@@ -205,6 +265,7 @@ func NewHost(ctx context.Context, options ...Option) (*Host, error) {
 			return &tcp.TcpTransport{Upgrader: upgrader, ConnectTimeout: cfg.ConnectTimeout}
 		}),
 		libp2p.Muxer("/yamux/2.0.0", sm_yamux.DefaultTransport),
+		libp2p.ConnectionManager(connmgr.NewConnManager(cfg.ConnLowWater, cfg.ConnHighWater, cfg.ConnGracePeriod)),
 	}
 	if !cfg.SecureIO {
 		opts = append(opts, libp2p.NoSecurity)
@@ -225,6 +286,8 @@ func NewHost(ctx context.Context, options ...Option) (*Host, error) {
 	}
 	kad, err := dht.New(ctx, host)
 	if err != nil {
+	}
+	if err := kad.Bootstrap(ctx); err != nil {
 		return nil, err
 	}
 	newPubSub := pubsub.NewFloodSub
@@ -236,18 +299,26 @@ func NewHost(ctx context.Context, options ...Option) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	myHost := Host{
-		host:      host,
-		cfg:       cfg,
-		topics:    make(map[string]interface{}),
-		kad:       kad,
-		kadKey:    cid,
-		newPubSub: newPubSub,
-		pubs:      make(map[string]*pubsub.PubSub),
-		subs:      make(map[string]*pubsub.Subscription),
-		close:     make(chan interface{}),
-		ctx:       ctx,
+	limiters, err := lru.New(cfg.RateLimiterLRUSize)
+	if err != nil {
+		return nil, err
 	}
+	myHost := Host{
+		host:           host,
+		cfg:            cfg,
+		topics:         make(map[string]interface{}),
+		kad:            kad,
+		kadKey:         cid,
+		newPubSub:      newPubSub,
+		pubs:           make(map[string]*pubsub.PubSub),
+		blacklists:     make(map[string]*LRUBlacklist),
+		subs:           make(map[string]*pubsub.Subscription),
+		close:          make(chan interface{}),
+		ctx:            ctx,
+		peersLimiters:  limiters,
+		unicastLimiter: rate.NewLimiter(rate.Limit(cfg.RateLimit.GlobalUnicastAvg), cfg.RateLimit.GlobalUnicastBurst),
+	}
+
 	addrs := make([]string, 0)
 	for _, ma := range myHost.Addresses() {
 		addrs = append(addrs, ma.String())
@@ -260,11 +331,9 @@ func NewHost(ctx context.Context, options ...Option) (*Host, error) {
 }
 
 // JoinOverlay triggers the host to join the DHT overlay
-func (h *Host) JoinOverlay(ctx context.Context) error {
-	if err := h.kad.Provide(ctx, h.kadKey, true); err == nil {
-		return nil
-	}
-	return h.kad.Bootstrap(ctx)
+func (h *Host) JoinOverlay(ctx context.Context) {
+	routingDiscovery := discovery.NewRoutingDiscovery(h.kad)
+	discovery.Advertise(ctx, routingDiscovery, h.kadKey.String())
 }
 
 // AddUnicastPubSub adds a unicast topic that the host will pay attention to
@@ -278,6 +347,22 @@ func (h *Host) AddUnicastPubSub(topic string, callback HandleUnicast) error {
 				Logger().Error("Error when closing a unicast stream.", zap.Error(err))
 			}
 		}()
+		if h.cfg.EnableRateLimit && !h.unicastLimiter.Allow() {
+			Logger().Warn("Drop unicast sream due to high traffic volume.")
+			return
+		}
+		/*
+			src := stream.Conn().RemotePeer()
+			allowed, err := h.allowSource(src)
+			if err != nil {
+				Logger().Error("Error when checking if the source is allowed.", zap.Error(err))
+				return
+			}
+			if !allowed {
+				// TODO: blacklist src for unicast too
+				return
+			}
+		*/
 		data, err := ioutil.ReadAll(stream)
 		if err != nil {
 			Logger().Error("Error when subscribing a unicast message.", zap.Error(err))
@@ -298,7 +383,17 @@ func (h *Host) AddBroadcastPubSub(topic string, callback HandleBroadcast) error 
 	if _, ok := h.pubs[topic]; ok {
 		return nil
 	}
-	pub, err := h.newPubSub(h.ctx, h.host)
+	blacklist, err := NewLRUBlacklist(h.cfg.BlackListLRUSize)
+	if err != nil {
+		return err
+	}
+	pub, err := h.newPubSub(
+		h.ctx,
+		h.host,
+		pubsub.WithMessageSigning(true),
+		pubsub.WithStrictSignatureVerification(true),
+		pubsub.WithBlacklist(blacklist),
+	)
 	if err != nil {
 		return err
 	}
@@ -307,6 +402,7 @@ func (h *Host) AddBroadcastPubSub(topic string, callback HandleBroadcast) error 
 		return err
 	}
 	h.pubs[topic] = pub
+	h.blacklists[topic] = blacklist
 	h.subs[topic] = sub
 	go func() {
 		for {
@@ -320,11 +416,29 @@ func (h *Host) AddBroadcastPubSub(topic string, callback HandleBroadcast) error 
 					Logger().Error("Error when subscribing a broadcast message.", zap.Error(err))
 					continue
 				}
+				src := msg.GetFrom()
+				allowed, err := h.allowSource(src)
+				if err != nil {
+					Logger().Error("Error when checking if the source is allowed.", zap.Error(err))
+					continue
+				}
+				if !allowed {
+					h.blacklists[topic].Add(src)
+					Logger().Warn("Blacklist a peer", zap.Any("id", src))
+					continue
+				}
+				h.blacklists[topic].Remove(src)
 				ctx = context.WithValue(ctx, broadcastCtxKey{}, msg)
 				if err := callback(ctx, msg.Data); err != nil {
 					Logger().Error("Error when processing a broadcast message.", zap.Error(err))
 				}
 			}
+		}
+	}()
+	go func() {
+		for {
+			time.Sleep(h.cfg.BlackListCleanupInterval)
+			h.blacklists[topic].RemoveOldest()
 		}
 	}()
 	return nil
@@ -435,6 +549,24 @@ func (h *Host) Close() error {
 		return err
 	}
 	return nil
+}
+
+func (h *Host) allowSource(src peer.ID) (bool, error) {
+	if !h.cfg.EnableRateLimit {
+		return true, nil
+	}
+	var limiter *rate.Limiter
+	val, ok := h.peersLimiters.Get(src)
+	if ok {
+		limiter, ok = val.(*rate.Limiter)
+		if !ok {
+			return false, errors.New("error when casting to limiter struct")
+		}
+	} else {
+		limiter = rate.NewLimiter(rate.Limit(h.cfg.RateLimit.PeerAvg), h.cfg.RateLimit.PeerBurst)
+		h.peersLimiters.Add(src, limiter)
+	}
+	return limiter.Allow(), nil
 }
 
 // generateKeyPair generates the public key and private key by network address

@@ -1,0 +1,41 @@
+{
+  "author": "fd",
+  "bugs": {
+    "url": "https://github.com/issues/go-nat/issues"
+  },
+  "gx": {
+    "dvcsimport": "github.com/libp2p/go-nat"
+  },
+  "gxDependencies": [
+    {
+      "author": "huin",
+      "hash": "QmVwfv63beSAAirq3tiLY6fkNqvjThLnCofL7363YkaScy",
+      "name": "goupnp",
+      "version": "0.1.0"
+    },
+    {
+      "author": "jackpal",
+      "hash": "Qmf2fBLzCvFxs3vvZaoQyKSTv2rjApek4F1kzRxAfK6P4P",
+      "name": "gateway",
+      "version": "1.0.4"
+    },
+    {
+      "author": "jackpal",
+      "hash": "QmYsYNh6saxUYHajdj49uiRzdxQgiFTtymrjf3d1f2Cer4",
+      "name": "go-nat-pmp",
+      "version": "1.0.1"
+    },
+    {
+      "author": "koron",
+      "hash": "QmfDrLLyLVTLbDFfYvPsMqj3hgacxFCXyShZ5YjobqUAtr",
+      "name": "go-ssdp",
+      "version": "0.0.0"
+    }
+  ],
+  "gxVersion": "0.9.0",
+  "language": "go",
+  "license": "Apache-2.0",
+  "name": "go-nat",
+  "version": "1.0.2"
+}
+

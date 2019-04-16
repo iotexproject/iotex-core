@@ -18,6 +18,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +34,9 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/p2p/node"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state"
@@ -135,9 +138,124 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.Nil(t, r)
 	})
 }
+func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndorse bool, height int) *block.Block {
+	unixTime := 1500000000
+	blkTime := int64(-1)
+	if height != 9 {
+		height = 9
+		blkTime = int64(-7723372030)
+	}
+	timeT := time.Unix(blkTime, 0)
+	rap := block.RunnableActionsBuilder{}
+	ra := rap.
+		SetHeight(uint64(height)).
+		SetTimeStamp(timeT).
+		Build(identityset.PrivateKey(accountIndex).PublicKey())
+	blk, err := block.NewBuilder(ra).
+		SetVersion(1).
+		SetReceiptRoot(hash.Hash256b([]byte("hello, world!"))).
+		SetDeltaStateDigest(hash.Hash256b([]byte("world, hello!"))).
+		SetPrevBlockHash(hash.Hash256b([]byte("hello, block!"))).
+		SignAndBuild(identityset.PrivateKey(accountIndex))
+	require.NoError(t, err)
+	footerForBlk := &block.Footer{}
+	typesFooter := iotextypes.BlockFooter{}
+
+	for i := 0; i < numOfEndosements; i++ {
+		timeTime := time.Unix(int64(unixTime), 0)
+		hs := blk.HashBlock()
+		var consensusVote *ConsensusVote
+		if makeInvalidEndorse {
+			consensusVote = NewConsensusVote(hs[:], LOCK)
+		} else {
+			consensusVote = NewConsensusVote(hs[:], COMMIT)
+		}
+		en, err := endorsement.Endorse(identityset.PrivateKey(i), consensusVote, timeTime)
+		require.NoError(t, err)
+		enProto, err := en.Proto()
+		require.NoError(t, err)
+		typesFooter.Endorsements = append(typesFooter.Endorsements, enProto)
+	}
+	ts, err := ptypes.TimestampProto(time.Unix(int64(unixTime), 0))
+	require.NoError(t, err)
+	typesFooter.Timestamp = ts
+	require.NotNil(t, typesFooter.Timestamp)
+	err = footerForBlk.ConvertFromBlockFooterPb(&typesFooter)
+	require.NoError(t, err)
+	blk.Footer = *footerForBlk
+	return &blk
+}
 
 func TestValidateBlockFooter(t *testing.T) {
-	// TODO: add unit test
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	candidates := make([]string, 5)
+	for i := 0; i < len(candidates); i++ {
+		candidates[i] = identityset.Address(i).String()
+	}
+	clock := clock.NewMock()
+	blockHeight := uint64(8)
+	footer := &block.Footer{}
+	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
+	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(5)
+	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
+	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+		{Address: candidates[0]},
+		{Address: candidates[1]},
+		{Address: candidates[2]},
+		{Address: candidates[3]},
+		{Address: candidates[4]},
+	}, nil).AnyTimes()
+
+	sk1 := identityset.PrivateKey(1)
+	cfg := config.Default
+	cfg.Genesis.NumDelegates = 4
+	cfg.Genesis.NumSubEpochs = 1
+	cfg.Genesis.BlockInterval = 10 * time.Second
+	rp := rolldpos.NewProtocol(
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.NumSubEpochs,
+	)
+	r, err := NewRollDPoSBuilder().
+		SetConfig(cfg).
+		SetAddr(identityset.Address(1).String()).
+		SetPriKey(sk1).
+		SetBlockchain(blockchain).
+		SetActPool(mock_actpool.NewMockActPool(ctrl)).
+		SetBroadcast(func(_ proto.Message) error {
+			return nil
+		}).
+		SetClock(clock).
+		RegisterProtocol(rp).
+		Build()
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	// all right
+	blk := makeBlock(t, 1, 4, false, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.NoError(t, err)
+
+	// Proposer is wrong
+	blk = makeBlock(t, 0, 4, false, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
+
+	// Not enough endorsements
+	blk = makeBlock(t, 1, 2, false, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
+
+	// round information is wrong
+	blk = makeBlock(t, 1, 4, false, 0)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
+
+	// Some endorsement is invalid
+	blk = makeBlock(t, 1, 4, true, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
 }
 
 func TestRollDPoS_Metrics(t *testing.T) {

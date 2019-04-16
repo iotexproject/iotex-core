@@ -145,7 +145,8 @@ func TestPressureActPool(t *testing.T) {
 		return lenPendingActionMap(acts) == 1, nil
 	}))
 
-	for i := 2; i <= 1000; i++ {
+	// Broadcast has rate limit at 300
+	for i := 2; i <= 250; i++ {
 		tsf, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), uint64(i), big.NewInt(int64(i)), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf.Proto()))
@@ -154,7 +155,7 @@ func TestPressureActPool(t *testing.T) {
 	// Wait until committed blocks contain all broadcasted actions
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
-		return lenPendingActionMap(acts) == 1000, nil
+		return lenPendingActionMap(acts) == 250, nil
 	})
 	require.Nil(err)
 }

@@ -14,7 +14,8 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -22,12 +23,12 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/address"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
@@ -104,6 +105,10 @@ func NewServer(
 	if cfg == (config.API{}) {
 		log.L().Warn("API server is not configured.")
 		cfg = config.Default.API
+	}
+
+	if cfg.RangeQueryLimit < uint64(cfg.TpsWindow) {
+		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
 
 	svr := &Server{
@@ -243,7 +248,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	timeDuration := blks[len(blks)-1].Timestamp - blks[0].Timestamp
+	timeDuration := blks[len(blks)-1].Timestamp.GetSeconds() - blks[0].Timestamp.GetSeconds()
 	// if time duration is less than 1 second, we set it to be 1 second
 	if timeDuration < 1 {
 		timeDuration = 1
@@ -288,7 +293,13 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	// send to actpool via dispatcher
 	api.dp.HandleBroadcast(context.Background(), api.bc.ChainID(), in.Action)
 
-	return &iotexapi.SendActionResponse{}, nil
+	var selp action.SealedEnvelope
+	if err = selp.LoadProto(in.Action); err != nil {
+		return
+	}
+	hash := selp.Hash()
+
+	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
 }
 
 // GetReceiptByAction gets receipt with corresponding action hash
@@ -489,9 +500,12 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
 	var actionCount uint64
-
 	tipHeight := api.bc.TipHeight()
 	for height := 1; height <= int(tipHeight); height++ {
 		blk, err := api.bc.GetBlockByHeight(uint64(height))
@@ -535,6 +549,10 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
 	actions, err := api.getTotalActionsByAddress(address)
 	if err != nil {
@@ -565,9 +583,12 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
 	var actionCount uint64
-
 	selps := api.ap.GetUnconfirmedActs(address)
 	for i := 0; i < len(selps); i++ {
 		actionCount++
@@ -591,6 +612,10 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
 	hash, err := toHash256(blkHash)
 	if err != nil {
@@ -626,6 +651,10 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 // getBlockMetas gets block within the height range
 func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
+	if number > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
+	}
+
 	tipHeight := api.bc.TipHeight()
 	if start > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
@@ -650,7 +679,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		blockMeta := &iotextypes.BlockMeta{
 			Hash:             hex.EncodeToString(hash[:]),
 			Height:           blk.Height(),
-			Timestamp:        blockHeaderPb.GetCore().GetTimestamp().GetSeconds(),
+			Timestamp:        blockHeaderPb.GetCore().GetTimestamp(),
 			NumActions:       int64(len(blk.Actions)),
 			ProducerAddress:  blk.ProducerAddress(),
 			TransferAmount:   transferAmount.String(),
@@ -686,7 +715,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	blockMeta := &iotextypes.BlockMeta{
 		Hash:             blkHash,
 		Height:           blk.Height(),
-		Timestamp:        blkHeaderPb.GetCore().GetTimestamp().GetSeconds(),
+		Timestamp:        blkHeaderPb.GetCore().GetTimestamp(),
 		NumActions:       int64(len(blk.Actions)),
 		ProducerAddress:  blk.ProducerAddress(),
 		TransferAmount:   transferAmount.String(),
@@ -718,16 +747,23 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
 	blkHash := hash.ZeroHash256
+	var timeStamp *timestamp.Timestamp
 	var err error
 	if pullBlkHash {
 		if blkHash, err = api.bc.GetBlockHashByActionHash(actHash); err != nil {
 			return nil, err
 		}
+		blk, err := api.bc.GetBlockByHash(blkHash)
+		if err != nil {
+			return nil, err
+		}
+		timeStamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 	}
 	return &iotexapi.ActionInfo{
-		Action:  selp.Proto(),
-		ActHash: hex.EncodeToString(actHash[:]),
-		BlkHash: hex.EncodeToString(blkHash[:]),
+		Action:    selp.Proto(),
+		ActHash:   hex.EncodeToString(actHash[:]),
+		BlkHash:   hex.EncodeToString(blkHash[:]),
+		Timestamp: timeStamp,
 	}, nil
 }
 

@@ -51,6 +51,8 @@ var (
 	priKey4 = testaddress.Keyinfo["delta"].PriKey
 	addr5   = testaddress.Addrinfo["echo"].String()
 	priKey5 = testaddress.Keyinfo["echo"].PriKey
+	addr6   = testaddress.Addrinfo["foxtrot"].String()
+	priKey6 = testaddress.Keyinfo["foxtrot"].PriKey
 )
 
 func TestActPool_validateGenericAction(t *testing.T) {
@@ -202,12 +204,17 @@ func TestActPool_AddActs(t *testing.T) {
 	pNonce2, _ = ap.getPendingNonce(addr2)
 	require.Equal(uint64(4), pNonce2)
 	// Error Case Handling
-	// Case I: Action already exists in pool
+	// Case I: Action source address is blacklisted
+	bannedTsf, err := testutil.SignedTransfer(addr6, priKey6, uint64(1), big.NewInt(0), []byte{}, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	err = ap.Add(bannedTsf)
+	require.True(strings.Contains(err.Error(), "action source address is blacklisted"))
+	// Case II: Action already exists in pool
 	err = ap.Add(tsf1)
 	require.Error(err)
 	err = ap.Add(vote4)
 	require.Error(err)
-	// Case II: Pool space/gas space is full
+	// Case III: Pool space/gas space is full
 	mockBC := mock_blockchain.NewMockBlockchain(ctrl)
 	Ap2, err := NewActPool(mockBC, apConfig, EnableExperimentalActions())
 	require.NoError(err)
@@ -241,7 +248,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap3.Add(tsf10)
 	require.True(strings.Contains(err.Error(), "insufficient gas space for action"))
 
-	// Case III: Nonce already exists
+	// Case IV: Nonce already exists
 	replaceTsf, err := testutil.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(replaceTsf)
@@ -259,17 +266,17 @@ func TestActPool_AddActs(t *testing.T) {
 
 	err = ap.Add(selp)
 	require.Equal(action.ErrNonce, errors.Cause(err))
-	// Case IV: Nonce is too large
+	// Case V: Nonce is too large
 	outOfBoundsTsf, err := testutil.SignedTransfer(addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(outOfBoundsTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
-	// Case V: Insufficient balance
+	// Case VI: Insufficient balance
 	overBalTsf, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	err = ap.Add(overBalTsf)
 	require.Equal(action.ErrBalance, errors.Cause(err))
-	// Case VI: over gas limit
+	// Case VII: over gas limit
 	creationExecution, err := action.NewExecution(
 		action.EmptyAddress,
 		uint64(5),
@@ -290,7 +297,7 @@ func TestActPool_AddActs(t *testing.T) {
 
 	err = ap.Add(selp)
 	require.Equal(action.ErrGasHigherThanLimit, errors.Cause(err))
-	// Case VII: insufficient gas
+	// Case VIII: insufficient gas
 	tmpData := [1234]byte{}
 	creationExecution, err = action.NewExecution(
 		action.EmptyAddress,
@@ -1136,6 +1143,7 @@ func getActPoolCfg() config.ActPool {
 		MaxGasLimitPerPool: maxGasLimitPerPool,
 		MaxNumActsPerAcct:  maxNumActsPerAcct,
 		MinGasPriceStr:     "0",
+		BlackList:          []string{addr6},
 	}
 }
 

@@ -9,7 +9,7 @@ package actioniterator
 import (
 	"container/heap"
 
-	"github.com/iotexproject/iotex-core/address"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 )
