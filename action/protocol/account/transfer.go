@@ -18,6 +18,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -31,8 +32,13 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if !ok {
 		return nil, nil
 	}
-	if tsf.IsContract() {
-		return nil, nil
+	recipientAddr, err := address.FromString(tsf.Recipient())
+	if err != nil {
+		return nil, errors.Errorf("failed to decode recipient address %s", tsf.Recipient())
+	}
+	recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
+	if err == nil && len(recipientAcct.CodeHash) > 0 {
+		return nil, errors.New("failed to transfer to a contract address directly")
 	}
 	// check sender
 	sender, err := accountutil.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
