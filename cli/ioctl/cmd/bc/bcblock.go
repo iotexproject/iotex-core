@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -64,10 +65,14 @@ func getBlock(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	ts, err := ptypes.Timestamp(blockMeta.Timestamp)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("Transactions: %d\n", blockMeta.NumActions) +
 		fmt.Sprintf("Height: %d\n", blockMeta.Height) +
 		fmt.Sprintf("Total Amount: %s\n", blockMeta.TransferAmount) +
-		fmt.Sprintf("Timestamp: %d\n", blockMeta.Timestamp) +
+		fmt.Sprintf("Timestamp: %d\n", ts.Unix()) +
 		fmt.Sprintf("Producer Address: %s %s\n", blockMeta.ProducerAddress,
 			action.Match(blockMeta.ProducerAddress, "address")) +
 		fmt.Sprintf("Transactions Root: %s\n", blockMeta.TxRoot) +
