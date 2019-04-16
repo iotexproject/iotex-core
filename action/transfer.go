@@ -75,9 +75,6 @@ func (tsf *Transfer) Recipient() string { return tsf.recipient }
 // Destination returns the recipient address as destination.
 func (tsf *Transfer) Destination() string { return tsf.recipient }
 
-// IsContract returns true for contract action
-func (tsf *Transfer) IsContract() bool { return tsf.recipient == EmptyAddress }
-
 // TotalSize returns the total size of this Transfer
 func (tsf *Transfer) TotalSize() uint32 {
 	size := tsf.BasicActionSize()
