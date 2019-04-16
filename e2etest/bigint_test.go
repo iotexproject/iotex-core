@@ -71,25 +71,6 @@ func TestAction_Negative(t *testing.T) {
 	r.Equal(-1, balance.Cmp(balanceBeforeTransfer))
 }
 
-func TestVote_Negative(t *testing.T) {
-	r := require.New(t)
-	ctx := context.Background()
-	bc := prepareBlockchain(ctx, executor, r)
-	defer r.NoError(bc.Stop(ctx))
-	balanceBeforeTransfer, err := bc.Balance(executor)
-	r.NoError(err)
-	blk, err := prepareVote(bc, r)
-	r.NoError(err)
-	r.NotNil(blk)
-	err = bc.ValidateBlock(blk)
-	r.Error(err)
-	err = bc.CommitBlock(blk)
-	r.NoError(err)
-	balance, err := bc.Balance(executor)
-	r.NoError(err)
-	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
-}
-
 func prepareBlockchain(
 	ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
 	cfg := config.Default
@@ -144,17 +125,6 @@ func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Bl
 }
 func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
 	exec, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(-100), uint64(1000000), big.NewInt(9000000000000), []byte{})
-	r.NoError(err)
-	builder := &action.EnvelopeBuilder{}
-	elp := builder.SetAction(exec).
-		SetNonce(exec.Nonce()).
-		SetGasLimit(exec.GasLimit()).
-		SetGasPrice(exec.GasPrice()).
-		Build()
-	return prepare(bc, elp, r)
-}
-func prepareVote(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
-	exec, err := action.NewVote(1, recipient, 9000, big.NewInt(-13))
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
