@@ -150,7 +150,7 @@ func (p *Protocol) GrantEpochReward(
 		return nil, err
 	}
 
-	// Get the delegate list who exempts repoch reward
+	// Get the delegate list who exempts epoch reward
 	e := exempt{}
 	if err := p.state(sm, exemptKey, &e); err != nil {
 		return nil, err
