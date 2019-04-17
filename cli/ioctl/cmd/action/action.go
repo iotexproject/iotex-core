@@ -51,9 +51,11 @@ func init() {
 	ActionCmd.AddCommand(actionDeployCmd)
 	ActionCmd.AddCommand(actionInvokeCmd)
 	ActionCmd.AddCommand(actionClaimCmd)
+	ActionCmd.AddCommand(actionDepositCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
-	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionClaimCmd)
+	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionClaimCmd,
+		actionDepositCmd)
 }
 
 func setActionFlags(cmds ...*cobra.Command) {
