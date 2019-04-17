@@ -15,7 +15,7 @@ import (
 )
 
 func TestDonateToRewardingFund(t *testing.T) {
-	b := DonateToRewardingFundBuilder{}
+	b := DepositToRewardingFundBuilder{}
 	s1 := b.SetAmount(big.NewInt(1)).
 		SetData([]byte{2}).
 		Build()

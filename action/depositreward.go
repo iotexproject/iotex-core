@@ -18,7 +18,10 @@ import (
 )
 
 var (
-	depositToRewardingFundBaseGas = uint64(10000)
+	// DepositToRewardingFundBaseGas represents the base intrinsic gas for depositToRewardingFund
+	DepositToRewardingFundBaseGas = uint64(10000)
+	// DepositToRewardingFundGasPerByte represents the depositToRewardingFund payload gas per uint
+	DepositToRewardingFundGasPerByte = uint64(100)
 )
 
 // DepositToRewardingFund is the action to deposit to the rewarding fund
@@ -63,10 +66,10 @@ func (d *DepositToRewardingFund) LoadProto(deposit *iotextypes.DepositToRewardin
 // IntrinsicGas returns the intrinsic gas of a deposit action
 func (d *DepositToRewardingFund) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(d.Data()))
-	if (math.MaxUint64-depositToRewardingFundBaseGas)/depositToRewardingFundBaseGas < dataLen {
+	if (math.MaxUint64-DepositToRewardingFundBaseGas)/DepositToRewardingFundGasPerByte < dataLen {
 		return 0, ErrOutOfGas
 	}
-	return depositToRewardingFundBaseGas + depositToRewardingFundBaseGas*dataLen, nil
+	return DepositToRewardingFundBaseGas + DepositToRewardingFundGasPerByte*dataLen, nil
 }
 
 // Cost returns the total cost of a deposit action
@@ -78,26 +81,26 @@ func (d *DepositToRewardingFund) Cost() (*big.Int, error) {
 	return big.NewInt(0).Mul(d.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
 }
 
-// DonateToRewardingFundBuilder is the struct to build DepositToRewardingFund
-type DonateToRewardingFundBuilder struct {
+// DepositToRewardingFundBuilder is the struct to build DepositToRewardingFund
+type DepositToRewardingFundBuilder struct {
 	Builder
 	deposit DepositToRewardingFund
 }
 
 // SetAmount sets the amount to deposit
-func (b *DonateToRewardingFundBuilder) SetAmount(amount *big.Int) *DonateToRewardingFundBuilder {
+func (b *DepositToRewardingFundBuilder) SetAmount(amount *big.Int) *DepositToRewardingFundBuilder {
 	b.deposit.amount = amount
 	return b
 }
 
 // SetData sets the additional data
-func (b *DonateToRewardingFundBuilder) SetData(data []byte) *DonateToRewardingFundBuilder {
+func (b *DepositToRewardingFundBuilder) SetData(data []byte) *DepositToRewardingFundBuilder {
 	b.deposit.data = data
 	return b
 }
 
 // Build builds a new deposit to rewarding fund action
-func (b *DonateToRewardingFundBuilder) Build() DepositToRewardingFund {
+func (b *DepositToRewardingFundBuilder) Build() DepositToRewardingFund {
 	b.deposit.AbstractAction = b.Builder.Build()
 	return b.deposit
 }
