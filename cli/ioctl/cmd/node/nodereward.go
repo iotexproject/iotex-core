@@ -22,17 +22,68 @@ import (
 
 // nodeRewardCmd represents the node reward command
 var nodeRewardCmd = &cobra.Command{
-	Use:   "reward (ALIAS|DELEGATE_ADDRESS)",
-	Short: "Query unclaimed rewards",
-	Args:  cobra.ExactArgs(1),
+	Use:   "reward [ALIAS|DELEGATE_ADDRESS]",
+	Short: "Query rewards",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := reward(args)
+		var output string
+		var err error
+		if len(args) == 0 {
+			output, err = rewardPool()
+		} else {
+			output, err = reward(args)
+		}
 		if err == nil {
 			fmt.Println(output)
 		}
 		return err
 	},
+}
+
+func rewardPool() (string, error) {
+	conn, err := util.ConnectToEndpoint()
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	ctx := context.Background()
+	request := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte(rewarding.ProtocolID),
+		MethodName: []byte("AvailableBalance"),
+	}
+	response, err := cli.ReadState(ctx, request)
+	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return "", fmt.Errorf(sta.Message())
+		}
+		return "", err
+	}
+	availableRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+	if !ok {
+		return "", fmt.Errorf("failed to convert string into big int")
+	}
+	request = &iotexapi.ReadStateRequest{
+		ProtocolID: []byte(rewarding.ProtocolID),
+		MethodName: []byte("TotalBalance"),
+	}
+	response, err = cli.ReadState(ctx, request)
+	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return "", fmt.Errorf(sta.Message())
+		}
+		return "", err
+	}
+	totalRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+	if !ok {
+		return "", fmt.Errorf("failed to convert string into big int")
+	}
+	return fmt.Sprintf("Available Reward: %sIOTX  Total Reward: %sIOTX",
+		util.RauToString(availableRewardRau, util.IotxDecimalNum),
+		util.RauToString(totalRewardRau, util.IotxDecimalNum)), nil
 }
 
 func reward(args []string) (string, error) {
