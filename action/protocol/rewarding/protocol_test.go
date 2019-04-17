@@ -257,7 +257,7 @@ func TestProtocol_Handle(t *testing.T) {
 	// Deposit
 	ws, err = stateDB.NewWorkingSet()
 	require.NoError(t, err)
-	db := action.DonateToRewardingFundBuilder{}
+	db := action.DepositToRewardingFundBuilder{}
 	deposit := db.SetAmount(big.NewInt(1000000)).Build()
 	eb1 := action.EnvelopeBuilder{}
 	e1 := eb1.SetNonce(0).
