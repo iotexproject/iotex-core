@@ -237,18 +237,6 @@ func TestProtocol_Handle(t *testing.T) {
 	))
 	require.NoError(t, stateDB.Commit(ws))
 
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	gb := action.GrantRewardBuilder{}
-	grant := gb.SetRewardType(action.BlockReward).Build()
-	eb := action.EnvelopeBuilder{}
-	e := eb.SetNonce(0).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(grant.GasLimit()).
-		SetAction(&grant).
-		Build()
-	se, err := action.Sign(e, identityset.PrivateKey(0))
-	require.NoError(t, err)
 	ctx = protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
@@ -258,12 +246,54 @@ func TestProtocol_Handle(t *testing.T) {
 			GasPrice:    big.NewInt(0),
 		},
 	)
-	receipt, err := p.Handle(ctx, se.Action(), ws)
+
+	// Create a test account with 1000000 token
+	ws, err = stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(0).String(), big.NewInt(1000000))
+	require.NoError(t, err)
+	require.NoError(t, stateDB.Commit(ws))
+
+	// Deposit
+	ws, err = stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	db := action.DonateToRewardingFundBuilder{}
+	deposit := db.SetAmount(big.NewInt(1000000)).Build()
+	eb1 := action.EnvelopeBuilder{}
+	e1 := eb1.SetNonce(0).
+		SetGasPrice(big.NewInt(0)).
+		SetGasLimit(deposit.GasLimit()).
+		SetAction(&deposit).
+		Build()
+	se1, err := action.Sign(e1, identityset.PrivateKey(0))
+	require.NoError(t, err)
+
+	receipt, err := p.Handle(ctx, se1.Action(), ws)
+	require.NoError(t, err)
+	balance, err := p.TotalBalance(ctx, ws)
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(2000000), balance)
+
+	// Grant
+	ws, err = stateDB.NewWorkingSet()
+	require.NoError(t, err)
+	gb := action.GrantRewardBuilder{}
+	grant := gb.SetRewardType(action.BlockReward).Build()
+	eb2 := action.EnvelopeBuilder{}
+	e2 := eb2.SetNonce(0).
+		SetGasPrice(big.NewInt(0)).
+		SetGasLimit(grant.GasLimit()).
+		SetAction(&grant).
+		Build()
+	se2, err := action.Sign(e2, identityset.PrivateKey(0))
+	require.NoError(t, err)
+
+	receipt, err = p.Handle(ctx, se2.Action(), ws)
 	require.NoError(t, err)
 	assert.Equal(t, action.SuccessReceiptStatus, receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs))
 	// Grant the block reward again should fail
-	receipt, err = p.Handle(ctx, se.Action(), ws)
+	receipt, err = p.Handle(ctx, se2.Action(), ws)
 	require.NoError(t, err)
 	assert.Equal(t, action.FailureReceiptStatus, receipt.Status)
 }

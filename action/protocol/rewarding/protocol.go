@@ -128,6 +128,18 @@ func (p *Protocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
+	case "AvailableBalance":
+		balance, err := p.AvailableBalance(ctx, sm)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(balance.String()), nil
+	case "TotalBalance":
+		balance, err := p.TotalBalance(ctx, sm)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(balance.String()), nil
 	case "UnclaimedBalance":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
