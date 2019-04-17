@@ -366,7 +366,6 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			} else {
 				r.Equal(expected, retval)
 			}
-			return
 		}
 		for _, expectedBalance := range exec.ExpectedBalances {
 			account := expectedBalance.Account
