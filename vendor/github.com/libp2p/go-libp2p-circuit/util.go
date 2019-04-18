@@ -9,6 +9,7 @@ import (
 
 	ggio "github.com/gogo/protobuf/io"
 	proto "github.com/gogo/protobuf/proto"
+	pool "github.com/libp2p/go-buffer-pool"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
@@ -64,7 +65,14 @@ type delimitedReader struct {
 // - messages are small (max 4k) and the length fits in a couple of bytes,
 //   so overall we have at most three reads per message.
 func newDelimitedReader(r io.Reader, maxSize int) *delimitedReader {
-	return &delimitedReader{r: r, buf: make([]byte, maxSize)}
+	return &delimitedReader{r: r, buf: pool.Get(maxSize)}
+}
+
+func (d *delimitedReader) Close() {
+	if d.buf != nil {
+		pool.Put(d.buf)
+		d.buf = nil
+	}
 }
 
 func (d *delimitedReader) ReadByte() (byte, error) {

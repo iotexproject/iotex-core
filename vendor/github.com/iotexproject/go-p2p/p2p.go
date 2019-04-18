@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"golang.org/x/time/rate"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -23,6 +22,7 @@ import (
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	host "github.com/libp2p/go-libp2p-host"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -35,6 +35,10 @@ import (
 	sm_yamux "github.com/whyrusleeping/go-smux-yamux"
 	"go.uber.org/zap"
 )
+
+func init() {
+	multiaddr.SwapToP2pMultiaddrs()
+}
 
 // HandleBroadcast defines the callback function triggered when a broadcast message reaches a host
 type HandleBroadcast func(ctx context.Context, data []byte) error
@@ -71,6 +75,9 @@ type RateLimitConfig struct {
 	PeerBurst          int `yaml:"peerBurst"`
 }
 
+// ProtocolDHT is the DHT protocol ID
+var ProtocolDHT protocol.ID = "/iotex/kad/1.0.0"
+
 // DefaultConfig is a set of default configs
 var DefaultConfig = Config{
 	HostName:                 "127.0.0.1",
@@ -92,6 +99,7 @@ var DefaultConfig = Config{
 	RateLimit:                DefaultRatelimitConfig,
 }
 
+// DefaultRatelimitConfig is the default rate limit config
 var DefaultRatelimitConfig = RateLimitConfig{
 	GlobalUnicastAvg:   300,
 	GlobalUnicastBurst: 500,
@@ -166,7 +174,7 @@ func MasterKey(masterKey string) Option {
 	}
 }
 
-// RateLimit is to indicate limiting msg rate from peers
+// WithRateLimit is to indicate limiting msg rate from peers
 func WithRateLimit(rcfg RateLimitConfig) Option {
 	return func(cfg *Config) error {
 		cfg.EnableRateLimit = true
@@ -284,7 +292,7 @@ func NewHost(ctx context.Context, options ...Option) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	kad, err := dht.New(ctx, host)
+	kad, err := dht.New(ctx, host, dhtopts.Protocols(ProtocolDHT))
 	if err != nil {
 	}
 	if err := kad.Bootstrap(ctx); err != nil {
