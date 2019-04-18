@@ -653,7 +653,7 @@ func TestServiceGetPeers(t *testing.T) {
 
 	response, err := svc.GetPeers()
 	require.Nil(err)
-	require.Equal("{ []}", response.Self.Address)
+	require.Equal("{: []}", response.Self.Address)
 	require.Len(response.Peers, 3)
 }
 
