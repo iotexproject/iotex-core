@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address/bech32"
+	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // _v1 is a singleton and defines V1 address metadata
@@ -38,7 +40,7 @@ func (v *v1) FromBytes(bytes []byte) (*AddrV1, error) {
 		return nil, errors.Wrapf(ErrInvalidAddr, "invalid address length in bytes: %d", len(bytes))
 	}
 	return &AddrV1{
-		payload: bytes,
+		payload: hash.BytesToHash160(bytes),
 	}, nil
 }
 
@@ -58,7 +60,7 @@ func (v *v1) decodeBech32(encodedAddr string) ([]byte, error) {
 // AddrV1 is V1 address format to be used on IoTeX blockchain and subchains. It is composed of
 // 20 bytes: hash derived from the the public key:
 type AddrV1 struct {
-	payload []byte
+	payload hash.Hash160
 }
 
 // String encodes an address struct into a a String encoded address string
@@ -68,12 +70,12 @@ func (addr *AddrV1) String() string {
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {
-		zap.L().Panic("Error when grouping the payload into 5 bit groups", zap.Error(err))
+		log.L().Panic("Error when grouping the payload into 5 bit groups.", zap.Error(err))
 		return ""
 	}
 	encodedAddr, err := bech32.Encode(prefix(), grouped)
 	if err != nil {
-		zap.L().Panic("Error when encoding bytes into a base32 string", zap.Error(err))
+		log.L().Panic("Error when encoding bytes into a base32 string.", zap.Error(err))
 		return ""
 	}
 	return encodedAddr
