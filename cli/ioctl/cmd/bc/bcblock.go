@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -83,7 +84,7 @@ func getBlock(args []string) (string, error) {
 
 // GetBlockMetaByHeight gets block metadata by height
 func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +115,7 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 
 // GetBlockMetaByHash gets block metadata by hash
 func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return nil, err
 	}
