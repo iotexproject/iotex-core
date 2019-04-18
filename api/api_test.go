@@ -350,11 +350,13 @@ var (
 	}
 
 	readContractTests = []struct {
-		execHash string
-		retValue string
+		execHash   string
+		callerAddr string
+		retValue   string
 	}{
 		{
 			hex.EncodeToString(executionHash2[:]),
+			ta.Addrinfo["charlie"].String(),
 			"",
 		},
 	}
@@ -842,7 +844,10 @@ func TestServer_ReadContract(t *testing.T) {
 		require.NoError(err)
 		exec, err := svr.bc.GetActionByActionHash(hash)
 		require.NoError(err)
-		request := &iotexapi.ReadContractRequest{Action: exec.Proto()}
+		request := &iotexapi.ReadContractRequest{
+			Execution:     exec.Proto().GetCore().GetExecution(),
+			CallerAddress: test.callerAddr,
+		}
 
 		res, err := svr.ReadContract(context.Background(), request)
 		require.NoError(err)

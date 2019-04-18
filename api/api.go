@@ -328,16 +328,19 @@ func (api *Server) GetReceiptByAction(ctx context.Context, in *iotexapi.GetRecei
 func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRequest) (*iotexapi.ReadContractResponse, error) {
 	log.L().Debug("receive read smart contract request")
 
-	selp := &action.SealedEnvelope{}
-	if err := selp.LoadProto(in.Action); err != nil {
+	sc := &action.Execution{}
+	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	sc, ok := selp.Action().(*action.Execution)
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "not an execution")
+
+	intrinsicGas, err := sc.IntrinsicGas()
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
+	sc, _ = action.NewExecution(sc.Contract(), sc.Nonce(), sc.Amount(), intrinsicGas, sc.GasPrice(), sc.Data())
+
+	callerAddr, err := address.FromString(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
