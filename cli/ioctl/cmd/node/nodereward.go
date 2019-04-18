@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 )
@@ -42,7 +43,7 @@ var nodeRewardCmd = &cobra.Command{
 }
 
 func rewardPool() (string, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return "", err
 	}
@@ -91,7 +92,7 @@ func reward(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return "", err
 	}

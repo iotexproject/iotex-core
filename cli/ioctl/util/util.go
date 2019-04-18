@@ -7,12 +7,14 @@
 package util
 
 import (
+	"crypto/tls"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
@@ -28,12 +30,15 @@ const (
 )
 
 // ConnectToEndpoint starts a new connection
-func ConnectToEndpoint() (*grpc.ClientConn, error) {
+func ConnectToEndpoint(isInsecure bool) (*grpc.ClientConn, error) {
 	endpoint := config.ReadConfig.Endpoint
 	if endpoint == "" {
 		return nil, fmt.Errorf(`use "ioctl config set endpoint" to config endpoint first`)
 	}
-	return grpc.Dial(endpoint, grpc.WithInsecure())
+	if isInsecure {
+		return grpc.Dial(endpoint, grpc.WithInsecure())
+	}
+	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 }
 
 // StringToRau converts different unit string into Rau big int
