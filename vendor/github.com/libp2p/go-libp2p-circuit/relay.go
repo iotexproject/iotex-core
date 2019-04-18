@@ -170,6 +170,7 @@ func (r *Relay) DialPeer(ctx context.Context, relay pstore.PeerInfo, dest pstore
 
 	rd := newDelimitedReader(s, maxMessageSize)
 	wr := newDelimitedWriter(s)
+	defer rd.Close()
 
 	var msg pb.CircuitRelay
 
@@ -218,6 +219,7 @@ func (r *Relay) CanHop(ctx context.Context, id peer.ID) (bool, error) {
 
 	rd := newDelimitedReader(s, maxMessageSize)
 	wr := newDelimitedWriter(s)
+	defer rd.Close()
 
 	var msg pb.CircuitRelay
 
@@ -249,6 +251,7 @@ func (r *Relay) handleNewStream(s inet.Stream) {
 	log.Infof("new relay stream from: %s", s.Conn().RemotePeer())
 
 	rd := newDelimitedReader(s, maxMessageSize)
+	defer rd.Close()
 
 	var msg pb.CircuitRelay
 
@@ -323,6 +326,7 @@ func (r *Relay) handleHopStream(s inet.Stream, msg *pb.CircuitRelay) {
 	// stop handshake
 	rd := newDelimitedReader(bs, maxMessageSize)
 	wr := newDelimitedWriter(bs)
+	defer rd.Close()
 
 	msg.Type = pb.CircuitRelay_STOP.Enum()
 
