@@ -63,7 +63,7 @@ func init() {
 func setActionFlags(cmds ...*cobra.Command) {
 	for _, cmd := range cmds {
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
-		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "",
+		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "1",
 			"set gas price (unit: 10^(-6)Iotx)")
 		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
 		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
