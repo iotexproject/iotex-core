@@ -30,7 +30,7 @@ func TestBackdoorEvt(t *testing.T) {
 	mockCtx.EXPECT().IsFutureEvent(gomock.Any()).Return(false).AnyTimes()
 	mockCtx.EXPECT().IsStaleEvent(gomock.Any()).Return(false).AnyTimes()
 	mockCtx.EXPECT().Logger().Return(log.Logger("consensus")).AnyTimes()
-	mockCtx.EXPECT().Prepare().Return(true, false, nil, true, false, time.Duration(0), nil).AnyTimes()
+	mockCtx.EXPECT().Prepare().Return(true, nil, true, false, nil, time.Duration(0), nil).AnyTimes()
 	mockCtx.EXPECT().NewConsensusEvent(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(eventType fsm.EventType, data interface{}) *ConsensusEvent {
 			return &ConsensusEvent{
@@ -91,7 +91,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 
 	t.Run("prepare", func(t *testing.T) {
 		t.Run("with-error", func(t *testing.T) {
-			mockCtx.EXPECT().Prepare().Return(true, false, nil, false, false, 10*time.Second, errors.New("some error")).Times(1)
+			mockCtx.EXPECT().Prepare().Return(true, nil, false, false, nil, 10*time.Second, errors.New("some error")).Times(1)
 			state, err := cfsm.prepare(nil)
 			require.NoError(err)
 			require.Equal(sPrepare, state)
@@ -100,18 +100,8 @@ func TestStateTransitionFunctions(t *testing.T) {
 			evt := <-cfsm.evtq
 			require.Equal(ePrepare, evt.Type())
 		})
-		t.Run("stand-by", func(t *testing.T) {
-			mockCtx.EXPECT().Prepare().Return(false, false, nil, false, false, 10*time.Second, nil).Times(1)
-			state, err := cfsm.prepare(nil)
-			require.NoError(err)
-			require.Equal(sPrepare, state)
-			time.Sleep(100 * time.Millisecond)
-			mockClock.Add(10 * time.Second)
-			evt := <-cfsm.evtq
-			require.Equal(ePrepare, evt.Type())
-		})
-		t.Run("is-not-delegate", func(t *testing.T) {
-			mockCtx.EXPECT().Prepare().Return(true, false, nil, false, false, 10*time.Second, nil).Times(1)
+		t.Run("stand-by-or-is-not-delegate", func(t *testing.T) {
+			mockCtx.EXPECT().Prepare().Return(false, nil, false, false, nil, 10*time.Second, nil).Times(1)
 			state, err := cfsm.prepare(nil)
 			require.NoError(err)
 			require.Equal(sPrepare, state)
@@ -122,17 +112,61 @@ func TestStateTransitionFunctions(t *testing.T) {
 		})
 		t.Run("is-delegate", func(t *testing.T) {
 			t.Run("is-locked", func(t *testing.T) {
-				mockCtx.EXPECT().Prepare().Return(true, false, nil, true, true, time.Duration(0), nil).Times(1)
+				lockedProposal := NewMockEndorsement(ctrl)
+				t.Run("not-ready-to-commit", func(t *testing.T) {
+					mockCtx.EXPECT().Prepare().Return(true, lockedProposal, false, true, nil, time.Duration(0), nil).Times(1)
+					state, err := cfsm.prepare(nil)
+					require.NoError(err)
+					require.Equal(sAcceptBlockProposal, state)
+					evt := <-cfsm.evtq
+					require.Equal(eReceiveBlock, evt.Type())
+					require.Equal(lockedProposal, evt.Data())
+					time.Sleep(100 * time.Millisecond)
+					// garbage collection
+					mockClock.Add(cfsm.cfg.AcceptBlockTTL)
+					evt = <-cfsm.evtq
+					require.Equal(eFailedToReceiveBlock, evt.Type())
+					mockClock.Add(cfsm.cfg.AcceptProposalEndorsementTTL)
+					evt = <-cfsm.evtq
+					require.Equal(eStopReceivingProposalEndorsement, evt.Type())
+					mockClock.Add(cfsm.cfg.AcceptLockEndorsementTTL)
+					evt = <-cfsm.evtq
+					require.Equal(eStopReceivingLockEndorsement, evt.Type())
+					mockClock.Add(cfsm.cfg.CommitTTL)
+					evt = <-cfsm.evtq
+					require.Equal(ePrepare, evt.Type())
+				})
+				t.Run("ready-to-commit", func(t *testing.T) {
+					mockEndorsement := NewMockEndorsement(ctrl)
+					mockCtx.EXPECT().Prepare().Return(true, lockedProposal, false, true, mockEndorsement, time.Duration(0), nil).Times(1)
+					state, err := cfsm.prepare(nil)
+					require.NoError(err)
+					require.Equal(sAcceptPreCommitEndorsement, state)
+					time.Sleep(100 * time.Millisecond)
+					// garbage collection
+					mockClock.Add(cfsm.cfg.AcceptBlockTTL)
+					evt := <-cfsm.evtq
+					require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
+					mockClock.Add(cfsm.cfg.AcceptProposalEndorsementTTL)
+					evt = <-cfsm.evtq
+					require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
+					mockClock.Add(cfsm.cfg.AcceptLockEndorsementTTL)
+					evt = <-cfsm.evtq
+					require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
+					mockClock.Add(cfsm.cfg.CommitTTL)
+					evt = <-cfsm.evtq
+					require.Equal(ePrepare, evt.Type())
+				})
+			})
+			t.Run("is-not-locked", func(t *testing.T) {
+				mockCtx.EXPECT().Prepare().Return(true, nil, false, false, nil, time.Duration(0), nil).Times(1)
 				state, err := cfsm.prepare(nil)
 				require.NoError(err)
 				require.Equal(sAcceptBlockProposal, state)
-				evt := <-cfsm.evtq
-				require.Equal(eReceiveBlock, evt.Type())
-				require.Nil(evt.Data())
 				time.Sleep(100 * time.Millisecond)
 				// garbage collection
 				mockClock.Add(cfsm.cfg.AcceptBlockTTL)
-				evt = <-cfsm.evtq
+				evt := <-cfsm.evtq
 				require.Equal(eFailedToReceiveBlock, evt.Type())
 				mockClock.Add(cfsm.cfg.AcceptProposalEndorsementTTL)
 				evt = <-cfsm.evtq
@@ -140,28 +174,14 @@ func TestStateTransitionFunctions(t *testing.T) {
 				mockClock.Add(cfsm.cfg.AcceptLockEndorsementTTL)
 				evt = <-cfsm.evtq
 				require.Equal(eStopReceivingLockEndorsement, evt.Type())
-			})
-			t.Run("is-not-locked", func(t *testing.T) {
-				mockCtx.EXPECT().Prepare().Return(true, false, nil, true, false, time.Duration(0), nil).Times(1)
-				state, err := cfsm.prepare(nil)
-				require.NoError(err)
-				require.Equal(sAcceptBlockProposal, state)
-				time.Sleep(100 * time.Millisecond)
-				// garbage collection
-				mockClock.Add(4 * time.Second)
-				evt := <-cfsm.evtq
-				require.Equal(eFailedToReceiveBlock, evt.Type())
-				mockClock.Add(2 * time.Second)
+				mockClock.Add(cfsm.cfg.CommitTTL)
 				evt = <-cfsm.evtq
-				require.Equal(eStopReceivingProposalEndorsement, evt.Type())
-				mockClock.Add(2 * time.Second)
-				evt = <-cfsm.evtq
-				require.Equal(eStopReceivingLockEndorsement, evt.Type())
+				require.Equal(ePrepare, evt.Type())
 			})
 		})
 		t.Run("is-proposer", func(t *testing.T) {
 			t.Run("fail-to-mint", func(t *testing.T) {
-				mockCtx.EXPECT().Prepare().Return(true, true, nil, true, false, time.Duration(0), errors.New("some error")).Times(1)
+				mockCtx.EXPECT().Prepare().Return(true, nil, true, false, nil, time.Duration(0), errors.New("some error")).Times(1)
 				state, err := cfsm.prepare(nil)
 				require.NoError(err)
 				require.Equal(sPrepare, state)
@@ -170,7 +190,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 			})
 			t.Run("success-to-mint", func(t *testing.T) {
 				mockEndorsement := NewMockEndorsement(ctrl)
-				mockCtx.EXPECT().Prepare().Return(true, true, mockEndorsement, true, false, time.Duration(0), nil).Times(1)
+				mockCtx.EXPECT().Prepare().Return(true, mockEndorsement, true, false, nil, time.Duration(0), nil).Times(1)
 				mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(1)
 				state, err := cfsm.prepare(nil)
 				require.NoError(err)
@@ -317,6 +337,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 		})
 		t.Run("ready-to-pre-commit", func(t *testing.T) {
 			mockCtx.EXPECT().NewPreCommitEndorsement(gomock.Any()).Return(NewMockEndorsement(ctrl), nil).Times(1)
+			mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(1)
 			state, err := cfsm.onReceiveLockEndorsement(&ConsensusEvent{
 				eventType: eReceiveLockEndorsement,
 				data:      NewMockEndorsement(ctrl),
@@ -325,8 +346,6 @@ func TestStateTransitionFunctions(t *testing.T) {
 			require.Equal(sAcceptPreCommitEndorsement, state)
 			evt := <-cfsm.evtq
 			require.Equal(eReceivePreCommitEndorsement, evt.Type())
-			evt = <-cfsm.evtq
-			require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
 		})
 	})
 	t.Run("onStopReceivingLockEndorsement", func(t *testing.T) {
@@ -351,10 +370,6 @@ func TestStateTransitionFunctions(t *testing.T) {
 			})
 			require.NoError(err)
 			require.Equal(sAcceptPreCommitEndorsement, state)
-			time.Sleep(100 * time.Millisecond)
-			mockClock.Add(cfsm.cfg.CommitTTL)
-			evt := <-cfsm.evtq
-			require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
 		})
 	})
 	t.Run("onReceivePreCommitEndorsement", func(t *testing.T) {

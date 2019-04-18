@@ -77,6 +77,16 @@ func newRollDPoSCtx(
 	if err != nil {
 		log.Logger("consensus").Panic("failed to generate round context", zap.Error(err))
 	}
+	if cfg.FSM.AcceptBlockTTL+cfg.FSM.AcceptProposalEndorsementTTL+cfg.FSM.AcceptLockEndorsementTTL+cfg.FSM.CommitTTL > blockInterval {
+		log.Logger("consensus").Panic(
+			"invalid ttl config, the sum of ttls should be equal to block interval",
+			zap.Duration("acceptBlockTTL", cfg.FSM.AcceptBlockTTL),
+			zap.Duration("acceptProposalEndorsementTTL", cfg.FSM.AcceptProposalEndorsementTTL),
+			zap.Duration("acceptLockEndorsementTTL", cfg.FSM.AcceptLockEndorsementTTL),
+			zap.Duration("commitTTL", cfg.FSM.CommitTTL),
+			zap.Duration("blockInterval", blockInterval),
+		)
+	}
 
 	return &rollDPoSCtx{
 		cfg:              cfg,
@@ -203,11 +213,11 @@ func (ctx *rollDPoSCtx) Logger() *zap.Logger {
 }
 
 func (ctx *rollDPoSCtx) Prepare() (
-	active bool,
-	isProposer bool,
-	proposal interface{},
 	isDelegate bool,
+	proposal interface{},
+	isProposer bool,
 	locked bool,
+	precommitEndorsement interface{},
 	delay time.Duration,
 	err error,
 ) {
@@ -228,9 +238,10 @@ func (ctx *rollDPoSCtx) Prepare() (
 		zap.String("roundStartTime", newRound.roundStartTime.String()),
 	)
 	ctx.round = newRound
-	if active = ctx.active; !active {
+	if active := ctx.active; !active {
 		ctx.logger().Info("current node is in standby mode")
 		delay = ctx.round.NextRoundStartTime().Sub(ctx.clock.Now())
+		isDelegate = false
 		return
 	}
 	if isDelegate = ctx.round.IsDelegate(ctx.encodedAddr); !isDelegate {
@@ -238,16 +249,28 @@ func (ctx *rollDPoSCtx) Prepare() (
 		delay = ctx.round.NextRoundStartTime().Sub(ctx.clock.Now())
 		return
 	}
+	if locked = ctx.round.IsLocked(); locked {
+		if proposal, err = ctx.endorseBlockProposal(newBlockProposal(
+			ctx.round.Block(ctx.round.HashOfBlockInLock()),
+			ctx.round.ProofOfLock(),
+		)); err != nil {
+			return
+		}
+		precommitEndorsement = ctx.round.ReadyToCommit(ctx.encodedAddr)
+	}
 	if isProposer = ctx.round.Proposer() == ctx.encodedAddr; isProposer {
 		ctx.logger().Info("current node is a proposer")
-		proposal, err = ctx.mintBlock()
+		if proposal == nil {
+			if proposal, err = ctx.mintNewBlock(); err != nil {
+				return
+			}
+		}
 	} else {
 		ctx.logger().Info("current node is an active consensus delegate")
-		locked = ctx.round.IsLocked()
 	}
 	delay = ctx.round.StartTime().Sub(ctx.clock.Now())
 
-	return active, isProposer, proposal, isDelegate, locked, delay, nil
+	return
 }
 
 func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, error) {
@@ -462,41 +485,29 @@ func (ctx *rollDPoSCtx) Active() bool {
 // private functions
 ///////////////////////////////////////////
 
-func (ctx *rollDPoSCtx) mintBlock() (*EndorsedConsensusMessage, error) {
-	var proposal *blockProposal
-	if ctx.round.IsLocked() {
-		proposal = newBlockProposal(
-			ctx.round.Block(ctx.round.HashOfBlockInLock()),
-			ctx.round.ProofOfLock(),
-		)
-	} else {
-		actionMap := ctx.actPool.PendingActionMap()
-		ctx.logger().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
-		blk, err := ctx.chain.MintNewBlock(
-			actionMap,
-			ctx.round.StartTime(),
-		)
-		if err != nil {
-			return nil, err
-		}
-		var proofOfUnlock []*endorsement.Endorsement
-		if ctx.round.IsUnlocked() {
-			proofOfUnlock = ctx.round.ProofOfLock()
-		}
-		proposal = newBlockProposal(blk, proofOfUnlock)
+func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
+	actionMap := ctx.actPool.PendingActionMap()
+	ctx.logger().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
+	blk, err := ctx.chain.MintNewBlock(
+		actionMap,
+		ctx.round.StartTime(),
+	)
+	if err != nil {
+		return nil, err
 	}
+	var proofOfUnlock []*endorsement.Endorsement
+	if ctx.round.IsUnlocked() {
+		proofOfUnlock = ctx.round.ProofOfLock()
+	}
+	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock))
+}
+
+func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*EndorsedConsensusMessage, error) {
 	en, err := endorsement.Endorse(ctx.priKey, proposal, ctx.round.StartTime())
 	if err != nil {
 		return nil, err
 	}
-	endorsedProposal := NewEndorsedConsensusMessage(proposal.block.Height(), proposal, en)
-	ctx.logger().Info(
-		"minted a new block",
-		zap.Uint64("height", ctx.round.Height()),
-		zap.Int("actions", len(proposal.block.Actions)),
-	)
-
-	return endorsedProposal, nil
+	return NewEndorsedConsensusMessage(proposal.block.Height(), proposal, en), nil
 }
 
 func (ctx *rollDPoSCtx) logger() *zap.Logger {
