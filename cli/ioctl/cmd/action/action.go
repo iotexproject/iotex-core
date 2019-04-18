@@ -56,6 +56,8 @@ func init() {
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionClaimCmd,
 		actionDepositCmd)
+	ActionCmd.PersistentFlags().BoolVar(&config.IsInsecure, "insecure",
+		false, "connect endpoint with insecure option")
 }
 
 func setActionFlags(cmds ...*cobra.Command) {
@@ -76,7 +78,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 
 // GetGasPrice gets the suggest gas price
 func GetGasPrice() (*big.Int, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +128,7 @@ func sendAction(elp action.Envelope) (string, error) {
 	fmt.Println()
 
 	request := &iotexapi.SendActionRequest{Action: selp}
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return "", err
 	}

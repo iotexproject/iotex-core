@@ -48,8 +48,12 @@ type Config struct {
 	Aliases  map[string]string `yaml:"aliases"`
 }
 
-// ReadConfig represents the current config read from local
-var ReadConfig Config
+var (
+	// ReadConfig represents the current config read from local
+	ReadConfig Config
+	// IsInsecure represents the connect option of grpc dial
+	IsInsecure bool
+)
 
 func init() {
 	ConfigDir = os.Getenv("HOME") + "/.config/ioctl/default"

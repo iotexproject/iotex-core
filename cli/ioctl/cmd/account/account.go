@@ -54,6 +54,8 @@ func init() {
 	AccountCmd.AddCommand(accountUpdateCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
+	AccountCmd.PersistentFlags().BoolVar(&config.IsInsecure, "insecure",
+		false, "connect endpoint with insecure option")
 }
 
 // KsAccountToPrivateKey generates our PrivateKey interface from Keystore account
@@ -80,7 +82,7 @@ func KsAccountToPrivateKey(signer, password string) (keypair.PrivateKey, error) 
 
 // GetAccountMeta gets account metadata
 func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return nil, err
 	}
