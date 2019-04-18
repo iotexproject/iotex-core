@@ -22,8 +22,9 @@ go:
 #   - go get -v golang.org/x/lint/golint
 before_script:
 - if [[ $TRAVIS_OS_NAME == windows ]]; then
-  mkdir -p ${TRAVIS_HOME}/gopath/src/github.com/iotexproject/iotex-core
-  tar -Pczf ${TRAVIS_TMPDIR}/src_archive.tar.gz -C ${TRAVIS_BUILD_DIR} . && tar -Pxzf ${TRAVIS_TMPDIR}/src_archive.tar.gz -C ${TRAVIS_HOME}/gopath/src/github.com/iotexproject/iotex-core
+  mkdir -p ${TRAVIS_HOME}/gopath/src/github.com/iotexproject/iotex-core;
+  tar -Pczf ${TRAVIS_TMPDIR}/src_archive.tar.gz -C ${TRAVIS_BUILD_DIR} . ;
+  tar -Pxzf ${TRAVIS_TMPDIR}/src_archive.tar.gz -C ${TRAVIS_HOME}/gopath/src/github.com/iotexproject/iotex-core;
   fi
 script:
 - ./go.test.sh
