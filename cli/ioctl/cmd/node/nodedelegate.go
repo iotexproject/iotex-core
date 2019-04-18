@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -68,7 +69,7 @@ func delegates() (string, error) {
 		}
 		epochNum = chainMeta.Epoch.Num
 	}
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return "", err
 	}
@@ -125,7 +126,7 @@ func nextDelegates() (string, error) {
 		return "", err
 	}
 	epochNum = chainMeta.Epoch.Num + 1
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return "", err
 	}
