@@ -42,24 +42,24 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	p := NewProtocol()
 
-	account1 := state.Account{
-		Balance: big.NewInt(5),
+	accountAlfa := state.Account{
+		Balance: big.NewInt(50005),
 		Votee:   testaddress.Addrinfo["charlie"].String(),
 	}
-	account2 := state.Account{
+	accountBravo := state.Account{
 		Votee: testaddress.Addrinfo["delta"].String(),
 	}
-	account3 := state.Account{
+	accountCharlie := state.Account{
 		VotingWeight: big.NewInt(5),
 	}
-	pubKeyHash1 := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
-	pubKeyHash2 := hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes())
-	pubKeyHash3 := hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes())
-	pubKeyHash4 := hash.BytesToHash160(testaddress.Addrinfo["delta"].Bytes())
+	pubKeyAlfa := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
+	pubKeyBravo := hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes())
+	pubKeyCharlie := hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes())
+	pubKeyDelta := hash.BytesToHash160(testaddress.Addrinfo["delta"].Bytes())
 
-	require.NoError(ws.PutState(pubKeyHash1, &account1))
-	require.NoError(ws.PutState(pubKeyHash2, &account2))
-	require.NoError(ws.PutState(pubKeyHash3, &account3))
+	require.NoError(ws.PutState(pubKeyAlfa, &accountAlfa))
+	require.NoError(ws.PutState(pubKeyBravo, &accountBravo))
+	require.NoError(ws.PutState(pubKeyCharlie, &accountCharlie))
 
 	transfer, err := action.NewTransfer(
 		uint64(1),
@@ -67,15 +67,17 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		testaddress.Addrinfo["bravo"].String(),
 		[]byte{},
 		uint64(10000),
-		big.NewInt(0),
+		big.NewInt(1),
 	)
 	require.NoError(err)
-
+	gas, err := transfer.IntrinsicGas()
+	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
-			Caller:   testaddress.Addrinfo["alfa"],
-			GasLimit: testutil.TestGasLimit,
+			Producer:     testaddress.Addrinfo["producer"],
+			Caller:       testaddress.Addrinfo["alfa"],
+			GasLimit:     testutil.TestGasLimit,
+			IntrinsicGas: gas,
 		})
 	receipt, err := p.Handle(ctx, transfer, ws)
 	require.NoError(err)
@@ -83,14 +85,14 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.NoError(sf.Commit(ws))
 
 	var acct state.Account
-	require.NoError(sf.State(pubKeyHash1, &acct))
-	require.Equal("3", acct.Balance.String())
+	require.NoError(sf.State(pubKeyAlfa, &acct))
+	require.Equal("40003", acct.Balance.String())
 	require.Equal(uint64(1), acct.Nonce)
-	require.NoError(sf.State(pubKeyHash2, &acct))
+	require.NoError(sf.State(pubKeyBravo, &acct))
 	require.Equal("2", acct.Balance.String())
-	require.NoError(sf.State(pubKeyHash3, &acct))
+	require.NoError(sf.State(pubKeyCharlie, &acct))
 	require.Equal("3", acct.VotingWeight.String())
-	require.NoError(sf.State(pubKeyHash4, &acct))
+	require.NoError(sf.State(pubKeyDelta, &acct))
 	require.Equal("2", acct.VotingWeight.String())
 
 	contractAcct := state.Account{
@@ -104,12 +106,17 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		testaddress.Addrinfo["echo"].String(),
 		[]byte{},
 		uint64(10000),
-		big.NewInt(0),
+		big.NewInt(2),
 	)
 	require.NoError(err)
+	// Assume that the gas of this transfer is the same as previous one
 	receipt, err = p.Handle(ctx, transfer, ws)
 	require.NoError(err)
 	require.Equal(action.FailureReceiptStatus, receipt.Status)
+	require.NoError(sf.Commit(ws))
+	require.NoError(sf.State(pubKeyAlfa, &acct))
+	require.Equal(uint64(2), acct.Nonce)
+	require.Equal("20003", acct.Balance.String())
 }
 
 func TestProtocol_ValidateTransfer(t *testing.T) {
