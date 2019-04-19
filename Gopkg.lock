@@ -303,23 +303,23 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:a99f29620af246cd31c1350a48826a9c3cfcccdcf1cad95cf43ec1f4778a15a0"
+  digest = "1:9f4fe765e6c6e6448d8bc079a9b5129167b74c479e2500fd436219df19d995af"
   name = "github.com/iotexproject/go-p2p"
   packages = ["."]
   pruneopts = "UT"
-  revision = "76a078c27b4e43247323844312c7e7b9de1bccf0"
-  version = "v0.2.7"
+  revision = "a101eb44271c82aae2a9d08aee56fcd470042c20"
+  version = "0.2.9"
 
 [[projects]]
-  digest = "1:36b33bdfeab512dc87e88eed34156b0e5cacf3b24cb3a29d9c90f8cb8462b2eb"
+  digest = "1:5b429bd8a45a5eaaa0997a255c94c99884df2e2b6cce61b9f572b5c573f4f22e"
   name = "github.com/iotexproject/iotex-address"
   packages = [
     "address",
     "address/bech32",
   ]
   pruneopts = "UT"
-  revision = "6f79c578a9766e0caf7e5fd88613d48f59f00bb4"
-  source = "github.com/iotexproject/iotex-address"
+  revision = "54e969b7c2fc72346d569870bc35c7c628656c16"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:706a64a2e4ae89a9a1ea27eaa2ba8ee6efece484b7fe58d015996d67025dfcdd"
@@ -1508,6 +1508,7 @@
     "golang.org/x/sync/errgroup",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
+    "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/reflection",
     "google.golang.org/grpc/status",
     "gopkg.in/yaml.v2",

@@ -111,13 +111,6 @@ func (n *natpmpNAT) AddPortMapping(protocol string, internalPort int, descriptio
 		}
 	}
 
-	// try to map external port the same as internal port
-	_, err = n.c.AddPortMapping(protocol, internalPort, internalPort, timeoutInSeconds)
-	if err == nil {
-		n.ports[internalPort] = internalPort
-		return internalPort, nil
-	}
-
 	for i := 0; i < 3; i++ {
 		externalPort := randomPort()
 		_, err = n.c.AddPortMapping(protocol, internalPort, externalPort, timeoutInSeconds)

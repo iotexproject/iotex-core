@@ -23,4 +23,6 @@ func init() {
 	NodeCmd.AddCommand(nodeRewardCmd)
 	NodeCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
+	NodeCmd.PersistentFlags().BoolVar(&config.IsInsecure, "insecure",
+		false, "connect endpoint with insecure option")
 }

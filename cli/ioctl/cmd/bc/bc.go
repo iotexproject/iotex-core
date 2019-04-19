@@ -31,11 +31,13 @@ func init() {
 	BCCmd.AddCommand(bcInfoCmd)
 	BCCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
+	BCCmd.PersistentFlags().BoolVar(&config.IsInsecure, "insecure",
+		false, "connect endpoint with insecure option")
 }
 
 // GetChainMeta gets block chain metadata
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.IsInsecure)
 	if err != nil {
 		return nil, err
 	}
