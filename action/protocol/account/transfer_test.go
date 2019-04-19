@@ -149,4 +149,10 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	err = protocol.Validate(context.Background(), tsf)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
+	// Case IV: Negative gas fee
+	tsf, err = action.NewTransfer(uint64(1), big.NewInt(100), "2", nil,
+		uint64(100000), big.NewInt(-1))
+	require.NoError(err)
+	err = protocol.Validate(context.Background(), tsf)
+	require.Equal(action.ErrGasPrice, errors.Cause(err))
 }
