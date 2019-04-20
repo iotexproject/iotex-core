@@ -43,7 +43,7 @@ var nodeRewardCmd = &cobra.Command{
 }
 
 func rewardPool() (string, error) {
-	conn, err := util.ConnectToEndpoint(config.IsInsecure)
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", err
 	}
@@ -92,7 +92,7 @@ func reward(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	conn, err := util.ConnectToEndpoint(config.IsInsecure)
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", err
 	}

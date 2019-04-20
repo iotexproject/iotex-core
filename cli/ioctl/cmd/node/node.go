@@ -18,11 +18,13 @@ var NodeCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 }
 
+var insecure bool
+
 func init() {
 	NodeCmd.AddCommand(nodeDelegateCmd)
 	NodeCmd.AddCommand(nodeRewardCmd)
 	NodeCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
-	NodeCmd.PersistentFlags().BoolVar(&config.IsInsecure, "insecure",
-		false, "connect endpoint with insecure option")
+	NodeCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+		"insecure connection for once")
 }

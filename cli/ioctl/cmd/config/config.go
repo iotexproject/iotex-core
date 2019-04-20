@@ -43,16 +43,17 @@ var ConfigCmd = &cobra.Command{
 
 // Config defines the config schema
 type Config struct {
-	Endpoint string            `yaml:"endpoint"`
-	Wallet   string            `yaml:"wallet"`
-	Aliases  map[string]string `yaml:"aliases"`
+	Wallet        string            `yaml:"wallet"`
+	Endpoint      string            `yaml:"endpoint"`
+	SecureConnect bool              `yaml:"secureConnect"`
+	Aliases       map[string]string `yaml:"aliases"`
 }
 
 var (
 	// ReadConfig represents the current config read from local
 	ReadConfig Config
-	// IsInsecure represents the connect option of grpc dial
-	IsInsecure bool
+	// Insecure represents the insecure connect option of grpc dial, default is false
+	Insecure = false
 )
 
 func init() {
@@ -63,19 +64,22 @@ func init() {
 	DefaultConfigFile = ConfigDir + "/config.default"
 	var err error
 	ReadConfig, err = LoadConfig()
-	if err != nil || ReadConfig.Wallet == "" {
-		if !os.IsNotExist(err) || ReadConfig.Wallet == "" {
-			ReadConfig.Wallet = ConfigDir
-			out, err := yaml.Marshal(&ReadConfig)
-			if err != nil {
-				log.L().Panic(err.Error())
-			}
-			if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-				log.L().Panic(fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile))
-			}
-		} else {
+	if err != nil || len(ReadConfig.Wallet) == 0 {
+		if err != nil && !os.IsNotExist(err) {
+			log.L().Panic(err.Error()) // Config file exists but error occurs
+		}
+		ReadConfig.Wallet = ConfigDir
+		if os.IsNotExist(err) {
+			ReadConfig.SecureConnect = true
+		}
+		out, err := yaml.Marshal(&ReadConfig)
+		if err != nil {
 			log.L().Panic(err.Error())
 		}
+		if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
+			log.L().Panic(fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile))
+		}
+
 	}
 	ConfigCmd.AddCommand(configGetCmd)
 	ConfigCmd.AddCommand(configSetCmd)

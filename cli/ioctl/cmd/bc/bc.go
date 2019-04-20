@@ -26,18 +26,20 @@ var BCCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 }
 
+var insecure bool
+
 func init() {
 	BCCmd.AddCommand(bcBlockCmd)
 	BCCmd.AddCommand(bcInfoCmd)
 	BCCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
-	BCCmd.PersistentFlags().BoolVar(&config.IsInsecure, "insecure",
-		false, "connect endpoint with insecure option")
+	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+		"insecure connection for once")
 }
 
 // GetChainMeta gets block chain metadata
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.IsInsecure)
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, err
 	}

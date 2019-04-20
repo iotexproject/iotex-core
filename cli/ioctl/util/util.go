@@ -30,12 +30,12 @@ const (
 )
 
 // ConnectToEndpoint starts a new connection
-func ConnectToEndpoint(isInsecure bool) (*grpc.ClientConn, error) {
+func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 	endpoint := config.ReadConfig.Endpoint
 	if endpoint == "" {
 		return nil, fmt.Errorf(`use "ioctl config set endpoint" to config endpoint first`)
 	}
-	if isInsecure {
+	if !secure {
 		return grpc.Dial(endpoint, grpc.WithInsecure())
 	}
 	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))

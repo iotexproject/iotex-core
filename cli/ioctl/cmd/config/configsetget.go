@@ -62,6 +62,11 @@ var configSetCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	configSetCmd.Flags().BoolVar(&Insecure, "insecure", false,
+		"set insecure connection as default")
+}
+
 // Get gets config variable
 func Get(arg string) (string, error) {
 	switch arg {
@@ -71,10 +76,10 @@ func Get(arg string) (string, error) {
 		if ReadConfig.Endpoint == "" {
 			return "", ErrEmptyEndpoint
 		}
-		return ReadConfig.Endpoint, nil
+		return fmt.Sprint(ReadConfig.Endpoint, "    secure connect(TLS):",
+			ReadConfig.SecureConnect), nil
 	case "wallet":
 		return ReadConfig.Wallet, nil
-
 	}
 }
 
@@ -85,9 +90,9 @@ func set(args []string) (string, error) {
 		return "", ErrConfigNotMatch
 	case "endpoint":
 		ReadConfig.Endpoint = args[1]
+		ReadConfig.SecureConnect = !Insecure
 	case "wallet":
 		ReadConfig.Wallet = args[1]
-
 	}
 	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {
