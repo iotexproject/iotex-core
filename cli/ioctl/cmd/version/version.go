@@ -35,8 +35,6 @@ var VersionCmd = &cobra.Command{
 	},
 }
 
-var insecure bool
-
 func init() {
 	VersionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")

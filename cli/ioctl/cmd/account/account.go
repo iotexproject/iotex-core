@@ -41,8 +41,6 @@ var AccountCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 }
 
-var insecure bool
-
 func init() {
 	AccountCmd.AddCommand(accountBalanceCmd)
 	AccountCmd.AddCommand(accountCreateCmd)

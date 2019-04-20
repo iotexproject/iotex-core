@@ -45,8 +45,6 @@ var ActionCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 }
 
-var insecure bool
-
 func init() {
 	ActionCmd.AddCommand(actionHashCmd)
 	ActionCmd.AddCommand(actionTransferCmd)
