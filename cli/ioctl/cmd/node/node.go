@@ -18,8 +18,6 @@ var NodeCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 }
 
-var insecure bool
-
 func init() {
 	NodeCmd.AddCommand(nodeDelegateCmd)
 	NodeCmd.AddCommand(nodeRewardCmd)
