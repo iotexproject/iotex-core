@@ -84,7 +84,7 @@ func getBlock(args []string) (string, error) {
 
 // GetBlockMetaByHeight gets block metadata by height
 func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.IsInsecure)
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 
 // GetBlockMetaByHash gets block metadata by hash
 func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.IsInsecure)
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, err
 	}

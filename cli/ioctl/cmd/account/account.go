@@ -41,6 +41,8 @@ var AccountCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 }
 
+var insecure bool
+
 func init() {
 	AccountCmd.AddCommand(accountBalanceCmd)
 	AccountCmd.AddCommand(accountCreateCmd)
@@ -54,8 +56,8 @@ func init() {
 	AccountCmd.AddCommand(accountUpdateCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
-	AccountCmd.PersistentFlags().BoolVar(&config.IsInsecure, "insecure",
-		false, "connect endpoint with insecure option")
+	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+		"insecure connection for once")
 }
 
 // KsAccountToPrivateKey generates our PrivateKey interface from Keystore account
@@ -82,7 +84,7 @@ func KsAccountToPrivateKey(signer, password string) (keypair.PrivateKey, error) 
 
 // GetAccountMeta gets account metadata
 func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.IsInsecure)
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, err
 	}

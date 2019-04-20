@@ -69,7 +69,7 @@ func delegates() (string, error) {
 		}
 		epochNum = chainMeta.Epoch.Num
 	}
-	conn, err := util.ConnectToEndpoint(config.IsInsecure)
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +126,7 @@ func nextDelegates() (string, error) {
 		return "", err
 	}
 	epochNum = chainMeta.Epoch.Num + 1
-	conn, err := util.ConnectToEndpoint(config.IsInsecure)
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", err
 	}
