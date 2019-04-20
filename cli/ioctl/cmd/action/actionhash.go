@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -74,7 +75,7 @@ func getActionByHash(args []string) (string, error) {
 		return "", fmt.Errorf("no action info returned")
 	}
 	action := response.ActionInfo[0]
-	output, err := printActionProto(action.Action)
+	output, err := printAction(action)
 	if err != nil {
 		return "", err
 	}
@@ -93,6 +94,22 @@ func getActionByHash(args []string) (string, error) {
 	}
 	return "\n#This action has been written on blockchain\n" +
 		printReceiptProto(responseReceipt.ReceiptInfo.Receipt), nil
+}
+
+func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
+	output, err := printActionProto(actionInfo.Action)
+	if err != nil {
+		return "", err
+	}
+	ts, err := ptypes.Timestamp(actionInfo.Timestamp)
+	if err != nil {
+		output += fmt.Sprintf("timeStamp: %s\n", err.Error())
+	} else {
+		output += fmt.Sprintf("timeStamp: %d\n", ts.Unix())
+	}
+	output += fmt.Sprintf("actHash: %s\n", actionInfo.ActHash) +
+		fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
+	return output, nil
 }
 
 func printActionProto(action *iotextypes.Action) (string, error) {
