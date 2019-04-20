@@ -26,8 +26,6 @@ var BCCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 }
 
-var insecure bool
-
 func init() {
 	BCCmd.AddCommand(bcBlockCmd)
 	BCCmd.AddCommand(bcInfoCmd)
