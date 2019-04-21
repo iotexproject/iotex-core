@@ -140,7 +140,7 @@ var (
 		{
 			11,
 			5,
-			4,
+			5,
 		},
 	}
 
@@ -283,7 +283,7 @@ var (
 			1,
 			"lifeLongDelegates",
 			4,
-			15,
+			16,
 			5,
 			iotextypes.EpochData{
 				Num:                     1,
@@ -296,8 +296,8 @@ var (
 			5,
 			"governanceChainCommittee",
 			4,
-			15,
-			15,
+			16,
+			16,
 			iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
