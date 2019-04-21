@@ -101,14 +101,15 @@ func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ts, err := ptypes.Timestamp(actionInfo.Timestamp)
-	if err != nil {
-		output += fmt.Sprintf("timeStamp: %s\n", err.Error())
-	} else {
+	if actionInfo.Timestamp != nil {
+		ts, err := ptypes.Timestamp(actionInfo.Timestamp)
+		if err != nil {
+			return "", err
+		}
 		output += fmt.Sprintf("timeStamp: %d\n", ts.Unix())
+		output += fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
 	}
-	output += fmt.Sprintf("actHash: %s\n", actionInfo.ActHash) +
-		fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
+	output += fmt.Sprintf("actHash: %s\n", actionInfo.ActHash)
 	return output, nil
 }
 
