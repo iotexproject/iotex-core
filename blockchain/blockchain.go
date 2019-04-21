@@ -1292,7 +1292,7 @@ func (bc *blockchain) createMemorialTransfer(recipient string, gasLimit uint64) 
 		0,
 		big.NewInt(0),
 		recipient,
-		[]byte("TBD"),
+		[]byte("rcqgjsxfdxzszztpydzlzclplz://U2FsdGVkX19E4w2QggPJ/6N38eCU4YTvONyK8A5jZ1XIoQDC2lZBHGe9dDFkN6ToJqaAxcPx6JEzOv/yiVAl6a+Pym+I02BvleW2mcKuMV6tWHRHTnJuu981x2XP2oW9"),
 		gasLimit,
 		big.NewInt(0),
 	)
