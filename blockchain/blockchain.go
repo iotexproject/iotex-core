@@ -1143,6 +1143,9 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 	if raCtx.BlockHeight == 1 {
 		tsf, err := bc.createMemorialTransfer(raCtx.Producer.String(), raCtx.ActionGasLimit)
+		if err != nil {
+			return hash.ZeroHash256, nil, nil, err
+		}
 		receipt, err = ws.RunAction(raCtx, tsf)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
