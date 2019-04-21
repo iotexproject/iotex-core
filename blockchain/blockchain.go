@@ -1141,6 +1141,21 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		executedActions = append(executedActions, grant)
 	}
 
+	if raCtx.BlockHeight == 1 {
+		tsf, err := bc.createMemorialTransfer(raCtx.Producer.String(), raCtx.ActionGasLimit)
+		if err != nil {
+			return hash.ZeroHash256, nil, nil, err
+		}
+		receipt, err = ws.RunAction(raCtx, tsf)
+		if err != nil {
+			return hash.ZeroHash256, nil, nil, err
+		}
+		if receipt != nil {
+			receipts = append(receipts, receipt)
+		}
+		executedActions = append(executedActions, tsf)
+	}
+
 	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - raCtx.GasLimit))
 
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
@@ -1270,6 +1285,28 @@ func (bc *blockchain) createGrantRewardAction(rewardType int, height uint64) (ac
 		SetGasPrice(big.NewInt(0)).
 		SetGasLimit(grant.GasLimit()).
 		SetAction(&grant).
+		Build()
+	sk := bc.config.ProducerPrivateKey()
+	return action.Sign(envelope, sk)
+}
+
+func (bc *blockchain) createMemorialTransfer(recipient string, gasLimit uint64) (action.SealedEnvelope, error) {
+	tsf, err := action.NewTransfer(
+		0,
+		big.NewInt(0),
+		recipient,
+		[]byte("rcqgjsxfdxzszztpydzlzclplz://U2FsdGVkX19E4w2QggPJ/6N38eCU4YTvONyK8A5jZ1XIoQDC2lZBHGe9dDFkN6ToJqaAxcPx6JEzOv/yiVAl6a+Pym+I02BvleW2mcKuMV6tWHRHTnJuu981x2XP2oW9"),
+		gasLimit,
+		big.NewInt(0),
+	)
+	if err != nil {
+		return action.SealedEnvelope{}, err
+	}
+	eb := action.EnvelopeBuilder{}
+	envelope := eb.SetNonce(tsf.Nonce()).
+		SetGasPrice(tsf.GasPrice()).
+		SetGasLimit(tsf.GasLimit()).
+		SetAction(tsf).
 		Build()
 	sk := bc.config.ProducerPrivateKey()
 	return action.Sign(envelope, sk)
