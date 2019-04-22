@@ -87,3 +87,12 @@ func GetAliasMap() map[string]string {
 	}
 	return aliases
 }
+
+// Remove the address corresponding to alias.
+func Remove(in string) error {
+	if _, ok := config.ReadConfig.Aliases[in]; ok {
+		delete(config.ReadConfig.Aliases, in)
+		return nil
+	}
+	return fmt.Errorf("cannot find address from " + in)
+}

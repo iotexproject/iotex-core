@@ -70,6 +70,7 @@ func accountDelete(args []string) (string, error) {
 			if err := ks.Delete(v, password); err != nil {
 				return "", err
 			}
+			alias.Remove(args[0])
 			return fmt.Sprintf("Account #%s has been deleted.", addr), nil
 		}
 	}
