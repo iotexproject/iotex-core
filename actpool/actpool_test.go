@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/test/identityset"
-
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -27,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -157,9 +156,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	tsf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	vote4, err := testutil.SignedVote(addr1, priKey1, uint64(4), uint64(100000), big.NewInt(0))
-	require.NoError(err)
-	tsf5, err := testutil.SignedTransfer(addr1, priKey1, uint64(5), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
+	tsf5, err := testutil.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	tsf6, err := testutil.SignedTransfer(addr2, priKey2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -173,8 +170,6 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.Add(tsf2)
 	require.NoError(err)
 	err = ap.Add(tsf3)
-	require.NoError(err)
-	err = ap.Add(vote4)
 	require.NoError(err)
 	err = ap.Add(tsf5)
 	require.Equal(action.ErrBalance, errors.Cause(err))
@@ -212,8 +207,6 @@ func TestActPool_AddActs(t *testing.T) {
 	// Case II: Action already exists in pool
 	err = ap.Add(tsf1)
 	require.Error(err)
-	err = ap.Add(vote4)
-	require.Error(err)
 	// Case III: Pool space/gas space is full
 	mockBC := mock_blockchain.NewMockBlockchain(ctrl)
 	Ap2, err := NewActPool(mockBC, apConfig, EnableExperimentalActions())
@@ -227,8 +220,6 @@ func TestActPool_AddActs(t *testing.T) {
 		ap2.allActions[nTsf.Hash()] = nTsf
 	}
 	err = ap2.Add(tsf1)
-	require.Equal(action.ErrActPool, errors.Cause(err))
-	err = ap2.Add(vote4)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 
 	Ap3, err := NewActPool(mockBC, apConfig)
@@ -275,12 +266,12 @@ func TestActPool_AddActs(t *testing.T) {
 	)
 	require.NoError(err)
 
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(5).
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(5).
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(genesis.Default.ActionGasLimit + 1).
 		SetAction(creationExecution).Build()
-	selp, err = action.Sign(elp, priKey1)
+	selp, err := action.Sign(elp, priKey1)
 	require.NoError(err)
 
 	err = ap.Add(selp)
