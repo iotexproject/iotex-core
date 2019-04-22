@@ -237,7 +237,7 @@ func (ctx *rollDPoSCtx) Prepare() (
 		return
 	}
 	if isDelegate = ctx.round.IsDelegate(ctx.encodedAddr); !isDelegate {
-		ctx.logger().Info("current node is not a delegate")
+		ctx.logger().Info("current node is not an active consensus delegate")
 		delay = ctx.round.NextRoundStartTime().Sub(ctx.clock.Now())
 		return
 	}
@@ -245,7 +245,7 @@ func (ctx *rollDPoSCtx) Prepare() (
 		ctx.logger().Info("current node is a proposer")
 		proposal, err = ctx.mintBlock()
 	} else {
-		ctx.logger().Info("current node is a delegate")
+		ctx.logger().Info("current node is an active consensus delegate")
 		locked = ctx.round.IsLocked()
 	}
 	delay = ctx.round.StartTime().Sub(ctx.clock.Now())

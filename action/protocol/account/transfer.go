@@ -18,6 +18,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -29,9 +30,6 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
-		return nil, nil
-	}
-	if tsf.IsContract() {
 		return nil, nil
 	}
 	// check sender
@@ -61,6 +59,26 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 	if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
 		return nil, err
+	}
+	recipientAddr, err := address.FromString(tsf.Recipient())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
+	}
+	recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
+	if err == nil && recipientAcct.IsContract() {
+		// update sender Nonce
+		accountutil.SetNonce(tsf, sender)
+		// put updated sender's state to trie
+		if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
+			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
+		}
+		return &action.Receipt{
+			Status:          action.FailureReceiptStatus,
+			BlockHeight:     raCtx.BlockHeight,
+			ActionHash:      raCtx.ActionHash,
+			GasConsumed:     raCtx.IntrinsicGas,
+			ContractAddress: p.addr.String(),
+		}, nil
 	}
 
 	if tsf.Amount().Cmp(sender.Balance) == 1 {
@@ -154,6 +172,10 @@ func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error 
 	// Reject transfer of negative amount
 	if tsf.Amount().Sign() < 0 {
 		return errors.Wrap(action.ErrBalance, "negative value")
+	}
+	// Reject transfer of negative gas price
+	if tsf.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
 	// check if recipient's address is valid
 	if _, err := address.FromString(tsf.Recipient()); err != nil {

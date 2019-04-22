@@ -35,6 +35,13 @@ var VersionCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	VersionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
+		config.ReadConfig.Endpoint, "set endpoint for once")
+	VersionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+		"insecure connection for once")
+}
+
 func version() (string, error) {
 	versionInfo := &iotextypes.ServerMeta{
 		PackageVersion:  ver.PackageVersion,
@@ -44,7 +51,7 @@ func version() (string, error) {
 		BuildTime:       ver.BuildTime,
 	}
 	fmt.Printf("Client:\n%+v\n\n", versionInfo)
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", err
 	}

@@ -51,15 +51,19 @@ func init() {
 	ActionCmd.AddCommand(actionDeployCmd)
 	ActionCmd.AddCommand(actionInvokeCmd)
 	ActionCmd.AddCommand(actionClaimCmd)
+	ActionCmd.AddCommand(actionDepositCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
-	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionClaimCmd)
+	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+		"insecure connection for once")
+	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionClaimCmd,
+		actionDepositCmd)
 }
 
 func setActionFlags(cmds ...*cobra.Command) {
 	for _, cmd := range cmds {
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
-		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "",
+		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "1",
 			"set gas price (unit: 10^(-6)Iotx)")
 		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
 		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
@@ -74,7 +78,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 
 // GetGasPrice gets the suggest gas price
 func GetGasPrice() (*big.Int, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +128,7 @@ func sendAction(elp action.Envelope) (string, error) {
 	fmt.Println()
 
 	request := &iotexapi.SendActionRequest{Action: selp}
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", err
 	}

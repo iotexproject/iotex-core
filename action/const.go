@@ -25,6 +25,8 @@ var (
 	ErrNonce = errors.New("invalid nonce")
 	// ErrBalance indicates the error of balance
 	ErrBalance = errors.New("invalid balance")
+	// ErrGasPrice indicates the error of gas price
+	ErrGasPrice = errors.New("invalid gas price")
 	// ErrVotee indicates the error of votee
 	ErrVotee = errors.New("votee is not a candidate")
 	// ErrHash indicates the error of action's hash

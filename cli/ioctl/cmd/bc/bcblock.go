@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/action"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
@@ -64,10 +66,14 @@ func getBlock(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	ts, err := ptypes.Timestamp(blockMeta.Timestamp)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("Transactions: %d\n", blockMeta.NumActions) +
 		fmt.Sprintf("Height: %d\n", blockMeta.Height) +
 		fmt.Sprintf("Total Amount: %s\n", blockMeta.TransferAmount) +
-		fmt.Sprintf("Timestamp: %d\n", blockMeta.Timestamp) +
+		fmt.Sprintf("Timestamp: %d\n", ts.Unix()) +
 		fmt.Sprintf("Producer Address: %s %s\n", blockMeta.ProducerAddress,
 			action.Match(blockMeta.ProducerAddress, "address")) +
 		fmt.Sprintf("Transactions Root: %s\n", blockMeta.TxRoot) +
@@ -78,7 +84,7 @@ func getBlock(args []string) (string, error) {
 
 // GetBlockMetaByHeight gets block metadata by height
 func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +115,7 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 
 // GetBlockMetaByHash gets block metadata by hash
 func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint()
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, err
 	}

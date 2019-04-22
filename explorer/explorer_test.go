@@ -285,7 +285,7 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(int64(0), stats.Transfers)
 	require.Equal(int64(0), stats.Votes)
 	require.Equal(int64(0), stats.Executions)
-	require.Equal(int64(11), stats.Aps)
+	require.Equal(int64(12), stats.Aps)
 
 	// success
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].String())
@@ -653,7 +653,7 @@ func TestServiceGetPeers(t *testing.T) {
 
 	response, err := svc.GetPeers()
 	require.Nil(err)
-	require.Equal("{ []}", response.Self.Address)
+	require.Equal("{: []}", response.Self.Address)
 	require.Len(response.Peers, 3)
 }
 

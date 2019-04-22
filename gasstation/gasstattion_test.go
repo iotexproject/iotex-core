@@ -85,8 +85,13 @@ func TestSuggestGasPrice(t *testing.T) {
 			testutil.TimestampNow(),
 		)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(blk.Actions))
-		require.Equal(t, 1, len(blk.Receipts))
+		if i == 0 {
+			require.Equal(t, 3, len(blk.Actions))
+			require.Equal(t, 2, len(blk.Receipts))
+		} else {
+			require.Equal(t, 2, len(blk.Actions))
+			require.Equal(t, 1, len(blk.Receipts))
+		}
 		var gasConsumed uint64
 		for _, receipt := range blk.Receipts {
 			gasConsumed += receipt.GasConsumed
