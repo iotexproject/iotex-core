@@ -150,34 +150,34 @@ func TestActPool_AddActs(t *testing.T) {
 	ap.AddActionValidators(account.NewProtocol(), vote.NewProtocol(bc),
 		execution.NewProtocol(bc))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
-	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
+	tf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
+	tf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
+	tf3, err := testutil.SignedTransfer(addr1, priKey1, uint64(3), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf5, err := testutil.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
+	tf5, err := testutil.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf6, err := testutil.SignedTransfer(addr2, priKey2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
+	tf6, err := testutil.SignedTransfer(addr2, priKey2, uint64(1), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf7, err := testutil.SignedTransfer(addr2, priKey2, uint64(3), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+	tf7, err := testutil.SignedTransfer(addr2, priKey2, uint64(3), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf8, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
+	tf8, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	err = ap.Add(tsf1)
+	err = ap.Add(tf1)
 	require.NoError(err)
-	err = ap.Add(tsf2)
+	err = ap.Add(tf2)
 	require.NoError(err)
-	err = ap.Add(tsf3)
+	err = ap.Add(tf3)
 	require.NoError(err)
-	err = ap.Add(tsf5)
+	err = ap.Add(tf5)
 	require.Equal(action.ErrBalance, errors.Cause(err))
-	err = ap.Add(tsf6)
+	err = ap.Add(tf6)
 	require.NoError(err)
-	err = ap.Add(tsf7)
+	err = ap.Add(tf7)
 	require.NoError(err)
-	err = ap.Add(tsf8)
+	err = ap.Add(tf8)
 	require.NoError(err)
 
 	pBalance1, _ := ap.getPendingBalance(addr1)
@@ -205,7 +205,7 @@ func TestActPool_AddActs(t *testing.T) {
 	err = ap.Add(bannedTsf)
 	require.True(strings.Contains(err.Error(), "action source address is blacklisted"))
 	// Case II: Action already exists in pool
-	err = ap.Add(tsf1)
+	err = ap.Add(tf1)
 	require.Error(err)
 	// Case III: Pool space/gas space is full
 	mockBC := mock_blockchain.NewMockBlockchain(ctrl)
@@ -219,7 +219,7 @@ func TestActPool_AddActs(t *testing.T) {
 
 		ap2.allActions[nTsf.Hash()] = nTsf
 	}
-	err = ap2.Add(tsf1)
+	err = ap2.Add(tf1)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 
 	Ap3, err := NewActPool(mockBC, apConfig)
