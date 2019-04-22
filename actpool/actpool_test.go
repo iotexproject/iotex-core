@@ -183,7 +183,7 @@ func TestActPool_AddActs(t *testing.T) {
 	pBalance1, _ := ap.getPendingBalance(addr1)
 	require.Equal(uint64(40), pBalance1.Uint64())
 	pNonce1, _ := ap.getPendingNonce(addr1)
-	require.Equal(uint64(5), pNonce1)
+	require.Equal(uint64(4), pNonce1)
 
 	pBalance2, _ := ap.getPendingBalance(addr2)
 	require.Equal(uint64(5), pBalance2.Uint64())
@@ -757,7 +757,7 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr4
 	ap1PNonce4, _ := ap1.getPendingNonce(addr4)
-	require.Equal(uint64(4), ap1PNonce4)
+	require.Equal(uint64(2), ap1PNonce4)
 	ap1PBalance4, _ := ap1.getPendingBalance(addr4)
 	require.Equal(big.NewInt(0).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
