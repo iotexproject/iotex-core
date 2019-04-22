@@ -9,12 +9,14 @@ package account
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
@@ -69,6 +71,16 @@ func accountDelete(args []string) (string, error) {
 			password := string(bytePassword)
 			if err := ks.Delete(v, password); err != nil {
 				return "", err
+			}
+
+			aliases := alias.GetAliasMap()
+			delete(config.ReadConfig.Aliases, aliases[addr])
+			out, err := yaml.Marshal(&config.ReadConfig)
+			if err != nil {
+				log.L().Panic(err.Error())
+			}
+			if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+				log.L().Panic(fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile))
 			}
 			return fmt.Sprintf("Account #%s has been deleted.", addr), nil
 		}
