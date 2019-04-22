@@ -762,9 +762,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.Equal(big.NewInt(0).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
 	ap1PNonce5, _ := ap1.getPendingNonce(addr5)
-	require.Equal(uint64(4), ap1PNonce5)
+	require.Equal(uint64(1), ap1PNonce5)
 	ap1PBalance5, _ := ap1.getPendingBalance(addr5)
-	require.Equal(big.NewInt(10).Uint64(), ap1PBalance5.Uint64())
+	require.Equal(big.NewInt(20).Uint64(), ap1PBalance5.Uint64())
 	// Let ap1 be BP's actpool
 	pickedActs = ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
@@ -785,14 +785,14 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1
 	// Addr4
 	ap1PNonce4, _ = ap1.getPendingNonce(addr4)
-	require.Equal(uint64(4), ap1PNonce4)
+	require.Equal(uint64(2), ap1PNonce4)
 	ap1PBalance4, _ = ap1.getPendingBalance(addr4)
-	require.Equal(big.NewInt(10).Uint64(), ap1PBalance4.Uint64())
+	require.Equal(big.NewInt(0).Uint64(), ap1PBalance4.Uint64())
 	// Addr5
 	ap1PNonce5, _ = ap1.getPendingNonce(addr5)
-	require.Equal(uint64(4), ap1PNonce5)
+	require.Equal(uint64(1), ap1PNonce5)
 	ap1PBalance5, _ = ap1.getPendingBalance(addr5)
-	require.Equal(big.NewInt(20).Uint64(), ap1PBalance5.Uint64())
+	require.Equal(big.NewInt(30).Uint64(), ap1PBalance5.Uint64())
 }
 
 func TestActPool_removeInvalidActs(t *testing.T) {
