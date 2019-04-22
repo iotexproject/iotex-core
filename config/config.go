@@ -156,7 +156,7 @@ var (
 			TpsWindow:  10,
 			GasStation: GasStation{
 				SuggestBlockWindow: 20,
-				DefaultGas:         1,
+				DefaultGas:         uint64(unit.Qev),
 				Percentile:         60,
 			},
 			MaxTransferPayloadBytes: 1024,
