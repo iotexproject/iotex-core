@@ -62,6 +62,9 @@ func (p *Protocol) Deposit(
 	amount *big.Int,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if err := p.assertAmount(amount); err != nil {
+		return err
+	}
 	if err := p.assertEnoughBalance(raCtx, sm, amount); err != nil {
 		return err
 	}
@@ -71,7 +74,9 @@ func (p *Protocol) Deposit(
 		return err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, amount)
-	accountutil.StoreAccount(sm, raCtx.Caller.String(), acc)
+	if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), acc); err != nil {
+		return err
+	}
 	// Add balance to fund
 	f := fund{}
 	if err := p.state(sm, fundKey, &f); err != nil {

@@ -50,7 +50,7 @@
         "failed": true,
         "expectedBalances": [{
             "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-            "rawBalance": "9999999999994778137"
+            "rawBalance": "9999999999994768135"
         }],
         "comment": "calling infinite(), this will consume all provided gas, and exit with failure"
     }]

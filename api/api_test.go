@@ -140,7 +140,7 @@ var (
 		{
 			11,
 			5,
-			4,
+			5,
 		},
 	}
 
@@ -283,7 +283,7 @@ var (
 			1,
 			"lifeLongDelegates",
 			4,
-			15,
+			16,
 			5,
 			iotextypes.EpochData{
 				Num:                     1,
@@ -296,8 +296,8 @@ var (
 			5,
 			"governanceChainCommittee",
 			4,
-			15,
-			15,
+			16,
+			16,
 			iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
@@ -905,6 +905,40 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, test.balance, val)
 	}
+}
+
+func TestServer_TotalBalance(t *testing.T) {
+	cfg := newConfig()
+
+	svr, err := createServer(cfg, false)
+	require.NoError(t, err)
+
+	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		ProtocolID: []byte(rewarding.ProtocolID),
+		MethodName: []byte("TotalBalance"),
+		Arguments:  nil,
+	})
+	require.NoError(t, err)
+	val, ok := big.NewInt(0).SetString(string(out.Data), 10)
+	require.True(t, ok)
+	assert.Equal(t, unit.ConvertIotxToRau(1200000000), val)
+}
+
+func TestServer_AvailableBalance(t *testing.T) {
+	cfg := newConfig()
+
+	svr, err := createServer(cfg, false)
+	require.NoError(t, err)
+
+	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+		ProtocolID: []byte(rewarding.ProtocolID),
+		MethodName: []byte("AvailableBalance"),
+		Arguments:  nil,
+	})
+	require.NoError(t, err)
+	val, ok := big.NewInt(0).SetString(string(out.Data), 10)
+	require.True(t, ok)
+	assert.Equal(t, unit.ConvertIotxToRau(1199999936), val)
 }
 
 func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
