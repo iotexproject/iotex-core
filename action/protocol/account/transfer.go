@@ -66,6 +66,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 	recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
 	if err == nil && recipientAcct.IsContract() {
+		// update sender Nonce
+		accountutil.SetNonce(tsf, sender)
+		// put updated sender's state to trie
+		if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
+			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
+		}
 		return &action.Receipt{
 			Status:          action.FailureReceiptStatus,
 			BlockHeight:     raCtx.BlockHeight,
@@ -166,6 +172,10 @@ func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error 
 	// Reject transfer of negative amount
 	if tsf.Amount().Sign() < 0 {
 		return errors.Wrap(action.ErrBalance, "negative value")
+	}
+	// Reject transfer of negative gas price
+	if tsf.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
 	// check if recipient's address is valid
 	if _, err := address.FromString(tsf.Recipient()); err != nil {

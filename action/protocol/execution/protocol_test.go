@@ -716,4 +716,9 @@ func TestProtocol_Validate(t *testing.T) {
 	err = protocol.Validate(context.Background(), ex)
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating contract's address"))
+	// Case V: Negative gas price
+	ex, err = action.NewExecution("2", uint64(1), big.NewInt(100), uint64(0), big.NewInt(-1), []byte{})
+	require.NoError(err)
+	err = protocol.Validate(context.Background(), ex)
+	require.Equal(action.ErrGasPrice, errors.Cause(err))
 }
