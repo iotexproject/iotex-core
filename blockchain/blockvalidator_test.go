@@ -272,15 +272,6 @@ func TestWrongAddress(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating recipient's address"))
 
-	invalidVotee := "ioaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	vote, err := action.NewVote(1, invalidVotee, uint64(100000), big.NewInt(10))
-	require.NoError(t, err)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote).SetGasLimit(100000).
-		SetGasPrice(big.NewInt(10)).
-		SetNonce(1).Build()
-	selp, err = action.Sign(elp, ta.Keyinfo["producer"].PriKey)
-	require.NoError(t, err)
 	blk2, err := block.NewTestingBuilder().
 		SetHeight(3).
 		SetPrevBlockHash(hash.ZeroHash256).

@@ -253,19 +253,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	err = ap.Add(replaceTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
-	replaceVote, err := action.NewVote(4, "", uint64(100000), big.NewInt(0))
-	require.NoError(err)
 
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(4).
-		SetAction(replaceVote).
-		SetGasLimit(100000).Build()
-	selp, err := action.Sign(elp, priKey1)
-
-	require.NoError(err)
-
-	err = ap.Add(selp)
-	require.Equal(action.ErrNonce, errors.Cause(err))
 	// Case V: Nonce is too large
 	outOfBoundsTsf, err := testutil.SignedTransfer(addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -766,43 +754,13 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	tsf21, err := testutil.SignedTransfer(addr5, priKey4, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	vote22, err := testutil.SignedVote(addr4, priKey4, uint64(2), uint64(20000), big.NewInt(0))
-	require.NoError(err)
-	vote23, err := action.NewVote(3, "", uint64(20000), big.NewInt(0))
-	require.NoError(err)
 
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(3).
-		SetGasLimit(20000).
-		SetAction(vote23).Build()
-	selp23, err := action.Sign(elp, priKey4)
-	require.NoError(err)
-
-	vote24, err := testutil.SignedVote(addr5, priKey5, uint64(1), uint64(20000), big.NewInt(0))
-	require.NoError(err)
 	tsf25, err := testutil.SignedTransfer(addr4, priKey5, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
-	require.NoError(err)
-	vote26, err := action.NewVote(3, "", uint64(20000), big.NewInt(0))
-	require.NoError(err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(3).
-		SetGasLimit(20000).
-		SetAction(vote26).Build()
-	selp26, err := action.Sign(elp, priKey5)
 	require.NoError(err)
 
 	err = ap1.Add(tsf21)
 	require.NoError(err)
-	err = ap1.Add(vote22)
-	require.NoError(err)
-	err = ap1.Add(selp23)
-	require.NoError(err)
-	err = ap1.Add(vote24)
-	require.NoError(err)
 	err = ap1.Add(tsf25)
-	require.NoError(err)
-	err = ap1.Add(selp26)
 	require.NoError(err)
 	// Check confirmed nonce, pending nonce, and pending balance after adding actions above for account4 and account5
 	// ap1
