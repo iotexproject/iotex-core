@@ -1339,9 +1339,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	if err := registry.Register(poll.ProtocolID, p); err != nil {
 		return nil, nil, err
 	}
-	sf.AddActionHandlers(acc, v, evm, r)
+	sf.AddActionHandlers(acc, evm, r)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(acc, v, evm, r)
+	bc.Validator().AddActionValidators(acc, evm, r)
 
 	return bc, &registry, nil
 }

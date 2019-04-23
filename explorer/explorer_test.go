@@ -101,8 +101,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-
-	execution1, err := testutil.SignedExecution(addr4, priKey3, 5, big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	gasp := big.NewInt(testutil.TestGasPriceInt64)
+	execution1, err := testutil.SignedExecution(addr4, priKey3, 5, big.NewInt(1), testutil.TestGasLimit, gasp, []byte{1})
 	if err != nil {
 		return err
 	}
@@ -137,12 +137,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-
-	execution1, err = testutil.SignedExecution(addr4, priKey3, 6, big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	execution1, err = testutil.SignedExecution(addr4, priKey3, 6, big.NewInt(2), testutil.TestGasLimit, gasp, []byte{1})
 	if err != nil {
 		return err
 	}
-	execution2, err := testutil.SignedExecution(addr4, priKey1, 1, big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	execution2, err := testutil.SignedExecution(addr4, priKey1, 1, big.NewInt(1), testutil.TestGasLimit, gasp, []byte{1})
 	if err != nil {
 		return err
 	}
