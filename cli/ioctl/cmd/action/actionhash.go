@@ -55,6 +55,7 @@ func getActionByHash(args []string) (string, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 
+	// search action on blockchain
 	requestGetActionByHash := &iotexapi.GetActionByHashRequest{
 		ActionHash:   hash,
 		CheckPending: false,
@@ -66,6 +67,7 @@ func getActionByHash(args []string) (string, error) {
 	}
 	response, err := cli.GetActions(ctx, &requestGetAction)
 	if err != nil {
+		// search action in action pool
 		requestGetActionByHash.CheckPending = true
 		response, err = cli.GetActions(ctx, &requestGetAction)
 		if err != nil {
