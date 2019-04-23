@@ -369,7 +369,7 @@ func TestBlockEpochReward(t *testing.T) {
 				if unClaimedBalances[rewardAddrStr].Cmp(exptUnclaimed[rewardAddrStr]) < 0 {
 					log.L().Info("Temporary unmatched balance ...")
 					testTolerance++
-					require.True(t, testTolerance < 3, "Too much unmatched balance")
+					require.True(t, testTolerance < 7, "Too much unmatched balance")
 				} else {
 					testTolerance = 0
 					require.Equal(t, exptUnclaimed[rewardAddrStr].String(), unClaimedBalances[rewardAddrStr].String())
