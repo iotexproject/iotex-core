@@ -101,17 +101,14 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(addr3, priKey3, 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	execution1, err := testutil.SignedExecution(addr4, priKey3, 6, big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+
+	execution1, err := testutil.SignedExecution(addr4, priKey3, 5, big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, vote1, execution1}
+	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, execution1}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
@@ -140,26 +137,19 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	vote1, err = testutil.SignedVote(addr3, priKey3, 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+
+	execution1, err = testutil.SignedExecution(addr4, priKey3, 6, big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
-	vote2, err := testutil.SignedVote(addr1, priKey1, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	execution1, err = testutil.SignedExecution(addr4, priKey3, 8, big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	if err != nil {
-		return err
-	}
-	execution2, err := testutil.SignedExecution(addr4, priKey1, 2, big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	execution2, err := testutil.SignedExecution(addr4, priKey1, 1, big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr3] = []action.SealedEnvelope{vote1, execution1}
-	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
+	actionMap[addr3] = []action.SealedEnvelope{execution1}
+	actionMap[addr1] = []action.SealedEnvelope{execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
@@ -177,10 +167,7 @@ func addActsToActPool(ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
+
 	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
@@ -190,9 +177,6 @@ func addActsToActPool(ap actpool.ActPool) error {
 		return err
 	}
 	if err := ap.Add(tsf1); err != nil {
-		return err
-	}
-	if err := ap.Add(vote1); err != nil {
 		return err
 	}
 	if err := ap.Add(tsf2); err != nil {
@@ -272,7 +256,6 @@ func TestExplorerApi(t *testing.T) {
 	require.Equal(blks[0].Height, blk.Height)
 	require.Equal(blks[0].Timestamp, blk.Timestamp)
 	require.Equal(blks[0].Size, blk.Size)
-	require.Equal(int64(0), blk.Votes)
 	require.Equal(int64(0), blk.Executions)
 	require.Equal(int64(0), blk.Transfers)
 
@@ -283,9 +266,8 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(err)
 	require.Equal(int64(4), stats.Height)
 	require.Equal(int64(0), stats.Transfers)
-	require.Equal(int64(0), stats.Votes)
 	require.Equal(int64(0), stats.Executions)
-	require.Equal(int64(12), stats.Aps)
+	require.Equal(int64(9), stats.Aps)
 
 	// success
 	balance, err := svc.GetAddressBalance(ta.Addrinfo["charlie"].String())
@@ -300,8 +282,8 @@ func TestExplorerApi(t *testing.T) {
 	addressDetails, err := svc.GetAddressDetails(ta.Addrinfo["charlie"].String())
 	require.Nil(err)
 	require.Equal("3", addressDetails.TotalBalance)
-	require.Equal(int64(8), addressDetails.Nonce)
-	require.Equal(int64(9), addressDetails.PendingNonce)
+	require.Equal(int64(6), addressDetails.Nonce)
+	require.Equal(int64(7), addressDetails.PendingNonce)
 	require.Equal(ta.Addrinfo["charlie"].String(), addressDetails.Address)
 
 	// error
@@ -320,14 +302,12 @@ func TestExplorerApi(t *testing.T) {
 	require.NoError(err)
 	require.Nil(res.Block)
 	require.Nil(res.Transfer)
-	require.Nil(res.Vote)
 	require.Nil(res.Address)
 	require.Nil(res.Execution)
 
 	res, err = svc.GetBlockOrActionByHash(blks[0].ID)
 	require.NoError(err)
 	require.Nil(res.Transfer)
-	require.Nil(res.Vote)
 	require.Nil(res.Execution)
 	require.Nil(res.Address)
 	require.Equal(&blks[0], res.Block)
@@ -340,7 +320,6 @@ func TestExplorerApi(t *testing.T) {
 	require.Nil(res.Block)
 	require.Nil(res.Transfer)
 	require.Nil(res.Execution)
-	require.Nil(res.Vote)
 	require.Equal(&addr, res.Address)
 
 	svc.gs.cfg.GasStation.DefaultGas = 1
@@ -460,42 +439,6 @@ func TestService_SendTransfer(t *testing.T) {
 	require.NotNil(response.Hash)
 	require.Nil(err)
 	gas, err := svc.EstimateGasForTransfer(r)
-	require.Nil(err)
-	require.Equal(gas, int64(10000))
-	assert.Equal(t, 1, broadcastHandlerCount)
-}
-
-func TestService_SendVote(t *testing.T) {
-	require := require.New(t)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	chain := mock_blockchain.NewMockBlockchain(ctrl)
-	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
-	broadcastHandlerCount := 0
-	svc := Service{bc: chain, dp: mDp, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
-		broadcastHandlerCount++
-		return nil
-	}}
-
-	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-
-	r := explorer.SendVoteRequest{
-		Version:     0x1,
-		Nonce:       1,
-		Voter:       ta.Addrinfo["producer"].String(),
-		Votee:       ta.Addrinfo["alfa"].String(),
-		VoterPubKey: ta.Keyinfo["producer"].PubKey.HexString(),
-		GasPrice:    big.NewInt(0).String(),
-		Signature:   "",
-	}
-
-	response, err := svc.SendVote(r)
-	require.NotNil(response.Hash)
-	require.Nil(err)
-	gas, err := svc.EstimateGasForVote()
 	require.Nil(err)
 	require.Equal(gas, int64(10000))
 	assert.Equal(t, 1, broadcastHandlerCount)
