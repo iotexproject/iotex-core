@@ -480,7 +480,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				blockchain.RegistryOption(&registry),
 			)
 			require.NoError(t, registry.Register(vote.ProtocolID, vote.NewProtocol(chain)))
-			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, cfg.Genesis.ActionGasLimit))
+			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
 

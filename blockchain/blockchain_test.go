@@ -349,8 +349,8 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(blk.Actions))
-	require.Equal(t, 2, len(blk.Receipts))
+	require.Equal(t, 2, len(blk.Actions))
+	require.Equal(t, 1, len(blk.Receipts))
 	var gasConsumed uint64
 	for _, receipt := range blk.Receipts {
 		gasConsumed += receipt.GasConsumed
@@ -486,7 +486,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.Nil(addTestingTsfBlocks(bc))
 	err = bc.Stop(ctx)
 	require.NoError(err)
-	require.Equal(23, ms.Counter())
+	require.Equal(22, ms.Counter())
 
 	// Load a blockchain from DB
 	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
