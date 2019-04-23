@@ -269,6 +269,13 @@ func TestBlockEpochReward(t *testing.T) {
 	preHeight := uint64(0)
 	preEpochNum := uint64(0)
 	preExpectHigh := uint64(0)
+
+	// The number of consecutive unmatched unclaimed balance against expectation.
+	// This tolerance is introduced because reading the real time unclaimed balance and updating
+	// the expectation with action status may not be fully consistent if the chain updates fast
+	// So the test allows a small number of consecutive unmatched balance, which will correct
+	// itself later on.
+	testTolerance := uint32(0)
 	fmt.Println("Starting test")
 
 	if err := testutil.WaitUntil(100*time.Millisecond, 120*time.Second, func() (bool, error) {
@@ -352,19 +359,21 @@ func TestBlockEpochReward(t *testing.T) {
 			for i := 0; i < numNodes; i++ {
 				rewardAddrStr := identityset.Address(i + numNodes).String()
 
-				//This to work around the rare case that a balance is deducted from unclaimed while the receipt
-				//is not received yet to update the expectation.
-				if unClaimedBalances[rewardAddrStr].Cmp(exptUnclaimed[rewardAddrStr]) < 0 {
-					log.L().Info("Claim action execution status not in sync, recalibrating...")
-					waitActionToSettle(t, rewardAddrStr, chains[0], exptUnclaimed, claimedAmount, unClaimedBalances, pendingClaimActions)
-					require.NoError(t, err)
-				}
 				fmt.Println("Server ", i, " ", rewardAddrStr,
 					" unclaimed ", unClaimedBalances[rewardAddrStr].String(), " height ", preHeight)
 				fmt.Println("Server ", i, " ", rewardAddrStr,
 					"  expected ", exptUnclaimed[rewardAddrStr].String())
 
-				require.Equal(t, exptUnclaimed[rewardAddrStr].String(), unClaimedBalances[rewardAddrStr].String())
+				//This to work around the rare case that a balance is deducted from unclaimed while the receipt
+				//is not received yet to update the expectation.
+				if unClaimedBalances[rewardAddrStr].Cmp(exptUnclaimed[rewardAddrStr]) < 0 {
+					log.L().Info("Temporary unmatched balance ...")
+					testTolerance++
+					require.True(t, testTolerance < 3, "Too much unmatched balance")
+				} else {
+					testTolerance = 0
+					require.Equal(t, exptUnclaimed[rewardAddrStr].String(), unClaimedBalances[rewardAddrStr].String())
+				}
 			}
 
 			// Perform a random claim and record the amount
@@ -532,7 +541,7 @@ func updateExpectationWithPendingClaimList(
 	return updated
 }
 
-//waitActionToSettle wait the claim action on given reward address to settle to update expection correctly
+//waitActionToSettle wait the claim action on given reward address to settle to update expectation correctly
 func waitActionToSettle(
 	t *testing.T,
 	rewardAddrStr string,
