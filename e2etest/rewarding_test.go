@@ -271,11 +271,13 @@ func TestBlockEpochReward(t *testing.T) {
 	preExpectHigh := uint64(0)
 
 	// The number of consecutive unmatched unclaimed balance against expectation.
-	// This tolerance is introduced because reading the real time unclaimed balance and updating
+	// And a tolerance is introduced because reading the real time unclaimed balance and updating
 	// the expectation with action status may not be fully consistent if the chain updates fast
 	// So the test allows a small number of consecutive unmatched balance, which will correct
 	// itself later on.
-	testTolerance := uint32(0)
+	unmatchedTests := uint32(0)
+	testTolerance := uint32(9)
+
 	fmt.Println("Starting test")
 
 	if err := testutil.WaitUntil(100*time.Millisecond, 120*time.Second, func() (bool, error) {
@@ -368,10 +370,10 @@ func TestBlockEpochReward(t *testing.T) {
 				//is not received yet to update the expectation.
 				if unClaimedBalances[rewardAddrStr].Cmp(exptUnclaimed[rewardAddrStr]) < 0 {
 					log.L().Info("Temporary unmatched balance ...")
-					testTolerance++
-					require.True(t, testTolerance < 7, "Too much unmatched balance")
+					unmatchedTests++
+					require.True(t, unmatchedTests < testTolerance, "Too much unmatched balance")
 				} else {
-					testTolerance = 0
+					unmatchedTests = 0
 					require.Equal(t, exptUnclaimed[rewardAddrStr].String(), unClaimedBalances[rewardAddrStr].String())
 				}
 			}
