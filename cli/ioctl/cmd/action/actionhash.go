@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -54,27 +55,29 @@ func getActionByHash(args []string) (string, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 
-	requestCheckPending := iotexapi.GetActionsRequest{
+	// search action on blockchain
+	requestGetActionByHash := &iotexapi.GetActionByHashRequest{
+		ActionHash:   hash,
+		CheckPending: false,
+	}
+	requestGetAction := iotexapi.GetActionsRequest{
 		Lookup: &iotexapi.GetActionsRequest_ByHash{
-			ByHash: &iotexapi.GetActionByHashRequest{
-				ActionHash:   hash,
-				CheckPending: true,
-			},
+			ByHash: requestGetActionByHash,
 		},
 	}
-	response, err := cli.GetActions(ctx, &requestCheckPending)
+	response, err := cli.GetActions(ctx, &requestGetAction)
 	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return "", fmt.Errorf(sta.Message())
+		// search action in action pool
+		requestGetActionByHash.CheckPending = true
+		response, err = cli.GetActions(ctx, &requestGetAction)
+		if err != nil {
+			return "", err
 		}
-		return "", err
 	}
 	if len(response.ActionInfo) == 0 {
 		return "", fmt.Errorf("no action info returned")
 	}
-	action := response.ActionInfo[0]
-	output, err := printActionProto(action.Action)
+	output, err := printAction(response.ActionInfo[0])
 	if err != nil {
 		return "", err
 	}
@@ -93,6 +96,23 @@ func getActionByHash(args []string) (string, error) {
 	}
 	return "\n#This action has been written on blockchain\n" +
 		printReceiptProto(responseReceipt.ReceiptInfo.Receipt), nil
+}
+
+func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
+	output, err := printActionProto(actionInfo.Action)
+	if err != nil {
+		return "", err
+	}
+	if actionInfo.Timestamp != nil {
+		ts, err := ptypes.Timestamp(actionInfo.Timestamp)
+		if err != nil {
+			return "", err
+		}
+		output += fmt.Sprintf("timeStamp: %d\n", ts.Unix())
+		output += fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
+	}
+	output += fmt.Sprintf("actHash: %s\n", actionInfo.ActHash)
+	return output, nil
 }
 
 func printActionProto(action *iotextypes.Action) (string, error) {
