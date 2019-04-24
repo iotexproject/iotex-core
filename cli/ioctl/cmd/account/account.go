@@ -38,7 +38,6 @@ var (
 var AccountCmd = &cobra.Command{
 	Use:   "account",
 	Short: "Manage accounts of IoTeX blockchain",
-	Args:  cobra.MinimumNArgs(1),
 }
 
 func init() {
