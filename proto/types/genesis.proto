@@ -15,6 +15,7 @@ message Genesis {
     GenesisAccount account = 2;
     GenesisPoll poll = 3;
     GenesisRewarding rewarding = 4;
+    GenesisConfig config = 5;
 }
 
 message GenesisBlockchain {
@@ -60,4 +61,8 @@ message GenesisRewarding {
     uint64 numDelegatesForFoundationBonus = 7;
     uint64 foundationBonusLastEpoch  = 8;
     uint64 productivityThreshold = 9;
+}
+
+message GenesisConfig {
+    string initAdminAddr = 1;
 }

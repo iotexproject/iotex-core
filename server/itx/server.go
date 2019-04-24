@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	cfgp "github.com/iotexproject/iotex-core/action/protocol/config"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain"
@@ -285,6 +286,21 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 }
 
 func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) (err error) {
+	configProtocol := cfgp.NewProtocol(
+		genesisConfig.Config.InitAdminAddr(),
+		[]string{
+			cfgp.ProtocolID,
+			account.ProtocolID,
+			rolldpos.ProtocolID,
+			poll.ProtocolID,
+			vote.ProtocolID,
+			execution.ProtocolID,
+			rewarding.ProtocolID,
+		},
+	)
+	if err = cs.RegisterProtocol(cfgp.ProtocolID, configProtocol); err != nil {
+		return
+	}
 	accountProtocol := account.NewProtocol()
 	if err = cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return

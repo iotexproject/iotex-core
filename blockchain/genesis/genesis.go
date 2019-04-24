@@ -87,6 +87,7 @@ type (
 		Account    `ymal:"account"`
 		Poll       `yaml:"poll"`
 		Rewarding  `yaml:"rewarding"`
+		Config     `yaml:"config"`
 	}
 	// Blockchain contains blockchain level configs
 	Blockchain struct {
@@ -163,6 +164,11 @@ type (
 		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach to get the
 		// epoch reward
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
+	}
+	// Config contains the configs for on-chain config protocol
+	Config struct {
+		// InitAdminAddrStr is the initial admin address
+		InitAdminAddrStr string `yaml:"initAdminAddr"`
 	}
 )
 
@@ -244,11 +250,16 @@ func (g *Genesis) Hash() hash.Hash256 {
 		ProductivityThreshold:          g.ProductivityThreshold,
 	}
 
+	cProto := iotextypes.GenesisConfig{
+		InitAdminAddr: g.Config.InitAdminAddrStr,
+	}
+
 	gProto := iotextypes.Genesis{
 		Blockchain: &gbProto,
 		Account:    &aProto,
 		Poll:       &pProto,
 		Rewarding:  &rProto,
+		Config:     &cProto,
 	}
 	b, err := proto.Marshal(&gProto)
 	if err != nil {
@@ -360,4 +371,19 @@ func (r *Rewarding) FoundationBonus() *big.Int {
 		log.S().Panicf("Error when casting bootstrap bonus string %s into big int", r.EpochRewardStr)
 	}
 	return val
+}
+
+// InitAdminAddr returns the init admin address
+func (c *Config) InitAdminAddr() address.Address {
+	addrStr := c.InitAdminAddrStr
+	// For backward compatible, if missing, use https://github.com/iotexproject/iotex-bootstrap/blob/master/genesis_mainnet.yaml#L3
+	// as the config protocol admin.
+	if addrStr == "" {
+		addrStr = "io1uqhmnttmv0pg8prugxxn7d8ex9angrvfjfthxa"
+	}
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		log.L().Panic("Error when decoding the config protocol init admin address from string.", zap.Error(err))
+	}
+	return addr
 }

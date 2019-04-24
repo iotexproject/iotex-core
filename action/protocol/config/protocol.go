@@ -52,7 +52,7 @@ func NewProtocol(admin address.Address, initActiveProtocols []string) *Protocol 
 	}
 }
 
-// Handle handles the action
+// Handle handles the actions on the on-chain config protocol
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.UpdateActiveProtocols:
@@ -68,6 +68,15 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si, uapLog)
 	}
 	return nil, nil
+}
+
+// Validate validates the actions on the on-chain config protocol
+func (p *Protocol) Validate(
+	ctx context.Context,
+	act action.Action,
+) error {
+	// TODO: validate interface shouldn't be required for protocol code
+	return nil
 }
 
 // ReadState reads the state of this protocol
