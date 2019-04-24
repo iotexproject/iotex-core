@@ -17,6 +17,9 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
+// AccountListKey is the key of accountList
+const AccountListKey = "AccountList."
+
 type noncer interface {
 	Nonce() uint64
 }
@@ -47,6 +50,21 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big
 		if err := sm.PutState(addrHash, account); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
+
+		// Update account list
+		accountListKey := GetAccountListKey()
+		var accountList AccountList
+		if err := sm.State(accountListKey, &accountList); err != nil {
+			if errors.Cause(err) != state.ErrStateNotExist {
+				return nil, err
+			}
+			accountList = make(AccountList, 0)
+		}
+		accountList = append(accountList, encodedAddr)
+		if err := sm.PutState(accountListKey, &accountList); err != nil {
+			return nil, errors.Wrap(err, "failed to put account list")
+		}
+
 		return &account, nil
 	}
 	return nil, err
@@ -86,4 +104,9 @@ func Recorded(sm protocol.StateManager, addr address.Address) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+// GetAccountListKey gets the key for account list storage
+func GetAccountListKey() hash.Hash160 {
+	return hash.Hash160b([]byte(AccountListKey))
 }

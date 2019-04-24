@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -51,6 +52,7 @@ type (
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		AccountState(string) (*state.Account, error)
+		AccountList() ([]string, error)
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
@@ -198,12 +200,25 @@ func (sf *factory) Nonce(addr string) (uint64, error) {
 	return account.Nonce, nil
 }
 
-// account returns the confirmed account state on the chain
+// AccountState returns the confirmed account state on the chain
 func (sf *factory) AccountState(addr string) (*state.Account, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
 	return sf.accountState(addr)
+}
+
+// AccountList returns the account list on the chain
+func (sf *factory) AccountList() ([]string, error) {
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	var accountList accountutil.AccountList
+	// Load accountList from underlying db
+	accountListKey := accountutil.GetAccountListKey()
+	if err := sf.state(accountListKey, &accountList); err != nil {
+		return nil, errors.Wrap(err, "failed to get state of account list")
+	}
+	return accountList, nil
 }
 
 // RootHash returns the hash of the root node of the state trie

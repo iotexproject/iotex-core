@@ -73,6 +73,8 @@ type Blockchain interface {
 	Nonce(addr string) (uint64, error)
 	// CreateState adds a new account with initial balance to the factory
 	CreateState(addr string, init *big.Int) (*state.Account, error)
+	// AccountList gets list of accounts on the chain
+	AccountList() ([]string, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
@@ -366,6 +368,11 @@ func (bc *blockchain) Balance(addr string) (*big.Int, error) {
 // Nonce returns the nonce if the account exists
 func (bc *blockchain) Nonce(addr string) (uint64, error) {
 	return bc.sf.Nonce(addr)
+}
+
+// AccountList returns the account list on the chain
+func (bc *blockchain) AccountList() ([]string, error) {
+	return bc.sf.AccountList()
 }
 
 // CandidatesByHeight returns the candidate list by a given height

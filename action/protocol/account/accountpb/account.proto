@@ -20,3 +20,6 @@ message Account {
     string votee = 7;
 }
 
+message AccountList {
+    repeated string address = 1;
+}

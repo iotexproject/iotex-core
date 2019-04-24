@@ -6,10 +6,6 @@ package mock_blockchain
 
 import (
 	context "context"
-	big "math/big"
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
@@ -18,6 +14,9 @@ import (
 	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
+	big "math/big"
+	reflect "reflect"
+	time "time"
 )
 
 // MockBlockchain is a mock of Blockchain interface
@@ -104,6 +103,19 @@ func (m *MockBlockchain) CreateState(addr string, init *big.Int) (*state.Account
 // CreateState indicates an expected call of CreateState
 func (mr *MockBlockchainMockRecorder) CreateState(addr, init interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockBlockchain)(nil).CreateState), addr, init)
+}
+
+// AccountList mocks base method
+func (m *MockBlockchain) AccountList() ([]string, error) {
+	ret := m.ctrl.Call(m, "AccountList")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AccountList indicates an expected call of AccountList
+func (mr *MockBlockchainMockRecorder) AccountList() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountList", reflect.TypeOf((*MockBlockchain)(nil).AccountList))
 }
 
 // CandidatesByHeight mocks base method

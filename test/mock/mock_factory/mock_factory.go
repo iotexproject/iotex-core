@@ -101,6 +101,19 @@ func (mr *MockFactoryMockRecorder) AccountState(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountState", reflect.TypeOf((*MockFactory)(nil).AccountState), arg0)
 }
 
+// AccountList mocks base method
+func (m *MockFactory) AccountList() ([]string, error) {
+	ret := m.ctrl.Call(m, "AccountList")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AccountList indicates an expected call of AccountList
+func (mr *MockFactoryMockRecorder) AccountList() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountList", reflect.TypeOf((*MockFactory)(nil).AccountList))
+}
+
 // RootHash mocks base method
 func (m *MockFactory) RootHash() hash.Hash256 {
 	ret := m.ctrl.Call(m, "RootHash")

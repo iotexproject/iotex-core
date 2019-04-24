@@ -241,7 +241,7 @@ func testState(sf Factory, t *testing.T) {
 	require.Equal(t, voteForm(h, cand), []string{a + ":100"})
 	// a(a):100(+0=100) b:200 c:300
 
-	//test AccountState() & State()
+	//test AccountState() & State() & AccountList()
 	var testAccount state.Account
 	accountA, err := sf.AccountState(a)
 	require.NoError(t, err)
@@ -253,6 +253,11 @@ func testState(sf Factory, t *testing.T) {
 	require.True(t, accountA.IsCandidate)
 	require.Equal(t, a, accountA.Votee)
 	require.Equal(t, big.NewInt(100), accountA.VotingWeight)
+
+	accountList, err := sf.AccountList()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(accountList))
+	require.Equal(t, testaddress.Addrinfo["alfa"].String(), accountList[0])
 }
 
 func TestNonce(t *testing.T) {

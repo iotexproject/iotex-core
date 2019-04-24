@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -135,6 +136,19 @@ func (sdb *stateDB) AccountState(addr string) (*state.Account, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	return sdb.accountState(addr)
+}
+
+// AccountList returns the account list on the chain
+func (sdb *stateDB) AccountList() ([]string, error) {
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
+	var accountList accountutil.AccountList
+	// Load accountList from underlying db
+	accountListKey := accountutil.GetAccountListKey()
+	if err := sdb.state(accountListKey, &accountList); err != nil {
+		return nil, errors.Wrap(err, "failed to get state of account list")
+	}
+	return accountList, nil
 }
 
 // RootHash returns the hash of the root node of the state trie

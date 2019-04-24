@@ -61,6 +61,11 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	require.Nil(err)
 	require.Equal(uint64(0x0), ss.Nonce)
 	require.Equal("5", ss.Balance.String())
+
+	accountList, err := sf.AccountList()
+	require.NoError(err)
+	require.Equal(1, len(accountList))
+	require.Equal(addrv1.String(), accountList[0])
 }
 
 func TestProtocol_Initialize(t *testing.T) {
@@ -103,4 +108,10 @@ func TestProtocol_Initialize(t *testing.T) {
 	acc1, err := accountutil.LoadOrCreateAccount(ws, identityset.Address(1).String(), big.NewInt(0))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(200), acc1.Balance)
+
+	accountList, err := stateDB.AccountList()
+	require.NoError(t, err)
+	assert.Equal(t, 2, len(accountList))
+	assert.Equal(t, identityset.Address(0).String(), accountList[0])
+	assert.Equal(t, identityset.Address(1).String(), accountList[1])
 }
