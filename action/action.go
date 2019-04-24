@@ -141,6 +141,8 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_DepositToRewardingFund{DepositToRewardingFund: act.Proto()}
 	case *PutPollResult:
 		actCore.Action = &iotextypes.ActionCore_PutPollResult{PutPollResult: act.Proto()}
+	case *UpdateActiveProtocols:
+		actCore.Action = &iotextypes.ActionCore_UpdateActiveProtocols{UpdateActiveProtocols: act.Proto()}
 	default:
 		log.S().Panicf("Cannot convert type of action %T.\r\n", act)
 	}
@@ -235,6 +237,11 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 			return err
 		}
 		elp.payload = act
+	case pbAct.GetUpdateActiveProtocols() != nil:
+		act := &UpdateActiveProtocols{}
+		if err := act.LoadProto(pbAct.GetUpdateActiveProtocols()); err != nil {
+			return err
+		}
 	default:
 		return errors.Errorf("no applicable action to handle in action proto %+v", pbAct)
 	}

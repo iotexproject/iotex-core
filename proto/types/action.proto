@@ -183,6 +183,9 @@ message ActionCore {
     GrantReward grantReward = 32;
 
     PutPollResult putPollResult = 50;
+
+    // Config protocol actions
+    UpdateActiveProtocols updateActiveProtocols = 60;
   }
 }
 
