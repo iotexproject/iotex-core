@@ -11,7 +11,6 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
