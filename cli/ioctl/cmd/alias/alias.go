@@ -40,7 +40,6 @@ type aliases struct {
 var AliasCmd = &cobra.Command{
 	Use:   "alias",
 	Short: "Manage aliases of IoTeX addresses",
-	Args:  cobra.MaximumNArgs(3),
 }
 
 func init() {

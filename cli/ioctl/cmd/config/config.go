@@ -37,8 +37,6 @@ var (
 var ConfigCmd = &cobra.Command{
 	Use:       "config",
 	Short:     "Set or get configuration for ioctl",
-	ValidArgs: []string{"set", "get"},
-	Args:      cobra.MinimumNArgs(1),
 }
 
 // Config defines the config schema
