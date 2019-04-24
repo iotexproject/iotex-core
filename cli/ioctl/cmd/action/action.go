@@ -42,7 +42,6 @@ var (
 var ActionCmd = &cobra.Command{
 	Use:   "action",
 	Short: "Manage actions of IoTeX blockchain",
-	Args:  cobra.MinimumNArgs(1),
 }
 
 func init() {
