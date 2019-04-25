@@ -15,7 +15,6 @@ import (
 var NodeCmd = &cobra.Command{
 	Use:   "node",
 	Short: "Deal with nodes of IoTeX blockchain",
-	Args:  cobra.ExactArgs(1),
 }
 
 func init() {

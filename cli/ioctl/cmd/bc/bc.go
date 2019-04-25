@@ -23,7 +23,6 @@ import (
 var BCCmd = &cobra.Command{
 	Use:   "bc",
 	Short: "Deal with block chain of IoTeX blockchain",
-	Args:  cobra.ExactArgs(1),
 }
 
 func init() {
