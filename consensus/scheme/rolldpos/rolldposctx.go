@@ -32,7 +32,8 @@ import (
 type CandidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 
 type rollDPoSCtx struct {
-	cfg              config.RollDPoS
+	cfg config.RollDPoS
+	// TODO: explorer dependency deleted, need to add api params here
 	chain            blockchain.Blockchain
 	actPool          actpool.ActPool
 	broadcastHandler scheme.Broadcast
@@ -386,8 +387,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		}
 		// putblock to parent chain if the current node is proposer and current chain is a sub chain
 		if ctx.round.Proposer() == ctx.encodedAddr && ctx.chain.ChainAddress() != "" {
-			// todo change putBlockToParentChain(ctx.rootChainAPI,
-			// ctx.chain.ChainAddress(), ctx.priKey, ctx.encodedAddr, pendingBlock)
+			// TODO: explorer dependency deleted, need to call putblock related method
 		}
 	} else {
 		ctx.logger().Panic(

@@ -126,6 +126,7 @@ func NewConsensus(
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
 			RegisterProtocol(ops.rp)
+		// TODO: explorer dependency deleted here, need to revive by migrating to api
 		cs.scheme, err = bd.Build()
 		if err != nil {
 			log.Logger("consensus").Panic("Error when constructing RollDPoS.", zap.Error(err))

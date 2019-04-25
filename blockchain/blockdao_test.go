@@ -18,16 +18,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
-
-	"github.com/iotexproject/iotex-core/pkg/unit"
-
-	"github.com/iotexproject/iotex-core/test/identityset"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
+	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -150,7 +147,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, config.Default.Explorer.Enabled, false, 0)
+		dao := newBlockDAO(kvstore, false, false, 0)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {

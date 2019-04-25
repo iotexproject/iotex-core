@@ -34,7 +34,6 @@ func (s *Server) runSubChain(addr address.Address, subChain *mainchain.SubChain)
 	cfg.Chain.ChainDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.ChainDBPath)
 	cfg.Chain.TrieDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.TrieDBPath)
 	cfg.Chain.EmptyGenesis = true
-	cfg.Explorer.Port = cfg.Explorer.Port - int(s.rootChainService.ChainID()) + int(subChain.ChainID)
 	if err := s.newSubChainService(cfg); err != nil {
 		return err
 	}

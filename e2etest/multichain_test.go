@@ -36,8 +36,6 @@ func TestTwoChains(t *testing.T) {
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(1).HexString()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Explorer.Enabled = true
-	cfg.Explorer.Port = testutil.RandomPort()
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.System.EnableExperimentalActions = true
 

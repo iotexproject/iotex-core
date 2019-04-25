@@ -248,12 +248,13 @@ func (r *RollDPoS) Active() bool {
 type Builder struct {
 	cfg config.Config
 	// TODO: we should use keystore in the future
-	encodedAddr            string
-	priKey                 keypair.PrivateKey
-	chain                  blockchain.Blockchain
-	actPool                actpool.ActPool
-	broadcastHandler       scheme.Broadcast
-	clock                  clock.Clock
+	encodedAddr      string
+	priKey           keypair.PrivateKey
+	chain            blockchain.Blockchain
+	actPool          actpool.ActPool
+	broadcastHandler scheme.Broadcast
+	clock            clock.Clock
+	// TODO: explorer dependency deleted, need to add api params
 	rp                     *rolldpos.Protocol
 	candidatesByHeightFunc CandidatesByHeightFunc
 }
