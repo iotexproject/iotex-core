@@ -57,7 +57,9 @@ func TestSuggestGasPrice(t *testing.T) {
 	bc.Validator().AddActionValidators(acc, v, exec)
 	bc.GetFactory().AddActionHandlers(acc, v, exec)
 	require.NoError(t, bc.Start(ctx))
-	defer require.NoError(t, bc.Stop(ctx))
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
 
 	for i := 0; i < 30; i++ {
 		tsf, err := action.NewTransfer(
