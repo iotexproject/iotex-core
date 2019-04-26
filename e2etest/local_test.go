@@ -568,8 +568,6 @@ func newTestConfig() (config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.API.Port = testutil.RandomPort()
-	cfg.Explorer.Enabled = true
-	cfg.Explorer.Port = 0
 	cfg.System.EnableExperimentalActions = true
 
 	sk, err := keypair.GenerateKey()

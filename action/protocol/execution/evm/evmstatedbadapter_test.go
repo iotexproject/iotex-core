@@ -61,7 +61,6 @@ func TestRefundAPIs(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Explorer.Enabled = true
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
@@ -85,7 +84,6 @@ func TestEmptyAndCode(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Explorer.Enabled = true
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
@@ -149,7 +147,6 @@ func TestNonce(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Explorer.Enabled = true
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	require.NoError(sf.Start(ctx))
