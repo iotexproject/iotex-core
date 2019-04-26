@@ -10,6 +10,6 @@ import (
 	"testing"
 )
 
+// TestVoteSignVerify remove vote related test at #1071
 func TestVoteSignVerify(t *testing.T) {
-	// remove vote related test at #1071 
 }

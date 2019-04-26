@@ -164,16 +164,20 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 func addActsToActPool(ap actpool.ActPool) error {
 	gasP := big.NewInt(testutil.TestGasPriceInt64)
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, gasP)
+	gasLimit := testutil.TestGasLimit
+	alfaAddr := ta.Addrinfo["alfa"].String()
+	producerPri := ta.Keyinfo["producer"].PriKey
+	tsf1, err := testutil.SignedTransfer(alfaAddr, producerPri, 2, big.NewInt(20), []byte{}, gasLimit, gasP)
 	if err != nil {
 		return err
 	}
-
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, gasP)
+	bravoAddr := ta.Addrinfo["bravo"].String()
+	tsf2, err := testutil.SignedTransfer(bravoAddr, producerPri, 4, big.NewInt(20), []byte{}, gasLimit, gasP)
 	if err != nil {
 		return err
 	}
-	execution1, err := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 5, big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
+	deltaAddr := ta.Addrinfo["delta"].String()
+	execution1, err := testutil.SignedExecution(deltaAddr, producerPri, 5, big.NewInt(1), gasLimit, big.NewInt(10), []byte{1})
 	if err != nil {
 		return err
 	}
@@ -459,7 +463,9 @@ func TestService_SendSmartContract(t *testing.T) {
 		return nil
 	}, gs: GasStation{chain, config.Explorer{}}}
 	gasP := big.NewInt(testutil.TestGasPriceInt64)
-	execution, err := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(1), testutil.TestGasLimit, gasP, []byte{1})
+	addr := ta.Addrinfo["delta"].String()
+	pri := ta.Keyinfo["producer"].PriKey
+	execution, err := testutil.SignedExecution(addr, pri, 1, big.NewInt(1), testutil.TestGasLimit, gasP, []byte{1})
 	require.NoError(err)
 	explorerExecution, _ := convertExecutionToExplorerExecution(execution, true)
 	explorerExecution.Version = int64(execution.Version())

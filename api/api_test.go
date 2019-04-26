@@ -55,14 +55,12 @@ var (
 	testTransfer, _ = testutil.SignedTransfer(ta.Addrinfo["alfa"].String(),
 		ta.Keyinfo["alfa"].PriKey, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
-
 	testTransferHash = testTransfer.Hash()
 	testTransferPb   = testTransfer.Proto()
 
 	testExecution, _ = testutil.SignedExecution(ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["bravo"].PriKey, 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
-
 	testExecutionHash = testExecution.Hash()
 	testExecutionPb   = testExecution.Proto()
 
@@ -72,10 +70,12 @@ var (
 
 	testExecution1, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
-	executionHash1    = testExecution1.Hash()
+	executionHash1 = testExecution1.Hash()
+
 	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash2    = testExecution2.Hash()
+	executionHash2 = testExecution2.Hash()
+
 	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 1,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
