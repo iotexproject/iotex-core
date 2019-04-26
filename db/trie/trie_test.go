@@ -438,7 +438,9 @@ func TestCollision(t *testing.T) {
 	tr, err := NewTrie(KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
-	defer require.Nil(tr.Stop(context.Background()))
+	defer func() {
+		require.NoError(tr.Stop(context.Background()))
+	}()
 
 	// this creates 2 leaf (with same value) on branch '0' and '1'
 	require.NoError(tr.Upsert(br1, testV[0]))

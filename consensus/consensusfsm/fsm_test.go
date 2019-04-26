@@ -46,7 +46,9 @@ func TestBackdoorEvt(t *testing.T) {
 	require.Equal(sPrepare, cfsm.CurrentState())
 
 	require.NoError(cfsm.Start(context.Background()))
-	defer require.NoError(cfsm.Stop(context.Background()))
+	defer func() {
+		require.NoError(cfsm.Stop(context.Background()))
+	}()
 
 	for _, state := range consensusStates {
 		backdoorEvt := &ConsensusEvent{
