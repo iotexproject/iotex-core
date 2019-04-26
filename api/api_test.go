@@ -18,7 +18,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -50,38 +48,25 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 )
 
 var (
 	testTransfer, _ = testutil.SignedTransfer(ta.Addrinfo["alfa"].String(),
-		ta.Keyinfo["alfa"].PriKey, 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		ta.Keyinfo["alfa"].PriKey, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
-
 	testTransferHash = testTransfer.Hash()
 	testTransferPb   = testTransfer.Proto()
 
 	testExecution, _ = testutil.SignedExecution(ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["bravo"].PriKey, 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
-
 	testExecutionHash = testExecution.Hash()
 	testExecutionPb   = testExecution.Proto()
 
 	testTransfer1, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash1 = testTransfer1.Hash()
-	testVote1, _  = testutil.SignedVote(ta.Addrinfo["charlie"].String(), ta.Keyinfo["charlie"].PriKey, 5,
-		testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	voteHash1         = testVote1.Hash()
-	testExecution1, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 5,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
-	executionHash1    = testExecution1.Hash()
-	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 6,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash2    = testExecution2.Hash()
-	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 2,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash3 = testExecution3.Hash()
 )
 
 var (
@@ -113,16 +98,16 @@ var (
 		{ta.Addrinfo["charlie"].String(),
 			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 			"3",
-			8,
-			9,
-			11,
+			6,
+			7,
+			7,
 		},
 		{
 			ta.Addrinfo["producer"].String(),
 			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
 			"9999999999999999999999999991",
 			1,
-			6,
+			3,
 			2,
 		},
 	}
@@ -139,39 +124,8 @@ var (
 		},
 		{
 			11,
-			5,
-			4,
-		},
-	}
-
-	getActionTests = []struct {
-		// Arguments
-		checkPending bool
-		in           string
-		// Expected Values
-		nonce        uint64
-		senderPubKey string
-		blkNumber    uint64
-	}{
-		{
-			checkPending: false,
-			in:           hex.EncodeToString(transferHash1[:]),
-			nonce:        1,
-			senderPubKey: testTransfer1.SrcPubkey().HexString(),
-			blkNumber:    1,
-		},
-		{
-			checkPending: false,
-			in:           hex.EncodeToString(voteHash1[:]),
-			nonce:        5,
-			senderPubKey: testVote1.SrcPubkey().HexString(),
-			blkNumber:    2,
-		},
-		{
-			checkPending: true,
-			in:           hex.EncodeToString(executionHash1[:]),
-			nonce:        5,
-			senderPubKey: testExecution1.SrcPubkey().HexString(),
+			1,
+			1,
 		},
 	}
 
@@ -190,8 +144,8 @@ var (
 		{
 			ta.Addrinfo["charlie"].String(),
 			1,
-			8,
-			8,
+			6,
+			6,
 		},
 	}
 
@@ -204,8 +158,8 @@ var (
 		{
 			ta.Addrinfo["producer"].String(),
 			0,
-			4,
-			4,
+			3,
+			3,
 		},
 	}
 
@@ -218,14 +172,14 @@ var (
 		{
 			2,
 			0,
-			7,
-			7,
+			6,
+			6,
 		},
 		{
 			4,
 			0,
-			5,
-			5,
+			3,
+			3,
 		},
 	}
 
@@ -253,12 +207,12 @@ var (
 	}{
 		{
 			2,
-			7,
+			6,
 			"4",
 		},
 		{
 			4,
-			5,
+			3,
 			"0",
 		},
 	}
@@ -283,8 +237,8 @@ var (
 			1,
 			"lifeLongDelegates",
 			4,
-			15,
-			5,
+			12,
+			3,
 			iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
@@ -296,8 +250,8 @@ var (
 			5,
 			"governanceChainCommittee",
 			4,
-			15,
-			15,
+			12,
+			12,
 			iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
@@ -322,43 +276,6 @@ var (
 		},
 	}
 
-	getReceiptByActionTests = []struct {
-		in        string
-		status    uint64
-		blkHeight uint64
-	}{
-		{
-			hex.EncodeToString(transferHash1[:]),
-			action.SuccessReceiptStatus,
-			1,
-		},
-		{
-			hex.EncodeToString(voteHash1[:]),
-			action.SuccessReceiptStatus,
-			2,
-		},
-		{
-			hex.EncodeToString(executionHash2[:]),
-			action.SuccessReceiptStatus,
-			2,
-		},
-		{
-			hex.EncodeToString(executionHash3[:]),
-			action.SuccessReceiptStatus,
-			4,
-		},
-	}
-
-	readContractTests = []struct {
-		execHash string
-		retValue string
-	}{
-		{
-			hex.EncodeToString(executionHash2[:]),
-			"",
-		},
-	}
-
 	suggestGasPriceTests = []struct {
 		defaultGasPrice   uint64
 		suggestedGasPrice uint64
@@ -375,10 +292,6 @@ var (
 	}{
 		{
 			hex.EncodeToString(transferHash1[:]),
-			10000,
-		},
-		{
-			hex.EncodeToString(voteHash1[:]),
 			10000,
 		},
 	}
@@ -579,7 +492,32 @@ func TestServer_GetAction(t *testing.T) {
 
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
-
+	testExecution2, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash2 := testExecution2.Hash()
+	getActionTests := []struct {
+		// Arguments
+		checkPending bool
+		in           string
+		// Expected Values
+		nonce        uint64
+		senderPubKey string
+		blkNumber    uint64
+	}{
+		{
+			checkPending: true,
+			in:           hex.EncodeToString(transferHash1[:]),
+			nonce:        1,
+			senderPubKey: testTransfer1.SrcPubkey().HexString(),
+			blkNumber:    1,
+		},
+		{
+			checkPending: true,
+			in:           hex.EncodeToString(executionHash2[:]),
+			nonce:        5,
+			senderPubKey: testExecution2.SrcPubkey().HexString(),
+		},
+	}
 	for _, test := range getActionTests {
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByHash{
@@ -818,7 +756,34 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
+	testExecution2, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash2 := testExecution2.Hash()
+	testExecution3, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 1,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash3 := testExecution3.Hash()
 
+	getReceiptByActionTests := []struct {
+		in        string
+		status    uint64
+		blkHeight uint64
+	}{
+		{
+			hex.EncodeToString(transferHash1[:]),
+			action.SuccessReceiptStatus,
+			1,
+		},
+		{
+			hex.EncodeToString(executionHash2[:]),
+			action.SuccessReceiptStatus,
+			2,
+		},
+		{
+			hex.EncodeToString(executionHash3[:]),
+			action.SuccessReceiptStatus,
+			4,
+		},
+	}
 	for _, test := range getReceiptByActionTests {
 		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
 		res, err := svr.GetReceiptByAction(context.Background(), request)
@@ -836,7 +801,18 @@ func TestServer_ReadContract(t *testing.T) {
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
-
+	testExecution2, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash2 := testExecution2.Hash()
+	readContractTests := []struct {
+		execHash string
+		retValue string
+	}{
+		{
+			hex.EncodeToString(executionHash2[:]),
+			"",
+		},
+	}
 	for _, test := range readContractTests {
 		hash, err := toHash256(test.execHash)
 		require.NoError(err)
@@ -1186,11 +1162,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	addr4 := ta.Addrinfo["delta"].String()
 	// Add block 1
 	// Producer transfer--> C
-	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	gasP := big.NewInt(testutil.TestGasPriceInt64)
+	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, gasP)
 	if err != nil {
 		return err
 	}
-
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
@@ -1209,7 +1185,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	// Add block 2
 	// Charlie transfer--> A, B, D, P
-	// Charlie vote--> C
 	// Charlie exec--> D
 	recipients := []string{addr1, addr2, addr4, addr0}
 	selps := make([]action.SealedEnvelope, 0)
@@ -1220,17 +1195,12 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		}
 		selps = append(selps, selp)
 	}
-	vote1, err := testutil.SignedVote(addr3, priKey3, 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	execution1, err := testutil.SignedExecution(addr4, priKey3, 6,
+	execution1, err := testutil.SignedExecution(addr4, priKey3, 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
 
-	selps = append(selps, vote1)
 	selps = append(selps, execution1)
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[addr3] = selps
@@ -1263,32 +1233,22 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	// Charlie vote--> C
 	// Charlie exec--> D
-	// Alfa vote--> A
 	// Alfa exec--> D
-	vote1, err = testutil.SignedVote(addr3, priKey3, 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	vote2, err := testutil.SignedVote(addr1, priKey1, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	execution1, err = testutil.SignedExecution(addr4, priKey3, 8,
+	execution1, err = testutil.SignedExecution(addr4, priKey3, 6,
 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
-	execution2, err := testutil.SignedExecution(addr4, priKey1, 2,
+	execution2, err := testutil.SignedExecution(addr4, priKey1, 1,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr3] = []action.SealedEnvelope{vote1, execution1}
-	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
+	actionMap[addr3] = []action.SealedEnvelope{execution1}
+	actionMap[addr1] = []action.SealedEnvelope{execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
@@ -1307,11 +1267,6 @@ func addActsToActPool(ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	// Producer vote--> P
-	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
 	// Producer transfer--> B
 	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
@@ -1324,9 +1279,6 @@ func addActsToActPool(ap actpool.ActPool) error {
 		return err
 	}
 	if err := ap.Add(tsf1); err != nil {
-		return err
-	}
-	if err := ap.Add(vote1); err != nil {
 		return err
 	}
 	if err := ap.Add(tsf2); err != nil {
@@ -1356,7 +1308,6 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	}
 
 	acc := account.NewProtocol()
-	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
@@ -1372,9 +1323,6 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	if err := registry.Register(account.ProtocolID, acc); err != nil {
 		return nil, nil, err
 	}
-	if err := registry.Register(vote.ProtocolID, v); err != nil {
-		return nil, nil, err
-	}
 	if err := registry.Register(execution.ProtocolID, evm); err != nil {
 		return nil, nil, err
 	}
@@ -1384,9 +1332,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	if err := registry.Register(poll.ProtocolID, p); err != nil {
 		return nil, nil, err
 	}
-	sf.AddActionHandlers(acc, v, evm, r)
+	sf.AddActionHandlers(acc, evm, r)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(acc, v, evm, r)
+	bc.Validator().AddActionValidators(acc, evm, r)
 
 	return bc, &registry, nil
 }
@@ -1397,7 +1345,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 		return nil, err
 	}
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	ap.AddActionValidators(vote.NewProtocol(bc), execution.NewProtocol(bc))
+	ap.AddActionValidators(execution.NewProtocol(bc))
 
 	return ap, nil
 }

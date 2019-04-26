@@ -7,6 +7,7 @@
 package action
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
@@ -18,8 +19,9 @@ import (
 
 func TestActionProto(t *testing.T) {
 	require := require.New(t)
-	v, err := NewVote(0, testaddress.Addrinfo["bravo"].String(),
-		uint64(100000), big.NewInt(10))
+	data, err := hex.DecodeString("")
+	require.NoError(err)
+	v, err := NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 	require.NoError(err)
 	fmt.Println(v)
 

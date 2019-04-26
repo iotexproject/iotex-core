@@ -75,16 +75,6 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 				},
 				{
 					Core: &iotextypes.ActionCore{
-						Action: &iotextypes.ActionCore_Vote{
-							Vote: &iotextypes.Vote{VoteeAddress: addr2},
-						},
-						Version: version.ProtocolVersion,
-						Nonce:   103,
-					},
-					SenderPubKey: pubKey1.Bytes(),
-				},
-				{
-					Core: &iotextypes.ActionCore{
 						Action: &iotextypes.ActionCore_Execution{
 							Execution: &iotextypes.Execution{Contract: addr2},
 						},
@@ -124,7 +114,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 	db := store.GetDB()
 
-	transfers, votes, executions := action.ClassifyActions(blk.Actions)
+	transfers, _, executions := action.ClassifyActions(blk.Actions)
 
 	// get receipt
 	blkHash, err := idx.GetBlockByIndex(config.IndexReceipt, receipts[0].Hash())
@@ -142,13 +132,6 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	transfer := transfers[0].Hash()
 	require.Equal(transfer, transferHashes[0])
 
-	// get vote
-	voteHashes, err := idx.GetIndexHistory(config.IndexVote, addr1)
-	require.Nil(err)
-	require.Equal(1, len(voteHashes))
-	vote := votes[0].Hash()
-	require.Equal(vote, voteHashes[0])
-
 	// get execution
 	executionHashes, err := idx.GetIndexHistory(config.IndexExecution, addr1)
 	require.Nil(err)
@@ -159,7 +142,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	// get action
 	actionHashes, err := idx.GetIndexHistory(config.IndexAction, addr1)
 	require.Nil(err)
-	require.Equal(3, len(actionHashes))
+	require.Equal(2, len(actionHashes))
 	action := blk.Actions[0].Hash()
 	require.Equal(action, actionHashes[0])
 
@@ -167,11 +150,6 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 	blkHash1, err := idx.GetBlockByIndex(config.IndexTransfer, transfers[0].Hash())
 	require.Nil(err)
 	require.Equal(blkHash1, blk.HashBlock())
-
-	// vote map to block
-	blkHash2, err := idx.GetBlockByIndex(config.IndexVote, votes[0].Hash())
-	require.Nil(err)
-	require.Equal(blkHash2, blk.HashBlock())
 
 	// execution map to block
 	blkHash3, err := idx.GetBlockByIndex(config.IndexExecution, executions[0].Hash())
