@@ -45,7 +45,7 @@ type ChainService struct {
 	chain             blockchain.Blockchain
 	electionCommittee committee.Committee
 	rDPoSProtocol     *rolldpos.Protocol
-	// TODO: explorer dependency deleted, need to api related params
+	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
 	indexBuilder *blockchain.IndexBuilder
 	indexservice *indexservice.Server
@@ -172,7 +172,7 @@ func New(
 		}),
 		consensus.WithRollDPoSProtocol(rDPoSProtocol),
 	}
-	// TODO: explorer dependency deleted, need to revive by migrating to api
+	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
@@ -196,7 +196,7 @@ func New(
 		idx = indexservice.NewServer(cfg, chain)
 		if idx == nil {
 			return nil, errors.Wrap(err, "failed to create index service")
-			// TODO: explorer dependency deleted, need to revive by migrating to api
+			// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 		}
 	}
 
@@ -254,7 +254,7 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.blocksync.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting blocksync")
 	}
-	// TODO: explorer dependency deleted, need to revive by migrating to api
+	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	if cs.api != nil {
 		if err := cs.api.Start(); err != nil {
 			return errors.Wrap(err, "err when starting API server")
@@ -275,7 +275,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 			return errors.Wrap(err, "error when stopping index builder")
 		}
 	}
-	// TODO: explorer dependency deleted, need to revive by migrating to api
+	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	if cs.api != nil {
 		if err := cs.api.Stop(); err != nil {
 			return errors.Wrap(err, "error when stopping API server")

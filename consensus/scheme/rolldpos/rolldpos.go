@@ -254,7 +254,7 @@ type Builder struct {
 	actPool          actpool.ActPool
 	broadcastHandler scheme.Broadcast
 	clock            clock.Clock
-	// TODO: explorer dependency deleted, need to add api params
+	// TODO: explorer dependency deleted at #1085, need to add api params
 	rp                     *rolldpos.Protocol
 	candidatesByHeightFunc CandidatesByHeightFunc
 }

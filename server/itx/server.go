@@ -99,7 +99,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err := cs.RegisterProtocol(mainchain.ProtocolID, mainChainProtocol); err != nil {
 		return nil, err
 	}
-	// TODO: explorer dependency deleted here, need to revive by migrating to api
+	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
@@ -166,7 +166,7 @@ func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Opti
 }
 
 func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
-	// TODO: explorer dependency deleted here, need to revive by migrating to api
+	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
 		return err

@@ -44,7 +44,7 @@ func putBlockToParentChainTask(
 	if err != nil {
 		return errors.Wrap(err, "fail to construct PutSubChainBlockRequest")
 	}
-	// TODO: explorer dependency deleted, need to call putblock related api
+	// TODO: explorer dependency deleted at #1085, need to call putblock related api
 	return nil
 }
 
@@ -54,6 +54,6 @@ func constructPutSubChainBlockRequest(
 	senderPriKey keypair.PrivateKey,
 	b *block.Block,
 ) error {
-	// TODO: explorer dependency deleted, need to revive by migrating to api
+	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	return nil
 }

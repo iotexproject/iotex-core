@@ -267,7 +267,7 @@ type (
 	// Dispatcher is the dispatcher config
 	Dispatcher struct {
 		EventChanSize uint `yaml:"eventChanSize"`
-		// TODO: explorer dependency deleted, need to revive by migrating to api
+		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
 
 	// API is the api service config

@@ -28,7 +28,7 @@ const ProtocolID = "multi-chain_sub-chain"
 // Protocol defines the protocol to handle multi-chain actions on sub-chain
 type Protocol struct {
 	chainID uint32
-	// TODO: explorer dependency deleted, need to add api related params
+	// TODO: explorer dependency deleted at #1085, need to add api related params
 	sf factory.Factory
 }
 
@@ -73,7 +73,7 @@ func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...
 
 func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, sm protocol.StateManager) error {
 	// Validate main-chain state
-	// TODO: explorer dependency deleted, need to revive by migrating to api
+	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	return nil
 }
 
