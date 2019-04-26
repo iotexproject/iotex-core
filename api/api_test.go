@@ -91,6 +91,10 @@ var (
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash2 = testExecution2.Hash()
 
+	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 1,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash3 = testExecution3.Hash()
+
 	getAccountTests = []struct {
 		in           string
 		address      string
