@@ -166,18 +166,18 @@ func addActsToActPool(ap actpool.ActPool) error {
 	gasP := big.NewInt(testutil.TestGasPriceInt64)
 	gasLimit := testutil.TestGasLimit
 	alfaAddr := ta.Addrinfo["alfa"].String()
-	producerPri := ta.Keyinfo["producer"].PriKey
-	tsf1, err := testutil.SignedTransfer(alfaAddr, producerPri, 2, big.NewInt(20), []byte{}, gasLimit, gasP)
+	proPri := ta.Keyinfo["producer"].PriKey
+	tsf1, err := testutil.SignedTransfer(alfaAddr, proPri, 2, big.NewInt(20), []byte{}, gasLimit, gasP)
 	if err != nil {
 		return err
 	}
 	bravoAddr := ta.Addrinfo["bravo"].String()
-	tsf2, err := testutil.SignedTransfer(bravoAddr, producerPri, 4, big.NewInt(20), []byte{}, gasLimit, gasP)
+	tsf2, err := testutil.SignedTransfer(bravoAddr, proPri, 4, big.NewInt(20), []byte{}, gasLimit, gasP)
 	if err != nil {
 		return err
 	}
 	deltaAddr := ta.Addrinfo["delta"].String()
-	execution1, err := testutil.SignedExecution(deltaAddr, producerPri, 5, big.NewInt(1), gasLimit, big.NewInt(10), []byte{1})
+	execution1, err := testutil.SignedExecution(deltaAddr, proPri, 5, big.NewInt(1), gasLimit, big.NewInt(10), []byte{1})
 	if err != nil {
 		return err
 	}
