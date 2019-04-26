@@ -147,7 +147,8 @@ func TestActPool_AddActs(t *testing.T) {
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	ap.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc))
-	// Test actpool status after adding a sequence of Tsfs: need to check confirmed nonce, pending nonce, and pending balance
+	// Test actpool status after adding a sequence of
+	// Tsfs: need to check confirmed nonce, pending nonce, and pending balance
 	tf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	tf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(2), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
