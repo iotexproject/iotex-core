@@ -87,10 +87,6 @@ var (
 )
 
 var (
-	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash2 = testExecution2.Hash()
-
 	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 1,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
@@ -134,30 +130,6 @@ var (
 			11,
 			1,
 			1,
-		},
-	}
-
-	getActionTests = []struct {
-		// Arguments
-		checkPending bool
-		in           string
-		// Expected Values
-		nonce        uint64
-		senderPubKey string
-		blkNumber    uint64
-	}{
-		{
-			checkPending: true,
-			in:           hex.EncodeToString(transferHash1[:]),
-			nonce:        1,
-			senderPubKey: testTransfer1.SrcPubkey().HexString(),
-			blkNumber:    1,
-		},
-		{
-			checkPending: true,
-			in:           hex.EncodeToString(executionHash2[:]),
-			nonce:        5,
-			senderPubKey: testExecution2.SrcPubkey().HexString(),
 		},
 	}
 
@@ -305,38 +277,6 @@ var (
 		{
 			testExecutionPb,
 			hex.EncodeToString(testExecutionHash[:]),
-		},
-	}
-
-	getReceiptByActionTests = []struct {
-		in        string
-		status    uint64
-		blkHeight uint64
-	}{
-		{
-			hex.EncodeToString(transferHash1[:]),
-			action.SuccessReceiptStatus,
-			1,
-		},
-		{
-			hex.EncodeToString(executionHash2[:]),
-			action.SuccessReceiptStatus,
-			2,
-		},
-		{
-			hex.EncodeToString(executionHash3[:]),
-			action.SuccessReceiptStatus,
-			4,
-		},
-	}
-
-	readContractTests = []struct {
-		execHash string
-		retValue string
-	}{
-		{
-			hex.EncodeToString(executionHash2[:]),
-			"",
 		},
 	}
 
@@ -556,7 +496,32 @@ func TestServer_GetAction(t *testing.T) {
 
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
-
+	testExecution2, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash2 := testExecution2.Hash()
+	getActionTests := []struct {
+		// Arguments
+		checkPending bool
+		in           string
+		// Expected Values
+		nonce        uint64
+		senderPubKey string
+		blkNumber    uint64
+	}{
+		{
+			checkPending: true,
+			in:           hex.EncodeToString(transferHash1[:]),
+			nonce:        1,
+			senderPubKey: testTransfer1.SrcPubkey().HexString(),
+			blkNumber:    1,
+		},
+		{
+			checkPending: true,
+			in:           hex.EncodeToString(executionHash2[:]),
+			nonce:        5,
+			senderPubKey: testExecution2.SrcPubkey().HexString(),
+		},
+	}
 	for _, test := range getActionTests {
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByHash{
@@ -795,7 +760,30 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
-
+	testExecution2, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash2 := testExecution2.Hash()
+	getReceiptByActionTests := []struct {
+		in        string
+		status    uint64
+		blkHeight uint64
+	}{
+		{
+			hex.EncodeToString(transferHash1[:]),
+			action.SuccessReceiptStatus,
+			1,
+		},
+		{
+			hex.EncodeToString(executionHash2[:]),
+			action.SuccessReceiptStatus,
+			2,
+		},
+		{
+			hex.EncodeToString(executionHash3[:]),
+			action.SuccessReceiptStatus,
+			4,
+		},
+	}
 	for _, test := range getReceiptByActionTests {
 		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
 		res, err := svr.GetReceiptByAction(context.Background(), request)
@@ -813,7 +801,18 @@ func TestServer_ReadContract(t *testing.T) {
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
-
+	testExecution2, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash2 := testExecution2.Hash()
+	readContractTests := []struct {
+		execHash string
+		retValue string
+	}{
+		{
+			hex.EncodeToString(executionHash2[:]),
+			"",
+		},
+	}
 	for _, test := range readContractTests {
 		hash, err := toHash256(test.execHash)
 		require.NoError(err)
