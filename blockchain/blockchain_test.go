@@ -311,7 +311,9 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	bc.Validator().AddActionValidators(acc, v, exec)
 	bc.GetFactory().AddActionHandlers(acc, v, exec)
 	require.NoError(t, bc.Start(ctx))
-	defer require.NoError(t, bc.Stop(ctx))
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
 
 	tsf, err := action.NewTransfer(
 		1,
@@ -373,7 +375,9 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
-	defer require.NoError(t, bc.Stop(ctx))
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
 
 	addr0 := ta.Addrinfo["producer"].String()
 	priKey0 := ta.Keyinfo["producer"].PriKey

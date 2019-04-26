@@ -334,7 +334,9 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
 	bc := sct.prepareBlockchain(ctx, r)
-	defer r.NoError(bc.Stop(ctx))
+	defer func() {
+		r.NoError(bc.Stop(ctx))
+	}()
 
 	// deploy smart contract
 	contractAddresses := sct.deployContracts(bc, r)
