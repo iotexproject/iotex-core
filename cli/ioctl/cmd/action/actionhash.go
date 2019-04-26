@@ -201,7 +201,7 @@ func Match(in string, matchType string) string {
 		return "(" + alias + ")"
 	case "status":
 		if in == "0" {
-			return "(Fail)"
+			return "(Failure)"
 		} else if in == "1" {
 			return "(Success)"
 		}
