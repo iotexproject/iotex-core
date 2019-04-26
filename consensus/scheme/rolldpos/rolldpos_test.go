@@ -44,7 +44,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -115,12 +114,10 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetClock(clock.NewMock()).
-			SetRootChainAPI(mock_explorer.NewMockExplorer(ctrl)).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
-		assert.NotNil(t, r.ctx.rootChainAPI)
 	})
 	t.Run("missing-dep", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
@@ -345,7 +342,6 @@ func makeTestRollDPoSCtx(
 		cfg.Genesis.BlockInterval,
 		cfg.Consensus.RollDPoS.ToleratedOvertime,
 		cfg.Genesis.TimeBasedRotation,
-		nil,
 		chain,
 		actPool,
 		rolldpos.NewProtocol(

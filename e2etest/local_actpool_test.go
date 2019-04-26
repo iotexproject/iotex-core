@@ -174,8 +174,6 @@ func newActPoolConfig() (config.Config, error) {
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
-	cfg.Explorer.Enabled = true
-	cfg.Explorer.Port = 0
 	cfg.System.EnableExperimentalActions = true
 
 	sk, err := keypair.GenerateKey()

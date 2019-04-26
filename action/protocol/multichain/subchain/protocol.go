@@ -17,9 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -29,17 +27,16 @@ const ProtocolID = "multi-chain_sub-chain"
 
 // Protocol defines the protocol to handle multi-chain actions on sub-chain
 type Protocol struct {
-	chainID      uint32
-	mainChainAPI explorer.Explorer
-	sf           factory.Factory
+	chainID uint32
+	// TODO: explorer dependency deleted at #1085, need to add api related params
+	sf factory.Factory
 }
 
 // NewProtocol constructs a sub-chain protocol on sub-chain
-func NewProtocol(chain blockchain.Blockchain, mainChainAPI explorer.Explorer) *Protocol {
+func NewProtocol(chain blockchain.Blockchain) *Protocol {
 	return &Protocol{
-		chainID:      chain.ChainID(),
-		mainChainAPI: mainChainAPI,
-		sf:           chain.GetFactory(),
+		chainID: chain.ChainID(),
+		sf:      chain.GetFactory(),
 	}
 }
 
@@ -76,35 +73,8 @@ func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...
 
 func (p *Protocol) validateDeposit(deposit *action.SettleDeposit, sm protocol.StateManager) error {
 	// Validate main-chain state
-	// TODO: this may not be the type safe casting if index is greater than 2^63
-	depositsOnMainChain, err := p.mainChainAPI.GetDeposits(int64(p.chainID), int64(deposit.Index()), 1)
-	if err != nil {
-		return err
-	}
-	if len(depositsOnMainChain) != 1 {
-		return errors.Errorf("%d deposits found instead of 1", len(depositsOnMainChain))
-	}
-	depositOnMainChain := depositsOnMainChain[0]
-	if depositOnMainChain.Confirmed {
-		return errors.Errorf("deposit %d is already confirmed", deposit.Index())
-	}
-
-	// Validate sub-chain state
-	var depositIndex DepositIndex
-	addr := depositAddress(deposit.Index())
-	if sm == nil {
-		err = p.sf.State(addr, &depositIndex)
-	} else {
-		err = sm.State(addr, &depositIndex)
-	}
-	switch errors.Cause(err) {
-	case nil:
-		return errors.Errorf("deposit %d is already settled", deposit.Index())
-	case state.ErrStateNotExist:
-		return nil
-	default:
-		return errors.Wrapf(err, "error when loading state of %x", addr)
-	}
+	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
+	return nil
 }
 
 func (p *Protocol) mutateDeposit(ctx context.Context, deposit *action.SettleDeposit, sm protocol.StateManager) error {
