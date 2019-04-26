@@ -7,28 +7,9 @@
 package action
 
 import (
-	"math/big"
 	"testing"
-
-	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestVoteSignVerify(t *testing.T) {
-	require := require.New(t)
-	recipientAddr := testaddress.Addrinfo["alfa"]
-	senderKey := testaddress.Keyinfo["producer"]
-
-	v, err := NewVote(0, recipientAddr.String(), uint64(100000), big.NewInt(10))
-	require.NoError(err)
-
-	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasPrice(big.NewInt(10)).
-		SetGasLimit(uint64(100000)).
-		SetAction(v).Build()
-
-	selp, err := Sign(elp, senderKey.PriKey)
-	require.NoError(err)
-	require.NoError(Verify(selp))
+	// remove vote related test at #1071 
 }

@@ -31,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -54,7 +53,7 @@ import (
 
 var (
 	testTransfer, _ = testutil.SignedTransfer(ta.Addrinfo["alfa"].String(),
-		ta.Keyinfo["alfa"].PriKey, 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		ta.Keyinfo["alfa"].PriKey, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
 
 	testTransferHash = testTransfer.Hash()
@@ -70,13 +69,11 @@ var (
 	testTransfer1, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash1 = testTransfer1.Hash()
-	testVote1, _  = testutil.SignedVote(ta.Addrinfo["charlie"].String(), ta.Keyinfo["charlie"].PriKey, 5,
-		testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	voteHash1         = testVote1.Hash()
-	testExecution1, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 5,
+
+	testExecution1, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	executionHash1    = testExecution1.Hash()
-	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 6,
+	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 1,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash2    = testExecution2.Hash()
 	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 2,
@@ -113,8 +110,8 @@ var (
 		{ta.Addrinfo["charlie"].String(),
 			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 			"3",
-			8,
-			9,
+			1,
+			2,
 			11,
 		},
 		{
@@ -122,7 +119,7 @@ var (
 			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
 			"9999999999999999999999999991",
 			1,
-			6,
+			3,
 			2,
 		},
 	}
@@ -140,7 +137,7 @@ var (
 		{
 			11,
 			5,
-			4,
+			5,
 		},
 	}
 
@@ -159,13 +156,6 @@ var (
 			nonce:        1,
 			senderPubKey: testTransfer1.SrcPubkey().HexString(),
 			blkNumber:    1,
-		},
-		{
-			checkPending: false,
-			in:           hex.EncodeToString(voteHash1[:]),
-			nonce:        5,
-			senderPubKey: testVote1.SrcPubkey().HexString(),
-			blkNumber:    2,
 		},
 		{
 			checkPending: true,
@@ -283,7 +273,7 @@ var (
 			1,
 			"lifeLongDelegates",
 			4,
-			15,
+			16,
 			5,
 			iotextypes.EpochData{
 				Num:                     1,
@@ -296,8 +286,8 @@ var (
 			5,
 			"governanceChainCommittee",
 			4,
-			15,
-			15,
+			16,
+			16,
 			iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
@@ -331,11 +321,6 @@ var (
 			hex.EncodeToString(transferHash1[:]),
 			action.SuccessReceiptStatus,
 			1,
-		},
-		{
-			hex.EncodeToString(voteHash1[:]),
-			action.SuccessReceiptStatus,
-			2,
 		},
 		{
 			hex.EncodeToString(executionHash2[:]),
@@ -375,10 +360,6 @@ var (
 	}{
 		{
 			hex.EncodeToString(transferHash1[:]),
-			10000,
-		},
-		{
-			hex.EncodeToString(voteHash1[:]),
 			10000,
 		},
 	}
@@ -1220,17 +1201,12 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		}
 		selps = append(selps, selp)
 	}
-	vote1, err := testutil.SignedVote(addr3, priKey3, 5, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
 	execution1, err := testutil.SignedExecution(addr4, priKey3, 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
 
-	selps = append(selps, vote1)
 	selps = append(selps, execution1)
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[addr3] = selps
@@ -1263,18 +1239,9 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	// Charlie vote--> C
 	// Charlie exec--> D
-	// Alfa vote--> A
 	// Alfa exec--> D
-	vote1, err = testutil.SignedVote(addr3, priKey3, 7, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
-	vote2, err := testutil.SignedVote(addr1, priKey1, 1, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
+
 	execution1, err = testutil.SignedExecution(addr4, priKey3, 8,
 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
@@ -1287,8 +1254,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr3] = []action.SealedEnvelope{vote1, execution1}
-	actionMap[addr1] = []action.SealedEnvelope{vote2, execution2}
+	actionMap[addr3] = []action.SealedEnvelope{execution1}
+	actionMap[addr1] = []action.SealedEnvelope{execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
@@ -1307,11 +1274,6 @@ func addActsToActPool(ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	// Producer vote--> P
-	vote1, err := testutil.SignedVote(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	if err != nil {
-		return err
-	}
 	// Producer transfer--> B
 	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
@@ -1324,9 +1286,6 @@ func addActsToActPool(ap actpool.ActPool) error {
 		return err
 	}
 	if err := ap.Add(tsf1); err != nil {
-		return err
-	}
-	if err := ap.Add(vote1); err != nil {
 		return err
 	}
 	if err := ap.Add(tsf2); err != nil {
@@ -1356,7 +1315,6 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	}
 
 	acc := account.NewProtocol()
-	v := vote.NewProtocol(bc)
 	evm := execution.NewProtocol(bc)
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
@@ -1372,9 +1330,6 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	if err := registry.Register(account.ProtocolID, acc); err != nil {
 		return nil, nil, err
 	}
-	if err := registry.Register(vote.ProtocolID, v); err != nil {
-		return nil, nil, err
-	}
 	if err := registry.Register(execution.ProtocolID, evm); err != nil {
 		return nil, nil, err
 	}
@@ -1384,9 +1339,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	if err := registry.Register(poll.ProtocolID, p); err != nil {
 		return nil, nil, err
 	}
-	sf.AddActionHandlers(acc, v, evm, r)
+	sf.AddActionHandlers(acc, evm, r)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(acc, v, evm, r)
+	bc.Validator().AddActionValidators(acc, evm, r)
 
 	return bc, &registry, nil
 }
@@ -1397,7 +1352,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 		return nil, err
 	}
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	ap.AddActionValidators(vote.NewProtocol(bc), execution.NewProtocol(bc))
+	ap.AddActionValidators(execution.NewProtocol(bc))
 
 	return ap, nil
 }
