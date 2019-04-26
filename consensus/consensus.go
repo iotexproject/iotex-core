@@ -8,13 +8,11 @@ package consensus
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-address/address"
 	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -22,11 +20,9 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
-	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // Consensus is the interface for handling IotxConsensus view change.
@@ -48,21 +44,12 @@ type IotxConsensus struct {
 }
 
 type optionParams struct {
-	rootChainAPI     explorerapi.Explorer
 	broadcastHandler scheme.Broadcast
 	rp               *rp.Protocol
 }
 
 // Option sets Consensus construction parameter.
 type Option func(op *optionParams) error
-
-// WithRootChainAPI is an option to add a root chain api to Consensus.
-func WithRootChainAPI(exp explorerapi.Explorer) Option {
-	return func(ops *optionParams) error {
-		ops.rootChainAPI = exp
-		return nil
-	}
-}
 
 // WithBroadcast is an option to add broadcast callback to Consensus
 func WithBroadcast(broadcastHandler scheme.Broadcast) Option {
@@ -139,33 +126,7 @@ func NewConsensus(
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
 			RegisterProtocol(ops.rp)
-		if ops.rootChainAPI != nil {
-			bd = bd.SetCandidatesByHeightFunc(func(h uint64) ([]*state.Candidate, error) {
-				rawcs, err := ops.rootChainAPI.GetCandidateMetricsByHeight(int64(h))
-				if err != nil {
-					return nil, errors.Wrapf(err, "error when get root chain candidates at height %d", h)
-				}
-				cs := make([]*state.Candidate, 0, len(rawcs.Candidates))
-				for _, rawc := range rawcs.Candidates {
-					// TODO: this is a short term walk around. We don't need to convert root chain address to sub chain
-					// address. Instead we should use public key to identify the block producer
-					addr, err := address.FromString(rawc.Address)
-					if err != nil {
-						return nil, errors.Wrapf(err, "error when converting address string")
-					}
-					votes, ok := big.NewInt(0).SetString(rawc.TotalVote, 10)
-					if !ok {
-						log.Logger("consensus").Error("Error when setting candidate total votes.", zap.Error(err))
-					}
-					cs = append(cs, &state.Candidate{
-						Address: addr.String(),
-						Votes:   votes,
-					})
-				}
-				return cs, nil
-			})
-			bd = bd.SetRootChainAPI(ops.rootChainAPI)
-		}
+		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()
 		if err != nil {
 			log.Logger("consensus").Panic("Error when constructing RollDPoS.", zap.Error(err))

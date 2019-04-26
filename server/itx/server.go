@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
-	"github.com/iotexproject/iotex-core/action/protocol/multichain/subchain"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -31,7 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/ha"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -101,9 +99,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err := cs.RegisterProtocol(mainchain.ProtocolID, mainChainProtocol); err != nil {
 		return nil, err
 	}
-	if cs.Explorer() != nil {
-		cs.Explorer().SetMainChainProtocol(mainChainProtocol)
-	}
+	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
 	svr := Server{
@@ -170,11 +166,7 @@ func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Opti
 }
 
 func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
-	var mainChainAPI explorer.Explorer
-	if s.rootChainService.Explorer() != nil {
-		mainChainAPI = s.rootChainService.Explorer().Explorer()
-		opts = append(opts, chainservice.WithRootChainAPI(mainChainAPI))
-	}
+	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
 		return err
@@ -188,10 +180,6 @@ func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Opti
 			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
 	if err := registerDefaultProtocols(cs, cfg.Genesis); err != nil {
-		return err
-	}
-	subChainProtocol := subchain.NewProtocol(cs.Blockchain(), mainChainAPI)
-	if err := cs.RegisterProtocol(subchain.ProtocolID, subChainProtocol); err != nil {
 		return err
 	}
 	s.chainservices[cs.ChainID()] = cs
