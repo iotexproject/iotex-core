@@ -147,19 +147,6 @@ chain:
 	require.NotNil(t, cfg)
 }
 
-func TestValidateExplorer(t *testing.T) {
-	cfg := Default
-	cfg.Explorer.Enabled = true
-	cfg.Explorer.TpsWindow = 0
-	err := ValidateExplorer(cfg)
-	require.NotNil(t, err)
-	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
-	require.True(
-		t,
-		strings.Contains(err.Error(), "tps window is not a positive integer when the explorer is enabled"),
-	)
-}
-
 func TestValidateDispatcher(t *testing.T) {
 	cfg := Default
 	cfg.Dispatcher.EventChanSize = 0

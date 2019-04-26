@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -33,8 +32,8 @@ import (
 type CandidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 
 type rollDPoSCtx struct {
-	cfg              config.RollDPoS
-	rootChainAPI     explorer.Explorer
+	cfg config.RollDPoS
+	// TODO: explorer dependency deleted at #1085, need to add api params here
 	chain            blockchain.Blockchain
 	actPool          actpool.ActPool
 	broadcastHandler scheme.Broadcast
@@ -54,7 +53,6 @@ func newRollDPoSCtx(
 	blockInterval time.Duration,
 	toleratedOvertime time.Duration,
 	timeBasedRotation bool,
-	rootChainAPI explorer.Explorer,
 	chain blockchain.Blockchain,
 	actPool actpool.ActPool,
 	rp *rolldpos.Protocol,
@@ -89,7 +87,6 @@ func newRollDPoSCtx(
 		actPool:          actPool,
 		broadcastHandler: broadcastHandler,
 		clock:            clock,
-		rootChainAPI:     rootChainAPI,
 		roundCalc:        roundCalc,
 		round:            round,
 	}
@@ -390,7 +387,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		}
 		// putblock to parent chain if the current node is proposer and current chain is a sub chain
 		if ctx.round.Proposer() == ctx.encodedAddr && ctx.chain.ChainAddress() != "" {
-			putBlockToParentChain(ctx.rootChainAPI, ctx.chain.ChainAddress(), ctx.priKey, ctx.encodedAddr, pendingBlock)
+			// TODO: explorer dependency deleted at #1085, need to call putblock related method
 		}
 	} else {
 		ctx.logger().Panic(
