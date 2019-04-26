@@ -30,8 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/explorer"
-	explorerapi "github.com/iotexproject/iotex-core/explorer/idl/explorer"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -47,29 +45,20 @@ type ChainService struct {
 	chain             blockchain.Blockchain
 	electionCommittee committee.Committee
 	rDPoSProtocol     *rolldpos.Protocol
-	explorer          *explorer.Server
-	api               *api.Server
-	indexBuilder      *blockchain.IndexBuilder
-	indexservice      *indexservice.Server
-	registry          *protocol.Registry
+	// TODO: explorer dependency deleted at #1085, need to api related params
+	api          *api.Server
+	indexBuilder *blockchain.IndexBuilder
+	indexservice *indexservice.Server
+	registry     *protocol.Registry
 }
 
 type optionParams struct {
-	rootChainAPI  explorerapi.Explorer
 	isTesting     bool
 	genesisConfig genesis.Genesis
 }
 
 // Option sets ChainService construction parameter.
 type Option func(ops *optionParams) error
-
-// WithRootChainAPI is an option to add a root chain api to ChainService.
-func WithRootChainAPI(exp explorerapi.Explorer) Option {
-	return func(ops *optionParams) error {
-		ops.rootChainAPI = exp
-		return nil
-	}
-}
 
 // WithTesting is an option to create a testing ChainService.
 func WithTesting() Option {
@@ -183,9 +172,7 @@ func New(
 		}),
 		consensus.WithRollDPoSProtocol(rDPoSProtocol),
 	}
-	if ops.rootChainAPI != nil {
-		copts = append(copts, consensus.WithRootChainAPI(ops.rootChainAPI))
-	}
+	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
@@ -209,27 +196,7 @@ func New(
 		idx = indexservice.NewServer(cfg, chain)
 		if idx == nil {
 			return nil, errors.Wrap(err, "failed to create index service")
-		}
-	}
-
-	var exp *explorer.Server
-	if cfg.Explorer.Enabled {
-		exp, err = explorer.NewServer(
-			cfg.Explorer,
-			chain,
-			consensus,
-			dispatcher,
-			actPool,
-			idx,
-			explorer.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-				ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
-				return p2pAgent.BroadcastOutbound(ctx, msg)
-			}),
-			explorer.WithNeighbors(p2pAgent.Neighbors),
-			explorer.WithNetworkInfo(p2pAgent.Info),
-		)
-		if err != nil {
-			return nil, err
+			// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 		}
 	}
 
@@ -261,7 +228,6 @@ func New(
 		electionCommittee: electionCommittee,
 		indexservice:      idx,
 		indexBuilder:      indexBuilder,
-		explorer:          exp,
 		api:               apiSvr,
 		registry:          &registry,
 	}, nil
@@ -288,11 +254,7 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.blocksync.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting blocksync")
 	}
-	if cs.explorer != nil {
-		if err := cs.explorer.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting explorer")
-		}
-	}
+	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	if cs.api != nil {
 		if err := cs.api.Start(); err != nil {
 			return errors.Wrap(err, "err when starting API server")
@@ -313,11 +275,7 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 			return errors.Wrap(err, "error when stopping index builder")
 		}
 	}
-	if cs.explorer != nil {
-		if err := cs.explorer.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping explorer")
-		}
-	}
+	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	if cs.api != nil {
 		if err := cs.api.Stop(); err != nil {
 			return errors.Wrap(err, "error when stopping API server")
@@ -413,11 +371,6 @@ func (cs *ChainService) RollDPoSProtocol() *rolldpos.Protocol {
 // IndexService returns the indexservice instance
 func (cs *ChainService) IndexService() *indexservice.Server {
 	return cs.indexservice
-}
-
-// Explorer returns the explorer instance
-func (cs *ChainService) Explorer() *explorer.Server {
-	return cs.explorer
 }
 
 // RegisterProtocol register a protocol

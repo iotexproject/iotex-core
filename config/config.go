@@ -149,18 +149,6 @@ var (
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
 		},
-		Explorer: Explorer{
-			Enabled:    false,
-			UseIndexer: false,
-			Port:       14004,
-			TpsWindow:  10,
-			GasStation: GasStation{
-				SuggestBlockWindow: 20,
-				DefaultGas:         1,
-				Percentile:         60,
-			},
-			MaxTransferPayloadBytes: 1024,
-		},
 		API: API{
 			UseRDS:    false,
 			Port:      14014,
@@ -204,7 +192,6 @@ var (
 	Validates = []Validate{
 		ValidateRollDPoS,
 		ValidateDispatcher,
-		ValidateExplorer,
 		ValidateAPI,
 		ValidateActPool,
 	}
@@ -280,18 +267,7 @@ type (
 	// Dispatcher is the dispatcher config
 	Dispatcher struct {
 		EventChanSize uint `yaml:"eventChanSize"`
-	}
-
-	// Explorer is the explorer service config
-	Explorer struct {
-		Enabled    bool       `yaml:"enabled"`
-		IsTest     bool       `yaml:"isTest"`
-		UseIndexer bool       `yaml:"useIndexer"`
-		Port       int        `yaml:"port"`
-		TpsWindow  int        `yaml:"tpsWindow"`
-		GasStation GasStation `yaml:"gasStation"`
-		// MaxTransferPayloadBytes limits how many bytes a playload can contain at most
-		MaxTransferPayloadBytes uint64 `yaml:"maxTransferPayloadBytes"`
+		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
 
 	// API is the api service config
@@ -395,7 +371,6 @@ type (
 		Consensus  Consensus                   `yaml:"consensus"`
 		BlockSync  BlockSync                   `yaml:"blockSync"`
 		Dispatcher Dispatcher                  `yaml:"dispatcher"`
-		Explorer   Explorer                    `yaml:"explorer"`
 		API        API                         `yaml:"api"`
 		Indexer    Indexer                     `yaml:"indexer"`
 		System     System                      `yaml:"system"`
@@ -544,14 +519,6 @@ func ValidateRollDPoS(cfg Config) error {
 	fsm := rollDPoS.FSM
 	if fsm.EventChanSize <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "roll-DPoS event chan size should be greater than 0")
-	}
-	return nil
-}
-
-// ValidateExplorer validates the explorer configs
-func ValidateExplorer(cfg Config) error {
-	if cfg.Explorer.Enabled && cfg.Explorer.TpsWindow <= 0 {
-		return errors.Wrap(ErrInvalidCfg, "tps window is not a positive integer when the explorer is enabled")
 	}
 	return nil
 }
