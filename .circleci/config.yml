@@ -20,10 +20,12 @@ jobs:
     docker:
       - image: iotex/iotex-core-ci:latest
     working_directory: /go/src/github.com/iotexproject/iotex-core
+    resource_class: large
     steps:
       - checkout
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
       - run: ./go.test.sh
+#       - run: go test -v -p 4 ./... |grep -v vendor 
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
@@ -32,7 +34,7 @@ jobs:
     macos:
       xcode: "10.2.0"   # not supported > 10.2.0
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
-
+#     resource_class: medium+
     steps:
       - checkout
       - run:
