@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"syscall"
+	"io/ioutil"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -36,6 +37,7 @@ var (
 	nonce    uint64
 	signer   string
 	bytecode []byte
+	pwdFile  string
 )
 
 // ActionCmd represents the account command
@@ -66,6 +68,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 			"set gas price (unit: 10^(-6)Iotx)")
 		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
 		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
+		cmd.Flags().StringVarP(&pwdFile, "pwdfile", "w", "", "file to read password from")
 		cmd.MarkFlagRequired("signer")
 		if cmd == actionDeployCmd || cmd == actionInvokeCmd {
 			cmd.Flags().BytesHexVarP(&bytecode, "bytecode", "b", nil, "set the byte code")
@@ -93,11 +96,22 @@ func GetGasPrice() (*big.Int, error) {
 }
 
 func sendAction(elp action.Envelope) (string, error) {
-	fmt.Printf("Enter password #%s:\n", signer)
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
+	var bytePassword []byte
+	if pwdFile != "" {
+		var err error
+		bytePassword, err = ioutil.ReadFile(pwdFile)
+		if err != nil {
+			log.L().Error("failed to read password from file", zap.Error(err))
+			return "", err
+		}
+	} else {
+		var err error
+		fmt.Printf("Enter password #%s:\n", signer)
+		bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			log.L().Error("failed to get password", zap.Error(err))
+			return "", err
+		}
 	}
 	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
 	if err != nil {
@@ -116,13 +130,15 @@ func sendAction(elp action.Envelope) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var confirm string
-	fmt.Println("\n" + actionInfo + "\n" +
-		"Please confirm your action.\n" +
-		"Type 'YES' to continue, quit for anything else.")
-	fmt.Scanf("%s", &confirm)
-	if confirm != "YES" && confirm != "yes" {
-		return "Quit", nil
+	fmt.Println("\n" + actionInfo)
+	if pwdFile == "" {
+		var confirm string
+		fmt.Println("Please confirm your action.\n" +
+			"Type 'YES' to continue, quit for anything else.")
+		fmt.Scanf("%s", &confirm)
+		if confirm != "YES" && confirm != "yes" {
+			return "Quit", nil
+		}
 	}
 	fmt.Println()
 
