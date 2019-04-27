@@ -53,20 +53,37 @@ import (
 
 var (
 	testTransfer, _ = testutil.SignedTransfer(ta.Addrinfo["alfa"].String(),
-		ta.Keyinfo["alfa"].PriKey, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+		ta.Keyinfo["alfa"].PriKey, 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
+
 	testTransferHash = testTransfer.Hash()
 	testTransferPb   = testTransfer.Proto()
 
 	testExecution, _ = testutil.SignedExecution(ta.Addrinfo["bravo"].String(),
 		ta.Keyinfo["bravo"].PriKey, 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
+
 	testExecutionHash = testExecution.Hash()
 	testExecutionPb   = testExecution.Proto()
 
 	testTransfer1, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash1 = testTransfer1.Hash()
+	transferHash1    = testTransfer1.Hash()
+	testTransfer2, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["charlie"].PriKey, 5,
+		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	transferHash2 = testTransfer2.Hash()
+
+	testExecution1, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 6,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash1 = testExecution1.Hash()
+
+	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 6,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash2 = testExecution2.Hash()
+
+	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 2,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
+	executionHash3 = testExecution3.Hash()
 )
 
 var (
@@ -98,16 +115,16 @@ var (
 		{ta.Addrinfo["charlie"].String(),
 			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 			"3",
-			6,
-			7,
-			7,
+			8,
+			9,
+			11,
 		},
 		{
 			ta.Addrinfo["producer"].String(),
 			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
 			"9999999999999999999999999991",
 			1,
-			3,
+			6,
 			2,
 		},
 	}
@@ -124,8 +141,39 @@ var (
 		},
 		{
 			11,
-			1,
-			1,
+			5,
+			4,
+		},
+	}
+
+	getActionTests = []struct {
+		// Arguments
+		checkPending bool
+		in           string
+		// Expected Values
+		nonce        uint64
+		senderPubKey string
+		blkNumber    uint64
+	}{
+		{
+			checkPending: true,
+			in:           hex.EncodeToString(transferHash1[:]),
+			nonce:        1,
+			senderPubKey: testTransfer1.SrcPubkey().HexString(),
+			blkNumber:    1,
+		},
+		{
+			checkPending: true,
+			in:           hex.EncodeToString(transferHash2[:]),
+			nonce:        5,
+			senderPubKey: testTransfer2.SrcPubkey().HexString(),
+			blkNumber:    2,
+		},
+		{
+			checkPending: true,
+			in:           hex.EncodeToString(executionHash1[:]),
+			nonce:        6,
+			senderPubKey: testExecution1.SrcPubkey().HexString(),
 		},
 	}
 
@@ -144,8 +192,8 @@ var (
 		{
 			ta.Addrinfo["charlie"].String(),
 			1,
-			6,
-			6,
+			8,
+			8,
 		},
 	}
 
@@ -158,8 +206,8 @@ var (
 		{
 			ta.Addrinfo["producer"].String(),
 			0,
-			3,
-			3,
+			4,
+			4,
 		},
 	}
 
@@ -172,14 +220,14 @@ var (
 		{
 			2,
 			0,
-			6,
-			6,
+			7,
+			7,
 		},
 		{
 			4,
 			0,
-			3,
-			3,
+			5,
+			5,
 		},
 	}
 
@@ -207,13 +255,13 @@ var (
 	}{
 		{
 			2,
-			6,
-			"4",
+			7,
+			"6",
 		},
 		{
 			4,
-			3,
-			"0",
+			5,
+			"2",
 		},
 	}
 
@@ -237,8 +285,8 @@ var (
 			1,
 			"lifeLongDelegates",
 			4,
-			12,
-			3,
+			15,
+			5,
 			iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
@@ -250,8 +298,8 @@ var (
 			5,
 			"governanceChainCommittee",
 			4,
-			12,
-			12,
+			15,
+			15,
 			iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
@@ -276,6 +324,43 @@ var (
 		},
 	}
 
+	getReceiptByActionTests = []struct {
+		in        string
+		status    uint64
+		blkHeight uint64
+	}{
+		{
+			hex.EncodeToString(transferHash1[:]),
+			action.SuccessReceiptStatus,
+			1,
+		},
+		{
+			hex.EncodeToString(transferHash2[:]),
+			action.SuccessReceiptStatus,
+			2,
+		},
+		{
+			hex.EncodeToString(executionHash2[:]),
+			action.SuccessReceiptStatus,
+			2,
+		},
+		{
+			hex.EncodeToString(executionHash3[:]),
+			action.SuccessReceiptStatus,
+			4,
+		},
+	}
+
+	readContractTests = []struct {
+		execHash string
+		retValue string
+	}{
+		{
+			hex.EncodeToString(executionHash2[:]),
+			"",
+		},
+	}
+
 	suggestGasPriceTests = []struct {
 		defaultGasPrice   uint64
 		suggestedGasPrice uint64
@@ -292,6 +377,10 @@ var (
 	}{
 		{
 			hex.EncodeToString(transferHash1[:]),
+			10000,
+		},
+		{
+			hex.EncodeToString(transferHash2[:]),
 			10000,
 		},
 	}
@@ -492,32 +581,7 @@ func TestServer_GetAction(t *testing.T) {
 
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
-	testExecution2, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash2 := testExecution2.Hash()
-	getActionTests := []struct {
-		// Arguments
-		checkPending bool
-		in           string
-		// Expected Values
-		nonce        uint64
-		senderPubKey string
-		blkNumber    uint64
-	}{
-		{
-			checkPending: true,
-			in:           hex.EncodeToString(transferHash1[:]),
-			nonce:        1,
-			senderPubKey: testTransfer1.SrcPubkey().HexString(),
-			blkNumber:    1,
-		},
-		{
-			checkPending: true,
-			in:           hex.EncodeToString(executionHash2[:]),
-			nonce:        5,
-			senderPubKey: testExecution2.SrcPubkey().HexString(),
-		},
-	}
+
 	for _, test := range getActionTests {
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByHash{
@@ -756,34 +820,7 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
-	testExecution2, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash2 := testExecution2.Hash()
-	testExecution3, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 1,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash3 := testExecution3.Hash()
 
-	getReceiptByActionTests := []struct {
-		in        string
-		status    uint64
-		blkHeight uint64
-	}{
-		{
-			hex.EncodeToString(transferHash1[:]),
-			action.SuccessReceiptStatus,
-			1,
-		},
-		{
-			hex.EncodeToString(executionHash2[:]),
-			action.SuccessReceiptStatus,
-			2,
-		},
-		{
-			hex.EncodeToString(executionHash3[:]),
-			action.SuccessReceiptStatus,
-			4,
-		},
-	}
 	for _, test := range getReceiptByActionTests {
 		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
 		res, err := svr.GetReceiptByAction(context.Background(), request)
@@ -801,18 +838,7 @@ func TestServer_ReadContract(t *testing.T) {
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
-	testExecution2, _ := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 5,
-		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
-	executionHash2 := testExecution2.Hash()
-	readContractTests := []struct {
-		execHash string
-		retValue string
-	}{
-		{
-			hex.EncodeToString(executionHash2[:]),
-			"",
-		},
-	}
+
 	for _, test := range readContractTests {
 		hash, err := toHash256(test.execHash)
 		require.NoError(err)
@@ -1162,11 +1188,11 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	addr4 := ta.Addrinfo["delta"].String()
 	// Add block 1
 	// Producer transfer--> C
-	gasP := big.NewInt(testutil.TestGasPriceInt64)
-	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, gasP)
+	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[addr0] = []action.SealedEnvelope{tsf}
 	blk, err := bc.MintNewBlock(
@@ -1185,6 +1211,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	// Add block 2
 	// Charlie transfer--> A, B, D, P
+	// Charlie transfer--> D
 	// Charlie exec--> D
 	recipients := []string{addr1, addr2, addr4, addr0}
 	selps := make([]action.SealedEnvelope, 0)
@@ -1195,12 +1222,16 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		}
 		selps = append(selps, selp)
 	}
-	execution1, err := testutil.SignedExecution(addr4, priKey3, 5,
+	selp, err := testutil.SignedTransfer(addr3, priKey3, uint64(5), big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	if err != nil {
+		return err
+	}
+	execution1, err := testutil.SignedExecution(addr4, priKey3, 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
-
+	selps = append(selps, selp)
 	selps = append(selps, execution1)
 	actionMap = make(map[string][]action.SealedEnvelope)
 	actionMap[addr3] = selps
@@ -1233,22 +1264,32 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	// Add block 4
-	// Charlie exec--> D
+	// Charlie transfer--> C
+	// Charlie transfer--> D
+	// Alfa transfer--> A
 	// Alfa exec--> D
-	execution1, err = testutil.SignedExecution(addr4, priKey3, 6,
+	tsf1, err := testutil.SignedTransfer(addr3, priKey3, uint64(7), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	if err != nil {
+		return err
+	}
+	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	if err != nil {
+		return err
+	}
+	execution1, err = testutil.SignedExecution(addr4, priKey3, 8,
 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
-	execution2, err := testutil.SignedExecution(addr4, priKey1, 1,
+	execution2, err := testutil.SignedExecution(addr4, priKey1, 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr3] = []action.SealedEnvelope{execution1}
-	actionMap[addr1] = []action.SealedEnvelope{execution2}
+	actionMap[addr3] = []action.SealedEnvelope{tsf1, execution1}
+	actionMap[addr1] = []action.SealedEnvelope{tsf2, execution2}
 	if blk, err = bc.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
@@ -1267,8 +1308,13 @@ func addActsToActPool(ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
+	// Producer transfer--> P
+	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	if err != nil {
+		return err
+	}
 	// Producer transfer--> B
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -1282,6 +1328,9 @@ func addActsToActPool(ap actpool.ActPool) error {
 		return err
 	}
 	if err := ap.Add(tsf2); err != nil {
+		return err
+	}
+	if err := ap.Add(tsf3); err != nil {
 		return err
 	}
 	return ap.Add(execution1)

@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -168,6 +169,73 @@ func testCandidates(sf Factory, t *testing.T) {
 	assert.Equal(t, candidates[0].Votes, big.NewInt(1))
 	assert.Equal(t, candidates[1].Address, identityset.Address(0).String())
 	assert.Equal(t, candidates[1].Votes, big.NewInt(0))
+}
+
+func TestState(t *testing.T) {
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
+
+	cfg := config.Default
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	require.NoError(t, err)
+	testState(sf, t)
+}
+
+func TestSDBState(t *testing.T) {
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBPath := testDBFile.Name()
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testDBPath
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(t, err)
+	testState(sdb, t)
+}
+
+func testState(sf Factory, t *testing.T) {
+	// Create a dummy iotex address
+	a := testaddress.Addrinfo["alfa"].String()
+	priKeyA := testaddress.Keyinfo["alfa"].PriKey
+	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
+	require.NoError(t, sf.Start(context.Background()))
+	defer func() {
+		require.NoError(t, sf.Stop(context.Background()))
+	}()
+	ws, err := sf.NewWorkingSet()
+	require.NoError(t, err)
+	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	require.NoError(t, err)
+
+	tsf, err := action.NewTransfer(1, big.NewInt(10), testaddress.Addrinfo["delta"].String(), nil, uint64(20000), big.NewInt(0))
+	require.NoError(t, err)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	selp, err := action.Sign(elp, priKeyA)
+	require.NoError(t, err)
+	gasLimit := uint64(1000000)
+	raCtx := protocol.RunActionsCtx{
+		Producer: testaddress.Addrinfo["producer"],
+		GasLimit: gasLimit,
+	}
+
+	_, err = ws.RunAction(raCtx, selp)
+	require.NoError(t, err)
+	_ = ws.UpdateBlockLevelInfo(0)
+	require.NoError(t, sf.Commit(ws))
+
+	//test AccountState() & State()
+	var testAccount state.Account
+	accountA, err := sf.AccountState(a)
+	require.NoError(t, err)
+	sHash := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
+	err = sf.State(sHash, &testAccount)
+	require.NoError(t, err)
+	require.Equal(t, accountA, &testAccount)
+	require.Equal(t, big.NewInt(90), accountA.Balance)
+	require.False(t, accountA.IsCandidate)
+	require.Equal(t, "", accountA.Votee)
+	require.Equal(t, big.NewInt(0), accountA.VotingWeight)
 }
 
 func TestNonce(t *testing.T) {
