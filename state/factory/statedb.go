@@ -250,9 +250,6 @@ func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
 		return nil, err
 	}
 	pkHash := hash.BytesToHash160(addr.Bytes())
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
 	var account state.Account
 	if err := sdb.state(pkHash, &account); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {

@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -53,8 +52,9 @@ type ChainService struct {
 }
 
 type optionParams struct {
-	isTesting     bool
-	genesisConfig genesis.Genesis
+	isTesting bool
+	// commented for make lint-rich
+	// genesisConfig genesis.Genesis
 }
 
 // Option sets ChainService construction parameter.

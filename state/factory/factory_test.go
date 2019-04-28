@@ -58,7 +58,7 @@ func randStringRunes(n int) string {
 	return string(b)
 }
 
-func voteForm(height uint64, cs []*state.Candidate) []string {
+func voteForm(cs []*state.Candidate) []string {
 	r := make([]string, len(cs))
 	for i := 0; i < len(cs); i++ {
 		r[i] = cs[i].Address + ":" + strconv.FormatInt(cs[i].Votes.Int64(), 10)
@@ -238,7 +238,7 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, sf.Commit(ws))
 	h, _ := sf.Height()
 	cand, _ := sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(h, cand), []string{a + ":100"})
+	require.Equal(t, voteForm(cand), []string{a + ":100"})
 	// a(a):100(+0=100) b:200 c:300
 
 	//test AccountState() & State()
@@ -386,7 +386,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ := sf.Height()
 	cand, _ := sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(h, cand), []string{})
+	require.Equal(t, voteForm(cand), []string{})
 
 	vote2, err := action.NewVote(0, a, uint64(100000), big.NewInt(0))
 	require.NoError(t, err)
@@ -401,7 +401,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(h, cand), []string{a + ":100"})
+	require.Equal(t, voteForm(cand), []string{a + ":100"})
 
 	vote3, err := action.NewVote(0, "", uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
@@ -416,7 +416,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(h, cand), []string{})
+	require.Equal(t, voteForm(cand), []string{})
 
 	vote4, err := action.NewVote(0, b, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
@@ -447,7 +447,7 @@ func testUnvote(sf Factory, t *testing.T) {
 	require.Nil(t, sf.Commit(ws))
 	h, _ = sf.Height()
 	cand, _ = sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(h, cand), []string{b + ":200"})
+	require.Equal(t, voteForm(cand), []string{b + ":200"})
 }
 
 func TestLoadStoreHeight(t *testing.T) {
