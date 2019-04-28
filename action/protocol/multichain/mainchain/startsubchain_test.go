@@ -333,7 +333,9 @@ func TestNoStartSubChainInGenesis(t *testing.T) {
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
-	defer require.NoError(t, bc.Stop(ctx))
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
 
 	subChainsInOp, err := p.SubChainsInOperation()
 	require.NoError(t, err)
@@ -360,7 +362,9 @@ func TestStartSubChainInGenesis(t *testing.T) {
 	p := NewProtocol(bc)
 	bc.GetFactory().AddActionHandlers(p)
 	require.NoError(t, bc.Start(ctx))
-	defer require.NoError(t, bc.Stop(ctx))
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
 	scAddr, err := createSubChainAddress(identityset.Address(0).String(), 0)
 	require.NoError(t, err)
 	addr, err := address.FromBytes(scAddr[:])
