@@ -148,28 +148,3 @@ func (b *badgerDB) Commit(batch KVStoreBatch) (err error) {
 	}
 	return err
 }
-
-//======================================
-// private functions
-//======================================
-
-// intentionally fail to test DB can successfully rollback
-func (b *badgerDB) batchPutForceFail(namespace string, key [][]byte, value [][]byte) error {
-	return b.db.Update(func(txn *badger.Txn) error {
-		if len(key) != len(value) {
-			return errors.Wrap(ErrIO, "batch put <k, v> size not match")
-		}
-		for i := 0; i < len(key); i++ {
-			k := []byte(namespace)
-			k = append(k, key[i]...)
-			if err := txn.Set(k, value[i]); err != nil {
-				return err
-			}
-			// intentionally fail to test DB can successfully rollback
-			if i == len(key)-1 {
-				return errors.Wrapf(ErrIO, "force fail to test DB rollback")
-			}
-		}
-		return nil
-	})
-}
