@@ -60,26 +60,6 @@ var (
 	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
 )
 
-type blockWrapper struct {
-	*block.Block
-
-	round uint32
-}
-
-func (bw *blockWrapper) Hash() []byte {
-	hash := bw.HashBlock()
-
-	return hash[:]
-}
-
-func (bw *blockWrapper) Endorser() string {
-	return bw.ProducerAddress()
-}
-
-func (bw *blockWrapper) Round() uint32 {
-	return bw.round
-}
-
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
 	cfsm  *consensusfsm.ConsensusFSM

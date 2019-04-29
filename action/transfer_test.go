@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
-var chainid = []byte{0x00, 0x00, 0x00, 0x01}
 
 func TestTransferSignVerify(t *testing.T) {
 	require := require.New(t)

@@ -52,6 +52,8 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+const lld = "lifeLongDelegates"
+
 var (
 	testTransfer, _ = testutil.SignedTransfer(ta.Addrinfo["alfa"].String(),
 		ta.Keyinfo["alfa"].PriKey, 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
@@ -281,7 +283,7 @@ var (
 		{
 			false,
 			1,
-			"lifeLongDelegates",
+			lld,
 			4,
 			15,
 			5,
@@ -432,7 +434,7 @@ var (
 	}{
 		{
 			protocolID:        "poll",
-			protocolType:      "lifeLongDelegates",
+			protocolType:      lld,
 			methodName:        "BlockProducersByEpoch",
 			epoch:             1,
 			numBlockProducers: 3,
@@ -467,7 +469,7 @@ var (
 	}{
 		{
 			protocolID:              "poll",
-			protocolType:            "lifeLongDelegates",
+			protocolType:            lld,
 			methodName:              "ActiveBlockProducersByEpoch",
 			epoch:                   1,
 			numActiveBlockProducers: 3,
@@ -502,7 +504,7 @@ var (
 	}{
 		{
 			1,
-			"lifeLongDelegates",
+			lld,
 			iotextypes.EpochData{
 				Num:                     1,
 				Height:                  1,
@@ -746,7 +748,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 
 	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
-		if test.pollProtocolType == "lifeLongDelegates" {
+		if test.pollProtocolType == lld {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
@@ -965,7 +967,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 
 	for _, test := range readBlockProducersByEpochTests {
 		var pol poll.Protocol
-		if test.protocolType == "lifeLongDelegates" {
+		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
@@ -1020,7 +1022,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 
 	for _, test := range readActiveBlockProducersByEpochTests {
 		var pol poll.Protocol
-		if test.protocolType == "lifeLongDelegates" {
+		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
@@ -1061,7 +1063,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	for _, test := range getEpochMetaTests {
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		if test.pollProtocolType == "lifeLongDelegates" {
+		if test.pollProtocolType == lld {
 			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
