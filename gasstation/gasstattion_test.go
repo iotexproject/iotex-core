@@ -12,6 +12,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/pkg/unit"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -67,7 +69,7 @@ func TestSuggestGasPrice(t *testing.T) {
 			big.NewInt(100),
 			ta.Addrinfo["producer"].String(),
 			[]byte{}, uint64(100000),
-			big.NewInt(int64(i)+10),
+			big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev)),
 		)
 		require.NoError(t, err)
 
@@ -75,7 +77,7 @@ func TestSuggestGasPrice(t *testing.T) {
 		elp1 := bd.SetAction(tsf).
 			SetNonce(uint64(i) + 1).
 			SetGasLimit(100000).
-			SetGasPrice(big.NewInt(int64(i) + 10)).Build()
+			SetGasPrice(big.NewInt(1).Mul(big.NewInt(int64(i)+10), big.NewInt(unit.Qev))).Build()
 		selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
 		require.NoError(t, err)
 
@@ -108,7 +110,7 @@ func TestSuggestGasPrice(t *testing.T) {
 	gp, err := gs.SuggestGasPrice()
 	require.NoError(t, err)
 	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
-	require.Equal(t, uint64(31), gp)
+	require.Equal(t, big.NewInt(1).Mul(big.NewInt(int64(31)), big.NewInt(unit.Qev)).Uint64(), gp)
 }
 
 func TestEstimateGasForAction(t *testing.T) {
