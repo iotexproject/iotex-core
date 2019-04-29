@@ -23,7 +23,6 @@ import (
 var (
 	bucket1 = "test_ns1"
 	bucket2 = "test_ns2"
-	bucket3 = "test_ns3"
 	testK1  = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
 	testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
 	testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}

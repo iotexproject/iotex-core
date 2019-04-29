@@ -57,7 +57,6 @@ func accountImport(args []string) (string, error) {
 		privateKeyBytes[i] = 0
 	}
 	addr, err := newAccountByKey(alias, privateKey, config.ReadConfig.Wallet)
-	privateKey = ""
 	if err != nil {
 		return "", err
 	}

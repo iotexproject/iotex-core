@@ -37,7 +37,6 @@ const (
 )
 
 var (
-	chainID = config.Default.Chain.ID
 	addr1   = testaddress.Addrinfo["alfa"].String()
 	pubKey1 = testaddress.Keyinfo["alfa"].PubKey
 	priKey1 = testaddress.Keyinfo["alfa"].PriKey
