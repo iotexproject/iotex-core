@@ -56,9 +56,9 @@ func TestBackdoorEvt(t *testing.T) {
 			data:      state,
 		}
 		cfsm.produce(backdoorEvt, 0)
-		testutil.WaitUntil(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+		require.NoError(testutil.WaitUntil(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 			return state == cfsm.CurrentState(), nil
-		})
+		}))
 	}
 }
 
