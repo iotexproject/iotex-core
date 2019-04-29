@@ -10,6 +10,9 @@ import (
 
 var _ Peerstore = (*peerstore)(nil)
 
+const maxInternedProtocols = 512
+const maxInternedProtocolSize = 256
+
 type peerstore struct {
 	Metrics
 
@@ -18,17 +21,19 @@ type peerstore struct {
 	PeerMetadata
 
 	// lock for protocol information, separate from datastore lock
-	protolock sync.Mutex
+	protolock         sync.RWMutex
+	internedProtocols map[string]string
 }
 
 // NewPeerstore creates a data structure that stores peer data, backed by the
 // supplied implementations of KeyBook, AddrBook and PeerMetadata.
 func NewPeerstore(kb KeyBook, ab AddrBook, md PeerMetadata) Peerstore {
 	return &peerstore{
-		KeyBook:      kb,
-		AddrBook:     ab,
-		PeerMetadata: md,
-		Metrics:      NewMetrics(),
+		KeyBook:           kb,
+		AddrBook:          ab,
+		PeerMetadata:      md,
+		Metrics:           NewMetrics(),
+		internedProtocols: make(map[string]string),
 	}
 }
 
@@ -75,13 +80,30 @@ func (ps *peerstore) PeerInfo(p peer.ID) PeerInfo {
 	}
 }
 
+func (ps *peerstore) internProtocol(s string) string {
+	if len(s) > maxInternedProtocolSize {
+		return s
+	}
+
+	if interned, ok := ps.internedProtocols[s]; ok {
+		return interned
+	}
+
+	if len(ps.internedProtocols) >= maxInternedProtocols {
+		ps.internedProtocols = make(map[string]string, maxInternedProtocols)
+	}
+
+	ps.internedProtocols[s] = s
+	return s
+}
+
 func (ps *peerstore) SetProtocols(p peer.ID, protos ...string) error {
 	ps.protolock.Lock()
 	defer ps.protolock.Unlock()
 
-	protomap := make(map[string]struct{})
+	protomap := make(map[string]struct{}, len(protos))
 	for _, proto := range protos {
-		protomap[proto] = struct{}{}
+		protomap[ps.internProtocol(proto)] = struct{}{}
 	}
 
 	return ps.Put(p, "protocols", protomap)
@@ -96,7 +118,7 @@ func (ps *peerstore) AddProtocols(p peer.ID, protos ...string) error {
 	}
 
 	for _, proto := range protos {
-		protomap[proto] = struct{}{}
+		protomap[ps.internProtocol(proto)] = struct{}{}
 	}
 
 	return ps.Put(p, "protocols", protomap)
@@ -120,15 +142,15 @@ func (ps *peerstore) getProtocolMap(p peer.ID) (map[string]struct{}, error) {
 }
 
 func (ps *peerstore) GetProtocols(p peer.ID) ([]string, error) {
-	ps.protolock.Lock()
-	defer ps.protolock.Unlock()
+	ps.protolock.RLock()
+	defer ps.protolock.RUnlock()
 	pmap, err := ps.getProtocolMap(p)
 	if err != nil {
 		return nil, err
 	}
 
-	var out []string
-	for k, _ := range pmap {
+	out := make([]string, 0, len(pmap))
+	for k := range pmap {
 		out = append(out, k)
 	}
 
@@ -136,14 +158,14 @@ func (ps *peerstore) GetProtocols(p peer.ID) ([]string, error) {
 }
 
 func (ps *peerstore) SupportsProtocols(p peer.ID, protos ...string) ([]string, error) {
-	ps.protolock.Lock()
-	defer ps.protolock.Unlock()
+	ps.protolock.RLock()
+	defer ps.protolock.RUnlock()
 	pmap, err := ps.getProtocolMap(p)
 	if err != nil {
 		return nil, err
 	}
 
-	var out []string
+	out := make([]string, 0, len(protos))
 	for _, proto := range protos {
 		if _, ok := pmap[proto]; ok {
 			out = append(out, proto)

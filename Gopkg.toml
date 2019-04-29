@@ -10,10 +10,6 @@
   version = "^v1.3.1-etcd.8"
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/coopernurse/barrister-go"
-
-[[constraint]]
   name = "github.com/golang/mock"
   version = "~1.2.0"
 
@@ -64,7 +60,7 @@
 
 [[constraint]]
   name = "github.com/iotexproject/go-p2p"
-  version = "v0.2.9"
+  version = "v0.2.10"
 
 [[constraint]]
   name = "github.com/iotexproject/iotex-election"
