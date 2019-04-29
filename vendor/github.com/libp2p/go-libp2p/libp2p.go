@@ -19,6 +19,9 @@ type Option = config.Option
 func ChainOptions(opts ...Option) Option {
 	return func(cfg *Config) error {
 		for _, opt := range opts {
+			if opt == nil {
+				continue
+			}
 			if err := opt(cfg); err != nil {
 				return err
 			}

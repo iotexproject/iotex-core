@@ -179,9 +179,13 @@ func (s *reader) Read(msg []byte) (int, error) {
 		return 0, io.ErrShortBuffer
 	}
 
-	_, err = io.ReadFull(s.R, msg[:length])
-	s.next = -1 // signal we've consumed this msg
-	return length, err
+	read, err := io.ReadFull(s.R, msg[:length])
+	if read < length {
+		s.next = length - read // we only partially consumed the message.
+	} else {
+		s.next = -1 // signal we've consumed this msg
+	}
+	return read, err
 }
 
 func (s *reader) ReadMsg() ([]byte, error) {
@@ -203,9 +207,13 @@ func (s *reader) ReadMsg() ([]byte, error) {
 	}
 
 	msg := s.pool.Get(length)
-	_, err = io.ReadFull(s.R, msg)
-	s.next = -1 // signal we've consumed this msg
-	return msg, err
+	read, err := io.ReadFull(s.R, msg)
+	if read < length {
+		s.next = length - read // we only partially consumed the message.
+	} else {
+		s.next = -1 // signal we've consumed this msg
+	}
+	return msg[:read], err
 }
 
 func (s *reader) ReleaseMsg(msg []byte) {
