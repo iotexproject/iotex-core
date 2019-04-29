@@ -267,7 +267,7 @@ func TestCreateBlockchain(t *testing.T) {
 	// create chain
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	registry.Register(account.ProtocolID, acc)
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry), EnableExperimentalActions())
@@ -311,7 +311,9 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	bc.Validator().AddActionValidators(acc, v, exec)
 	bc.GetFactory().AddActionHandlers(acc, v, exec)
 	require.NoError(t, bc.Start(ctx))
-	defer require.NoError(t, bc.Stop(ctx))
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
 
 	tsf, err := action.NewTransfer(
 		1,
@@ -373,14 +375,16 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	bc.Validator().AddActionValidators(acc, v)
 	bc.GetFactory().AddActionHandlers(acc, v)
 	require.NoError(t, bc.Start(ctx))
-	defer require.NoError(t, bc.Stop(ctx))
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
 
 	addr0 := ta.Addrinfo["producer"].String()
 	priKey0 := ta.Keyinfo["producer"].PriKey
 	addr1 := ta.Addrinfo["alfa"].String()
 	addr3 := ta.Addrinfo["charlie"].String()
 	priKey3 := ta.Keyinfo["charlie"].PriKey
-	addTestingTsfBlocks(bc)
+	require.NoError(t, addTestingTsfBlocks(bc))
 
 	// test third block
 	bytes := []byte{}
@@ -917,13 +921,11 @@ func TestBlocks(t *testing.T) {
 	require.NoError(sf.Commit(ws))
 
 	for i := 0; i < 10; i++ {
-		acts := []action.SealedEnvelope{}
 		actionMap := make(map[string][]action.SealedEnvelope)
 		actionMap[a] = []action.SealedEnvelope{}
 		for i := 0; i < 1000; i++ {
 			tsf, err := testutil.SignedTransfer(c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 			require.NoError(err)
-			acts = append(acts, tsf)
 			actionMap[a] = append(actionMap[a], tsf)
 		}
 		blk, _ := bc.MintNewBlock(
