@@ -269,6 +269,7 @@ func TestBlockEpochReward(t *testing.T) {
 	preHeight := uint64(0)
 	preEpochNum := uint64(0)
 	preExpectHigh := uint64(0)
+
 	fmt.Println("Starting test")
 
 	if err := testutil.WaitUntil(100*time.Millisecond, 120*time.Second, func() (bool, error) {
@@ -277,7 +278,7 @@ func TestBlockEpochReward(t *testing.T) {
 		//New height is reached, need to update block reward
 		if height > preHeight {
 
-			err = testutil.WaitUntil(100*time.Millisecond, 5*time.Second, func() (bool, error) {
+			err = testutil.WaitUntil(100*time.Millisecond, 15*time.Second, func() (bool, error) {
 				//This Waituntil block guarantees that we can get a consistent snapshot of the followings at some height:
 				// 1) all unclaimed balance live
 				// 2) expected unclaimed balance
@@ -285,8 +286,13 @@ func TestBlockEpochReward(t *testing.T) {
 				curHigh := chains[0].TipHeight()
 
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
+				//Wait until all the pending actions are settled
+
 				updateExpectationWithPendingClaimList(t, chains[0], exptUnclaimed, claimedAmount, pendingClaimActions)
-				startPendingActNum := len(pendingClaimActions)
+				if len(pendingClaimActions) > 0 {
+					// if there is pending action, retry
+					return false, nil
+				}
 
 				for i := 0; i < numNodes; i++ {
 					rewardAddr := identityset.Address(i + numNodes)
@@ -337,13 +343,11 @@ func TestBlockEpochReward(t *testing.T) {
 
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
 				updateExpectationWithPendingClaimList(t, chains[0], exptUnclaimed, claimedAmount, pendingClaimActions)
-				endPendingActNum := len(pendingClaimActions)
 
 				curHighCheck := chains[0].TipHeight()
 				preHeight = curHighCheck
-
-				//If chain height or pending action changes, we need to take snapshot again.
-				return curHigh == curHighCheck && startPendingActNum == endPendingActNum, nil
+				//If chain height changes, we need to take snapshot again.
+				return curHigh == curHighCheck, nil
 
 			})
 			require.NoError(t, err)
@@ -352,13 +356,6 @@ func TestBlockEpochReward(t *testing.T) {
 			for i := 0; i < numNodes; i++ {
 				rewardAddrStr := identityset.Address(i + numNodes).String()
 
-				//This to work around the rare case that a balance is deducted from unclaimed while the receipt
-				//is not received yet to update the expectation.
-				if unClaimedBalances[rewardAddrStr].Cmp(exptUnclaimed[rewardAddrStr]) < 0 {
-					log.L().Info("Claim action execution status not in sync, recalibrating...")
-					waitActionToSettle(t, rewardAddrStr, chains[0], exptUnclaimed, claimedAmount, unClaimedBalances, pendingClaimActions)
-					require.NoError(t, err)
-				}
 				fmt.Println("Server ", i, " ", rewardAddrStr,
 					" unclaimed ", unClaimedBalances[rewardAddrStr].String(), " height ", preHeight)
 				fmt.Println("Server ", i, " ", rewardAddrStr,
@@ -367,44 +364,42 @@ func TestBlockEpochReward(t *testing.T) {
 				require.Equal(t, exptUnclaimed[rewardAddrStr].String(), unClaimedBalances[rewardAddrStr].String())
 			}
 
-			// Perform a random claim and record the amount
-			for i := 0; i < numNodes; i++ {
+			// perform a random claim and record the amount
+			// chose a random node to claim
+			d := rand.Intn(numNodes)
+			var amount *big.Int
+			rewardAddrStr := identityset.Address(d + numNodes).String()
+			rewardPriKey := identityset.PrivateKey(d + numNodes)
+			expectedSuccess := true
 
-				var amount *big.Int
-				rewardAddrStr := identityset.Address(i + numNodes).String()
-				rewardPriKey := identityset.PrivateKey(i + numNodes)
-				expectedSuccess := true
-
-				rand.Seed(time.Now().UnixNano())
-				switch r := rand.Intn(int(totalClaimCasesNum)); claimTestCaseID(r) {
-				case caseClaimZero:
-					//Claim 0
-					amount = big.NewInt(0)
-				case caseClaimAll:
-					//Claim all
-					amount = exptUnclaimed[rewardAddrStr]
-				case caseClaimMoreThanBalance:
-					//Claim more than available unclaimed balance
-					amount = big.NewInt(0).Mul(exptUnclaimed[rewardAddrStr], big.NewInt(2))
-				case caseClaimPartOfBalance:
-					//Claim random part of available
-					amount = big.NewInt(0).Div(exptUnclaimed[rewardAddrStr], big.NewInt(int64(rand.Intn(100000))))
-				case caseClaimNegative:
-					//Claim negative
-					amount = big.NewInt(-100000)
-					expectedSuccess = false
-				case caseClaimToNonRewardingAddr:
-					//Claim to operator address instead of reward address
-					rewardPriKey = identityset.PrivateKey(i)
-					amount = big.NewInt(12345)
-					expectedSuccess = false
-				default:
-					continue
-				}
-
-				injectClaim(t, nil, client, rewardPriKey, amount,
-					expectedSuccess, 3, 1, pendingClaimActions)
+			rand.Seed(time.Now().UnixNano())
+			switch r := rand.Intn(int(totalClaimCasesNum)); claimTestCaseID(r) {
+			case caseClaimZero:
+				//Claim 0
+				amount = big.NewInt(0)
+			case caseClaimAll:
+				//Claim all
+				amount = exptUnclaimed[rewardAddrStr]
+			case caseClaimMoreThanBalance:
+				//Claim more than available unclaimed balance
+				amount = big.NewInt(0).Mul(exptUnclaimed[rewardAddrStr], big.NewInt(2))
+			case caseClaimPartOfBalance:
+				//Claim random part of available
+				amount = big.NewInt(0).Div(exptUnclaimed[rewardAddrStr], big.NewInt(int64(rand.Intn(100000))))
+			case caseClaimNegative:
+				//Claim negative
+				amount = big.NewInt(-100000)
+				expectedSuccess = false
+			case caseClaimToNonRewardingAddr:
+				//Claim to operator address instead of reward address
+				rewardPriKey = identityset.PrivateKey(d)
+				amount = big.NewInt(12345)
+				expectedSuccess = false
 			}
+
+			injectClaim(t, nil, client, rewardPriKey, amount,
+				expectedSuccess, 3, 1, pendingClaimActions)
+
 		}
 
 		return height > runToHeight, nil
@@ -532,7 +527,7 @@ func updateExpectationWithPendingClaimList(
 	return updated
 }
 
-//waitActionToSettle wait the claim action on given reward address to settle to update expection correctly
+//waitActionToSettle wait the claim action on given reward address to settle to update expectation correctly
 func waitActionToSettle(
 	t *testing.T,
 	rewardAddrStr string,
