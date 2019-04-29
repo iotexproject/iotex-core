@@ -44,7 +44,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_explorer"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -115,12 +114,10 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetClock(clock.NewMock()).
-			SetRootChainAPI(mock_explorer.NewMockExplorer(ctrl)).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
-		assert.NotNil(t, r.ctx.rootChainAPI)
 	})
 	t.Run("missing-dep", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
@@ -321,46 +318,6 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
 }
 
-func makeTestRollDPoSCtx(
-	addr *addrKeyPair,
-	ctrl *gomock.Controller,
-	cfg config.Config,
-	mockChain func(*mock_blockchain.MockBlockchain),
-	mockActPool func(*mock_actpool.MockActPool),
-	broadcastCB func(proto.Message) error,
-	clock clock.Clock,
-) *rollDPoSCtx {
-	chain := mock_blockchain.NewMockBlockchain(ctrl)
-	mockChain(chain)
-	actPool := mock_actpool.NewMockActPool(ctrl)
-	mockActPool(actPool)
-	if broadcastCB == nil {
-		broadcastCB = func(proto.Message) error {
-			return nil
-		}
-	}
-	return newRollDPoSCtx(
-		cfg.Consensus.RollDPoS,
-		cfg.System.Active,
-		cfg.Genesis.BlockInterval,
-		cfg.Consensus.RollDPoS.ToleratedOvertime,
-		cfg.Genesis.TimeBasedRotation,
-		nil,
-		chain,
-		actPool,
-		rolldpos.NewProtocol(
-			cfg.Genesis.NumCandidateDelegates,
-			cfg.Genesis.NumDelegates,
-			cfg.Genesis.NumSubEpochs,
-		),
-		broadcastCB,
-		chain.CandidatesByHeight,
-		addr.encodedAddr,
-		addr.priKey,
-		clock,
-	)
-}
-
 // E2E RollDPoS tests bellow
 
 type directOverlay struct {
@@ -480,7 +437,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				blockchain.RegistryOption(&registry),
 			)
 			require.NoError(t, registry.Register(vote.ProtocolID, vote.NewProtocol(chain)))
-			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, cfg.Genesis.ActionGasLimit))
+			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
 

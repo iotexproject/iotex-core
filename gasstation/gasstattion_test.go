@@ -57,7 +57,9 @@ func TestSuggestGasPrice(t *testing.T) {
 	bc.Validator().AddActionValidators(acc, v, exec)
 	bc.GetFactory().AddActionHandlers(acc, v, exec)
 	require.NoError(t, bc.Start(ctx))
-	defer require.NoError(t, bc.Stop(ctx))
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
 
 	for i := 0; i < 30; i++ {
 		tsf, err := action.NewTransfer(
@@ -85,13 +87,8 @@ func TestSuggestGasPrice(t *testing.T) {
 			testutil.TimestampNow(),
 		)
 		require.NoError(t, err)
-		if i == 0 {
-			require.Equal(t, 3, len(blk.Actions))
-			require.Equal(t, 2, len(blk.Receipts))
-		} else {
-			require.Equal(t, 2, len(blk.Actions))
-			require.Equal(t, 1, len(blk.Receipts))
-		}
+		require.Equal(t, 2, len(blk.Actions))
+		require.Equal(t, 1, len(blk.Receipts))
 		var gasConsumed uint64
 		for _, receipt := range blk.Receipts {
 			gasConsumed += receipt.GasConsumed

@@ -25,19 +25,18 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-var (
-	// Default contains the default genesis config
-	Default     Genesis
-	genesisPath string
-)
+// Default contains the default genesis config
+var Default = defaultConfig()
+
+var genesisPath string
 
 func init() {
 	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
-	initDefaultConfig()
+	initTestDefaultConfig()
 }
 
-func initDefaultConfig() {
-	Default = Genesis{
+func defaultConfig() Genesis {
+	return Genesis{
 		Blockchain: Blockchain{
 			Timestamp:             1546329600,
 			BlockGasLimit:         20000000,
@@ -65,6 +64,10 @@ func initDefaultConfig() {
 			FoundationBonusLastEpoch:       365,
 		},
 	}
+}
+
+func initTestDefaultConfig() {
+	Default = defaultConfig()
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
 		value := unit.ConvertIotxToRau(100000000).String()
@@ -169,8 +172,10 @@ type (
 // New constructs a genesis config. It loads the default values, and could be overwritten by values defined in the yaml
 // config files
 func New() (Genesis, error) {
+	def := defaultConfig()
+
 	opts := make([]config.YAMLOption, 0)
-	opts = append(opts, config.Static(Default))
+	opts = append(opts, config.Static(def))
 	if genesisPath != "" {
 		opts = append(opts, config.File(genesisPath))
 	}

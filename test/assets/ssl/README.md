@@ -1,1 +1,0 @@
-Follow the intstructions on https://github.com/square/certstrap to generate certificates.
