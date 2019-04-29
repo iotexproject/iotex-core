@@ -1,8 +1,12 @@
 // Copyright (c) 2019 IoTeX
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
+// This program is free software: you can redistribute it and/or modify it under the terms of the
+// GNU General Public License as published by the Free Software Foundation, either version 3 of
+// the License, or (at your option) any later version.
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; 
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
+// the GNU General Public License for more details.
+// You should have received a copy of the GNU General Public License along with this program. If
+// not, see <http://www.gnu.org/licenses/>.
 
 package committee
 
@@ -46,6 +50,7 @@ type Config struct {
 	SelfStakingThreshold       string   `yaml:"selfStakingThreshold"`
 	CacheSize                  uint32   `yaml:"cacheSize"`
 	NumOfFetchInParallel       uint8    `yaml:"numOfFetchInParallel"`
+	SkipManifiedCandidate      bool     `yaml:"skipManifiedCandidate"`
 }
 
 // STATUS represents the status of committee
@@ -80,15 +85,16 @@ type Committee interface {
 }
 
 type committee struct {
-	db                   db.KVStore
-	carrier              carrier.Carrier
-	retryLimit           uint8
-	paginationSize       uint8
-	fetchInParallel      uint8
-	voteThreshold        *big.Int
-	scoreThreshold       *big.Int
-	selfStakingThreshold *big.Int
-	interval             uint64
+	db                    db.KVStore
+	carrier               carrier.Carrier
+	retryLimit            uint8
+	paginationSize        uint8
+	fetchInParallel       uint8
+	skipManifiedCandidate bool
+	voteThreshold         *big.Int
+	scoreThreshold        *big.Int
+	selfStakingThreshold  *big.Int
+	interval              uint64
 
 	cache         *resultCache
 	heightManager *heightManager
@@ -141,21 +147,22 @@ func NewCommittee(kvstore db.KVStore, cfg Config) (Committee, error) {
 		fetchInParallel = cfg.NumOfFetchInParallel
 	}
 	return &committee{
-		db:                   kvstore,
-		cache:                newResultCache(cfg.CacheSize),
-		heightManager:        newHeightManager(),
-		carrier:              carrier,
-		retryLimit:           cfg.NumOfRetries,
-		paginationSize:       cfg.PaginationSize,
-		fetchInParallel:      fetchInParallel,
-		voteThreshold:        voteThreshold,
-		scoreThreshold:       scoreThreshold,
-		selfStakingThreshold: selfStakingThreshold,
-		terminate:            make(chan bool),
-		startHeight:          cfg.GravityChainStartHeight,
-		interval:             cfg.GravityChainHeightInterval,
-		currentHeight:        0,
-		nextHeight:           cfg.GravityChainStartHeight,
+		db:                    kvstore,
+		cache:                 newResultCache(cfg.CacheSize),
+		heightManager:         newHeightManager(),
+		carrier:               carrier,
+		retryLimit:            cfg.NumOfRetries,
+		paginationSize:        cfg.PaginationSize,
+		fetchInParallel:       fetchInParallel,
+		skipManifiedCandidate: cfg.SkipManifiedCandidate,
+		voteThreshold:         voteThreshold,
+		scoreThreshold:        scoreThreshold,
+		selfStakingThreshold:  selfStakingThreshold,
+		terminate:             make(chan bool),
+		startHeight:           cfg.GravityChainStartHeight,
+		interval:              cfg.GravityChainHeightInterval,
+		currentHeight:         0,
+		nextHeight:            cfg.GravityChainStartHeight,
 	}, nil
 }
 
@@ -402,6 +409,7 @@ func (ec *committee) calculator(height uint64) (*types.ResultCalculator, error) 
 	}
 	return types.NewResultCalculator(
 		mintTime,
+		ec.skipManifiedCandidate,
 		ec.voteFilter,
 		ec.calcWeightedVotes,
 		ec.candidateFilter,
