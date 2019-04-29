@@ -53,8 +53,6 @@ type ChainService struct {
 
 type optionParams struct {
 	isTesting bool
-	// commented for make lint-rich
-	// genesisConfig genesis.Genesis
 }
 
 // Option sets ChainService construction parameter.
