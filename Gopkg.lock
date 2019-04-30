@@ -15,7 +15,7 @@
   name = "github.com/aristanetworks/goarista"
   packages = ["monotime"]
   pruneopts = "UT"
-  revision = "55bc7be9dd319639e5b8f276d66d76dd006df2d1"
+  revision = "799535f6f364678a88f0498a1f2a6f90d959d05f"
 
 [[projects]]
   digest = "1:d6afaeed1502aa28e80a4ed0981d570ad91b2579193404256ce672ed0a609e0d"
@@ -285,7 +285,7 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:3c8950cdd6ff54b765ae03a7c019a48ed0d67305b588dfcab5915e0d260da9fe"
+  digest = "1:59b72dc797c2a1919335b9209ca47e877081e7cd2ca1d47499e6eac37f19f359"
   name = "github.com/iotexproject/iotex-election"
   packages = [
     "carrier",
@@ -298,8 +298,8 @@
     "util",
   ]
   pruneopts = "UT"
-  revision = "684ba56e339ab53b934277c9d2a878a8fe9233e8"
-  version = "v0.1.7"
+  revision = "14376bf06be5fee9b4a51bcdc6e158ebca69bcca"
+  version = "v0.1.8"
 
 [[projects]]
   digest = "1:ff780041e005869242b2cf977f1d4fa3b8f9bdd302fd254b4a19f78502a6ee10"
@@ -1357,7 +1357,7 @@
     "internal/semver",
   ]
   pruneopts = "UT"
-  revision = "35c670923e21e5c3722e299a75d7cf2fb7daefac"
+  revision = "b9fed7929fc1d5f8c3daa266389c35f3ee124473"
 
 [[projects]]
   branch = "master"
