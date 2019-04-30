@@ -196,7 +196,8 @@ func (ec *committee) Start(ctx context.Context) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "failed to get tip height")
 	}
-	if err := ec.sync(tipHeight); err != nil {
+	results, errs := ec.fetchInBatch(tipHeight)
+	if err := ec.storeInBatch(results, errs); err != nil {
 		return errors.Wrap(err, "failed to catch up via network")
 	}
 	zap.L().Info("subscribing to new block")
@@ -243,13 +244,17 @@ func (ec *committee) Status() STATUS {
 }
 
 func (ec *committee) Sync(tipHeight uint64) error {
+	results, errs := ec.fetchInBatch(tipHeight)
 	ec.mutex.Lock()
 	defer ec.mutex.Unlock()
 
-	return ec.sync(tipHeight)
+	return ec.storeInBatch(results, errs)
 }
 
-func (ec *committee) sync(tipHeight uint64) error {
+func (ec *committee) fetchInBatch(tipHeight uint64) (
+	map[uint64]*types.ElectionResult,
+	map[uint64]error,
+) {
 	zap.L().Info("new ethereum block", zap.Uint64("height", tipHeight))
 	if ec.currentHeight < tipHeight {
 		ec.currentHeight = tipHeight
@@ -273,6 +278,14 @@ func (ec *committee) sync(tipHeight uint64) error {
 		}(nextHeight)
 	}
 	wg.Wait()
+
+	return results, errs
+}
+
+func (ec *committee) storeInBatch(
+	results map[uint64]*types.ElectionResult,
+	errs map[uint64]error,
+) error {
 	var heights []uint64
 	for height := range results {
 		heights = append(heights, height)
@@ -295,8 +308,8 @@ func (ec *committee) sync(tipHeight uint64) error {
 			return errors.Wrapf(err, "failed to store result of height %d", height)
 		}
 		ec.nextHeight = height + ec.interval
+		atomic.StoreInt64(&ec.lastUpdateTimestamp, time.Now().Unix())
 	}
-	atomic.StoreInt64(&ec.lastUpdateTimestamp, time.Now().Unix())
 
 	return nil
 }

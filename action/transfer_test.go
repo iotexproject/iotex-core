@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
-
 func TestTransferSignVerify(t *testing.T) {
 	require := require.New(t)
 	recipientAddr := testaddress.Addrinfo["alfa"]
