@@ -39,7 +39,12 @@ func accountCreateAdd(args []string) (string, error) {
 	}
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
-		return "", fmt.Errorf("alias \"%s\" has already used for %s", alias, addr)
+		var confirm string
+		fmt.Printf("** Alias \"%s\" has already used for %s\nType 'YES' to continue, quit for anything else.\n", alias, addr)
+		fmt.Scanf("%s", &confirm)
+		if confirm != "YES" && confirm != "yes" {
+			return "Quit", nil
+		}
 	}
 	addr, err := newAccount(alias, config.ReadConfig.Wallet)
 	if err != nil {
