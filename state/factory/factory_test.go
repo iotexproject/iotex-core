@@ -13,16 +13,11 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/test/identityset"
-
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -31,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -39,6 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -56,14 +53,6 @@ func randStringRunes(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
-}
-
-func voteForm(cs []*state.Candidate) []string {
-	r := make([]string, len(cs))
-	for i := 0; i < len(cs); i++ {
-		r[i] = cs[i].Address + ":" + strconv.FormatInt(cs[i].Votes.Int64(), 10)
-	}
-	return r
 }
 
 func TestSnapshot(t *testing.T) {
@@ -218,12 +207,10 @@ func testState(sf Factory, t *testing.T) {
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
 
-	// a:100(0)
-
-	vote, err := action.NewVote(0, a, uint64(20000), big.NewInt(0))
+	tsf, err := action.NewTransfer(1, big.NewInt(10), testaddress.Addrinfo["delta"].String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(vote).SetGasLimit(20000).Build()
+	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	gasLimit := uint64(1000000)
@@ -236,10 +223,6 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	_ = ws.UpdateBlockLevelInfo(0)
 	require.NoError(t, sf.Commit(ws))
-	h, _ := sf.Height()
-	cand, _ := sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(cand), []string{a + ":100"})
-	// a(a):100(+0=100) b:200 c:300
 
 	//test AccountState() & State()
 	var testAccount state.Account
@@ -249,10 +232,10 @@ func testState(sf Factory, t *testing.T) {
 	err = sf.State(sHash, &testAccount)
 	require.NoError(t, err)
 	require.Equal(t, accountA, &testAccount)
-	require.Equal(t, big.NewInt(100), accountA.Balance)
-	require.True(t, accountA.IsCandidate)
-	require.Equal(t, a, accountA.Votee)
-	require.Equal(t, big.NewInt(100), accountA.VotingWeight)
+	require.Equal(t, big.NewInt(90), accountA.Balance)
+	require.False(t, accountA.IsCandidate)
+	require.Equal(t, "", accountA.Votee)
+	require.Equal(t, big.NewInt(0), accountA.VotingWeight)
 }
 
 func TestNonce(t *testing.T) {
@@ -325,129 +308,6 @@ func testNonce(sf Factory, t *testing.T) {
 	nonce, err = sf.Nonce(a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), nonce)
-}
-
-func TestUnvote(t *testing.T) {
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
-	testTriePath := testTrieFile.Name()
-
-	cfg := config.Default
-	cfg.DB.DbPath = testTriePath
-	f, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
-	require.NoError(t, err)
-	testUnvote(f, t)
-}
-
-func TestSDBUnvote(t *testing.T) {
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
-	testDBPath := testDBFile.Name()
-	cfg := config.Default
-	cfg.Chain.TrieDBPath = testDBPath
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
-	require.NoError(t, err)
-	testUnvote(sdb, t)
-}
-
-func testUnvote(sf Factory, t *testing.T) {
-	// Create three dummy iotex addresses
-	a := testaddress.Addrinfo["alfa"].String()
-	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	b := testaddress.Addrinfo["bravo"].String()
-	priKeyB := testaddress.Keyinfo["bravo"].PriKey
-
-	sf.AddActionHandlers(vote.NewProtocol(nil))
-	require.NoError(t, sf.Start(context.Background()))
-	defer func() {
-		require.NoError(t, sf.Stop(context.Background()))
-	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
-	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, b, big.NewInt(200))
-	require.NoError(t, err)
-
-	vote1, err := action.NewVote(0, "", uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(vote1).SetNonce(0).SetGasLimit(100000).Build()
-	selp, err := action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-
-	gasLimit := uint64(10000000)
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
-			GasLimit: gasLimit,
-		})
-	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ := sf.Height()
-	cand, _ := sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(cand), []string{})
-
-	vote2, err := action.NewVote(0, a, uint64(100000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote2).SetNonce(0).SetGasLimit(100000).Build()
-	selp, err = action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(cand), []string{a + ":100"})
-
-	vote3, err := action.NewVote(0, "", uint64(20000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote3).SetNonce(0).SetGasLimit(20000).Build()
-	selp, err = action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(cand), []string{})
-
-	vote4, err := action.NewVote(0, b, uint64(20000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote4).SetNonce(0).SetGasLimit(20000).Build()
-	selp1, err := action.Sign(elp, priKeyB)
-	require.NoError(t, err)
-
-	vote5, err := action.NewVote(0, b, uint64(20000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote5).SetNonce(0).SetGasLimit(20000).Build()
-	selp2, err := action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-
-	vote6, err := action.NewVote(0, "", uint64(20000), big.NewInt(0))
-	require.NoError(t, err)
-
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(vote6).SetNonce(0).SetGasLimit(20000).Build()
-	selp3, err := action.Sign(elp, priKeyA)
-	require.NoError(t, err)
-
-	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{selp1, selp2, selp3})
-	require.Nil(t, err)
-	require.Nil(t, sf.Commit(ws))
-	h, _ = sf.Height()
-	cand, _ = sf.CandidatesByHeight(h)
-	require.Equal(t, voteForm(cand), []string{b + ":200"})
 }
 
 func TestLoadStoreHeight(t *testing.T) {
