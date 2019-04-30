@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -197,7 +196,7 @@ func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
 	a := testaddress.Addrinfo["alfa"].String()
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	sf.AddActionHandlers(account.NewProtocol(), vote.NewProtocol(nil))
+	sf.AddActionHandlers(account.NewProtocol())
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))

@@ -119,8 +119,6 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 	switch act := act.(type) {
 	case *Transfer:
 		actCore.Action = &iotextypes.ActionCore_Transfer{Transfer: act.Proto()}
-	case *Vote:
-		actCore.Action = &iotextypes.ActionCore_Vote{Vote: act.Proto()}
 	case *Execution:
 		actCore.Action = &iotextypes.ActionCore_Execution{Execution: act.Proto()}
 	case *PutBlock:
@@ -166,12 +164,6 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	case pbAct.GetTransfer() != nil:
 		act := &Transfer{}
 		if err := act.LoadProto(pbAct.GetTransfer()); err != nil {
-			return err
-		}
-		elp.payload = act
-	case pbAct.GetVote() != nil:
-		act := &Vote{}
-		if err := act.LoadProto(pbAct.GetVote()); err != nil {
 			return err
 		}
 		elp.payload = act
@@ -360,22 +352,19 @@ func Verify(sealed SealedEnvelope) error {
 }
 
 // ClassifyActions classfies actions
-func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Vote, []*Execution) {
+func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Execution) {
 	tsfs := make([]*Transfer, 0)
-	votes := make([]*Vote, 0)
 	exes := make([]*Execution, 0)
 	for _, elp := range actions {
 		act := elp.Action()
 		switch act := act.(type) {
 		case *Transfer:
 			tsfs = append(tsfs, act)
-		case *Vote:
-			votes = append(votes, act)
 		case *Execution:
 			exes = append(exes, act)
 		}
 	}
-	return tsfs, votes, exes
+	return tsfs, exes
 }
 
 // IsExperimentalAction test it the action is experimental
@@ -390,8 +379,6 @@ func IsExperimentalAction(action Action) bool {
 	case *CreateDeposit:
 		return true
 	case *SettleDeposit:
-		return true
-	case *Vote:
 		return true
 	}
 	return false

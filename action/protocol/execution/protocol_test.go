@@ -30,7 +30,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -269,7 +268,6 @@ func (sct *SmartContractTest) prepareBlockchain(
 		blockchain.RegistryOption(&registry),
 	)
 	r.NotNil(bc)
-	registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 	bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 	sf := bc.GetFactory()
@@ -418,7 +416,6 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.BoltDBDaoOption(),
 			blockchain.RegistryOption(&registry),
 		)
-		registry.Register(vote.ProtocolID, vote.NewProtocol(bc))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()

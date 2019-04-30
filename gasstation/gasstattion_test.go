@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -52,12 +51,10 @@ func TestSuggestGasPrice(t *testing.T) {
 	blkRegistryOption := blockchain.RegistryOption(&registry)
 	bc := blockchain.NewBlockchain(cfg, blkState, blkMemDao, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	v := vote.NewProtocol(bc)
-	require.NoError(t, registry.Register(vote.ProtocolID, v))
 	exec := execution.NewProtocol(bc)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
-	bc.Validator().AddActionValidators(acc, v, exec)
-	bc.GetFactory().AddActionHandlers(acc, v, exec)
+	bc.Validator().AddActionValidators(acc, exec)
+	bc.GetFactory().AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))

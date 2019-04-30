@@ -58,26 +58,6 @@ func TestPutBlockToParentChain(t *testing.T) {
 					},
 					SenderPubKey: pubKey.Bytes(),
 				},
-				{
-					Core: &iotextypes.ActionCore{
-						Action: &iotextypes.ActionCore_Vote{
-							Vote: &iotextypes.Vote{},
-						},
-						Version: version.ProtocolVersion,
-						Nonce:   103,
-					},
-					SenderPubKey: pubKey.Bytes(),
-				},
-				{
-					Core: &iotextypes.ActionCore{
-						Action: &iotextypes.ActionCore_Vote{
-							Vote: &iotextypes.Vote{},
-						},
-						Version: version.ProtocolVersion,
-						Nonce:   104,
-					},
-					SenderPubKey: pubKey.Bytes(),
-				},
 			},
 		},
 	}

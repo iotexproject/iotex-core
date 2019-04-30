@@ -33,24 +33,6 @@ func SignedTransfer(recipientAddr string, senderPriKey keypair.PrivateKey, nonce
 	return selp, nil
 }
 
-// SignedVote return a signed vote
-func SignedVote(voteeAddr string, voterPriKey keypair.PrivateKey, nonce uint64, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
-	vote, err := action.NewVote(nonce, voteeAddr, gasLimit, gasPrice)
-	if err != nil {
-		return action.SealedEnvelope{}, err
-	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPrice).
-		SetGasLimit(gasLimit).
-		SetAction(vote).Build()
-	selp, err := action.Sign(elp, voterPriKey)
-	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign vote %v", elp)
-	}
-	return selp, nil
-}
-
 // SignedExecution return a signed execution
 func SignedExecution(contractAddr string, executorPriKey keypair.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (action.SealedEnvelope, error) {
 	execution, err := action.NewExecution(contractAddr, nonce, amount, gasLimit, gasPrice, data)

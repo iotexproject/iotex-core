@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
@@ -315,11 +314,6 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 			pollProtocol = poll.NewLifeLongDelegatesProtocol(delegates)
 		}
 		if err = cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
-			return
-		}
-	} else {
-		voteProtocol := vote.NewProtocol(cs.Blockchain())
-		if err = cs.RegisterProtocol(vote.ProtocolID, voteProtocol); err != nil {
 			return
 		}
 	}
