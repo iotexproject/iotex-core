@@ -322,7 +322,7 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:3c8950cdd6ff54b765ae03a7c019a48ed0d67305b588dfcab5915e0d260da9fe"
+  digest = "1:59b72dc797c2a1919335b9209ca47e877081e7cd2ca1d47499e6eac37f19f359"
   name = "github.com/iotexproject/iotex-election"
   packages = [
     "carrier",
@@ -335,8 +335,8 @@
     "util",
   ]
   pruneopts = "UT"
-  revision = "684ba56e339ab53b934277c9d2a878a8fe9233e8"
-  version = "v0.1.7"
+  revision = "14376bf06be5fee9b4a51bcdc6e158ebca69bcca"
+  version = "v0.1.8"
 
 [[projects]]
   digest = "1:ff780041e005869242b2cf977f1d4fa3b8f9bdd302fd254b4a19f78502a6ee10"
