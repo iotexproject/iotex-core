@@ -9,6 +9,7 @@ package account
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -39,7 +40,12 @@ func accountCreateAdd(args []string) (string, error) {
 	}
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
-		return "", fmt.Errorf("alias \"%s\" has already used for %s", alias, addr)
+		var confirm string
+		fmt.Printf("** Alias \"%s\" has already used for %s\nOverwriting the account will keep the previous keystore file stay, but bind the alias to the new one.\nType 'YES' to continue, quit for anything else.\n", alias, addr)
+		fmt.Scanf("%s", &confirm)
+		if !strings.EqualFold(confirm, "yes") {
+			return "Quit", nil
+		}
 	}
 	addr, err := newAccount(alias, config.ReadConfig.Wallet)
 	if err != nil {
