@@ -150,3 +150,7 @@ Small note: If editing the Readme, please conform to the [standard-readme](https
 ## License
 
 MIT © Jeromy Johnson
+
+---
+
+The last gx published version of this module was: 3.0.35: QmQVoMEL1CxrVusTSUdYsiJXVBnvSqNUpBsGybkwSfksEF

@@ -35,7 +35,7 @@ type Handler struct {
 // MultistreamMuxer is a muxer for multistream. Depending on the stream
 // protocol tag it will select the right handler and hand the stream off to it.
 type MultistreamMuxer struct {
-	handlerlock sync.Mutex
+	handlerlock sync.RWMutex
 	handlers    []Handler
 }
 
@@ -123,13 +123,14 @@ func (msm *MultistreamMuxer) AddHandler(protocol string, handler HandlerFunc) {
 // will be selected even if the handler name and protocol tags are different.
 func (msm *MultistreamMuxer) AddHandlerWithFunc(protocol string, match func(string) bool, handler HandlerFunc) {
 	msm.handlerlock.Lock()
+	defer msm.handlerlock.Unlock()
+
 	msm.removeHandler(protocol)
 	msm.handlers = append(msm.handlers, Handler{
 		MatchFunc: match,
 		Handle:    handler,
 		AddName:   protocol,
 	})
-	msm.handlerlock.Unlock()
 }
 
 // RemoveHandler removes the handler with the given name from the muxer.
@@ -151,12 +152,14 @@ func (msm *MultistreamMuxer) removeHandler(protocol string) {
 
 // Protocols returns the list of handler-names added to this this muxer.
 func (msm *MultistreamMuxer) Protocols() []string {
+	msm.handlerlock.RLock()
+	defer msm.handlerlock.RUnlock()
+
 	var out []string
-	msm.handlerlock.Lock()
 	for _, h := range msm.handlers {
 		out = append(out, h.AddName)
 	}
-	msm.handlerlock.Unlock()
+
 	return out
 }
 
@@ -165,8 +168,8 @@ func (msm *MultistreamMuxer) Protocols() []string {
 var ErrIncorrectVersion = errors.New("client connected with incorrect version")
 
 func (msm *MultistreamMuxer) findHandler(proto string) *Handler {
-	msm.handlerlock.Lock()
-	defer msm.handlerlock.Unlock()
+	msm.handlerlock.RLock()
+	defer msm.handlerlock.RUnlock()
 
 	for _, h := range msm.handlers {
 		if h.MatchFunc(proto) {
@@ -324,7 +327,8 @@ loop:
 // supported protocols to the given Writer.
 func (msm *MultistreamMuxer) Ls(w io.Writer) error {
 	buf := new(bytes.Buffer)
-	msm.handlerlock.Lock()
+
+	msm.handlerlock.RLock()
 	err := writeUvarint(buf, uint64(len(msm.handlers)))
 	if err != nil {
 		return err
@@ -333,11 +337,12 @@ func (msm *MultistreamMuxer) Ls(w io.Writer) error {
 	for _, h := range msm.handlers {
 		err := delimWrite(buf, []byte(h.AddName))
 		if err != nil {
-			msm.handlerlock.Unlock()
+			msm.handlerlock.RUnlock()
 			return err
 		}
 	}
-	msm.handlerlock.Unlock()
+	msm.handlerlock.RUnlock()
+
 	ll := make([]byte, 16)
 	nw := binary.PutUvarint(ll, uint64(buf.Len()))
 

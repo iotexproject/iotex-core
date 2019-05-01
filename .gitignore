@@ -9,7 +9,7 @@
 .LSOverride
 
 # profiling output
-*prof*
+pprof*
 
 # Binaries for programs and plugins
 *.exe
