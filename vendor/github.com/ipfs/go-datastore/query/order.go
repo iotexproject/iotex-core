@@ -2,6 +2,7 @@ package query
 
 import (
 	"bytes"
+	"sort"
 	"strings"
 )
 
@@ -63,4 +64,11 @@ func Less(orders []Order, a, b Entry) bool {
 	// preserving the order from the underlying datastore
 	// because it's undefined.
 	return a.Key < b.Key
+}
+
+// Sort sorts the given entries using the given orders.
+func Sort(orders []Order, entries []Entry) {
+	sort.Slice(entries, func(i int, j int) bool {
+		return Less(orders, entries[i], entries[j])
+	})
 }

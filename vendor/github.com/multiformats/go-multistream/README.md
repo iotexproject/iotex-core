@@ -135,11 +135,6 @@ func main() {
 }
 ```
 
-
-## Maintainers
-
-Captain: [@whyrusleeping](https://github.com/whyrusleeping).
-
 ## Contribute
 
 Contributions welcome. Please check out [the issues](https://github.com/multiformats/go-multistream/issues).

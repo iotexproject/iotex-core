@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	logging "github.com/ipfs/go-log"
@@ -70,6 +71,11 @@ type BasicHost struct {
 	negtimeout time.Duration
 
 	proc goprocess.Process
+
+	ctx       context.Context
+	cancel    func()
+	mx        sync.Mutex
+	lastAddrs []ma.Multiaddr
 }
 
 // HostOpts holds options that can be passed to NewHost in order to
@@ -164,6 +170,11 @@ func NewHost(ctx context.Context, net inet.Network, opts *HostOpts) (*BasicHost,
 
 	net.SetConnHandler(h.newConnHandler)
 	net.SetStreamHandler(h.newStreamHandler)
+
+	bgctx, cancel := context.WithCancel(ctx)
+	h.ctx = bgctx
+	h.cancel = cancel
+
 	return h, nil
 }
 
@@ -202,6 +213,11 @@ func New(net inet.Network, opts ...interface{}) *BasicHost {
 	}
 
 	return h
+}
+
+// Start starts background tasks in the host
+func (h *BasicHost) Start() {
+	go h.background()
 }
 
 // newConnHandler is the remote-opened conn handler for inet.Network
@@ -263,7 +279,63 @@ func (h *BasicHost) newStreamHandler(s inet.Stream) {
 // PushIdentify pushes an identify update through the identify push protocol
 // Warning: this interface is unstable and may disappear in the future.
 func (h *BasicHost) PushIdentify() {
-	h.ids.Push()
+	push := false
+
+	h.mx.Lock()
+	addrs := h.Addrs()
+	if !sameAddrs(addrs, h.lastAddrs) {
+		push = true
+		h.lastAddrs = addrs
+	}
+	h.mx.Unlock()
+
+	if push {
+		h.ids.Push()
+	}
+}
+
+func (h *BasicHost) background() {
+	// periodically schedules an IdentifyPush to update our peers for changes
+	// in our address set (if needed)
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	// initialize lastAddrs
+	h.mx.Lock()
+	if h.lastAddrs == nil {
+		h.lastAddrs = h.Addrs()
+	}
+	h.mx.Unlock()
+
+	for {
+		select {
+		case <-ticker.C:
+			h.PushIdentify()
+
+		case <-h.ctx.Done():
+			return
+		}
+	}
+}
+
+func sameAddrs(a, b []ma.Multiaddr) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	bmap := make(map[string]struct{}, len(b))
+	for _, addr := range b {
+		bmap[string(addr.Bytes())] = struct{}{}
+	}
+
+	for _, addr := range a {
+		_, ok := bmap[string(addr.Bytes())]
+		if !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 // ID returns the (local) peer.ID associated with this Host
@@ -646,6 +718,7 @@ func (h *BasicHost) AllAddrs() []ma.Multiaddr {
 
 // Close shuts down the Host's services (network, etc).
 func (h *BasicHost) Close() error {
+	h.cancel()
 	return h.proc.Close()
 }
 
