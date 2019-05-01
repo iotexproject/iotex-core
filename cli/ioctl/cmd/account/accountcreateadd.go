@@ -41,9 +41,9 @@ func accountCreateAdd(args []string) (string, error) {
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
 		var confirm string
-		fmt.Printf("** Alias \"%s\" has already used for %s\nOverwriting the account will keep the previous kestore file stay, but bind the alias to the new one.\nType 'YES' to continue, quit for anything else.\n", alias, addr)
+		fmt.Printf("** Alias \"%s\" has already used for %s\nOverwriting the account will keep the previous keystore file stay, but bind the alias to the new one.\nType 'YES' to continue, quit for anything else.\n", alias, addr)
 		fmt.Scanf("%s", &confirm)
-		if !strings.EqualFold(confirm, "YES") && !strings.EqualFold(confirm, "yes") {
+		if !strings.EqualFold(confirm, "yes") {
 			return "Quit", nil
 		}
 	}
