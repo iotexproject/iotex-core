@@ -522,9 +522,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	bc = svr.ChainService(chainID).Blockchain()
 	height, _ := bc.GetFactory().Height()
 	require.Equal(bc.TipHeight(), height)
-	candidates, err := bc.CandidatesByHeight(uint64(0))
-	require.NoError(err)
-	require.Equal(24, len(candidates))
 
 	// Recover to height 3 from empty state DB
 	testutil.CleanupPath(t, testTriePath)
@@ -538,9 +535,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	height, _ = bc.GetFactory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(3), height)
-	candidates, err = bc.CandidatesByHeight(uint64(0))
-	require.NoError(err)
-	require.Equal(24, len(candidates))
 
 	// Recover to height 2 from an existing state DB with Height 3
 	require.NoError(bc.RecoverChainAndState(2))
@@ -553,9 +547,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	height, _ = bc.GetFactory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(2), height)
-	candidates, err = bc.CandidatesByHeight(uint64(0))
-	require.NoError(err)
-	require.Equal(24, len(candidates))
 }
 
 func newTestConfig() (config.Config, error) {
