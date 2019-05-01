@@ -61,11 +61,28 @@ func (d *MutexDatastore) Delete(key ds.Key) (err error) {
 	return d.child.Delete(key)
 }
 
-// KeyList implements Datastore.KeyList
+// Query implements Datastore.Query
 func (d *MutexDatastore) Query(q dsq.Query) (dsq.Results, error) {
 	d.RLock()
 	defer d.RUnlock()
-	return d.child.Query(q)
+
+	// Apply the entire query while locked. Non-sync datastores may not
+	// allow concurrent queries.
+
+	results, err := d.child.Query(q)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err1 := results.Rest()
+	err2 := results.Close()
+	switch {
+	case err1 != nil:
+		return nil, err1
+	case err2 != nil:
+		return nil, err2
+	}
+	return dsq.ResultsWithEntries(q, entries), nil
 }
 
 func (d *MutexDatastore) Batch() (ds.Batch, error) {

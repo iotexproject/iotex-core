@@ -30,30 +30,59 @@ var _ pstore.AddrBook = (*memoryAddrBook)(nil)
 
 // memoryAddrBook manages addresses.
 type memoryAddrBook struct {
-	addrmu sync.Mutex
+	addrmu sync.RWMutex
 	// Use pointers to save memory. Maps always leave some fraction of their
 	// space unused. storing the *values* directly in the map will
 	// drastically increase the space waste. In our case, by 6x.
 	addrs map[peer.ID]map[string]*expiringAddr
 
-	nextGC time.Time
+	ctx    context.Context
+	cancel func()
 
 	subManager *AddrSubManager
 }
 
 func NewAddrBook() pstore.AddrBook {
-	return &memoryAddrBook{
+	ctx, cancel := context.WithCancel(context.Background())
+
+	ab := &memoryAddrBook{
 		addrs:      make(map[peer.ID]map[string]*expiringAddr),
 		subManager: NewAddrSubManager(),
+		ctx:        ctx,
+		cancel:     cancel,
+	}
+
+	go ab.background()
+	return ab
+}
+
+// background periodically schedules a gc
+func (mab *memoryAddrBook) background() {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			mab.gc()
+
+		case <-mab.ctx.Done():
+			return
+		}
 	}
 }
 
-// gc garbage collects the in-memory address book. The caller *must* hold the addrmu lock.
+func (mab *memoryAddrBook) Close() error {
+	mab.cancel()
+	return nil
+}
+
+// gc garbage collects the in-memory address book.
 func (mab *memoryAddrBook) gc() {
+	mab.addrmu.Lock()
+	defer mab.addrmu.Unlock()
+
 	now := time.Now()
-	if !now.After(mab.nextGC) {
-		return
-	}
 	for p, amap := range mab.addrs {
 		for k, addr := range amap {
 			if addr.ExpiredBy(now) {
@@ -64,12 +93,11 @@ func (mab *memoryAddrBook) gc() {
 			delete(mab.addrs, p)
 		}
 	}
-	mab.nextGC = time.Now().Add(pstore.AddressTTL)
 }
 
 func (mab *memoryAddrBook) PeersWithAddrs() peer.IDSlice {
-	mab.addrmu.Lock()
-	defer mab.addrmu.Unlock()
+	mab.addrmu.RLock()
+	defer mab.addrmu.RUnlock()
 
 	pids := make(peer.IDSlice, 0, len(mab.addrs))
 	for pid := range mab.addrs {
@@ -114,7 +142,6 @@ func (mab *memoryAddrBook) AddAddrs(p peer.ID, addrs []ma.Multiaddr, ttl time.Du
 			mab.subManager.BroadcastAddr(p, addr)
 		}
 	}
-	mab.gc()
 }
 
 // SetAddr calls mgr.SetAddrs(p, addr, ttl)
@@ -151,7 +178,6 @@ func (mab *memoryAddrBook) SetAddrs(p peer.ID, addrs []ma.Multiaddr, ttl time.Du
 			delete(amap, addrstr)
 		}
 	}
-	mab.gc()
 }
 
 // UpdateAddrs updates the addresses associated with the given peer that have
@@ -173,13 +199,12 @@ func (mab *memoryAddrBook) UpdateAddrs(p peer.ID, oldTTL time.Duration, newTTL t
 			amap[k] = addr
 		}
 	}
-	mab.gc()
 }
 
 // Addresses returns all known (and valid) addresses for a given
 func (mab *memoryAddrBook) Addrs(p peer.ID) []ma.Multiaddr {
-	mab.addrmu.Lock()
-	defer mab.addrmu.Unlock()
+	mab.addrmu.RLock()
+	defer mab.addrmu.RUnlock()
 
 	amap, found := mab.addrs[p]
 	if !found {
@@ -188,11 +213,9 @@ func (mab *memoryAddrBook) Addrs(p peer.ID) []ma.Multiaddr {
 
 	now := time.Now()
 	good := make([]ma.Multiaddr, 0, len(amap))
-	for k, m := range amap {
+	for _, m := range amap {
 		if !m.ExpiredBy(now) {
 			good = append(good, m.Addr)
-		} else {
-			delete(amap, k)
 		}
 	}
 
@@ -210,8 +233,8 @@ func (mab *memoryAddrBook) ClearAddrs(p peer.ID) {
 // AddrStream returns a channel on which all new addresses discovered for a
 // given peer ID will be published.
 func (mab *memoryAddrBook) AddrStream(ctx context.Context, p peer.ID) <-chan ma.Multiaddr {
-	mab.addrmu.Lock()
-	defer mab.addrmu.Unlock()
+	mab.addrmu.RLock()
+	defer mab.addrmu.RUnlock()
 
 	baseaddrslice := mab.addrs[p]
 	initial := make([]ma.Multiaddr, 0, len(baseaddrslice))

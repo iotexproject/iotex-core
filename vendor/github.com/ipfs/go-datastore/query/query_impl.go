@@ -1,8 +1,6 @@
 package query
 
 import (
-	"sort"
-
 	goprocess "github.com/jbenet/goprocess"
 )
 
@@ -104,9 +102,8 @@ func NaiveOrder(qr Results, orders ...Order) Results {
 			}
 		}
 
-		sort.Slice(entries, func(i int, j int) bool {
-			return Less(orders, entries[i], entries[j])
-		})
+		Sort(orders, entries)
+
 		for _, e := range entries {
 			select {
 			case <-worker.Closing():
