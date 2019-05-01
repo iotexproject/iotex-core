@@ -245,22 +245,17 @@ func ResultsWithProcess(q Query, proc func(goprocess.Process, chan<- Result)) Re
 
 // ResultsWithEntries returns a Results object from a list of entries
 func ResultsWithEntries(q Query, res []Entry) Results {
-	b := NewResultBuilder(q)
-
-	// go consume all the entries and add them to the results.
-	b.Process.Go(func(worker goprocess.Process) {
-		for _, e := range res {
-			select {
-			case b.Output <- Result{Entry: e}:
-			case <-worker.Closing(): // client told us to close early
-				return
+	i := 0
+	return ResultsFromIterator(q, Iterator{
+		Next: func() (Result, bool) {
+			if i >= len(res) {
+				return Result{}, false
 			}
-		}
-		return
+			next := res[i]
+			i++
+			return Result{Entry: next}, true
+		},
 	})
-
-	go b.Process.CloseAfterChildren()
-	return b.Results()
 }
 
 func ResultsReplaceQuery(r Results, q Query) Results {

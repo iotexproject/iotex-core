@@ -228,6 +228,9 @@ func (cfg *Config) NewNode(ctx context.Context) (host.Host, error) {
 		}
 	}
 
+	// start the host background tasks
+	h.Start()
+
 	if router != nil {
 		return routed.Wrap(h, router), nil
 	}
@@ -242,6 +245,9 @@ type Option func(cfg *Config) error
 // encountered (if any).
 func (cfg *Config) Apply(opts ...Option) error {
 	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
 		if err := opt(cfg); err != nil {
 			return err
 		}

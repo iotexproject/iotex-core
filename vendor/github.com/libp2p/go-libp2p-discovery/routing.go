@@ -37,8 +37,9 @@ func (d *RoutingDiscovery) Advertise(ctx context.Context, ns string, opts ...Opt
 		return 0, err
 	}
 
-	// the DHT provider record validity is 24hrs, but it is recommnded to republish every 6hrs
-	return 6 * time.Hour, nil
+	// the DHT provider record validity is 24hrs, but it is recommnded to republish at least every 6hrs
+	// we go one step further and republish every 3hrs
+	return 3 * time.Hour, nil
 }
 
 func (d *RoutingDiscovery) FindPeers(ctx context.Context, ns string, opts ...Option) (<-chan pstore.PeerInfo, error) {

@@ -82,6 +82,7 @@ func (sm *SSMuxer) selectProto(ctx context.Context, insecure net.Conn, server bo
 		// We *must* do this. We have outstanding work on the connection
 		// and it's no longer safe to use.
 		insecure.Close()
+		<-done // wait to stop using the connection.
 		return nil, ctx.Err()
 	}
 }
