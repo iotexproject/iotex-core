@@ -42,14 +42,6 @@
   version = "v2.1.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:64c47337097f2e58eb97cc6dd5994b88c142737f2f13a685c90211e72d87ca03"
-  name = "github.com/coopernurse/barrister-go"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "efbfefb2c4a3db0b55f74d1d1a985317a24ff7de"
-
-[[projects]]
   digest = "1:05ffeeed3f0f05520de0679f6aa3219ffee69cfd6d9fb6c194879d4c818ad670"
   name = "github.com/coreos/go-semver"
   packages = ["semver"]
@@ -184,16 +176,14 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:cbf31997868639533ea9234c2c8ee5802c0eeb807fcf608c29320c58c379a182"
+  digest = "1:64c2b533ffd17023738c534548ab2455d7f519bc15ed4225145425ed2222448b"
   name = "github.com/golang/protobuf"
   packages = [
-    "jsonpb",
     "proto",
     "protoc-gen-go/descriptor",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
-    "ptypes/struct",
     "ptypes/timestamp",
   ]
   pruneopts = "UT"
@@ -322,7 +312,7 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:3c8950cdd6ff54b765ae03a7c019a48ed0d67305b588dfcab5915e0d260da9fe"
+  digest = "1:59b72dc797c2a1919335b9209ca47e877081e7cd2ca1d47499e6eac37f19f359"
   name = "github.com/iotexproject/iotex-election"
   packages = [
     "carrier",
@@ -335,8 +325,8 @@
     "util",
   ]
   pruneopts = "UT"
-  revision = "684ba56e339ab53b934277c9d2a878a8fe9233e8"
-  version = "v0.1.7"
+  revision = "14376bf06be5fee9b4a51bcdc6e158ebca69bcca"
+  version = "v0.1.8"
 
 [[projects]]
   digest = "1:ff780041e005869242b2cf977f1d4fa3b8f9bdd302fd254b4a19f78502a6ee10"
@@ -1459,7 +1449,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/cenkalti/backoff",
-    "github.com/coopernurse/barrister-go",
     "github.com/dgraph-io/badger",
     "github.com/ethereum/go-ethereum/accounts",
     "github.com/ethereum/go-ethereum/accounts/abi",
@@ -1475,7 +1464,6 @@
     "github.com/gogo/protobuf/proto",
     "github.com/golang/groupcache/lru",
     "github.com/golang/mock/gomock",
-    "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
