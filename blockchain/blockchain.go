@@ -31,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
@@ -1351,26 +1350,6 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 			ctx,
 			ws,
 		)
-	}
-	addrs := make([]address.Address, 0)
-	for _, d := range bc.config.Genesis.Delegates {
-		addrs = append(addrs, d.OperatorAddr())
-	}
-	for _, addr := range addrs {
-		selfNominator, err := accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
-		if err != nil {
-			return errors.Wrapf(err, "failed to load or create the account of self nominator %s", addr)
-		}
-		selfNominator.IsCandidate = true
-		if err := candidatesutil.LoadAndAddCandidates(ws, 0, addr.String()); err != nil {
-			return err
-		}
-		if err := accountutil.StoreAccount(ws, addr.String(), selfNominator); err != nil {
-			return errors.Wrap(err, "failed to update pending account changes to trie")
-		}
-		if err := candidatesutil.LoadAndUpdateCandidates(ws, 0, addr.String(), selfNominator.Balance); err != nil {
-			return errors.Wrap(err, "failed to load and update candidates")
-		}
 	}
 	return nil
 }
