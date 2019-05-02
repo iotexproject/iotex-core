@@ -7,6 +7,7 @@
 package action
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -46,9 +47,12 @@ func transfer(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	payload := make([]byte, 0)
+	var payload []byte
 	if len(args) == 3 {
-		payload = []byte(args[2])
+		payload, err = hex.DecodeString(args[2])
+		if err != nil {
+			return "", err
+		}
 	}
 	sender, err := alias.Address(signer)
 	if err != nil {
@@ -78,7 +82,7 @@ func transfer(args []string) (string, error) {
 		nonce = accountMeta.PendingNonce
 	}
 	tx, err := action.NewTransfer(nonce, amount,
-		recipient, []byte(payload), gasLimit, gasPriceRau)
+		recipient, payload, gasLimit, gasPriceRau)
 	if err != nil {
 		log.L().Error("failed to make a Transfer instance", zap.Error(err))
 		return "", err
@@ -88,5 +92,5 @@ func transfer(args []string) (string, error) {
 		SetGasPrice(gasPriceRau).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
-	return sendAction(elp)
+	return sendAction(elp, false)
 }

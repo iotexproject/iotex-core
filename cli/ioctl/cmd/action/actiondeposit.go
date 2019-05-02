@@ -77,5 +77,5 @@ func deposit(args []string) (string, error) {
 		SetGasPrice(gasPriceRau).
 		SetGasLimit(gasLimit).
 		SetAction(&act).Build()
-	return sendAction(elp)
+	return sendAction(elp, false)
 }
