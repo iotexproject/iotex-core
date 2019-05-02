@@ -25,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -424,6 +424,31 @@ var (
 		},
 	}
 
+	readDelegatesByEpochTests = []struct {
+		// Arguments
+		protocolID   string
+		protocolType string
+		methodName   string
+		epoch        uint64
+		// Expected Values
+		numDelegates int
+	}{
+		{
+			protocolID:   "poll",
+			protocolType: lld,
+			methodName:   "DelegatesByEpoch",
+			epoch:        1,
+			numDelegates: 3,
+		},
+		{
+			protocolID:   "poll",
+			protocolType: "governanceChainCommittee",
+			methodName:   "DelegatesByEpoch",
+			epoch:        1,
+			numDelegates: 2,
+		},
+	}
+
 	readBlockProducersByEpochTests = []struct {
 		// Arguments
 		protocolID            string
@@ -527,6 +552,28 @@ var (
 			4,
 			6,
 			4,
+		},
+	}
+
+	getRawBlocksTest = []struct {
+		// Arguments
+		startHeight uint64
+		count uint64
+		// Expected Values
+		numBlks int
+		numActions int
+	}{
+		{
+			1,
+			1,
+			1,
+			2,
+		},
+		{
+			1,
+			2,
+			2,
+			9,
 		},
 	}
 )
@@ -945,6 +992,61 @@ func TestServer_AvailableBalance(t *testing.T) {
 	assert.Equal(t, unit.ConvertIotxToRau(1199999936), val)
 }
 
+func TestServer_ReadDelegatesByEpoch(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mbc := mock_blockchain.NewMockBlockchain(ctrl)
+	committee := mock_committee.NewMockCommittee(ctrl)
+	candidates := []*state.Candidate{
+		{
+			Address:       "address1",
+			Votes:         big.NewInt(1),
+			RewardAddress: "rewardAddress",
+		},
+		{
+			Address:       "address2",
+			Votes:         big.NewInt(1),
+			RewardAddress: "rewardAddress",
+		},
+	}
+	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(1)
+
+	for _, test := range readDelegatesByEpochTests {
+		var pol poll.Protocol
+		if test.protocolType == lld {
+			cfg.Genesis.Delegates = delegates
+			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+		} else {
+			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				mbc,
+				committee,
+				uint64(123456),
+				func(uint64) (time.Time, error) { return time.Now(), nil },
+				func(uint64) uint64 { return 1 },
+				func(uint64) uint64 { return 1 },
+				cfg.Genesis.NumCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+			)
+		}
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+
+		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+			ProtocolID: []byte(test.protocolID),
+			MethodName: []byte(test.methodName),
+			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
+		})
+		require.NoError(err)
+		var delegates state.CandidateList
+		require.NoError(delegates.Deserialize(res.Data))
+		require.Equal(test.numDelegates, len(delegates))
+	}
+}
+
 func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
@@ -994,9 +1096,9 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
 		})
 		require.NoError(err)
-		var BlockProducers state.CandidateList
-		require.NoError(BlockProducers.Deserialize(res.Data))
-		require.Equal(test.numBlockProducers, len(BlockProducers))
+		var blockProducers state.CandidateList
+		require.NoError(blockProducers.Deserialize(res.Data))
+		require.Equal(test.numBlockProducers, len(blockProducers))
 	}
 }
 
@@ -1152,6 +1254,27 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			prevInfo = bp
 		}
 		require.Equal(test.numActiveCensusBlockProducers, numActiveBlockProducers)
+	}
+}
+
+func TestServer_GetRawBlocks(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+
+	for _, test := range getRawBlocksTest {
+		request := &iotexapi.GetRawBlocksRequest{StartHeight: test.startHeight, Count: test.count}
+		res, err := svr.GetRawBlocks(context.Background(), request)
+		require.NoError(err)
+		blks := res.Blocks
+		require.Equal(test.numBlks, len(blks))
+		var numActions int
+		for _, blk := range blks {
+			numActions += len(blk.Body.Actions)
+		}
+		require.Equal(test.numActions, numActions)
 	}
 }
 

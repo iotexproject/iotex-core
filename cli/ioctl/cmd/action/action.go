@@ -49,13 +49,14 @@ func init() {
 	ActionCmd.AddCommand(actionTransferCmd)
 	ActionCmd.AddCommand(actionDeployCmd)
 	ActionCmd.AddCommand(actionInvokeCmd)
+	ActionCmd.AddCommand(actionReadCmd)
 	ActionCmd.AddCommand(actionClaimCmd)
 	ActionCmd.AddCommand(actionDepositCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
 		"insecure connection for once")
-	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionClaimCmd,
+	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionReadCmd, actionClaimCmd,
 		actionDepositCmd)
 }
 
@@ -67,7 +68,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
 		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
 		cmd.MarkFlagRequired("signer")
-		if cmd == actionDeployCmd || cmd == actionInvokeCmd {
+		if cmd == actionDeployCmd || cmd == actionInvokeCmd || cmd == actionReadCmd {
 			cmd.Flags().BytesHexVarP(&bytecode, "bytecode", "b", nil, "set the byte code")
 			cmd.MarkFlagRequired("gas-limit")
 			cmd.MarkFlagRequired("bytecode")
@@ -92,7 +93,7 @@ func GetGasPrice() (*big.Int, error) {
 	return new(big.Int).SetUint64(response.GasPrice), nil
 }
 
-func sendAction(elp action.Envelope) (string, error) {
+func sendAction(elp action.Envelope, readOnly bool) (string, error) {
 	fmt.Printf("Enter password #%s:\n", signer)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
@@ -126,7 +127,6 @@ func sendAction(elp action.Envelope) (string, error) {
 	}
 	fmt.Println()
 
-	request := &iotexapi.SendActionRequest{Action: selp}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", err
@@ -134,10 +134,22 @@ func sendAction(elp action.Envelope) (string, error) {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
-	_, err = cli.SendAction(ctx, request)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
+
+	if readOnly {
+		request := &iotexapi.ReadContractRequest{Action: selp}
+		res, err := cli.ReadContract(ctx, request)
+		if err != nil {
+			if sta, ok := status.FromError(err); ok {
+				return "", fmt.Errorf(sta.Message())
+			}
+			return "", err
+		}
+		return res.Data, nil
+	}
+
+	request := &iotexapi.SendActionRequest{Action: selp}
+	if _, err = cli.SendAction(ctx, request); err != nil {
+		if sta, ok := status.FromError(err); ok {
 			return "", fmt.Errorf(sta.Message())
 		}
 		return "", err
