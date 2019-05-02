@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-address/address"
 )
 
 // Flags
@@ -136,7 +137,13 @@ func sendAction(elp action.Envelope, readOnly bool) (string, error) {
 	ctx := context.Background()
 
 	if readOnly {
-		request := &iotexapi.ReadContractRequest{Action: selp}
+		callerAddr, err := address.FromBytes(sealed.SrcPubkey().Hash())
+		if err != nil {
+			log.L().Error("failed to get caller's address", zap.Error(err))
+			return "", err
+		}
+		request := &iotexapi.ReadContractRequest{Execution: selp.GetCore().GetExecution(),
+			CallerAddress: callerAddr.String()}
 		res, err := cli.ReadContract(ctx, request)
 		if err != nil {
 			if sta, ok := status.FromError(err); ok {

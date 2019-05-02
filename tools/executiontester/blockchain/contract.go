@@ -225,7 +225,11 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 	}
 
 	if readOnly {
-		response, err := cli.ReadContract(ctx, &iotexapi.ReadContractRequest{Action: selp.Proto()})
+
+		response, err := cli.ReadContract(ctx, &iotexapi.ReadContractRequest{
+			Execution:     selp.Proto().GetCore().GetExecution(),
+			CallerAddress: c.executor,
+		})
 		if err != nil {
 			return "", err
 		}
