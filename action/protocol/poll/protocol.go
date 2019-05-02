@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-election/committee"
 )
 
 const (

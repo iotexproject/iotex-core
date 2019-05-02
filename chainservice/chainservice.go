@@ -15,8 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-election/committee"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -27,8 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/gravity"
 	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -38,12 +36,12 @@ import (
 
 // ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
-	actpool           actpool.ActPool
-	blocksync         blocksync.BlockSync
-	consensus         consensus.Consensus
-	chain             blockchain.Blockchain
-	electionCommittee committee.Committee
-	rDPoSProtocol     *rolldpos.Protocol
+	actpool       actpool.ActPool
+	blocksync     blocksync.BlockSync
+	consensus     consensus.Consensus
+	chain         blockchain.Blockchain
+	g             *gravity.Gravity
+	rDPoSProtocol *rolldpos.Protocol
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
 	indexBuilder *blockchain.IndexBuilder
@@ -81,7 +79,15 @@ func New(
 		}
 	}
 
-	var chainOpts []blockchain.Option
+	// Create Gravity
+	g, err := gravity.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// It must be put at the beginning so that the option to create state factory will be able to get the instance
+	// TODO: get rid of this order constraint
+	chainOpts := []blockchain.Option{blockchain.Gravity(g)}
 	if ops.isTesting {
 		chainOpts = []blockchain.Option{
 			blockchain.InMemStateFactoryOption(),
@@ -95,28 +101,6 @@ func New(
 	}
 	registry := protocol.Registry{}
 	chainOpts = append(chainOpts, blockchain.RegistryOption(&registry))
-	var electionCommittee committee.Committee
-	if cfg.Genesis.EnableGravityChainVoting {
-		committeeConfig := cfg.Chain.Committee
-		committeeConfig.GravityChainStartHeight = cfg.Genesis.GravityChainStartHeight
-		committeeConfig.GravityChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
-		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
-		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
-		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
-		committeeConfig.ScoreThreshold = cfg.Genesis.ScoreThreshold
-		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
-		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
-
-		kvstore := db.NewOnDiskDB(cfg.Chain.GravityChainDB)
-		if committeeConfig.GravityChainStartHeight != 0 {
-			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
-				kvstore,
-				committeeConfig,
-			); err != nil {
-				return nil, err
-			}
-		}
-	}
 	if cfg.System.EnableExperimentalActions {
 		chainOpts = append(chainOpts, blockchain.EnableExperimentalActions())
 	}
@@ -131,12 +115,14 @@ func New(
 			return nil, errors.Wrap(err, "failed to rename old trie db")
 		}
 		chainOpts = []blockchain.Option{
+			blockchain.Gravity(g),
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
 		}
 		if cfg.System.EnableExperimentalActions {
 			chainOpts = append(chainOpts, blockchain.EnableExperimentalActions())
 		}
+		chainOpts = append(chainOpts, blockchain.Gravity(g))
 		chain = blockchain.NewBlockchain(cfg, chainOpts...)
 	}
 
@@ -218,16 +204,16 @@ func New(
 	}
 
 	return &ChainService{
-		actpool:           actPool,
-		chain:             chain,
-		blocksync:         bs,
-		consensus:         consensus,
-		rDPoSProtocol:     rDPoSProtocol,
-		electionCommittee: electionCommittee,
-		indexservice:      idx,
-		indexBuilder:      indexBuilder,
-		api:               apiSvr,
-		registry:          &registry,
+		actpool:       actPool,
+		chain:         chain,
+		blocksync:     bs,
+		consensus:     consensus,
+		rDPoSProtocol: rDPoSProtocol,
+		g:             g,
+		indexservice:  idx,
+		indexBuilder:  indexBuilder,
+		api:           apiSvr,
+		registry:      &registry,
 	}, nil
 }
 
@@ -238,9 +224,9 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			return errors.Wrap(err, "error when starting indexservice")
 		}
 	}
-	if cs.electionCommittee != nil {
-		if err := cs.electionCommittee.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting election committee")
+	if cs.g != nil {
+		if err := cs.g.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting gravity service")
 		}
 	}
 	if err := cs.chain.Start(ctx); err != nil {
@@ -289,6 +275,11 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	}
 	if err := cs.blocksync.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping blocksync")
+	}
+	if cs.g != nil {
+		if err := cs.g.Stop(ctx); err != nil {
+			return errors.Wrap(err, "error when stopping gravity service")
+		}
 	}
 	if err := cs.chain.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping blockchain")
@@ -356,9 +347,9 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
 }
 
-// ElectionCommittee returns the election committee
-func (cs *ChainService) ElectionCommittee() committee.Committee {
-	return cs.electionCommittee
+// Gravity returns the gravity service
+func (cs *ChainService) Gravity() *gravity.Gravity {
+	return cs.g
 }
 
 // RollDPoSProtocol returns the roll dpos protocol

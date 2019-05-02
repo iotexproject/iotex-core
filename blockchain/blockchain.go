@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -37,6 +38,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/gravity"
 	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -57,6 +59,9 @@ var (
 		[]string{"type"},
 	)
 	errDelegatesNotExist = errors.New("delegates cannot be found")
+
+	activeProtocolsCfgKey = "activeProtocols"
+	protocolIDSeparator   = ","
 )
 
 func init() {
@@ -171,8 +176,8 @@ type blockchain struct {
 	// used by account-based model
 	sf factory.Factory
 
-	registry *protocol.Registry
-
+	registry                  *protocol.Registry
+	g                         *gravity.Gravity
 	enableExperimentalActions bool
 }
 
@@ -276,6 +281,13 @@ func RegistryOption(registry *protocol.Registry) Option {
 func EnableExperimentalActions() Option {
 	return func(bc *blockchain, conf config.Config) error {
 		bc.enableExperimentalActions = true
+		return nil
+	}
+}
+
+func Gravity(g *gravity.Gravity) Option {
+	return func(bc *blockchain, conf config.Config) error {
+		bc.g = g
 		return nil
 	}
 }
@@ -594,15 +606,21 @@ func (bc *blockchain) MintNewBlock(
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 
+	protocols, err := bc.getActiveProtocols(timestamp)
+	if err != nil {
+		return nil, err
+	}
+
 	gasLimitForContext := bc.config.Genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			BlockHeight:    newblockHeight,
-			BlockTimeStamp: timestamp,
-			Producer:       bc.config.ProducerAddress(),
-			GasLimit:       gasLimitForContext,
-			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
-			Registry:       bc.registry,
+			BlockHeight:     newblockHeight,
+			BlockTimeStamp:  timestamp,
+			Producer:        bc.config.ProducerAddress(),
+			GasLimit:        gasLimitForContext,
+			ActionGasLimit:  bc.config.Genesis.ActionGasLimit,
+			Registry:        bc.registry,
+			ActiveProtocols: protocols,
 		})
 	_, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
@@ -722,16 +740,21 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 	if err != nil {
 		return nil, nil, err
 	}
+	protocols, err := bc.getActiveProtocols(header.Timestamp())
+	if err != nil {
+		return nil, nil, err
+	}
 	gasLimit := bc.config.Genesis.BlockGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		BlockHeight:    header.Height(),
-		BlockTimeStamp: header.Timestamp(),
-		Producer:       producer,
-		Caller:         caller,
-		GasLimit:       gasLimit,
-		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
-		GasPrice:       big.NewInt(0),
-		IntrinsicGas:   0,
+		BlockHeight:     header.Height(),
+		BlockTimeStamp:  header.Timestamp(),
+		Producer:        producer,
+		Caller:          caller,
+		GasLimit:        gasLimit,
+		ActionGasLimit:  bc.config.Genesis.ActionGasLimit,
+		GasPrice:        big.NewInt(0),
+		IntrinsicGas:    0,
+		ActiveProtocols: protocols,
 	})
 	return evm.ExecuteContract(
 		ctx,
@@ -759,14 +782,19 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if err != nil {
 		return nil, err
 	}
+	protocols, err := bc.getActiveProtocols(time.Now())
+	if err != nil {
+		return nil, err
+	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			GasLimit:       gasLimit,
-			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
-			Caller:         callerAddr,
-			ActionHash:     hash.ZeroHash256,
-			Nonce:          0,
-			Registry:       bc.registry,
+			GasLimit:        gasLimit,
+			ActionGasLimit:  bc.config.Genesis.ActionGasLimit,
+			Caller:          callerAddr,
+			ActionHash:      hash.ZeroHash256,
+			Nonce:           0,
+			Registry:        bc.registry,
+			ActiveProtocols: protocols,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
@@ -1022,6 +1050,10 @@ func (bc *blockchain) runActions(
 	if bc.sf == nil {
 		return nil, errors.New("statefactory cannot be nil")
 	}
+	protocols, err := bc.getActiveProtocols(acts.BlockTimeStamp())
+	if err != nil {
+		return nil, err
+	}
 	gasLimit := bc.config.Genesis.BlockGasLimit
 	// update state factory
 	producer, err := address.FromBytes(acts.BlockProducerPubKey().Hash())
@@ -1031,12 +1063,13 @@ func (bc *blockchain) runActions(
 
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			BlockHeight:    acts.BlockHeight(),
-			BlockTimeStamp: acts.BlockTimeStamp(),
-			Producer:       producer,
-			GasLimit:       gasLimit,
-			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
-			Registry:       bc.registry,
+			BlockHeight:     acts.BlockHeight(),
+			BlockTimeStamp:  acts.BlockTimeStamp(),
+			Producer:        producer,
+			GasLimit:        gasLimit,
+			ActionGasLimit:  bc.config.Genesis.ActionGasLimit,
+			Registry:        bc.registry,
+			ActiveProtocols: protocols,
 		})
 
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
@@ -1280,16 +1313,22 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		// TODO: return nil to avoid test cases to blame on missing rewarding protocol
 		return nil
 	}
+	genesisTs := time.Unix(bc.config.Genesis.Timestamp, 0)
+	protocols, err := bc.getActiveProtocols(genesisTs)
+	if err != nil {
+		return err
+	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		BlockHeight:    0,
-		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
-		GasLimit:       0,
-		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
-		Producer:       nil,
-		Caller:         nil,
-		ActionHash:     hash.ZeroHash256,
-		Nonce:          0,
-		Registry:       bc.registry,
+		BlockHeight:     0,
+		BlockTimeStamp:  genesisTs,
+		GasLimit:        0,
+		ActionGasLimit:  bc.config.Genesis.ActionGasLimit,
+		Producer:        nil,
+		Caller:          nil,
+		ActionHash:      hash.ZeroHash256,
+		Nonce:           0,
+		Registry:        bc.registry,
+		ActiveProtocols: protocols,
 	})
 	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
 		return err
@@ -1365,6 +1404,17 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 		addrs = append(addrs, d.OperatorAddr())
 	}
 	return vp.Initialize(ctx, ws, addrs)
+}
+
+func (bc *blockchain) getActiveProtocols(ts time.Time) ([]string, error) {
+	if bc.g != nil {
+		data, err := bc.g.GetConfig(ts, activeProtocolsCfgKey)
+		if err != nil {
+			return nil, err
+		}
+		return strings.Split(string(data), protocolIDSeparator), nil
+	}
+	return nil, nil
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {

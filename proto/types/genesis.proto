@@ -26,6 +26,7 @@ message GenesisBlockchain {
     uint64 numDelegates = 6;
     uint64 numCandidateDelegates = 7;
     bool timeBasedRotation = 8;
+    string detcContractAddress = 9;
 }
 
 message GenesisAccount {

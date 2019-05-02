@@ -109,6 +109,8 @@ type (
 		NumCandidateDelegates uint64 `yaml:"numCandidateDelegates"`
 		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
+		// DetcContractAddress is the address of Detc contract
+		DetcContractAddress string `yaml:"detcContractAddress"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {

@@ -282,7 +282,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 		return
 	}
 	if genesisConfig.EnableGravityChainVoting {
-		electionCommittee := cs.ElectionCommittee()
+		electionCommittee := cs.Gravity().Committee()
 		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol
 		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {

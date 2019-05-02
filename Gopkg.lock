@@ -258,6 +258,14 @@
   version = "v1.0"
 
 [[projects]]
+  digest = "1:621b494e1adf068b9f9d419d8e4f5c144883bb5541ed27ada3398394bdda981c"
+  name = "github.com/iotexproject/detc"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "3e3fe024d8981e74e29f7619b0cb7ee2785100d3"
+  version = "v0.1.1"
+
+[[projects]]
   digest = "1:9adf8a325fcb0d2185fe93bbb740e011222ae8e8e4ba475924404fe6c1c323f3"
   name = "github.com/iotexproject/go-fsm"
   packages = ["."]
@@ -1469,6 +1477,7 @@
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/grpc-ecosystem/go-grpc-prometheus",
+    "github.com/iotexproject/detc",
     "github.com/iotexproject/go-fsm",
     "github.com/iotexproject/go-p2p",
     "github.com/iotexproject/iotex-address/address",
