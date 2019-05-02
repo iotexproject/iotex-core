@@ -25,14 +25,13 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/gasstation"
@@ -437,14 +436,14 @@ var (
 		{
 			protocolID:   "poll",
 			protocolType: lld,
-			methodName:   "BlockProducersByEpoch",
+			methodName:   "DelegatesByEpoch",
 			epoch:        1,
 			numDelegates: 3,
 		},
 		{
 			protocolID:   "poll",
 			protocolType: "governanceChainCommittee",
-			methodName:   "BlockProducersByEpoch",
+			methodName:   "DelegatesByEpoch",
 			epoch:        1,
 			numDelegates: 2,
 		},
@@ -556,19 +555,25 @@ var (
 		},
 	}
 
-	getRawBlockTest = []struct {
+	getRawBlocksTest = []struct {
 		// Arguments
-		height uint64
+		startHeight uint64
+		count uint64
 		// Expected Values
+		numBlks int
 		numActions int
 	}{
 		{
 			1,
+			1,
+			1,
 			2,
 		},
 		{
+			1,
 			2,
-			7,
+			2,
+			9,
 		},
 	}
 )
@@ -1252,20 +1257,24 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	}
 }
 
-func TestServer_GetRawBlock(t *testing.T) {
+func TestServer_GetRawBlocks(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
-	for _, test := range getRawBlockTest {
-		request := &iotexapi.GetRawBlockRequest{Height: test.height}
-		res, err := svr.GetRawBlock(context.Background(), request)
+	for _, test := range getRawBlocksTest {
+		request := &iotexapi.GetRawBlocksRequest{StartHeight: test.startHeight, Count: test.count}
+		res, err := svr.GetRawBlocks(context.Background(), request)
 		require.NoError(err)
-		blk := &block.Block{}
-		require.NoError(blk.ConvertFromBlockPb(res.Block))
-		require.Equal(test.numActions, len(blk.Actions))
+		blks := res.Blocks
+		require.Equal(test.numBlks, len(blks))
+		var numActions int
+		for _, blk := range blks {
+			numActions += len(blk.Body.Actions)
+		}
+		require.Equal(test.numActions, numActions)
 	}
 }
 

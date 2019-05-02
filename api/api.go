@@ -448,16 +448,32 @@ func (api *Server) GetEpochMeta(
 	}, nil
 }
 
-// GetRawBlock gets raw block data
-func (api *Server) GetRawBlock(
+// GetRawBlocks gets raw block data
+func (api *Server) GetRawBlocks(
 	ctx context.Context,
-	in *iotexapi.GetRawBlockRequest,
-) (*iotexapi.GetRawBlockResponse, error) {
-	blk, err := api.bc.GetBlockByHeight(in.Height)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
+	in *iotexapi.GetRawBlocksRequest,
+) (*iotexapi.GetRawBlocksResponse, error) {
+	if in.Count > api.cfg.RangeQueryLimit {
+		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
-	return &iotexapi.GetRawBlockResponse{Block: blk.ConvertToBlockPb()}, nil
+
+	tipHeight := api.bc.TipHeight()
+	if in.StartHeight > tipHeight {
+		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
+	}
+	var res []*iotextypes.Block
+	for height := int(in.StartHeight); height <= int(tipHeight); height++ {
+		if uint64(len(res)) >= in.Count {
+			break
+		}
+		blk, err := api.bc.GetBlockByHeight(uint64(height))
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		res = append(res, blk.ConvertToBlockPb())
+	}
+
+	return &iotexapi.GetRawBlocksResponse{Blocks: res}, nil
 }
 
 // Start starts the API server

@@ -59,8 +59,8 @@ service APIService {
   // get epoch metadata
   rpc GetEpochMeta(GetEpochMetaRequest) returns (GetEpochMetaResponse) {}
 
-  // get raw block data
-  rpc GetRawBlock(GetRawBlockRequest) returns (GetRawBlockResponse) {}
+  // get raw blocks data
+  rpc GetRawBlocks(GetRawBlocksRequest) returns (GetRawBlocksResponse) {}
 }
 
 message GetAccountRequest {
@@ -223,10 +223,11 @@ message GetEpochMetaResponse {
     repeated BlockProducerInfo blockProducersInfo = 3;
 }
 
-message GetRawBlockRequest {
-    uint64 height = 1;
+message GetRawBlocksRequest {
+    uint64 startHeight = 1;
+    uint64 count = 2;
 }
 
-message GetRawBlockResponse {
-    iotextypes.Block block = 1;
+message GetRawBlocksResponse {
+    repeated iotextypes.Block blocks = 1;
 }
