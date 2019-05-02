@@ -114,6 +114,8 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
+	case "DelegatesByEpoch":
+		fallthrough
 	case "BlockProducersByEpoch":
 		fallthrough
 	case "ActiveBlockProducersByEpoch":
@@ -268,6 +270,15 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
+	case "DelegatesByEpoch":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		delegates, err := p.readDelegatesByEpoch(byteutil.BytesToUint64(args[0]))
+		if err != nil {
+			return nil, err
+		}
+		return delegates.Serialize()
 	case "BlockProducersByEpoch":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
@@ -301,9 +312,13 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	}
 }
 
-func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(epochNum uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(epochNum uint64) (state.CandidateList, error) {
 	epochHeight := p.getEpochHeight(epochNum)
-	delegates, err := p.cm.CandidatesByHeight(epochHeight)
+	return p.cm.CandidatesByHeight(epochHeight)
+}
+
+func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(epochNum uint64) (state.CandidateList, error) {
+	delegates, err := p.readDelegatesByEpoch(epochNum)
 	if err != nil {
 		return nil, err
 	}

@@ -448,6 +448,18 @@ func (api *Server) GetEpochMeta(
 	}, nil
 }
 
+// GetRawBlock gets raw block data
+func (api *Server) GetRawBlock(
+	ctx context.Context,
+	in *iotexapi.GetRawBlockRequest,
+) (*iotexapi.GetRawBlockResponse, error) {
+	blk, err := api.bc.GetBlockByHeight(in.Height)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	return &iotexapi.GetRawBlockResponse{Block: blk.ConvertToBlockPb()}, nil
+}
+
 // Start starts the API server
 func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.Port)
