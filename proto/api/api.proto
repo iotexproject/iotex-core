@@ -181,7 +181,8 @@ message GetReceiptByActionResponse {
 }
 
 message ReadContractRequest {
-  iotextypes.Action action = 1;
+  iotextypes.Execution execution = 1;
+  string callerAddress = 2;
 }
 
 message ReadContractResponse {
