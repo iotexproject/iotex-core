@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -399,14 +399,14 @@ var (
 		balance   *big.Int
 	}{
 		{
-			protocolID: rewarding.ProtocolID,
+			protocolID: protocol.RewardingProtocolID,
 			methodName: "UnclaimedBalance",
 			addr:       identityset.Address(0).String(),
 			returnErr:  false,
 			balance:    unit.ConvertIotxToRau(64), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
 		{
-			protocolID: rewarding.ProtocolID,
+			protocolID: protocol.RewardingProtocolID,
 			methodName: "UnclaimedBalance",
 			addr:       identityset.Address(1).String(),
 			returnErr:  false,
@@ -419,7 +419,7 @@ var (
 			returnErr:  true,
 		},
 		{
-			protocolID: rewarding.ProtocolID,
+			protocolID: protocol.RewardingProtocolID,
 			methodName: "Wrong Method",
 			addr:       ta.Addrinfo["producer"].String(),
 			returnErr:  true,
@@ -826,7 +826,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
 		if pol != nil {
-			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+			require.NoError(svr.registry.ForceRegister(protocol.PollProtocolID, pol))
 		}
 		if test.emptyChain {
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
@@ -976,7 +976,7 @@ func TestServer_TotalBalance(t *testing.T) {
 	require.NoError(t, err)
 
 	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(rewarding.ProtocolID),
+		ProtocolID: []byte(protocol.RewardingProtocolID),
 		MethodName: []byte("TotalBalance"),
 		Arguments:  nil,
 	})
@@ -993,7 +993,7 @@ func TestServer_AvailableBalance(t *testing.T) {
 	require.NoError(t, err)
 
 	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(rewarding.ProtocolID),
+		ProtocolID: []byte(protocol.RewardingProtocolID),
 		MethodName: []byte("AvailableBalance"),
 		Arguments:  nil,
 	})
@@ -1044,7 +1044,7 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		require.NoError(svr.registry.ForceRegister(protocol.PollProtocolID, pol))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -1099,7 +1099,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		require.NoError(svr.registry.ForceRegister(protocol.PollProtocolID, pol))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -1154,7 +1154,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		require.NoError(svr.registry.ForceRegister(protocol.PollProtocolID, pol))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -1180,7 +1180,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 		require.NoError(err)
 		if test.pollProtocolType == lld {
 			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
-			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+			require.NoError(svr.registry.ForceRegister(protocol.PollProtocolID, pol))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
@@ -1195,7 +1195,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 			)
-			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+			require.NoError(svr.registry.ForceRegister(protocol.PollProtocolID, pol))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			mbc.EXPECT().GetFactory().Return(msf).Times(2)
@@ -1509,19 +1509,19 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	)
 	r := rewarding.NewProtocol(bc, rolldposProtocol)
 
-	if err := registry.Register(rolldpos.ProtocolID, rolldposProtocol); err != nil {
+	if err := registry.Register(protocol.RollDPoSProtocolID, rolldposProtocol); err != nil {
 		return nil, nil, err
 	}
-	if err := registry.Register(account.ProtocolID, acc); err != nil {
+	if err := registry.Register(protocol.AccountProtocolID, acc); err != nil {
 		return nil, nil, err
 	}
-	if err := registry.Register(execution.ProtocolID, evm); err != nil {
+	if err := registry.Register(protocol.ExecutionProtocolID, evm); err != nil {
 		return nil, nil, err
 	}
-	if err := registry.Register(rewarding.ProtocolID, r); err != nil {
+	if err := registry.Register(protocol.RewardingProtocolID, r); err != nil {
 		return nil, nil, err
 	}
-	if err := registry.Register(poll.ProtocolID, p); err != nil {
+	if err := registry.Register(protocol.PollProtocolID, p); err != nil {
 		return nil, nil, err
 	}
 	sf.AddActionHandlers(acc, evm, r)
