@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"sort"
 
+	"github.com/iotexproject/go-pkgs/util/hash"
 	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 var (

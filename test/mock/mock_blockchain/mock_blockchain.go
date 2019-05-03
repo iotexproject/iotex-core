@@ -11,11 +11,11 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	hash "github.com/iotexproject/go-pkgs/util/hash"
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 )

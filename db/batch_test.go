@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/go-pkgs/util/hash"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"

@@ -13,7 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/go-pkgs/util/hash"
 	"github.com/stretchr/testify/require"
 )
 
