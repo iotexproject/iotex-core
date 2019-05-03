@@ -13,9 +13,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
-// ProtocolID is the identity of this protocol
-const ProtocolID = "rolldpos"
-
 // Protocol defines an epoch protocol
 type Protocol struct {
 	numCandidateDelegates uint64
@@ -34,6 +31,9 @@ func NewProtocol(numCandidateDelegates uint64, numDelegates uint64, numSubEpochs
 		numSubEpochs:          numSubEpochs,
 	}
 }
+
+// ID returns protocol ID
+func (p *Protocol) ID() string { return protocol.RollDPoSProtocolID }
 
 // Handle handles a modification
 func (p *Protocol) Handle(context.Context, action.Action, protocol.StateManager) (*action.Receipt, error) {

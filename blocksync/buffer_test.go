@@ -36,7 +36,7 @@ func TestBlockBufferFlush(t *testing.T) {
 
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(registry.Register(protocol.RollDPoSProtocolID, rp))
 	chain := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemStateFactoryOption(),
@@ -136,7 +136,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.Nil(err)
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(registry.Register(protocol.RollDPoSProtocolID, rp))
 	chain := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemStateFactoryOption(),

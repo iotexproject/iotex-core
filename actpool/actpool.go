@@ -209,7 +209,15 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 		}
 	}
 	// Reject action if it's invalid
+	activeProtocols := protocol.ActiveProtocols(ap.bc.TipHeight())
 	for _, validator := range ap.validators {
+		p, ok := validator.(protocol.Protocol)
+		if !ok {
+			log.S().Panic("The handler isn't a protocol")
+		}
+		if _, ok := activeProtocols[p.ID()]; !ok {
+			continue
+		}
 		ctx := protocol.WithValidateActionsCtx(
 			context.Background(),
 			protocol.ValidateActionsCtx{

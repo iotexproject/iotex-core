@@ -141,13 +141,13 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, 
 	if registry == nil {
 		return nil
 	}
-	p, ok := registry.Find(ProtocolID)
+	p, ok := registry.Find(protocol.RewardingProtocolID)
 	if !ok {
 		return nil
 	}
 	rp, ok := p.(*Protocol)
 	if !ok {
-		log.S().Panicf("Protocol %d is not a rewarding protocol", ProtocolID)
+		log.S().Panicf("Protocol %d is not a rewarding protocol", protocol.RewardingProtocolID)
 	}
 	return rp.Deposit(ctx, sm, amount)
 }

@@ -55,7 +55,7 @@ func TestDepositNegativeGasFee(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
 
 		r := protocol.Registry{}
-		r.Register(ProtocolID, p)
+		r.Register(protocol.RewardingProtocolID, p)
 
 		ws, err := stateDB.NewWorkingSet()
 		require.NoError(t, err)

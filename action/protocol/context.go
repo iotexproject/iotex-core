@@ -44,6 +44,8 @@ type RunActionsCtx struct {
 	Nonce uint64
 	// Registry is the pointer protocol registry
 	Registry *Registry
+	// ActiveProtocols is the map of active protocol IDs
+	ActiveProtocols map[string]interface{}
 }
 
 // ValidateActionsCtx provides action validators with auxiliary information.
@@ -54,6 +56,8 @@ type ValidateActionsCtx struct {
 	ProducerAddr string
 	// Caller is the address of whom issues the action
 	Caller address.Address
+	// ActiveProtocols is the map of active protocol IDs
+	ActiveProtocols map[string]interface{}
 }
 
 // WithRunActionsCtx add RunActionsCtx into context.

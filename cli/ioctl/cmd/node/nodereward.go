@@ -11,10 +11,11 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
@@ -51,7 +52,7 @@ func rewardPool() (string, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	request := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(rewarding.ProtocolID),
+		ProtocolID: []byte(protocol.RewardingProtocolID),
 		MethodName: []byte("AvailableBalance"),
 	}
 	response, err := cli.ReadState(ctx, request)
@@ -67,7 +68,7 @@ func rewardPool() (string, error) {
 		return "", fmt.Errorf("failed to convert string into big int")
 	}
 	request = &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(rewarding.ProtocolID),
+		ProtocolID: []byte(protocol.RewardingProtocolID),
 		MethodName: []byte("TotalBalance"),
 	}
 	response, err = cli.ReadState(ctx, request)
@@ -100,7 +101,7 @@ func reward(args []string) (string, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	request := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(rewarding.ProtocolID),
+		ProtocolID: []byte(protocol.RewardingProtocolID),
 		MethodName: []byte("UnclaimedBalance"),
 		Arguments:  [][]byte{[]byte(address)},
 	}

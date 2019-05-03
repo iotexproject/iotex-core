@@ -181,15 +181,23 @@ func (v *validator) validateActions(
 			}(validator, selp)
 		}
 
+		activeProtocols := protocol.ActiveProtocols(height)
 		for _, validator := range v.actionValidators {
 			wg.Add(1)
-			go func(validator protocol.ActionValidator, act action.Action) {
+			go func(validator protocol.ActionValidator, act action.Action, activeProtocols map[string]interface{}) {
 				defer wg.Done()
+				p, ok := validator.(protocol.Protocol)
+				if !ok {
+					log.S().Panic("The handler isn't a protocol")
+				}
+				if _, ok := activeProtocols[p.ID()]; !ok {
+					return
+				}
 				if err := validator.Validate(ctx, act); err != nil {
 					errChan <- err
 					return
 				}
-			}(validator, selp.Action())
+			}(validator, selp.Action(), activeProtocols)
 		}
 	}
 	wg.Wait()

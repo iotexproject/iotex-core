@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
@@ -95,7 +94,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		return nil, err
 	}
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(mainchain.ProtocolID, mainChainProtocol); err != nil {
+	if err := cs.RegisterProtocol(protocol.MainChainProtocolID, mainChainProtocol); err != nil {
 		return nil, err
 	}
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
@@ -273,11 +272,11 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 
 func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) (err error) {
 	accountProtocol := account.NewProtocol()
-	if err = cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
+	if err = cs.RegisterProtocol(protocol.AccountProtocolID, accountProtocol); err != nil {
 		return
 	}
 	rolldposProtocol := cs.RollDPoSProtocol()
-	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
+	if err = cs.RegisterProtocol(protocol.RollDPoSProtocolID, rolldposProtocol); err != nil {
 		return
 	}
 	if genesisConfig.EnableGravityChainVoting {
@@ -313,14 +312,14 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 			}
 			pollProtocol = poll.NewLifeLongDelegatesProtocol(delegates)
 		}
-		if err = cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
+		if err = cs.RegisterProtocol(protocol.PollProtocolID, pollProtocol); err != nil {
 			return
 		}
 	}
 	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	if err = cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
+	if err = cs.RegisterProtocol(protocol.ExecutionProtocolID, executionProtocol); err != nil {
 		return
 	}
 	rewardingProtocol := rewarding.NewProtocol(cs.Blockchain(), rolldposProtocol)
-	return cs.RegisterProtocol(rewarding.ProtocolID, rewardingProtocol)
+	return cs.RegisterProtocol(protocol.RewardingProtocolID, rewardingProtocol)
 }

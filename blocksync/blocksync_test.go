@@ -171,7 +171,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.Nil(err)
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(registry.Register(protocol.RollDPoSProtocolID, rp))
 	chain := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
@@ -228,7 +228,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.Nil(err)
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(registry.Register(protocol.RollDPoSProtocolID, rp))
 	chain1 := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
@@ -249,7 +249,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
 	registry2 := protocol.Registry{}
-	require.NoError(registry2.Register(rolldpos.ProtocolID, rp))
+	require.NoError(registry2.Register(protocol.RollDPoSProtocolID, rp))
 	chain2 := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
@@ -321,7 +321,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	require.NoError(registry.Register(protocol.RollDPoSProtocolID, rolldposProtocol))
 	chain1 := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
@@ -341,7 +341,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
 	registry2 := protocol.Registry{}
-	require.NoError(registry2.Register(rolldpos.ProtocolID, rolldposProtocol))
+	require.NoError(registry2.Register(protocol.RollDPoSProtocolID, rolldposProtocol))
 	chain2 := bc.NewBlockchain(
 		cfg,
 		bc.InMemStateFactoryOption(),
@@ -408,7 +408,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.Nil(err)
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(registry.Register(protocol.RollDPoSProtocolID, rp))
 	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.RegistryOption(&registry))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)

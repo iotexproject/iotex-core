@@ -13,11 +13,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
@@ -134,7 +135,7 @@ func nextDelegates() (string, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	request := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(poll.ProtocolID),
+		ProtocolID: []byte(protocol.PollProtocolID),
 		MethodName: []byte("ActiveBlockProducersByEpoch"),
 		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
 	}
@@ -153,7 +154,7 @@ func nextDelegates() (string, error) {
 		return "", err
 	}
 	request = &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(poll.ProtocolID),
+		ProtocolID: []byte(protocol.PollProtocolID),
 		MethodName: []byte("BlockProducersByEpoch"),
 		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
 	}

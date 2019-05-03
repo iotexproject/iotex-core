@@ -376,7 +376,7 @@ func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, err
 
 // ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
 func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
-	p, ok := bc.registry.Find(rolldpos.ProtocolID)
+	p, ok := bc.registry.Find(protocol.RollDPoSProtocolID)
 	if !ok {
 		return 0, nil, errors.New("rolldpos protocol is not registered")
 	}
@@ -403,7 +403,7 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	}
 	numBlks := epochEndHeight - epochStartHeight + 1
 
-	p, ok = bc.registry.Find(poll.ProtocolID)
+	p, ok = bc.registry.Find(protocol.PollProtocolID)
 	if !ok {
 		return 0, nil, errors.New("poll protocol is not registered")
 	}
@@ -821,7 +821,7 @@ func (bc *blockchain) protocol(id string) (protocol.Protocol, bool) {
 }
 
 func (bc *blockchain) mustGetRollDPoSProtocol() *rolldpos.Protocol {
-	p, ok := bc.protocol(rolldpos.ProtocolID)
+	p, ok := bc.protocol(protocol.RollDPoSProtocolID)
 	if !ok {
 		log.L().Panic("protocol rolldpos has not been registered")
 	}
@@ -1157,7 +1157,7 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 	if !bc.config.Genesis.EnableGravityChainVoting {
 		return
 	}
-	pl, ok := bc.protocol(poll.ProtocolID)
+	pl, ok := bc.protocol(protocol.PollProtocolID)
 	if !ok {
 		log.L().Panic("protocol poll has not been registered")
 	}
@@ -1307,7 +1307,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 }
 
 func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
-	p, ok := bc.registry.Find(account.ProtocolID)
+	p, ok := bc.registry.Find(protocol.AccountProtocolID)
 	if !ok {
 		return nil
 	}
@@ -1320,7 +1320,7 @@ func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory
 }
 
 func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
-	p, ok := bc.registry.Find(rewarding.ProtocolID)
+	p, ok := bc.registry.Find(protocol.RewardingProtocolID)
 	if !ok {
 		return nil
 	}
@@ -1345,9 +1345,9 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 
 func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
 	if bc.config.Genesis.EnableGravityChainVoting {
-		p, ok := bc.protocol(poll.ProtocolID)
+		p, ok := bc.protocol(protocol.PollProtocolID)
 		if !ok {
-			return errors.Errorf("protocol %s is not found", poll.ProtocolID)
+			return errors.Errorf("protocol %s is not found", protocol.PollProtocolID)
 		}
 		pp, ok := p.(poll.Protocol)
 		if !ok {

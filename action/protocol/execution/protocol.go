@@ -23,9 +23,6 @@ import (
 const (
 	// ExecutionSizeLimit is the maximum size of execution allowed
 	ExecutionSizeLimit = 32 * 1024
-	// ProtocolID is the protocol ID
-	// TODO: it works only for one instance per protocol definition now
-	ProtocolID = "smart_contract"
 )
 
 // Protocol defines the protocol of handling executions
@@ -36,13 +33,16 @@ type Protocol struct {
 
 // NewProtocol instantiates the protocol of exeuction
 func NewProtocol(cm protocol.ChainManager) *Protocol {
-	h := hash.Hash160b([]byte(ProtocolID))
+	h := hash.Hash160b([]byte(protocol.ExecutionProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
 	return &Protocol{cm: cm, addr: addr}
 }
+
+// ID returns protocol ID
+func (p *Protocol) ID() string { return protocol.ExecutionProtocolID }
 
 // Handle handles an execution
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

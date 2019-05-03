@@ -23,10 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-// ProtocolID is the protocol ID
-// TODO: it works only for one instance per protocol definition now
-const ProtocolID = "multi-chain_main-chain"
-
 var (
 	// MinSecurityDeposit represents the security deposit minimal required for start a sub-chain, which is 1M iotx
 	MinSecurityDeposit = big.NewInt(0).Mul(big.NewInt(1000000), big.NewInt(unit.Iotx))
@@ -48,6 +44,9 @@ func NewProtocol(rootChain blockchain.Blockchain) *Protocol {
 		sf:        rootChain.GetFactory(),
 	}
 }
+
+// ID returns protocol ID
+func (p *Protocol) ID() string { return protocol.MainChainProtocolID }
 
 // Handle handles how to mutate the state db given the multi-chain action on main-chain
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

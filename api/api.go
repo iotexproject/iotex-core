@@ -27,7 +27,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -229,7 +228,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		numActions += blk.NumActions
 	}
 
-	p, ok := api.registry.Find(rolldpos.ProtocolID)
+	p, ok := api.registry.Find(protocol.RollDPoSProtocolID)
 	if !ok {
 		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
 	}
@@ -386,7 +385,7 @@ func (api *Server) GetEpochMeta(
 	if in.EpochNumber < 1 {
 		return nil, status.Error(codes.InvalidArgument, "epoch number cannot be less than one")
 	}
-	p, ok := api.registry.Find(rolldpos.ProtocolID)
+	p, ok := api.registry.Find(protocol.RollDPoSProtocolID)
 	if !ok {
 		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
 	}
@@ -411,7 +410,7 @@ func (api *Server) GetEpochMeta(
 	}
 
 	readStateRequest := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(poll.ProtocolID),
+		ProtocolID: []byte(protocol.PollProtocolID),
 		MethodName: []byte("BlockProducersByEpoch"),
 		Arguments:  [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)},
 	}
@@ -769,9 +768,9 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 
 func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
 	gravityChainStartHeight := epochHeight
-	if _, ok := api.registry.Find(poll.ProtocolID); ok {
+	if _, ok := api.registry.Find(protocol.PollProtocolID); ok {
 		readStateRequest := &iotexapi.ReadStateRequest{
-			ProtocolID: []byte(poll.ProtocolID),
+			ProtocolID: []byte(protocol.PollProtocolID),
 			MethodName: []byte("GetGravityChainStartHeight"),
 			Arguments:  [][]byte{byteutil.Uint64ToBytes(epochHeight)},
 		}

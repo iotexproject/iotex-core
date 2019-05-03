@@ -258,9 +258,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Chain.EnableAsyncIndexWrite = false
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
-	registry.Register(account.ProtocolID, acc)
+	registry.Register(protocol.AccountProtocolID, acc)
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	registry.Register(rolldpos.ProtocolID, rp)
+	registry.Register(protocol.RollDPoSProtocolID, rp)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemDaoOption(),
@@ -407,9 +407,9 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableAsyncIndexWrite = false
 		registry := protocol.Registry{}
 		acc := account.NewProtocol()
-		registry.Register(account.ProtocolID, acc)
+		registry.Register(protocol.AccountProtocolID, acc)
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-		registry.Register(rolldpos.ProtocolID, rp)
+		registry.Register(protocol.RollDPoSProtocolID, rp)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),

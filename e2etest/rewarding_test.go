@@ -83,7 +83,7 @@ func TestBlockReward(t *testing.T) {
 
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{})
 
-	p, ok := svr.ChainService(1).Registry().Find(rewarding.ProtocolID)
+	p, ok := svr.ChainService(1).Registry().Find(protocol.RewardingProtocolID)
 	require.True(t, ok)
 	rp, ok := p.(*rewarding.Protocol)
 	require.True(t, ok)
@@ -214,7 +214,7 @@ func TestBlockEpochReward(t *testing.T) {
 	getRewardAddStr := make(map[string]string)
 
 	for i := 0; i < numNodes; i++ {
-		p, ok := svrs[i].ChainService(configs[i].Chain.ID).Registry().Find(rewarding.ProtocolID)
+		p, ok := svrs[i].ChainService(configs[i].Chain.ID).Registry().Find(protocol.RewardingProtocolID)
 		require.True(t, ok)
 		rp, ok := p.(*rewarding.Protocol)
 		require.True(t, ok)

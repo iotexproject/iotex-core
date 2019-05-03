@@ -21,10 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-// ProtocolID is the protocol ID
-// TODO: it works only for one instance per protocol definition now
-const ProtocolID = "multi-chain_sub-chain"
-
 // Protocol defines the protocol to handle multi-chain actions on sub-chain
 type Protocol struct {
 	chainID uint32
@@ -39,6 +35,9 @@ func NewProtocol(chain blockchain.Blockchain) *Protocol {
 		sf:      chain.GetFactory(),
 	}
 }
+
+// ID returns protocol ID
+func (p *Protocol) ID() string { return protocol.SubChainProtocolID }
 
 // Handle handles how to mutate the state db given the multi-chain action on sub-chain
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

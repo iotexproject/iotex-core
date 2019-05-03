@@ -10,15 +10,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -175,7 +176,15 @@ func (ws *workingSet) RunAction(
 	raCtx.Nonce = elp.Nonce()
 	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
 
+	activeProtocols := protocol.ActiveProtocols(raCtx.BlockHeight)
 	for _, actionHandler := range ws.actionHandlers {
+		p, ok := actionHandler.(protocol.Protocol)
+		if !ok {
+			log.S().Panic("The handler isn't a protocol")
+		}
+		if _, ok := activeProtocols[p.ID()]; !ok {
+			continue
+		}
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
 			return nil, errors.Wrapf(

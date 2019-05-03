@@ -28,11 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-const (
-	// ProtocolID defines the ID of this protocol
-	ProtocolID = "poll"
-)
-
 // ErrNoElectionCommittee is an error that the election committee is not specified
 var ErrNoElectionCommittee = errors.New("no election committee specified")
 
@@ -47,6 +42,8 @@ type GetEpochNum func(uint64) uint64
 
 // Protocol defines the protocol of handling votes
 type Protocol interface {
+	// ID returns protocol ID
+	ID() string
 	// Initialize fetches the poll result for genesis block
 	Initialize(context.Context, protocol.StateManager) error
 	// Handle handles a vote
@@ -79,13 +76,16 @@ func NewLifeLongDelegatesProtocol(delegates []genesis.Delegate) Protocol {
 			RewardAddress: rewardAddress.String(),
 		})
 	}
-	h := hash.Hash160b([]byte(ProtocolID))
+	h := hash.Hash160b([]byte(protocol.PollProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
 	}
 	return &lifeLongDelegatesProtocol{delegates: l, addr: addr}
 }
+
+// ID returns protocol ID
+func (p *lifeLongDelegatesProtocol) ID() string { return protocol.PollProtocolID }
 
 func (p *lifeLongDelegatesProtocol) Initialize(
 	ctx context.Context,
@@ -171,7 +171,7 @@ func NewGovernanceChainCommitteeProtocol(
 		return nil, errors.New("getEpochNum api is not provided")
 	}
 
-	h := hash.Hash160b([]byte(ProtocolID))
+	h := hash.Hash160b([]byte(protocol.PollProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
@@ -189,6 +189,9 @@ func NewGovernanceChainCommitteeProtocol(
 		addr:                   addr,
 	}, nil
 }
+
+// ID returns protocol ID
+func (p *governanceChainCommitteeProtocol) ID() string { return protocol.PollProtocolID }
 
 func (p *governanceChainCommitteeProtocol) Initialize(
 	ctx context.Context,

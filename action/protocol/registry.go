@@ -14,6 +14,29 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
+const (
+	AccountProtocolID   = "account"
+	ExecutionProtocolID = "execution"
+	MainChainProtocolID = "multi-chain_main-chain"
+	SubChainProtocolID  = "multi-chain_sub-chain"
+	PollProtocolID      = "poll"
+	RewardingProtocolID = "rewarding"
+	RollDPoSProtocolID  = "rolldpos"
+)
+
+// ActiveProtocols returns the active protocol IDs
+func ActiveProtocols(_ uint64) map[string]interface{} {
+	return map[string]interface{}{
+		AccountProtocolID:   nil,
+		ExecutionProtocolID: nil,
+		MainChainProtocolID: nil,
+		SubChainProtocolID:  nil,
+		PollProtocolID:      nil,
+		RewardingProtocolID: nil,
+		RollDPoSProtocolID:  nil,
+	}
+}
+
 // Registry is the hub of all protocols deployed on the chain
 type Registry struct {
 	protocols sync.Map

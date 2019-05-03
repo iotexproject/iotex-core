@@ -26,6 +26,7 @@ var (
 type Protocol interface {
 	ActionValidator
 	ActionHandler
+	ID() string
 	ReadState(context.Context, StateManager, []byte, ...[]byte) ([]byte, error)
 }
 

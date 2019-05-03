@@ -23,12 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-const (
-	// ProtocolID is the protocol ID
-	// TODO: it works only for one instance per protocol definition now
-	ProtocolID = "rewarding"
-)
-
 var (
 	adminKey                    = []byte("adm")
 	fundKey                     = []byte("fnd")
@@ -50,7 +44,7 @@ type Protocol struct {
 
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(cm protocol.ChainManager, rp *rolldpos.Protocol) *Protocol {
-	h := hash.Hash160b([]byte(ProtocolID))
+	h := hash.Hash160b([]byte(protocol.RewardingProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
@@ -62,6 +56,9 @@ func NewProtocol(cm protocol.ChainManager, rp *rolldpos.Protocol) *Protocol {
 		rp:        rp,
 	}
 }
+
+// ID returns protocol ID
+func (p *Protocol) ID() string { return protocol.RewardingProtocolID }
 
 // Handle handles the actions on the rewarding protocol
 func (p *Protocol) Handle(

@@ -9,13 +9,14 @@ package factory
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -101,7 +102,16 @@ func (stx *stateTX) RunAction(
 	raCtx.IntrinsicGas = intrinsicGas
 	raCtx.Nonce = elp.Nonce()
 	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
+
+	activeProtocols := protocol.ActiveProtocols(raCtx.BlockHeight)
 	for _, actionHandler := range stx.actionHandlers {
+		p, ok := actionHandler.(protocol.Protocol)
+		if !ok {
+			log.S().Panic("The handler isn't a protocol")
+		}
+		if _, ok := activeProtocols[p.ID()]; !ok {
+			continue
+		}
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
 		if err != nil {
 			return nil, errors.Wrapf(
