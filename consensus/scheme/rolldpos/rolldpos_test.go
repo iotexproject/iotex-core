@@ -28,7 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -436,7 +435,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 				blockchain.PrecreatedStateFactoryOption(sf),
 				blockchain.RegistryOption(&registry),
 			)
-			require.NoError(t, registry.Register(vote.ProtocolID, vote.NewProtocol(chain)))
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
 			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)

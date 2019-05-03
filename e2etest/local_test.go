@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -174,10 +173,9 @@ func TestLocalCommit(t *testing.T) {
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
-	v := vote.NewProtocol(chain)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
-	chain.Validator().AddActionValidators(acc, v, rewardingProtocol)
-	chain.GetFactory().AddActionHandlers(acc, v, rewardingProtocol)
+	chain.Validator().AddActionValidators(acc, rewardingProtocol)
+	chain.GetFactory().AddActionHandlers(acc, rewardingProtocol)
 	require.NoError(chain.Start(ctx))
 	require.True(5 == bc.TipHeight())
 	defer func() {
@@ -524,9 +522,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	bc = svr.ChainService(chainID).Blockchain()
 	height, _ := bc.GetFactory().Height()
 	require.Equal(bc.TipHeight(), height)
-	candidates, err := bc.CandidatesByHeight(uint64(0))
-	require.NoError(err)
-	require.Equal(24, len(candidates))
 
 	// Recover to height 3 from empty state DB
 	testutil.CleanupPath(t, testTriePath)
@@ -540,9 +535,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	height, _ = bc.GetFactory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(3), height)
-	candidates, err = bc.CandidatesByHeight(uint64(0))
-	require.NoError(err)
-	require.Equal(24, len(candidates))
 
 	// Recover to height 2 from an existing state DB with Height 3
 	require.NoError(bc.RecoverChainAndState(2))
@@ -555,9 +547,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	height, _ = bc.GetFactory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(2), height)
-	candidates, err = bc.CandidatesByHeight(uint64(0))
-	require.NoError(err)
-	require.Equal(24, len(candidates))
 }
 
 func newTestConfig() (config.Config, error) {

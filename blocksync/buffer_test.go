@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -44,8 +43,6 @@ func TestBlockBufferFlush(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
-	vp := vote.NewProtocol(chain)
-	require.NoError(registry.Register(vote.ProtocolID, vp))
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
 	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
@@ -147,8 +144,6 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		blockchain.RegistryOption(&registry),
 	)
 	require.NotNil(chain)
-	vp := vote.NewProtocol(chain)
-	require.NoError(registry.Register(vote.ProtocolID, vp))
 	require.NoError(chain.Start(ctx))
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)

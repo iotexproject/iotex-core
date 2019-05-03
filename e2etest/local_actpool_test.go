@@ -75,7 +75,7 @@ func TestLocalActPool(t *testing.T) {
 		return lenPendingActionMap(acts) == 1, nil
 	}))
 
-	vote2, err := testutil.SignedVote(identityset.Address(1).String(), identityset.PrivateKey(1), 2, uint64(100000), big.NewInt(0))
+	tsf2, err := testutil.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(1), 2, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	tsf3, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 3, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -83,19 +83,18 @@ func TestLocalActPool(t *testing.T) {
 	exec4, err := testutil.SignedExecution(action.EmptyAddress, identityset.PrivateKey(1), 4, big.NewInt(0), uint64(120000), big.NewInt(10), []byte{})
 	require.NoError(err)
 	// Create three invalid actions from "from" to "to"
-	// Existed Vote
-	vote5, err := testutil.SignedVote(identityset.Address(0).String(), identityset.PrivateKey(1), 2, uint64(100000), big.NewInt(0))
+	tsf5, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 2, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(cli.BroadcastOutbound(p2pCtx, vote2.Proto()))
+	require.NoError(cli.BroadcastOutbound(p2pCtx, tsf2.Proto()))
 	require.NoError(cli.BroadcastOutbound(p2pCtx, tsf3.Proto()))
 	require.NoError(cli.BroadcastOutbound(p2pCtx, exec4.Proto()))
-	require.NoError(cli.BroadcastOutbound(p2pCtx, vote5.Proto()))
+	require.NoError(cli.BroadcastOutbound(p2pCtx, tsf5.Proto()))
 
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
-		// 2 valid transfers and 1 valid vote and 1 valid execution
+		// 3 valid transfers and 1 valid execution
 		return lenPendingActionMap(acts) == 4, nil
 	}))
 }

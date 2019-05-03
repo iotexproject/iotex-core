@@ -416,9 +416,6 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, pr
 func validate(ctx context.Context, p Protocol, act action.Action) error {
 	ppr, ok := act.(*action.PutPollResult)
 	if !ok {
-		if _, ok := act.(*action.Vote); ok {
-			return errors.New("with poll protocol, votes cannot be processed")
-		}
 		return nil
 	}
 	vaCtx := protocol.MustGetValidateActionsCtx(ctx)

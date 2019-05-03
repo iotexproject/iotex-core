@@ -31,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
@@ -1352,19 +1351,7 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 			ws,
 		)
 	}
-	p, ok := bc.protocol(vote.ProtocolID)
-	if !ok {
-		return errors.Errorf("protocol %s is not found", vote.ProtocolID)
-	}
-	vp, ok := p.(*vote.Protocol)
-	if !ok {
-		return errors.Errorf("error when casting vote protocol")
-	}
-	addrs := make([]address.Address, 0)
-	for _, d := range bc.config.Genesis.Delegates {
-		addrs = append(addrs, d.OperatorAddr())
-	}
-	return vp.Initialize(ctx, ws, addrs)
+	return nil
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {

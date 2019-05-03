@@ -19,11 +19,6 @@ message Transfer {
   bytes payload  = 3;
 }
 
-message Vote {
-  google.protobuf.Timestamp timestamp = 1;
-  string voteeAddress = 2;  // the address this node is voting for
-}
-
 // Candidates and list of candidates
 message Candidate {
   string address = 1;
@@ -156,7 +151,6 @@ message ActionCore {
   string gasPrice = 4;
   oneof action {
     Transfer transfer = 10;
-    Vote vote = 11;
     Execution execution = 12;
     // FedChain
     StartSubChain startSubChain = 13;

@@ -38,19 +38,6 @@ func TestSignedTransfer(t *testing.T) {
 	require.NotNil(selp.Signature())
 }
 
-func TestSignedVote(t *testing.T) {
-	require := require.New(t)
-	selp, err := SignedVote(addr1, priKey1, uint64(1), uint64(100000), big.NewInt(10))
-	require.NoError(err)
-
-	vote := selp.Action().(*action.Vote)
-	require.Equal(addr1, vote.Votee())
-	require.Equal(uint64(1), vote.Nonce())
-	require.Equal(uint64(100000), vote.GasLimit())
-	require.Equal(big.NewInt(10), vote.GasPrice())
-	require.NotNil(selp.Signature())
-}
-
 func TestSignedExecution(t *testing.T) {
 	require := require.New(t)
 	selp, err := SignedExecution(action.EmptyAddress, priKey1, uint64(1), big.NewInt(0), uint64(100000), big.NewInt(10), []byte{})

@@ -62,7 +62,7 @@ func (idx *Indexer) HandleBlock(blk *block.Block) error {
 // BuildIndex builds the index for a block
 func (idx *Indexer) BuildIndex(blk *block.Block) error {
 	if err := idx.store.Transact(func(tx *sql.Tx) error {
-		transfers, votes, executions := action.ClassifyActions(blk.Actions)
+		transfers, executions := action.ClassifyActions(blk.Actions)
 		// log transfer index
 		for _, transfer := range transfers {
 			callerAddr, err := address.FromBytes(transfer.SrcPubkey().Hash())
@@ -79,26 +79,6 @@ func (idx *Indexer) BuildIndex(blk *block.Block) error {
 			}
 			// map transfer to block
 			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexTransfer, transfer.Hash(), blk.HashBlock()); err != nil {
-				return errors.Wrapf(err, "failed to update transfer to block")
-			}
-		}
-
-		// log vote index
-		for _, vote := range votes {
-			callerAddr, err := address.FromBytes(vote.SrcPubkey().Hash())
-			if err != nil {
-				return err
-			}
-			// put new vote for sender
-			if err := idx.UpdateIndexHistory(blk, tx, config.IndexVote, callerAddr.String(), vote.Hash()); err != nil {
-				return errors.Wrapf(err, "failed to update vote to vote history table")
-			}
-			// put new vote for recipient
-			if err := idx.UpdateIndexHistory(blk, tx, config.IndexVote, vote.Votee(), vote.Hash()); err != nil {
-				return errors.Wrapf(err, "failed to update vote to vote history table")
-			}
-			// map vote to block
-			if err := idx.UpdateBlockByIndex(blk, tx, config.IndexVote, vote.Hash(), blk.HashBlock()); err != nil {
 				return errors.Wrapf(err, "failed to update transfer to block")
 			}
 		}

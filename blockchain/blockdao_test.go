@@ -48,12 +48,13 @@ func TestBlockDAO(t *testing.T) {
 		tsf3, err := testutil.SignedTransfer(testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 3, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		// create testing votes
-		vote1, err := testutil.SignedVote(testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey, 1, 100000, big.NewInt(10))
+		tsf4, err := testutil.SignedTransfer(testaddress.Addrinfo["alfa"].String(), testaddress.Keyinfo["alfa"].PriKey, 2, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
-		vote2, err := testutil.SignedVote(testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey, 1, 100000, big.NewInt(10))
+
+		tsf5, err := testutil.SignedTransfer(testaddress.Addrinfo["bravo"].String(), testaddress.Keyinfo["bravo"].PriKey, 3, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
-		vote3, err := testutil.SignedVote(testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 1, 100000, big.NewInt(10))
+
+		tsf6, err := testutil.SignedTransfer(testaddress.Addrinfo["charlie"].String(), testaddress.Keyinfo["charlie"].PriKey, 4, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
 		// create testing executions
@@ -116,7 +117,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(1).
 			SetPrevBlockHash(hash1).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(tsf1, vote1, execution1, sdeposit1).
+			AddActions(tsf1, tsf4, execution1, sdeposit1).
 			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 
@@ -126,7 +127,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(2).
 			SetPrevBlockHash(hash2).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(tsf2, vote2, execution2, sdeposit2).
+			AddActions(tsf2, tsf5, execution2, sdeposit2).
 			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 
@@ -136,7 +137,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(3).
 			SetPrevBlockHash(hash3).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(tsf3, vote3, execution3, sdeposit3).
+			AddActions(tsf3, tsf6, execution3, sdeposit3).
 			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 		return []*block.Block{&blk1, &blk2, &blk3}

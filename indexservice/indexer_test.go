@@ -114,7 +114,7 @@ func testSQLite3StorePutGet(store sql.Store, t *testing.T) {
 
 	db := store.GetDB()
 
-	transfers, _, executions := action.ClassifyActions(blk.Actions)
+	transfers, executions := action.ClassifyActions(blk.Actions)
 
 	// get receipt
 	blkHash, err := idx.GetBlockByIndex(config.IndexReceipt, receipts[0].Hash())

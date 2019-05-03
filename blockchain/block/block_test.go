@@ -102,26 +102,6 @@ func TestConvertFromBlockPb(t *testing.T) {
 					},
 					SenderPubKey: senderPubKey.Bytes(),
 				},
-				{
-					Core: &iotextypes.ActionCore{
-						Action: &iotextypes.ActionCore_Vote{
-							Vote: &iotextypes.Vote{},
-						},
-						Version: version.ProtocolVersion,
-						Nonce:   103,
-					},
-					SenderPubKey: senderPubKey.Bytes(),
-				},
-				{
-					Core: &iotextypes.ActionCore{
-						Action: &iotextypes.ActionCore_Vote{
-							Vote: &iotextypes.Vote{},
-						},
-						Version: version.ProtocolVersion,
-						Nonce:   104,
-					},
-					SenderPubKey: senderPubKey.Bytes(),
-				},
 			},
 		},
 	}))
@@ -140,13 +120,8 @@ func TestConvertFromBlockPb(t *testing.T) {
 	require.True(t, len(blockBytes) > 0)
 
 	require.Equal(t, uint64(123456789), newblk.Header.height)
-
 	require.Equal(t, uint64(101), newblk.Actions[0].Nonce())
 	require.Equal(t, uint64(102), newblk.Actions[1].Nonce())
-
-	require.Equal(t, uint64(103), newblk.Actions[2].Nonce())
-	require.Equal(t, uint64(104), newblk.Actions[3].Nonce())
-
 	require.Equal(t, blk.Header.txRoot, blk.TxRoot())
 	require.Equal(t, blk.Header.receiptRoot, blk.ReceiptRoot())
 }

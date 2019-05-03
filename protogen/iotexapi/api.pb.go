@@ -10,6 +10,8 @@ import (
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	iotextypes "github.com/iotexproject/iotex-core/protogen/iotextypes"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -2054,6 +2056,47 @@ type APIServiceServer interface {
 	GetEpochMeta(context.Context, *GetEpochMetaRequest) (*GetEpochMetaResponse, error)
 	// get raw blocks data
 	GetRawBlocks(context.Context, *GetRawBlocksRequest) (*GetRawBlocksResponse, error)
+}
+
+// UnimplementedAPIServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServiceServer struct {
+}
+
+func (*UnimplementedAPIServiceServer) GetAccount(ctx context.Context, req *GetAccountRequest) (*GetAccountResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAccount not implemented")
+}
+func (*UnimplementedAPIServiceServer) GetActions(ctx context.Context, req *GetActionsRequest) (*GetActionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetActions not implemented")
+}
+func (*UnimplementedAPIServiceServer) GetBlockMetas(ctx context.Context, req *GetBlockMetasRequest) (*GetBlockMetasResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockMetas not implemented")
+}
+func (*UnimplementedAPIServiceServer) GetChainMeta(ctx context.Context, req *GetChainMetaRequest) (*GetChainMetaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetChainMeta not implemented")
+}
+func (*UnimplementedAPIServiceServer) GetServerMeta(ctx context.Context, req *GetServerMetaRequest) (*GetServerMetaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetServerMeta not implemented")
+}
+func (*UnimplementedAPIServiceServer) SendAction(ctx context.Context, req *SendActionRequest) (*SendActionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendAction not implemented")
+}
+func (*UnimplementedAPIServiceServer) GetReceiptByAction(ctx context.Context, req *GetReceiptByActionRequest) (*GetReceiptByActionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetReceiptByAction not implemented")
+}
+func (*UnimplementedAPIServiceServer) ReadContract(ctx context.Context, req *ReadContractRequest) (*ReadContractResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadContract not implemented")
+}
+func (*UnimplementedAPIServiceServer) SuggestGasPrice(ctx context.Context, req *SuggestGasPriceRequest) (*SuggestGasPriceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SuggestGasPrice not implemented")
+}
+func (*UnimplementedAPIServiceServer) EstimateGasForAction(ctx context.Context, req *EstimateGasForActionRequest) (*EstimateGasForActionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EstimateGasForAction not implemented")
+}
+func (*UnimplementedAPIServiceServer) ReadState(ctx context.Context, req *ReadStateRequest) (*ReadStateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadState not implemented")
+}
+func (*UnimplementedAPIServiceServer) GetEpochMeta(ctx context.Context, req *GetEpochMetaRequest) (*GetEpochMetaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEpochMeta not implemented")
 }
 
 func RegisterAPIServiceServer(s *grpc.Server, srv APIServiceServer) {
