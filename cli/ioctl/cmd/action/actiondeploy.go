@@ -70,5 +70,5 @@ func deploy() (string, error) {
 		SetGasPrice(gasPriceRau).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
-	return sendAction(elp, false)
+	return sendAction(elp)
 }

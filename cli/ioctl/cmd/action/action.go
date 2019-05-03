@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
@@ -27,7 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/protogen/iotexapi"
-	"github.com/iotexproject/iotex-address/address"
 )
 
 // Flags
@@ -94,7 +94,7 @@ func GetGasPrice() (*big.Int, error) {
 	return new(big.Int).SetUint64(response.GasPrice), nil
 }
 
-func sendAction(elp action.Envelope, readOnly bool) (string, error) {
+func sendAction(elp action.Envelope) (string, error) {
 	fmt.Printf("Enter password #%s:\n", signer)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
@@ -136,24 +136,6 @@ func sendAction(elp action.Envelope, readOnly bool) (string, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 
-	if readOnly {
-		callerAddr, err := address.FromBytes(sealed.SrcPubkey().Hash())
-		if err != nil {
-			log.L().Error("failed to get caller's address", zap.Error(err))
-			return "", err
-		}
-		request := &iotexapi.ReadContractRequest{Execution: selp.GetCore().GetExecution(),
-			CallerAddress: callerAddr.String()}
-		res, err := cli.ReadContract(ctx, request)
-		if err != nil {
-			if sta, ok := status.FromError(err); ok {
-				return "", fmt.Errorf(sta.Message())
-			}
-			return "", err
-		}
-		return res.Data, nil
-	}
-
 	request := &iotexapi.SendActionRequest{Action: selp}
 	if _, err = cli.SendAction(ctx, request); err != nil {
 		if sta, ok := status.FromError(err); ok {
@@ -165,4 +147,44 @@ func sendAction(elp action.Envelope, readOnly bool) (string, error) {
 	return "Action has been sent to blockchain.\n" +
 		"Wait for several seconds and query this action by hash:\n" +
 		hex.EncodeToString(shash[:]), nil
+}
+
+func readAction(exec *action.Execution) (string, error) {
+	fmt.Printf("Enter password #%s:\n", signer)
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		log.L().Error("failed to get password", zap.Error(err))
+		return "", err
+	}
+	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
+	if err != nil {
+		return "", err
+	}
+	defer prvKey.Zero()
+	addr, err := address.FromBytes(prvKey.PublicKey().Hash())
+	if err != nil {
+		return "", err
+	}
+	prvKey.Zero()
+	fmt.Println()
+
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	ctx := context.Background()
+
+	request := &iotexapi.ReadContractRequest{
+		Execution:     exec.Proto(),
+		CallerAddress: addr.String()}
+	res, err := cli.ReadContract(ctx, request)
+	if err != nil {
+		if sta, ok := status.FromError(err); ok {
+			return "", fmt.Errorf(sta.Message())
+		}
+		return "", err
+	}
+	return res.Data, nil
 }
