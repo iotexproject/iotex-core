@@ -560,21 +560,24 @@ var (
 	getRawBlocksTest = []struct {
 		// Arguments
 		startHeight uint64
-		count uint64
+		count       uint64
 		// Expected Values
-		numBlks int
-		numActions int
+		numBlks     int
+		numActions  int
+		numReceipts int
 	}{
 		{
 			1,
 			1,
 			1,
 			2,
+			2,
 		},
 		{
 			1,
 			2,
 			2,
+			9,
 			9,
 		},
 	}
@@ -1273,13 +1276,16 @@ func TestServer_GetRawBlocks(t *testing.T) {
 		request := &iotexapi.GetRawBlocksRequest{StartHeight: test.startHeight, Count: test.count}
 		res, err := svr.GetRawBlocks(context.Background(), request)
 		require.NoError(err)
-		blks := res.Blocks
-		require.Equal(test.numBlks, len(blks))
+		blkInfos := res.Blocks
+		require.Equal(test.numBlks, len(blkInfos))
 		var numActions int
-		for _, blk := range blks {
-			numActions += len(blk.Body.Actions)
+		var numReceipts int
+		for _, blkInfo := range blkInfos {
+			numActions += len(blkInfo.Block.Body.Actions)
+			numReceipts += len(blkInfo.Receipts)
 		}
 		require.Equal(test.numActions, numActions)
+		require.Equal(test.numReceipts, numReceipts)
 	}
 }
 

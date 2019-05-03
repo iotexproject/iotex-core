@@ -128,6 +128,11 @@ message BlockProducerInfo {
     uint64 production = 4;
 }
 
+message BlockInfo {
+    iotextypes.Block block = 1;
+    repeated iotextypes.Receipt receipts = 2;
+}
+
 message GetActionsResponse {
   repeated ActionInfo actionInfo = 1;
 }
@@ -230,5 +235,5 @@ message GetRawBlocksRequest {
 }
 
 message GetRawBlocksResponse {
-    repeated iotextypes.Block blocks = 1;
+    repeated BlockInfo blocks = 1;
 }

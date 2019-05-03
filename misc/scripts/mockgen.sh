@@ -71,12 +71,6 @@ mockgen -destination=./test/mock/mock_actioniterator/mock_actioniterator.go  \
         -package=mock_actioniterator \
         ActionIterator
 
-mkdir -p ./test/mock/mock_explorer
-mockgen -destination=./test/mock/mock_explorer/mock_explorer.go  \
-        -source=./explorer/idl/explorer/explorer.go \
-        -package=mock_explorer \
-        Explorer
-
 mkdir -p ./test/mock/mock_chainmanager
 mockgen -destination=./test/mock/mock_chainmanager/mock_chainmanager.go  \
         -source=./action/protocol/protocol.go \
