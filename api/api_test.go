@@ -559,8 +559,8 @@ var (
 
 	getRawBlocksTest = []struct {
 		// Arguments
-		startHeight uint64
-		count       uint64
+		startHeight  uint64
+		count        uint64
 		withReceipts bool
 		// Expected Values
 		numBlks     int
@@ -1277,8 +1277,8 @@ func TestServer_GetRawBlocks(t *testing.T) {
 
 	for _, test := range getRawBlocksTest {
 		request := &iotexapi.GetRawBlocksRequest{
-			StartHeight: test.startHeight,
-			Count: test.count,
+			StartHeight:  test.startHeight,
+			Count:        test.count,
 			WithReceipts: test.withReceipts,
 		}
 		res, err := svr.GetRawBlocks(context.Background(), request)
