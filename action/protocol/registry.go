@@ -15,17 +15,31 @@ import (
 )
 
 const (
-	AccountProtocolID   = "account"
+	// AccountProtocolID is account protocol ID
+	AccountProtocolID = "account"
+	// ExecutionProtocolID is execution protocol ID
 	ExecutionProtocolID = "execution"
+	// MainChainProtocolID is main-chain protocol ID
 	MainChainProtocolID = "multi-chain_main-chain"
-	SubChainProtocolID  = "multi-chain_sub-chain"
-	PollProtocolID      = "poll"
+	// SubChainProtocolID is sub-chain protocol ID
+	SubChainProtocolID = "multi-chain_sub-chain"
+	// PollProtocolID is poll protocol ID
+	PollProtocolID = "poll"
+	// RewardingProtocolID is rewarding protocol ID
 	RewardingProtocolID = "rewarding"
-	RollDPoSProtocolID  = "rolldpos"
+	// RollDPoSProtocolID is roll protocol ID
+	RollDPoSProtocolID = "rolldpos"
 )
+
+// TODO: avoid global variable
+var activeProtocols = make(map[string]interface{})
 
 // ActiveProtocols returns the active protocol IDs
 func ActiveProtocols(_ uint64) map[string]interface{} {
+	if len(activeProtocols) > 0 {
+		return activeProtocols
+	}
+	// The following is not set in the default genesis config to prevent breaking the genesis hash for mainnet.
 	return map[string]interface{}{
 		AccountProtocolID:   nil,
 		ExecutionProtocolID: nil,
@@ -34,6 +48,13 @@ func ActiveProtocols(_ uint64) map[string]interface{} {
 		PollProtocolID:      nil,
 		RewardingProtocolID: nil,
 		RollDPoSProtocolID:  nil,
+	}
+}
+
+// OverrideLifeLongActiveProtocols overrides the default active protocols
+func OverrideLifeLongActiveProtocols(activeProtocolsSlice []string) {
+	for _, activeProtocol := range activeProtocolsSlice {
+		activeProtocols[activeProtocol] = nil
 	}
 }
 

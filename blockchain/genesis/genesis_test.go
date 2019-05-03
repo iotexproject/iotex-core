@@ -27,3 +27,12 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, Default.EpochReward(), cfg.EpochReward())
 	assert.Equal(t, Default.FoundationBonus(), cfg.FoundationBonus())
 }
+
+func TestSameHashBetweenNilAndEmptySlice(t *testing.T) {
+	genesis1 := defaultConfig()
+	genesis1.ActiveProtocols = nil
+
+	genesis2 := defaultConfig()
+	genesis2.ActiveProtocols = make([]string, 0)
+	assert.Equal(t, genesis1.Hash(), genesis2.Hash())
+}

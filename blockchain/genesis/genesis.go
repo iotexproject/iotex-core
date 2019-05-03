@@ -46,6 +46,7 @@ func defaultConfig() Genesis {
 			NumDelegates:          24,
 			NumCandidateDelegates: 36,
 			TimeBasedRotation:     false,
+			ActiveProtocols:       []string{},
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -109,6 +110,8 @@ type (
 		NumCandidateDelegates uint64 `yaml:"numCandidateDelegates"`
 		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
+		// ActiveProtocols is the life long active protocol IDs
+		ActiveProtocols []string `yaml:"activeProtocols"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -202,6 +205,7 @@ func (g *Genesis) Hash() hash.Hash256 {
 		NumDelegates:          g.NumDelegates,
 		NumCandidateDelegates: g.NumCandidateDelegates,
 		TimeBasedRotation:     g.TimeBasedRotation,
+		ActiveProtocols:       g.ActiveProtocols,
 	}
 
 	initBalanceAddrs := make([]string, 0)

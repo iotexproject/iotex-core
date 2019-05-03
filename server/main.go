@@ -20,6 +20,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
+
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
@@ -60,8 +62,13 @@ func main() {
 	initLogger(cfg)
 
 	cfg.Genesis = genesisCfg
+	if len(genesisCfg.ActiveProtocols) > 0 {
+		protocol.OverrideLifeLongActiveProtocols(genesisCfg.ActiveProtocols)
+	}
+
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
+	cfgToLog.Network.MasterKey = ""
 	log.S().Infof("Config in use: %+v", cfgToLog)
 
 	// liveness start
