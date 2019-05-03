@@ -14,7 +14,6 @@ import (
 	"syscall"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
@@ -149,25 +148,8 @@ func sendAction(elp action.Envelope) (string, error) {
 		hex.EncodeToString(shash[:]), nil
 }
 
-func readAction(exec *action.Execution) (string, error) {
-	fmt.Printf("Enter password #%s:\n", signer)
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
-	}
-	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
-	if err != nil {
-		return "", err
-	}
-	defer prvKey.Zero()
-	addr, err := address.FromBytes(prvKey.PublicKey().Hash())
-	if err != nil {
-		return "", err
-	}
-	prvKey.Zero()
+func readAction(exec *action.Execution, caller string) (string, error) {
 	fmt.Println()
-
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", err
@@ -178,7 +160,7 @@ func readAction(exec *action.Execution) (string, error) {
 
 	request := &iotexapi.ReadContractRequest{
 		Execution:     exec.Proto(),
-		CallerAddress: addr.String()}
+		CallerAddress: caller}
 	res, err := cli.ReadContract(ctx, request)
 	if err != nil {
 		if sta, ok := status.FromError(err); ok {

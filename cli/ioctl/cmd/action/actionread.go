@@ -70,5 +70,5 @@ func read(args []string) (string, error) {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return "", err
 	}
-	return readAction(tx)
+	return readAction(tx, executor)
 }
