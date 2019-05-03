@@ -92,7 +92,7 @@ func (p *lifeLongDelegatesProtocol) Initialize(
 	sm protocol.StateManager,
 ) (err error) {
 	log.L().Info("Initialize lifelong delegates protocol")
-	return setCandidates(sm, p.delegates, uint64(0))
+	return setCandidates(sm, p.delegates, uint64(1))
 }
 
 func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
