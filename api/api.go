@@ -473,15 +473,16 @@ func (api *Server) GetRawBlocks(
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		receipts, err := api.bc.GetReceiptsByHeight(uint64(height))
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
 		var receiptsPb []*iotextypes.Receipt
-		for _, receipt := range receipts {
-			receiptsPb = append(receiptsPb, receipt.ConvertToReceiptPb())
+		if in.WithReceipts {
+			receipts, err := api.bc.GetReceiptsByHeight(uint64(height))
+			if err != nil {
+				return nil, status.Error(codes.NotFound, err.Error())
+			}
+			for _, receipt := range receipts {
+				receiptsPb = append(receiptsPb, receipt.ConvertToReceiptPb())
+			}
 		}
-
 		res = append(res, &iotexapi.BlockInfo{
 			Block:    blk.ConvertToBlockPb(),
 			Receipts: receiptsPb,

@@ -561,6 +561,7 @@ var (
 		// Arguments
 		startHeight uint64
 		count       uint64
+		withReceipts bool
 		// Expected Values
 		numBlks     int
 		numActions  int
@@ -569,13 +570,15 @@ var (
 		{
 			1,
 			1,
+			false,
 			1,
 			2,
-			2,
+			0,
 		},
 		{
 			1,
 			2,
+			true,
 			2,
 			9,
 			9,
@@ -1273,7 +1276,11 @@ func TestServer_GetRawBlocks(t *testing.T) {
 	require.NoError(err)
 
 	for _, test := range getRawBlocksTest {
-		request := &iotexapi.GetRawBlocksRequest{StartHeight: test.startHeight, Count: test.count}
+		request := &iotexapi.GetRawBlocksRequest{
+			StartHeight: test.startHeight,
+			Count: test.count,
+			WithReceipts: test.withReceipts,
+		}
 		res, err := svr.GetRawBlocks(context.Background(), request)
 		require.NoError(err)
 		blkInfos := res.Blocks
