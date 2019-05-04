@@ -442,6 +442,31 @@ func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 	return dao.kvstore.Commit(batch)
 }
 
+// getReceipts gets receipts
+func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
+	var heightBytes [8]byte
+	enc.MachineEndian.PutUint64(heightBytes[:], blkHeight)
+
+	value, err := dao.kvstore.Get(receiptsNS, heightBytes[:])
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get receipts")
+	}
+	if len(value) == 0 {
+		return nil, errors.Wrap(db.ErrNotExist, "block receipts missing")
+	}
+	receiptsPb := &iotextypes.Receipts{}
+	if err := proto.Unmarshal(value, receiptsPb); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal block receipts")
+	}
+	var blockReceipts []*action.Receipt
+	for _, receiptPb := range receiptsPb.Receipts {
+		receipt := &action.Receipt{}
+		receipt.ConvertFromReceiptPb(receiptPb)
+		blockReceipts = append(blockReceipts, receipt)
+	}
+	return blockReceipts, nil
+}
+
 // deleteBlock deletes the tip block
 func (dao *blockDAO) deleteTipBlock() error {
 	batch := db.NewBatch()

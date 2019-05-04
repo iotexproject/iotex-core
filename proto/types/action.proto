@@ -10,8 +10,6 @@ syntax = "proto3";
 package iotextypes;
 option go_package = "github.com/iotexproject/iotex-core/protogen/iotextypes";
 
-import "google/protobuf/timestamp.proto";
-
 message Transfer {
   // used by state-based model
   string amount  = 1;
