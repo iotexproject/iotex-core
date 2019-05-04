@@ -6,10 +6,6 @@ package mock_blockchain
 
 import (
 	context "context"
-	big "math/big"
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
@@ -18,6 +14,9 @@ import (
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
+	big "math/big"
+	reflect "reflect"
+	time "time"
 )
 
 // MockBlockchain is a mock of Blockchain interface
@@ -326,6 +325,19 @@ func (m *MockBlockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256,
 // GetBlockHashByActionHash indicates an expected call of GetBlockHashByActionHash
 func (mr *MockBlockchainMockRecorder) GetBlockHashByActionHash(h interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByActionHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByActionHash), h)
+}
+
+// GetReceiptsByHeight mocks base method
+func (m *MockBlockchain) GetReceiptsByHeight(height uint64) ([]*action.Receipt, error) {
+	ret := m.ctrl.Call(m, "GetReceiptsByHeight", height)
+	ret0, _ := ret[0].([]*action.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetReceiptsByHeight indicates an expected call of GetReceiptsByHeight
+func (mr *MockBlockchainMockRecorder) GetReceiptsByHeight(height interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptsByHeight", reflect.TypeOf((*MockBlockchain)(nil).GetReceiptsByHeight), height)
 }
 
 // GetFactory mocks base method

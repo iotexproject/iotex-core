@@ -464,7 +464,7 @@ func (api *Server) GetRawBlocks(
 	if in.StartHeight > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
-	var res []*iotextypes.Block
+	var res []*iotexapi.BlockInfo
 	for height := int(in.StartHeight); height <= int(tipHeight); height++ {
 		if uint64(len(res)) >= in.Count {
 			break
@@ -473,7 +473,20 @@ func (api *Server) GetRawBlocks(
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		res = append(res, blk.ConvertToBlockPb())
+		var receiptsPb []*iotextypes.Receipt
+		if in.WithReceipts {
+			receipts, err := api.bc.GetReceiptsByHeight(uint64(height))
+			if err != nil {
+				return nil, status.Error(codes.NotFound, err.Error())
+			}
+			for _, receipt := range receipts {
+				receiptsPb = append(receiptsPb, receipt.ConvertToReceiptPb())
+			}
+		}
+		res = append(res, &iotexapi.BlockInfo{
+			Block:    blk.ConvertToBlockPb(),
+			Receipts: receiptsPb,
+		})
 	}
 
 	return &iotexapi.GetRawBlocksResponse{Blocks: res}, nil

@@ -209,25 +209,10 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPrice).
-		SetGasLimit(gasLimit).
-		SetAction(tx).Build()
-
-	prvKey, err := keypair.HexStringToPrivateKey(c.prvkey)
-	if err != nil {
-		return "", keypair.ErrInvalidKey
-	}
-	selp, err := action.Sign(elp, prvKey)
-	if err != nil {
-		return "", err
-	}
 
 	if readOnly {
-
 		response, err := cli.ReadContract(ctx, &iotexapi.ReadContractRequest{
-			Execution:     selp.Proto().GetCore().GetExecution(),
+			Execution:     tx.Proto(),
 			CallerAddress: c.executor,
 		})
 		if err != nil {
@@ -235,6 +220,23 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 		}
 		return response.Data, nil
 	}
+
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(tx).Build()
+	prvKey, err := keypair.HexStringToPrivateKey(c.prvkey)
+	if err != nil {
+		return "", keypair.ErrInvalidKey
+	}
+	defer prvKey.Zero()
+	selp, err := action.Sign(elp, prvKey)
+	prvKey.Zero()
+	if err != nil {
+		return "", err
+	}
+
 	_, err = cli.SendAction(ctx, &iotexapi.SendActionRequest{Action: selp.Proto()})
 	h := selp.Hash()
 	hex := hex.EncodeToString(h[:])
