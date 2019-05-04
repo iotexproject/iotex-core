@@ -12,7 +12,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/iotexproject/go-pkgs/util/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain/mainchainpb"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )

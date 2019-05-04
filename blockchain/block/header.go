@@ -13,7 +13,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/util/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/keypair"

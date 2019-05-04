@@ -3,7 +3,7 @@ package blockchain
 import (
 	"reflect"
 
-	"github.com/iotexproject/go-pkgs/util/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 )
 
 type (

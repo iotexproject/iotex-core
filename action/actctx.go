@@ -9,7 +9,7 @@ package action
 import (
 	"math/big"
 
-	"github.com/iotexproject/go-pkgs/util/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 

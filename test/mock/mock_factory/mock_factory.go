@@ -10,7 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	hash "github.com/iotexproject/go-pkgs/util/hash"
+	hash "github.com/iotexproject/go-pkgs/hash"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"

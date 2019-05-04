@@ -7,7 +7,7 @@
 package crypto
 
 import (
-	"github.com/iotexproject/go-pkgs/util/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 )
 
 // Merkle tree struct

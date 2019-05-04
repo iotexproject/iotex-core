@@ -19,7 +19,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/go-pkgs/util/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
