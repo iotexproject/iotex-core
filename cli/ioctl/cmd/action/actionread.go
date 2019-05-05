@@ -70,10 +70,5 @@ func read(args []string) (string, error) {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return "", err
 	}
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
-		SetGasPrice(gasPriceRau).
-		SetGasLimit(gasLimit).
-		SetAction(tx).Build()
-	return sendAction(elp, true)
+	return readAction(tx, executor)
 }

@@ -77,5 +77,5 @@ func claim(args []string) (string, error) {
 		SetGasPrice(gasPriceRau).
 		SetGasLimit(gasLimit).
 		SetAction(&act).Build()
-	return sendAction(elp, false)
+	return sendAction(elp)
 }

@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -107,6 +107,8 @@ type Blockchain interface {
 	GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
 	// GetBlockHashByActionHash returns Block hash by action hash
 	GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
+	// GetReceiptsByHeight returns action receipts by block height
+	GetReceiptsByHeight(height uint64) ([]*action.Receipt, error)
 	// GetFactory returns the state factory
 	GetFactory() factory.Factory
 	// GetChainID returns the chain ID
@@ -549,6 +551,11 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 // GetBlockHashByActionHash returns Block hash by action hash
 func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
 	return getBlockHashByActionHash(bc.dao.kvstore, h)
+}
+
+// GetReceiptsByHeight returns action receipts by block height
+func (bc *blockchain) GetReceiptsByHeight(height uint64) ([]*action.Receipt, error) {
+	return bc.dao.getReceipts(height)
 }
 
 // GetFactory returns the state factory
