@@ -51,7 +51,7 @@ func defaultConfig() Genesis {
 			InitBalanceMap: make(map[string]string),
 		},
 		Poll: Poll{
-			EnableGravityChainVoting: false,
+			EnableGravityChainVoting: true,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(1200000000).String(),
@@ -172,7 +172,7 @@ type (
 // New constructs a genesis config. It loads the default values, and could be overwritten by values defined in the yaml
 // config files
 func New() (Genesis, error) {
-	def := defaultConfig()
+	def := Default
 
 	opts := make([]config.YAMLOption, 0)
 	opts = append(opts, config.Static(def))
