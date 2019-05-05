@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
-	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
@@ -47,7 +46,6 @@ type ChainService struct {
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
 	indexBuilder *blockchain.IndexBuilder
-	indexservice *indexservice.Server
 	registry     *protocol.Registry
 }
 
@@ -189,14 +187,6 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}
-	var idx *indexservice.Server
-	if cfg.Indexer.Enabled {
-		idx = indexservice.NewServer(cfg, chain)
-		if idx == nil {
-			return nil, errors.Wrap(err, "failed to create index service")
-			// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-		}
-	}
 
 	var apiSvr *api.Server
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
@@ -205,7 +195,6 @@ func New(
 			chain,
 			dispatcher,
 			actPool,
-			idx,
 			&registry,
 			api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 				ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
@@ -224,7 +213,6 @@ func New(
 		consensus:         consensus,
 		rDPoSProtocol:     rDPoSProtocol,
 		electionCommittee: electionCommittee,
-		indexservice:      idx,
 		indexBuilder:      indexBuilder,
 		api:               apiSvr,
 		registry:          &registry,
@@ -233,11 +221,6 @@ func New(
 
 // Start starts the server
 func (cs *ChainService) Start(ctx context.Context) error {
-	if cs.indexservice != nil {
-		if err := cs.indexservice.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting indexservice")
-		}
-	}
 	if cs.electionCommittee != nil {
 		if err := cs.electionCommittee.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when starting election committee")
@@ -277,11 +260,6 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	if cs.api != nil {
 		if err := cs.api.Stop(); err != nil {
 			return errors.Wrap(err, "error when stopping API server")
-		}
-	}
-	if cs.indexservice != nil {
-		if err := cs.indexservice.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping indexservice")
 		}
 	}
 	if err := cs.consensus.Stop(ctx); err != nil {
@@ -364,11 +342,6 @@ func (cs *ChainService) ElectionCommittee() committee.Committee {
 // RollDPoSProtocol returns the roll dpos protocol
 func (cs *ChainService) RollDPoSProtocol() *rolldpos.Protocol {
 	return cs.rDPoSProtocol
-}
-
-// IndexService returns the indexservice instance
-func (cs *ChainService) IndexService() *indexservice.Server {
-	return cs.indexservice
 }
 
 // RegisterProtocol register a protocol
