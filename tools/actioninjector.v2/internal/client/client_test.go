@@ -6,21 +6,19 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/testutil"
-
-	"github.com/iotexproject/iotex-core/config"
-
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/api"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestClient(t *testing.T) {

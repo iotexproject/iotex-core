@@ -18,14 +18,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-p2p"
-	"github.com/iotexproject/iotex-election/committee"
-
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-election/committee"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
