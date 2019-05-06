@@ -10,12 +10,10 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -60,17 +58,6 @@ func accountDelete(args []string) (string, error) {
 			fmt.Scanf("%s", &confirm)
 			if confirm != "YES" && confirm != "yes" {
 				return "Quit", nil
-			}
-
-			fmt.Printf("Enter password #%s:\n", addr)
-			bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-			if err != nil {
-				log.L().Error("failed to get password", zap.Error(err))
-				return "", err
-			}
-			password := string(bytePassword)
-			if err := ks.Delete(v, password); err != nil {
-				return "", err
 			}
 
 			aliases := alias.GetAliasMap()
