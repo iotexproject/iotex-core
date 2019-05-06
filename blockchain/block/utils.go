@@ -7,9 +7,9 @@
 package block
 
 import (
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash256 {

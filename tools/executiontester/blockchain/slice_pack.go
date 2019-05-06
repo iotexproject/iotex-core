@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 )
 
 func packByte(b []byte) ([]byte, error) {
