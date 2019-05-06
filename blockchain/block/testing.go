@@ -11,9 +11,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -71,7 +71,7 @@ func (b *TestingBuilder) SetReceipts(receipts []*action.Receipt) *TestingBuilder
 }
 
 // SignAndBuild signs and then builds a block.
-func (b *TestingBuilder) SignAndBuild(signerPubKey keypair.PublicKey, signerPrvKey keypair.PrivateKey) (Block, error) {
+func (b *TestingBuilder) SignAndBuild(signerPubKey crypto.PublicKey, signerPrvKey crypto.PrivateKey) (Block, error) {
 	b.blk.Header.txRoot = b.blk.CalculateTxRoot()
 	b.blk.Header.pubkey = signerPubKey
 	h := b.blk.Header.HashHeaderCore()
@@ -90,7 +90,7 @@ func NewBlockDeprecated(
 	height uint64,
 	prevBlockHash hash.Hash256,
 	timestamp time.Time,
-	producer keypair.PublicKey,
+	producer crypto.PublicKey,
 	actions []action.SealedEnvelope,
 ) *Block {
 	block := &Block{

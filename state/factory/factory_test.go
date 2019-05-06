@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
@@ -30,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -618,7 +618,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 		testaddress.Addrinfo["echo"].String(),
 		testaddress.Addrinfo["foxtrot"].String(),
 	}
-	pubKeys := []keypair.PublicKey{
+	pubKeys := []crypto.PublicKey{
 		testaddress.Keyinfo["alfa"].PubKey,
 		testaddress.Keyinfo["bravo"].PubKey,
 		testaddress.Keyinfo["charlie"].PubKey,

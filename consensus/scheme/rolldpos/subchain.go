@@ -10,14 +10,14 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 func putBlockToParentChain(
 	subChainAddr string,
-	senderPrvKey keypair.PrivateKey,
+	senderPrvKey crypto.PrivateKey,
 	senderAddr string,
 	b *block.Block,
 ) {
@@ -37,7 +37,7 @@ func putBlockToParentChain(
 
 func putBlockToParentChainTask(
 	subChainAddr string,
-	senderPrvKey keypair.PrivateKey,
+	senderPrvKey crypto.PrivateKey,
 	b *block.Block,
 ) error {
 	err := constructPutSubChainBlockRequest(subChainAddr, senderPrvKey.PublicKey(), senderPrvKey, b)
@@ -50,8 +50,8 @@ func putBlockToParentChainTask(
 
 func constructPutSubChainBlockRequest(
 	subChainAddr string,
-	senderPubKey keypair.PublicKey,
-	senderPriKey keypair.PrivateKey,
+	senderPubKey crypto.PublicKey,
+	senderPriKey crypto.PrivateKey,
 	b *block.Block,
 ) error {
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
