@@ -51,7 +51,7 @@ func defaultConfig() Genesis {
 			InitBalanceMap: make(map[string]string),
 		},
 		Poll: Poll{
-			EnableGravityChainVoting: false,
+			EnableGravityChainVoting: true,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(1200000000).String(),

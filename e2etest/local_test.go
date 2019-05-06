@@ -558,7 +558,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.API.Port = testutil.RandomPort()
 	cfg.System.EnableExperimentalActions = true
-
+	cfg.Genesis.EnableGravityChainVoting = false
 	sk, err := keypair.GenerateKey()
 	if err != nil {
 		return config.Config{}, err
