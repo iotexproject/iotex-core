@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 

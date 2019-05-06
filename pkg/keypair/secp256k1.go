@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 )
 
 type (
