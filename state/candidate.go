@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 var (

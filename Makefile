@@ -110,13 +110,6 @@ test-html: test-rich
 	$(ECHO_V)gocov convert $(COV_REPORT) | gocov-html > $(COV_HTML)
 	$(ECHO_V)open $(COV_HTML)
 
-.PHONY: protogen
-protogen:
-	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/types/*
-	@protoc -I. -I ./proto/types --go_out=plugins=grpc:${GOPATH}/src ./proto/api/*
-	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/rpc/*
-	@protoc --go_out=plugins=grpc:${GOPATH}/src ./proto/testing/*
-
 .PHONY: mockgen
 mockgen:
 	@./misc/scripts/mockgen.sh

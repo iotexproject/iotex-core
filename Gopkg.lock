@@ -274,15 +274,22 @@
   version = "v0.2.10"
 
 [[projects]]
-  digest = "1:5b429bd8a45a5eaaa0997a255c94c99884df2e2b6cce61b9f572b5c573f4f22e"
+  digest = "1:236cdd569cfade3ac0081d2ebe17dfb6c7ca95e5f09e6b839568d59c7a648001"
+  name = "github.com/iotexproject/go-pkgs"
+  packages = ["hash"]
+  pruneopts = "UT"
+  revision = "7e98d7ea784665be2029dc9dc9049abd255da7a5"
+
+[[projects]]
+  digest = "1:8b03671bd1d01a45ce8eec53a0e3909435253df4788dd3c99c21234d2b802629"
   name = "github.com/iotexproject/iotex-address"
   packages = [
     "address",
     "address/bech32",
   ]
   pruneopts = "UT"
-  revision = "54e969b7c2fc72346d569870bc35c7c628656c16"
-  version = "v0.1.0"
+  revision = "e628d9e54084df66c74f2e4014307ec5ca2af105"
+  version = "v0.2.0"
 
 [[projects]]
   digest = "1:59b72dc797c2a1919335b9209ca47e877081e7cd2ca1d47499e6eac37f19f359"
@@ -300,6 +307,20 @@
   pruneopts = "UT"
   revision = "14376bf06be5fee9b4a51bcdc6e158ebca69bcca"
   version = "v0.1.8"
+
+[[projects]]
+  digest = "1:246a19ad423f97415b6eda29937e966fb7d5757462750c460c0013259663bf57"
+  name = "github.com/iotexproject/iotex-proto"
+  packages = [
+    "golang",
+    "golang/iotexapi",
+    "golang/iotexrpc",
+    "golang/iotextypes",
+    "golang/testingpb",
+  ]
+  pruneopts = "UT"
+  revision = "8b4557e59d8c8b0be97eab8d3e3ab4275e0c2b0c"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:ff780041e005869242b2cf977f1d4fa3b8f9bdd302fd254b4a19f78502a6ee10"
@@ -1471,10 +1492,16 @@
     "github.com/grpc-ecosystem/go-grpc-prometheus",
     "github.com/iotexproject/go-fsm",
     "github.com/iotexproject/go-p2p",
+    "github.com/iotexproject/go-pkgs/hash",
     "github.com/iotexproject/iotex-address/address",
     "github.com/iotexproject/iotex-election/committee",
     "github.com/iotexproject/iotex-election/test/mock/mock_committee",
     "github.com/iotexproject/iotex-election/types",
+    "github.com/iotexproject/iotex-proto/golang",
+    "github.com/iotexproject/iotex-proto/golang/iotexapi",
+    "github.com/iotexproject/iotex-proto/golang/iotexrpc",
+    "github.com/iotexproject/iotex-proto/golang/iotextypes",
+    "github.com/iotexproject/iotex-proto/golang/testingpb",
     "github.com/libp2p/go-libp2p-peerstore",
     "github.com/mattn/go-sqlite3",
     "github.com/minio/blake2b-simd",
