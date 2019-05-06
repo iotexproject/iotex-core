@@ -6,13 +6,14 @@ package mock_factory
 
 import (
 	context "context"
-	gomock "github.com/golang/mock/gomock"
-	protocol "github.com/iotexproject/iotex-core/action/protocol"
-	hash "github.com/iotexproject/iotex-core/pkg/hash"
-	state "github.com/iotexproject/iotex-core/state"
-	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	hash "github.com/iotexproject/go-pkgs/hash"
+	protocol "github.com/iotexproject/iotex-core/action/protocol"
+	state "github.com/iotexproject/iotex-core/state"
+	factory "github.com/iotexproject/iotex-core/state/factory"
 )
 
 // MockFactory is a mock of Factory interface

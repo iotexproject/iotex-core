@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 )
 
 func TestSecp256k1(t *testing.T) {

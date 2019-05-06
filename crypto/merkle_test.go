@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 )
 
 func decodeHash(in string) [32]byte {

@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address/bech32"
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 

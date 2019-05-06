@@ -55,6 +55,10 @@
   version = "v0.1.0"
 
 [[constraint]]
+  name = "github.com/iotexproject/go-pkgs"
+  revision = "7e98d7ea784665be2029dc9dc9049abd255da7a5"
+
+[[constraint]]
   name = "github.com/iotexproject/go-fsm"
   version = "v1.0.0"
 

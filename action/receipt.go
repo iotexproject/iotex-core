@@ -9,7 +9,7 @@ package action
 import (
 	"github.com/golang/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/pkg/hash"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
