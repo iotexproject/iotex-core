@@ -35,7 +35,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/gasstation"
-	"github.com/iotexproject/iotex-core/indexservice"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -80,7 +79,6 @@ type Server struct {
 	gs               *gasstation.GasStation
 	broadcastHandler BroadcastOutbound
 	cfg              config.API
-	idx              *indexservice.Server
 	registry         *protocol.Registry
 	grpcserver       *grpc.Server
 }
@@ -91,7 +89,6 @@ func NewServer(
 	chain blockchain.Blockchain,
 	dispatcher dispatcher.Dispatcher,
 	actPool actpool.ActPool,
-	idx *indexservice.Server,
 	registry *protocol.Registry,
 	opts ...Option,
 ) (*Server, error) {
@@ -117,7 +114,6 @@ func NewServer(
 		ap:               actPool,
 		broadcastHandler: apiCfg.broadcastHandler,
 		cfg:              cfg,
-		idx:              idx,
 		registry:         registry,
 		gs:               gasstation.NewGasStation(chain, cfg),
 	}
@@ -828,26 +824,18 @@ func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi
 
 func (api *Server) getTotalActionsByAddress(address string) ([]hash.Hash256, error) {
 	var actions []hash.Hash256
-	if api.cfg.UseRDS {
-		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
-		if err != nil {
-			return nil, err
-		}
-		actions = append(actions, actionHistory...)
-	} else {
-		actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
-		if err != nil {
-			return nil, err
-		}
-
-		actionsToAddress, err := api.bc.GetActionsToAddress(address)
-		if err != nil {
-			return nil, err
-		}
-
-		actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
-		actions = append(actions, actionsFromAddress...)
+	actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
+	if err != nil {
+		return nil, err
 	}
+	actionsToAddress, err := api.bc.GetActionsToAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
+	actions = append(actions, actionsFromAddress...)
+
 	return actions, nil
 }
 

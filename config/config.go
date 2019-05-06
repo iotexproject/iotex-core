@@ -18,14 +18,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-p2p"
-	"github.com/iotexproject/iotex-election/committee"
-
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-election/committee"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -54,16 +53,6 @@ const (
 	StandaloneScheme = "STANDALONE"
 	// NOOPScheme means that the node does not create only block
 	NOOPScheme = "NOOP"
-	// IndexTransfer is table identifier for transfer index in indexer
-	IndexTransfer = "transfer"
-	// IndexVote is table identifier for vote index in indexer
-	IndexVote = "vote"
-	// IndexExecution is table identifier for execution index in indexer
-	IndexExecution = "execution"
-	// IndexAction is table identifier for action index in indexer
-	IndexAction = "action"
-	// IndexReceipt is table identifier for receipt index in indexer
-	IndexReceipt = "receipt"
 )
 
 const (
@@ -159,13 +148,6 @@ var (
 				Percentile:         60,
 			},
 			RangeQueryLimit: 1000,
-		},
-		Indexer: Indexer{
-			Enabled:           false,
-			NodeAddr:          "",
-			WhetherLocalStore: true,
-			BlockByIndexList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction, IndexReceipt},
-			IndexHistoryList:  []string{IndexTransfer, IndexVote, IndexExecution, IndexAction},
 		},
 		System: System{
 			Active:                    true,
@@ -286,17 +268,6 @@ type (
 		Percentile         int    `yaml:"Percentile"`
 	}
 
-	// Indexer is the index service config
-	Indexer struct {
-		Enabled           bool   `yaml:"enabled"`
-		NodeAddr          string `yaml:"nodeAddr"`
-		WhetherLocalStore bool   `yaml:"whetherLocalStore"`
-		// BlockByIndexList store list of BlockByIndex tables
-		BlockByIndexList []string `yaml:"blockByIndexList"`
-		// IndexHistoryList store list of IndexHistory tables
-		IndexHistoryList []string `yaml:"indexHistoryList"`
-	}
-
 	// System is the system config
 	System struct {
 		// Active is the status of the node. True means active and false means stand-by
@@ -372,7 +343,6 @@ type (
 		BlockSync  BlockSync                   `yaml:"blockSync"`
 		Dispatcher Dispatcher                  `yaml:"dispatcher"`
 		API        API                         `yaml:"api"`
-		Indexer    Indexer                     `yaml:"indexer"`
 		System     System                      `yaml:"system"`
 		DB         DB                          `yaml:"db"`
 		Log        log.GlobalConfig            `yaml:"log"`
