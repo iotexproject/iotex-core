@@ -52,6 +52,10 @@
 
 [[constraint]]
   name = "github.com/iotexproject/iotex-address"
+  version = "v0.2.0"
+
+[[constraint]]
+  name = "github.com/iotexproject/iotex-proto"
   version = "v0.1.0"
 
 [[constraint]]

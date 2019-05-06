@@ -28,8 +28,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block

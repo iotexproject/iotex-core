@@ -9,8 +9,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	proto "github.com/golang/protobuf/proto"
 	dispatcher "github.com/iotexproject/iotex-core/dispatcher"
-	iotexrpc "github.com/iotexproject/iotex-core/protogen/iotexrpc"
-	iotextypes "github.com/iotexproject/iotex-core/protogen/iotextypes"
+	iotexrpc "github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
 	reflect "reflect"
 )

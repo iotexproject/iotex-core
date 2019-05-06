@@ -4,16 +4,16 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package protogen
+package golang
 
 import (
 	"errors"
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
-	"github.com/iotexproject/iotex-core/protogen/testingpb"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/iotexproject/iotex-proto/golang/testingpb"
 )
 
 // GetTypeFromRPCMsg retrieves the proto message type

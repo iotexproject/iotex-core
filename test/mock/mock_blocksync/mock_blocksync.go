@@ -8,7 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	iotexrpc "github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	iotexrpc "github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
 	reflect "reflect"
 )
