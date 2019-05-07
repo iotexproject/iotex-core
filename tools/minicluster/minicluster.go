@@ -19,13 +19,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -35,7 +36,6 @@ import (
 	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
 	bc "github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 	"github.com/iotexproject/iotex-core/tools/util"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 const (
@@ -368,7 +368,7 @@ func main() {
 func newConfig(
 	chainDBPath,
 	trieDBPath string,
-	producerPriKey keypair.PrivateKey,
+	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
 ) config.Config {

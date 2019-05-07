@@ -15,13 +15,13 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -175,7 +175,7 @@ func newActPoolConfig() (config.Config, error) {
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.System.EnableExperimentalActions = true
 
-	sk, err := keypair.GenerateKey()
+	sk, err := crypto.GenerateKey()
 	if err != nil {
 		return config.Config{}, err
 	}

@@ -274,11 +274,15 @@
   version = "v0.2.10"
 
 [[projects]]
-  digest = "1:236cdd569cfade3ac0081d2ebe17dfb6c7ca95e5f09e6b839568d59c7a648001"
+  digest = "1:d964ba87d72145f63768d56fb293ad3abf3bb5dd684d251031b177ca924a3e2a"
   name = "github.com/iotexproject/go-pkgs"
-  packages = ["hash"]
+  packages = [
+    "crypto",
+    "hash",
+  ]
   pruneopts = "UT"
-  revision = "7e98d7ea784665be2029dc9dc9049abd255da7a5"
+  revision = "ff59a91ecab1fd4170249687ba44ed859379c901"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:8b03671bd1d01a45ce8eec53a0e3909435253df4788dd3c99c21234d2b802629"
@@ -1472,14 +1476,12 @@
   input-imports = [
     "github.com/cenkalti/backoff",
     "github.com/dgraph-io/badger",
-    "github.com/ethereum/go-ethereum/accounts",
     "github.com/ethereum/go-ethereum/accounts/abi",
     "github.com/ethereum/go-ethereum/accounts/keystore",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/math",
     "github.com/ethereum/go-ethereum/core/types",
     "github.com/ethereum/go-ethereum/core/vm",
-    "github.com/ethereum/go-ethereum/crypto",
     "github.com/ethereum/go-ethereum/params",
     "github.com/facebookgo/clock",
     "github.com/go-sql-driver/mysql",
@@ -1492,6 +1494,7 @@
     "github.com/grpc-ecosystem/go-grpc-prometheus",
     "github.com/iotexproject/go-fsm",
     "github.com/iotexproject/go-p2p",
+    "github.com/iotexproject/go-pkgs/crypto",
     "github.com/iotexproject/go-pkgs/hash",
     "github.com/iotexproject/iotex-address/address",
     "github.com/iotexproject/iotex-election/committee",

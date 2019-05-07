@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -23,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -133,7 +133,7 @@ func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Bloc
 	return prepare(bc, elp, r)
 }
 func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
-	priKey, err := keypair.HexStringToPrivateKey(executorPriKey)
+	priKey, err := crypto.HexStringToPrivateKey(executorPriKey)
 	selp, err := action.Sign(elp, priKey)
 	r.NoError(err)
 	actionMap := make(map[string][]action.SealedEnvelope)

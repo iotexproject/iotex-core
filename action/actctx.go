@@ -9,15 +9,15 @@ package action
 import (
 	"math/big"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // AbstractAction is an abstract implementation of Action interface
 type AbstractAction struct {
 	version   uint32
 	nonce     uint64
-	srcPubkey keypair.PublicKey
+	srcPubkey crypto.PublicKey
 	gasLimit  uint64
 	gasPrice  *big.Int
 	hash      hash.Hash256
@@ -30,7 +30,7 @@ func (act *AbstractAction) Version() uint32 { return act.version }
 func (act *AbstractAction) Nonce() uint64 { return act.nonce }
 
 // SrcPubkey returns the source public key
-func (act *AbstractAction) SrcPubkey() keypair.PublicKey { return act.srcPubkey }
+func (act *AbstractAction) SrcPubkey() crypto.PublicKey { return act.srcPubkey }
 
 // GasLimit returns the gas limit
 func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }

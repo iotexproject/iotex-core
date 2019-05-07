@@ -17,19 +17,19 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/chainservice"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -46,7 +46,7 @@ type KeyPair struct {
 // AddressKey contains the encoded address and private key of an account
 type AddressKey struct {
 	EncodedAddr string
-	PriKey      keypair.PrivateKey
+	PriKey      crypto.PrivateKey
 }
 
 var (
@@ -91,11 +91,11 @@ func LoadAddresses(keypairsPath string, chainID uint32) ([]*AddressKey, error) {
 	// Construct iotex addresses from loaded key pairs
 	addrKeys := make([]*AddressKey, 0)
 	for _, pair := range keypairs.Pairs {
-		pk, err := keypair.HexStringToPublicKey(pair.PK)
+		pk, err := crypto.HexStringToPublicKey(pair.PK)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decode public key")
 		}
-		sk, err := keypair.HexStringToPrivateKey(pair.SK)
+		sk, err := crypto.HexStringToPrivateKey(pair.SK)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decode private key")
 		}

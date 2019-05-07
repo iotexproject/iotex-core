@@ -21,7 +21,7 @@ func TestTestingBuilder(t *testing.T) {
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(t, err)
 
 	require.True(t, nblk.VerifySignature())

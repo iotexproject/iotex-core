@@ -19,12 +19,14 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -36,7 +38,6 @@ import (
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/p2p/node"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -44,12 +45,10 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type addrKeyPair struct {
-	pubKey      keypair.PublicKey
-	priKey      keypair.PrivateKey
+	priKey      crypto.PrivateKey
 	encodedAddr string
 }
 
@@ -374,7 +373,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 			sk := identityset.PrivateKey(i)
 			addr := addrKeyPair{
 				encodedAddr: identityset.Address(i).String(),
-				pubKey:      sk.PublicKey(),
 				priKey:      sk,
 			}
 			chainAddrs = append(chainAddrs, &addr)

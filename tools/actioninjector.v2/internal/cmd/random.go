@@ -17,14 +17,14 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/tools/actioninjector.v2/internal/client"
@@ -44,7 +44,7 @@ type KeyPair struct {
 // AddressKey contains the encoded address and private key of an account
 type AddressKey struct {
 	EncodedAddr string
-	PriKey      keypair.PrivateKey
+	PriKey      crypto.PrivateKey
 }
 
 type injectProcessor struct {
@@ -82,11 +82,11 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 	// Construct iotex addresses from loaded key pairs
 	addrKeys := make([]*AddressKey, 0)
 	for _, pair := range keypairs.Pairs {
-		pk, err := keypair.HexStringToPublicKey(pair.PK)
+		pk, err := crypto.HexStringToPublicKey(pair.PK)
 		if err != nil {
 			return errors.Wrap(err, "failed to decode public key")
 		}
-		sk, err := keypair.HexStringToPrivateKey(pair.SK)
+		sk, err := crypto.HexStringToPrivateKey(pair.SK)
 		if err != nil {
 			return errors.Wrap(err, "failed to decode private key")
 		}

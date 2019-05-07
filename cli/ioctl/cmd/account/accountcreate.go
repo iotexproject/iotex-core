@@ -10,11 +10,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -52,7 +52,7 @@ func init() {
 func accountCreate() (string, error) {
 	newAccounts := make([]generatedAccount, 0)
 	for i := 0; i < int(numAccounts); i++ {
-		private, err := keypair.GenerateKey()
+		private, err := crypto.GenerateKey()
 		if err != nil {
 			return "", err
 		}

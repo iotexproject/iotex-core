@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -32,7 +32,7 @@ var _addrNum int
 func generate(_ []string) string {
 	items := make([]string, _addrNum)
 	for i := 0; i < _addrNum; i++ {
-		private, err := keypair.GenerateKey()
+		private, err := crypto.GenerateKey()
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}

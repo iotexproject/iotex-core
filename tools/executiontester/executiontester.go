@@ -12,11 +12,11 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -179,7 +179,7 @@ func testArrayDeletePassing(arr blockchain.ArrayDeletePassing) {
 	log.L().Info("array-delete-passing test pass!")
 }
 func createAccount() (string, string, string, error) {
-	priKey, err := keypair.GenerateKey()
+	priKey, err := crypto.GenerateKey()
 	if err != nil {
 		return "", "", "", err
 	}
