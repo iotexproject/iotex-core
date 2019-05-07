@@ -273,7 +273,6 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) (err error) {
 	genesisConfig := cfg.Genesis
 	accountProtocol := account.NewProtocol(genesisConfig.PacificBlockHeight)
-	accountProtocol := account.NewProtocol()
 	if err = cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return
 	}
