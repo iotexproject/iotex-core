@@ -71,7 +71,7 @@ func TestProtocol_Initialize(t *testing.T) {
 		require.NoError(t, stateDB.Stop(context.Background()))
 	}()
 
-	p := NewProtocol()
+	p := NewProtocol(0)
 
 	ws, err := stateDB.NewWorkingSet()
 	require.NoError(t, err)

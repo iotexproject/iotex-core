@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -1499,8 +1499,8 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		return nil, nil, errors.New("failed to create blockchain")
 	}
 
-	acc := account.NewProtocol()
-	evm := execution.NewProtocol(bc)
+	acc := account.NewProtocol(0)
+	evm := execution.NewProtocol(bc, 0)
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1537,7 +1537,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 		return nil, err
 	}
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	ap.AddActionValidators(execution.NewProtocol(bc))
+	ap.AddActionValidators(execution.NewProtocol(bc, 0))
 
 	return ap, nil
 }

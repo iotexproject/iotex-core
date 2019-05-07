@@ -10,10 +10,10 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -52,13 +52,16 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		)
 	}
 
-	// charge sender gas
-	if err := sender.SubBalance(gasFee); err != nil {
-		return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", raCtx.Caller.String())
+	if raCtx.BlockHeight < p.pacificHeight {
+		// charge sender gas
+		if err := sender.SubBalance(gasFee); err != nil {
+			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", raCtx.Caller.String())
+		}
+		if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
+			return nil, err
+		}
 	}
-	if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
-		return nil, err
-	}
+
 	recipientAddr, err := address.FromString(tsf.Recipient())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode recipient address %s", tsf.Recipient())
@@ -71,6 +74,11 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
+		if raCtx.BlockHeight >= p.pacificHeight {
+			if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
+				return nil, err
+			}
+		}
 		return &action.Receipt{
 			Status:          action.FailureReceiptStatus,
 			BlockHeight:     raCtx.BlockHeight,
@@ -80,13 +88,6 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}, nil
 	}
 
-	if tsf.Amount().Cmp(sender.Balance) == 1 {
-		return nil, errors.Wrapf(
-			state.ErrNotEnoughBalance,
-			"failed to verify the Balance of sender %s",
-			raCtx.Caller.String(),
-		)
-	}
 	// update sender Balance
 	if err := sender.SubBalance(tsf.Amount()); err != nil {
 		return nil, errors.Wrapf(err, "failed to update the Balance of sender %s", raCtx.Caller.String())
@@ -109,6 +110,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	// put updated recipient's state to trie
 	if err := accountutil.StoreAccount(sm, tsf.Recipient(), recipient); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
+	}
+
+	if raCtx.BlockHeight >= p.pacificHeight {
+		if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
+			return nil, err
+		}
 	}
 	return &action.Receipt{
 		Status:          action.SuccessReceiptStatus,

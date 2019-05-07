@@ -26,16 +26,22 @@ import (
 const ProtocolID = "account"
 
 // Protocol defines the protocol of handling account
-type Protocol struct{ addr address.Address }
+type Protocol struct {
+	addr          address.Address
+	pacificHeight uint64
+}
 
 // NewProtocol instantiates the protocol of account
-func NewProtocol() *Protocol {
+func NewProtocol(pacificHeight uint64) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
 	}
-	return &Protocol{addr: addr}
+	return &Protocol{
+		addr:          addr,
+		pacificHeight: pacificHeight,
+	}
 }
 
 // Handle handles an account
