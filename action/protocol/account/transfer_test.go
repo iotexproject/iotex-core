@@ -44,18 +44,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	accountAlfa := state.Account{
 		Balance: big.NewInt(50005),
-		Votee:   testaddress.Addrinfo["charlie"].String(),
 	}
-	accountBravo := state.Account{
-		Votee: testaddress.Addrinfo["delta"].String(),
-	}
-	accountCharlie := state.Account{
-		VotingWeight: big.NewInt(5),
-	}
+	accountBravo := state.Account{}
+	accountCharlie := state.Account{}
 	pubKeyAlfa := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 	pubKeyBravo := hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes())
 	pubKeyCharlie := hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes())
-	pubKeyDelta := hash.BytesToHash160(testaddress.Addrinfo["delta"].Bytes())
 
 	require.NoError(ws.PutState(pubKeyAlfa, &accountAlfa))
 	require.NoError(ws.PutState(pubKeyBravo, &accountBravo))
@@ -90,10 +84,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.Equal(uint64(1), acct.Nonce)
 	require.NoError(sf.State(pubKeyBravo, &acct))
 	require.Equal("2", acct.Balance.String())
-	require.NoError(sf.State(pubKeyCharlie, &acct))
-	require.Equal("3", acct.VotingWeight.String())
-	require.NoError(sf.State(pubKeyDelta, &acct))
-	require.Equal("2", acct.VotingWeight.String())
 
 	contractAcct := state.Account{
 		CodeHash: []byte("codeHash"),

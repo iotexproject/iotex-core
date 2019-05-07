@@ -27,13 +27,10 @@ var (
 type Account struct {
 	// 0 is reserved from actions in genesis block and coinbase transfers nonces
 	// other actions' nonces start from 1
-	Nonce        uint64
-	Balance      *big.Int
-	Root         hash.Hash256 // storage trie root for contract account
-	CodeHash     []byte       // hash of the smart contract byte-code for contract account
-	IsCandidate  bool
-	VotingWeight *big.Int
-	Votee        string
+	Nonce    uint64
+	Balance  *big.Int
+	Root     hash.Hash256 // storage trie root for contract account
+	CodeHash []byte       // hash of the smart contract byte-code for contract account
 }
 
 // ToProto converts to protobuf's Account
@@ -47,11 +44,6 @@ func (st *Account) ToProto() *accountpb.Account {
 	copy(acPb.Root, st.Root[:])
 	acPb.CodeHash = make([]byte, len(st.CodeHash))
 	copy(acPb.CodeHash, st.CodeHash)
-	acPb.IsCandidate = st.IsCandidate
-	if st.VotingWeight != nil {
-		acPb.VotingWeight = st.VotingWeight.Bytes()
-	}
-	acPb.Votee = st.Votee
 	return acPb
 }
 
@@ -73,12 +65,6 @@ func (st *Account) FromProto(acPb *accountpb.Account) {
 		st.CodeHash = make([]byte, len(acPb.CodeHash))
 		copy(st.CodeHash, acPb.CodeHash)
 	}
-	st.IsCandidate = acPb.IsCandidate
-	st.VotingWeight = big.NewInt(0)
-	if acPb.VotingWeight != nil {
-		st.VotingWeight.SetBytes(acPb.VotingWeight)
-	}
-	st.Votee = acPb.Votee
 }
 
 // Deserialize deserializes bytes into account state
@@ -117,8 +103,6 @@ func (st *Account) Clone() *Account {
 	s := *st
 	s.Balance = nil
 	s.Balance = new(big.Int).Set(st.Balance)
-	s.VotingWeight = nil
-	s.VotingWeight = new(big.Int).Set(st.VotingWeight)
 	if st.CodeHash != nil {
 		s.CodeHash = nil
 		s.CodeHash = make([]byte, len(st.CodeHash))
@@ -130,7 +114,6 @@ func (st *Account) Clone() *Account {
 // EmptyAccount returns an empty account
 func EmptyAccount() Account {
 	return Account{
-		Balance:      big.NewInt(0),
-		VotingWeight: big.NewInt(0),
+		Balance: big.NewInt(0),
 	}
 }

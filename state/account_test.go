@@ -20,16 +20,14 @@ import (
 func TestEncodeDecode(t *testing.T) {
 	require := require.New(t)
 	s1 := Account{
-		Nonce:        0x10,
-		Balance:      big.NewInt(20000000),
-		CodeHash:     []byte("testing codehash"),
-		VotingWeight: big.NewInt(1000000000),
-		Votee:        "testing votee",
+		Nonce:    0x10,
+		Balance:  big.NewInt(20000000),
+		CodeHash: []byte("testing codehash"),
 	}
 	ss, err := s1.Serialize()
 	require.NoError(err)
 	require.NotEmpty(ss)
-	require.Equal(85, len(ss))
+	require.Equal(64, len(ss))
 
 	s2 := Account{}
 	require.NoError(s2.Deserialize(ss))
@@ -37,8 +35,6 @@ func TestEncodeDecode(t *testing.T) {
 	require.Equal(uint64(0x10), s2.Nonce)
 	require.Equal(hash.ZeroHash256, s2.Root)
 	require.Equal([]byte("testing codehash"), s2.CodeHash)
-	require.Equal(big.NewInt(1000000000), s2.VotingWeight)
-	require.Equal("testing votee", s2.Votee)
 }
 
 func TestProto(t *testing.T) {
@@ -68,18 +64,13 @@ func TestBalance(t *testing.T) {
 func TestClone(t *testing.T) {
 	require := require.New(t)
 	ss := &Account{
-		Nonce:        0x10,
-		Balance:      big.NewInt(200),
-		VotingWeight: big.NewInt(1000),
+		Nonce:   0x10,
+		Balance: big.NewInt(200),
 	}
 	account := ss.Clone()
 	require.Equal(big.NewInt(200), account.Balance)
-	require.Equal(big.NewInt(1000), account.VotingWeight)
 
 	require.Nil(account.AddBalance(big.NewInt(100)))
-	account.VotingWeight.Sub(account.VotingWeight, big.NewInt(300))
 	require.Equal(big.NewInt(200), ss.Balance)
-	require.Equal(big.NewInt(1000), ss.VotingWeight)
 	require.Equal(big.NewInt(200+100), account.Balance)
-	require.Equal(big.NewInt(1000-300), account.VotingWeight)
 }

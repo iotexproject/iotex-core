@@ -15,8 +15,5 @@ message Account {
     string balance  = 2;
     bytes root  = 3;
     bytes codeHash  = 4;
-    bool isCandidate = 5;
-    bytes votingWeight  = 6;
-    string votee = 7;
 }
 
