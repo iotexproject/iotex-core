@@ -280,14 +280,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
 		return
 	}
-	executionProtocol := execution.NewProtocol(cs.Blockchain())
-	if err = cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
-		return
-	}
-	if cfg.Consensus.Scheme == config.StandaloneScheme {
-		return
-	}
-	if genesisConfig.EnableGravityChainVoting {
+	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
 		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol
@@ -323,6 +316,10 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 		if err = cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
 			return
 		}
+	}
+	executionProtocol := execution.NewProtocol(cs.Blockchain())
+	if err = cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
+		return
 	}
 	rewardingProtocol := rewarding.NewProtocol(cs.Blockchain(), rolldposProtocol)
 	return cs.RegisterProtocol(rewarding.ProtocolID, rewardingProtocol)

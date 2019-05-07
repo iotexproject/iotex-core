@@ -1088,10 +1088,11 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			break
 		}
 	}
-	if bc.config.Consensus.Scheme != config.StandaloneScheme {
+	var lastBlkHeight uint64
+	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
 		rp := bc.mustGetRollDPoSProtocol()
 		epochNum := rp.GetEpochNum(raCtx.BlockHeight)
-		lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
+		lastBlkHeight = rp.GetEpochLastBlockHeight(epochNum)
 		// generate delegates for next round
 		skip, putPollResult, err := bc.createPutPollResultAction(raCtx.BlockHeight)
 		switch errors.Cause(err) {
@@ -1118,9 +1119,24 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		default:
 			return hash.ZeroHash256, nil, nil, err
 		}
+	}
+	// Process grant block reward action
+	grant, err := bc.createGrantRewardAction(action.BlockReward, raCtx.BlockHeight)
+	if err != nil {
+		return hash.ZeroHash256, nil, nil, err
+	}
+	receipt, err := ws.RunAction(raCtx, grant)
+	if err != nil {
+		return hash.ZeroHash256, nil, nil, err
+	}
+	if receipt != nil {
+		receipts = append(receipts, receipt)
+	}
+	executedActions = append(executedActions, grant)
 
-		// Process grant block reward action
-		grant, err := bc.createGrantRewardAction(action.BlockReward, raCtx.BlockHeight)
+	// Process grant epoch reward action if the block is the last one in an epoch
+	if raCtx.BlockHeight == lastBlkHeight {
+		grant, err := bc.createGrantRewardAction(action.EpochReward, raCtx.BlockHeight)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
@@ -1132,23 +1148,8 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, grant)
-
-		// Process grant epoch reward action if the block is the last one in an epoch
-		if raCtx.BlockHeight == lastBlkHeight {
-			grant, err = bc.createGrantRewardAction(action.EpochReward, raCtx.BlockHeight)
-			if err != nil {
-				return hash.ZeroHash256, nil, nil, err
-			}
-			receipt, err = ws.RunAction(raCtx, grant)
-			if err != nil {
-				return hash.ZeroHash256, nil, nil, err
-			}
-			if receipt != nil {
-				receipts = append(receipts, receipt)
-			}
-			executedActions = append(executedActions, grant)
-		}
 	}
+
 	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - raCtx.GasLimit))
 
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
