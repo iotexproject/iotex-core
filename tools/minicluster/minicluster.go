@@ -30,12 +30,12 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
 	bc "github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 	"github.com/iotexproject/iotex-core/tools/util"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 const (

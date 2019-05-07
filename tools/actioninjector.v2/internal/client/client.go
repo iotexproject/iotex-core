@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 // Client is the blockchain API client.

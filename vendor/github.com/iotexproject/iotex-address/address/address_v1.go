@@ -7,12 +7,12 @@
 package address
 
 import (
+	"log"
+
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address/bech32"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // _v1 is a singleton and defines V1 address metadata
@@ -70,12 +70,12 @@ func (addr *AddrV1) String() string {
 	// Group the payload into 5 bit groups.
 	grouped, err := bech32.ConvertBits(payload, 8, 5, true)
 	if err != nil {
-		log.L().Panic("Error when grouping the payload into 5 bit groups.", zap.Error(err))
+		log.Panic("Error when grouping the payload into 5 bit groups." + err.Error())
 		return ""
 	}
 	encodedAddr, err := bech32.Encode(prefix(), grouped)
 	if err != nil {
-		log.L().Panic("Error when encoding bytes into a base32 string.", zap.Error(err))
+		log.Panic("Error when encoding bytes into a base32 string." + err.Error())
 		return ""
 	}
 	return encodedAddr

@@ -17,8 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/protogen/testingpb"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-proto/golang/testingpb"
 )
 
 func TestBroadcast(t *testing.T) {
