@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 

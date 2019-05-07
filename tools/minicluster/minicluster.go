@@ -19,10 +19,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -35,7 +36,6 @@ import (
 	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
 	bc "github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
 	"github.com/iotexproject/iotex-core/tools/util"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 const (

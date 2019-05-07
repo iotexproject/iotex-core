@@ -9,9 +9,9 @@ package testutil
 import (
 	"math/big"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/action"
 )
 

@@ -14,10 +14,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/go-pkgs/crypto"
 )
 
 func TestNewDefaultConfig(t *testing.T) {

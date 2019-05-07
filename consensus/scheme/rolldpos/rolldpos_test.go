@@ -48,7 +48,6 @@ import (
 )
 
 type addrKeyPair struct {
-	pubKey      crypto.PublicKey
 	priKey      crypto.PrivateKey
 	encodedAddr string
 }
@@ -374,7 +373,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 			sk := identityset.PrivateKey(i)
 			addr := addrKeyPair{
 				encodedAddr: identityset.Address(i).String(),
-				pubKey:      sk.PublicKey(),
 				priKey:      sk,
 			}
 			chainAddrs = append(chainAddrs, &addr)

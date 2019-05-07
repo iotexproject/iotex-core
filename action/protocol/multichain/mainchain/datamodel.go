@@ -11,9 +11,9 @@ import (
 	"sort"
 
 	"github.com/golang/protobuf/proto"
-
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain/mainchainpb"
 )
 

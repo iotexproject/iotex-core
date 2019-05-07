@@ -12,10 +12,10 @@ import (
 	"math/big"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"

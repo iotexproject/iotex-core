@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 

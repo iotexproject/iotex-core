@@ -7,10 +7,10 @@
 package rolldpos
 
 import (
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
