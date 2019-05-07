@@ -15,15 +15,15 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -226,9 +226,9 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
-	prvKey, err := keypair.HexStringToPrivateKey(c.prvkey)
+	prvKey, err := crypto.HexStringToPrivateKey(c.prvkey)
 	if err != nil {
-		return "", keypair.ErrInvalidKey
+		return "", crypto.ErrInvalidKey
 	}
 	defer prvKey.Zero()
 	selp, err := action.Sign(elp, prvKey)

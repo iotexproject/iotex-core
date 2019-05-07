@@ -11,8 +11,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/pkg/errors"
 )
 
@@ -82,7 +82,7 @@ func (s *stableToken) Mint(bech32 string, amount int64) (string, error) {
 		return "", errors.Wrap(err, "failed to issue stable token")
 	}
 	if len(addr.Bytes()) != 20 {
-		return "", errors.Wrap(keypair.ErrInvalidKey, "failed to issue stable token")
+		return "", errors.Wrap(crypto.ErrInvalidKey, "failed to issue stable token")
 	}
 
 	if len(s.kycAmlWhitelist) == 0 {
@@ -128,7 +128,7 @@ func (s *stableToken) Burn(bech32, pubkey, prvkey string, amount int64) (string,
 		return "", errors.Wrap(err, "failed to redeem stable token")
 	}
 	if len(addr.Bytes()) != 20 {
-		return "", errors.Wrap(keypair.ErrInvalidKey, "failed to redeem stable token")
+		return "", errors.Wrap(crypto.ErrInvalidKey, "failed to redeem stable token")
 	}
 
 	if len(s.burnWhitelist) == 0 {

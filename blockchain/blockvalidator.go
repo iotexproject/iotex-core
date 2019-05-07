@@ -12,14 +12,14 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/pkg/errors"
-
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -88,7 +88,7 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 
 func (v *validator) validateActionsOnly(
 	actions []action.SealedEnvelope,
-	pk keypair.PublicKey,
+	pk crypto.PublicKey,
 	height uint64,
 ) error {
 	// Verify transfers, votes, executions, witness, and secrets
@@ -141,7 +141,7 @@ func (v *validator) validateActionsOnly(
 
 func (v *validator) validateActions(
 	actions []action.SealedEnvelope,
-	pk keypair.PublicKey,
+	pk crypto.PublicKey,
 	height uint64,
 	accountNonceMap map[string][]uint64,
 	errChan chan error,

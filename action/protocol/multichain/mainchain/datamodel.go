@@ -11,10 +11,10 @@ import (
 	"sort"
 
 	"github.com/golang/protobuf/proto"
-
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain/mainchainpb"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // SubChain represents the state of a sub-chain in the state factory
@@ -25,7 +25,7 @@ type SubChain struct {
 	StartHeight        uint64
 	StopHeight         uint64
 	ParentHeightOffset uint64
-	OwnerPublicKey     keypair.PublicKey
+	OwnerPublicKey     crypto.PublicKey
 	CurrentHeight      uint64
 	DepositCount       uint64
 }
@@ -56,7 +56,7 @@ func (bs *SubChain) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, gen); err != nil {
 		return err
 	}
-	pub, err := keypair.BytesToPublicKey(gen.OwnerPublicKey)
+	pub, err := crypto.BytesToPublicKey(gen.OwnerPublicKey)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ type BlockProof struct {
 	SubChainAddress   string
 	Height            uint64
 	Roots             []MerkleRoot
-	ProducerPublicKey keypair.PublicKey
+	ProducerPublicKey crypto.PublicKey
 	ProducerAddress   string
 }
 
@@ -118,7 +118,7 @@ func (bp *BlockProof) Deserialize(data []byte) error {
 	if err := proto.Unmarshal(data, gen); err != nil {
 		return err
 	}
-	pub, err := keypair.BytesToPublicKey(gen.ProducerPublicKey)
+	pub, err := crypto.BytesToPublicKey(gen.ProducerPublicKey)
 	if err != nil {
 		return err
 	}

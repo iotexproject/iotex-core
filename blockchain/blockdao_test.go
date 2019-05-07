@@ -118,7 +118,7 @@ func TestBlockDAO(t *testing.T) {
 			SetPrevBlockHash(hash1).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(tsf1, tsf4, execution1, sdeposit1).
-			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
+			SignAndBuild(testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 
 		hash2 := hash.Hash256{}
@@ -128,7 +128,7 @@ func TestBlockDAO(t *testing.T) {
 			SetPrevBlockHash(hash2).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(tsf2, tsf5, execution2, sdeposit2).
-			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
+			SignAndBuild(testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 
 		hash3 := hash.Hash256{}
@@ -138,7 +138,7 @@ func TestBlockDAO(t *testing.T) {
 			SetPrevBlockHash(hash3).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(tsf3, tsf6, execution3, sdeposit3).
-			SignAndBuild(testaddress.Keyinfo["producer"].PubKey, testaddress.Keyinfo["producer"].PriKey)
+			SignAndBuild(testaddress.Keyinfo["producer"].PriKey)
 		require.NoError(t, err)
 		return []*block.Block{&blk1, &blk2, &blk3}
 	}
@@ -444,7 +444,7 @@ func BenchmarkBlockCache(b *testing.B) {
 				SetTimeStamp(time.Now()).
 				SetHeight(uint64(i)).
 				AddActions(actions...).
-				SignAndBuild(identityset.PrivateKey(0).PublicKey(), identityset.PrivateKey(0))
+				SignAndBuild(identityset.PrivateKey(0))
 			require.NoError(b, err)
 			require.NoError(b, blkDao.putBlock(&blk))
 			prevHash = blk.HashBlock()

@@ -46,7 +46,7 @@ func TestWrongRootHash(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 0, blkhash))
@@ -70,7 +70,7 @@ func TestSignBlock(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash))
@@ -115,7 +115,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash))
@@ -140,7 +140,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	err = val.Validate(&blk, 2, blkhash)
@@ -155,7 +155,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf3).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -173,7 +173,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf4, tsf5).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -190,7 +190,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf6, tsf7).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -207,7 +207,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf8, tsf9).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -224,7 +224,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf10, tsf11).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -261,7 +261,7 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	err = val.validateActionsOnly(
 		blk1.Actions,
@@ -285,7 +285,7 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	err = val.validateActionsOnly(
 		blk3.Actions,

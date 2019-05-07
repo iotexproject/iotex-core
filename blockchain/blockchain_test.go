@@ -582,10 +582,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
-		SetHeight(h+2).
+		SetHeight(h + 2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk)
@@ -597,10 +597,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
-		SetHeight(h+1).
+		SetHeight(h + 1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk)
 	require.Error(err)
@@ -741,10 +741,10 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
-		SetHeight(h+2).
+		SetHeight(h + 2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk)
@@ -755,10 +755,10 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
-		SetHeight(h+1).
+		SetHeight(h + 1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk)
 	require.Error(err)

@@ -13,18 +13,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iotexproject/go-p2p"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-election/committee"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
@@ -179,7 +179,7 @@ var (
 	}
 
 	// PrivateKey is a randomly generated producer's key for testing purpose
-	PrivateKey, _ = keypair.GenerateKey()
+	PrivateKey, _ = crypto.GenerateKey()
 )
 
 // Network is the config struct for network package
@@ -452,8 +452,8 @@ func (cfg Config) ProducerAddress() address.Address {
 }
 
 // ProducerPrivateKey returns the configured private key
-func (cfg Config) ProducerPrivateKey() keypair.PrivateKey {
-	sk, err := keypair.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
+func (cfg Config) ProducerPrivateKey() crypto.PrivateKey {
+	sk, err := crypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	if err != nil {
 		log.L().Panic(
 			"Error when decoding private key",

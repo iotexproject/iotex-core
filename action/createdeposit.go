@@ -10,12 +10,12 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -64,7 +64,7 @@ func (d *CreateDeposit) ChainID() uint32 { return d.chainID }
 func (d *CreateDeposit) Amount() *big.Int { return d.amount }
 
 // SenderPublicKey returns the sender public key. It's the wrapper of Action.SrcPubkey
-func (d *CreateDeposit) SenderPublicKey() keypair.PublicKey { return d.SrcPubkey() }
+func (d *CreateDeposit) SenderPublicKey() crypto.PublicKey { return d.SrcPubkey() }
 
 // Recipient returns the recipient address. The recipient should be an address on the sub-chain
 func (d *CreateDeposit) Recipient() string { return d.recipient }
