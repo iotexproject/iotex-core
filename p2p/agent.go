@@ -27,8 +27,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/protogen"
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
+	goproto "github.com/iotexproject/iotex-proto/golang"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 )
 
 const (
@@ -162,7 +162,7 @@ func (p *Agent) Start(ctx context.Context) error {
 		t, _ := ptypes.Timestamp(broadcast.GetTimestamp())
 		latency = time.Since(t).Nanoseconds() / time.Millisecond.Nanoseconds()
 
-		msg, err := protogen.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
+		msg, err := goproto.TypifyRPCMsg(broadcast.MsgType, broadcast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
@@ -193,7 +193,7 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when marshaling unicast message")
 			return
 		}
-		msg, err := protogen.TypifyRPCMsg(unicast.MsgType, unicast.MsgBody)
+		msg, err := goproto.TypifyRPCMsg(unicast.MsgType, unicast.MsgBody)
 		if err != nil {
 			err = errors.Wrap(err, "error when typifying unicast message")
 			return
@@ -381,7 +381,7 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 }
 
 func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {
-	msgType, err := protogen.GetTypeFromRPCMsg(msg)
+	msgType, err := goproto.GetTypeFromRPCMsg(msg)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "error when converting application message to proto")
 	}

@@ -54,7 +54,7 @@ import (
     "errors"
 
     "github.com/iotexproject/iotex-core/pkg/enc"
-    "github.com/iotexproject/iotex-core/pkg/keypair"
+    "github.com/iotexproject/go-pkgs/crypto"
 )
 ```
 

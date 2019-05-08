@@ -8,10 +8,10 @@ package block
 
 import (
 	"github.com/golang/protobuf/proto"
-
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 )
 
 // Body defines the struct of body

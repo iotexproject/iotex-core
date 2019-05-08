@@ -9,16 +9,17 @@ package block
 import (
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // RunnableActions is abstructed from block which contains information to execute all actions in a block.
 type RunnableActions struct {
 	blockHeight         uint64
 	blockTimeStamp      time.Time
-	blockProducerPubKey keypair.PublicKey
+	blockProducerPubKey crypto.PublicKey
 	txHash              hash.Hash256
 	actions             []action.SealedEnvelope
 }
@@ -34,7 +35,7 @@ func (ra RunnableActions) BlockTimeStamp() time.Time {
 }
 
 // BlockProducerPubKey return BlockProducerPubKey.
-func (ra RunnableActions) BlockProducerPubKey() keypair.PublicKey {
+func (ra RunnableActions) BlockProducerPubKey() crypto.PublicKey {
 	return ra.blockProducerPubKey
 }
 
@@ -74,7 +75,7 @@ func (b *RunnableActionsBuilder) AddActions(acts ...action.SealedEnvelope) *Runn
 }
 
 // Build signs and then builds a block.
-func (b *RunnableActionsBuilder) Build(producerPubKey keypair.PublicKey) RunnableActions {
+func (b *RunnableActionsBuilder) Build(producerPubKey crypto.PublicKey) RunnableActions {
 	b.ra.blockProducerPubKey = producerPubKey
 	b.ra.txHash = calculateTxRoot(b.ra.actions)
 	return b.ra

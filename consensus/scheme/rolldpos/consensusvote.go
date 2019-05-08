@@ -11,7 +11,7 @@ import (
 	blake2b "github.com/minio/blake2b-simd"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ConsensusVoteTopic defines the topic of an consensus vote

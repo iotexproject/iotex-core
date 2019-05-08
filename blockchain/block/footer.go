@@ -13,7 +13,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Footer defines a set of proof of this block
