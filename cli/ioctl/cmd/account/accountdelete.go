@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
@@ -58,6 +59,10 @@ func accountDelete(args []string) (string, error) {
 			fmt.Scanf("%s", &confirm)
 			if confirm != "YES" && confirm != "yes" {
 				return "Quit", nil
+			}
+
+			if err := os.Remove(v.URL.Path); err != nil {
+				return "", err
 			}
 
 			aliases := alias.GetAliasMap()
