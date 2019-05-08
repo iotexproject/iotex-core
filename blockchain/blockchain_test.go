@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -262,7 +263,7 @@ func TestCreateBlockchain(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
-
+	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
@@ -293,7 +294,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
-
+	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
@@ -358,6 +359,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
+	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
@@ -447,7 +449,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-
+	cfg.Genesis.EnableGravityChainVoting = false
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
 	sf.AddActionHandlers(account.NewProtocol())
@@ -634,7 +636,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	cfg.DB.UseBadgerDB = false // test with boltDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-
+	cfg.Genesis.EnableGravityChainVoting = false
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
 	sf.AddActionHandlers(account.NewProtocol())
@@ -808,7 +810,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-
+	cfg.Consensus.Scheme = config.RollDPoSScheme
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
 	accountProtocol := account.NewProtocol()
@@ -829,12 +831,14 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
 	rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
 	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
+	require.NoError(registry.Register(poll.ProtocolID, poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
 	}()
-	// TODO: we will fix this test case by testing using lifeLongDelegatesProtocol to initialize the candidates
-	// candidate, err := sf.CandidatesByHeight(0)
+	candidate, err := sf.CandidatesByHeight(1)
+	require.NoError(err)
+	require.Equal(24, len(candidate))
 }
 
 func TestBlockchain_StateByAddr(t *testing.T) {

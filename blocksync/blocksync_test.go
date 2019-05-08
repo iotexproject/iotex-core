@@ -469,5 +469,6 @@ func newTestConfig() (config.Config, error) {
 	cfg.Network.Host = "127.0.0.1"
 	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
+	cfg.Genesis.EnableGravityChainVoting = false
 	return cfg, nil
 }
