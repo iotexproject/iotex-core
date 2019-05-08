@@ -232,9 +232,6 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, accountA, &testAccount)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
-	require.False(t, accountA.IsCandidate)
-	require.Equal(t, "", accountA.Votee)
-	require.Equal(t, big.NewInt(0), accountA.VotingWeight)
 }
 
 func TestNonce(t *testing.T) {
@@ -482,7 +479,6 @@ func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
 	hashA := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 	accountA := state.EmptyAccount()
 	accountA.Balance = big.NewInt(70)
-	accountA.VotingWeight = big.NewInt(70)
 	err := ws.PutState(hashA, accountA)
 	require.NoError(err)
 	hash2 := ws.Digest()

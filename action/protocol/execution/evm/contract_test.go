@@ -228,8 +228,7 @@ func TestSnapshot(t *testing.T) {
 	require := require.New(t)
 
 	s := &state.Account{
-		Balance:      big.NewInt(5),
-		VotingWeight: big.NewInt(0),
+		Balance: big.NewInt(5),
 	}
 	k1 := hash.Hash256b([]byte("cat"))
 	v1 := hash.Hash256b([]byte("cat"))

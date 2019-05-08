@@ -40,7 +40,6 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	s, err := accountutil.LoadAccount(ws, hash.BytesToHash160(addrv1.Bytes()))
 	require.NoError(err)
 	require.Equal(s.Balance, state.EmptyAccount().Balance)
-	require.Equal(s.VotingWeight, state.EmptyAccount().VotingWeight)
 	s, err = accountutil.LoadOrCreateAccount(ws, addrv1.String(), big.NewInt(5))
 	require.NoError(err)
 	s, err = accountutil.LoadAccount(ws, hash.BytesToHash160(addrv1.Bytes()))
