@@ -17,19 +17,19 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 type TransferState int
@@ -65,10 +65,10 @@ const (
 
 type simpleTransferTestCfg struct {
 	senderAcntState AccountState
-	senderPriKey    keypair.PrivateKey
+	senderPriKey    crypto.PrivateKey
 	senderBalance   *big.Int
 	recvAcntState   AccountState
-	recvPriKey      keypair.PrivateKey
+	recvPriKey      crypto.PrivateKey
 	recvBalance     *big.Int
 	nonce           uint64
 	amount          *big.Int
@@ -397,10 +397,10 @@ func TestLocalTransfer(t *testing.T) {
 // balance state.
 func initStateKeyAddr(
 	accountState AccountState,
-	privateKey keypair.PrivateKey,
+	privateKey crypto.PrivateKey,
 	initBalance *big.Int,
 	bc blockchain.Blockchain,
-) (keypair.PrivateKey, string, error) {
+) (crypto.PrivateKey, string, error) {
 	retKey := privateKey
 	retAddr := ""
 	switch accountState {
@@ -423,7 +423,7 @@ func initStateKeyAddr(
 		}
 		initBalance.Set(existBalance)
 	case AcntNotRegistered:
-		sk, err := keypair.GenerateKey()
+		sk, err := crypto.GenerateKey()
 		if err != nil {
 			return nil, "", err
 		}
@@ -460,8 +460,8 @@ func initExistingAccounts(
 
 }
 
-func getLocalKey(i int) keypair.PrivateKey {
-	sk, _ := keypair.HexStringToPrivateKey(localKeys[i])
+func getLocalKey(i int) crypto.PrivateKey {
+	sk, _ := crypto.HexStringToPrivateKey(localKeys[i])
 	return sk
 }
 
@@ -473,7 +473,7 @@ func preProcessTestCases(
 ) {
 	for i, tsfTest := range getSimpleTransferTests {
 		if tsfTest.senderAcntState == AcntCreate {
-			sk, err := keypair.GenerateKey()
+			sk, err := crypto.GenerateKey()
 			require.NoError(t, err)
 			addr, err := address.FromBytes(sk.PublicKey().Hash())
 			require.NoError(t, err)
@@ -482,7 +482,7 @@ func preProcessTestCases(
 			getSimpleTransferTests[i].senderPriKey = sk
 		}
 		if tsfTest.recvAcntState == AcntCreate {
-			sk, err := keypair.GenerateKey()
+			sk, err := crypto.GenerateKey()
 			require.NoError(t, err)
 			addr, err := address.FromBytes(sk.PublicKey().Hash())
 			require.NoError(t, err)

@@ -11,6 +11,8 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-fsm"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -23,9 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -229,7 +229,7 @@ type Builder struct {
 	cfg config.Config
 	// TODO: we should use keystore in the future
 	encodedAddr      string
-	priKey           keypair.PrivateKey
+	priKey           crypto.PrivateKey
 	chain            blockchain.Blockchain
 	actPool          actpool.ActPool
 	broadcastHandler scheme.Broadcast
@@ -257,7 +257,7 @@ func (b *Builder) SetAddr(encodedAddr string) *Builder {
 }
 
 // SetPriKey sets the private key
-func (b *Builder) SetPriKey(priKey keypair.PrivateKey) *Builder {
+func (b *Builder) SetPriKey(priKey crypto.PrivateKey) *Builder {
 	b.priKey = priKey
 	return b
 }

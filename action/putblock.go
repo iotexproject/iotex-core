@@ -10,13 +10,13 @@ import (
 	"sort"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // PutBlockIntrinsicGas is the instrinsic gas for put block action.
@@ -116,7 +116,7 @@ func (pb *PutBlock) Height() uint64 { return pb.height }
 func (pb *PutBlock) Roots() map[string]hash.Hash256 { return pb.roots }
 
 // ProducerPublicKey return producer public key.
-func (pb *PutBlock) ProducerPublicKey() keypair.PublicKey { return pb.SrcPubkey() }
+func (pb *PutBlock) ProducerPublicKey() crypto.PublicKey { return pb.SrcPubkey() }
 
 // ByteStream returns the byte representation of put block action.
 func (pb *PutBlock) ByteStream() []byte {

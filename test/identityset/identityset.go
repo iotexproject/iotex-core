@@ -7,10 +7,10 @@
 package identityset
 
 import (
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -48,8 +48,8 @@ var keyPortfolio = []string{
 func Size() int { return len(keyPortfolio) }
 
 // PrivateKey returns the i-th identity's private key
-func PrivateKey(i int) keypair.PrivateKey {
-	sk, err := keypair.HexStringToPrivateKey(keyPortfolio[i])
+func PrivateKey(i int) crypto.PrivateKey {
+	sk, err := crypto.HexStringToPrivateKey(keyPortfolio[i])
 	if err != nil {
 		log.L().Panic(
 			"Error when decoding private key string",

@@ -9,14 +9,14 @@ package testutil
 import (
 	"math/big"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 // SignedTransfer return a signed transfer
-func SignedTransfer(recipientAddr string, senderPriKey keypair.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
+func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
 	transfer, err := action.NewTransfer(nonce, amount, recipientAddr, payload, gasLimit, gasPrice)
 	if err != nil {
 		return action.SealedEnvelope{}, err
@@ -34,7 +34,7 @@ func SignedTransfer(recipientAddr string, senderPriKey keypair.PrivateKey, nonce
 }
 
 // SignedExecution return a signed execution
-func SignedExecution(contractAddr string, executorPriKey keypair.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (action.SealedEnvelope, error) {
+func SignedExecution(contractAddr string, executorPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (action.SealedEnvelope, error) {
 	execution, err := action.NewExecution(contractAddr, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
 		return action.SealedEnvelope{}, err

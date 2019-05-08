@@ -19,12 +19,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -34,7 +35,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -81,8 +81,8 @@ type ExecutionConfig struct {
 	ExpectedLogs            []Log             `json:"expectedLogs"`
 }
 
-func (cfg *ExecutionConfig) PrivateKey() keypair.PrivateKey {
-	priKey, err := keypair.HexStringToPrivateKey(cfg.RawPrivateKey)
+func (cfg *ExecutionConfig) PrivateKey() crypto.PrivateKey {
+	priKey, err := crypto.HexStringToPrivateKey(cfg.RawPrivateKey)
 	if err != nil {
 		log.L().Panic(
 			"invalid private key",

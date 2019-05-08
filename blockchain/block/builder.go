@@ -9,11 +9,11 @@ package block
 import (
 	"bytes"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
@@ -69,7 +69,7 @@ func (b *Builder) SetReceiptRoot(h hash.Hash256) *Builder {
 }
 
 // SignAndBuild signs and then builds a block.
-func (b *Builder) SignAndBuild(signerPrvKey keypair.PrivateKey) (Block, error) {
+func (b *Builder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, error) {
 	if !bytes.Equal(b.blk.Header.pubkey.Bytes(), signerPrvKey.PublicKey().Bytes()) {
 		return Block{}, errors.New("public key from the signer doesn't match that from runnable actions")
 	}

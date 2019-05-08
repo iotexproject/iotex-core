@@ -14,10 +14,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 func TestNewDefaultConfig(t *testing.T) {
@@ -45,7 +44,7 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 }
 
 func TestNewConfigWithOverride(t *testing.T) {
-	sk, err := keypair.GenerateKey()
+	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
 	cfgStr := fmt.Sprintf(`
 chain:
@@ -69,7 +68,7 @@ chain:
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
-	sk, err := keypair.GenerateKey()
+	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
 	cfgStr := fmt.Sprintf(`
 chain:
@@ -111,7 +110,7 @@ chain:
 func TestNewConfigWithLookupEnv(t *testing.T) {
 	oldEnv, oldExist := os.LookupEnv("IOTEX_TEST_NODE_TYPE")
 
-	sk, err := keypair.GenerateKey()
+	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
 	cfgStr := fmt.Sprintf(`
 chain:

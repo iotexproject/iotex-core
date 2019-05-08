@@ -11,29 +11,29 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"go.uber.org/zap"
-
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Header defines the struct of block header
 // make sure the variable type and order of this struct is same as "BlockHeaderPb" in blockchain.pb.go
 type Header struct {
-	version          uint32            // version
-	height           uint64            // block height
-	timestamp        time.Time         // propose timestamp
-	prevBlockHash    hash.Hash256      // hash of previous block
-	txRoot           hash.Hash256      // merkle root of all transactions
-	deltaStateDigest hash.Hash256      // digest of state change by this block
-	receiptRoot      hash.Hash256      // root of receipt trie
-	blockSig         []byte            // block signature
-	pubkey           keypair.PublicKey // block producer's public key
+	version          uint32           // version
+	height           uint64           // block height
+	timestamp        time.Time        // propose timestamp
+	prevBlockHash    hash.Hash256     // hash of previous block
+	txRoot           hash.Hash256     // merkle root of all transactions
+	deltaStateDigest hash.Hash256     // digest of state change by this block
+	receiptRoot      hash.Hash256     // root of receipt trie
+	blockSig         []byte           // block signature
+	pubkey           crypto.PublicKey // block producer's public key
 }
 
 // Version returns the version of this block.
@@ -55,7 +55,7 @@ func (h *Header) TxRoot() hash.Hash256 { return h.txRoot }
 func (h *Header) DeltaStateDigest() hash.Hash256 { return h.deltaStateDigest }
 
 // PublicKey returns the public key of this header.
-func (h *Header) PublicKey() keypair.PublicKey { return h.pubkey }
+func (h *Header) PublicKey() crypto.PublicKey { return h.pubkey }
 
 // ReceiptRoot returns the receipt root after apply this block
 func (h *Header) ReceiptRoot() hash.Hash256 { return h.receiptRoot }
@@ -97,7 +97,7 @@ func (h *Header) LoadFromBlockHeaderProto(pb *iotextypes.BlockHeader) error {
 	sig := pb.GetSignature()
 	h.blockSig = make([]byte, len(sig))
 	copy(h.blockSig, sig)
-	pubKey, err := keypair.BytesToPublicKey(pb.GetProducerPubkey())
+	pubKey, err := crypto.BytesToPublicKey(pb.GetProducerPubkey())
 	if err != nil {
 		return err
 	}

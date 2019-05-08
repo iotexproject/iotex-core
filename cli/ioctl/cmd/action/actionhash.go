@@ -14,19 +14,19 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // actionHashCmd represents the action hash command
@@ -116,7 +116,7 @@ func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
 }
 
 func printActionProto(action *iotextypes.Action) (string, error) {
-	pubKey, err := keypair.BytesToPublicKey(action.SenderPubKey)
+	pubKey, err := crypto.BytesToPublicKey(action.SenderPubKey)
 	if err != nil {
 		log.L().Error("failed to convert pubkey", zap.Error(err))
 		return "", err

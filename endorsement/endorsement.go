@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (
@@ -26,7 +26,7 @@ type (
 	// Endorsement defines an endorsement with timestamp
 	Endorsement struct {
 		ts        time.Time
-		endorser  keypair.PublicKey
+		endorser  crypto.PublicKey
 		signature []byte
 	}
 
@@ -51,7 +51,7 @@ func hashDocWithTime(doc Document, ts time.Time) ([]byte, error) {
 // NewEndorsement creates a new Endorsement
 func NewEndorsement(
 	ts time.Time,
-	endorserPubKey keypair.PublicKey,
+	endorserPubKey crypto.PublicKey,
 	sig []byte,
 ) *Endorsement {
 	cs := make([]byte, len(sig))
@@ -65,7 +65,7 @@ func NewEndorsement(
 
 // Endorse endorses a document
 func Endorse(
-	signer keypair.PrivateKey,
+	signer crypto.PrivateKey,
 	doc Document,
 	ts time.Time,
 ) (*Endorsement, error) {
@@ -101,7 +101,7 @@ func (en *Endorsement) Timestamp() time.Time {
 }
 
 // Endorser returns the endorser's public key
-func (en *Endorsement) Endorser() keypair.PublicKey {
+func (en *Endorsement) Endorser() crypto.PublicKey {
 	return en.endorser
 }
 
@@ -133,7 +133,7 @@ func (en *Endorsement) LoadProto(ePb *iotextypes.Endorsement) (err error) {
 	}
 	eb := make([]byte, len(ePb.Endorser))
 	copy(eb, ePb.Endorser)
-	if en.endorser, err = keypair.BytesToPublicKey(eb); err != nil {
+	if en.endorser, err = crypto.BytesToPublicKey(eb); err != nil {
 		return
 	}
 	en.signature = make([]byte, len(ePb.Signature))

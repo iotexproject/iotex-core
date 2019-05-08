@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
@@ -560,6 +560,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.System.EnableExperimentalActions = true
 	cfg.Genesis.EnableGravityChainVoting = false
 	sk, err := keypair.GenerateKey()
+
 	if err != nil {
 		return config.Config{}, err
 	}

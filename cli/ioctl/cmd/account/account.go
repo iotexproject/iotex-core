@@ -13,20 +13,20 @@ import (
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Errors
@@ -58,7 +58,7 @@ func init() {
 }
 
 // KsAccountToPrivateKey generates our PrivateKey interface from Keystore account
-func KsAccountToPrivateKey(signer, password string) (keypair.PrivateKey, error) {
+func KsAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 	addr, err := alias.Address(signer)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func KsAccountToPrivateKey(signer, password string) (keypair.PrivateKey, error) 
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, account := range ks.Accounts() {
 		if bytes.Equal(address.Bytes(), account.Address.Bytes()) {
-			return keypair.KeystoreToPrivateKey(account, password)
+			return crypto.KeystoreToPrivateKey(account, password)
 		}
 	}
 	return nil, fmt.Errorf("account #%s does not match all keys in keystore", signer)
@@ -148,7 +148,7 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 		return "", ErrPasswdNotMatch
 	}
 	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
-	priKey, err := keypair.HexStringToPrivateKey(privateKey)
+	priKey, err := crypto.HexStringToPrivateKey(privateKey)
 	if err != nil {
 		return "", err
 	}

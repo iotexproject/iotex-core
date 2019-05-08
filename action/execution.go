@@ -11,12 +11,12 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -62,7 +62,7 @@ func NewExecution(
 }
 
 // ExecutorPublicKey returns the executor's public key
-func (ex *Execution) ExecutorPublicKey() keypair.PublicKey {
+func (ex *Execution) ExecutorPublicKey() crypto.PublicKey {
 	return ex.SrcPubkey()
 }
 

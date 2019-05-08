@@ -7,8 +7,8 @@
 package testaddress
 
 import (
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 )
 
 var (
@@ -26,8 +26,8 @@ var (
 
 // Key indicates the public key and private key of an account
 type Key struct {
-	PubKey keypair.PublicKey
-	PriKey keypair.PrivateKey
+	PubKey crypto.PublicKey
+	PriKey crypto.PrivateKey
 }
 
 // Addrinfo contains the address information
@@ -40,7 +40,7 @@ func init() {
 	Addrinfo = make(map[string]address.Address)
 	Keyinfo = make(map[string]*Key)
 	for name, skStr := range testSKs {
-		priKey, _ := keypair.HexStringToPrivateKey(skStr)
+		priKey, _ := crypto.HexStringToPrivateKey(skStr)
 		pubKey := priKey.PublicKey()
 		Addrinfo[name], _ = address.FromBytes(pubKey.Hash())
 		Keyinfo[name] = &Key{PubKey: pubKey, PriKey: priKey}
