@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
@@ -91,7 +90,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
 	// Install protocols
-	if err := registerDefaultProtocols(cs, cfg.Genesis); err != nil {
+	if err := registerDefaultProtocols(cs, cfg); err != nil {
 		return nil, err
 	}
 	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
@@ -178,7 +177,7 @@ func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Opti
 		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
 		)
-	if err := registerDefaultProtocols(cs, cfg.Genesis); err != nil {
+	if err := registerDefaultProtocols(cs, cfg); err != nil {
 		return err
 	}
 	s.chainservices[cs.ChainID()] = cs
@@ -271,7 +270,8 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	}
 }
 
-func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genesis.Genesis) (err error) {
+func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) (err error) {
+	genesisConfig := cfg.Genesis
 	accountProtocol := account.NewProtocol()
 	if err = cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return
@@ -280,7 +280,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, genesisConfig genes
 	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
 		return
 	}
-	if genesisConfig.EnableGravityChainVoting {
+	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
 		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol

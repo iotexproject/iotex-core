@@ -366,7 +366,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.Genesis.BlockInterval = time.Second
 		cfg.Genesis.Blockchain.NumDelegates = uint64(numNodes)
 		cfg.Genesis.Blockchain.NumSubEpochs = 1
-
+		cfg.Genesis.EnableGravityChainVoting = false
 		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
