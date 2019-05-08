@@ -1303,7 +1303,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
 		return err
 	}
-	if bc.config.Consensus.Scheme != config.StandaloneScheme {
+	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
 		if err := bc.createPollGenesisStates(ctx, ws); err != nil {
 			return err
 		}
