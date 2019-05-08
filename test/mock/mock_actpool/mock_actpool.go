@@ -5,12 +5,11 @@
 package mock_actpool
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
+	reflect "reflect"
 )
 
 // MockActPool is a mock of ActPool interface
