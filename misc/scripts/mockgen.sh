@@ -79,7 +79,7 @@ mockgen -destination=./test/mock/mock_chainmanager/mock_chainmanager.go  \
 
 mkdir -p ./test/mock/mock_apiserviceclient
 mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go  \
-        -source=./api/apiserviceclient/apiserviceclient.go \
+        -source=./api/apitestclient.go \
         -package=mock_apiserviceclient \
         APIServiceClient
 

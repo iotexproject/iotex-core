@@ -1,4 +1,4 @@
-package apiserviceclient
+package api
 
 import (
 	"context"
@@ -7,10 +7,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-// APIServiceClient is the api service client interface corresponding to the one in iotex-proto.
+// ServiceClient is the api service client interface corresponding to the one in github.com/iotexproject/iotex-proto.
 // This interface is used by mockgen for test purposes.
 // Remember to update it whenever definitions in api.proto change.
-type APIServiceClient interface {
+type ServiceClient interface {
 	// get the address detail of an address
 	GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest, opts ...grpc.CallOption) (*iotexapi.GetAccountResponse, error)
 	// get action(s) by:
