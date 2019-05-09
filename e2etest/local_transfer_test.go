@@ -279,6 +279,7 @@ func TestLocalTransfer(t *testing.T) {
 	// Start server
 	go itx.StartServer(context.Background(), svr, probeSvr, cfg)
 	defer func() {
+		require.Nil(probeSvr.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
 	}()
 
