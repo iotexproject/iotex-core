@@ -27,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -744,6 +744,7 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		ws,
 		ex,
 		bc,
+		bc.config.Genesis.PacificBlockHeight,
 	)
 }
 

@@ -196,7 +196,7 @@ func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
 	a := testaddress.Addrinfo["alfa"].String()
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
@@ -262,7 +262,7 @@ func testNonce(sf Factory, t *testing.T) {
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
 	b := testaddress.Addrinfo["bravo"].String()
 
-	sf.AddActionHandlers(account.NewProtocol(), account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0), account.NewProtocol(0))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
@@ -407,7 +407,7 @@ func TestRunActions(t *testing.T) {
 }
 
 func TestSTXRunActions(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(0)})
 	testRunActions(ws, t)
 }
 
@@ -464,7 +464,7 @@ func TestCachedBatch(t *testing.T) {
 }
 
 func TestSTXCachedBatch(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(0)})
 	testCachedBatch(ws, t, true)
 }
 
@@ -514,7 +514,7 @@ func TestGetDB(t *testing.T) {
 }
 
 func TestSTXGetDB(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(0)})
 	testGetDB(ws, t)
 }
 
@@ -624,7 +624,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 	}
 	nonces := make([]uint64, len(accounts))
 
-	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0))
 	if err := sf.Start(context.Background()); err != nil {
 		b.Fatal(err)
 	}

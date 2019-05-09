@@ -171,7 +171,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
 	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(0)
 	registry.Register(account.ProtocolID, acc)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
 	chain.Validator().AddActionValidators(acc, rewardingProtocol)
