@@ -488,6 +488,11 @@ func (api *Server) GetRawBlocks(
 	return &iotexapi.GetRawBlocksResponse{Blocks: res}, nil
 }
 
+func (api *Server) GetActionsByAddress(
+	ctx context.Context, in *iotexapi.GetActionsByAddressRequest) (*iotexapi.GetActionsResponse, error) {
+	return api.getActionsByAddress(in.Address, in.Start, in.Count)
+}
+
 // Start starts the API server
 func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.Port)

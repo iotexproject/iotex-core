@@ -44,4 +44,6 @@ type ServiceClient interface {
 	GetEpochMeta(ctx context.Context, in *iotexapi.GetEpochMetaRequest, opts ...grpc.CallOption) (*iotexapi.GetEpochMetaResponse, error)
 	// get raw blocks data
 	GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBlocksRequest, opts ...grpc.CallOption) (*iotexapi.GetRawBlocksResponse, error)
+	// get actions by addr
+	GetActionsByAddress(ctx context.Context, in *iotexapi.GetActionsByAddressRequest, opts ...grpc.CallOption) (*iotexapi.GetActionsResponse, error)
 }

@@ -268,3 +268,21 @@ func (mr *MockServiceClientMockRecorder) GetRawBlocks(ctx, in interface{}, opts 
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawBlocks", reflect.TypeOf((*MockServiceClient)(nil).GetRawBlocks), varargs...)
 }
+
+// GetActionsByAddress mocks base method
+func (m *MockServiceClient) GetActionsByAddress(ctx context.Context, in *iotexapi.GetActionsByAddressRequest, opts ...grpc.CallOption) (*iotexapi.GetActionsResponse, error) {
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetActionsByAddress", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetActionsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActionsByAddress indicates an expected call of GetActionsByAddress
+func (mr *MockServiceClientMockRecorder) GetActionsByAddress(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionsByAddress", reflect.TypeOf((*MockServiceClient)(nil).GetActionsByAddress), varargs...)
+}
