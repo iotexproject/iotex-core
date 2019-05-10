@@ -172,7 +172,7 @@ func (api *Server) GetActions(ctx context.Context, in *iotexapi.GetActionsReques
 		request := in.GetByBlk()
 		return api.getActionsByBlock(request.BlkHash, request.Start, request.Count)
 	default:
-		return nil, nil
+		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
 }
 
@@ -186,7 +186,7 @@ func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetas
 		request := in.GetByHash()
 		return api.getBlockMeta(request.BlkHash)
 	default:
-		return nil, nil
+		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
 }
 
@@ -452,7 +452,7 @@ func (api *Server) GetRawBlocks(
 	ctx context.Context,
 	in *iotexapi.GetRawBlocksRequest,
 ) (*iotexapi.GetRawBlocksResponse, error) {
-	if in.Count > api.cfg.RangeQueryLimit {
+	if in.Count == 0 || in.Count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -488,6 +488,7 @@ func (api *Server) GetRawBlocks(
 	return &iotexapi.GetRawBlocksResponse{Blocks: res}, nil
 }
 
+// GetActionsByAddress returns actions by address
 func (api *Server) GetActionsByAddress(
 	ctx context.Context, in *iotexapi.GetActionsByAddressRequest) (*iotexapi.GetActionsResponse, error) {
 	return api.getActionsByAddress(in.Address, in.Start, in.Count)
@@ -545,38 +546,49 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
+	totalActions, err := api.bc.GetTotalActions()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if start >= totalActions {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
-	var actionCount uint64
-	tipHeight := api.bc.TipHeight()
-	for height := 1; height <= int(tipHeight); height++ {
-		blk, err := api.bc.GetBlockByHeight(uint64(height))
+	var hit bool
+	for height := uint64(1); height <= api.bc.TipHeight() && count > 0; height++ {
+		blk, err := api.bc.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		selps := blk.Actions
-		for i := 0; i < len(selps); i++ {
-			actionCount++
-
-			if actionCount <= start {
-				continue
+		if !hit && start >= uint64(len(selps)) {
+			start -= uint64(len(selps))
+			continue
+		}
+		for i := 0; i < len(selps) && count > 0; i++ {
+			if !hit {
+				hit = uint64(i) >= start
 			}
-
-			if uint64(len(res)) >= count {
-				return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+			if !hit {
+				continue
 			}
 			act, err := api.convertToAction(selps[i], true)
 			if err != nil {
-				return nil, err
+				continue
 			}
 			res = append(res, act)
+			count--
 		}
 	}
-
-	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+	return &iotexapi.GetActionsResponse{
+		Total:      totalActions,
+		ActionInfo: res,
+	}, nil
 }
 
 // getSingleAction returns action by action hash
@@ -589,75 +601,68 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
-	return &iotexapi.GetActionsResponse{ActionInfo: []*iotexapi.ActionInfo{act}}, nil
+	return &iotexapi.GetActionsResponse{
+		Total:      1,
+		ActionInfo: []*iotexapi.ActionInfo{act},
+	}, nil
 }
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	var res []*iotexapi.ActionInfo
 	actions, err := api.getTotalActionsByAddress(address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	var actionCount uint64
-	for i := 0; i < len(actions); i++ {
-		actionCount++
-
-		if actionCount <= start {
-			continue
-		}
-
-		if uint64(len(res)) >= count {
-			break
-		}
-
-		act, err := api.getAction(actions[i], false)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-
-		res = append(res, act)
+	if start >= uint64(len(actions)) {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
-	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+	var res []*iotexapi.ActionInfo
+	for i := start; i < uint64(len(actions)) && i < start+count; i++ {
+		act, err := api.getAction(actions[i], false)
+		if err != nil {
+			continue
+		}
+		res = append(res, act)
+	}
+	return &iotexapi.GetActionsResponse{
+		Total:      uint64(len(actions)),
+		ActionInfo: res,
+	}, nil
 }
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	var res []*iotexapi.ActionInfo
-	var actionCount uint64
 	selps := api.ap.GetUnconfirmedActs(address)
-	for i := 0; i < len(selps); i++ {
-		actionCount++
+	if start >= uint64(len(selps)) {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+	}
 
-		if actionCount <= start {
-			continue
-		}
-
-		if uint64(len(res)) >= count {
-			break
-		}
+	var res []*iotexapi.ActionInfo
+	for i := start; i < start+uint64(len(selps)) && i < start+count; i++ {
 		act, err := api.convertToAction(selps[i], false)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		res = append(res, act)
 	}
-
-	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+	return &iotexapi.GetActionsResponse{
+		Total:      uint64(len(selps)),
+		ActionInfo: res,
+	}, nil
 }
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -666,32 +671,26 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	blk, err := api.bc.GetBlockByHash(hash)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-
 	selps := blk.Actions
-	var actionCount uint64
-	for i := 0; i < len(selps); i++ {
-		actionCount++
+	if start >= uint64(len(selps)) {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+	}
 
-		if actionCount <= start {
-			continue
-		}
-
-		if uint64(len(res)) >= count {
-			break
-		}
-
+	for i := start; i < start+uint64(len(selps)) && i < start+count; i++ {
 		act, err := api.convertToAction(selps[i], true)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		res = append(res, act)
 	}
-	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+	return &iotexapi.GetActionsResponse{
+		Total:      uint64(len(selps)),
+		ActionInfo: res,
+	}, nil
 }
 
 // getBlockMetas gets block within the height range
