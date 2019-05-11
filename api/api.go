@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
@@ -694,8 +695,8 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 }
 
 // getBlockMetas gets block within the height range
-func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
-	if number > api.cfg.RangeQueryLimit {
+func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlockMetasResponse, error) {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -704,17 +705,14 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
 	var res []*iotextypes.BlockMeta
-	for height := int(start); height <= int(tipHeight); height++ {
-		if uint64(len(res)) >= number {
-			break
-		}
-		blk, err := api.bc.GetBlockByHeight(uint64(height))
+	for height := start; height <= tipHeight && count > 0; height++ {
+		blk, err := api.bc.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		blockHeaderPb := blk.ConvertToBlockHeaderPb()
 
 		hash := blk.HashBlock()
+		ts, _ := ptypes.TimestampProto(blk.Header.Timestamp())
 		txRoot := blk.TxRoot()
 		receiptRoot := blk.ReceiptRoot()
 		deltaStateDigest := blk.DeltaStateDigest()
@@ -723,7 +721,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		blockMeta := &iotextypes.BlockMeta{
 			Hash:             hex.EncodeToString(hash[:]),
 			Height:           blk.Height(),
-			Timestamp:        blockHeaderPb.GetCore().GetTimestamp(),
+			Timestamp:        ts,
 			NumActions:       int64(len(blk.Actions)),
 			ProducerAddress:  blk.ProducerAddress(),
 			TransferAmount:   transferAmount.String(),
@@ -731,11 +729,13 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 			ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
 			DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 		}
-
 		res = append(res, blockMeta)
+		count--
 	}
-
-	return &iotexapi.GetBlockMetasResponse{BlkMetas: res}, nil
+	return &iotexapi.GetBlockMetasResponse{
+		Total:    tipHeight,
+		BlkMetas: res,
+	}, nil
 }
 
 // getBlockMeta returns block by block hash
@@ -744,13 +744,12 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	blk, err := api.bc.GetBlockByHash(hash)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	blkHeaderPb := blk.ConvertToBlockHeaderPb()
+	ts, _ := ptypes.TimestampProto(blk.Header.Timestamp())
 	txRoot := blk.TxRoot()
 	receiptRoot := blk.ReceiptRoot()
 	deltaStateDigest := blk.DeltaStateDigest()
@@ -759,7 +758,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	blockMeta := &iotextypes.BlockMeta{
 		Hash:             blkHash,
 		Height:           blk.Height(),
-		Timestamp:        blkHeaderPb.GetCore().GetTimestamp(),
+		Timestamp:        ts,
 		NumActions:       int64(len(blk.Actions)),
 		ProducerAddress:  blk.ProducerAddress(),
 		TransferAmount:   transferAmount.String(),
@@ -767,8 +766,10 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 		ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 	}
-
-	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iotextypes.BlockMeta{blockMeta}}, nil
+	return &iotexapi.GetBlockMetasResponse{
+		Total:    1,
+		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
+	}, nil
 }
 
 func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
