@@ -9,24 +9,26 @@ package account
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Errors
@@ -47,14 +49,32 @@ func init() {
 	AccountCmd.AddCommand(accountDeleteCmd)
 	AccountCmd.AddCommand(accountEthaddrCmd)
 	AccountCmd.AddCommand(accountExportCmd)
+	AccountCmd.AddCommand(accountExportPublicCmd)
 	AccountCmd.AddCommand(accountImportCmd)
 	AccountCmd.AddCommand(accountListCmd)
 	AccountCmd.AddCommand(accountNonceCmd)
 	AccountCmd.AddCommand(accountUpdateCmd)
+	AccountCmd.AddCommand(accountSignCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
 		"insecure connection for once")
+}
+
+// Sign sign message with signer
+func Sign(signer, password, message string) (signedMessage string, err error) {
+	pri, err := KsAccountToPrivateKey(signer, password)
+	if err != nil {
+		return
+	}
+	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message)
+	mes := ethcrypto.Keccak256([]byte(msg))
+	ret, err := pri.Sign([]byte(mes))
+	if err != nil {
+		return
+	}
+	signedMessage = hex.EncodeToString(ret)
+	return
 }
 
 // KsAccountToPrivateKey generates our PrivateKey interface from Keystore account
