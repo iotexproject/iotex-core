@@ -17,6 +17,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -40,8 +42,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -792,6 +792,7 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
 	blkHash := hash.ZeroHash256
+	blkHeight := uint64(0)
 	var timeStamp *timestamp.Timestamp
 	var err error
 	if pullBlkHash {
@@ -802,12 +803,14 @@ func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool)
 		if err != nil {
 			return nil, err
 		}
+		blkHeight = blk.Height()
 		timeStamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 	}
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
 		ActHash:   hex.EncodeToString(actHash[:]),
 		BlkHash:   hex.EncodeToString(blkHash[:]),
+		BlkHeight: blkHeight,
 		Timestamp: timeStamp,
 	}, nil
 }
