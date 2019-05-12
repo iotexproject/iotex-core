@@ -67,9 +67,19 @@ func Sign(signer, password, message string) (signedMessage string, err error) {
 	if err != nil {
 		return
 	}
-	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message)
-	mes := hash.Hash256b([]byte(msg))
-	ret, err := pri.Sign([]byte(mes[:]))
+	mes := message
+	head := message[:2]
+	if strings.EqualFold(head, "0x") {
+		mes = message[2:]
+	}
+	b, err := hex.DecodeString(mes)
+	if err != nil {
+		return
+	}
+	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(b))
+	msg := append([]byte(prefix), b...)
+	mesToSign := hash.Hash256b(msg)
+	ret, err := pri.Sign(mesToSign[:])
 	if err != nil {
 		return
 	}
