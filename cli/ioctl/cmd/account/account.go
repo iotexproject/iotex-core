@@ -14,21 +14,21 @@ import (
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Errors
@@ -68,8 +68,8 @@ func Sign(signer, password, message string) (signedMessage string, err error) {
 		return
 	}
 	msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message)
-	mes := ethcrypto.Keccak256([]byte(msg))
-	ret, err := pri.Sign([]byte(mes))
+	mes := hash.Hash256b([]byte(msg))
+	ret, err := pri.Sign([]byte(mes[:]))
 	if err != nil {
 		return
 	}
