@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
