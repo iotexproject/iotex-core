@@ -660,10 +660,12 @@ func TestServer_GetAction(t *testing.T) {
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
 			require.Equal(hex.EncodeToString(blkHash[:]), act.BlkHash)
+			require.Equal(test.blkNumber, act.BlkHeight)
 			require.Equal(timeStamp, act.Timestamp)
 		} else {
 			require.Equal(hex.EncodeToString(hash.ZeroHash256[:]), act.BlkHash)
 			require.Nil(act.Timestamp)
+			require.Equal(uint64(0), act.BlkHeight)
 		}
 	}
 }
@@ -736,6 +738,7 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
+		require.Equal(test.blkHeight, res.ActionInfo[0].BlkHeight)
 		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
