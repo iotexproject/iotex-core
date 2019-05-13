@@ -9,11 +9,14 @@ package account
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
+	"strings"
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -47,14 +50,42 @@ func init() {
 	AccountCmd.AddCommand(accountDeleteCmd)
 	AccountCmd.AddCommand(accountEthaddrCmd)
 	AccountCmd.AddCommand(accountExportCmd)
+	AccountCmd.AddCommand(accountExportPublicCmd)
 	AccountCmd.AddCommand(accountImportCmd)
 	AccountCmd.AddCommand(accountListCmd)
 	AccountCmd.AddCommand(accountNonceCmd)
 	AccountCmd.AddCommand(accountUpdateCmd)
+	AccountCmd.AddCommand(accountSignCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
 		"insecure connection for once")
+}
+
+// Sign sign message with signer
+func Sign(signer, password, message string) (signedMessage string, err error) {
+	pri, err := KsAccountToPrivateKey(signer, password)
+	if err != nil {
+		return
+	}
+	mes := message
+	head := message[:2]
+	if strings.EqualFold(head, "0x") {
+		mes = message[2:]
+	}
+	b, err := hex.DecodeString(mes)
+	if err != nil {
+		return
+	}
+	prefix := fmt.Sprintf("\x19Ethereum Signed Message:\n%d", len(b))
+	msg := append([]byte(prefix), b...)
+	mesToSign := hash.Hash256b(msg)
+	ret, err := pri.Sign(mesToSign[:])
+	if err != nil {
+		return
+	}
+	signedMessage = hex.EncodeToString(ret)
+	return
 }
 
 // KsAccountToPrivateKey generates our PrivateKey interface from Keystore account
