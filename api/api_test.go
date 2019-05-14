@@ -690,6 +690,7 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		require.Equal(test.address, res.ActionInfo[0].Sender)
 	}
 }
 
@@ -713,6 +714,7 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		require.Equal(test.address, res.ActionInfo[0].Sender)
 	}
 }
 

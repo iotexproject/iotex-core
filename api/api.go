@@ -793,6 +793,7 @@ func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool)
 	actHash := selp.Hash()
 	blkHash := hash.ZeroHash256
 	blkHeight := uint64(0)
+	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 	var timeStamp *timestamp.Timestamp
 	var err error
 	if pullBlkHash {
@@ -811,6 +812,7 @@ func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool)
 		ActHash:   hex.EncodeToString(actHash[:]),
 		BlkHash:   hex.EncodeToString(blkHash[:]),
 		BlkHeight: blkHeight,
+		Sender:    sender.String(),
 		Timestamp: timeStamp,
 	}, nil
 }

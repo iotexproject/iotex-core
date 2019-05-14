@@ -331,8 +331,7 @@
   version = "v0.1.8"
 
 [[projects]]
-  branch = "master"
-  digest = "1:ee2f2131b8660779228f67750b7cf0a05f52d74113ebfe818c4231af64709e7e"
+  digest = "1:4b36ae2b68a526b78c6a965e2d02df523701de118f5f9a7ccf7902e68dc8ef2f"
   name = "github.com/iotexproject/iotex-proto"
   packages = [
     "golang",
@@ -342,7 +341,8 @@
     "golang/testingpb",
   ]
   pruneopts = "UT"
-  revision = "507894271007d423cad51b9723a2646b6eb4ecca"
+  revision = "2e9aaf878bbdfa86efe06ddbbe2c6e63e91d70b1"
+  version = "v0.2.0"
 
 [[projects]]
   digest = "1:ff780041e005869242b2cf977f1d4fa3b8f9bdd302fd254b4a19f78502a6ee10"
