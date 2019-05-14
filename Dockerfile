@@ -1,18 +1,23 @@
-FROM golang:1.11.5-stretch
+FROM golang:1.12.5-stretch
 
-WORKDIR $GOPATH/src/github.com/iotexproject/iotex-core/
+WORKDIR apps/iotex-core
 
 RUN apt-get install -y --no-install-recommends make
+
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download
 
 COPY . .
 
 RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
     make clean build && \
-    cp $GOPATH/src/github.com/iotexproject/iotex-core/bin/server /usr/local/bin/iotex-server  && \
-    cp $GOPATH/src/github.com/iotexproject/iotex-core/bin/actioninjectorv2 /usr/local/bin/iotex-actioninjectorv2 && \
-    cp $GOPATH/src/github.com/iotexproject/iotex-core/bin/addrgen /usr/local/bin/iotex-addrgen && \
-    cp $GOPATH/src/github.com/iotexproject/iotex-core/bin/ioctl /usr/local/bin/ioctl && \
+    cp ./bin/server /usr/local/bin/iotex-server  && \
+    cp ./bin/actioninjectorv2 /usr/local/bin/iotex-actioninjectorv2 && \
+    cp ./bin/addrgen /usr/local/bin/iotex-addrgen && \
+    cp ./bin/ioctl /usr/local/bin/ioctl && \
     mkdir -p /etc/iotex/ && \
-    rm -rf $GOPATH/src/github.com/iotexproject/iotex-core/
+    rm -rf apps/iotex-core/
 
 CMD [ "iotex-server"]
