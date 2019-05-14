@@ -19,7 +19,7 @@ jobs:
   build_test_docker:
     docker:
       - image: iotex/iotex-core-ci:latest
-    working_directory: apps/iotex-core
+    working_directory: ~/apps/iotex-core
     resource_class: large
     steps:
       - checkout
