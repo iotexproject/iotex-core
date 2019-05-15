@@ -33,6 +33,8 @@ jobs:
   build_test_darwin:
     macos:
       xcode: "10.2.0"   # not supported > 10.2.0
+    environment:
+      PATH: $PATH:/usr/local/go/bin
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
 #     resource_class: medium+
     steps:
@@ -45,7 +47,7 @@ jobs:
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
-      - run: go mod download
+      - run: export PATH=$PATH:/usr/local/go/bin && go mod download
       - run: go mod vendor
       - save_cache:
           key: go-mod-v1-{{ checksum "go.sum" }}
@@ -168,7 +170,7 @@ workflows:
   version: 2
   commit:
     jobs:
-      - build_test_ubuntu
+      #- build_test_ubuntu
       - build_test_darwin
       #- build_test_docker
 
