@@ -31,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -259,25 +258,22 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol(0)
-	r.NoError(registry.Register(account.ProtocolID, acc))
+	acc := account.NewProtocol()
+	registry.Register(account.ProtocolID, acc)
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	registry.Register(rolldpos.ProtocolID, rp)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemDaoOption(),
 		blockchain.InMemStateFactoryOption(),
 		blockchain.RegistryOption(&registry),
 	)
-	reward := rewarding.NewProtocol(bc, rp)
-	r.NoError(registry.Register(rewarding.ProtocolID, reward))
-
 	r.NotNil(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, 0), reward)
+	bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 	sf := bc.GetFactory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(NewProtocol(bc, 0), reward)
+	sf.AddActionHandlers(NewProtocol(bc))
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
@@ -412,10 +408,10 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
 		registry := protocol.Registry{}
-		acc := account.NewProtocol(0)
-		require.NoError(registry.Register(account.ProtocolID, acc))
+		acc := account.NewProtocol()
+		registry.Register(account.ProtocolID, acc)
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+		registry.Register(rolldpos.ProtocolID, rp)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
@@ -423,10 +419,10 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-		bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, 0))
+		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
-		sf.AddActionHandlers(NewProtocol(bc, 0))
+		sf.AddActionHandlers(NewProtocol(bc))
 
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
@@ -695,7 +691,7 @@ func TestProtocol_Validate(t *testing.T) {
 	defer ctrl.Finish()
 
 	mbc := mock_blockchain.NewMockBlockchain(ctrl)
-	protocol := NewProtocol(mbc, 0)
+	protocol := NewProtocol(mbc)
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	data := tmpPayload[:]

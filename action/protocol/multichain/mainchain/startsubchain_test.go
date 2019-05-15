@@ -345,7 +345,7 @@ func TestStartSubChainInGenesis(t *testing.T) {
 
 	ctx := context.Background()
 	registry := protocol.Registry{}
-	acc := account.NewProtocol(0)
+	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
 	bc := blockchain.NewBlockchain(
 		cfg,

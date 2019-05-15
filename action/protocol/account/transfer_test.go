@@ -12,19 +12,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -43,36 +39,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 
-	p := NewProtocol(0)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	cm := mock_chainmanager.NewMockChainManager(ctrl)
-	reward := rewarding.NewProtocol(cm, rolldpos.NewProtocol(1, 1, 1))
-	registry := protocol.Registry{}
-	require.NoError(registry.Register(rewarding.ProtocolID, reward))
-	require.NoError(
-		reward.Initialize(
-			protocol.WithRunActionsCtx(context.Background(),
-				protocol.RunActionsCtx{
-					BlockHeight: 0,
-					Producer:    testaddress.Addrinfo["producer"],
-					Caller:      testaddress.Addrinfo["alfa"],
-					GasLimit:    testutil.TestGasLimit,
-					Registry:    &registry,
-				}),
-			ws,
-			big.NewInt(0),
-			big.NewInt(0),
-			big.NewInt(0),
-			1,
-			nil,
-			big.NewInt(0),
-			0,
-			0,
-			0,
-		),
-	)
+	p := NewProtocol()
 
 	accountAlfa := state.Account{
 		Balance: big.NewInt(50005),
@@ -100,12 +67,10 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			BlockHeight:  1,
 			Producer:     testaddress.Addrinfo["producer"],
 			Caller:       testaddress.Addrinfo["alfa"],
 			GasLimit:     testutil.TestGasLimit,
 			IntrinsicGas: gas,
-			Registry:     &registry,
 		})
 	receipt, err := p.Handle(ctx, transfer, ws)
 	require.NoError(err)
@@ -145,7 +110,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
-	protocol := NewProtocol(0)
+	protocol := NewProtocol()
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]

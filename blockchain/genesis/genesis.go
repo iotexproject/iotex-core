@@ -46,7 +46,6 @@ func defaultConfig() Genesis {
 			NumDelegates:          24,
 			NumCandidateDelegates: 36,
 			TimeBasedRotation:     false,
-			PacificBlockHeight:    2419200,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -69,7 +68,6 @@ func defaultConfig() Genesis {
 
 func initTestDefaultConfig() {
 	Default = defaultConfig()
-	Default.PacificBlockHeight = 0
 	for i := 0; i < identityset.Size(); i++ {
 		addr := identityset.Address(i).String()
 		value := unit.ConvertIotxToRau(100000000).String()
@@ -111,9 +109,6 @@ type (
 		NumCandidateDelegates uint64 `yaml:"numCandidateDelegates"`
 		// TimeBasedRotation is the flag to enable rotating delegates' time slots on a block height
 		TimeBasedRotation bool `yaml:"timeBasedRotation"`
-		// PacificBlockHeight is the start height of using the logic of Pacific version
-		// TODO: PacificBlockHeight is not added into protobuf definition for backward compatibility
-		PacificBlockHeight uint64 `yaml:"pacificHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
