@@ -175,8 +175,8 @@ workflows:
   commit:
     jobs:
       #- build_test_ubuntu
-      - build_test_darwin
-      #- build_test_docker
+      #- build_test_darwin
+      - build_test_docker
 
   scheduled-workflow:
     triggers:
