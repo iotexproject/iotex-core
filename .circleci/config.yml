@@ -34,7 +34,7 @@ jobs:
     macos:
       xcode: "10.2.0"   # not supported > 10.2.0
 
-    working_directory: ~/go/src/github.com/iotexproject/iotex-core
+    working_directory: ~/iotex-core
 #     resource_class: medium+
     steps:
       - checkout
@@ -46,8 +46,12 @@ jobs:
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
-      - run: export PATH=$PATH:/usr/local/go/bin && go mod download
-      - run: export PATH=$PATH:/usr/local/go/bin && go mod vendor
+      - run: 
+          name: go mod
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            go mod download
+            go mod vendor
       - save_cache:
           key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
@@ -55,7 +59,7 @@ jobs:
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
-            export PATH=$PATH:/usr/local/go/bin &&
+            export PATH=$PATH:/usr/local/go/bin
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
             go test -run=XXX -bench=. $(go list ./crypto)
@@ -64,7 +68,7 @@ jobs:
   build_test_ubuntu:
     machine:
       image: circleci/classic:latest
-    working_directory: ~/go/src/github.com/iotexproject/iotex-core
+    working_directory: ~/iotex-core
     steps:
       - checkout
       - run: 
