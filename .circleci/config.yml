@@ -33,8 +33,7 @@ jobs:
   build_test_darwin:
     macos:
       xcode: "10.2.0"   # not supported > 10.2.0
-    environment:
-      PATH: $PATH:/usr/local/go/bin
+
     working_directory: ~/go/src/github.com/iotexproject/iotex-core
 #     resource_class: medium+
     steps:
@@ -48,7 +47,7 @@ jobs:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
       - run: export PATH=$PATH:/usr/local/go/bin && go mod download
-      - run: go mod vendor
+      - run: export PATH=$PATH:/usr/local/go/bin && go mod vendor
       - save_cache:
           key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
@@ -56,6 +55,7 @@ jobs:
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
+            export PATH=$PATH:/usr/local/go/bin &&
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
             go test -run=XXX -bench=. $(go list ./crypto)
