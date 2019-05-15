@@ -15,7 +15,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -301,7 +300,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 
 // GetReceiptByAction gets receipt with corresponding action hash
 func (api *Server) GetReceiptByAction(ctx context.Context, in *iotexapi.GetReceiptByActionRequest) (*iotexapi.GetReceiptByActionResponse, error) {
-	actHash, err := toHash256(in.ActionHash)
+	actHash, err := hash.HexStringToHash256(in.ActionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -578,7 +577,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 			if !hit {
 				continue
 			}
-			act, err := api.convertToAction(selps[i], true)
+			act, err := api.committedAction(selps[i])
 			if err != nil {
 				continue
 			}
@@ -594,7 +593,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 
 // getSingleAction returns action by action hash
 func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotexapi.GetActionsResponse, error) {
-	actHash, err := toHash256(actionHash)
+	actHash, err := hash.HexStringToHash256(actionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -648,8 +647,8 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 	}
 
 	var res []*iotexapi.ActionInfo
-	for i := start; i < start+uint64(len(selps)) && i < start+count; i++ {
-		act, err := api.convertToAction(selps[i], false)
+	for i := start; i < uint64(len(selps)) && i < start+count; i++ {
+		act, err := api.pendingAction(selps[i])
 		if err != nil {
 			continue
 		}
@@ -668,7 +667,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	}
 
 	var res []*iotexapi.ActionInfo
-	hash, err := toHash256(blkHash)
+	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -682,7 +681,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	}
 
 	for i := start; i < start+uint64(len(selps)) && i < start+count; i++ {
-		act, err := api.convertToAction(selps[i], true)
+		act, err := api.committedAction(selps[i])
 		if err != nil {
 			continue
 		}
@@ -740,7 +739,7 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 
 // getBlockMeta returns block by block hash
 func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse, error) {
-	hash, err := toHash256(blkHash)
+	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -789,52 +788,57 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 	return gravityChainStartHeight, nil
 }
 
-func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
+func (api *Server) committedAction(selp action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
-	blkHash := hash.ZeroHash256
-	blkHeight := uint64(0)
-	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
-	var timeStamp *timestamp.Timestamp
-	var err error
-	if pullBlkHash {
-		if blkHash, err = api.bc.GetBlockHashByActionHash(actHash); err != nil {
-			return nil, err
-		}
-		blk, err := api.bc.GetBlockByHash(blkHash)
-		if err != nil {
-			return nil, err
-		}
-		blkHeight = blk.Height()
-		timeStamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
+	blkHash, err := api.bc.GetBlockHashByActionHash(actHash)
+	if err != nil {
+		return nil, err
 	}
+	header, err := api.bc.BlockHeaderByHash(blkHash)
+	if err != nil {
+		return nil, err
+	}
+	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
 		ActHash:   hex.EncodeToString(actHash[:]),
 		BlkHash:   hex.EncodeToString(blkHash[:]),
-		BlkHeight: blkHeight,
+		BlkHeight: header.Height(),
 		Sender:    sender.String(),
-		Timestamp: timeStamp,
+		Timestamp: header.BlockHeaderCoreProto().Timestamp,
+	}, nil
+}
+
+func (api *Server) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionInfo, error) {
+	actHash := selp.Hash()
+	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+	return &iotexapi.ActionInfo{
+		Action:    selp.Proto(),
+		ActHash:   hex.EncodeToString(actHash[:]),
+		BlkHash:   hex.EncodeToString(hash.ZeroHash256[:]),
+		BlkHeight: 0,
+		Sender:    sender.String(),
+		Timestamp: nil,
 	}, nil
 }
 
 func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
-	var selp action.SealedEnvelope
-	var err error
-	if selp, err = api.bc.GetActionByActionHash(actHash); err != nil {
-		if checkPending {
-			// Try to fetch pending action from actpool
-			selp, err = api.ap.GetActionByHash(actHash)
-		}
+	selp, err := api.bc.GetActionByActionHash(actHash)
+	if err == nil {
+		return api.committedAction(selp)
+	}
+	// Try to fetch pending action from actpool
+	if checkPending {
+		selp, err = api.ap.GetActionByHash(actHash)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return api.convertToAction(selp, !checkPending)
+	return api.pendingAction(selp)
 }
 
 func (api *Server) getTotalActionsByAddress(address string) ([]hash.Hash256, error) {
-	var actions []hash.Hash256
-	actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
+	actions, err := api.bc.GetActionsFromAddress(address)
 	if err != nil {
 		return nil, err
 	}
@@ -842,21 +846,7 @@ func (api *Server) getTotalActionsByAddress(address string) ([]hash.Hash256, err
 	if err != nil {
 		return nil, err
 	}
-
-	actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
-	actions = append(actions, actionsFromAddress...)
-
-	return actions, nil
-}
-
-func toHash256(hashString string) (hash.Hash256, error) {
-	bytes, err := hex.DecodeString(hashString)
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	var hash hash.Hash256
-	copy(hash[:], bytes)
-	return hash, nil
+	return append(actions, actionsToAddress...), nil
 }
 
 func getTranferAmountInBlock(blk *block.Block) *big.Int {
