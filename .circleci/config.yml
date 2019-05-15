@@ -33,21 +33,33 @@ jobs:
   build_test_darwin:
     macos:
       xcode: "10.2.0"   # not supported > 10.2.0
-    working_directory: ~/go/src/github.com/iotexproject/iotex-core
+
+    working_directory: ~/iotex-core
 #     resource_class: medium+
     steps:
       - checkout
       - run:
-          name: install golang 1.11.6
+          name: install golang 1.12.5
           command: |
-            curl -o go1.11.6.darwin-amd64.tar.gz https://dl.google.com/go/go1.11.6.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.11.6.darwin-amd64.tar.gz
+            curl -o go1.12.5.darwin-amd64.tar.gz https://dl.google.com/go/go1.12.5.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.12.5.darwin-amd64.tar.gz
+      - restore_cache:
+          keys:
+            - go-mod-v1-{{ checksum "go.sum" }} 
+      - run: 
+          name: go mod
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            go mod download
+            go mod vendor
+      - save_cache:
+          key: go-mod-v1-{{ checksum "go.sum" }}
+          paths:
+              - ~/go/pkg/mod
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
-            export GOPATH=~/go
-            export GOROOT="/usr/local/go"
-            export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
+            export PATH=$PATH:/usr/local/go/bin
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
             go test -run=XXX -bench=. $(go list ./crypto)
@@ -56,21 +68,27 @@ jobs:
   build_test_ubuntu:
     machine:
       image: circleci/classic:latest
-    working_directory: ~/go/src/github.com/iotexproject/iotex-core
+    working_directory: ~/iotex-core
     steps:
       - checkout
       - run: 
-          name: clean go 1.9 update golang 1.11.6
+          name: clean go 1.9 update golang 1.12.5
           command: |
-            wget https://dl.google.com/go/go1.11.6.linux-amd64.tar.gz
+            wget https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -zxf go1.11.6.linux-amd64.tar.gz
+            sudo tar -C /usr/local -zxf go1.12.5.linux-amd64.tar.gz
+      - restore_cache:
+          keys:
+            - go-mod-v1-{{ checksum "go.sum" }} 
+      - run: go mod download
+      - run: go mod vendor
+      - save_cache:
+          key: go-mod-v1-{{ checksum "go.sum" }}
+          paths:
+              - ~/go/pkg/mod
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
-            export GOROOT="/usr/local/go"
-            export GOPATH=~/go
-            export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
             go test -run=XXX -bench=. $(go list ./crypto)
@@ -123,11 +141,11 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang 1.11.6
+          name: install golang 1.12.5
           command: |
-            curl -o go1.11.6.darwin-amd64.tar.gz https://dl.google.com/go/go1.11.6.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.11.6.darwin-amd64.tar.gz
-            rm go1.11.6.darwin-amd64.tar.gz
+            curl -o go1.12.5.darwin-amd64.tar.gz https://dl.google.com/go/go1.12.5.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.12.5.darwin-amd64.tar.gz
+            rm go1.12.5.darwin-amd64.tar.gz
       - run:
           name: SET go env and buildcli.sh,build_injector.sh
           command: |
@@ -157,7 +175,7 @@ workflows:
   commit:
     jobs:
       #- build_test_ubuntu
-#       - build_test_darwin
+      #- build_test_darwin
       - build_test_docker
 
   scheduled-workflow:
@@ -171,4 +189,4 @@ workflows:
     jobs:
       - nightly_build_docker
       - nightly_bin_build_docker
-#       - nightly_bin_build_darwin
+   #    - nightly_bin_build_darwin
