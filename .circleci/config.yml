@@ -38,10 +38,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang 1.11.6
+          name: install golang 1.12.5
           command: |
-            curl -o go1.11.6.darwin-amd64.tar.gz https://dl.google.com/go/go1.11.6.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.11.6.darwin-amd64.tar.gz
+            curl -o go1.12.5.darwin-amd64.tar.gz https://dl.google.com/go/go1.12.5.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.12.5.darwin-amd64.tar.gz
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
@@ -60,11 +60,11 @@ jobs:
     steps:
       - checkout
       - run: 
-          name: clean go 1.9 update golang 1.11.6
+          name: clean go 1.9 update golang 1.12.5
           command: |
-            wget https://dl.google.com/go/go1.11.6.linux-amd64.tar.gz
+            wget https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -zxf go1.11.6.linux-amd64.tar.gz
+            sudo tar -C /usr/local -zxf go1.12.5.linux-amd64.tar.gz
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
@@ -123,11 +123,11 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang 1.11.6
+          name: install golang 1.12.5
           command: |
-            curl -o go1.11.6.darwin-amd64.tar.gz https://dl.google.com/go/go1.11.6.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.11.6.darwin-amd64.tar.gz
-            rm go1.11.6.darwin-amd64.tar.gz
+            curl -o go1.12.5.darwin-amd64.tar.gz https://dl.google.com/go/go1.12.5.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.12.5.darwin-amd64.tar.gz
+            rm go1.12.5.darwin-amd64.tar.gz
       - run:
           name: SET go env and buildcli.sh,build_injector.sh
           command: |
