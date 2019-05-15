@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"net"
+	"sort"
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
@@ -565,25 +566,16 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		selps := blk.Actions
-		if !hit && start >= uint64(len(selps)) {
-			start -= uint64(len(selps))
+		if !hit && start >= uint64(len(blk.Actions)) {
+			start -= uint64(len(blk.Actions))
 			continue
 		}
-		for i := 0; i < len(selps) && count > 0; i++ {
-			if !hit {
-				hit = uint64(i) >= start
-			}
-			if !hit {
-				continue
-			}
-			act, err := api.committedAction(selps[i])
-			if err != nil {
-				continue
-			}
-			res = append(res, act)
-			count--
-		}
+		// now start < len(blk.Actions), we are going to fetch actions from this block
+		hit = true
+		act := api.actionsInBlock(blk, start, count)
+		res = append(res, act...)
+		count -= uint64(len(act))
+		start = 0
 	}
 	return &iotexapi.GetActionsResponse{
 		Total:      totalActions,
@@ -629,6 +621,10 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 		}
 		res = append(res, act)
 	}
+	// sort action by timestamp
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Timestamp.Seconds < res[j].Timestamp.Seconds
+	})
 	return &iotexapi.GetActionsResponse{
 		Total:      uint64(len(actions)),
 		ActionInfo: res,
@@ -666,7 +662,6 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	var res []*iotexapi.ActionInfo
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -675,20 +670,13 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	selps := blk.Actions
-	if start >= uint64(len(selps)) {
+	if start >= uint64(len(blk.Actions)) {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
-	for i := start; i < start+uint64(len(selps)) && i < start+count; i++ {
-		act, err := api.committedAction(selps[i])
-		if err != nil {
-			continue
-		}
-		res = append(res, act)
-	}
+	res := api.actionsInBlock(blk, start, count)
 	return &iotexapi.GetActionsResponse{
-		Total:      uint64(len(selps)),
+		Total:      uint64(len(res)),
 		ActionInfo: res,
 	}, nil
 }
@@ -847,6 +835,29 @@ func (api *Server) getTotalActionsByAddress(address string) ([]hash.Hash256, err
 		return nil, err
 	}
 	return append(actions, actionsToAddress...), nil
+}
+
+func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iotexapi.ActionInfo {
+	h := blk.HashBlock()
+	blkHash := hex.EncodeToString(h[:])
+	blkHeight := blk.Height()
+	ts := blk.Header.BlockHeaderCoreProto().Timestamp
+
+	var res []*iotexapi.ActionInfo
+	for i := start; i < uint64(len(blk.Actions)) && i < start+count; i++ {
+		selp := blk.Actions[i]
+		actHash := selp.Hash()
+		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+		res = append(res, &iotexapi.ActionInfo{
+			Action:    selp.Proto(),
+			ActHash:   hex.EncodeToString(actHash[:]),
+			BlkHash:   blkHash,
+			BlkHeight: blkHeight,
+			Sender:    sender.String(),
+			Timestamp: ts,
+		})
+	}
+	return res
 }
 
 func getTranferAmountInBlock(blk *block.Block) *big.Int {
