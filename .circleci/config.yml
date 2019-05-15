@@ -54,9 +54,6 @@ jobs:
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
-            export GOPATH=~/go
-            export GOROOT="/usr/local/go"
-            export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
             go test -run=XXX -bench=. $(go list ./crypto)
@@ -86,9 +83,6 @@ jobs:
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
-            export GOROOT="/usr/local/go"
-            export GOPATH=~/go
-            export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
             go test -run=XXX -bench=. $(go list ./crypto)
