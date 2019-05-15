@@ -14,12 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -40,7 +40,6 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	s, err := accountutil.LoadAccount(ws, hash.BytesToHash160(addrv1.Bytes()))
 	require.NoError(err)
 	require.Equal(s.Balance, state.EmptyAccount().Balance)
-	require.Equal(s.VotingWeight, state.EmptyAccount().VotingWeight)
 	s, err = accountutil.LoadOrCreateAccount(ws, addrv1.String(), big.NewInt(5))
 	require.NoError(err)
 	s, err = accountutil.LoadAccount(ws, hash.BytesToHash160(addrv1.Bytes()))
@@ -72,7 +71,7 @@ func TestProtocol_Initialize(t *testing.T) {
 		require.NoError(t, stateDB.Stop(context.Background()))
 	}()
 
-	p := NewProtocol()
+	p := NewProtocol(0)
 
 	ws, err := stateDB.NewWorkingSet()
 	require.NoError(t, err)

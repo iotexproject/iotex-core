@@ -19,6 +19,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,9 +38,6 @@ import (
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/p2p/node"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -48,8 +48,7 @@ import (
 )
 
 type addrKeyPair struct {
-	pubKey      keypair.PublicKey
-	priKey      keypair.PrivateKey
+	priKey      crypto.PrivateKey
 	encodedAddr string
 }
 
@@ -367,14 +366,13 @@ func TestRollDPoSConsensus(t *testing.T) {
 		cfg.Genesis.BlockInterval = time.Second
 		cfg.Genesis.Blockchain.NumDelegates = uint64(numNodes)
 		cfg.Genesis.Blockchain.NumSubEpochs = 1
-
+		cfg.Genesis.EnableGravityChainVoting = false
 		chainAddrs := make([]*addrKeyPair, 0, numNodes)
 		networkAddrs := make([]net.Addr, 0, numNodes)
 		for i := 0; i < numNodes; i++ {
 			sk := identityset.PrivateKey(i)
 			addr := addrKeyPair{
 				encodedAddr: identityset.Address(i).String(),
-				pubKey:      sk.PublicKey(),
 				priKey:      sk,
 			}
 			chainAddrs = append(chainAddrs, &addr)
@@ -425,7 +423,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, sf.Commit(ws))
 			}
 			registry := protocol.Registry{}
-			acc := account.NewProtocol()
+			acc := account.NewProtocol(0)
 			require.NoError(t, registry.Register(account.ProtocolID, acc))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 			require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
@@ -436,7 +434,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				blockchain.RegistryOption(&registry),
 			)
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, 0))
-			chain.Validator().AddActionValidators(account.NewProtocol())
+			chain.Validator().AddActionValidators(account.NewProtocol(0))
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())

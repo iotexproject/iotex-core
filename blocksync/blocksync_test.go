@@ -15,6 +15,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -28,8 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
@@ -179,7 +179,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		bc.RegistryOption(&registry),
 	)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
-	chain.Validator().AddActionValidators(account.NewProtocol())
+	chain.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -237,7 +237,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	)
 	require.NotNil(chain1)
 	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesis.Default.ActionGasLimit))
-	chain1.Validator().AddActionValidators(account.NewProtocol())
+	chain1.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain1.Start(ctx))
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap1)
@@ -258,7 +258,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	)
 	require.NotNil(chain2)
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesis.Default.ActionGasLimit))
-	chain2.Validator().AddActionValidators(account.NewProtocol())
+	chain2.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain2.Start(ctx))
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
@@ -329,7 +329,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.RegistryOption(&registry),
 	)
 	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesis.Default.ActionGasLimit))
-	chain1.Validator().AddActionValidators(account.NewProtocol())
+	chain1.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
@@ -349,7 +349,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.RegistryOption(&registry2),
 	)
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesis.Default.ActionGasLimit))
-	chain2.Validator().AddActionValidators(account.NewProtocol())
+	chain2.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -469,5 +469,6 @@ func newTestConfig() (config.Config, error) {
 	cfg.Network.Host = "127.0.0.1"
 	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
+	cfg.Genesis.EnableGravityChainVoting = false
 	return cfg, nil
 }

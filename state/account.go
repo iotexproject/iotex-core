@@ -12,8 +12,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol/account/accountpb"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 )
 
 var (
@@ -33,7 +33,6 @@ type Account struct {
 	CodeHash     []byte       // hash of the smart contract byte-code for contract account
 	IsCandidate  bool
 	VotingWeight *big.Int
-	Votee        string
 }
 
 // ToProto converts to protobuf's Account
@@ -51,7 +50,6 @@ func (st *Account) ToProto() *accountpb.Account {
 	if st.VotingWeight != nil {
 		acPb.VotingWeight = st.VotingWeight.Bytes()
 	}
-	acPb.Votee = st.Votee
 	return acPb
 }
 
@@ -78,7 +76,6 @@ func (st *Account) FromProto(acPb *accountpb.Account) {
 	if acPb.VotingWeight != nil {
 		st.VotingWeight.SetBytes(acPb.VotingWeight)
 	}
-	st.Votee = acPb.Votee
 }
 
 // Deserialize deserializes bytes into account state
@@ -118,7 +115,9 @@ func (st *Account) Clone() *Account {
 	s.Balance = nil
 	s.Balance = new(big.Int).Set(st.Balance)
 	s.VotingWeight = nil
-	s.VotingWeight = new(big.Int).Set(st.VotingWeight)
+	if st.VotingWeight != nil {
+		s.VotingWeight = new(big.Int).Set(st.VotingWeight)
+	}
 	if st.CodeHash != nil {
 		s.CodeHash = nil
 		s.CodeHash = make([]byte, len(st.CodeHash))

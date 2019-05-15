@@ -12,18 +12,21 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/testutil"
-
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestProtocol_HandleTransfer(t *testing.T) {
@@ -40,22 +43,45 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 
-	p := NewProtocol()
+	p := NewProtocol(0)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	cm := mock_chainmanager.NewMockChainManager(ctrl)
+	reward := rewarding.NewProtocol(cm, rolldpos.NewProtocol(1, 1, 1))
+	registry := protocol.Registry{}
+	require.NoError(registry.Register(rewarding.ProtocolID, reward))
+	require.NoError(
+		reward.Initialize(
+			protocol.WithRunActionsCtx(context.Background(),
+				protocol.RunActionsCtx{
+					BlockHeight: 0,
+					Producer:    testaddress.Addrinfo["producer"],
+					Caller:      testaddress.Addrinfo["alfa"],
+					GasLimit:    testutil.TestGasLimit,
+					Registry:    &registry,
+				}),
+			ws,
+			big.NewInt(0),
+			big.NewInt(0),
+			big.NewInt(0),
+			1,
+			nil,
+			big.NewInt(0),
+			0,
+			0,
+			0,
+		),
+	)
 
 	accountAlfa := state.Account{
 		Balance: big.NewInt(50005),
-		Votee:   testaddress.Addrinfo["charlie"].String(),
 	}
-	accountBravo := state.Account{
-		Votee: testaddress.Addrinfo["delta"].String(),
-	}
-	accountCharlie := state.Account{
-		VotingWeight: big.NewInt(5),
-	}
+	accountBravo := state.Account{}
+	accountCharlie := state.Account{}
 	pubKeyAlfa := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 	pubKeyBravo := hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes())
 	pubKeyCharlie := hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes())
-	pubKeyDelta := hash.BytesToHash160(testaddress.Addrinfo["delta"].Bytes())
 
 	require.NoError(ws.PutState(pubKeyAlfa, &accountAlfa))
 	require.NoError(ws.PutState(pubKeyBravo, &accountBravo))
@@ -74,10 +100,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
+			BlockHeight:  1,
 			Producer:     testaddress.Addrinfo["producer"],
 			Caller:       testaddress.Addrinfo["alfa"],
 			GasLimit:     testutil.TestGasLimit,
 			IntrinsicGas: gas,
+			Registry:     &registry,
 		})
 	receipt, err := p.Handle(ctx, transfer, ws)
 	require.NoError(err)
@@ -90,10 +118,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.Equal(uint64(1), acct.Nonce)
 	require.NoError(sf.State(pubKeyBravo, &acct))
 	require.Equal("2", acct.Balance.String())
-	require.NoError(sf.State(pubKeyCharlie, &acct))
-	require.Equal("3", acct.VotingWeight.String())
-	require.NoError(sf.State(pubKeyDelta, &acct))
-	require.Equal("2", acct.VotingWeight.String())
 
 	contractAcct := state.Account{
 		CodeHash: []byte("codeHash"),
@@ -121,7 +145,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
-	protocol := NewProtocol()
+	protocol := NewProtocol(0)
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]

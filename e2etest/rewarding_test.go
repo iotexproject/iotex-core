@@ -18,22 +18,22 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 type claimTestCaseID int
@@ -91,7 +91,7 @@ func TestBlockReward(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 
-	sk, err := keypair.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
+	sk, err := crypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
 	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	require.NoError(t, err)
@@ -100,7 +100,7 @@ func TestBlockReward(t *testing.T) {
 	require.NoError(t, err)
 	balance, err := rp.UnclaimedBalance(ctx, ws, addr)
 	require.NoError(t, err)
-	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) >= 0)
+	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) <= 0)
 
 	for i := 1; i <= 5; i++ {
 		blk, err := svr.ChainService(1).Blockchain().GetBlockByHeight(uint64(i))
@@ -138,19 +138,23 @@ func TestBlockEpochReward(t *testing.T) {
 		dbFilePaths = append(dbFilePaths, trieDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
-		config := newConfig(chainDBPath, trieDBPath, identityset.PrivateKey(i),
+		HTTPStatsPort := 8080 + i
+		HTTPAdminPort := 9009 + i
+		cfg := newConfig(chainDBPath, trieDBPath, identityset.PrivateKey(i),
 			networkPort, apiPort, uint64(numNodes))
 		if i == 0 {
-			config.Network.BootstrapNodes = []string{}
-			config.Network.MasterKey = "bootnode"
+			cfg.Network.BootstrapNodes = []string{}
+			cfg.Network.MasterKey = "bootnode"
 		}
 
 		//Set Operator and Reward address
-		config.Genesis.Delegates[i].RewardAddrStr = identityset.Address(i + numNodes).String()
-		config.Genesis.Delegates[i].OperatorAddrStr = identityset.Address(i).String()
+		cfg.Genesis.Delegates[i].RewardAddrStr = identityset.Address(i + numNodes).String()
+		cfg.Genesis.Delegates[i].OperatorAddrStr = identityset.Address(i).String()
 		//Generate random votes  from [1000,2000]
-		config.Genesis.Delegates[i].VotesStr = strconv.Itoa(1000 + rand.Intn(1000))
-		configs[i] = config
+		cfg.Genesis.Delegates[i].VotesStr = strconv.Itoa(1000 + rand.Intn(1000))
+		cfg.System.HTTPStatsPort = HTTPStatsPort
+		cfg.System.HTTPAdminPort = HTTPAdminPort
+		configs[i] = cfg
 	}
 
 	for _, dbFilePath := range dbFilePaths {
@@ -440,7 +444,7 @@ func injectClaim(
 	t *testing.T,
 	wg *sync.WaitGroup,
 	c iotexapi.APIServiceClient,
-	beneficiaryPri keypair.PrivateKey,
+	beneficiaryPri crypto.PrivateKey,
 	amount *big.Int,
 	expectedSuccess bool,
 	retryNum int,
@@ -583,7 +587,7 @@ func waitActionToSettle(
 func newConfig(
 	chainDBPath,
 	trieDBPath string,
-	producerPriKey keypair.PrivateKey,
+	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
 	numNodes uint64,
@@ -622,7 +626,6 @@ func newConfig(
 
 	cfg.Genesis.BlockInterval = 100 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
-
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
 	return cfg
 }

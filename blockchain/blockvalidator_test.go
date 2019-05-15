@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -24,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/state/factory"
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -46,7 +46,7 @@ func TestWrongRootHash(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 0, blkhash))
@@ -70,7 +70,7 @@ func TestSignBlock(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash))
@@ -89,7 +89,7 @@ func TestWrongNonce(t *testing.T) {
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -102,7 +102,7 @@ func TestWrongNonce(t *testing.T) {
 
 	val := &validator{sf: sf, validatorAddr: "", enableExperimentalActions: true}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	val.AddActionValidators(account.NewProtocol())
+	val.AddActionValidators(account.NewProtocol(0))
 
 	// correct nonce
 
@@ -115,7 +115,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash))
@@ -140,7 +140,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 
 	err = val.Validate(&blk, 2, blkhash)
@@ -155,7 +155,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf3).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -173,7 +173,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf4, tsf5).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -190,7 +190,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf6, tsf7).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -207,7 +207,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf8, tsf9).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -224,7 +224,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf10, tsf11).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -235,7 +235,7 @@ func TestWrongAddress(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
-	bc.GetFactory().AddActionHandlers(account.NewProtocol())
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(0))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -244,8 +244,8 @@ func TestWrongAddress(t *testing.T) {
 	}()
 	val := &validator{sf: bc.GetFactory(), validatorAddr: "", enableExperimentalActions: true}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	val.AddActionValidators(account.NewProtocol(),
-		execution.NewProtocol(bc))
+	val.AddActionValidators(account.NewProtocol(0),
+		execution.NewProtocol(bc, 0))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
@@ -261,7 +261,7 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	err = val.validateActionsOnly(
 		blk1.Actions,
@@ -285,7 +285,7 @@ func TestWrongAddress(t *testing.T) {
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Keyinfo["producer"].PubKey, ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(ta.Keyinfo["producer"].PriKey)
 	require.NoError(t, err)
 	err = val.validateActionsOnly(
 		blk3.Actions,

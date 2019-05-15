@@ -14,8 +14,11 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -23,6 +26,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -34,13 +38,9 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/gasstation"
-	"github.com/iotexproject/iotex-core/indexservice"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -80,7 +80,6 @@ type Server struct {
 	gs               *gasstation.GasStation
 	broadcastHandler BroadcastOutbound
 	cfg              config.API
-	idx              *indexservice.Server
 	registry         *protocol.Registry
 	grpcserver       *grpc.Server
 }
@@ -91,7 +90,6 @@ func NewServer(
 	chain blockchain.Blockchain,
 	dispatcher dispatcher.Dispatcher,
 	actPool actpool.ActPool,
-	idx *indexservice.Server,
 	registry *protocol.Registry,
 	opts ...Option,
 ) (*Server, error) {
@@ -117,7 +115,6 @@ func NewServer(
 		ap:               actPool,
 		broadcastHandler: apiCfg.broadcastHandler,
 		cfg:              cfg,
-		idx:              idx,
 		registry:         registry,
 		gs:               gasstation.NewGasStation(chain, cfg),
 	}
@@ -176,7 +173,7 @@ func (api *Server) GetActions(ctx context.Context, in *iotexapi.GetActionsReques
 		request := in.GetByBlk()
 		return api.getActionsByBlock(request.BlkHash, request.Start, request.Count)
 	default:
-		return nil, nil
+		return nil, status.Error(codes.NotFound, "invalid GetActionsRequest type")
 	}
 }
 
@@ -190,7 +187,7 @@ func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetas
 		request := in.GetByHash()
 		return api.getBlockMeta(request.BlkHash)
 	default:
-		return nil, nil
+		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
 }
 
@@ -456,7 +453,7 @@ func (api *Server) GetRawBlocks(
 	ctx context.Context,
 	in *iotexapi.GetRawBlocksRequest,
 ) (*iotexapi.GetRawBlocksResponse, error) {
-	if in.Count > api.cfg.RangeQueryLimit {
+	if in.Count == 0 || in.Count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -490,6 +487,12 @@ func (api *Server) GetRawBlocks(
 	}
 
 	return &iotexapi.GetRawBlocksResponse{Blocks: res}, nil
+}
+
+// GetActionsByAddress returns actions by address
+func (api *Server) GetActionsByAddress(
+	ctx context.Context, in *iotexapi.GetActionsByAddressRequest) (*iotexapi.GetActionsResponse, error) {
+	return api.getActionsByAddress(in.Address, in.Start, in.Count)
 }
 
 // Start starts the API server
@@ -544,38 +547,49 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
+	totalActions, err := api.bc.GetTotalActions()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if start >= totalActions {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+	}
+
 	var res []*iotexapi.ActionInfo
-	var actionCount uint64
-	tipHeight := api.bc.TipHeight()
-	for height := 1; height <= int(tipHeight); height++ {
-		blk, err := api.bc.GetBlockByHeight(uint64(height))
+	var hit bool
+	for height := uint64(1); height <= api.bc.TipHeight() && count > 0; height++ {
+		blk, err := api.bc.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		selps := blk.Actions
-		for i := 0; i < len(selps); i++ {
-			actionCount++
-
-			if actionCount <= start {
-				continue
+		if !hit && start >= uint64(len(selps)) {
+			start -= uint64(len(selps))
+			continue
+		}
+		for i := 0; i < len(selps) && count > 0; i++ {
+			if !hit {
+				hit = uint64(i) >= start
 			}
-
-			if uint64(len(res)) >= count {
-				return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+			if !hit {
+				continue
 			}
 			act, err := api.convertToAction(selps[i], true)
 			if err != nil {
-				return nil, err
+				continue
 			}
 			res = append(res, act)
+			count--
 		}
 	}
-
-	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+	return &iotexapi.GetActionsResponse{
+		Total:      totalActions,
+		ActionInfo: res,
+	}, nil
 }
 
 // getSingleAction returns action by action hash
@@ -588,75 +602,68 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 	if err != nil {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
-	return &iotexapi.GetActionsResponse{ActionInfo: []*iotexapi.ActionInfo{act}}, nil
+	return &iotexapi.GetActionsResponse{
+		Total:      1,
+		ActionInfo: []*iotexapi.ActionInfo{act},
+	}, nil
 }
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	var res []*iotexapi.ActionInfo
 	actions, err := api.getTotalActionsByAddress(address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	var actionCount uint64
-	for i := 0; i < len(actions); i++ {
-		actionCount++
-
-		if actionCount <= start {
-			continue
-		}
-
-		if uint64(len(res)) >= count {
-			break
-		}
-
-		act, err := api.getAction(actions[i], false)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-
-		res = append(res, act)
+	if start >= uint64(len(actions)) {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
-	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+	var res []*iotexapi.ActionInfo
+	for i := start; i < uint64(len(actions)) && i < start+count; i++ {
+		act, err := api.getAction(actions[i], false)
+		if err != nil {
+			continue
+		}
+		res = append(res, act)
+	}
+	return &iotexapi.GetActionsResponse{
+		Total:      uint64(len(actions)),
+		ActionInfo: res,
+	}, nil
 }
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	var res []*iotexapi.ActionInfo
-	var actionCount uint64
 	selps := api.ap.GetUnconfirmedActs(address)
-	for i := 0; i < len(selps); i++ {
-		actionCount++
+	if start >= uint64(len(selps)) {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+	}
 
-		if actionCount <= start {
-			continue
-		}
-
-		if uint64(len(res)) >= count {
-			break
-		}
+	var res []*iotexapi.ActionInfo
+	for i := start; i < start+uint64(len(selps)) && i < start+count; i++ {
 		act, err := api.convertToAction(selps[i], false)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		res = append(res, act)
 	}
-
-	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+	return &iotexapi.GetActionsResponse{
+		Total:      uint64(len(selps)),
+		ActionInfo: res,
+	}, nil
 }
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -665,37 +672,31 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	blk, err := api.bc.GetBlockByHash(hash)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-
 	selps := blk.Actions
-	var actionCount uint64
-	for i := 0; i < len(selps); i++ {
-		actionCount++
+	if start >= uint64(len(selps)) {
+		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+	}
 
-		if actionCount <= start {
-			continue
-		}
-
-		if uint64(len(res)) >= count {
-			break
-		}
-
+	for i := start; i < start+uint64(len(selps)) && i < start+count; i++ {
 		act, err := api.convertToAction(selps[i], true)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		res = append(res, act)
 	}
-	return &iotexapi.GetActionsResponse{ActionInfo: res}, nil
+	return &iotexapi.GetActionsResponse{
+		Total:      uint64(len(selps)),
+		ActionInfo: res,
+	}, nil
 }
 
 // getBlockMetas gets block within the height range
-func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBlockMetasResponse, error) {
-	if number > api.cfg.RangeQueryLimit {
+func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlockMetasResponse, error) {
+	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -704,17 +705,14 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
 	var res []*iotextypes.BlockMeta
-	for height := int(start); height <= int(tipHeight); height++ {
-		if uint64(len(res)) >= number {
-			break
-		}
-		blk, err := api.bc.GetBlockByHeight(uint64(height))
+	for height := start; height <= tipHeight && count > 0; height++ {
+		blk, err := api.bc.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		blockHeaderPb := blk.ConvertToBlockHeaderPb()
 
 		hash := blk.HashBlock()
+		ts, _ := ptypes.TimestampProto(blk.Header.Timestamp())
 		txRoot := blk.TxRoot()
 		receiptRoot := blk.ReceiptRoot()
 		deltaStateDigest := blk.DeltaStateDigest()
@@ -723,7 +721,7 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 		blockMeta := &iotextypes.BlockMeta{
 			Hash:             hex.EncodeToString(hash[:]),
 			Height:           blk.Height(),
-			Timestamp:        blockHeaderPb.GetCore().GetTimestamp(),
+			Timestamp:        ts,
 			NumActions:       int64(len(blk.Actions)),
 			ProducerAddress:  blk.ProducerAddress(),
 			TransferAmount:   transferAmount.String(),
@@ -731,11 +729,13 @@ func (api *Server) getBlockMetas(start uint64, number uint64) (*iotexapi.GetBloc
 			ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
 			DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 		}
-
 		res = append(res, blockMeta)
+		count--
 	}
-
-	return &iotexapi.GetBlockMetasResponse{BlkMetas: res}, nil
+	return &iotexapi.GetBlockMetasResponse{
+		Total:    tipHeight,
+		BlkMetas: res,
+	}, nil
 }
 
 // getBlockMeta returns block by block hash
@@ -744,13 +744,12 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	blk, err := api.bc.GetBlockByHash(hash)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	blkHeaderPb := blk.ConvertToBlockHeaderPb()
+	ts, _ := ptypes.TimestampProto(blk.Header.Timestamp())
 	txRoot := blk.TxRoot()
 	receiptRoot := blk.ReceiptRoot()
 	deltaStateDigest := blk.DeltaStateDigest()
@@ -759,7 +758,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	blockMeta := &iotextypes.BlockMeta{
 		Hash:             blkHash,
 		Height:           blk.Height(),
-		Timestamp:        blkHeaderPb.GetCore().GetTimestamp(),
+		Timestamp:        ts,
 		NumActions:       int64(len(blk.Actions)),
 		ProducerAddress:  blk.ProducerAddress(),
 		TransferAmount:   transferAmount.String(),
@@ -767,8 +766,10 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 		ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 	}
-
-	return &iotexapi.GetBlockMetasResponse{BlkMetas: []*iotextypes.BlockMeta{blockMeta}}, nil
+	return &iotexapi.GetBlockMetasResponse{
+		Total:    1,
+		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
+	}, nil
 }
 
 func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
@@ -791,6 +792,8 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool) (*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
 	blkHash := hash.ZeroHash256
+	blkHeight := uint64(0)
+	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 	var timeStamp *timestamp.Timestamp
 	var err error
 	if pullBlkHash {
@@ -801,12 +804,15 @@ func (api *Server) convertToAction(selp action.SealedEnvelope, pullBlkHash bool)
 		if err != nil {
 			return nil, err
 		}
+		blkHeight = blk.Height()
 		timeStamp = blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 	}
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
 		ActHash:   hex.EncodeToString(actHash[:]),
 		BlkHash:   hex.EncodeToString(blkHash[:]),
+		BlkHeight: blkHeight,
+		Sender:    sender.String(),
 		Timestamp: timeStamp,
 	}, nil
 }
@@ -828,26 +834,18 @@ func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi
 
 func (api *Server) getTotalActionsByAddress(address string) ([]hash.Hash256, error) {
 	var actions []hash.Hash256
-	if api.cfg.UseRDS {
-		actionHistory, err := api.idx.Indexer().GetIndexHistory(config.IndexAction, address)
-		if err != nil {
-			return nil, err
-		}
-		actions = append(actions, actionHistory...)
-	} else {
-		actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
-		if err != nil {
-			return nil, err
-		}
-
-		actionsToAddress, err := api.bc.GetActionsToAddress(address)
-		if err != nil {
-			return nil, err
-		}
-
-		actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
-		actions = append(actions, actionsFromAddress...)
+	actionsFromAddress, err := api.bc.GetActionsFromAddress(address)
+	if err != nil {
+		return nil, err
 	}
+	actionsToAddress, err := api.bc.GetActionsToAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	actionsFromAddress = append(actionsFromAddress, actionsToAddress...)
+	actions = append(actions, actionsFromAddress...)
+
 	return actions, nil
 }
 

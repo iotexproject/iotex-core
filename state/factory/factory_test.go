@@ -16,11 +16,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -29,8 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/hash"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -196,7 +196,7 @@ func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
 	a := testaddress.Addrinfo["alfa"].String()
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
@@ -232,9 +232,6 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, accountA, &testAccount)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
-	require.False(t, accountA.IsCandidate)
-	require.Equal(t, "", accountA.Votee)
-	require.Equal(t, big.NewInt(0), accountA.VotingWeight)
 }
 
 func TestNonce(t *testing.T) {
@@ -265,7 +262,7 @@ func testNonce(sf Factory, t *testing.T) {
 	priKeyA := testaddress.Keyinfo["alfa"].PriKey
 	b := testaddress.Addrinfo["bravo"].String()
 
-	sf.AddActionHandlers(account.NewProtocol(), account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0), account.NewProtocol(0))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
@@ -410,7 +407,7 @@ func TestRunActions(t *testing.T) {
 }
 
 func TestSTXRunActions(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(0)})
 	testRunActions(ws, t)
 }
 
@@ -467,7 +464,7 @@ func TestCachedBatch(t *testing.T) {
 }
 
 func TestSTXCachedBatch(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(0)})
 	testCachedBatch(ws, t, true)
 }
 
@@ -482,7 +479,6 @@ func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
 	hashA := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
 	accountA := state.EmptyAccount()
 	accountA.Balance = big.NewInt(70)
-	accountA.VotingWeight = big.NewInt(70)
 	err := ws.PutState(hashA, accountA)
 	require.NoError(err)
 	hash2 := ws.Digest()
@@ -518,7 +514,7 @@ func TestGetDB(t *testing.T) {
 }
 
 func TestSTXGetDB(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(0)})
 	testGetDB(ws, t)
 }
 
@@ -618,7 +614,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 		testaddress.Addrinfo["echo"].String(),
 		testaddress.Addrinfo["foxtrot"].String(),
 	}
-	pubKeys := []keypair.PublicKey{
+	pubKeys := []crypto.PublicKey{
 		testaddress.Keyinfo["alfa"].PubKey,
 		testaddress.Keyinfo["bravo"].PubKey,
 		testaddress.Keyinfo["charlie"].PubKey,
@@ -628,7 +624,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 	}
 	nonces := make([]uint64, len(accounts))
 
-	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0))
 	if err := sf.Start(context.Background()); err != nil {
 		b.Fatal(err)
 	}

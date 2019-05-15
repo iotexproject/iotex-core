@@ -18,17 +18,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -262,10 +263,10 @@ func TestCreateBlockchain(t *testing.T) {
 	cfg := config.Default
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
-
+	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
 	registry := protocol.Registry{}
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(0)
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -293,15 +294,15 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
-
+	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(0)
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	exec := execution.NewProtocol(bc)
+	exec := execution.NewProtocol(bc, 0)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
 	bc.GetFactory().AddActionHandlers(acc, exec)
@@ -358,8 +359,9 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
+	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(0)
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry), EnableExperimentalActions())
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -447,14 +449,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-
+	cfg.Genesis.EnableGravityChainVoting = false
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0))
 
 	// Create a blockchain from scratch
 	registry := protocol.Registry{}
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(0)
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	bc := NewBlockchain(
 		cfg,
@@ -486,7 +488,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	// Load a blockchain from DB
 	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	accountProtocol := account.NewProtocol()
+	accountProtocol := account.NewProtocol(0)
 	sf.AddActionHandlers(accountProtocol)
 	registry = protocol.Registry{}
 	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
@@ -582,10 +584,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
-		SetHeight(h+2).
+		SetHeight(h + 2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk)
@@ -597,10 +599,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
-		SetHeight(h+1).
+		SetHeight(h + 1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk)
 	require.Error(err)
@@ -634,13 +636,13 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	cfg.DB.UseBadgerDB = false // test with boltDB
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-
+	cfg.Genesis.EnableGravityChainVoting = false
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0))
 	// Create a blockchain from scratch
 	registry := protocol.Registry{}
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(0)
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -675,11 +677,11 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	// Load a blockchain from DB
 	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol())
+	sf.AddActionHandlers(account.NewProtocol(0))
 
 	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
-	bc.Validator().AddActionValidators(account.NewProtocol())
+	bc.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -741,10 +743,10 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
-		SetHeight(h+2).
+		SetHeight(h + 2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk)
@@ -755,10 +757,10 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
-		SetHeight(h+1).
+		SetHeight(h + 1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PubKey, ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk)
 	require.Error(err)
@@ -808,10 +810,10 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
-
+	cfg.Consensus.Scheme = config.RollDPoSScheme
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	accountProtocol := account.NewProtocol()
+	accountProtocol := account.NewProtocol(0)
 	sf.AddActionHandlers(accountProtocol)
 	registry := protocol.Registry{}
 	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
@@ -829,12 +831,14 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
 	rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
 	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
+	require.NoError(registry.Register(poll.ProtocolID, poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
 	}()
-	// TODO: we will fix this test case by testing using lifeLongDelegatesProtocol to initialize the candidates
-	// candidate, err := sf.CandidatesByHeight(0)
+	candidate, err := sf.CandidatesByHeight(1)
+	require.NoError(err)
+	require.Equal(24, len(candidate))
 }
 
 func TestBlockchain_StateByAddr(t *testing.T) {
@@ -855,9 +859,6 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	require.Equal(big.NewInt(100), s.Balance)
 	require.Equal(hash.ZeroHash256, s.Root)
 	require.Equal([]byte(nil), s.CodeHash)
-	require.Equal(false, s.IsCandidate)
-	require.Equal(big.NewInt(0), s.VotingWeight)
-	require.Equal("", s.Votee)
 }
 
 func TestBlocks(t *testing.T) {
@@ -966,7 +967,7 @@ func TestActions(t *testing.T) {
 
 	val := &validator{sf: sf, validatorAddr: "", enableExperimentalActions: true}
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
-	bc.Validator().AddActionValidators(account.NewProtocol())
+	bc.Validator().AddActionValidators(account.NewProtocol(0))
 	actionMap := make(map[string][]action.SealedEnvelope)
 	for i := 0; i < 5000; i++ {
 		tsf, err := testutil.SignedTransfer(c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))

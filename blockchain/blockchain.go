@@ -22,11 +22,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -36,7 +37,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -744,6 +744,7 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		ws,
 		ex,
 		bc,
+		bc.config.Genesis.PacificBlockHeight,
 	)
 }
 
@@ -1088,34 +1089,37 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			break
 		}
 	}
-	rp := bc.mustGetRollDPoSProtocol()
-	epochNum := rp.GetEpochNum(raCtx.BlockHeight)
-	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
-	// generate delegates for next round
-	skip, putPollResult, err := bc.createPutPollResultAction(raCtx.BlockHeight)
-	switch errors.Cause(err) {
-	case nil:
-		if !skip {
-			receipt, err := ws.RunAction(raCtx, putPollResult)
-			if err != nil {
-				return hash.ZeroHash256, nil, nil, err
+	var lastBlkHeight uint64
+	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
+		rp := bc.mustGetRollDPoSProtocol()
+		epochNum := rp.GetEpochNum(raCtx.BlockHeight)
+		lastBlkHeight = rp.GetEpochLastBlockHeight(epochNum)
+		// generate delegates for next round
+		skip, putPollResult, err := bc.createPutPollResultAction(raCtx.BlockHeight)
+		switch errors.Cause(err) {
+		case nil:
+			if !skip {
+				receipt, err := ws.RunAction(raCtx, putPollResult)
+				if err != nil {
+					return hash.ZeroHash256, nil, nil, err
+				}
+				if receipt != nil {
+					receipts = append(receipts, receipt)
+				}
+				executedActions = append(executedActions, putPollResult)
 			}
-			if receipt != nil {
-				receipts = append(receipts, receipt)
+		case errDelegatesNotExist:
+			if raCtx.BlockHeight == lastBlkHeight {
+				// TODO (zhi): if some bp by pass this condition, we need to reject block in validation step
+				return hash.ZeroHash256, nil, nil, errors.Wrapf(
+					err,
+					"failed to prepare delegates for next epoch %d",
+					epochNum+1,
+				)
 			}
-			executedActions = append(executedActions, putPollResult)
+		default:
+			return hash.ZeroHash256, nil, nil, err
 		}
-	case errDelegatesNotExist:
-		if raCtx.BlockHeight == lastBlkHeight {
-			// TODO (zhi): if some bp by pass this condition, we need to reject block in validation step
-			return hash.ZeroHash256, nil, nil, errors.Wrapf(
-				err,
-				"failed to prepare delegates for next epoch %d",
-				epochNum+1,
-			)
-		}
-	default:
-		return hash.ZeroHash256, nil, nil, err
 	}
 	// Process grant block reward action
 	grant, err := bc.createGrantRewardAction(action.BlockReward, raCtx.BlockHeight)
@@ -1133,11 +1137,11 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 	// Process grant epoch reward action if the block is the last one in an epoch
 	if raCtx.BlockHeight == lastBlkHeight {
-		grant, err = bc.createGrantRewardAction(action.EpochReward, raCtx.BlockHeight)
+		grant, err := bc.createGrantRewardAction(action.EpochReward, raCtx.BlockHeight)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
-		receipt, err = ws.RunAction(raCtx, grant)
+		receipt, err := ws.RunAction(raCtx, grant)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
@@ -1300,8 +1304,10 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
 		return err
 	}
-	if err := bc.createPollGenesisStates(ctx, ws); err != nil {
-		return err
+	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
+		if err := bc.createPollGenesisStates(ctx, ws); err != nil {
+			return err
+		}
 	}
 	return bc.createRewardingGenesisStates(ctx, ws)
 }

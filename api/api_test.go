@@ -22,10 +22,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -35,11 +36,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/gasstation"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/protogen/iotexapi"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -49,6 +47,8 @@ import (
 	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const lld = "lifeLongDelegates"
@@ -660,10 +660,12 @@ func TestServer_GetAction(t *testing.T) {
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
 			require.Equal(hex.EncodeToString(blkHash[:]), act.BlkHash)
+			require.Equal(test.blkNumber, act.BlkHeight)
 			require.Equal(timeStamp, act.Timestamp)
 		} else {
 			require.Equal(hex.EncodeToString(hash.ZeroHash256[:]), act.BlkHash)
 			require.Nil(act.Timestamp)
+			require.Equal(uint64(0), act.BlkHeight)
 		}
 	}
 }
@@ -688,6 +690,7 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		require.Equal(test.address, res.ActionInfo[0].Sender)
 	}
 }
 
@@ -711,6 +714,7 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		require.Equal(test.address, res.ActionInfo[0].Sender)
 	}
 }
 
@@ -736,6 +740,7 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
+		require.Equal(test.blkHeight, res.ActionInfo[0].BlkHeight)
 		require.Equal(test.numActions, len(res.ActionInfo))
 	}
 }
@@ -948,7 +953,7 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 
 func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	cfg := newConfig()
-
+	cfg.Consensus.Scheme = config.RollDPoSScheme
 	svr, err := createServer(cfg, false)
 	require.NoError(t, err)
 
@@ -988,7 +993,7 @@ func TestServer_TotalBalance(t *testing.T) {
 
 func TestServer_AvailableBalance(t *testing.T) {
 	cfg := newConfig()
-
+	cfg.Consensus.Scheme = config.RollDPoSScheme
 	svr, err := createServer(cfg, false)
 	require.NoError(t, err)
 
@@ -1499,8 +1504,8 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		return nil, nil, errors.New("failed to create blockchain")
 	}
 
-	acc := account.NewProtocol()
-	evm := execution.NewProtocol(bc)
+	acc := account.NewProtocol(0)
+	evm := execution.NewProtocol(bc, 0)
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1537,7 +1542,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 		return nil, err
 	}
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	ap.AddActionValidators(execution.NewProtocol(bc))
+	ap.AddActionValidators(execution.NewProtocol(bc, 0))
 
 	return ap, nil
 }

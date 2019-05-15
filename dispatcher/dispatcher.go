@@ -21,9 +21,9 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/protogen"
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
+	goproto "github.com/iotexproject/iotex-proto/golang"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Subscriber is the dispatcher subscriber interface
@@ -280,7 +280,7 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 
 // HandleBroadcast handles incoming broadcast message
 func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, message proto.Message) {
-	msgType, err := protogen.GetTypeFromRPCMsg(message)
+	msgType, err := goproto.GetTypeFromRPCMsg(message)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleBroadcast.", zap.Error(err))
 	}
@@ -309,7 +309,7 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 
 // HandleTell handles incoming unicast message
 func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer peerstore.PeerInfo, message proto.Message) {
-	msgType, err := protogen.GetTypeFromRPCMsg(message)
+	msgType, err := goproto.GetTypeFromRPCMsg(message)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleTell.", zap.Error(err))
 	}

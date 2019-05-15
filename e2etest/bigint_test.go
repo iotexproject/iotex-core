@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -18,12 +19,12 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -75,11 +76,12 @@ func prepareBlockchain(
 	cfg := config.Default
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol()
-	registry.Register(account.ProtocolID, acc)
+	acc := account.NewProtocol(0)
+	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	registry.Register(rolldpos.ProtocolID, rp)
+	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemDaoOption(),
@@ -87,11 +89,14 @@ func prepareBlockchain(
 		blockchain.RegistryOption(&registry),
 	)
 	r.NotNil(bc)
+	reward := rewarding.NewProtocol(bc, rp)
+	r.NoError(registry.Register(rewarding.ProtocolID, reward))
+
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc))
+	bc.Validator().AddActionValidators(account.NewProtocol(0), execution.NewProtocol(bc, 0), reward)
 	sf := bc.GetFactory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(execution.NewProtocol(bc))
+	sf.AddActionHandlers(execution.NewProtocol(bc, 0), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
@@ -133,7 +138,7 @@ func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Bloc
 	return prepare(bc, elp, r)
 }
 func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
-	priKey, err := keypair.HexStringToPrivateKey(executorPriKey)
+	priKey, err := crypto.HexStringToPrivateKey(executorPriKey)
 	selp, err := action.Sign(elp, priKey)
 	r.NoError(err)
 	actionMap := make(map[string][]action.SealedEnvelope)

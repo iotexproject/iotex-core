@@ -12,10 +12,11 @@ import (
 
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-fsm"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -23,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -40,7 +40,7 @@ type rollDPoSCtx struct {
 	roundCalc        *roundCalculator
 
 	encodedAddr string
-	priKey      keypair.PrivateKey
+	priKey      crypto.PrivateKey
 	round       *roundCtx
 	clock       clock.Clock
 	active      bool
@@ -59,7 +59,7 @@ func newRollDPoSCtx(
 	broadcastHandler scheme.Broadcast,
 	candidatesByHeightFunc CandidatesByHeightFunc,
 	encodedAddr string,
-	priKey keypair.PrivateKey,
+	priKey crypto.PrivateKey,
 	clock clock.Clock,
 ) *rollDPoSCtx {
 	if candidatesByHeightFunc == nil {

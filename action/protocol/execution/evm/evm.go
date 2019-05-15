@@ -138,6 +138,7 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
+	pacificHeight uint64,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	stateDB := NewStateDBAdapter(cm, sm, raCtx.BlockHeight, execution.Hash())
@@ -160,9 +161,14 @@ func ExecuteContract(
 	} else {
 		receipt.Status = action.SuccessReceiptStatus
 	}
-	if remainingGas > 0 {
-		remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
-		stateDB.AddBalance(ps.context.Origin, remainingValue)
+	if raCtx.BlockHeight >= pacificHeight {
+		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
+		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
+	} else {
+		if remainingGas > 0 {
+			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
+			stateDB.AddBalance(ps.context.Origin, remainingValue)
+		}
 	}
 	if depositGas-remainingGas > 0 {
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)

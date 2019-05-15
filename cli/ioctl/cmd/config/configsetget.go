@@ -9,13 +9,22 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	ipPattern       = `((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)`
+	domainPattern   = `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
+	localPattern    = "localhost"
+	endpointPattern = "(" + ipPattern + "|(" + domainPattern + ")" + "|(" + localPattern + "))" + `(:\d{1,5})?`
+)
+
 var (
-	validArgs = []string{"endpoint", "wallet"}
+	validArgs       = []string{"endpoint", "wallet"}
+	endpointCompile = regexp.MustCompile("^" + endpointPattern + "$")
 )
 
 // configGetCmd represents the config get command
@@ -83,12 +92,20 @@ func Get(arg string) (string, error) {
 	}
 }
 
+// make sure endpoint match pattern
+func isMatch(endpoint string) bool {
+	return endpointCompile.MatchString(endpoint)
+}
+
 // set sets config variable
 func set(args []string) (string, error) {
 	switch args[0] {
 	default:
 		return "", ErrConfigNotMatch
 	case "endpoint":
+		if !isMatch(args[1]) {
+			return "", fmt.Errorf("Endpoint %s is not valid", args[1])
+		}
 		ReadConfig.Endpoint = args[1]
 		ReadConfig.SecureConnect = !Insecure
 	case "wallet":

@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/pkg/keypair"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -23,7 +23,7 @@ var createConfigCmd = &cobra.Command{
 	Short: "Creates a yaml config using generated pub/pri key pair.",
 	Long:  `Creates a yaml config using generated pub/pri key pair.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		private, err := keypair.GenerateKey()
+		private, err := crypto.GenerateKey()
 		if err != nil {
 			log.L().Fatal("failed to create key pair", zap.Error(err))
 		}

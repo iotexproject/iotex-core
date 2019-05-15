@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/protogen/iotexrpc"
-	"github.com/iotexproject/iotex-core/protogen/iotextypes"
-	"github.com/iotexproject/iotex-core/protogen/testingpb"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/iotexproject/iotex-proto/golang/testingpb"
 )
 
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {

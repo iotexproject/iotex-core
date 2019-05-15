@@ -12,11 +12,11 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/pkg/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -30,18 +30,19 @@ const (
 
 // Protocol defines the protocol of handling executions
 type Protocol struct {
-	cm   protocol.ChainManager
-	addr address.Address
+	cm            protocol.ChainManager
+	addr          address.Address
+	pacificHeight uint64
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(cm protocol.ChainManager) *Protocol {
+func NewProtocol(cm protocol.ChainManager, pacificHeight uint64) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
-	return &Protocol{cm: cm, addr: addr}
+	return &Protocol{cm: cm, addr: addr, pacificHeight: pacificHeight}
 }
 
 // Handle handles an execution
@@ -50,7 +51,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if !ok {
 		return nil, nil
 	}
-	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.cm)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.cm, p.pacificHeight)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")

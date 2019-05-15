@@ -7,10 +7,10 @@ package mock_chainmanager
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
+	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	db "github.com/iotexproject/iotex-core/db"
-	hash "github.com/iotexproject/iotex-core/pkg/hash"
 	state "github.com/iotexproject/iotex-core/state"
 	reflect "reflect"
 )
