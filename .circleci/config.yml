@@ -156,9 +156,9 @@ workflows:
   version: 2
   commit:
     jobs:
-      #- build_test_ubuntu
-#       - build_test_darwin
-      - build_test_docker
+      - build_test_ubuntu
+      - build_test_darwin
+      #- build_test_docker
 
   scheduled-workflow:
     triggers:
@@ -171,4 +171,4 @@ workflows:
     jobs:
       - nightly_build_docker
       - nightly_bin_build_docker
-#       - nightly_bin_build_darwin
+   #    - nightly_bin_build_darwin
