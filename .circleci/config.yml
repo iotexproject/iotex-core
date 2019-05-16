@@ -149,7 +149,7 @@ workflows:
   version: 2
   commit:
     jobs:
-      #- build_test_ubuntu
+      - build_test_ubuntu
 #       - build_test_darwin
       - build_test_docker
 
