@@ -110,10 +110,6 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 	defer b.mu.RUnlock()
 
 	confirmedHeight := b.bc.TipHeight()
-	if confirmedHeight >= targetHeight {
-		return bi
-	}
-
 	// The sync range shouldn't go beyond tip height + buffer size to avoid being too aggressive
 	if targetHeight > confirmedHeight+b.bufferSize {
 		targetHeight = confirmedHeight + b.bufferSize
