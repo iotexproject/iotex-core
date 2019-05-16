@@ -158,24 +158,25 @@ var (
 		blkNumber    uint64
 	}{
 		{
-			checkPending: true,
+			checkPending: false,
 			in:           hex.EncodeToString(transferHash1[:]),
 			nonce:        1,
 			senderPubKey: testTransfer1.SrcPubkey().HexString(),
 			blkNumber:    1,
 		},
 		{
-			checkPending: true,
+			checkPending: false,
 			in:           hex.EncodeToString(transferHash2[:]),
 			nonce:        5,
 			senderPubKey: testTransfer2.SrcPubkey().HexString(),
 			blkNumber:    2,
 		},
 		{
-			checkPending: true,
+			checkPending: false,
 			in:           hex.EncodeToString(executionHash1[:]),
 			nonce:        6,
 			senderPubKey: testExecution1.SrcPubkey().HexString(),
+			blkNumber:    2,
 		},
 	}
 
@@ -902,7 +903,7 @@ func TestServer_ReadContract(t *testing.T) {
 	require.NoError(err)
 
 	for _, test := range readContractTests {
-		hash, err := toHash256(test.execHash)
+		hash, err := hash.HexStringToHash256(test.execHash)
 		require.NoError(err)
 		exec, err := svr.bc.GetActionByActionHash(hash)
 		require.NoError(err)
@@ -939,7 +940,7 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 	require.NoError(err)
 
 	for _, test := range estimateGasForActionTests {
-		hash, err := toHash256(test.actionHash)
+		hash, err := hash.HexStringToHash256(test.actionHash)
 		require.NoError(err)
 		act, err := svr.bc.GetActionByActionHash(hash)
 		require.NoError(err)
@@ -1359,7 +1360,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	// Add block 2
 	// Charlie transfer--> A, B, D, P
-	// Charlie transfer--> D
+	// Charlie transfer--> C
 	// Charlie exec--> D
 	recipients := []string{addr1, addr2, addr4, addr0}
 	selps := make([]action.SealedEnvelope, 0)
@@ -1413,8 +1414,8 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 	// Add block 4
 	// Charlie transfer--> C
-	// Charlie transfer--> D
 	// Alfa transfer--> A
+	// Charlie exec--> D
 	// Alfa exec--> D
 	tsf1, err := testutil.SignedTransfer(addr3, priKey3, uint64(7), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
