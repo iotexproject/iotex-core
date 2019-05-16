@@ -108,6 +108,17 @@ func (bc *blockEndorsementCollection) AddEndorsement(
 	return nil
 }
 
+func (bc *blockEndorsementCollection) Endorsement(
+	endorser string,
+	topic ConsensusVoteTopic,
+) *endorsement.Endorsement {
+	ee, exists := bc.endorsers[endorser]
+	if !exists {
+		return nil
+	}
+	return ee.Endorsement(topic)
+}
+
 func (bc *blockEndorsementCollection) Cleanup(timestamp time.Time) *blockEndorsementCollection {
 	cleaned := newBlockEndorsementCollection(bc.blk)
 	for endorser, ee := range bc.endorsers {

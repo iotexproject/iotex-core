@@ -121,6 +121,15 @@ func (ctx *roundCtx) IsUnlocked() bool {
 	return ctx.status == unlocked
 }
 
+func (ctx *roundCtx) ReadyToCommit(addr string) *endorsement.Endorsement {
+	c := ctx.eManager.CollectionByBlockHash(ctx.blockInLock)
+	if c == nil {
+		return nil
+	}
+
+	return c.Endorsement(addr, COMMIT)
+}
+
 func (ctx *roundCtx) HashOfBlockInLock() []byte {
 	return ctx.blockInLock
 }

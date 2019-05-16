@@ -612,6 +612,7 @@ func newConfig(
 	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 30 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 30 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 30 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.CommitTTL = 10 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
