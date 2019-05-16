@@ -69,7 +69,7 @@ jobs:
     machine:
       image: circleci/classic:latest
     working_directory: ~/iotex-core
-    resource_class: large
+    resource_class: medium+
     steps:
       - checkout
       - run: 
