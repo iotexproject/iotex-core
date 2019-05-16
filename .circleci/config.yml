@@ -20,7 +20,7 @@ jobs:
     docker:
       - image: iotex/iotex-core-ci:latest
     working_directory: ~/apps/iotex-core
-    #resource_class: large
+    resource_class: large
     steps:
       - checkout
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
