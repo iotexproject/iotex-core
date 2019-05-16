@@ -91,12 +91,6 @@ make recover
 
 Then, "make run" again.
 
-Note that if your enviroment is in Linux, you need to add the share libraries into `$LD_LIBRARY_PATH` by
-
-```
-LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$GOPATH/src/github.com/iotexproject/iotex-core/crypto/lib
-```
-
 ### Use CLI
 
 Users could interact with iotex blockchain by
