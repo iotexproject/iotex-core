@@ -55,26 +55,19 @@ jobs:
 
   build_test_ubuntu:
     machine:
-      image: circleci/classic:latest
-    working_directory: ~/go/src/github.com/iotexproject/iotex-core
+      image: lzxm160/ubuntugo:latest
+    working_directory: ~/gopath/src/github.com/iotexproject/iotex-core
     steps:
       - checkout
-      - run: 
-          name: clean go 1.9 update golang 1.11.6
-          command: |
-            wget https://dl.google.com/go/go1.11.6.linux-amd64.tar.gz
-            sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -zxf go1.11.6.linux-amd64.tar.gz
       - run:
           name: SET GO ENV AND go.test.sh
           command: |
-            export GOROOT="/usr/local/go"
-            export GOPATH=~/go
-            export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+            source /etc/profile
+            cd ~/gopath/src/github.com/iotexproject/iotex-core
+            golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
             ./go.test.sh
-            bash <(curl -s https://codecov.io/bash)
             go test -run=XXX -bench=. $(go list ./crypto)
-            make minicluster          
+            make minicluster
 ######################################################################
   nightly_build_docker:
     docker:
