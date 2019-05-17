@@ -26,7 +26,7 @@ require (
 	github.com/iotexproject/go-pkgs v0.1.1-0.20190513193226-f065b9342b78
 	github.com/iotexproject/iotex-address v0.2.0
 	github.com/iotexproject/iotex-election v0.1.8
-	github.com/iotexproject/iotex-proto v0.2.0
+	github.com/iotexproject/iotex-proto v0.2.1-0.20190517171854-6a5ec13d68ff
 	github.com/ipfs/go-datastore v0.0.5 // indirect
 	github.com/karalabe/hid v0.0.0-20190507082517-9e0a1cda7275 // indirect
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
