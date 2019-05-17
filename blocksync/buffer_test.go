@@ -278,5 +278,6 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	)
 	require.Nil(err)
 	b.Flush(blk)
-	assert.Len(b.GetBlocksIntervalsToSync(0), 0)
+	// There should always have at least 1 interval range to sync
+	assert.Len(b.GetBlocksIntervalsToSync(0), 1)
 }
