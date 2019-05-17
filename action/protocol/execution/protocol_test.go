@@ -678,6 +678,9 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("Multisend", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/multisend.json")
 	})
+	t.Run("Multisend2", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/multisend2.json")
+	})
 	// reentry
 	t.Run("reentry-attack", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/reentry-attack.json")
