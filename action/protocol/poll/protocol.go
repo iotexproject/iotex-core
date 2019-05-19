@@ -224,7 +224,7 @@ func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height 
 	for _, c := range r.Delegates() {
 		operatorAddress := string(c.OperatorAddress())
 		if _, err := address.FromString(operatorAddress); err != nil {
-			log.L().Error(
+			log.L().Debug(
 				"candidate's operator address is invalid",
 				zap.String("operatorAddress", operatorAddress),
 				zap.String("name", string(c.Name())),
@@ -234,7 +234,7 @@ func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height 
 		}
 		rewardAddress := string(c.RewardAddress())
 		if _, err := address.FromString(rewardAddress); err != nil {
-			log.L().Error(
+			log.L().Debug(
 				"candidate's reward address is invalid",
 				zap.String("name", string(c.Name())),
 				zap.String("rewardAddress", rewardAddress),
