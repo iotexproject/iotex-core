@@ -121,7 +121,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if err := s.p2pAgent.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting P2P agent")
 	}
-	if err := s.rootChainService.Blockchain().AddSubscriber(s); err != nil {
+	if err := s.rootChainService.Blockchain().AddSubscriber(s, false); err != nil {
 		return errors.Wrap(err, "error when starting sub-chain starter")
 	}
 	for _, cs := range s.chainservices {

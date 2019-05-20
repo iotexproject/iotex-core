@@ -40,7 +40,7 @@ func TestValidateDeposit(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	chain.EXPECT().GetFactory().Return(sf).AnyTimes()
-	chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
+	chain.EXPECT().AddSubscriber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
@@ -109,7 +109,7 @@ func TestMutateDeposit(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	chain.EXPECT().GetFactory().Return(sf).AnyTimes()
-	chain.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
+	chain.EXPECT().AddSubscriber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))

@@ -475,7 +475,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	require.NoError(addCreatorToFactory(sf))
 
 	ms := &MockSubscriber{counter: 0}
-	err = bc.AddSubscriber(ms)
+	err = bc.AddSubscriber(ms, false)
 	require.NoError(err)
 	require.Equal(0, ms.Counter())
 
@@ -671,7 +671,7 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.NoError(addCreatorToFactory(sf))
 
 	ms := &MockSubscriber{counter: 0}
-	err = bc.AddSubscriber(ms)
+	err = bc.AddSubscriber(ms, false)
 	require.NoError(err)
 	require.Equal(0, ms.counter)
 	err = bc.RemoveSubscriber(ms)

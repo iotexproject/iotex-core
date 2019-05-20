@@ -511,15 +511,15 @@ func (mr *MockBlockchainMockRecorder) ExecuteContractRead(caller, ex interface{}
 }
 
 // AddSubscriber mocks base method
-func (m *MockBlockchain) AddSubscriber(arg0 blockchain.BlockCreationSubscriber) error {
-	ret := m.ctrl.Call(m, "AddSubscriber", arg0)
+func (m *MockBlockchain) AddSubscriber(arg0 blockchain.BlockCreationSubscriber, arg1 bool) error {
+	ret := m.ctrl.Call(m, "AddSubscriber", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddSubscriber indicates an expected call of AddSubscriber
-func (mr *MockBlockchainMockRecorder) AddSubscriber(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubscriber", reflect.TypeOf((*MockBlockchain)(nil).AddSubscriber), arg0)
+func (mr *MockBlockchainMockRecorder) AddSubscriber(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubscriber", reflect.TypeOf((*MockBlockchain)(nil).AddSubscriber), arg0, arg1)
 }
 
 // RemoveSubscriber mocks base method
@@ -532,4 +532,16 @@ func (m *MockBlockchain) RemoveSubscriber(arg0 blockchain.BlockCreationSubscribe
 // RemoveSubscriber indicates an expected call of RemoveSubscriber
 func (mr *MockBlockchainMockRecorder) RemoveSubscriber(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSubscriber", reflect.TypeOf((*MockBlockchain)(nil).RemoveSubscriber), arg0)
+}
+
+// APIBlockSubscribers mocks base method
+func (m *MockBlockchain) APIBlockSubscribers() []blockchain.BlockCreationSubscriber {
+	ret := m.ctrl.Call(m, "APIBlockSubscribers")
+	ret0, _ := ret[0].([]blockchain.BlockCreationSubscriber)
+	return ret0
+}
+
+// APIBlockSubscribers indicates an expected call of APIBlockSubscribers
+func (mr *MockBlockchainMockRecorder) APIBlockSubscribers() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIBlockSubscribers", reflect.TypeOf((*MockBlockchain)(nil).APIBlockSubscribers))
 }

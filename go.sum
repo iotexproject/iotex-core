@@ -102,6 +102,8 @@ github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 h1:Ovs26xHkKqVztRpIrF/92Bcuy
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway v1.8.6 h1:XvND7+MPP7Jp+JpqSZ7naSl5nVZf6k0LbL1V3EKh0zc=
 github.com/grpc-ecosystem/grpc-gateway v1.8.6/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
+github.com/grpc-ecosystem/grpc-gateway v1.9.0 h1:bM6ZAFZmc/wPFaRDi0d5L7hGEZEx/2u+Tmr2evNHDiI=
+github.com/grpc-ecosystem/grpc-gateway v1.9.0/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
 github.com/gxed/hashland/keccakpg v0.0.1/go.mod h1:kRzw3HkwxFU1mpmPP8v1WyQzwdGfmKFJ6tItnhQ67kU=
 github.com/gxed/hashland/murmur3 v0.0.1/go.mod h1:KjXop02n4/ckmZSnY2+HKcLud/tcmvhST0bie/0lS48=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
@@ -133,8 +135,10 @@ github.com/iotexproject/iotex-election v0.1.8 h1:bDvt3X4ATLtdTaty6DS/xZr7ocpp1bI
 github.com/iotexproject/iotex-election v0.1.8/go.mod h1:07ZGQvLAf54PcyIo/5ylZWU+MmlPagR53lpBATzqqzk=
 github.com/iotexproject/iotex-election v0.1.10 h1:YecHvKZP1jakkhMUPRfiGEeCNZFyzWA3bVP9mUiPMT0=
 github.com/iotexproject/iotex-election v0.1.10/go.mod h1:kx1vlh018FHFzwLBFynmZCY49sT6r1zIfnsEc6Z8uXY=
-github.com/iotexproject/iotex-proto v0.2.1-0.20190517171854-6a5ec13d68ff h1:YuPfYd59AB/XAuuNe4sPnvWYtrqJvJQCIhqvOo6f6nE=
-github.com/iotexproject/iotex-proto v0.2.1-0.20190517171854-6a5ec13d68ff/go.mod h1:naxLKbcF6w9zlNp9MmNel0h5CrtT1bveVtNgicuZ7qg=
+github.com/iotexproject/iotex-proto v0.2.0 h1:N8DW0d63lIsGXEexm8q+jgYElRoFR4/0FOCO/GM5Va8=
+github.com/iotexproject/iotex-proto v0.2.0/go.mod h1:naxLKbcF6w9zlNp9MmNel0h5CrtT1bveVtNgicuZ7qg=
+github.com/iotexproject/iotex-proto v0.2.1-0.20190520183050-e748b9589841 h1:M1ppRrAjNKoS2BiAlTKzR81YimFTLSNqnguUGZbKQwc=
+github.com/iotexproject/iotex-proto v0.2.1-0.20190520183050-e748b9589841/go.mod h1:tKGSPudaLXI8qD3NO/DUdnHGjl/nRgSLE83u6IqNFpk=
 github.com/ipfs/go-cid v0.0.1 h1:GBjWPktLnNyX0JiQCNFpUuUSoMw5KMyqrsejHYlILBE=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-datastore v0.0.1/go.mod h1:d4KVXhMt913cLBEI/PXAy6ko+W7e9AhyAKBGh803qeE=

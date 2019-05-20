@@ -519,6 +519,37 @@ func (api *Server) SendSignedActionBytes(
 	})
 }
 
+// StreamBlocks streams blocks
+func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
+	subscriber := &blockListener{
+		pendingBlks: make(chan *block.Block, 64), // Actually 1 should be enough
+		cancelChan:  make(chan interface{}),
+	}
+	if err := api.bc.AddSubscriber(subscriber, true); err != nil {
+		return status.Error(codes.Internal, "failed to add the subscriber for new blocks")
+	}
+
+	for {
+		select {
+		case <-subscriber.cancelChan:
+			return nil
+		case blk := <-subscriber.pendingBlks:
+			var receiptsPb []*iotextypes.Receipt
+			for _, receipt := range blk.Receipts {
+				receiptsPb = append(receiptsPb, receipt.ConvertToReceiptPb())
+			}
+			if err := stream.Send(&iotexapi.StreamBlocksResponse{
+				Block: &iotexapi.BlockInfo{
+					Block:    blk.ConvertToBlockPb(),
+					Receipts: receiptsPb,
+				},
+			}); err != nil {
+				return status.Errorf(codes.Aborted, "failed to send block %d in the stream", blk.Height())
+			}
+		}
+	}
+}
+
 // Start starts the API server
 func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.Port)
@@ -540,6 +571,16 @@ func (api *Server) Start() error {
 // Stop stops the API server
 func (api *Server) Stop() error {
 	api.grpcserver.Stop()
+	for _, subscriber := range api.bc.APIBlockSubscribers() {
+		if err := api.bc.RemoveSubscriber(subscriber); err != nil {
+			return errors.Wrap(err, "failed to remove block subscriber in API service")
+		}
+		listener, ok := subscriber.(*blockListener)
+		if !ok {
+			return errors.New("failed to convert block subscriber to API block listener")
+		}
+		close(listener.cancelChan)
+	}
 	log.L().Info("API server stops.")
 	return nil
 }

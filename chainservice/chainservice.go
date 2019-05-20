@@ -143,7 +143,7 @@ func New(
 		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
-		if err := chain.AddSubscriber(indexBuilder); err != nil {
+		if err := chain.AddSubscriber(indexBuilder, false); err != nil {
 			log.L().Warn("Failed to add subscriber: index builder.", zap.Error(err))
 		}
 	}
