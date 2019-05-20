@@ -10,13 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
-
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/endorsement"
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestConvertToBlockFooterPb(t *testing.T) {

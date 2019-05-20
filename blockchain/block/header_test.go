@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestHeader(t *testing.T) {
