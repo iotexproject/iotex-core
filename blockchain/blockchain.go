@@ -150,28 +150,24 @@ type Blockchain interface {
 	ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
 
 	// AddSubscriber make you listen to every single produced block
-	AddSubscriber(BlockCreationSubscriber, bool) error
+	AddSubscriber(BlockCreationSubscriber) error
 
 	// RemoveSubscriber make you listen to every single produced block
 	RemoveSubscriber(BlockCreationSubscriber) error
-
-	// APIBlockSubscribers returns all API block subscribers
-	APIBlockSubscribers() []BlockCreationSubscriber
 }
 
 // blockchain implements the Blockchain interface
 type blockchain struct {
-	mu               sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao              *blockDAO
-	config           config.Config
-	tipHeight        uint64
-	tipHash          hash.Hash256
-	validator        Validator
-	lifecycle        lifecycle.Lifecycle
-	clk              clock.Clock
-	blocklistener    []BlockCreationSubscriber
-	apiBlockListener []BlockCreationSubscriber
-	timerFactory     *prometheustimer.TimerFactory
+	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
+	dao           *blockDAO
+	config        config.Config
+	tipHeight     uint64
+	tipHash       hash.Hash256
+	validator     Validator
+	lifecycle     lifecycle.Lifecycle
+	clk           clock.Clock
+	blocklistener []BlockCreationSubscriber
+	timerFactory  *prometheustimer.TimerFactory
 
 	// used by account-based model
 	sf factory.Factory
@@ -685,18 +681,14 @@ func (bc *blockchain) Validator() Validator {
 	return bc.validator
 }
 
-func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber, apiListener bool) error {
+func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	log.L().Info("Add a subscriber.")
 	if s == nil {
 		return errors.New("subscriber could not be nil")
 	}
-	if !apiListener {
-		bc.blocklistener = append(bc.blocklistener, s)
-	} else {
-		bc.apiBlockListener = append(bc.apiBlockListener, s)
-	}
+	bc.blocklistener = append(bc.blocklistener, s)
 
 	return nil
 }
@@ -711,18 +703,7 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 			return nil
 		}
 	}
-	for i, sub := range bc.apiBlockListener {
-		if sub == s {
-			bc.apiBlockListener = append(bc.apiBlockListener[:i], bc.apiBlockListener[i+1:]...)
-			log.L().Info("Successfully unsubscribe block creation.")
-			return nil
-		}
-	}
 	return errors.New("cannot find subscription")
-}
-
-func (bc *blockchain) APIBlockSubscribers() []BlockCreationSubscriber {
-	return bc.apiBlockListener
 }
 
 //======================================
@@ -1242,11 +1223,10 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {
-	if bc.blocklistener == nil && bc.apiBlockListener == nil {
+	if bc.blocklistener == nil {
 		return
 	}
-	blockListeners := append(bc.blocklistener, bc.apiBlockListener...)
-	for _, s := range blockListeners {
+	for _, s := range bc.blocklistener {
 		go func(bcs BlockCreationSubscriber, b *block.Block) {
 			if err := bcs.HandleBlock(b); err != nil {
 				log.L().Error("Failed to handle new block.", zap.Error(err))
