@@ -499,11 +499,11 @@ func updateExpectationWithPendingClaimList(
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, receipterr := bc.GetReceiptByActionHash(selpHash)
-		selp, err := bc.GetActionByActionHash(selpHash)
-		require.Equal(t, err == nil, receipterr == nil)
+		receipt, err := bc.GetReceiptByActionHash(selpHash)
 
 		if err == nil {
+			selp, err := bc.GetActionByActionHash(selpHash)
+			require.NoError(t, err)
 			addr, err := address.FromBytes(selp.SrcPubkey().Hash())
 			require.NoError(t, err)
 
@@ -604,13 +604,14 @@ func newConfig(
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
+	cfg.Chain.EnableAsyncIndexWrite = false
 
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 40 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 30 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 30 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 120 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 90 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 90 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 30 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.CommitTTL = 10 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
@@ -624,7 +625,7 @@ func newConfig(
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[0:numNodes]
 
-	cfg.Genesis.BlockInterval = 100 * time.Millisecond
+	cfg.Genesis.BlockInterval = 300 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
 	return cfg
