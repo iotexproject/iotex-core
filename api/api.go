@@ -495,6 +495,23 @@ func (api *Server) GetActionsByAddress(
 	return api.getActionsByAddress(in.Address, in.Start, in.Count)
 }
 
+// SendSignedActionBytes sends signed transaction bytes
+func (api *Server) SendSignedActionBytes(
+	ctx context.Context, in *iotexapi.SendSignedActionBytesRequest) (*iotexapi.SendActionResponse, error) {
+	// input is hex string of signed action bytes
+	actionBytes, err := hex.DecodeString(in.SignedActionBytes)
+	if err != nil {
+		return nil, err
+	}
+	action := &iotextypes.Action{}
+	if err := proto.Unmarshal(actionBytes, action); err != nil {
+		return nil, err
+	}
+	return api.SendAction(ctx, &iotexapi.SendActionRequest{
+		Action: action,
+	})
+}
+
 // Start starts the API server
 func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.Port)
@@ -787,12 +804,19 @@ func (api *Server) committedAction(selp action.SealedEnvelope) (*iotexapi.Action
 		return nil, err
 	}
 	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+	receipt, err := api.bc.GetReceiptByActionHash(actHash)
+	if err != nil {
+		return nil, err
+	}
+	gas := new(big.Int)
+	gas = gas.Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 	return &iotexapi.ActionInfo{
 		Action:    selp.Proto(),
 		ActHash:   hex.EncodeToString(actHash[:]),
 		BlkHash:   hex.EncodeToString(blkHash[:]),
 		BlkHeight: header.Height(),
 		Sender:    sender.String(),
+		GasFee:    gas.String(),
 		Timestamp: header.BlockHeaderCoreProto().Timestamp,
 	}, nil
 }
