@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	fsm "github.com/iotexproject/go-fsm"
+	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -23,17 +23,17 @@ import (
  * without signature, which could be replaced with real signature
  */
 var (
-	consensusMtc = prometheus.NewCounterVec(
+	consensusEvtsMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "iotex_consensus",
-			Help: "Consensus stats",
+			Name: "iotex_consensus_events",
+			Help: "IoTeX consensus events",
 		},
-		[]string{"result"},
+		[]string{"type", "status"},
 	)
 )
 
 func init() {
-	prometheus.MustRegister(consensusMtc)
+	prometheus.MustRegister(consensusEvtsMtc)
 }
 
 const (
@@ -299,7 +299,7 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 	if evt == nil {
 		return
 	}
-	consensusMtc.WithLabelValues(string(evt.Type())).Inc()
+	consensusEvtsMtc.WithLabelValues(string(evt.Type()), "produced").Inc()
 	if delay > 0 {
 		m.wg.Add(1)
 		go func() {
@@ -318,12 +318,14 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 	if m.ctx.IsStaleEvent(evt) {
 		m.ctx.Logger().Debug("stale event", zap.Any("event", evt.Type()))
+		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
 		return nil
 	}
 	if m.ctx.IsFutureEvent(evt) {
 		m.ctx.Logger().Debug("future event", zap.Any("event", evt.Type()))
 		// TODO: find a more appropriate delay
 		m.produce(evt, m.cfg.UnmatchedEventInterval)
+		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
 		return nil
 	}
 	src := m.fsm.CurrentState()
@@ -336,8 +338,10 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 			zap.String("dst", string(m.fsm.CurrentState())),
 			zap.String("evt", string(evt.Type())),
 		)
+		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "consumed").Inc()
 	case fsm.ErrTransitionNotFound:
 		if m.ctx.IsStaleUnmatchedEvent(evt) {
+			consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
 			return nil
 		}
 		m.produce(evt, m.cfg.UnmatchedEventInterval)
@@ -347,6 +351,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 			zap.String("evt", string(evt.Type())),
 			zap.Error(err),
 		)
+		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
 	default:
 		return errors.Wrapf(
 			err,
@@ -535,7 +540,6 @@ func (m *ConsensusFSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, 
 	if err != nil || !committed {
 		return sAcceptPreCommitEndorsement, err
 	}
-	consensusMtc.WithLabelValues("ReachConsenus").Inc()
 	return m.BackToPrepare(0)
 }
 
