@@ -191,7 +191,7 @@ func New(
 	var apiSvr *api.Server
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		apiSvr, err = api.NewServer(
-			cfg.API,
+			cfg,
 			chain,
 			dispatcher,
 			actPool,

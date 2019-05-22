@@ -1606,7 +1606,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		bc:       bc,
 		ap:       ap,
 		cfg:      apiCfg,
-		gs:       gasstation.NewGasStation(bc, apiCfg),
+		gs:       gasstation.NewGasStation(bc, apiCfg, config.Default.Genesis.ActionGasLimit),
 		registry: registry,
 	}
 

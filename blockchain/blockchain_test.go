@@ -16,6 +16,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -619,8 +620,17 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	header, err = bc.BlockHeaderByHeight(5)
 	require.NoError(err)
 	require.Equal(hash5, header.HashBlock())
-	_, err = bc.StateByAddr("")
-	require.Error(err)
+
+	// invalid address returns error
+	act, err := bc.StateByAddr("")
+	require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
+	require.Nil(act)
+
+	// valid but unused address should return empty account
+	act, err = bc.StateByAddr("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
+	require.NoError(err)
+	require.Equal(uint64(0), act.Nonce)
+	require.Equal(big.NewInt(0), act.Balance)
 }
 
 func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
@@ -775,8 +785,17 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	blk, err = bc.GetBlockByHeight(4)
 	require.NoError(err)
 	require.Equal(hash4, blk.HashBlock())
-	_, err = bc.StateByAddr("")
-	require.Error(err)
+
+	// invalid address returns error
+	act, err := bc.StateByAddr("")
+	require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
+	require.Nil(act)
+
+	// valid but unused address should return empty account
+	act, err = bc.StateByAddr("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
+	require.NoError(err)
+	require.Equal(uint64(0), act.Nonce)
+	require.Equal(big.NewInt(0), act.Balance)
 }
 
 func TestBlockchain_Validator(t *testing.T) {
