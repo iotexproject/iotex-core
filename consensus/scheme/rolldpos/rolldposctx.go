@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -27,6 +28,18 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
+
+var consensusDurationMtc = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "iotex_consensus_elapse_time",
+		Help: "Consensus elapse time.",
+	},
+	[]string{},
+)
+
+func init() {
+	prometheus.MustRegister(consensusDurationMtc)
+}
 
 // CandidatesByHeightFunc defines a function to overwrite candidates
 type CandidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
@@ -419,6 +432,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		)
 	}
 
+	consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
 	return true, nil
 }
 
