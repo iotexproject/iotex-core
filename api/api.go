@@ -86,7 +86,7 @@ type Server struct {
 
 // NewServer creates a new server
 func NewServer(
-	cfg config.API,
+	cfg config.Config,
 	chain blockchain.Blockchain,
 	dispatcher dispatcher.Dispatcher,
 	actPool actpool.ActPool,
@@ -100,12 +100,12 @@ func NewServer(
 		}
 	}
 
-	if cfg == (config.API{}) {
+	if cfg.API == (config.API{}) {
 		log.L().Warn("API server is not configured.")
-		cfg = config.Default.API
+		cfg.API = config.Default.API
 	}
 
-	if cfg.RangeQueryLimit < uint64(cfg.TpsWindow) {
+	if cfg.API.RangeQueryLimit < uint64(cfg.API.TpsWindow) {
 		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
 
@@ -114,9 +114,9 @@ func NewServer(
 		dp:               dispatcher,
 		ap:               actPool,
 		broadcastHandler: apiCfg.broadcastHandler,
-		cfg:              cfg,
+		cfg:              cfg.API,
 		registry:         registry,
-		gs:               gasstation.NewGasStation(chain, cfg),
+		gs:               gasstation.NewGasStation(chain, cfg.API, cfg.Genesis.ActionGasLimit),
 	}
 
 	svr.grpcserver = grpc.NewServer(
@@ -330,12 +330,19 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	intrinsicGas, err := sc.IntrinsicGas()
+	caller, err := api.bc.StateByAddr(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	sc, _ = action.NewExecution(sc.Contract(), sc.Nonce(), sc.Amount(), intrinsicGas, sc.GasPrice(), sc.Data())
+	sc, _ = action.NewExecution(
+		sc.Contract(),
+		caller.Nonce+1,
+		sc.Amount(),
+		api.gs.ActionGasLimit(),
+		big.NewInt(0),
+		sc.Data(),
+	)
 
 	callerAddr, err := address.FromString(in.CallerAddress)
 	if err != nil {
