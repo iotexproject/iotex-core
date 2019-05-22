@@ -117,7 +117,7 @@ func NewServer(
 		broadcastHandler: apiCfg.broadcastHandler,
 		cfg:              cfg.API,
 		registry:         registry,
-		blockListener:    NewBlockListener(),
+		blockListener:    newBlockListener(),
 		gs:               gasstation.NewGasStation(chain, cfg.API, cfg.Genesis.ActionGasLimit),
 	}
 
@@ -523,10 +523,20 @@ func (api *Server) SendSignedActionBytes(
 
 // StreamBlocks streams blocks
 func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
-	if err := api.blockListener.AddStream(stream); err != nil {
+	errChan := make(chan error)
+	if err := api.blockListener.AddStream(stream, errChan); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
-	select {}
+
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				err = status.Error(codes.Aborted, err.Error())
+			}
+			return err
+		}
+	}
 }
 
 // Start starts the API server

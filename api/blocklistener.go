@@ -19,20 +19,21 @@ type blockListener struct {
 	streamMap   sync.Map
 }
 
-// NewBlockListener creates a new block listener
-func NewBlockListener() *blockListener {
-	return &blockListener{
-		pendingBlks: make(chan *block.Block, 64), // Actually 1 should be enough
-		cancelChan:  make(chan interface{}),
-	}
-}
-
 // Start starts the block listener
 func (bl *blockListener) Start() error {
 	go func() {
 		for {
 			select {
 			case <-bl.cancelChan:
+				bl.streamMap.Range(func(_, value interface{}) bool {
+					errChan, ok := value.(chan error)
+					if !ok {
+						log.S().Panic("streamMap store a value which is not an error channel")
+					}
+					errChan <- nil
+
+					return true
+				})
 				return
 			case blk := <-bl.pendingBlks:
 				var receiptsPb []*iotextypes.Receipt
@@ -45,13 +46,17 @@ func (bl *blockListener) Start() error {
 				}
 
 				var wg sync.WaitGroup
-				bl.streamMap.Range(func(key, _ interface{}) bool {
+				bl.streamMap.Range(func(key, value interface{}) bool {
 					stream, ok := key.(iotexapi.APIService_StreamBlocksServer)
 					if !ok {
-						log.S().Panic("streamMap stores the item which is not a stream")
+						log.S().Panic("streamMap stores a key which is not a stream")
+					}
+					errChan, ok := value.(chan error)
+					if !ok {
+						log.S().Panic("streamMap store a value which is not an error channel")
 					}
 					wg.Add(1)
-					go bl.sendBlock(&wg, stream, blockInfo)
+					go bl.sendBlock(&wg, stream, errChan, blockInfo)
 					return true
 				})
 				wg.Wait()
@@ -74,15 +79,22 @@ func (bl *blockListener) HandleBlock(blk *block.Block) error {
 }
 
 // AddStream adds a new stream into streamMap
-func (bl *blockListener) AddStream(stream iotexapi.APIService_StreamBlocksServer) error {
-	_, loaded := bl.streamMap.LoadOrStore(stream, true)
+func (bl *blockListener) AddStream(stream iotexapi.APIService_StreamBlocksServer, errChan chan error) error {
+	_, loaded := bl.streamMap.LoadOrStore(stream, errChan)
 	if loaded {
 		return errors.New("stream is already added")
 	}
 	return nil
 }
 
-func (bl *blockListener) sendBlock(wg *sync.WaitGroup, stream iotexapi.APIService_StreamBlocksServer, blockInfo *iotexapi.BlockInfo) {
+func newBlockListener() *blockListener {
+	return &blockListener{
+		pendingBlks: make(chan *block.Block, 64), // Actually 1 should be enough
+		cancelChan:  make(chan interface{}),
+	}
+}
+
+func (bl *blockListener) sendBlock(wg *sync.WaitGroup, stream iotexapi.APIService_StreamBlocksServer, errChan chan error, blockInfo *iotexapi.BlockInfo) {
 	if err := stream.Send(&iotexapi.StreamBlocksResponse{Block: blockInfo}); err != nil {
 		log.L().Info(
 			"Error when streaming the block",
@@ -90,6 +102,7 @@ func (bl *blockListener) sendBlock(wg *sync.WaitGroup, stream iotexapi.APIServic
 			zap.Error(err),
 		)
 		bl.streamMap.Delete(stream)
+		errChan <- err
 	}
 	wg.Done()
 }
