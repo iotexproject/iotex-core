@@ -39,22 +39,22 @@ func (bl *blockListener) Start() error {
 				for _, receipt := range blk.Receipts {
 					receiptsPb = append(receiptsPb, receipt.ConvertToReceiptPb())
 				}
-
-				for _, stream := range bl.AllStreams() {
-					if err := stream.Send(&iotexapi.StreamBlocksResponse{
-						Block: &iotexapi.BlockInfo{
-							Block:    blk.ConvertToBlockPb(),
-							Receipts: receiptsPb,
-						},
-					}); err != nil {
-						log.L().Info(
-							"Error when streaming the block",
-							zap.Uint64("height", blk.Height()),
-							zap.Error(err),
-						)
-						bl.streamMap.Delete(stream)
-					}
+				blockInfo := &iotexapi.BlockInfo{
+					Block:    blk.ConvertToBlockPb(),
+					Receipts: receiptsPb,
 				}
+
+				var wg sync.WaitGroup
+				bl.streamMap.Range(func(key, _ interface{}) bool {
+					stream, ok := key.(iotexapi.APIService_StreamBlocksServer)
+					if !ok {
+						log.S().Panic("streamMap stores the item which is not a stream")
+					}
+					wg.Add(1)
+					go bl.sendBlock(&wg, stream, blockInfo)
+					return true
+				})
+				wg.Wait()
 			}
 		}
 	}()
@@ -82,16 +82,14 @@ func (bl *blockListener) AddStream(stream iotexapi.APIService_StreamBlocksServer
 	return nil
 }
 
-// AllStreams returns all streams currently existing in the streamMap
-func (bl *blockListener) AllStreams() []iotexapi.APIService_StreamBlocksServer {
-	all := make([]iotexapi.APIService_StreamBlocksServer, 0)
-	bl.streamMap.Range(func(key, _ interface{}) bool {
-		stream, ok := key.(iotexapi.APIService_StreamBlocksServer)
-		if !ok {
-			log.S().Panic("streamMap stores the item which is not a stream")
-		}
-		all = append(all, stream)
-		return true
-	})
-	return all
+func (bl *blockListener) sendBlock(wg *sync.WaitGroup, stream iotexapi.APIService_StreamBlocksServer, blockInfo *iotexapi.BlockInfo) {
+	if err := stream.Send(&iotexapi.StreamBlocksResponse{Block: blockInfo}); err != nil {
+		log.L().Info(
+			"Error when streaming the block",
+			zap.Uint64("height", blockInfo.GetBlock().GetHeader().GetCore().GetHeight()),
+			zap.Error(err),
+		)
+		bl.streamMap.Delete(stream)
+	}
+	wg.Done()
 }
