@@ -110,12 +110,6 @@ func NewServer(
 		return nil, errors.New("range query upper limit cannot be less than tps window")
 	}
 
-	bl := &blockListener{
-		pendingBlks: make(chan *block.Block, 64), // Actually 1 should be enough
-		cancelChan:  make(chan interface{}),
-		streamList:  make([]iotexapi.APIService_StreamBlocksServer, 0),
-	}
-
 	svr := &Server{
 		bc:               chain,
 		dp:               dispatcher,
@@ -123,7 +117,7 @@ func NewServer(
 		broadcastHandler: apiCfg.broadcastHandler,
 		cfg:              cfg.API,
 		registry:         registry,
-		blockListener:    bl,
+		blockListener:    NewBlockListener(),
 		gs:               gasstation.NewGasStation(chain, cfg.API, cfg.Genesis.ActionGasLimit),
 	}
 
@@ -529,7 +523,9 @@ func (api *Server) SendSignedActionBytes(
 
 // StreamBlocks streams blocks
 func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
-	api.blockListener.streamList = append(api.blockListener.streamList, stream)
+	if err := api.blockListener.AddStream(stream); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
 	select {}
 }
 
