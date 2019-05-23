@@ -611,23 +611,29 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
+	reverseStart := totalActions - (start + count)
+	if totalActions < start+count {
+		reverseStart = uint64(0)
+		count = totalActions - start
+	}
+
 	var res []*iotexapi.ActionInfo
 	var hit bool
-	for height := uint64(1); height <= api.bc.TipHeight() && count > 0; height++ {
+	for height := api.bc.TipHeight(); height >= 1 && count > 0; height-- {
 		blk, err := api.bc.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		if !hit && start >= uint64(len(blk.Actions)) {
-			start -= uint64(len(blk.Actions))
+		if !hit && reverseStart >= uint64(len(blk.Actions)) {
+			reverseStart -= uint64(len(blk.Actions))
 			continue
 		}
-		// now start < len(blk.Actions), we are going to fetch actions from this block
+		// now reverseStart < len(blk.Actions), we are going to fetch actions from this block
 		hit = true
-		act := api.actionsInBlock(blk, start, count)
+		act := api.reverseActionsInBlock(blk, reverseStart, count)
 		res = append(res, act...)
 		count -= uint64(len(act))
-		start = 0
+		reverseStart = 0
 	}
 	return &iotexapi.GetActionsResponse{
 		Total:      totalActions,
@@ -905,6 +911,30 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 	var res []*iotexapi.ActionInfo
 	for i := start; i < uint64(len(blk.Actions)) && i < start+count; i++ {
 		selp := blk.Actions[i]
+		actHash := selp.Hash()
+		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
+		res = append(res, &iotexapi.ActionInfo{
+			Action:    selp.Proto(),
+			ActHash:   hex.EncodeToString(actHash[:]),
+			BlkHash:   blkHash,
+			BlkHeight: blkHeight,
+			Sender:    sender.String(),
+			Timestamp: ts,
+		})
+	}
+	return res
+}
+
+func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count uint64) []*iotexapi.ActionInfo {
+	h := blk.HashBlock()
+	blkHash := hex.EncodeToString(h[:])
+	blkHeight := blk.Height()
+	ts := blk.Header.BlockHeaderCoreProto().Timestamp
+
+	var res []*iotexapi.ActionInfo
+	for i := reverseStart; i < uint64(len(blk.Actions)) && i < reverseStart+count; i++ {
+		ri := uint64(len(blk.Actions)) - 1 - i
+		selp := blk.Actions[ri]
 		actHash := selp.Hash()
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
 		res = append(res, &iotexapi.ActionInfo{
