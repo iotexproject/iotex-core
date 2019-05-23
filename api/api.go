@@ -598,6 +598,7 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 }
 
 // GetActions returns actions within the range
+// This is a workaround for the slow access issue if the start index is very big
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count == 0 || count > api.cfg.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
@@ -611,6 +612,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
+	// Finding actions in reverse order saves time for querying most recent actions
 	reverseStart := totalActions - (start + count)
 	if totalActions < start+count {
 		reverseStart = uint64(0)
@@ -631,7 +633,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 		// now reverseStart < len(blk.Actions), we are going to fetch actions from this block
 		hit = true
 		act := api.reverseActionsInBlock(blk, reverseStart, count)
-		res = append(res, act...)
+		res = append(act, res...)
 		count -= uint64(len(act))
 		reverseStart = 0
 	}
@@ -937,14 +939,16 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 		selp := blk.Actions[ri]
 		actHash := selp.Hash()
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
-		res = append(res, &iotexapi.ActionInfo{
-			Action:    selp.Proto(),
-			ActHash:   hex.EncodeToString(actHash[:]),
-			BlkHash:   blkHash,
-			BlkHeight: blkHeight,
-			Sender:    sender.String(),
-			Timestamp: ts,
-		})
+		res = append([]*iotexapi.ActionInfo{
+			{
+				Action:    selp.Proto(),
+				ActHash:   hex.EncodeToString(actHash[:]),
+				BlkHash:   blkHash,
+				BlkHeight: blkHeight,
+				Sender:    sender.String(),
+				Timestamp: ts,
+			},
+		}, res...)
 	}
 	return res
 }
