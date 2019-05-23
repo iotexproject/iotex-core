@@ -81,6 +81,7 @@ type Server struct {
 	broadcastHandler BroadcastOutbound
 	cfg              config.API
 	registry         *protocol.Registry
+	blockListener    *blockListener
 	grpcserver       *grpc.Server
 }
 
@@ -116,6 +117,7 @@ func NewServer(
 		broadcastHandler: apiCfg.broadcastHandler,
 		cfg:              cfg.API,
 		registry:         registry,
+		blockListener:    newBlockListener(),
 		gs:               gasstation.NewGasStation(chain, cfg.API, cfg.Genesis.ActionGasLimit),
 	}
 
@@ -519,6 +521,24 @@ func (api *Server) SendSignedActionBytes(
 	})
 }
 
+// StreamBlocks streams blocks
+func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
+	errChan := make(chan error)
+	if err := api.blockListener.AddStream(stream, errChan); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				err = status.Error(codes.Aborted, err.Error())
+			}
+			return err
+		}
+	}
+}
+
 // Start starts the API server
 func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.Port)
@@ -534,14 +554,22 @@ func (api *Server) Start() error {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
 	}()
+	if err := api.bc.AddSubscriber(api.blockListener); err != nil {
+		return errors.Wrap(err, "failed to subscribe to block creations")
+	}
+	if err := api.blockListener.Start(); err != nil {
+		return errors.Wrap(err, "failed to start block listener")
+	}
 	return nil
 }
 
 // Stop stops the API server
 func (api *Server) Stop() error {
 	api.grpcserver.Stop()
-	log.L().Info("API server stops.")
-	return nil
+	if err := api.bc.RemoveSubscriber(api.blockListener); err != nil {
+		return errors.Wrap(err, "failed to unsubscribe block listener")
+	}
+	return api.blockListener.Stop()
 }
 
 func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
