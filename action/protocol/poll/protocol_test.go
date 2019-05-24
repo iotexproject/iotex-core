@@ -25,8 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-election/types"
 )
@@ -103,8 +103,8 @@ func TestHandle(t *testing.T) {
 	require.NoError(p.Initialize(ctx, ws))
 
 	// wrong action
-	recipientAddr := testaddress.Addrinfo["alfa"]
-	senderKey := testaddress.Keyinfo["producer"]
+	recipientAddr := identityset.Addrinfo["alfa"]
+	senderKey := identityset.Keyinfo["producer"]
 	tsf, err := action.NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
@@ -157,8 +157,8 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(p.Initialize(ctx, ws))
 
 	// wrong action
-	recipientAddr := testaddress.Addrinfo["alfa"]
-	senderKey := testaddress.Keyinfo["producer"]
+	recipientAddr := identityset.Addrinfo["alfa"]
+	senderKey := identityset.Keyinfo["producer"]
 	tsf, err := action.NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
@@ -212,7 +212,7 @@ func TestProtocol_Validate(t *testing.T) {
 		context.Background(),
 		protocol.ValidateActionsCtx{
 			BlockHeight:  1,
-			ProducerAddr: testaddress.Addrinfo["producer"].String(),
+			ProducerAddr: identityset.Addrinfo["producer"].String(),
 			Caller:       caller,
 		},
 	)
@@ -237,7 +237,7 @@ func TestProtocol_Validate(t *testing.T) {
 		context.Background(),
 		protocol.ValidateActionsCtx{
 			BlockHeight:  1,
-			ProducerAddr: testaddress.Addrinfo["producer"].String(),
+			ProducerAddr: identityset.Addrinfo["producer"].String(),
 			Caller:       caller,
 		},
 	)
@@ -261,7 +261,7 @@ func TestProtocol_Validate(t *testing.T) {
 		context.Background(),
 		protocol.ValidateActionsCtx{
 			BlockHeight:  1,
-			ProducerAddr: testaddress.Addrinfo["producer"].String(),
+			ProducerAddr: identityset.Addrinfo["producer"].String(),
 			Caller:       caller,
 		},
 	)
@@ -286,7 +286,7 @@ func TestProtocol_Validate(t *testing.T) {
 		context.Background(),
 		protocol.ValidateActionsCtx{
 			BlockHeight:  1,
-			ProducerAddr: testaddress.Addrinfo["producer"].String(),
+			ProducerAddr: identityset.Addrinfo["producer"].String(),
 			Caller:       caller6,
 		},
 	)

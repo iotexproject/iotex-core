@@ -13,13 +13,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestExecutionSignVerify(t *testing.T) {
 	require := require.New(t)
-	contractAddr := testaddress.Addrinfo["alfa"]
-	executorKey := testaddress.Keyinfo["producer"]
+	contractAddr := identityset.Addrinfo["alfa"]
+	executorKey := identityset.Keyinfo["producer"]
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	ex, err := NewExecution(contractAddr.String(), 0, big.NewInt(10), uint64(10), big.NewInt(10), data)

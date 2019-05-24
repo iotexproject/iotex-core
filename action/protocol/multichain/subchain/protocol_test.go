@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestValidateDeposit(t *testing.T) {
@@ -61,17 +61,17 @@ func TestMutateDeposit(t *testing.T) {
 	}()
 
 	ctx = protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		Caller: testaddress.Addrinfo["producer"],
+		Caller: identityset.Addrinfo["producer"],
 	})
 	ws, err := bc.GetFactory().NewWorkingSet()
 	require.NoError(t, err)
 	require.NoError(t, bc.GetFactory().Commit(ws))
 
-	account1, err := bc.GetFactory().AccountState(testaddress.Addrinfo["producer"].String())
+	account1, err := bc.GetFactory().AccountState(identityset.Addrinfo["producer"].String())
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), account1.Nonce)
 
-	account2, err := bc.GetFactory().AccountState(testaddress.Addrinfo["alfa"].String())
+	account2, err := bc.GetFactory().AccountState(identityset.Addrinfo["alfa"].String())
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(1000), account2.Balance)
 

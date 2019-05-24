@@ -14,18 +14,18 @@ import (
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestClient(t *testing.T) {
 	require := require.New(t)
-	a := testaddress.Addrinfo["alfa"].String()
-	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	b := testaddress.Addrinfo["bravo"].String()
+	a := identityset.Addrinfo["alfa"].String()
+	priKeyA := identityset.Keyinfo["alfa"].PriKey
+	b := identityset.Addrinfo["bravo"].String()
 
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()

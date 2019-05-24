@@ -22,8 +22,8 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -39,8 +39,8 @@ func TestHandlePutBlock(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(sf).AnyTimes()
 
-	addr := testaddress.Addrinfo["producer"]
-	key2 := testaddress.Keyinfo["echo"]
+	addr := identityset.Addrinfo["producer"]
+	key2 := identityset.Keyinfo["echo"]
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
@@ -53,8 +53,8 @@ func TestHandlePutBlock(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
-			Caller:   testaddress.Addrinfo["producer"],
+			Producer: identityset.Addrinfo["producer"],
+			Caller:   identityset.Addrinfo["producer"],
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)

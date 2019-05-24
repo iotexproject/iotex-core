@@ -24,8 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -56,8 +56,8 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			protocol.WithRunActionsCtx(context.Background(),
 				protocol.RunActionsCtx{
 					BlockHeight: 0,
-					Producer:    testaddress.Addrinfo["producer"],
-					Caller:      testaddress.Addrinfo["alfa"],
+					Producer:    identityset.Addrinfo["producer"],
+					Caller:      identityset.Addrinfo["alfa"],
 					GasLimit:    testutil.TestGasLimit,
 					Registry:    &registry,
 				}),
@@ -79,9 +79,9 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	}
 	accountBravo := state.Account{}
 	accountCharlie := state.Account{}
-	pubKeyAlfa := hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes())
-	pubKeyBravo := hash.BytesToHash160(testaddress.Addrinfo["bravo"].Bytes())
-	pubKeyCharlie := hash.BytesToHash160(testaddress.Addrinfo["charlie"].Bytes())
+	pubKeyAlfa := hash.BytesToHash160(identityset.Addrinfo["alfa"].Bytes())
+	pubKeyBravo := hash.BytesToHash160(identityset.Addrinfo["bravo"].Bytes())
+	pubKeyCharlie := hash.BytesToHash160(identityset.Addrinfo["charlie"].Bytes())
 
 	require.NoError(ws.PutState(pubKeyAlfa, &accountAlfa))
 	require.NoError(ws.PutState(pubKeyBravo, &accountBravo))
@@ -90,7 +90,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	transfer, err := action.NewTransfer(
 		uint64(1),
 		big.NewInt(2),
-		testaddress.Addrinfo["bravo"].String(),
+		identityset.Addrinfo["bravo"].String(),
 		[]byte{},
 		uint64(10000),
 		big.NewInt(1),
@@ -101,8 +101,8 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight:  1,
-			Producer:     testaddress.Addrinfo["producer"],
-			Caller:       testaddress.Addrinfo["alfa"],
+			Producer:     identityset.Addrinfo["producer"],
+			Caller:       identityset.Addrinfo["alfa"],
 			GasLimit:     testutil.TestGasLimit,
 			IntrinsicGas: gas,
 			Registry:     &registry,
@@ -122,12 +122,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	contractAcct := state.Account{
 		CodeHash: []byte("codeHash"),
 	}
-	contractAddr := hash.BytesToHash160(testaddress.Addrinfo["echo"].Bytes())
+	contractAddr := hash.BytesToHash160(identityset.Addrinfo["echo"].Bytes())
 	require.NoError(ws.PutState(contractAddr, &contractAcct))
 	transfer, err = action.NewTransfer(
 		uint64(2),
 		big.NewInt(3),
-		testaddress.Addrinfo["echo"].String(),
+		identityset.Addrinfo["echo"].String(),
 		[]byte{},
 		uint64(10000),
 		big.NewInt(2),
@@ -164,7 +164,7 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	tsf, err = action.NewTransfer(
 		1,
 		big.NewInt(1),
-		testaddress.Addrinfo["alfa"].String()+"aaa",
+		identityset.Addrinfo["alfa"].String()+"aaa",
 		nil,
 		uint64(100000),
 		big.NewInt(0),

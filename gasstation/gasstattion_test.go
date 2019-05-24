@@ -26,8 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/testaddress"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
+	ta "github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -136,8 +135,8 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.Equal(uint64(10000)+10*action.ExecutionDataGas, ret)
 }
 func getAction() (act *iotextypes.Action) {
-	pubKey1 := testaddress.Keyinfo["alfa"].PubKey
-	addr2 := testaddress.Addrinfo["bravo"].String()
+	pubKey1 := identityset.Keyinfo["alfa"].PubKey
+	addr2 := identityset.Addrinfo["bravo"].String()
 
 	act = &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
@@ -152,8 +151,8 @@ func getAction() (act *iotextypes.Action) {
 	return
 }
 func getActionWithPayload() (act *iotextypes.Action) {
-	pubKey1 := testaddress.Keyinfo["alfa"].PubKey
-	addr2 := testaddress.Addrinfo["bravo"].String()
+	pubKey1 := identityset.Keyinfo["alfa"].PubKey
+	addr2 := identityset.Addrinfo["bravo"].String()
 
 	act = &iotextypes.Action{
 		Core: &iotextypes.ActionCore{
