@@ -146,6 +146,11 @@ var (
 			5,
 			4,
 		},
+		{
+			1,
+			0,
+			0,
+		},
 	}
 
 	getActionTests = []struct {
@@ -198,6 +203,12 @@ var (
 			8,
 			8,
 		},
+		{
+			ta.Addrinfo["foxtrot"].String(),
+			2,
+			1,
+			0,
+		},
 	}
 
 	getUnconfirmedActionsByAddressTests = []struct {
@@ -211,6 +222,12 @@ var (
 			0,
 			4,
 			4,
+		},
+		{
+			ta.Addrinfo["producer"].String(),
+			2,
+			0,
+			0,
 		},
 	}
 
@@ -232,6 +249,12 @@ var (
 			5,
 			5,
 		},
+		{
+			1,
+			0,
+			0,
+			0,
+		},
 	}
 
 	getBlockMetasTests = []struct {
@@ -248,6 +271,11 @@ var (
 			2,
 			5,
 			3,
+		},
+		{
+			1,
+			0,
+			0,
 		},
 	}
 
@@ -691,7 +719,9 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
-		require.Equal(test.address, res.ActionInfo[0].Sender)
+		if test.numActions > 0 {
+			require.Equal(test.address, res.ActionInfo[0].Sender)
+		}
 	}
 }
 
@@ -715,7 +745,9 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
-		require.Equal(test.address, res.ActionInfo[0].Sender)
+		if test.numActions > 0 {
+			require.Equal(test.address, res.ActionInfo[0].Sender)
+		}
 	}
 }
 
@@ -741,8 +773,10 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 		}
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
-		require.Equal(test.blkHeight, res.ActionInfo[0].BlkHeight)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		if test.numActions > 0 {
+			require.Equal(test.blkHeight, res.ActionInfo[0].BlkHeight)
+		}
 	}
 }
 
