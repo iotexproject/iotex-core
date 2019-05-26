@@ -9,6 +9,7 @@ package poll
 import (
 	"context"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/iotexproject/iotex-election/committee"
@@ -216,7 +217,24 @@ func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act act
 }
 
 func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height uint64) (state.CandidateList, error) {
+	errMsg := "bucket = electionNS doesn't exist: not exist in DB"
+	errChan := make(chan error, 1)
 	r, err := p.electionCommittee.ResultByHeight(height)
+	errChan <- err
+loop:
+	for {
+		select {
+		case <-time.After(time.Second * 15):
+			r, err = p.electionCommittee.ResultByHeight(height)
+			errChan <- err
+		case err = <-errChan:
+			if err == nil || !strings.Contains(err.Error(), errMsg) {
+				break loop
+			}
+			log.L().Error("calling committee,wait for 15 seconds")
+		}
+	}
+
 	if err != nil {
 		return nil, err
 	}
