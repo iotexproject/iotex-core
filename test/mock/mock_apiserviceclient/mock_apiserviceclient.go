@@ -270,13 +270,13 @@ func (mr *MockServiceClientMockRecorder) GetRawBlocks(ctx, in interface{}, opts 
 }
 
 // StreamBlocks mocks base method
-func (m *MockServiceClient) StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (*iotexapi.APIService_StreamBlocksClient, error) {
+func (m *MockServiceClient) StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error) {
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "StreamBlocks", varargs...)
-	ret0, _ := ret[0].(*iotexapi.APIService_StreamBlocksClient)
+	ret0, _ := ret[0].(iotexapi.APIService_StreamBlocksClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
