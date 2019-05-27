@@ -23,7 +23,6 @@ network for IoT powered by scalability- and privacy-centric blockchains. Please 
 | Components | Version | Description |
 |----------|-------------|-------------|
 | [Golang](https://golang.org) | &ge; 1.11.5 | Go programming language |
-| [Dep](https://golang.github.io/dep/) | &ge; 0.5.0 | Dependency management tool, required only when you update dependencies |
 | [Protoc](https://developers.google.com/protocol-buffers/) | &ge; 3.6.0 | Protocol buffers, required only when you rebuild protobuf messages |
 
 ### Get iotex-core
@@ -35,12 +34,15 @@ on [docker hub](https://hub.docker.com/r/iotex/iotex-core).
 
 ### Build iotex-core from code
 
-Download the code by
+Download the code to your desired local location (doesn't have to be under `$GOPATH/src`)
 ```
-mkdir -p ~/go/src/github.com/iotexproject
-cd ~/go/src/github.com/iotexproject
 git clone git@github.com:iotexproject/iotex-core.git
 cd iotex-core
+```
+
+If you put the project code under your `$GOPATH\src`, you will need to set up an environment variable
+```
+export GO111MODULE=on
 ```
 
 Build the project by
@@ -52,9 +54,10 @@ make
 If the dependency needs to be updated, run
 
 ```
-dep ensure [--vendor-only]
+go get -u
+go mod tidy
 ```
-
+If you want learn more advanced usage about `go mod`, you can find out [here](https://github.com/golang/go/wiki/Modules).
 
 Run unit tests only by
 
