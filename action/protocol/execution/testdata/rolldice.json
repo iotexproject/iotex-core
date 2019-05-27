@@ -3,7 +3,7 @@
         "account": "io1vdtfpzkwpyngzvx7u2mauepnzja7kd5rryp0sg",
         "rawBalance": "1000000000000000000000000000"
     }, {
-        "account": "io1eyn9tc6t782zx4zgy3hgt32hpz6t8v7pgf524z",
+        "account": "io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph",
         "rawBalance": "0"
     }, {
         "account": "io1cqs323j4w8ydmypvejph79kytw9cf3daqy6679",
@@ -37,7 +37,7 @@
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
         "expectedBalances": [{
-            "account": "io1eyn9tc6t782zx4zgy3hgt32hpz6t8v7pgf524z",
+            "account": "io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph",
             "rawBalance": "100000000"
         }, {
             "account": "",
