@@ -13,9 +13,8 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestHeader(t *testing.T) {
@@ -75,7 +74,7 @@ func getHeader() *Header {
 		deltaStateDigest: hash.Hash256b([]byte("")),
 		receiptRoot:      hash.Hash256b([]byte("")),
 		blockSig:         nil,
-		pubkey:           testaddress.Keyinfo["producer"].PubKey,
+		pubkey:           identityset.PrivateKey(27).PublicKey(),
 	}
 	return h
 }

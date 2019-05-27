@@ -12,13 +12,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestTransferSignVerify(t *testing.T) {
 	require := require.New(t)
-	recipientAddr := testaddress.Addrinfo["alfa"]
-	senderKey := testaddress.Keyinfo["producer"]
+	recipientAddr := identityset.Address(28)
+	senderKey := identityset.PrivateKey(27)
 
 	tsf, err := NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
@@ -32,11 +32,11 @@ func TestTransferSignVerify(t *testing.T) {
 
 	elp.ByteStream()
 
-	w := AssembleSealedEnvelope(elp, senderKey.PubKey, []byte("lol"))
+	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))
 
 	// sign the transfer
-	selp, err := Sign(elp, senderKey.PriKey)
+	selp, err := Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
 

@@ -22,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -39,7 +39,7 @@ func TestAddSubChainActions(t *testing.T) {
 	)
 	require.NoError(t, bc.Start(ctx))
 	_, err := bc.CreateState(
-		testaddress.Addrinfo["producer"].String(),
+		identityset.Address(27).String(),
 		big.NewInt(0).Mul(big.NewInt(10000000000), big.NewInt(unit.Iotx)),
 	)
 	require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestAddSubChainActions(t *testing.T) {
 		SetAction(startSubChain).
 		SetGasPrice(testutil.TestGasPrice).
 		Build()
-	selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
+	selp, err := action.Sign(elp, identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(selp))
 
@@ -76,7 +76,7 @@ func TestAddSubChainActions(t *testing.T) {
 	roots["10002"] = hash.BytesToHash256([]byte("10002"))
 	putBlock := action.NewPutBlock(
 		2,
-		testaddress.Addrinfo["producer"].String(),
+		identityset.Address(27).String(),
 		10001,
 		roots,
 		10003,
@@ -87,13 +87,13 @@ func TestAddSubChainActions(t *testing.T) {
 		SetGasPrice(testutil.TestGasPrice).
 		SetAction(putBlock).
 		SetGasLimit(10003).Build()
-	pbselp, err := action.Sign(pbelp, testaddress.Keyinfo["producer"].PriKey)
+	pbselp, err := action.Sign(pbelp, identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(pbselp))
 
 	stopSubChain := action.NewStopSubChain(
 		3,
-		testaddress.Addrinfo["alfa"].String(),
+		identityset.Address(28).String(),
 		10003,
 		10005,
 		testutil.TestGasPrice,
@@ -103,7 +103,7 @@ func TestAddSubChainActions(t *testing.T) {
 		SetGasPrice(testutil.TestGasPrice).
 		SetAction(stopSubChain).
 		SetGasLimit(10005).Build()
-	sscselp, err := action.Sign(sscelp, testaddress.Keyinfo["producer"].PriKey)
+	sscselp, err := action.Sign(sscelp, identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(sscselp))
 

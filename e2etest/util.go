@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -26,7 +25,7 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	tsf0, _ := action.NewTransfer(
 		1,
 		unit.ConvertIotxToRau(90000000),
-		ta.Addrinfo["producer"].String(),
+		identityset.Address(27).String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(0),
 	)
@@ -52,17 +51,17 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 		return err
 	}
 
-	addr0 := ta.Addrinfo["producer"].String()
-	priKey0 := ta.Keyinfo["producer"].PriKey
-	addr1 := ta.Addrinfo["alfa"].String()
-	addr2 := ta.Addrinfo["bravo"].String()
-	addr3 := ta.Addrinfo["charlie"].String()
-	priKey3 := ta.Keyinfo["charlie"].PriKey
-	addr4 := ta.Addrinfo["delta"].String()
-	priKey4 := ta.Keyinfo["delta"].PriKey
-	addr5 := ta.Addrinfo["echo"].String()
-	priKey5 := ta.Keyinfo["echo"].PriKey
-	addr6 := ta.Addrinfo["foxtrot"].String()
+	addr0 := identityset.Address(27).String()
+	priKey0 := identityset.PrivateKey(27)
+	addr1 := identityset.Address(28).String()
+	addr2 := identityset.Address(29).String()
+	addr3 := identityset.Address(30).String()
+	priKey3 := identityset.PrivateKey(30)
+	addr4 := identityset.Address(31).String()
+	priKey4 := identityset.PrivateKey(31)
+	addr5 := identityset.Address(32).String()
+	priKey5 := identityset.PrivateKey(32)
+	addr6 := identityset.Address(33).String()
 	// Add block 2
 	// test --> A, B, C, D, E, F
 	tsf1, err := testutil.SignedTransfer(addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))

@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -36,7 +35,7 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	require.NoError(sf.Start(context.Background()))
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	addrv1 := testaddress.Addrinfo["producer"]
+	addrv1 := identityset.Address(27)
 	s, err := accountutil.LoadAccount(ws, hash.BytesToHash160(addrv1.Bytes()))
 	require.NoError(err)
 	require.Equal(s.Balance, state.EmptyAccount().Balance)
@@ -50,7 +49,7 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)

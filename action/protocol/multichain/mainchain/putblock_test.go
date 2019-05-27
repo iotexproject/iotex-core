@@ -22,8 +22,8 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -39,8 +39,8 @@ func TestHandlePutBlock(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(sf).AnyTimes()
 
-	addr := testaddress.Addrinfo["producer"]
-	key2 := testaddress.Keyinfo["echo"]
+	addr := identityset.Address(27)
+	key2 := identityset.PrivateKey(32)
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
@@ -53,8 +53,8 @@ func TestHandlePutBlock(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
-			Caller:   testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
+			Caller:   identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
@@ -86,7 +86,7 @@ func TestHandlePutBlock(t *testing.T) {
 	elp := bd.SetNonce(1).
 		SetGasLimit(10003).
 		SetAction(pb).Build()
-	selp, err := action.Sign(elp, key2.PriKey)
+	selp, err := action.Sign(elp, key2)
 	require.NoError(t, err)
 
 	// first put
@@ -120,7 +120,7 @@ func TestHandlePutBlock(t *testing.T) {
 	elp = bd.SetNonce(1).
 		SetGasLimit(10003).
 		SetAction(pb2).Build()
-	selp, err = action.Sign(elp, key2.PriKey)
+	selp, err = action.Sign(elp, key2)
 	require.NoError(t, err)
 
 	_, err = p.Handle(ctx, elp.Action(), ws)

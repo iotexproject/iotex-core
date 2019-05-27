@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestConvertToBlockFooterPb(t *testing.T) {
@@ -59,7 +59,7 @@ func TestSerDesFooter(t *testing.T) {
 
 func makeFooter() (f *Footer) {
 	endors := make([]*endorsement.Endorsement, 0)
-	endor := endorsement.NewEndorsement(time.Now(), testaddress.Keyinfo["producer"].PubKey, nil)
+	endor := endorsement.NewEndorsement(time.Now(), identityset.PrivateKey(27).PublicKey(), nil)
 	endors = append(endors, endor)
 	f = &Footer{endors, time.Now()}
 	return

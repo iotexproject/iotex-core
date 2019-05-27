@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -21,7 +21,7 @@ func TestTestingBuilder(t *testing.T) {
 		SetHeight(1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		SignAndBuild(ta.Keyinfo["bravo"].PriKey)
+		SignAndBuild(identityset.PrivateKey(29))
 	require.NoError(t, err)
 
 	require.True(t, nblk.VerifySignature())

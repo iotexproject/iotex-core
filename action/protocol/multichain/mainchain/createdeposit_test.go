@@ -23,8 +23,8 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -49,7 +49,7 @@ func TestValidateDeposit(t *testing.T) {
 
 	p := NewProtocol(chain)
 
-	addr := testaddress.Addrinfo["producer"]
+	addr := identityset.Address(27)
 
 	deposit := action.NewCreateDeposit(1, 2, big.NewInt(1000), addr.String(), testutil.TestGasLimit, big.NewInt(0))
 	_, _, err = p.validateDeposit(addr, deposit, nil)
@@ -59,14 +59,14 @@ func TestValidateDeposit(t *testing.T) {
 	require.NoError(t, err)
 	_, err = accountutil.LoadOrCreateAccount(
 		ws,
-		testaddress.Addrinfo["producer"].String(),
+		identityset.Address(27).String(),
 		big.NewInt(1000),
 	)
 	require.NoError(t, err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
@@ -116,7 +116,7 @@ func TestMutateDeposit(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	addr := testaddress.Addrinfo["producer"]
+	addr := identityset.Address(27)
 	subChainAddr, err := createSubChainAddress(addr.String(), 0)
 	require.NoError(t, err)
 	addrSubChain, err := address.FromBytes(subChainAddr[:])
@@ -132,7 +132,7 @@ func TestMutateDeposit(t *testing.T) {
 			OperationDeposit:   big.NewInt(2),
 			StartHeight:        100,
 			ParentHeightOffset: 10,
-			OwnerPublicKey:     testaddress.Keyinfo["producer"].PubKey,
+			OwnerPublicKey:     identityset.PrivateKey(27).PublicKey(),
 			CurrentHeight:      200,
 			DepositCount:       300,
 		},

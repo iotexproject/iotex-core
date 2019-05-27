@@ -25,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -41,7 +41,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	code := []byte("test contract creation")
-	addr := testaddress.Addrinfo["alfa"]
+	addr := identityset.Address(28)
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
@@ -74,7 +74,7 @@ func TestCreateContract(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
@@ -123,7 +123,7 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	code := []byte("test contract creation")
-	addr := testaddress.Addrinfo["alfa"]
+	addr := identityset.Address(28)
 	ws, err := sf.NewWorkingSet()
 	require.Nil(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
@@ -153,7 +153,7 @@ func TestLoadStoreContract(t *testing.T) {
 	require.Nil(stateDB.setContractState(hash.BytesToHash160(contract), k2, v2))
 
 	code1 := []byte("2nd contract creation")
-	addr1 := testaddress.Addrinfo["bravo"]
+	addr1 := identityset.Address(29)
 	_, err = accountutil.LoadOrCreateAccount(ws, addr1.String(), big.NewInt(0))
 	require.Nil(err)
 	contract1 := addr1.Bytes()
@@ -177,7 +177,7 @@ func TestLoadStoreContract(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
@@ -236,7 +236,7 @@ func TestSnapshot(t *testing.T) {
 	v2 := hash.Hash256b([]byte("dog"))
 
 	c1, err := newContract(
-		hash.BytesToHash160(testaddress.Addrinfo["alfa"].Bytes()),
+		hash.BytesToHash160(identityset.Address(28).Bytes()),
 		s,
 		db.NewMemKVStore(),
 		db.NewCachedBatch(),

@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -37,19 +36,19 @@ const (
 )
 
 var (
-	addr1   = testaddress.Addrinfo["alfa"].String()
-	pubKey1 = testaddress.Keyinfo["alfa"].PubKey
-	priKey1 = testaddress.Keyinfo["alfa"].PriKey
-	addr2   = testaddress.Addrinfo["bravo"].String()
-	priKey2 = testaddress.Keyinfo["bravo"].PriKey
-	addr3   = testaddress.Addrinfo["charlie"].String()
-	priKey3 = testaddress.Keyinfo["charlie"].PriKey
-	addr4   = testaddress.Addrinfo["delta"].String()
-	priKey4 = testaddress.Keyinfo["delta"].PriKey
-	addr5   = testaddress.Addrinfo["echo"].String()
-	priKey5 = testaddress.Keyinfo["echo"].PriKey
-	addr6   = testaddress.Addrinfo["foxtrot"].String()
-	priKey6 = testaddress.Keyinfo["foxtrot"].PriKey
+	addr1   = identityset.Address(28).String()
+	pubKey1 = identityset.PrivateKey(28).PublicKey()
+	priKey1 = identityset.PrivateKey(28)
+	addr2   = identityset.Address(29).String()
+	priKey2 = identityset.PrivateKey(29)
+	addr3   = identityset.Address(30).String()
+	priKey3 = identityset.PrivateKey(30)
+	addr4   = identityset.Address(31).String()
+	priKey4 = identityset.PrivateKey(31)
+	addr5   = identityset.Address(32).String()
+	priKey5 = identityset.PrivateKey(32)
+	addr6   = identityset.Address(33).String()
+	priKey6 = identityset.PrivateKey(33)
 )
 
 func TestActPool_validateGenericAction(t *testing.T) {
@@ -106,7 +105,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{prevTsf})
@@ -116,7 +115,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	nTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	ctx = protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{
-		Caller: testaddress.Addrinfo["alfa"],
+		Caller: identityset.Address(28),
 	})
 	err = validator.Validate(ctx, nTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
@@ -448,7 +447,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
@@ -600,7 +599,7 @@ func TestActPool_Reset(t *testing.T) {
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
@@ -710,7 +709,7 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
@@ -818,7 +817,7 @@ func TestActPool_Reset(t *testing.T) {
 
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
@@ -1073,7 +1072,7 @@ func TestActPool_GetSize(t *testing.T) {
 
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})

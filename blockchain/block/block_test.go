@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -33,24 +32,24 @@ import (
 func TestMerkle(t *testing.T) {
 	require := require.New(t)
 
-	producerAddr := ta.Addrinfo["producer"].String()
-	producerPubKey := ta.Keyinfo["producer"].PubKey
-	producerPriKey := ta.Keyinfo["producer"].PriKey
+	producerAddr := identityset.Address(27).String()
+	producerPubKey := identityset.PrivateKey(27).PublicKey()
+	producerPriKey := identityset.PrivateKey(27)
 	amount := uint64(50 << 22)
 	// create testing transactions
 	selp0, err := testutil.SignedTransfer(producerAddr, producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
+	selp1, err := testutil.SignedTransfer(identityset.Address(28).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
+	selp2, err := testutil.SignedTransfer(identityset.Address(29).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp3, err := testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
+	selp3, err := testutil.SignedTransfer(identityset.Address(30).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
-	selp4, err := testutil.SignedTransfer(ta.Addrinfo["echo"].String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
+	selp4, err := testutil.SignedTransfer(identityset.Address(32).String(), producerPriKey, 1, big.NewInt(int64(amount)), nil, 100, big.NewInt(0))
 	require.NoError(err)
 
 	// create block using above 5 tx and verify merkle
@@ -70,7 +69,7 @@ func TestMerkle(t *testing.T) {
 
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
-	senderPubKey := ta.Keyinfo["producer"].PubKey
+	senderPubKey := identityset.PrivateKey(27).PublicKey()
 	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
 			Core: &iotextypes.BlockHeaderCore{
