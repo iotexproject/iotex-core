@@ -12,14 +12,9 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"os"
 	"strings"
 	"syscall"
-	"time"
-
-	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
@@ -222,83 +217,5 @@ func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, wallet
 	if err != nil {
 		return "", err
 	}
-
-	fmt.Printf("#%s: Set password\n", alias)
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
-	}
-	password := string(bytePassword)
-	fmt.Printf("#%s: Enter password again\n", alias)
-	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
-	}
-	if password != string(bytePassword) {
-		return "", ErrPasswdNotMatch
-	}
-
-	pubBytes := ecrypto.FromECDSAPub(&key.PrivateKey.PublicKey)
-	addBytes := common.BytesToAddress(ecrypto.Keccak256(pubBytes[1:])[12:])
-
-	// check if address is exist
-	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
-	if ks.HasAddress(addBytes) {
-		return "", fmt.Errorf("account already exists")
-	}
-
-	addr, err := address.FromBytes(addBytes[:])
-	if err != nil {
-		log.L().Error("failed to convert bytes into address", zap.Error(err))
-		return "", err
-	}
-	err = copyFile(keyStorePath, walletDir+"/"+keyFileName(addBytes))
-	if err != nil {
-		return "", err
-	}
-	return addr.String(), nil
-}
-func copyFile(srcFile, dstFile string) error {
-	sourceFileStat, err := os.Stat(srcFile)
-	if err != nil {
-		return err
-	}
-
-	if !sourceFileStat.Mode().IsRegular() {
-		return fmt.Errorf("%s is not a regular file", srcFile)
-	}
-
-	source, err := os.Open(srcFile)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-	_, err = os.Stat(dstFile)
-	if err == nil {
-		return fmt.Errorf("%s is exist", dstFile)
-	}
-	destination, err := os.Create(dstFile)
-	if err != nil {
-		return err
-	}
-	defer destination.Close()
-	_, err = io.Copy(destination, source)
-	return err
-}
-func keyFileName(keyAddr common.Address) string {
-	ts := time.Now().UTC()
-	return fmt.Sprintf("UTC--%s--%s", toISO8601(ts), hex.EncodeToString(keyAddr[:]))
-}
-
-func toISO8601(t time.Time) string {
-	var tz string
-	name, offset := t.Zone()
-	if name == "UTC" {
-		tz = "Z"
-	} else {
-		tz = fmt.Sprintf("%03d00", offset/3600)
-	}
-	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
+	return newAccountByKey(alias, hex.EncodeToString(ecrypto.FromECDSA(key.PrivateKey)), walletDir)
 }

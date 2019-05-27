@@ -22,12 +22,13 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// accountImportCmd represents the account import command
 var (
+	// accountImportCmd represents the account import command
 	accountImportCmd = &cobra.Command{
 		Use:   "import",
 		Short: "Import IoTeX private key or keystore into wallet",
 	}
+	// accountImportKeyCmd represents the account import key command
 	accountImportKeyCmd = &cobra.Command{
 		Use:   "key ALIAS",
 		Short: "Import IoTeX private key into wallet",
@@ -41,6 +42,7 @@ var (
 			return err
 		},
 	}
+	// accountImportKeyCmd represents the account import keystore command
 	accountImportKeyStoreCmd = &cobra.Command{
 		Use:   "keystore ALIAS FILEPATH",
 		Short: "Import IoTeX keystore into wallet",
@@ -60,29 +62,16 @@ func init() {
 	accountImportCmd.AddCommand(accountImportKeyCmd)
 	accountImportCmd.AddCommand(accountImportKeyStoreCmd)
 }
-func accountImportKey(args []string) (string, error) {
-	// Validate inputs
-	if err := validator.ValidateAlias(args[0]); err != nil {
-		return "", err
+func validataAlias(alias string) error {
+	if err := validator.ValidateAlias(alias); err != nil {
+		return err
 	}
-	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
-		return "", fmt.Errorf("alias \"%s\" has already used for %s", alias, addr)
+		return fmt.Errorf("alias \"%s\" has already used for %s", alias, addr)
 	}
-	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", alias)
-	privateKeyBytes, err := terminal.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		log.L().Error("failed to get private key", zap.Error(err))
-		return "", err
-	}
-	privateKey := strings.TrimSpace(string(privateKeyBytes))
-	for i := 0; i < len(privateKeyBytes); i++ {
-		privateKeyBytes[i] = 0
-	}
-	addr, err := newAccountByKey(alias, privateKey, config.ReadConfig.Wallet)
-	if err != nil {
-		return "", err
-	}
+	return nil
+}
+func writeToFile(alias, addr string) (string, error) {
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
@@ -95,16 +84,7 @@ func accountImportKey(args []string) (string, error) {
 		"New account #%s is created. Keep your password, or your will lose your private key.",
 		alias), nil
 }
-func accountImportKeyStore(args []string) (string, error) {
-	// Validate inputs
-	if err := validator.ValidateAlias(args[0]); err != nil {
-		return "", err
-	}
-	alias := args[0]
-	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
-		return "", fmt.Errorf("alias \"%s\" has already used for %s", alias, addr)
-	}
-	fmt.Printf("#%s: Enter your password of keystore, which will not be exposed on the screen.\n", alias)
+func readStdin() (string, error) {
 	passwordBytes, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
@@ -114,19 +94,41 @@ func accountImportKeyStore(args []string) (string, error) {
 	for i := 0; i < len(passwordBytes); i++ {
 		passwordBytes[i] = 0
 	}
+	return password, nil
+}
+func accountImportKey(args []string) (string, error) {
+	// Validate inputs
+	alias := args[0]
+	err := validataAlias(alias)
+	if err != nil {
+		return "", err
+	}
+	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", alias)
+	privateKey, err := readStdin()
+	if err != nil {
+		return "", nil
+	}
+	addr, err := newAccountByKey(alias, privateKey, config.ReadConfig.Wallet)
+	if err != nil {
+		return "", err
+	}
+	return writeToFile(alias, addr)
+}
+func accountImportKeyStore(args []string) (string, error) {
+	// Validate inputs
+	alias := args[0]
+	err := validataAlias(alias)
+	if err != nil {
+		return "", err
+	}
+	fmt.Printf("#%s: Enter your password of keystore, which will not be exposed on the screen.\n", alias)
+	password, err := readStdin()
+	if err != nil {
+		return "", nil
+	}
 	addr, err := newAccountByKeyStore(alias, password, args[1], config.ReadConfig.Wallet)
 	if err != nil {
 		return "", err
 	}
-	config.ReadConfig.Aliases[alias] = addr
-	out, err := yaml.Marshal(&config.ReadConfig)
-	if err != nil {
-		return "", err
-	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
-	}
-	return fmt.Sprintf(
-		"New account #%s is created. Keep your password, or your will lose your private key.",
-		alias), nil
+	return writeToFile(alias, addr)
 }
