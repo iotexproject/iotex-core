@@ -84,7 +84,7 @@ func writeToFile(alias, addr string) (string, error) {
 		"New account #%s is created. Keep your password, or your will lose your private key.",
 		alias), nil
 }
-func readStdin() (string, error) {
+func readPasswordFromStdin() (string, error) {
 	passwordBytes, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
@@ -104,7 +104,7 @@ func accountImportKey(args []string) (string, error) {
 		return "", err
 	}
 	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", alias)
-	privateKey, err := readStdin()
+	privateKey, err := readPasswordFromStdin()
 	if err != nil {
 		return "", nil
 	}
@@ -122,7 +122,7 @@ func accountImportKeyStore(args []string) (string, error) {
 		return "", err
 	}
 	fmt.Printf("#%s: Enter your password of keystore, which will not be exposed on the screen.\n", alias)
-	password, err := readStdin()
+	password, err := readPasswordFromStdin()
 	if err != nil {
 		return "", nil
 	}
