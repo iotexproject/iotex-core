@@ -45,7 +45,7 @@ type ServiceClient interface {
 	// get raw blocks data
 	GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBlocksRequest, opts ...grpc.CallOption) (*iotexapi.GetRawBlocksResponse, error)
 	// get block info in stream
-	StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (*iotexapi.APIService_StreamBlocksClient, error)
+	StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error)
 	// get actions by addr
 	GetActionsByAddress(ctx context.Context, in *iotexapi.GetActionsByAddressRequest, opts ...grpc.CallOption) (*iotexapi.GetActionsResponse, error)
 	// send signed transaction bytes
