@@ -9,12 +9,15 @@ package account
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	ecrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -195,4 +198,25 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 		return "", err
 	}
 	return addr.String(), nil
+}
+
+func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
+	keyJSON, err := ioutil.ReadFile(keyStorePath)
+	if err != nil {
+		return "", fmt.Errorf("keystore file \"%s\" read error", keyStorePath)
+	}
+	key, err := keystore.DecryptKey(keyJSON, passwordOfKeyStore)
+	if key != nil && key.PrivateKey != nil {
+		// clear private key in memory prevent from attack
+		defer func(k *ecdsa.PrivateKey) {
+			b := k.D.Bits()
+			for i := range b {
+				b[i] = 0
+			}
+		}(key.PrivateKey)
+	}
+	if err != nil {
+		return "", err
+	}
+	return newAccountByKey(alias, hex.EncodeToString(ecrypto.FromECDSA(key.PrivateKey)), walletDir)
 }
