@@ -207,6 +207,7 @@ func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, wallet
 	}
 	key, err := keystore.DecryptKey(keyJSON, passwordOfKeyStore)
 	if key != nil && key.PrivateKey != nil {
+		// clear private key in memory prevent from attack
 		defer func(k *ecdsa.PrivateKey) {
 			b := k.D.Bits()
 			for i := range b {
