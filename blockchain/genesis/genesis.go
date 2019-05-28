@@ -46,7 +46,7 @@ func defaultConfig() Genesis {
 			NumDelegates:          24,
 			NumCandidateDelegates: 36,
 			TimeBasedRotation:     false,
-			PacificBlockHeight:    2419200,
+			PacificBlockHeight:    432001,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
