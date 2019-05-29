@@ -99,3 +99,13 @@ func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
 	}
 	return common.BytesToAddress(address.Bytes()), nil
 }
+
+// StringToIOTX converts Rau string to Iotx string
+func StringToIOTX(amount string) (iotx string, err error) {
+	amountInt, err := StringToRau(amount, 0)
+	if err != nil {
+		return "", err
+	}
+	iotx = RauToString(amountInt, 18)
+	return
+}
