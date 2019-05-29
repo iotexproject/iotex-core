@@ -12,9 +12,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"go.uber.org/zap"
-
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -107,7 +104,6 @@ func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
 func StringToIOTX(amount string) (iotx string, err error) {
 	amountInt, err := StringToRau(amount, 0)
 	if err != nil {
-		log.L().Error("failed to convert amount into int", zap.Error(err))
 		return "", err
 	}
 	iotx = RauToString(amountInt, 18)
