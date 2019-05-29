@@ -114,7 +114,15 @@ func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
 	output += fmt.Sprintf("actHash: %s\n", actionInfo.ActHash)
 	return output, nil
 }
-
+func toIOTX(amount string) (iotx string, err error) {
+	amountInt, err := util.StringToRau(amount, 0)
+	if err != nil {
+		log.L().Error("failed to convert amount into int", zap.Error(err))
+		return "", err
+	}
+	iotx = util.RauToString(amountInt, 18)
+	return
+}
 func printActionProto(action *iotextypes.Action) (string, error) {
 	pubKey, err := crypto.BytesToPublicKey(action.SenderPubKey)
 	if err != nil {
@@ -137,10 +145,14 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		output += proto.MarshalTextString(action.Core)
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
+		amount, err := toIOTX(transfer.Amount)
+		if err != nil {
+			return "", err
+		}
 		output += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				Match(transfer.Recipient, "address")) +
-			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount)
+			fmt.Sprintf("  amount: %s IOTX\n", amount)
 		if len(transfer.Payload) != 0 {
 			output += fmt.Sprintf("  payload: %s\n", transfer.Payload)
 		}
