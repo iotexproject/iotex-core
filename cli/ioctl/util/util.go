@@ -111,4 +111,5 @@ func StringToIOTX(amount string) (iotx string, err error) {
 		return "", err
 	}
 	iotx = RauToString(amountInt, 18)
+	return
 }
