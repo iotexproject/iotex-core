@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestActionProto(t *testing.T) {
@@ -30,7 +30,7 @@ func TestActionProto(t *testing.T) {
 		SetGasLimit(uint64(100000)).
 		SetAction(v).Build()
 
-	selp, err := Sign(elp, testaddress.Keyinfo["alfa"].PriKey)
+	selp, err := Sign(elp, identityset.PrivateKey(28))
 	require.NoError(err)
 
 	require.NoError(Verify(selp))

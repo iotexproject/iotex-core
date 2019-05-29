@@ -20,9 +20,9 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestHandleStopSubChain(t *testing.T) {
@@ -30,7 +30,7 @@ func TestHandleStopSubChain(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sender := testaddress.Addrinfo["producer"]
+	sender := identityset.Address(27)
 	factory := mock_factory.NewMockFactory(ctrl)
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	chain.EXPECT().GetFactory().Return(factory).AnyTimes()
@@ -73,7 +73,7 @@ func TestHandleStopSubChain(t *testing.T) {
 		OperationDeposit:   big.NewInt(200000),
 		StartHeight:        3,
 		ParentHeightOffset: 1,
-		OwnerPublicKey:     testaddress.Keyinfo["producer"].PubKey,
+		OwnerPublicKey:     identityset.PrivateKey(27).PublicKey(),
 		CurrentHeight:      0,
 		DepositCount:       0,
 	}
@@ -98,7 +98,7 @@ func TestHandleStopSubChain(t *testing.T) {
 		big.NewInt(0),
 	)
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		Caller:      testaddress.Addrinfo["alfa"],
+		Caller:      identityset.Address(28),
 		BlockHeight: 2,
 	})
 	// wrong owner

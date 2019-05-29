@@ -27,7 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.Factory, *Protocol), withExempt bool) {
@@ -45,44 +44,44 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
 	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{
-			Address:       testaddress.Addrinfo["producer"].String(),
+			Address:       identityset.Address(27).String(),
 			Votes:         unit.ConvertIotxToRau(4000000),
 			RewardAddress: identityset.Address(0).String(),
 		},
 		{
-			Address:       testaddress.Addrinfo["alfa"].String(),
+			Address:       identityset.Address(28).String(),
 			Votes:         unit.ConvertIotxToRau(3000000),
-			RewardAddress: testaddress.Addrinfo["alfa"].String(),
+			RewardAddress: identityset.Address(28).String(),
 		},
 		{
-			Address:       testaddress.Addrinfo["bravo"].String(),
+			Address:       identityset.Address(29).String(),
 			Votes:         unit.ConvertIotxToRau(2000000),
-			RewardAddress: testaddress.Addrinfo["bravo"].String(),
+			RewardAddress: identityset.Address(29).String(),
 		},
 		{
-			Address:       testaddress.Addrinfo["charlie"].String(),
+			Address:       identityset.Address(30).String(),
 			Votes:         unit.ConvertIotxToRau(1000000),
-			RewardAddress: testaddress.Addrinfo["charlie"].String(),
+			RewardAddress: identityset.Address(30).String(),
 		},
 		{
-			Address:       testaddress.Addrinfo["delta"].String(),
+			Address:       identityset.Address(31).String(),
 			Votes:         unit.ConvertIotxToRau(500000),
-			RewardAddress: testaddress.Addrinfo["delta"].String(),
+			RewardAddress: identityset.Address(31).String(),
 		},
 		{
-			Address:       testaddress.Addrinfo["echo"].String(),
+			Address:       identityset.Address(32).String(),
 			Votes:         unit.ConvertIotxToRau(500000),
-			RewardAddress: testaddress.Addrinfo["echo"].String(),
+			RewardAddress: identityset.Address(32).String(),
 		},
 	}, nil).AnyTimes()
 	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
 		uint64(19),
 		map[string]uint64{
-			testaddress.Addrinfo["producer"].String(): 3,
-			testaddress.Addrinfo["alfa"].String():     7,
-			testaddress.Addrinfo["bravo"].String():    1,
-			testaddress.Addrinfo["charlie"].String():  6,
-			testaddress.Addrinfo["delta"].String():    2,
+			identityset.Address(27).String(): 3,
+			identityset.Address(28).String(): 7,
+			identityset.Address(29).String(): 1,
+			identityset.Address(30).String(): 6,
+			identityset.Address(31).String(): 2,
 		},
 		nil,
 	).AnyTimes()
@@ -112,7 +111,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 				big.NewInt(100),
 				10,
 				[]address.Address{
-					testaddress.Addrinfo["delta"],
+					identityset.Address(31),
 				},
 				big.NewInt(5),
 				5,
@@ -142,8 +141,8 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	ctx = protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
-			Producer:    testaddress.Addrinfo["producer"],
-			Caller:      testaddress.Addrinfo["alfa"],
+			Producer:    identityset.Address(27),
+			Caller:      identityset.Address(28),
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
@@ -178,7 +177,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	// Create a test account with 1000 token
 	ws, err = stateDB.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["alfa"].String(), big.NewInt(1000))
+	_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(28).String(), big.NewInt(1000))
 	require.NoError(t, err)
 	require.NoError(t, stateDB.Commit(ws))
 

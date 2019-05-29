@@ -38,8 +38,8 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -287,7 +287,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	}
 	ctx = protocol.WithRunActionsCtx(ctx,
 		protocol.RunActionsCtx{
-			Producer: testaddress.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: uint64(10000000),
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
@@ -436,12 +436,12 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, testaddress.Addrinfo["producer"].String(), unit.ConvertIotxToRau(1000000000))
+		_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(27).String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
 		gasLimit := testutil.TestGasLimit
 		ctx = protocol.WithRunActionsCtx(ctx,
 			protocol.RunActionsCtx{
-				Producer: testaddress.Addrinfo["producer"],
+				Producer: identityset.Address(27),
 				GasLimit: gasLimit,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
@@ -456,11 +456,11 @@ func TestProtocol_Handle(t *testing.T) {
 		elp := bd.SetAction(execution).
 			SetNonce(1).
 			SetGasLimit(100000).Build()
-		selp, err := action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
+		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
 		actionMap := make(map[string][]action.SealedEnvelope)
-		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
+		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
 		blk, err := bc.MintNewBlock(
 			actionMap,
 			testutil.TimestampNow(),
@@ -489,7 +489,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(err)
 		require.Equal(eHash, exe.Hash())
 
-		exes, err := bc.GetActionsFromAddress(testaddress.Addrinfo["producer"].String())
+		exes, err := bc.GetActionsFromAddress(identityset.Address(27).String())
 		require.Nil(err)
 		require.Equal(1, len(exes))
 		require.Equal(eHash, exes[0])
@@ -507,13 +507,13 @@ func TestProtocol_Handle(t *testing.T) {
 		elp = bd.SetAction(execution).
 			SetNonce(2).
 			SetGasLimit(120000).Build()
-		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
 
 		actionMap = make(map[string][]action.SealedEnvelope)
-		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
+		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
 			testutil.TimestampNow(),
@@ -543,12 +543,12 @@ func TestProtocol_Handle(t *testing.T) {
 		elp = bd.SetAction(execution).
 			SetNonce(3).
 			SetGasLimit(120000).Build()
-		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
 		actionMap = make(map[string][]action.SealedEnvelope)
-		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
+		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
 			testutil.TimestampNow(),
@@ -570,11 +570,11 @@ func TestProtocol_Handle(t *testing.T) {
 		elp = bd.SetAction(execution1).
 			SetNonce(4).
 			SetGasLimit(100000).SetGasPrice(big.NewInt(10)).Build()
-		selp, err = action.Sign(elp, testaddress.Keyinfo["producer"].PriKey)
+		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
 		actionMap = make(map[string][]action.SealedEnvelope)
-		actionMap[testaddress.Addrinfo["producer"].String()] = []action.SealedEnvelope{selp}
+		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
 		blk, err = bc.MintNewBlock(
 			actionMap,
 			testutil.TimestampNow(),
@@ -713,7 +713,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.Equal(action.ErrBalance, errors.Cause(err))
 	// Case IV: Invalid contract address
 	ex, err = action.NewExecution(
-		testaddress.Addrinfo["bravo"].String()+"bbb",
+		identityset.Address(29).String()+"bbb",
 		uint64(1),
 		big.NewInt(0),
 		uint64(0),

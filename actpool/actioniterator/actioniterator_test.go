@@ -13,18 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestActionIterator(t *testing.T) {
 	require := require.New(t)
 
-	a := testaddress.Addrinfo["alfa"]
-	priKeyA := testaddress.Keyinfo["alfa"].PriKey
-	b := testaddress.Addrinfo["bravo"]
-	priKeyB := testaddress.Keyinfo["bravo"].PriKey
-	c := testaddress.Addrinfo["charlie"]
-	priKeyC := testaddress.Keyinfo["charlie"].PriKey
+	a := identityset.Address(28)
+	priKeyA := identityset.PrivateKey(28)
+	b := identityset.Address(29)
+	priKeyB := identityset.PrivateKey(29)
+	c := identityset.Address(30)
+	priKeyC := identityset.PrivateKey(30)
 	accMap := make(map[string][]action.SealedEnvelope)
 	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(100), b.String(), nil, uint64(0), big.NewInt(13))
 	require.Nil(err)

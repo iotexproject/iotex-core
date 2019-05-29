@@ -34,7 +34,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -43,7 +42,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	tsf0, _ := action.NewTransfer(
 		1,
 		big.NewInt(90000000),
-		ta.Addrinfo["producer"].String(),
+		identityset.Address(27).String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
 	)
@@ -72,18 +71,18 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 
-	addr0 := ta.Addrinfo["producer"].String()
-	priKey0 := ta.Keyinfo["producer"].PriKey
-	addr1 := ta.Addrinfo["alfa"].String()
-	priKey1 := ta.Keyinfo["alfa"].PriKey
-	addr2 := ta.Addrinfo["bravo"].String()
-	addr3 := ta.Addrinfo["charlie"].String()
-	priKey3 := ta.Keyinfo["charlie"].PriKey
-	addr4 := ta.Addrinfo["delta"].String()
-	priKey4 := ta.Keyinfo["delta"].PriKey
-	addr5 := ta.Addrinfo["echo"].String()
-	priKey5 := ta.Keyinfo["echo"].PriKey
-	addr6 := ta.Addrinfo["foxtrot"].String()
+	addr0 := identityset.Address(27).String()
+	priKey0 := identityset.PrivateKey(27)
+	addr1 := identityset.Address(28).String()
+	priKey1 := identityset.PrivateKey(28)
+	addr2 := identityset.Address(29).String()
+	addr3 := identityset.Address(30).String()
+	priKey3 := identityset.PrivateKey(30)
+	addr4 := identityset.Address(31).String()
+	priKey4 := identityset.PrivateKey(31)
+	addr5 := identityset.Address(32).String()
+	priKey5 := identityset.PrivateKey(32)
+	addr6 := identityset.Address(33).String()
 	// Add block 1
 	// test --> A, B, C, D, E, F
 	tsf1, err := testutil.SignedTransfer(addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -315,7 +314,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	tsf, err := action.NewTransfer(
 		1,
 		big.NewInt(100000000),
-		ta.Addrinfo["producer"].String(),
+		identityset.Address(27).String(),
 		[]byte{}, uint64(100000),
 		big.NewInt(10),
 	)
@@ -375,11 +374,11 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 		require.NoError(t, bc.Stop(ctx))
 	}()
 
-	addr0 := ta.Addrinfo["producer"].String()
-	priKey0 := ta.Keyinfo["producer"].PriKey
-	addr1 := ta.Addrinfo["alfa"].String()
-	addr3 := ta.Addrinfo["charlie"].String()
-	priKey3 := ta.Keyinfo["charlie"].PriKey
+	addr0 := identityset.Address(27).String()
+	priKey0 := identityset.PrivateKey(27)
+	addr1 := identityset.Address(28).String()
+	addr3 := identityset.Address(30).String()
+	priKey3 := identityset.PrivateKey(30)
 	require.NoError(t, addTestingTsfBlocks(bc))
 
 	// test third block
@@ -581,14 +580,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 
 	// add block with wrong height
-	selp, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+	selp, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
 		SetHeight(h + 2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp).SignAndBuild(identityset.PrivateKey(29))
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk)
@@ -596,14 +595,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
 	// add block with zero prev hash
-	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+	selp2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
 		SetHeight(h + 1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp2).SignAndBuild(identityset.PrivateKey(29))
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk)
 	require.Error(err)
@@ -749,28 +748,28 @@ func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
 	require.Equal(blkhash, blk.HashBlock())
 	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
 	// add block with wrong height
-	selp, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+	selp, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 	require.NoError(err)
 
 	nblk, err := block.NewTestingBuilder().
 		SetHeight(h + 2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp).SignAndBuild(identityset.PrivateKey(29))
 	require.NoError(err)
 
 	err = bc.ValidateBlock(&nblk)
 	require.Error(err)
 	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
 	// add block with zero prev hash
-	selp2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+	selp2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 	require.NoError(err)
 
 	nblk, err = block.NewTestingBuilder().
 		SetHeight(h + 1).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(ta.Keyinfo["bravo"].PriKey)
+		AddActions(selp2).SignAndBuild(identityset.PrivateKey(29))
 	require.NoError(err)
 	err = bc.ValidateBlock(&nblk)
 	require.Error(err)
@@ -905,9 +904,9 @@ func TestBlocks(t *testing.T) {
 
 	require.NoError(addCreatorToFactory(sf))
 
-	a := ta.Addrinfo["alfa"].String()
-	priKeyA := ta.Keyinfo["alfa"].PriKey
-	c := ta.Addrinfo["bravo"].String()
+	a := identityset.Address(28).String()
+	priKeyA := identityset.PrivateKey(28)
+	c := identityset.Address(29).String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100000))
@@ -917,7 +916,7 @@ func TestBlocks(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: ta.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
@@ -965,9 +964,9 @@ func TestActions(t *testing.T) {
 	}()
 
 	require.NoError(addCreatorToFactory(sf))
-	a := ta.Addrinfo["alfa"].String()
-	priKeyA := ta.Keyinfo["alfa"].PriKey
-	c := ta.Addrinfo["bravo"].String()
+	a := identityset.Address(28).String()
+	priKeyA := identityset.PrivateKey(28)
+	c := identityset.Address(29).String()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100000))
@@ -977,7 +976,7 @@ func TestActions(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: ta.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
@@ -1011,7 +1010,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	}
 	if _, err = accountutil.LoadOrCreateAccount(
 		ws,
-		ta.Addrinfo["producer"].String(),
+		identityset.Address(27).String(),
 		unit.ConvertIotxToRau(10000000000),
 	); err != nil {
 		return err
@@ -1019,7 +1018,7 @@ func addCreatorToFactory(sf factory.Factory) error {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: ta.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {

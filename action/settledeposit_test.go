@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestSettleDeposit(t *testing.T) {
 	t.Parallel()
 
-	addr2 := testaddress.Addrinfo["alfa"].String()
+	addr2 := identityset.Address(28).String()
 
 	assertDeposit := func(deposit *SettleDeposit) {
 		require.NotNil(t, deposit)
@@ -45,7 +45,7 @@ func TestSettleDeposit(t *testing.T) {
 func TestSettleDepositProto(t *testing.T) {
 	t.Parallel()
 
-	addr2 := testaddress.Addrinfo["alfa"].String()
+	addr2 := identityset.Address(28).String()
 
 	assertDeposit := func(deposit *SettleDeposit) {
 		require.NotNil(t, deposit)

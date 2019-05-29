@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -25,7 +25,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	pubKey := testaddress.Keyinfo["producer"].PubKey
+	pubKey := identityset.PrivateKey(27).PublicKey()
 	blk := block.Block{}
 	blkpb := &iotextypes.Block{
 		Header: &iotextypes.BlockHeader{

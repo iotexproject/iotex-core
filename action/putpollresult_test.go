@@ -14,12 +14,12 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestPutPollResult(t *testing.T) {
 	candidates := state.CandidateList{}
-	pk := testaddress.Keyinfo["echo"].PubKey
+	pk := identityset.PrivateKey(32).PublicKey()
 	addr, err := address.FromBytes(pk.Hash())
 	assert.NoError(t, err)
 	candidates = append(candidates, &state.Candidate{

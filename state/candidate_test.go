@@ -15,22 +15,22 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestCandidate(t *testing.T) {
 	require := require.New(t)
 
 	cand1 := &Candidate{
-		Address: testaddress.Addrinfo["alfa"].String(),
+		Address: identityset.Address(28).String(),
 		Votes:   big.NewInt(1),
 	}
 	cand2 := &Candidate{
-		Address: testaddress.Addrinfo["bravo"].String(),
+		Address: identityset.Address(29).String(),
 		Votes:   big.NewInt(2),
 	}
 	cand3 := &Candidate{
-		Address: testaddress.Addrinfo["charlie"].String(),
+		Address: identityset.Address(30).String(),
 		Votes:   big.NewInt(3),
 	}
 
@@ -56,9 +56,9 @@ func TestCandidate(t *testing.T) {
 	require.Equal(3, len(candidateList))
 	sort.Sort(candidateList)
 
-	require.Equal(testaddress.Addrinfo["charlie"].String(), candidateList[0].Address)
-	require.Equal(testaddress.Addrinfo["bravo"].String(), candidateList[1].Address)
-	require.Equal(testaddress.Addrinfo["alfa"].String(), candidateList[2].Address)
+	require.Equal(identityset.Address(30).String(), candidateList[0].Address)
+	require.Equal(identityset.Address(29).String(), candidateList[1].Address)
+	require.Equal(identityset.Address(28).String(), candidateList[2].Address)
 
 	candidatesBytes, err := candidateList.Serialize()
 	require.NoError(err)
@@ -66,9 +66,9 @@ func TestCandidate(t *testing.T) {
 	err = candidates.Deserialize(candidatesBytes)
 	require.NoError(err)
 	require.Equal(3, len(candidates))
-	require.Equal(testaddress.Addrinfo["charlie"].String(), candidates[0].Address)
-	require.Equal(testaddress.Addrinfo["bravo"].String(), candidates[1].Address)
-	require.Equal(testaddress.Addrinfo["alfa"].String(), candidates[2].Address)
+	require.Equal(identityset.Address(30).String(), candidates[0].Address)
+	require.Equal(identityset.Address(29).String(), candidates[1].Address)
+	require.Equal(identityset.Address(28).String(), candidates[2].Address)
 
 	candidateMap, err = CandidatesToMap(candidateList)
 	require.NoError(err)

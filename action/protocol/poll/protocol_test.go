@@ -25,8 +25,8 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-election/types"
 )
@@ -103,15 +103,15 @@ func TestHandle(t *testing.T) {
 	require.NoError(p.Initialize(ctx, ws))
 
 	// wrong action
-	recipientAddr := testaddress.Addrinfo["alfa"]
-	senderKey := testaddress.Keyinfo["producer"]
+	recipientAddr := identityset.Address(28)
+	senderKey := identityset.PrivateKey(27)
 	tsf, err := action.NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
-	selp, err := action.Sign(elp, senderKey.PriKey)
+	selp, err := action.Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
 	// Case 1: wrong action type
@@ -125,7 +125,7 @@ func TestHandle(t *testing.T) {
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(act).Build()
-	selp, err = action.Sign(elp, senderKey.PriKey)
+	selp, err = action.Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
 	receipt, err = p.Handle(ctx, selp.Action(), sm)
@@ -140,7 +140,7 @@ func TestHandle(t *testing.T) {
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(act3).Build()
-	selp3, err := action.Sign(elp, senderKey.PriKey)
+	selp3, err := action.Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp3)
 	receipt, err = p.Handle(ctx3, selp3.Action(), sm)
@@ -157,15 +157,15 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(p.Initialize(ctx, ws))
 
 	// wrong action
-	recipientAddr := testaddress.Addrinfo["alfa"]
-	senderKey := testaddress.Keyinfo["producer"]
+	recipientAddr := identityset.Address(28)
+	senderKey := identityset.PrivateKey(27)
 	tsf, err := action.NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
-	selp, err := action.Sign(elp, senderKey.PriKey)
+	selp, err := action.Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
 	// Case 1: wrong action type
@@ -179,7 +179,7 @@ func TestProtocol_Validate(t *testing.T) {
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(act2).Build()
-	selp2, err := action.Sign(elp, senderKey.PriKey)
+	selp2, err := action.Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp2)
 	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
@@ -205,14 +205,14 @@ func TestProtocol_Validate(t *testing.T) {
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(act3).Build()
-	selp3, err := action.Sign(elp, senderKey.PriKey)
+	selp3, err := action.Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp3)
 	ctx3 = protocol.WithValidateActionsCtx(
 		context.Background(),
 		protocol.ValidateActionsCtx{
 			BlockHeight:  1,
-			ProducerAddr: testaddress.Addrinfo["producer"].String(),
+			ProducerAddr: identityset.Address(27).String(),
 			Caller:       caller,
 		},
 	)
@@ -230,14 +230,14 @@ func TestProtocol_Validate(t *testing.T) {
 	elp4 := bd4.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(act4).Build()
-	selp4, err := action.Sign(elp4, senderKey.PriKey)
+	selp4, err := action.Sign(elp4, senderKey)
 	require.NoError(err)
 	require.NotNil(selp4)
 	ctx4 = protocol.WithValidateActionsCtx(
 		context.Background(),
 		protocol.ValidateActionsCtx{
 			BlockHeight:  1,
-			ProducerAddr: testaddress.Addrinfo["producer"].String(),
+			ProducerAddr: identityset.Address(27).String(),
 			Caller:       caller,
 		},
 	)
@@ -254,14 +254,14 @@ func TestProtocol_Validate(t *testing.T) {
 	elp5 := bd5.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(act5).Build()
-	selp5, err := action.Sign(elp5, senderKey.PriKey)
+	selp5, err := action.Sign(elp5, senderKey)
 	require.NoError(err)
 	require.NotNil(selp5)
 	ctx5 = protocol.WithValidateActionsCtx(
 		context.Background(),
 		protocol.ValidateActionsCtx{
 			BlockHeight:  1,
-			ProducerAddr: testaddress.Addrinfo["producer"].String(),
+			ProducerAddr: identityset.Address(27).String(),
 			Caller:       caller,
 		},
 	)
@@ -277,7 +277,7 @@ func TestProtocol_Validate(t *testing.T) {
 	elp6 := bd6.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(act6).Build()
-	selp6, err := action.Sign(elp6, senderKey.PriKey)
+	selp6, err := action.Sign(elp6, senderKey)
 	require.NoError(err)
 	require.NotNil(selp6)
 	caller6, err := address.FromBytes(selp6.SrcPubkey().Hash())
@@ -286,7 +286,7 @@ func TestProtocol_Validate(t *testing.T) {
 		context.Background(),
 		protocol.ValidateActionsCtx{
 			BlockHeight:  1,
-			ProducerAddr: testaddress.Addrinfo["producer"].String(),
+			ProducerAddr: identityset.Address(27).String(),
 			Caller:       caller6,
 		},
 	)

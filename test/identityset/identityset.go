@@ -42,10 +42,20 @@ var keyPortfolio = []string{
 	"918d077b170ba8e91cfa6c382dcddf50c6818a4b6b13c57920c707abe9148c07",
 	"483edbc578e05dc8c20fbf77b394b252ede7e17107ee9d3d8b2bf9465ea17be9",
 	"3489b2fef5fd4a63bc5a46ddab7fcfe9d614b733173e6e99ada07b19063b574e",
+	"cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", //producer
+	"d3e7252d95ecef433bf152e9878f15e1c5072867399d18226fe7f8668618492c", //alfa
+	"a873f9173d456767241f13122d5143b395eeb64694980bee5fb900b689bd98da", //bravo
+	"5b0cf587e7817c971f8e4b15a780b0a7d815ef66a6672f9a494a660ba9775e4e", //charlie
+	"f0a470f2bdb8471aa59a0a25cde14fc4f7eef96df7880d68ccd24026900b2019", //delta
+	"54a17da109b4679d24304ece6718127f7a3a83d921ee0027163b4d950225042d", //echo
+	"f2b7c8b45a951c9b924face10bbcd0dc752f8fa524e06bfffb89ad289114c480", //foxtrot
+	"5deb4c7bc5d714e1bcde9b43d0a8a268f5bb8692dc7149f434ea0f212b7d52f1", //galilei
 }
 
 // Size returns the size of the address
-func Size() int { return len(keyPortfolio) }
+func Size() int {
+	return 27 //27 is origin size before add last 8 private key,len(keyPortfolio)
+}
 
 // PrivateKey returns the i-th identity's private key
 func PrivateKey(i int) crypto.PrivateKey {
