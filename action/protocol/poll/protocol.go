@@ -9,6 +9,7 @@ package poll
 import (
 	"context"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/iotexproject/iotex-election/committee"
@@ -197,6 +198,24 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initGravityChainHeight))
 	var ds state.CandidateList
 	if ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight); err != nil {
+		errMsg := "bucket = electionNS doesn't exist: not exist in DB"
+		errChan := make(chan error, 1)
+		errChan <- err
+	loop:
+		for {
+			select {
+			case <-time.After(time.Second * 15):
+				ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight)
+				errChan <- err
+			case err = <-errChan:
+				if err == nil || !strings.Contains(err.Error(), errMsg) {
+					break loop
+				}
+				log.L().Error("calling committee,wait for 15 seconds")
+			}
+		}
+	}
+	if err != nil {
 		return
 	}
 	log.L().Info("Validating delegates from gravity chain", zap.Any("delegates", ds))
