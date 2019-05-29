@@ -30,10 +30,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -60,7 +60,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		uint64(0),
 		hash.Hash256{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
@@ -115,7 +115,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 		uint64(0),
 		hash.Hash256{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)

@@ -30,7 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -88,48 +88,48 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// check balance
-	s, err := bc.StateByAddr(ta.Addrinfo["alfa"].String())
+	s, err := bc.StateByAddr(identityset.Address(28).String())
 	require.Nil(err)
 	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].String())
+	s, err = bc.StateByAddr(identityset.Address(29).String())
 	require.Nil(err)
 	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].String())
+	s, err = bc.StateByAddr(identityset.Address(30).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["delta"].String())
+	s, err = bc.StateByAddr(identityset.Address(31).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["echo"].String())
+	s, err = bc.StateByAddr(identityset.Address(32).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].String())
+	s, err = bc.StateByAddr(identityset.Address(33).String())
 	require.Nil(err)
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242883")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["producer"].String())
+	s, err = bc.StateByAddr(identityset.Address(27).String())
 	require.Nil(err)
 	test := s.Balance
 	t.Logf("test balance = %d", test)
@@ -185,8 +185,8 @@ func TestLocalCommit(t *testing.T) {
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
 	// transfer 1
 	// C --> A
-	s, _ = bc.StateByAddr(ta.Addrinfo["charlie"].String())
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["charlie"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(identityset.Address(30).String())
+	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	act1 := tsf1.Proto()
@@ -209,12 +209,12 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, _ = bc.StateByAddr(ta.Addrinfo["foxtrot"].String())
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["delta"].String(), ta.Keyinfo["foxtrot"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(identityset.Address(33).String())
+	tsf2, err := testutil.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[ta.Addrinfo["foxtrot"].String()] = []action.SealedEnvelope{tsf2}
+	actionMap[identityset.Address(33).String()] = []action.SealedEnvelope{tsf2}
 	blk2, err := chain.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
@@ -234,12 +234,12 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 3
 	// B --> B
-	s, _ = bc.StateByAddr(ta.Addrinfo["bravo"].String())
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["bravo"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(identityset.Address(29).String())
+	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[ta.Addrinfo["bravo"].String()] = []action.SealedEnvelope{tsf3}
+	actionMap[identityset.Address(29).String()] = []action.SealedEnvelope{tsf3}
 	blk3, err := chain.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
@@ -259,12 +259,12 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 4
 	// test --> E
-	s, _ = bc.StateByAddr(ta.Addrinfo["producer"].String())
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["echo"].String(), ta.Keyinfo["producer"].PriKey, s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
+	s, _ = bc.StateByAddr(identityset.Address(27).String())
+	tsf4, err := testutil.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
 	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[ta.Addrinfo["producer"].String()] = []action.SealedEnvelope{tsf4}
+	actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{tsf4}
 	blk4, err := chain.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
@@ -298,48 +298,48 @@ func TestLocalCommit(t *testing.T) {
 	require.True(9 == bc.TipHeight())
 
 	// check balance
-	s, err = bc.StateByAddr(ta.Addrinfo["alfa"].String())
+	s, err = bc.StateByAddr(identityset.Address(28).String())
 	require.Nil(err)
 	change = s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "24")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["bravo"].String())
+	s, err = bc.StateByAddr(identityset.Address(29).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["charlie"].String())
+	s, err = bc.StateByAddr(identityset.Address(30).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "46")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["delta"].String())
+	s, err = bc.StateByAddr(identityset.Address(31).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "70")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["echo"].String())
+	s, err = bc.StateByAddr(identityset.Address(32).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "101")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["foxtrot"].String())
+	s, err = bc.StateByAddr(identityset.Address(33).String())
 	require.Nil(err)
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242882")
 
-	s, err = bc.StateByAddr(ta.Addrinfo["producer"].String())
+	s, err = bc.StateByAddr(identityset.Address(27).String())
 	require.Nil(err)
 	test = s.Balance
 	t.Logf("test balance = %d", test)

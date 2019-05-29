@@ -11,10 +11,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -22,8 +22,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -84,7 +84,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(0),
 		hash.Hash256{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -96,7 +96,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(5),
 		hash.Hash256{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -108,7 +108,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(5),
 		hash.Hash256{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -120,7 +120,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		uint64(500),
 		hash.Hash256{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, re = b.Flush(blk)
@@ -192,7 +192,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(2),
 		hash.Hash256{},
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, result := b.Flush(blk)
@@ -203,7 +203,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(4),
 		blk.HashBlock(),
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -214,7 +214,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(5),
 		blk.HashBlock(),
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -225,7 +225,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(6),
 		blk.HashBlock(),
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -236,7 +236,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(8),
 		blk.HashBlock(),
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -247,7 +247,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(14),
 		blk.HashBlock(),
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, result = b.Flush(blk)
@@ -258,7 +258,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		uint64(16),
 		blk.HashBlock(),
 		testutil.TimestampNow(),
-		ta.Keyinfo["producer"].PubKey,
+		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
 	moved, result = b.Flush(blk)

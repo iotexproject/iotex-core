@@ -14,13 +14,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 var (
-	addr1   = testaddress.Addrinfo["producer"].String()
-	priKey1 = testaddress.Keyinfo["producer"].PriKey
-	addr2   = testaddress.Addrinfo["alfa"].String()
+	addr1   = identityset.Address(27).String()
+	priKey1 = identityset.PrivateKey(27)
+	addr2   = identityset.Address(28).String()
 )
 
 func TestSignedTransfer(t *testing.T) {

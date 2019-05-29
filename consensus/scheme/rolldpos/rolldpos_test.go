@@ -43,7 +43,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -415,7 +414,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				gasLimit := testutil.TestGasLimit
 				wsctx := protocol.WithRunActionsCtx(ctx,
 					protocol.RunActionsCtx{
-						Producer: testaddress.Addrinfo["producer"],
+						Producer: identityset.Address(27),
 						GasLimit: gasLimit,
 					})
 				_, err = ws.RunActions(wsctx, 0, nil)

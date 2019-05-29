@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 )
 
 func TestProtocol_GrantBlockReward(t *testing.T) {
@@ -106,29 +105,29 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(90+5), availableBalance)
 		// Operator shouldn't get reward
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["producer"])
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, identityset.Address(27))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		// Beneficiary should get reward
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(0))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(40+5), unclaimedBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["alfa"])
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(28))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(30+5), unclaimedBalance)
 		// The 3-th candidate can't get the reward because it doesn't meet the productivity requirement
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["bravo"])
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(29))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["charlie"])
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(30))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10+5), unclaimedBalance)
 		// The 5-th candidate can't get the reward because of being out of the range
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["delta"])
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(31))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		// The 6-th candidate can't get the foundation bonus because of being out of the range
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["echo"])
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(32))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 
@@ -145,12 +144,12 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 			},
 			{
 				rewardingpb.RewardLog_EPOCH_REWARD,
-				testaddress.Addrinfo["alfa"].String(),
+				identityset.Address(28).String(),
 				"30",
 			},
 			{
 				rewardingpb.RewardLog_EPOCH_REWARD,
-				testaddress.Addrinfo["charlie"].String(),
+				identityset.Address(30).String(),
 				"10",
 			},
 			{
@@ -160,22 +159,22 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 			},
 			{
 				rewardingpb.RewardLog_FOUNDATION_BONUS,
-				testaddress.Addrinfo["alfa"].String(),
+				identityset.Address(28).String(),
 				"5",
 			},
 			{
 				rewardingpb.RewardLog_FOUNDATION_BONUS,
-				testaddress.Addrinfo["bravo"].String(),
+				identityset.Address(29).String(),
 				"5",
 			},
 			{
 				rewardingpb.RewardLog_FOUNDATION_BONUS,
-				testaddress.Addrinfo["charlie"].String(),
+				identityset.Address(30).String(),
 				"5",
 			},
 			{
 				rewardingpb.RewardLog_FOUNDATION_BONUS,
-				testaddress.Addrinfo["delta"].String(),
+				identityset.Address(31).String(),
 				"5",
 			},
 		}
@@ -218,11 +217,11 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		ws, err = stateDB.NewWorkingSet()
 		require.NoError(t, err)
 		// The 5-th candidate can't get the reward because exempting from the epoch reward
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["delta"])
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, identityset.Address(31))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		// The 6-th candidate can get the foundation bonus because it's still within the rage after excluding 5-th one
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, testaddress.Addrinfo["echo"])
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(32))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(4+5), unclaimedBalance)
 	}, true)

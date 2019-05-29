@@ -12,9 +12,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestSubChainState(t *testing.T) {
@@ -26,7 +26,7 @@ func TestSubChainState(t *testing.T) {
 		OperationDeposit:   big.NewInt(2),
 		StartHeight:        100,
 		ParentHeightOffset: 10,
-		OwnerPublicKey:     testaddress.Keyinfo["producer"].PubKey,
+		OwnerPublicKey:     identityset.PrivateKey(27).PublicKey(),
 		CurrentHeight:      200,
 		DepositCount:       300,
 	}
@@ -55,7 +55,7 @@ func TestBlockProofState(t *testing.T) {
 				Value: hash.BytesToHash256([]byte("1000d")),
 			},
 		},
-		ProducerPublicKey: testaddress.Keyinfo["producer"].PubKey,
+		ProducerPublicKey: identityset.PrivateKey(27).PublicKey(),
 	}
 
 	data, err := bp1.Serialize()

@@ -13,13 +13,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestExecutionSignVerify(t *testing.T) {
 	require := require.New(t)
-	contractAddr := testaddress.Addrinfo["alfa"]
-	executorKey := testaddress.Keyinfo["producer"]
+	contractAddr := identityset.Address(28)
+	executorKey := identityset.PrivateKey(27)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	ex, err := NewExecution(contractAddr.String(), 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
@@ -31,11 +31,11 @@ func TestExecutionSignVerify(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).
 		SetAction(ex).Build()
 
-	w := AssembleSealedEnvelope(elp, executorKey.PubKey, []byte("lol"))
+	w := AssembleSealedEnvelope(elp, executorKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))
 
 	// sign the Execution
-	selp, err := Sign(elp, executorKey.PriKey)
+	selp, err := Sign(elp, executorKey)
 	require.NoError(err)
 	require.NotNil(selp)
 

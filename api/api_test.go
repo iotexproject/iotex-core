@@ -44,7 +44,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -54,36 +53,36 @@ import (
 const lld = "lifeLongDelegates"
 
 var (
-	testTransfer, _ = testutil.SignedTransfer(ta.Addrinfo["alfa"].String(),
-		ta.Keyinfo["alfa"].PriKey, 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
+	testTransfer, _ = testutil.SignedTransfer(identityset.Address(28).String(),
+		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
 
 	testTransferHash = testTransfer.Hash()
 	testTransferPb   = testTransfer.Proto()
 
-	testExecution, _ = testutil.SignedExecution(ta.Addrinfo["bravo"].String(),
-		ta.Keyinfo["bravo"].PriKey, 1, big.NewInt(0), testutil.TestGasLimit,
+	testExecution, _ = testutil.SignedExecution(identityset.Address(29).String(),
+		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
 	testExecutionHash = testExecution.Hash()
 	testExecutionPb   = testExecution.Proto()
 
-	testTransfer1, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["producer"].PriKey, 1,
+	testTransfer1, _ = testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash1    = testTransfer1.Hash()
-	testTransfer2, _ = testutil.SignedTransfer(ta.Addrinfo["charlie"].String(), ta.Keyinfo["charlie"].PriKey, 5,
+	testTransfer2, _ = testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
 		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash2 = testTransfer2.Hash()
 
-	testExecution1, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 6,
+	testExecution1, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash1 = testExecution1.Hash()
 
-	testExecution2, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["charlie"].PriKey, 6,
+	testExecution2, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash2 = testExecution2.Hash()
 
-	testExecution3, _ = testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["alfa"].PriKey, 2,
+	testExecution3, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
 )
@@ -114,7 +113,7 @@ var (
 		pendingNonce uint64
 		numActions   uint64
 	}{
-		{ta.Addrinfo["charlie"].String(),
+		{identityset.Address(30).String(),
 			"io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
 			"3",
 			8,
@@ -122,7 +121,7 @@ var (
 			11,
 		},
 		{
-			ta.Addrinfo["producer"].String(),
+			identityset.Address(27).String(),
 			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
 			"9999999999999999999999999991",
 			1,
@@ -192,19 +191,19 @@ var (
 		numActions int
 	}{
 		{
-			ta.Addrinfo["producer"].String(),
+			identityset.Address(27).String(),
 			0,
 			3,
 			2,
 		},
 		{
-			ta.Addrinfo["charlie"].String(),
+			identityset.Address(30).String(),
 			1,
 			8,
 			8,
 		},
 		{
-			ta.Addrinfo["foxtrot"].String(),
+			identityset.Address(33).String(),
 			2,
 			1,
 			0,
@@ -218,13 +217,13 @@ var (
 		numActions int
 	}{
 		{
-			ta.Addrinfo["producer"].String(),
+			identityset.Address(27).String(),
 			0,
 			4,
 			4,
 		},
 		{
-			ta.Addrinfo["producer"].String(),
+			identityset.Address(27).String(),
 			2,
 			0,
 			0,
@@ -389,7 +388,7 @@ var (
 	}{
 		{
 			hex.EncodeToString(executionHash2[:]),
-			ta.Addrinfo["charlie"].String(),
+			identityset.Address(30).String(),
 			"",
 		},
 	}
@@ -444,13 +443,13 @@ var (
 		{
 			protocolID: "Wrong ID",
 			methodName: "UnclaimedBalance",
-			addr:       ta.Addrinfo["producer"].String(),
+			addr:       identityset.Address(27).String(),
 			returnErr:  true,
 		},
 		{
 			protocolID: rewarding.ProtocolID,
 			methodName: "Wrong Method",
-			addr:       ta.Addrinfo["producer"].String(),
+			addr:       identityset.Address(27).String(),
 			returnErr:  true,
 		},
 	}
@@ -1343,7 +1342,7 @@ func addProducerToFactory(sf factory.Factory) error {
 	}
 	if _, err = accountutil.LoadOrCreateAccount(
 		ws,
-		ta.Addrinfo["producer"].String(),
+		identityset.Address(27).String(),
 		unit.ConvertIotxToRau(10000000000),
 	); err != nil {
 		return err
@@ -1351,7 +1350,7 @@ func addProducerToFactory(sf factory.Factory) error {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: ta.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
@@ -1361,14 +1360,14 @@ func addProducerToFactory(sf factory.Factory) error {
 }
 
 func addTestingBlocks(bc blockchain.Blockchain) error {
-	addr0 := ta.Addrinfo["producer"].String()
-	priKey0 := ta.Keyinfo["producer"].PriKey
-	addr1 := ta.Addrinfo["alfa"].String()
-	priKey1 := ta.Keyinfo["alfa"].PriKey
-	addr2 := ta.Addrinfo["bravo"].String()
-	addr3 := ta.Addrinfo["charlie"].String()
-	priKey3 := ta.Keyinfo["charlie"].PriKey
-	addr4 := ta.Addrinfo["delta"].String()
+	addr0 := identityset.Address(27).String()
+	priKey0 := identityset.PrivateKey(27)
+	addr1 := identityset.Address(28).String()
+	priKey1 := identityset.PrivateKey(28)
+	addr2 := identityset.Address(29).String()
+	addr3 := identityset.Address(30).String()
+	priKey3 := identityset.PrivateKey(30)
+	addr4 := identityset.Address(31).String()
 	// Add block 1
 	// Producer transfer--> C
 	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -1487,22 +1486,22 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 
 func addActsToActPool(ap actpool.ActPool) error {
 	// Producer transfer--> A
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer transfer--> P
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 3, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf2, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer transfer--> B
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer exec--> D
-	execution1, err := testutil.SignedExecution(ta.Addrinfo["delta"].String(), ta.Keyinfo["producer"].PriKey, 5,
+	execution1, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	if err != nil {
 		return err

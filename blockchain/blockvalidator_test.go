@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state/factory"
-	ta "github.com/iotexproject/iotex-core/test/testaddress"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -34,10 +34,10 @@ func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: "", enableExperimentalActions: true}
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -46,7 +46,7 @@ func TestWrongRootHash(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 0, blkhash))
@@ -58,10 +58,10 @@ func TestSignBlock(t *testing.T) {
 	require := require.New(t)
 	val := validator{sf: nil, validatorAddr: "", enableExperimentalActions: true}
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -70,7 +70,7 @@ func TestSignBlock(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash))
@@ -106,7 +106,7 @@ func TestWrongNonce(t *testing.T) {
 
 	// correct nonce
 
-	tsf1, err := testutil.SignedTransfer(ta.Addrinfo["alfa"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
+	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash := tsf1.Hash()
@@ -115,7 +115,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash))
@@ -124,7 +124,7 @@ func TestWrongNonce(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: ta.Addrinfo["producer"],
+			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
 	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{tsf1})
@@ -132,7 +132,7 @@ func TestWrongNonce(t *testing.T) {
 	require.Nil(sf.Commit(ws))
 
 	// low nonce
-	tsf2, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blk, err = block.NewTestingBuilder().
@@ -140,13 +140,13 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1, tsf2).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
 	err = val.Validate(&blk, 2, blkhash)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	tsf3, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf3, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash = tsf1.Hash()
@@ -155,17 +155,17 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf3).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// duplicate nonce
-	tsf4, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf4, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf5, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf5, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -173,16 +173,16 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf4, tsf5).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	tsf6, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf6, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf7, err := testutil.SignedTransfer(ta.Addrinfo["producer"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf7, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -190,16 +190,16 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf6, tsf7).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// non consecutive nonce
-	tsf8, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf8, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	tsf9, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf9, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 	blkhash = tsf1.Hash()
 	blk, err = block.NewTestingBuilder().
@@ -207,15 +207,15 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf8, tsf9).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	tsf10, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf10, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	tsf11, err := testutil.SignedTransfer(ta.Addrinfo["bravo"].String(), ta.Keyinfo["producer"].PriKey, 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf11, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
 	blkhash = tsf1.Hash()
@@ -224,7 +224,7 @@ func TestWrongNonce(t *testing.T) {
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf10, tsf11).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 	err = val.Validate(&blk, 2, blkhash)
 	require.Error(err)
@@ -254,14 +254,14 @@ func TestWrongAddress(t *testing.T) {
 	elp := bd.SetAction(tsf).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).Build()
-	selp, err := action.Sign(elp, ta.Keyinfo["producer"].PriKey)
+	selp, err := action.Sign(elp, identityset.PrivateKey(27))
 	require.NoError(t, err)
 	blk1, err := block.NewTestingBuilder().
 		SetHeight(3).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	err = val.validateActionsOnly(
 		blk1.Actions,
@@ -278,14 +278,14 @@ func TestWrongAddress(t *testing.T) {
 	elp = bd.SetAction(execution).SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).
 		SetNonce(1).Build()
-	selp, err = action.Sign(elp, ta.Keyinfo["producer"].PriKey)
+	selp, err = action.Sign(elp, identityset.PrivateKey(27))
 	require.NoError(t, err)
 	blk3, err := block.NewTestingBuilder().
 		SetHeight(3).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(selp).
-		SignAndBuild(ta.Keyinfo["producer"].PriKey)
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	err = val.validateActionsOnly(
 		blk3.Actions,

@@ -19,8 +19,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/test/testaddress"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -81,8 +81,8 @@ func TestExecuteContractFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		Caller:   testaddress.Addrinfo["producer"],
-		Producer: testaddress.Addrinfo["producer"],
+		Caller:   identityset.Address(27),
+		Producer: identityset.Address(27),
 		GasLimit: testutil.TestGasLimit,
 	})
 
