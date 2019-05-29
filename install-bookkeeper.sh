@@ -149,5 +149,5 @@ else
     echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
     sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
 fi
-sudo cp committee.yaml $INSTALL_DIRECTORY/
+sudo mv committee.yaml $INSTALL_DIRECTORY/
 
