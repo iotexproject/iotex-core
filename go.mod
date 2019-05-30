@@ -4,9 +4,10 @@ go 1.12
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
-	github.com/aristanetworks/goarista v0.0.0-20190528200627-2e9fd846018e // indirect
+	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/cenkalti/backoff v2.1.1+incompatible
-	github.com/dgraph-io/badger v2.0.0-rc.2+incompatible
+	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/dgraph-io/badger v1.5.5-0.20190226225317-8115aed38f8f
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/ethereum/go-ethereum v1.8.27
@@ -15,10 +16,10 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
-	github.com/golang/mock v1.3.1
+	github.com/golang/mock v1.2.0
 	github.com/golang/protobuf v1.3.1
-	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.2.10
 	github.com/iotexproject/go-pkgs v0.1.1-0.20190513193226-f065b9342b78
@@ -66,25 +67,28 @@ require (
 >>>>>>> ioctl_support_0x
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
-	github.com/multiformats/go-multiaddr v0.0.4
+	github.com/multiformats/go-multiaddr v0.0.2
+	github.com/multiformats/go-multihash v0.0.5 // indirect
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
 	github.com/pkg/errors v0.8.1
-	github.com/prometheus/client_golang v0.9.3
-	github.com/prometheus/common v0.4.1 // indirect
-	github.com/prometheus/procfs v0.0.0-20190529155944-65bdadfa96ae // indirect
+	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
+	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
+	github.com/prometheus/common v0.3.0 // indirect
+	github.com/prometheus/procfs v0.0.0-20190425082905-87a4384529e0 // indirect
+	github.com/rs/cors v1.6.0 // indirect
 	github.com/rs/zerolog v1.14.3
-	github.com/spf13/cobra v0.0.4
+	github.com/spf13/cobra v0.0.3
+	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/whyrusleeping/go-smux-yamux v2.0.9+incompatible // indirect
-	github.com/whyrusleeping/yamux v1.2.0 // indirect
 	go.etcd.io/bbolt v1.3.2
+	go.opencensus.io v0.21.0 // indirect
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/config v1.3.1
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
-	golang.org/x/net v0.0.0-20190522155817-f3200d17e092
+	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734
+	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
+	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190529164535-6a60838ec259 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 <<<<<<< HEAD
 <<<<<<< HEAD
