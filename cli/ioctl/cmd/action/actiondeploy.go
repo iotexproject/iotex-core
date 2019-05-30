@@ -62,9 +62,9 @@ func deploy() (string, error) {
 			return "", err
 		}
 	}
-	var bytecode_bytes []byte
-	bytecode_bytes, err =hex.DecodeString(strings.TrimLeft(bytecode_string, "0x"))
-	tx, err := action.NewExecution("", nonce, big.NewInt(0), gasLimit, gasPriceRau, bytecode_bytes)
+	var bytecodeBytes []byte
+	bytecodeBytes, err =hex.DecodeString(strings.TrimLeft(bytecodeString, "0x"))
+	tx, err := action.NewExecution("", nonce, big.NewInt(0), gasLimit, gasPriceRau, bytecodeBytes)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return "", err
