@@ -11,14 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/pkg/probe"
-	"github.com/iotexproject/iotex-core/test/identityset"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/probe"
 )
 
 func TestNewServer(t *testing.T) {
@@ -102,26 +98,6 @@ func TestStartServer(t *testing.T) {
 	err = probeSvr.Start(ctx)
 	require.NoError(err)
 	go StartServer(ctx, ss, probeSvr, cfg)
-	time.Sleep(time.Second * 2)
-
-	rap := block.RunnableActionsBuilder{}
-	ra := rap.
-		SetHeight(1).
-		SetTimeStamp(time.Now()).
-		Build(identityset.PrivateKey(0).PublicKey())
-	blk, err := block.NewBuilder(ra).
-		SetVersion(1).
-		SetReceiptRoot(hash.Hash256b([]byte("hello, world!"))).
-		SetDeltaStateDigest(hash.Hash256b([]byte("world, hello!"))).
-		SetPrevBlockHash(hash.Hash256b([]byte("hello, block!"))).
-		SignAndBuild(identityset.PrivateKey(0))
-	require.NoError(err)
-
-	go func() {
-		err = ss.HandleBlock(&blk)
-		require.NoError(err)
-	}()
-
 	time.Sleep(time.Second * 2)
 	cancel()
 	err = probeSvr.Stop(livenessCtx)
