@@ -74,8 +74,7 @@ func invoke(args []string) (string, error) {
 		}
 		nonce = accountMeta.PendingNonce
 	}
-	var bytecodeBytes []byte
-	bytecodeBytes, err = hex.DecodeString(strings.TrimLeft(bytecodeString, "0x"))
+	bytecodeBytes, err := hex.DecodeString(strings.TrimLeft(bytecodeString, "0x"))
 	if err != nil {
 		log.L().Error("cannot decode bytecode string", zap.Error(err))
 		return "", err
