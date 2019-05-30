@@ -7,11 +7,12 @@
 package action
 
 import (
+	"encoding/hex"
 	"fmt"
-	"math/big"
-
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"math/big"
+	"strings"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
@@ -34,11 +35,6 @@ var actionInvokeCmd = &cobra.Command{
 		}
 		return err
 	},
-
-
-
-
-
 }
 
 // invoke invokes smart contract on IoTeX blockchain
@@ -77,7 +73,9 @@ func invoke(args []string) (string, error) {
 		}
 		nonce = accountMeta.PendingNonce
 	}
-	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
+	var bytecode_bytes []byte
+	bytecode_bytes, err =hex.DecodeString(strings.TrimLeft(bytecode_string, "0x"))
+	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode_bytes)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return "", err

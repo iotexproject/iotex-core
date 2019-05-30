@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+	// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,6 +7,7 @@
 package action
 
 import (
+
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -35,7 +36,7 @@ var (
 	gasPrice string
 	nonce    uint64
 	signer   string
-	bytecode []byte
+	bytecode_string string
 )
 
 // ActionCmd represents the account command
@@ -62,6 +63,7 @@ func init() {
 
 func setActionFlags(cmds ...*cobra.Command) {
 	for _, cmd := range cmds {
+
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
 		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "1",
 			"set gas price (unit: 10^(-6)Iotx)")
@@ -69,7 +71,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
 		cmd.MarkFlagRequired("signer")
 		if cmd == actionDeployCmd || cmd == actionInvokeCmd || cmd == actionReadCmd {
-			cmd.Flags().BytesHexVarP(&bytecode, "bytecode", "b", nil, "set the byte code")
+			cmd.Flags().StringVarP(&bytecode_string, "bytecode", "b", "1", "set the byte code")
 			cmd.MarkFlagRequired("gas-limit")
 			cmd.MarkFlagRequired("bytecode")
 		}

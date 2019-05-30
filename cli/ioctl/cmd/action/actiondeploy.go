@@ -7,8 +7,10 @@
 package action
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -60,7 +62,9 @@ func deploy() (string, error) {
 			return "", err
 		}
 	}
-	tx, err := action.NewExecution("", nonce, big.NewInt(0), gasLimit, gasPriceRau, bytecode)
+	var bytecode_bytes []byte
+	bytecode_bytes, err =hex.DecodeString(strings.TrimLeft(bytecode_string, "0x"))
+	tx, err := action.NewExecution("", nonce, big.NewInt(0), gasLimit, gasPriceRau, bytecode_bytes)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return "", err
