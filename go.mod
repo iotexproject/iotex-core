@@ -9,8 +9,10 @@ require (
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/dgraph-io/badger v1.5.5-0.20190226225317-8115aed38f8f
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
+	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
+	github.com/fjl/memsize v0.0.0-20180929194037-2a09253e352a // indirect
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
@@ -23,8 +25,9 @@ require (
 	github.com/iotexproject/go-pkgs v0.1.1-0.20190513193226-f065b9342b78
 	github.com/iotexproject/iotex-address v0.2.0
 	github.com/iotexproject/iotex-election v0.1.9
-	github.com/iotexproject/iotex-proto v0.2.1-0.20190520183050-e748b9589841
+	github.com/iotexproject/iotex-proto v0.2.1-0.20190528210926-c48a31f9d016
 	github.com/ipfs/go-datastore v0.0.5 // indirect
+	github.com/karalabe/hid v1.0.0 // indirect
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-connmgr v0.0.3 // indirect
 	github.com/libp2p/go-libp2p-host v0.0.2 // indirect
@@ -62,6 +65,7 @@ require (
 	google.golang.org/appengine v1.5.0 // indirect
 	google.golang.org/grpc v1.20.1
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
+	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 )
 

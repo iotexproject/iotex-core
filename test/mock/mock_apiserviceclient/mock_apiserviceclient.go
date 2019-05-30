@@ -286,39 +286,3 @@ func (mr *MockServiceClientMockRecorder) StreamBlocks(ctx, in interface{}, opts 
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamBlocks", reflect.TypeOf((*MockServiceClient)(nil).StreamBlocks), varargs...)
 }
-
-// GetActionsByAddress mocks base method
-func (m *MockServiceClient) GetActionsByAddress(ctx context.Context, in *iotexapi.GetActionsByAddressRequest, opts ...grpc.CallOption) (*iotexapi.GetActionsResponse, error) {
-	varargs := []interface{}{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "GetActionsByAddress", varargs...)
-	ret0, _ := ret[0].(*iotexapi.GetActionsResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetActionsByAddress indicates an expected call of GetActionsByAddress
-func (mr *MockServiceClientMockRecorder) GetActionsByAddress(ctx, in interface{}, opts ...interface{}) *gomock.Call {
-	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionsByAddress", reflect.TypeOf((*MockServiceClient)(nil).GetActionsByAddress), varargs...)
-}
-
-// SendSignedActionBytes mocks base method
-func (m *MockServiceClient) SendSignedActionBytes(ctx context.Context, in *iotexapi.SendSignedActionBytesRequest, opts ...grpc.CallOption) (*iotexapi.SendActionResponse, error) {
-	varargs := []interface{}{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "SendSignedActionBytes", varargs...)
-	ret0, _ := ret[0].(*iotexapi.SendActionResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SendSignedActionBytes indicates an expected call of SendSignedActionBytes
-func (mr *MockServiceClientMockRecorder) SendSignedActionBytes(ctx, in interface{}, opts ...interface{}) *gomock.Call {
-	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendSignedActionBytes", reflect.TypeOf((*MockServiceClient)(nil).SendSignedActionBytes), varargs...)
-}
