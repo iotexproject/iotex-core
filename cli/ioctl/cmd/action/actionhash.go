@@ -137,10 +137,14 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 		output += proto.MarshalTextString(action.Core)
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
+		amount, err := util.StringToIOTX(transfer.Amount)
+		if err != nil {
+			return "", err
+		}
 		output += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				Match(transfer.Recipient, "address")) +
-			fmt.Sprintf("  amount: %s Rau\n", transfer.Amount)
+			fmt.Sprintf("  amount: %s IOTX\n", amount)
 		if len(transfer.Payload) != 0 {
 			output += fmt.Sprintf("  payload: %s\n", transfer.Payload)
 		}
