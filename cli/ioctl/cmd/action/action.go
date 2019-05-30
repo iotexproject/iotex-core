@@ -7,7 +7,6 @@
 package action
 
 import (
-
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -63,7 +62,6 @@ func init() {
 
 func setActionFlags(cmds ...*cobra.Command) {
 	for _, cmd := range cmds {
-
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
 		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "1",
 			"set gas price (unit: 10^(-6)Iotx)")
