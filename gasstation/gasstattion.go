@@ -33,6 +33,18 @@ func NewGasStation(bc blockchain.Blockchain, cfg config.API, limit uint64) *GasS
 	}
 }
 
+//WhetherSystemAction determine whether input action belongs to system action
+func (gs *GasStation) WhetherSystemAction(act action.SealedEnvelope) bool {
+	switch act.Action().(type) {
+	case *action.GrantReward:
+		return true
+	case *action.PutPollResult:
+		return true
+	default:
+		return false
+	}
+}
+
 // SuggestGasPrice suggest gas price
 func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 	var smallestPrices []*big.Int
@@ -54,11 +66,8 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 
 		smallestPrice := blk.Actions[0].GasPrice()
 		for _, act := range blk.Actions {
-			switch act.Action().(type) {
-			case *action.GrantReward:
+			if gs.WhetherSystemAction(act) {
 				continue
-			default:
-				break
 			}
 			if smallestPrice.Cmp(act.GasPrice()) == 1 {
 				smallestPrice = act.GasPrice()
