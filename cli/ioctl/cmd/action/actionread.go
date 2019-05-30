@@ -7,8 +7,10 @@
 package action
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -65,7 +67,9 @@ func read(args []string) (string, error) {
 		}
 		nonce = accountMeta.PendingNonce
 	}
-	tx, err := action.NewExecution(contract, nonce, big.NewInt(0), gasLimit, gasPriceRau, bytecode)
+	var bytecode_bytes []byte
+	bytecode_bytes, err =hex.DecodeString(strings.TrimLeft(bytecode_string, "0x"))
+	tx, err := action.NewExecution(contract, nonce, big.NewInt(0), gasLimit, gasPriceRau, bytecode_bytes)
 	if err != nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return "", err
