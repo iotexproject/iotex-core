@@ -913,7 +913,7 @@ func TestServer_SendAction(t *testing.T) {
 func TestServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-	cfg.Plugins[config.GatewayPlugin] = true
+
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -1634,13 +1634,13 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	}
 
 	apiCfg := config.API{TpsWindow: cfg.API.TpsWindow, GasStation: cfg.API.GasStation, RangeQueryLimit: 100}
-
 	svr := &Server{
-		bc:       bc,
-		ap:       ap,
-		cfg:      apiCfg,
-		gs:       gasstation.NewGasStation(bc, apiCfg, config.Default.Genesis.ActionGasLimit),
-		registry: registry,
+		bc:        bc,
+		ap:        ap,
+		cfg:       apiCfg,
+		gs:        gasstation.NewGasStation(bc, apiCfg, config.Default.Genesis.ActionGasLimit),
+		registry:  registry,
+		hasPlugin: true,
 	}
 
 	return svr, nil
