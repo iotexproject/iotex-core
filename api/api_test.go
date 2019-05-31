@@ -913,7 +913,7 @@ func TestServer_SendAction(t *testing.T) {
 func TestServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
-
+	cfg.Plugins[config.GatewayPlugin] = true
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
