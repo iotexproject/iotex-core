@@ -83,6 +83,7 @@ type Server struct {
 	registry         *protocol.Registry
 	blockListener    *blockListener
 	grpcserver       *grpc.Server
+	hasPlugin        bool
 }
 
 // NewServer creates a new server
@@ -120,7 +121,9 @@ func NewServer(
 		blockListener:    newBlockListener(),
 		gs:               gasstation.NewGasStation(chain, cfg.API, cfg.Genesis.ActionGasLimit),
 	}
-
+	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
+		svr.hasPlugin = true
+	}
 	svr.grpcserver = grpc.NewServer(
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
@@ -158,6 +161,9 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 
 // GetActions returns actions
 func (api *Server) GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error) {
+	if !api.hasPlugin && in.GetByBlk() == nil {
+		return nil, status.Error(codes.NotFound, "plugin is not running")
+	}
 	switch {
 	case in.GetByIndex() != nil:
 		request := in.GetByIndex()
@@ -303,6 +309,9 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 
 // GetReceiptByAction gets receipt with corresponding action hash
 func (api *Server) GetReceiptByAction(ctx context.Context, in *iotexapi.GetReceiptByActionRequest) (*iotexapi.GetReceiptByActionResponse, error) {
+	if !api.hasPlugin {
+		return nil, status.Error(codes.NotFound, "plugin is not running")
+	}
 	actHash, err := hash.HexStringToHash256(in.ActionHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())

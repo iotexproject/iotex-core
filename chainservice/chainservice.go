@@ -189,21 +189,19 @@ func New(
 	}
 
 	var apiSvr *api.Server
-	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
-		apiSvr, err = api.NewServer(
-			cfg,
-			chain,
-			dispatcher,
-			actPool,
-			&registry,
-			api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
-				ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
-				return p2pAgent.BroadcastOutbound(ctx, msg)
-			}),
-		)
-		if err != nil {
-			return nil, err
-		}
+	apiSvr, err = api.NewServer(
+		cfg,
+		chain,
+		dispatcher,
+		actPool,
+		&registry,
+		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
+			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
+			return p2pAgent.BroadcastOutbound(ctx, msg)
+		}),
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	return &ChainService{
