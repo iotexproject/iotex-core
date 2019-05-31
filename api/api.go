@@ -498,29 +498,6 @@ func (api *Server) GetRawBlocks(
 	return &iotexapi.GetRawBlocksResponse{Blocks: res}, nil
 }
 
-// GetActionsByAddress returns actions by address
-func (api *Server) GetActionsByAddress(
-	ctx context.Context, in *iotexapi.GetActionsByAddressRequest) (*iotexapi.GetActionsResponse, error) {
-	return api.getActionsByAddress(in.Address, in.Start, in.Count)
-}
-
-// SendSignedActionBytes sends signed transaction bytes
-func (api *Server) SendSignedActionBytes(
-	ctx context.Context, in *iotexapi.SendSignedActionBytesRequest) (*iotexapi.SendActionResponse, error) {
-	// input is hex string of signed action bytes
-	actionBytes, err := hex.DecodeString(in.SignedActionBytes)
-	if err != nil {
-		return nil, err
-	}
-	action := &iotextypes.Action{}
-	if err := proto.Unmarshal(actionBytes, action); err != nil {
-		return nil, err
-	}
-	return api.SendAction(ctx, &iotexapi.SendActionRequest{
-		Action: action,
-	})
-}
-
 // StreamBlocks streams blocks
 func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
 	errChan := make(chan error)

@@ -133,21 +133,24 @@ else
     BINARY_URL="$RELEASES_URL/$BINARY"
 fi
 
-DOWNLOAD_FILE=$(mktemp)
 
-downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
 downloadFile "$RELEASES_URL/committee.yaml" "committee.yaml"
 
-echo "Setting executable permissions."
-chmod +x "$DOWNLOAD_FILE"
 
 if [ "$OS" = "windows" ]; then
+    downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
     INSTALL_NAME="$INSTALL_NAME.exe"
     echo "Moving executable to $HOME/$INSTALL_NAME"
     mv "$DOWNLOAD_FILE" "$HOME/$INSTALL_NAME"
+    mv committee.yaml "$HOME/$INSTALL_NAME"
 else
+    DOWNLOAD_FILE=$(mktemp)
+    downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
+    echo "Setting executable permissions."
+    chmod +x "$DOWNLOAD_FILE"
     echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
     sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
+    sudo mv committee.yaml $INSTALL_DIRECTORY/
 fi
-sudo cp committee.yaml $INSTALL_DIRECTORY/
+
 
