@@ -9,10 +9,8 @@ require (
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/dgraph-io/badger v1.5.5-0.20190226225317-8115aed38f8f
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
-	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
-	github.com/fjl/memsize v0.0.0-20180929194037-2a09253e352a // indirect
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
@@ -24,36 +22,6 @@ require (
 	github.com/iotexproject/go-p2p v0.2.10
 	github.com/iotexproject/go-pkgs v0.1.1-0.20190513193226-f065b9342b78
 	github.com/iotexproject/iotex-address v0.2.0
-<<<<<<< HEAD
-<<<<<<< HEAD
-	github.com/iotexproject/iotex-election v0.1.9
-	github.com/iotexproject/iotex-proto v0.2.1-0.20190528210926-c48a31f9d016
-	github.com/ipfs/go-datastore v0.0.5 // indirect
-	github.com/karalabe/hid v1.0.0 // indirect
-	github.com/libp2p/go-libp2p v0.0.21 // indirect
-	github.com/libp2p/go-libp2p-connmgr v0.0.3 // indirect
-	github.com/libp2p/go-libp2p-host v0.0.2 // indirect
-	github.com/libp2p/go-libp2p-kad-dht v0.0.10 // indirect
-	github.com/libp2p/go-libp2p-peerstore v0.0.5
-	github.com/libp2p/go-libp2p-pubsub v0.0.1 // indirect
-	github.com/mattn/go-isatty v0.0.7 // indirect
-=======
-	github.com/iotexproject/iotex-election v0.1.10
-	github.com/iotexproject/iotex-proto v0.2.1-0.20190520183050-e748b9589841
-	github.com/karalabe/hid v0.0.0-20190524082611-12a701bced72 // indirect
-	github.com/libp2p/go-libp2p-connmgr v0.1.0 // indirect
-	github.com/libp2p/go-libp2p-core v0.0.2 // indirect
-	github.com/libp2p/go-libp2p-host v0.1.0 // indirect
-	github.com/libp2p/go-libp2p-kad-dht v0.1.0 // indirect
-	github.com/libp2p/go-libp2p-net v0.1.0 // indirect
-	github.com/libp2p/go-libp2p-peerstore v0.1.0
-	github.com/libp2p/go-libp2p-protocol v0.1.0 // indirect
-	github.com/libp2p/go-libp2p-pubsub v0.1.0 // indirect
-	github.com/libp2p/go-stream-muxer v0.1.0 // indirect
-	github.com/libp2p/go-yamux v1.2.3 // indirect
-	github.com/mattn/go-colorable v0.1.2 // indirect
->>>>>>> ioctl_support_0x
-=======
 	github.com/iotexproject/iotex-election v0.1.9
 	github.com/iotexproject/iotex-proto v0.2.1-0.20190520183050-e748b9589841
 	github.com/ipfs/go-datastore v0.0.5 // indirect
@@ -64,7 +32,6 @@ require (
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/libp2p/go-libp2p-pubsub v0.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.7 // indirect
->>>>>>> ioctl_support_0x
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/multiformats/go-multiaddr v0.0.2
@@ -90,25 +57,11 @@ require (
 	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ioctl_support_0x
 	golang.org/x/tools v0.0.0-20190430194229-2d28432af7a5 // indirect
 	golang.org/x/xerrors v0.0.0-20190410155217-1f06c39b4373 // indirect
 	google.golang.org/appengine v1.5.0 // indirect
 	google.golang.org/grpc v1.20.1
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
-<<<<<<< HEAD
-	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
-=======
-	golang.org/x/tools v0.0.0-20190529203303-fb6c8ffd2207 // indirect
-	google.golang.org/appengine v1.6.0 // indirect
-	google.golang.org/genproto v0.0.0-20190522204451-c2c4e71fbf69 // indirect
-	google.golang.org/grpc v1.21.0
->>>>>>> ioctl_support_0x
-=======
->>>>>>> ioctl_support_0x
 	gopkg.in/yaml.v2 v2.2.2
 )
 

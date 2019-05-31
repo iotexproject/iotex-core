@@ -13,10 +13,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-<<<<<<< HEAD
-=======
-	"github.com/iotexproject/go-pkgs/hash"
->>>>>>> d0b39e11af83c89a4fb43bda13082a6995d43a23
 
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
