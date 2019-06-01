@@ -63,7 +63,7 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 		if len(blk.Actions) == 0 {
 			continue
 		}
-		if gs.IsSystemAction(blk.Actions[0]) && len(blk.Actions) == 1 {
+		if len(blk.Actions) == 1 && gs.IsSystemAction(blk.Actions[0]) {
 			continue
 		}
 		smallestPrice := blk.Actions[0].GasPrice()
