@@ -201,7 +201,8 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	InitTryInterval := ctx.Value(InitTryIntervalCtxKey{})
 	interval, ok := InitTryInterval.(int)
 	if !ok {
-		return errors.New("interval error")
+		log.L().Error("Interval read from config error")
+		interval = 15
 	}
 	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initGravityChainHeight))
 	var ds state.CandidateList
