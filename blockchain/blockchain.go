@@ -62,6 +62,9 @@ func init() {
 	prometheus.MustRegister(blockMtc)
 }
 
+// InitTryIntervalCtxKey is for InitTryInterval context
+type InitTryIntervalCtxKey struct{}
+
 // Blockchain represents the blockchain data structure and hosts the APIs to access it
 type Blockchain interface {
 	lifecycle.StartStopper
@@ -1359,7 +1362,7 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 		if !ok {
 			return errors.Errorf("error when casting poll protocol")
 		}
-		ctx = context.WithValue(ctx, "InitTryInterval", bc.config.DB.InitTryInterval)
+		ctx = context.WithValue(ctx, InitTryIntervalCtxKey{}, bc.config.DB.InitTryInterval)
 		return pp.Initialize(
 			ctx,
 			ws,
