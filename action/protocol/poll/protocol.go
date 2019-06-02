@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -45,6 +44,9 @@ type GetEpochHeight func(uint64) uint64
 
 // GetEpochNum defines a function to get epoch number given a block height
 type GetEpochNum func(uint64) uint64
+
+// InitTryIntervalCtxKey is for InitTryInterval context
+type InitTryIntervalCtxKey struct{}
 
 // Protocol defines the protocol of handling votes
 type Protocol interface {
@@ -199,7 +201,7 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	var ds state.CandidateList
 	if ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight); err != nil {
 		for err.Error() == "bucket = electionNS doesn't exist: not exist in DB" {
-			InitTryInterval := ctx.Value(blockchain.InitTryIntervalCtxKey{})
+			InitTryInterval := ctx.Value(InitTryIntervalCtxKey{})
 			if interval, ok := InitTryInterval.(int); ok {
 				log.L().Error("calling committee,waiting for a while", zap.Int("duration", interval), zap.String("unit", " seconds"))
 				time.Sleep(time.Second * time.Duration(interval))
