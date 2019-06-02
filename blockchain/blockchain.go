@@ -1359,6 +1359,7 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 		if !ok {
 			return errors.Errorf("error when casting poll protocol")
 		}
+		ctx = context.WithValue(ctx, "InitTryInterval", bc.config.DB.InitTryInterval)
 		return pp.Initialize(
 			ctx,
 			ws,

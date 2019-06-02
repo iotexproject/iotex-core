@@ -163,6 +163,7 @@ var (
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
+			InitTryInterval: 15,
 		},
 		Genesis: genesis.Default,
 	}
@@ -311,6 +312,9 @@ type (
 
 		// SQLite3 is the config for SQLITE3
 		SQLITE3 SQLITE3 `yaml:"SQLITE3"`
+
+		// InitTryInterval is the config for committee init db
+		InitTryInterval int `yaml:"initTryInterval"`
 	}
 
 	// RDS is the cloud rds config
