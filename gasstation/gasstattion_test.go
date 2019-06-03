@@ -34,7 +34,7 @@ func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
 	require.NotNil(NewGasStation(nil, config.Default.API, 0))
 }
-func TestSuggestGasPrice(t *testing.T) {
+func TestSuggestGasPriceForUserAction(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
@@ -106,6 +106,63 @@ func TestSuggestGasPrice(t *testing.T) {
 	require.NoError(t, err)
 	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
 	require.Equal(t, big.NewInt(1).Mul(big.NewInt(int64(31)), big.NewInt(unit.Qev)).Uint64(), gp)
+}
+
+func TestSuggestGasPriceForSystemAction(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Genesis.BlockGasLimit = uint64(100000)
+	cfg.Genesis.EnableGravityChainVoting = false
+	registry := protocol.Registry{}
+	acc := account.NewProtocol(0)
+	require.NoError(t, registry.Register(account.ProtocolID, acc))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
+	blkState := blockchain.InMemStateFactoryOption()
+	blkMemDao := blockchain.InMemDaoOption()
+	blkRegistryOption := blockchain.RegistryOption(&registry)
+	bc := blockchain.NewBlockchain(cfg, blkState, blkMemDao, blkRegistryOption)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	exec := execution.NewProtocol(bc, 0)
+	require.NoError(t, registry.Register(execution.ProtocolID, exec))
+	bc.Validator().AddActionValidators(acc, exec)
+	bc.GetFactory().AddActionHandlers(acc, exec)
+	require.NoError(t, bc.Start(ctx))
+	defer func() {
+		require.NoError(t, bc.Stop(ctx))
+	}()
+
+	for i := 0; i < 30; i++ {
+		actionMap := make(map[string][]action.SealedEnvelope)
+
+		blk, err := bc.MintNewBlock(
+			actionMap,
+			testutil.TimestampNow(),
+		)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(blk.Actions))
+		require.Equal(t, 0, len(blk.Receipts))
+		var gasConsumed uint64
+		for _, receipt := range blk.Receipts {
+			gasConsumed += receipt.GasConsumed
+		}
+		require.True(t, gasConsumed <= cfg.Genesis.BlockGasLimit)
+		err = bc.ValidateBlock(blk)
+		require.NoError(t, err)
+		err = bc.CommitBlock(blk)
+		require.NoError(t, err)
+	}
+	height := bc.TipHeight()
+	fmt.Printf("Open blockchain pass, height = %d\n", height)
+
+	gs := NewGasStation(bc, cfg.API, cfg.Genesis.ActionGasLimit)
+	require.NotNil(t, gs)
+
+	gp, err := gs.SuggestGasPrice()
+	fmt.Println(gp)
+	require.NoError(t, err)
+	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
+	require.Equal(t, gs.cfg.GasStation.DefaultGas, gp)
 }
 
 func TestEstimateGasForAction(t *testing.T) {
