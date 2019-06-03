@@ -33,8 +33,13 @@ func NewGasStation(bc blockchain.Blockchain, cfg config.API, limit uint64) *GasS
 	}
 }
 
+<<<<<<< HEAD
 //IsSystemAction determine whether input action belongs to system action
 func (gs *GasStation) IsSystemAction(act action.SealedEnvelope) bool {
+=======
+//WhetherSystemAction determine whether input action belongs to system action
+func (gs *GasStation) WhetherSystemAction(act action.SealedEnvelope) bool {
+>>>>>>> be4df90a737b32101389a053dd638749c0a06242
 	switch act.Action().(type) {
 	case *action.GrantReward:
 		return true
