@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"syscall"
 
 	"github.com/golang/protobuf/proto"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -31,11 +33,11 @@ import (
 
 // Flags
 var (
-	gasLimit uint64
-	gasPrice string
-	nonce    uint64
-	signer   string
-	bytecode []byte
+	gasLimit       uint64
+	gasPrice       string
+	nonce          uint64
+	signer         string
+	bytecodeString string
 )
 
 // ActionCmd represents the account command
@@ -60,6 +62,38 @@ func init() {
 		actionDepositCmd)
 }
 
+func inputToExecution(contract string, amount *big.Int) (*action.Execution, error) {
+	executor, err := alias.Address(signer)
+	if err != nil {
+		return nil, err
+	}
+	var gasPriceRau *big.Int
+	if len(gasPrice) == 0 {
+		gasPriceRau, err = GetGasPrice()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		gasPriceRau, err = util.StringToRau(gasPrice, util.GasPriceDecimalNum)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if nonce == 0 {
+		accountMeta, err := account.GetAccountMeta(executor)
+		if err != nil {
+			return nil, err
+		}
+		nonce = accountMeta.PendingNonce
+	}
+	bytecodeBytes, err := hex.DecodeString(strings.TrimLeft(bytecodeString, "0x"))
+	if err != nil {
+		log.L().Error("cannot decode bytecode string", zap.Error(err))
+		return nil, err
+	}
+	return action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecodeBytes)
+}
+
 func setActionFlags(cmds ...*cobra.Command) {
 	for _, cmd := range cmds {
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
@@ -69,7 +103,8 @@ func setActionFlags(cmds ...*cobra.Command) {
 		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
 		cmd.MarkFlagRequired("signer")
 		if cmd == actionDeployCmd || cmd == actionInvokeCmd || cmd == actionReadCmd {
-			cmd.Flags().BytesHexVarP(&bytecode, "bytecode", "b", nil, "set the byte code")
+			cmd.Flags().StringVarP(&bytecodeString, "bytecode", "b", "", "set the byte code")
+
 			cmd.MarkFlagRequired("gas-limit")
 			cmd.MarkFlagRequired("bytecode")
 		}
