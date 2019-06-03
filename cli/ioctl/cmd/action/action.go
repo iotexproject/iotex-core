@@ -104,6 +104,7 @@ func setActionFlags(cmds ...*cobra.Command) {
 		cmd.MarkFlagRequired("signer")
 		if cmd == actionDeployCmd || cmd == actionInvokeCmd || cmd == actionReadCmd {
 			cmd.Flags().StringVarP(&bytecodeString, "bytecode", "b", "", "set the byte code")
+
 			cmd.MarkFlagRequired("gas-limit")
 			cmd.MarkFlagRequired("bytecode")
 		}
