@@ -13,10 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
-	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -46,27 +43,8 @@ func read(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var gasPriceRau *big.Int
-	if len(gasPrice) == 0 {
-		gasPriceRau, err = GetGasPrice()
-		if err != nil {
-			return "", err
-		}
-	} else {
-		gasPriceRau, err = util.StringToRau(gasPrice, util.GasPriceDecimalNum)
-		if err != nil {
-			return "", err
-		}
-	}
-	if nonce == 0 {
-		accountMeta, err := account.GetAccountMeta(executor)
-		if err != nil {
-			return "", err
-		}
-		nonce = accountMeta.PendingNonce
-	}
-	tx, err := action.NewExecution(contract, nonce, big.NewInt(0), gasLimit, gasPriceRau, bytecode)
-	if err != nil {
+	tx, err := inputToExecution(contract, big.NewInt(0))
+	if err != nil || tx == nil {
 		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return "", err
 	}

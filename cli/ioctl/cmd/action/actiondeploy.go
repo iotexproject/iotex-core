@@ -14,8 +14,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -37,16 +35,10 @@ var actionDeployCmd = &cobra.Command{
 
 // deploy deploys smart contract on IoTeX blockchain
 func deploy() (string, error) {
-	executor, err := alias.Address(signer)
-	if err != nil {
+	tx, err := inputToExecution("", big.NewInt(0))
+	if err != nil || tx == nil {
+		log.L().Error("cannot make a Execution instance", zap.Error(err))
 		return "", err
-	}
-	if nonce == 0 {
-		accountMeta, err := account.GetAccountMeta(executor)
-		if err != nil {
-			return "", err
-		}
-		nonce = accountMeta.PendingNonce
 	}
 	var gasPriceRau *big.Int
 	if len(gasPrice) == 0 {
@@ -59,11 +51,6 @@ func deploy() (string, error) {
 		if err != nil {
 			return "", err
 		}
-	}
-	tx, err := action.NewExecution("", nonce, big.NewInt(0), gasLimit, gasPriceRau, bytecode)
-	if err != nil {
-		log.L().Error("cannot make a Execution instance", zap.Error(err))
-		return "", err
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
