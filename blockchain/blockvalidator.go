@@ -11,14 +11,17 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -185,10 +188,18 @@ func (v *validator) validateActions(
 			wg.Add(1)
 			go func(validator protocol.ActionValidator, act action.Action) {
 				defer wg.Done()
-				if err := validator.Validate(ctx, act); err != nil {
-					errChan <- err
-					return
+				for {
+					err := validator.Validate(ctx, act)
+					if err == nil || (errors.Cause(err) != poll.ErrProposedDelegatesLength && errors.Cause(err) != poll.ErrDelegatesNotAsExpected) {
+						break
+					}
+					log.L().Error("calling Validate actions,waiting for a while", zap.Int64("duration", int64(15)), zap.String("unit", " seconds"))
+					time.Sleep(15 * time.Second)
 				}
+				if err != nil {
+					errChan <- err
+				}
+				return
 			}(validator, selp.Action())
 		}
 	}
