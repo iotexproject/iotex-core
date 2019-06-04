@@ -403,6 +403,15 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 		batch.Put(blockNS, topHeightKey, height, "failed to put top height")
 	}
 
+	value, err = dao.kvstore.Get(blockNS, totalActionsKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total actions")
+	}
+	totalActions := enc.MachineEndian.Uint64(value)
+	totalActions += uint64(len(blk.Actions))
+	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
+	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
+
 	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
 	}
