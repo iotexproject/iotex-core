@@ -201,9 +201,6 @@ func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetas
 
 // GetChainMeta returns blockchain metadata
 func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRequest) (*iotexapi.GetChainMetaResponse, error) {
-	if !api.hasActionIndex {
-		return nil, status.Error(codes.NotFound, "Action index is not available.")
-	}
 	tipHeight := api.bc.TipHeight()
 	if tipHeight == 0 {
 		return &iotexapi.GetChainMetaResponse{
@@ -212,7 +209,11 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			},
 		}, nil
 	}
-	totalActions, err := api.bc.GetTotalActions()
+	totalActions := uint64(0)
+	var err error
+	if api.hasActionIndex {
+		totalActions, err = api.bc.GetTotalActions()
+	}
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
