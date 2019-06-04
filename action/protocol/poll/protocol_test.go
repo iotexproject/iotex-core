@@ -64,6 +64,7 @@ func initConstruct(t *testing.T) (Protocol, context.Context, factory.WorkingSet,
 		func(uint64) uint64 { return 1 },
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
+		cfg.Chain.PollInitialCandidatesInterval,
 	)
 	require.NoError(err)
 	return p, ctx, ws, r

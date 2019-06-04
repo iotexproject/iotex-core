@@ -303,6 +303,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 				rolldposProtocol.GetEpochNum,
 				genesisConfig.NumCandidateDelegates,
 				genesisConfig.NumDelegates,
+				cfg.Chain.PollInitialCandidatesInterval,
 			); err != nil {
 				return
 			}
