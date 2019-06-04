@@ -122,7 +122,7 @@ func NewServer(
 		gs:               gasstation.NewGasStation(chain, cfg.API, cfg.Genesis.ActionGasLimit),
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
-		svr.hasPlugin = true
+		svr.hasActionIndex = true
 	}
 	svr.grpcserver = grpc.NewServer(
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
