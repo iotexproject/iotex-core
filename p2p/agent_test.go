@@ -70,7 +70,7 @@ func TestBroadcast(t *testing.T) {
 		require.NoError(t, agents[i].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &testingpb.TestPayload{
 			MsgBody: []byte{uint8(i)},
 		}))
-		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
+		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 155*time.Second, func() (bool, error) {
 			mutex.RLock()
 			defer mutex.RUnlock()
 			// Broadcast message will be skipped by the source node
