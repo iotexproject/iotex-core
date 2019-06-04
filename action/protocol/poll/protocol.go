@@ -46,9 +46,6 @@ type GetEpochHeight func(uint64) uint64
 // GetEpochNum defines a function to get epoch number given a block height
 type GetEpochNum func(uint64) uint64
 
-// InitTryIntervalCtxKey is for InitTryInterval context
-type InitTryIntervalCtxKey struct{}
-
 // Protocol defines the protocol of handling votes
 type Protocol interface {
 	// Initialize fetches the poll result for genesis block
