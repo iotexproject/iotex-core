@@ -97,12 +97,13 @@ var (
 			Committee: committee.Config{
 				GravityChainAPIs: []string{},
 			},
-			EnableFallBackToFreshDB: false,
-			EnableTrielessStateDB:   true,
-			EnableAsyncIndexWrite:   true,
-			CompressBlock:           false,
-			AllowedBlockGasResidue:  10000,
-			MaxCacheSize:            0,
+			EnableFallBackToFreshDB:       false,
+			EnableTrielessStateDB:         true,
+			EnableAsyncIndexWrite:         true,
+			CompressBlock:                 false,
+			AllowedBlockGasResidue:        10000,
+			MaxCacheSize:                  0,
+			PollInitialCandidatesInterval: 3 * time.Second,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -219,6 +220,8 @@ type (
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
 		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
 		MaxCacheSize int `yaml:"maxCacheSize"`
+		// PollInitialCandidatesInterval is the config for committee init db
+		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
 	}
 
 	// Consensus is the config struct for consensus package
