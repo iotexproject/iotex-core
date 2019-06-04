@@ -217,7 +217,6 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-
 	blockLimit := int64(api.cfg.TpsWindow)
 	if blockLimit <= 0 {
 		return nil, status.Errorf(codes.Internal, "block limit is %d", blockLimit)
