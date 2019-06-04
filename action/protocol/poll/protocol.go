@@ -9,21 +9,21 @@ package poll
 import (
 	"context"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -139,15 +139,16 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 }
 
 type governanceChainCommitteeProtocol struct {
-	cm                     protocol.ChainManager
-	getBlockTime           GetBlockTime
-	getEpochHeight         GetEpochHeight
-	getEpochNum            GetEpochNum
-	electionCommittee      committee.Committee
-	initGravityChainHeight uint64
-	numCandidateDelegates  uint64
-	numDelegates           uint64
-	addr                   address.Address
+	cm                        protocol.ChainManager
+	getBlockTime              GetBlockTime
+	getEpochHeight            GetEpochHeight
+	getEpochNum               GetEpochNum
+	electionCommittee         committee.Committee
+	initGravityChainHeight    uint64
+	numCandidateDelegates     uint64
+	numDelegates              uint64
+	addr                      address.Address
+	initialCandidatesInterval time.Duration
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
@@ -160,6 +161,7 @@ func NewGovernanceChainCommitteeProtocol(
 	getEpochNum GetEpochNum,
 	numCandidateDelegates uint64,
 	numDelegates uint64,
+	initialCandidatesInterval time.Duration,
 ) (Protocol, error) {
 	if electionCommittee == nil {
 		return nil, ErrNoElectionCommittee
@@ -182,15 +184,16 @@ func NewGovernanceChainCommitteeProtocol(
 	}
 
 	return &governanceChainCommitteeProtocol{
-		cm:                     cm,
-		electionCommittee:      electionCommittee,
-		initGravityChainHeight: initGravityChainHeight,
-		getBlockTime:           getBlockTime,
-		getEpochHeight:         getEpochHeight,
-		getEpochNum:            getEpochNum,
-		numCandidateDelegates:  numCandidateDelegates,
-		numDelegates:           numDelegates,
-		addr:                   addr,
+		cm:                        cm,
+		electionCommittee:         electionCommittee,
+		initGravityChainHeight:    initGravityChainHeight,
+		getBlockTime:              getBlockTime,
+		getEpochHeight:            getEpochHeight,
+		getEpochNum:               getEpochNum,
+		numCandidateDelegates:     numCandidateDelegates,
+		numDelegates:              numDelegates,
+		addr:                      addr,
+		initialCandidatesInterval: initialCandidatesInterval,
 	}, nil
 }
 
@@ -198,23 +201,13 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) (err error) {
-	InitTryInterval := ctx.Value(InitTryIntervalCtxKey{})
-	interval, ok := InitTryInterval.(int)
-	if !ok {
-		log.L().Error("Interval read from config error")
-		interval = 15
-	}
 	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initGravityChainHeight))
 	var ds state.CandidateList
 	if ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight); err != nil {
-		errMsg := "bucket = electionNS doesn't exist: not exist in DB"
-		for strings.Contains(err.Error(), errMsg) {
-			log.L().Error("calling committee,waiting for a while", zap.Int("duration", interval), zap.String("unit", " seconds"))
-			time.Sleep(time.Second * time.Duration(interval))
+		for err != nil && errors.Cause(err) == db.ErrNotExist {
+			log.L().Error("calling committee,waiting for a while", zap.Int64("duration", int64(p.initialCandidatesInterval.Seconds())), zap.String("unit", " seconds"))
+			time.Sleep(p.initialCandidatesInterval)
 			ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight)
-			if err == nil {
-				break
-			}
 		}
 	}
 	if err != nil {
