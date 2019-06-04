@@ -1635,12 +1635,12 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 
 	apiCfg := config.API{TpsWindow: cfg.API.TpsWindow, GasStation: cfg.API.GasStation, RangeQueryLimit: 100}
 	svr := &Server{
-		bc:        bc,
-		ap:        ap,
-		cfg:       apiCfg,
-		gs:        gasstation.NewGasStation(bc, apiCfg, config.Default.Genesis.ActionGasLimit),
-		registry:  registry,
-		hasPlugin: true,
+		bc:             bc,
+		ap:             ap,
+		cfg:            apiCfg,
+		gs:             gasstation.NewGasStation(bc, apiCfg, config.Default.Genesis.ActionGasLimit),
+		registry:       registry,
+		hasActionIndex: true,
 	}
 
 	return svr, nil
