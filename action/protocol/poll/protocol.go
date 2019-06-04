@@ -201,7 +201,15 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initGravityChainHeight))
 	var ds state.CandidateList
 	if ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight); err != nil {
-		for err != nil && errors.Cause(err) == db.ErrNotExist {
+    var err error
+		for {
+			log.L().Error("calling committee,waiting for a while", zap.Int64("duration", int64(p.initialCandidatesInterval.Seconds())), zap.String("unit", " seconds"))
+			time.Sleep(p.initialCandidatesInterval)
+			ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight)
+			if err == nil || errors.Cause(err) != db.ErrNotExist {
+			    break
+			}
+		}
 			log.L().Error("calling committee,waiting for a while", zap.Int64("duration", int64(p.initialCandidatesInterval.Seconds())), zap.String("unit", " seconds"))
 			time.Sleep(p.initialCandidatesInterval)
 			ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight)
