@@ -64,4 +64,4 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 )
 
-replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20190216004546-2bbee71fbe61
+replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20190604221806-8ab2d21b162f
