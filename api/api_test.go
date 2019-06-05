@@ -857,6 +857,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
+				cfg.Chain.PollInitialCandidatesInterval,
 			)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
@@ -1079,6 +1080,7 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
+				cfg.Chain.PollInitialCandidatesInterval,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1134,6 +1136,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				func(uint64) uint64 { return 1 },
 				test.numCandidateDelegates,
 				cfg.Genesis.NumDelegates,
+				cfg.Chain.PollInitialCandidatesInterval,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1189,6 +1192,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				test.numDelegates,
+				cfg.Chain.PollInitialCandidatesInterval,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1233,6 +1237,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
+				cfg.Chain.PollInitialCandidatesInterval,
 			)
 			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
@@ -1634,13 +1639,13 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	}
 
 	apiCfg := config.API{TpsWindow: cfg.API.TpsWindow, GasStation: cfg.API.GasStation, RangeQueryLimit: 100}
-
 	svr := &Server{
-		bc:       bc,
-		ap:       ap,
-		cfg:      apiCfg,
-		gs:       gasstation.NewGasStation(bc, apiCfg, config.Default.Genesis.ActionGasLimit),
-		registry: registry,
+		bc:             bc,
+		ap:             ap,
+		cfg:            apiCfg,
+		gs:             gasstation.NewGasStation(bc, apiCfg, config.Default.Genesis.ActionGasLimit),
+		registry:       registry,
+		hasActionIndex: true,
 	}
 
 	return svr, nil
