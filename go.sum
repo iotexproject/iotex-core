@@ -116,8 +116,8 @@ github.com/huin/goupnp v1.0.0/go.mod h1:n9v9KO1tAxYH82qOn+UTIFQDmx5n1Zxd/ClZDMX7
 github.com/huin/goutil v0.0.0-20170803182201-1ca381bf3150/go.mod h1:PpLOETDnJ0o3iZrZfqZzyLl6l7F3c6L1oWn7OICBi6o=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
-github.com/iotexproject/go-ethereum v1.7.4-0.20190216004546-2bbee71fbe61 h1:VH2tE8bBmF9a2oY2tMH+1fMykbINfVebNEz71asj5+c=
-github.com/iotexproject/go-ethereum v1.7.4-0.20190216004546-2bbee71fbe61/go.mod h1:0kgLtjZ8cxwjgFgxjsTPn1zxTeJkHXeUd77lcT4OqvU=
+github.com/iotexproject/go-ethereum v1.7.4-0.20190604221806-8ab2d21b162f h1:xRNm41nbOjP/jE6vpJPRp1Fw03u+ffFSiQ+edlxAmfc=
+github.com/iotexproject/go-ethereum v1.7.4-0.20190604221806-8ab2d21b162f/go.mod h1:0kgLtjZ8cxwjgFgxjsTPn1zxTeJkHXeUd77lcT4OqvU=
 github.com/iotexproject/go-fsm v1.0.0 h1:Zrg9JnNDUZg4Anpj6oa0Tk4+sXbHTpJzI0v5/Cj5N6A=
 github.com/iotexproject/go-fsm v1.0.0/go.mod h1:t3aYXtCCcQxyS7oduQZyuUpPnVI4ddFTwbAagHN7fT0=
 github.com/iotexproject/go-p2p v0.2.10 h1:3Xc6hOpdRRp790EKeEgnHZBh71x0/+O0u+ELJnaWEi8=
@@ -129,8 +129,7 @@ github.com/iotexproject/iotex-address v0.1.0/go.mod h1:XX+4C9lYCSG0dt5kzinWbUs0K
 github.com/iotexproject/iotex-address v0.2.0 h1:1yvIpjhqU2MnvfNQDRBBbekYor55N1OqxcuiRI7Sxfc=
 github.com/iotexproject/iotex-address v0.2.0/go.mod h1:ias6axlk8TFocZ2stKY7L0k5hnrLq6q/2qeCNJ1K8uA=
 github.com/iotexproject/iotex-core v0.5.1/go.mod h1:8nEaqyRRzZK6IAH8H/bB/hUCz2jpTsQ0DBuhSm+nBEk=
-github.com/iotexproject/iotex-election v0.1.9 h1:Gsj7hprEKRdZ86Wa1Fq4M9bijvhYH8Nsp7ei+thxX6k=
-github.com/iotexproject/iotex-election v0.1.9/go.mod h1:07ZGQvLAf54PcyIo/5ylZWU+MmlPagR53lpBATzqqzk=
+github.com/iotexproject/iotex-election v0.1.10 h1:YecHvKZP1jakkhMUPRfiGEeCNZFyzWA3bVP9mUiPMT0=
 github.com/iotexproject/iotex-election v0.1.10/go.mod h1:kx1vlh018FHFzwLBFynmZCY49sT6r1zIfnsEc6Z8uXY=
 github.com/iotexproject/iotex-proto v0.2.1-0.20190528210926-c48a31f9d016 h1:nmUMGwRDgpAJPO6M+ZzCzxf4p+0X/myYIlg6xtaoUQ8=
 github.com/iotexproject/iotex-proto v0.2.1-0.20190528210926-c48a31f9d016/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
