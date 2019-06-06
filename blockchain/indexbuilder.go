@@ -43,6 +43,7 @@ type IndexBuilder struct {
 	pendingBlks  chan *block.Block
 	cancelChan   chan interface{}
 	timerFactory *prometheustimer.TimerFactory
+	dao          *blockDAO
 }
 
 // NewIndexBuilder instantiates an index builder
@@ -65,11 +66,89 @@ func NewIndexBuilder(chain Blockchain) (*IndexBuilder, error) {
 		pendingBlks:  make(chan *block.Block, 64), // Actually 1 should be enough
 		cancelChan:   make(chan interface{}),
 		timerFactory: timerFactory,
+		dao:          bc.dao,
 	}, nil
+}
+func (ib *IndexBuilder) addToBatch(body *block.Body, height uint64, blockHash hash.Hash256, batch db.KVStoreBatch) {
+	for _, elp := range body.Actions {
+		actHash := elp.Hash()
+		batch.Put(blockActionBlockMappingNS, actHash[hashOffset:], blockHash[:], "failed to put action hash %x", actHash)
+	}
+	err := putActions(ib.store, body.Actions, batch)
+	if err != nil {
+		log.L().Error(
+			"Error when put Actions",
+			zap.Uint64("height", height),
+			zap.Error(err),
+		)
+	}
+	// index receipts
+	receipts, err := ib.dao.getReceipts(height)
+	if err != nil {
+		log.L().Error(
+			"Error when get receipts",
+			zap.Uint64("height", height),
+			zap.Error(err),
+		)
+	}
+	putReceipts(height, receipts, batch)
+}
+func (ib *IndexBuilder) loadFromLocalDB() (err error) {
+	topHeight, err := ib.dao.getBlockchainHeight()
+	if err != nil {
+		log.L().Error("Error when get blockchain height", zap.Error(err))
+		return
+	}
+	var totalActions uint64
+	batch := db.NewBatch()
+	for i := uint64(1); i <= topHeight; i++ {
+		hash, errs := ib.dao.getBlockHash(i)
+		if errs != nil {
+			log.L().Error("Error when get block hash", zap.Error(errs))
+			return errs
+		}
+		body, errs := ib.dao.body(hash)
+		if errs != nil {
+			log.L().Error("Error when get block", zap.Error(errs))
+			return errs
+		}
+		ib.addToBatch(body, i, hash, batch)
+		totalActions += uint64(len(body.Actions))
+		if i%50000 == 0 {
+			if err := ib.store.Commit(batch); err != nil {
+				log.L().Error(
+					"Error when commit the batch",
+					zap.Uint64("height", i),
+					zap.Error(err),
+				)
+				continue
+			}
+			batch.Clear()
+		}
+		if i%100 == 0 {
+			zap.L().Info("loading", zap.Uint64("height", i))
+		}
+	}
+	// Save totalActions and left batch in for loop
+	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
+	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
+	if err := ib.store.Commit(batch); err != nil {
+		log.L().Info(
+			"Error when commit the batch",
+			zap.Uint64("height", topHeight),
+			zap.Error(err),
+		)
+	}
+	return
 }
 
 // Start starts the index builder
 func (ib *IndexBuilder) Start(_ context.Context) error {
+	// load from local db
+	err := ib.loadFromLocalDB()
+	if err != nil {
+		return err
+	}
 	go func() {
 		for {
 			select {
@@ -129,14 +208,14 @@ func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 		batch.Put(blockActionBlockMappingNS, actHash[hashOffset:], hash[:], "failed to put action hash %x", actHash)
 	}
 
-	return putActions(store, blk, batch)
+	return putActions(store, blk.Actions, batch)
 }
 
-func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
+func putActions(store db.KVStore, actions []action.SealedEnvelope, batch db.KVStoreBatch) error {
 	senderDelta := make(map[hash.Hash160]uint64)
 	recipientDelta := make(map[hash.Hash160]uint64)
 
-	for _, selp := range blk.Actions {
+	for _, selp := range actions {
 		actHash := selp.Hash()
 		callerAddrBytes := hash.BytesToHash160(selp.SrcPubkey().Hash())
 
