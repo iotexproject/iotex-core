@@ -7,6 +7,7 @@
 package genesis
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,4 +27,23 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, Default.BlockReward(), cfg.BlockReward())
 	assert.Equal(t, Default.EpochReward(), cfg.EpochReward())
 	assert.Equal(t, Default.FoundationBonus(), cfg.FoundationBonus())
+}
+func TestHash(t *testing.T) {
+	require := require.New(t)
+	cfg, err := New()
+	require.NoError(err)
+	hash := cfg.Hash()
+	require.Equal("37d5d692d517428eb4830c2a575ee7e6dad32a46d4a7f39be9463ce3583e02d0", hex.EncodeToString(hash[:]))
+}
+func TestAccount_InitBalances(t *testing.T) {
+	require := require.New(t)
+	InitBalanceMap := make(map[string]string, 0)
+	InitBalanceMap["io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6"] = "1"
+	InitBalanceMap["io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms"] = "2"
+	acc := Account{InitBalanceMap}
+	adds, balances := acc.InitBalances()
+	require.Equal("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", adds[0].String())
+	require.Equal("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", adds[1].String())
+	require.Equal(InitBalanceMap["io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6"], balances[0].Text(10))
+	require.Equal(InitBalanceMap["io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms"], balances[1].Text(10))
 }
