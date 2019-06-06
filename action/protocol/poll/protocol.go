@@ -233,18 +233,7 @@ func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act actio
 }
 
 func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act action.Action) error {
-	count := 0
-	var err error
-	for count < 10 {
-		err = validate(ctx, p, act)
-		if err == nil || (errors.Cause(err) != ErrProposedDelegatesLength && errors.Cause(err) != ErrDelegatesNotAsExpected) {
-			break
-		}
-		log.L().Error("calling Validate actions,waiting for a while", zap.Int64("duration", int64(15)), zap.String("unit", " seconds"))
-		time.Sleep(15 * time.Second)
-		count++
-	}
-	return err
+	return validate(ctx, p, act)
 }
 
 func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height uint64) (state.CandidateList, error) {
