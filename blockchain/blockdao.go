@@ -10,11 +10,13 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
@@ -22,9 +24,9 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -120,7 +122,46 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to write initial value for total actions")
 		}
 	}
-
+	value, _ := dao.kvstore.Get(blockNS, totalActionsKey)
+	totalActions := enc.MachineEndian.Uint64(value)
+	if totalActions != 0 {
+		return nil
+	}
+	return dao.countActions()
+}
+func (dao *blockDAO) countActions() error {
+	totalActions := uint64(0)
+	tipHeight, err := dao.getBlockchainHeight()
+	if err != nil {
+		return err
+	}
+	batch := db.NewBatch()
+	for i := uint64(1); i <= tipHeight; i++ {
+		hash, err := dao.getBlockHash(i)
+		if err != nil {
+			log.L().Error("Error when get block hash", zap.Error(err))
+			return err
+		}
+		body, err := dao.body(hash)
+		if err != nil {
+			log.L().Error("Error when get block", zap.Error(err))
+			return err
+		}
+		totalActions += uint64(len(body.Actions))
+		if i%100 == 0 {
+			zap.L().Info("loading", zap.Uint64("height", i))
+		}
+	}
+	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
+	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
+	if err := dao.kvstore.Commit(batch); err != nil {
+		log.L().Error(
+			"Error when commit the batch",
+			zap.Uint64("height", tipHeight),
+			zap.Error(err),
+		)
+		return err
+	}
 	return nil
 }
 
@@ -402,6 +443,15 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	if blk.Height() > topHeight {
 		batch.Put(blockNS, topHeightKey, height, "failed to put top height")
 	}
+
+	value, err = dao.kvstore.Get(blockNS, totalActionsKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get total actions")
+	}
+	totalActions := enc.MachineEndian.Uint64(value)
+	totalActions += uint64(len(blk.Actions))
+	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
+	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
 
 	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
