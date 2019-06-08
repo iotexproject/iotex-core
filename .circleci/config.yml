@@ -202,4 +202,4 @@ workflows:
     jobs:
       - nightly_build_docker
       - nightly_bin_build_docker
-   #    - nightly_bin_build_darwin
+      - nightly_bin_build_darwin
