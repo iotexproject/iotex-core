@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -135,31 +134,24 @@ func (dao *blockDAO) countActions() error {
 	if err != nil {
 		return err
 	}
-	batch := db.NewBatch()
 	for i := uint64(1); i <= tipHeight; i++ {
 		hash, err := dao.getBlockHash(i)
 		if err != nil {
-			log.L().Error("Error when get block hash", zap.Error(err))
 			return err
 		}
 		body, err := dao.body(hash)
 		if err != nil {
-			log.L().Error("Error when get block", zap.Error(err))
 			return err
 		}
 		totalActions += uint64(len(body.Actions))
-		if i%100 == 0 {
-			zap.L().Info("loading", zap.Uint64("height", i))
+		if i%1000 == 0 {
+			zap.L().Info("Counting number of actions", zap.Uint64("height", i))
 		}
 	}
 	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
+	batch := db.NewBatch()
 	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
 	if err := dao.kvstore.Commit(batch); err != nil {
-		log.L().Error(
-			"Error when commit the batch",
-			zap.Uint64("height", tipHeight),
-			zap.Error(err),
-		)
 		return err
 	}
 	return nil
