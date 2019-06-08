@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -25,15 +26,16 @@ import (
 // Header defines the struct of block header
 // make sure the variable type and order of this struct is same as "BlockHeaderPb" in blockchain.pb.go
 type Header struct {
-	version          uint32           // version
-	height           uint64           // block height
-	timestamp        time.Time        // propose timestamp
-	prevBlockHash    hash.Hash256     // hash of previous block
-	txRoot           hash.Hash256     // merkle root of all transactions
-	deltaStateDigest hash.Hash256     // digest of state change by this block
-	receiptRoot      hash.Hash256     // root of receipt trie
-	blockSig         []byte           // block signature
-	pubkey           crypto.PublicKey // block producer's public key
+	version          uint32            // version
+	height           uint64            // block height
+	timestamp        time.Time         // propose timestamp
+	prevBlockHash    hash.Hash256      // hash of previous block
+	txRoot           hash.Hash256      // merkle root of all transactions
+	deltaStateDigest hash.Hash256      // digest of state change by this block
+	receiptRoot      hash.Hash256      // root of receipt trie
+	logsBloom        bloom.BloomFilter // bloom filter for all contract events in this block
+	blockSig         []byte            // block signature
+	pubkey           crypto.PublicKey  // block producer's public key
 }
 
 // Version returns the version of this block.
@@ -78,7 +80,7 @@ func (h *Header) BlockHeaderCoreProto() *iotextypes.BlockHeaderCore {
 	if err != nil {
 		log.L().Panic("failed to cast to ptypes.timestamp", zap.Error(err))
 	}
-	return &iotextypes.BlockHeaderCore{
+	header := iotextypes.BlockHeaderCore{
 		Version:          h.version,
 		Height:           h.height,
 		Timestamp:        ts,
@@ -87,6 +89,10 @@ func (h *Header) BlockHeaderCoreProto() *iotextypes.BlockHeaderCore {
 		DeltaStateDigest: h.deltaStateDigest[:],
 		ReceiptRoot:      h.receiptRoot[:],
 	}
+	if h.logsBloom != nil {
+		header.LogsBloom = h.logsBloom.Bytes()
+	}
+	return &header
 }
 
 // LoadFromBlockHeaderProto loads from protobuf
@@ -117,7 +123,10 @@ func (h *Header) loadFromBlockHeaderCoreProto(pb *iotextypes.BlockHeaderCore) er
 	copy(h.txRoot[:], pb.GetTxRoot())
 	copy(h.deltaStateDigest[:], pb.GetDeltaStateDigest())
 	copy(h.receiptRoot[:], pb.GetReceiptRoot())
-	return nil
+	if pb.GetLogsBloom() != nil {
+		h.logsBloom, err = bloom.BloomFilterFromBytes(pb.GetLogsBloom(), 2048, 3)
+	}
+	return err
 }
 
 // CoreByteStream returns byte stream for header core.
