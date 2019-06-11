@@ -134,7 +134,7 @@ jobs:
 
   nightly_bin_build_darwin:
     macos:
-      xcode: "10.2.0"   # not supported > 10.2.0
+      xcode: "10.2.1"   #Latest  Xcode 10.2.1 (Build 10E1001)
 
     working_directory: ~/iotex-core
 
@@ -188,8 +188,9 @@ workflows:
   commit:
     jobs:
       #- build_test_ubuntu
-      #- build_test_darwin
+      - build_test_darwin
       - build_test_docker
+      - nightly_bin_build_darwin
 
   scheduled-workflow:
     triggers:
