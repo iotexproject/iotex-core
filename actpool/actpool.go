@@ -8,7 +8,6 @@ package actpool
 
 import (
 	"context"
-	"strings"
 	"sync"
 
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
