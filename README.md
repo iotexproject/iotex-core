@@ -108,14 +108,16 @@ Refer to [CLI document](cli/ioctl/README.md) for more details.
 
 - Mailing list: [iotex-dev](iotex-dev@iotex.io)
 - IRC: [gitter](https://gitter.im/iotex-dev-community/Lobby)
-- Bugs: [issues](https://github.com/iotexproject/iotex-core/issues) 
-
+- Bugs: [issues](https://github.com/iotexproject/iotex-core/issues)
 
 ## Contribution
 We are glad to have contributors out of the core team; contributions, including (but not limited to) style/bug fixes,
 implementation of features, proposals of schemes/algorithms, and thorough documentation, are welcomed. Please refer to
 our [contribution guideline](CONTRIBUTING.md) for more
 information. Development guide documentation is [here](https://github.com/iotexproject/iotex-core/wiki/Developers%27-Guide).
+
+For any major protocol level changes, we use [IIP](https://github.com/iotexproject/iips) to track the proposal, decision
+and etc.
 
 ## License
 This project is licensed under the [Apache License 2.0](LICENSE).
