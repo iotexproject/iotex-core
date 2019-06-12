@@ -240,34 +240,11 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 func (ap *actPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
-	var ret []action.SealedEnvelope
+
 	if queue, ok := ap.accountActs[addr]; ok {
-		ret = queue.AllActs()
+		return queue.AllActs()
 	}
-	addressAction, err := address.FromString(addr)
-	if err != nil {
-		return nil
-	}
-	//TODO Need add map to cache these datas if there's performance problem,related to #1259
-	for _, action := range ap.allActions {
-		dst, ok := action.Destination()
-		if !ok {
-			continue
-		}
-		dstAddr, err := address.FromString(dst)
-		if err != nil {
-			continue
-		}
-		pubKeyHash := action.SrcPubkey().Hash()
-		srcAddr, _ := address.FromBytes(pubKeyHash)
-		if address.Equal(srcAddr, addressAction) {
-			continue
-		}
-		if address.Equal(dstAddr, addressAction) {
-			ret = append(ret, action)
-		}
-	}
-	return ret
+	return make([]action.SealedEnvelope, 0)
 }
 
 // GetActionByHash returns the pending action in pool given action's hash

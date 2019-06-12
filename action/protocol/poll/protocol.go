@@ -8,7 +8,6 @@ package poll
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -37,12 +36,6 @@ const (
 
 // ErrNoElectionCommittee is an error that the election committee is not specified
 var ErrNoElectionCommittee = errors.New("no election committee specified")
-
-// ErrProposedDelegatesLength is an error that the proposed delegate list length is not right
-var ErrProposedDelegatesLength = errors.New("the proposed delegate list length")
-
-// ErrDelegatesNotAsExpected is an error that the delegates are not as expected
-var ErrDelegatesNotAsExpected = errors.New("delegates are not as expected")
 
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
@@ -452,17 +445,19 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 		return err
 	}
 	if len(ds) != len(proposedDelegates) {
-		msg := fmt.Sprintf(", %d, is not as expected, %d",
+		return errors.Errorf(
+			"the proposed delegate list length, %d, is not as expected, %d",
 			len(proposedDelegates),
-			len(ds))
-		return errors.Wrap(ErrProposedDelegatesLength, msg)
+			len(ds),
+		)
 	}
 	for i, d := range ds {
 		if !proposedDelegates[i].Equal(d) {
-			msg := fmt.Sprintf(", %v vs %v (expected)",
+			return errors.Errorf(
+				"delegates are not as expected, %v vs %v (expected)",
 				proposedDelegates,
-				ds)
-			return errors.Wrap(ErrDelegatesNotAsExpected, msg)
+				ds,
+			)
 		}
 	}
 	return nil
