@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/node"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/update"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/version"
+	xrc20 "github.com/iotexproject/iotex-core/cli/ioctl/cmd/xrc20"
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -43,4 +44,5 @@ func init() {
 	RootCmd.AddCommand(node.NodeCmd)
 	RootCmd.AddCommand(update.UpdateCmd)
 	RootCmd.AddCommand(version.VersionCmd)
+	RootCmd.AddCommand(xrc20.Xrc20Cmd)
 }
