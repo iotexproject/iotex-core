@@ -248,6 +248,7 @@ func (ap *actPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 	if err != nil {
 		return nil
 	}
+	//TODO Need add map to cache these datas if there's performance problem,related to #1259
 	for _, action := range ap.allActions {
 		dst, ok := action.Destination()
 		if !ok {
