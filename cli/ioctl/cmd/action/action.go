@@ -35,18 +35,18 @@ import (
 
 // Flags
 var (
-	gasLimit        uint64
-	gasPrice        string
-	nonce           uint64
-	signer          string
-	bytecodeString  string
-	contractAddress string
-	ownerAddress    address.Address
-	transferAmount  uint64
-	targetAddress   address.Address
-	spenderAddress  address.Address
-	abiResult       abi.ABI
-	bytes           []byte
+	gasLimit             uint64
+	nonce                uint64
+	signer               string
+	bytecodeString       string
+	gasPrice             string
+	xrc20ContractAddress string
+	xrc20TransferAmount  uint64
+	xrc20Bytes           []byte
+	xrc20ABI             abi.ABI
+	xrc20OwnerAddress    address.Address
+	xrc20TargetAddress   address.Address
+	xrc20SpenderAddress  address.Address
 )
 
 // ActionCmd represents the account command
@@ -62,8 +62,12 @@ var Xrc20Cmd = &cobra.Command{
 }
 
 func init() {
-	abiJSON := abiConst
-	abiResult, _ = abi.JSON(strings.NewReader(abiJSON))
+	var err error
+	xrc20ABI, err = abi.JSON(strings.NewReader(abiConst))
+	if err != nil {
+		log.L().Error("cannot get abi JSON data", zap.Error(err))
+		return
+	}
 	Xrc20Cmd.AddCommand(Xrc20TotalsupplyCmd)
 	Xrc20Cmd.AddCommand(Xrc20BalanceofCmd)
 	Xrc20Cmd.AddCommand(Xrc20TransferCmd)
@@ -119,7 +123,7 @@ func inputToExecution(contract string, amount *big.Int) (*action.Execution, erro
 	if bytecodeString != "" {
 		bytecodeBytes, err = hex.DecodeString(strings.TrimLeft(bytecodeString, "0x"))
 	} else {
-		bytecodeBytes = bytes
+		bytecodeBytes = xrc20Bytes
 	}
 	if err != nil {
 		log.L().Error("cannot decode bytecode string", zap.Error(err))
@@ -147,7 +151,7 @@ func setActionFlagsAction(cmds ...*cobra.Command) {
 
 func setActionFlagsXrc(cmds ...*cobra.Command) {
 	for _, cmd := range cmds {
-		cmd.Flags().StringVarP(&contractAddress, "contract-address", "c", "1",
+		cmd.Flags().StringVarP(&xrc20ContractAddress, "contract-address", "c", "1",
 			"set contract address")
 		if cmd == Xrc20TransferCmd || cmd == Xrc20TransferFromCmd || cmd == Xrc20ApproveCmd {
 			cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")

@@ -8,7 +8,7 @@ package action
 
 import (
 	"fmt"
-	"strconv"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
@@ -29,16 +29,16 @@ var Xrc20BalanceofCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		ownerAddress, err = address.FromString(addr)
+		xrc20OwnerAddress, err = address.FromString(addr)
 		if err != nil {
 			return err
 		}
 		output, err := balanceOf(args)
 		if err == nil {
 			fmt.Println(output)
-			result, _ := strconv.ParseUint(output, 16, 64)
-			fmt.Println("Output in decimal format:")
-			fmt.Println(uint64(result))
+			result := new(big.Int)
+			result.SetString(output, 16)
+			fmt.Printf("Ouptut in decimal format: %d\n", result)
 		}
 		return err
 	},
@@ -50,12 +50,11 @@ func toEthAddr(addr address.Address) common.Address {
 
 // read reads smart contract on IoTeX blockchain
 func balanceOf(args []string) (string, error) {
-
-	args[0] = contractAddress
-	signer = "ALIAS"
+	args[0] = xrc20ContractAddress
+	signer = "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7"
 	gasLimit = 50000
 	var err error
-	bytes, err = abiResult.Pack("balanceOf", toEthAddr(ownerAddress))
+	xrc20Bytes, err = xrc20ABI.Pack("balanceOf", toEthAddr(xrc20OwnerAddress))
 	if err != nil {
 		return "", err
 	}

@@ -8,7 +8,7 @@ package action
 
 import (
 	"fmt"
-	"strconv"
+	"math/big"
 
 	"github.com/spf13/cobra"
 )
@@ -23,9 +23,9 @@ var Xrc20TotalsupplyCmd = &cobra.Command{
 		output, err := totalSupply(args)
 		if err == nil {
 			fmt.Println(output)
-			result, _ := strconv.ParseUint(output, 16, 64)
-			fmt.Println("Output in decimal format:")
-			fmt.Println(uint64(result))
+			result := new(big.Int)
+			result.SetString(output, 16)
+			fmt.Printf("Ouptut in decimal format: %d\n", result)
 		}
 		return err
 	},
@@ -34,11 +34,11 @@ var Xrc20TotalsupplyCmd = &cobra.Command{
 // read reads smart contract on IoTeX blockchain
 func totalSupply(args []string) (string, error) {
 	argument := make([]string, 1)
-	argument[0] = contractAddress
-	signer = "ALIAS"
+	argument[0] = xrc20ContractAddress
+	signer = "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7"
 	gasLimit = 50000
 	var err error
-	bytes, err = abiResult.Pack("totalSupply")
+	xrc20Bytes, err = xrc20ABI.Pack("totalSupply")
 	if err != nil {
 		return "", err
 	}

@@ -29,7 +29,7 @@ var Xrc20AllowanceCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		ownerAddress, err = address.FromString(addr)
+		xrc20OwnerAddress, err = address.FromString(addr)
 		if err != nil {
 			return err
 		}
@@ -37,7 +37,7 @@ var Xrc20AllowanceCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		spenderAddress, err = address.FromString(addr)
+		xrc20SpenderAddress, err = address.FromString(addr)
 		if err != nil {
 			return err
 		}
@@ -52,10 +52,10 @@ var Xrc20AllowanceCmd = &cobra.Command{
 // read reads smart contract on IoTeX blockchain
 func allowance(args []string) (string, error) {
 	var err error
-	args[0] = contractAddress
+	args[0] = xrc20ContractAddress
 	gasLimit = 50000
-	signer = "ALIAS"
-	bytes, err = abiResult.Pack("allowance", toEthAddr(ownerAddress), toEthAddr(spenderAddress))
+	signer = "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7"
+	xrc20Bytes, err = xrc20ABI.Pack("allowance", toEthAddr(xrc20OwnerAddress), toEthAddr(xrc20SpenderAddress))
 	if err != nil {
 		log.L().Error("cannot generate bytecode from given command", zap.Error(err))
 		return "", err

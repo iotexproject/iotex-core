@@ -30,7 +30,7 @@ var Xrc20TransferFromCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		ownerAddress, err = address.FromString(addr)
+		xrc20OwnerAddress, err = address.FromString(addr)
 		if err != nil {
 			return err
 		}
@@ -38,11 +38,11 @@ var Xrc20TransferFromCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		targetAddress, err = address.FromString(addr)
+		xrc20TargetAddress, err = address.FromString(addr)
 		if err != nil {
 			return err
 		}
-		transferAmount, err = strconv.ParseUint(args[2], 10, 64)
+		xrc20TransferAmount, err = strconv.ParseUint(args[2], 10, 64)
 		if err != nil {
 			return err
 		}
@@ -56,10 +56,10 @@ var Xrc20TransferFromCmd = &cobra.Command{
 
 // read reads smart contract on IoTeX blockchain
 func transferFrom(args []string) (string, error) {
-	args[0] = contractAddress
+	args[0] = xrc20ContractAddress
 	args[1] = "0"
 	var err error
-	bytes, err = abiResult.Pack("transferFrom", toEthAddr(ownerAddress), toEthAddr(targetAddress), new(big.Int).SetUint64(transferAmount))
+	xrc20Bytes, err = xrc20ABI.Pack("transferFrom", toEthAddr(xrc20OwnerAddress), toEthAddr(xrc20TargetAddress), new(big.Int).SetUint64(xrc20TransferAmount))
 	if err != nil {
 		return "", err
 	}

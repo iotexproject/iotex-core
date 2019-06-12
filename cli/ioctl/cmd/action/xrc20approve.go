@@ -29,7 +29,7 @@ var Xrc20ApproveCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		spenderAddress, err = address.FromString(addr)
+		xrc20SpenderAddress, err = address.FromString(addr)
 		if err != nil {
 			return err
 		}
@@ -37,11 +37,10 @@ var Xrc20ApproveCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		transferAmount = uint64(transfer)
+		xrc20TransferAmount = uint64(transfer)
 		output, err := approve(args)
 		if err == nil {
 			fmt.Println(output)
-
 		}
 		return err
 	},
@@ -50,9 +49,9 @@ var Xrc20ApproveCmd = &cobra.Command{
 // read reads smart contract on IoTeX blockchain
 func approve(args []string) (string, error) {
 	var err error
-	args[0] = contractAddress
+	args[0] = xrc20ContractAddress
 	args[1] = "0"
-	bytes, err = abiResult.Pack("approve", toEthAddr(spenderAddress), new(big.Int).SetUint64(transferAmount))
+	xrc20Bytes, err = xrc20ABI.Pack("approve", toEthAddr(xrc20SpenderAddress), new(big.Int).SetUint64(xrc20TransferAmount))
 	if err != nil {
 		return "", err
 	}
