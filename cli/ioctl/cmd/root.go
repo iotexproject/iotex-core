@@ -43,4 +43,5 @@ func init() {
 	RootCmd.AddCommand(node.NodeCmd)
 	RootCmd.AddCommand(update.UpdateCmd)
 	RootCmd.AddCommand(version.VersionCmd)
+	RootCmd.AddCommand(action.Xrc20Cmd)
 }
