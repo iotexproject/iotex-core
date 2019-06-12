@@ -116,14 +116,6 @@ func (ib *IndexBuilder) HandleBlock(blk *block.Block) error {
 
 func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 	hash := blk.HashBlock()
-	value, err := store.Get(blockNS, totalActionsKey)
-	if err != nil {
-		return errors.Wrap(err, "failed to get total actions")
-	}
-	totalActions := enc.MachineEndian.Uint64(value)
-	totalActions += uint64(len(blk.Actions))
-	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
-	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
 	for _, elp := range blk.Actions {
 		actHash := elp.Hash()
 		batch.Put(blockActionBlockMappingNS, actHash[hashOffset:], hash[:], "failed to put action hash %x", actHash)
