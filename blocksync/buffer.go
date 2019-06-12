@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -78,7 +79,11 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 		}
 		delete(b.blocks, heightToSync)
 		if err := commitBlock(b.bc, b.ap, b.cs, blk); err != nil && errors.Cause(err) != blockchain.ErrInvalidTipHeight {
-			l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
+			if errors.Cause(err) == poll.ErrProposedDelegatesLength || errors.Cause(err) == poll.ErrDelegatesNotAsExpected {
+				l.Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
+			} else {
+				l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
+			}
 			break
 		}
 		b.commitHeight = heightToSync
