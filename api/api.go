@@ -161,7 +161,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 
 // GetActions returns actions
 func (api *Server) GetActions(ctx context.Context, in *iotexapi.GetActionsRequest) (*iotexapi.GetActionsResponse, error) {
-	if !api.hasActionIndex && in.GetByBlk() == nil {
+	if !api.hasActionIndex && (in.GetByHash() != nil || in.GetByAddr() != nil) {
 		return nil, status.Error(codes.NotFound, "Action index is not available.")
 	}
 	switch {
