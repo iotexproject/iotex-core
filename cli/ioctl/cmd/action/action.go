@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -21,6 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
@@ -33,11 +35,18 @@ import (
 
 // Flags
 var (
-	gasLimit       uint64
-	gasPrice       string
-	nonce          uint64
-	signer         string
-	bytecodeString string
+	gasLimit        uint64
+	gasPrice        string
+	nonce           uint64
+	signer          string
+	bytecodeString  string
+	contractAddress string
+	ownerAddress    address.Address
+	transferAmount  uint64
+	targetAddress   address.Address
+	spenderAddress  address.Address
+	abiResult       abi.ABI
+	bytes           []byte
 )
 
 // ActionCmd represents the account command
@@ -46,7 +55,26 @@ var ActionCmd = &cobra.Command{
 	Short: "Manage actions of IoTeX blockchain",
 }
 
+var Xrc20Cmd = &cobra.Command{
+	Use:   "xrc20",
+	Short: "Supporting ERC20 standard command-line from ioctl",
+}
+
+const abiConst = "[\r\n\t{\r\n\t\t\"constant\": false,\r\n\t\t\"inputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"spender\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t},\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"value\",\r\n\t\t\t\t\"type\": \"uint256\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"name\": \"approve\",\r\n\t\t\"outputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"\",\r\n\t\t\t\t\"type\": \"bool\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"payable\": false,\r\n\t\t\"stateMutability\": \"nonpayable\",\r\n\t\t\"type\": \"function\"\r\n\t},\r\n\t{\r\n\t\t\"constant\": true,\r\n\t\t\"inputs\": [],\r\n\t\t\"name\": \"totalSupply\",\r\n\t\t\"outputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"\",\r\n\t\t\t\t\"type\": \"uint256\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"payable\": false,\r\n\t\t\"stateMutability\": \"view\",\r\n\t\t\"type\": \"function\"\r\n\t},\r\n\t{\r\n\t\t\"constant\": false,\r\n\t\t\"inputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"from\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t},\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"to\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t},\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"value\",\r\n\t\t\t\t\"type\": \"uint256\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"name\": \"transferFrom\",\r\n\t\t\"outputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"\",\r\n\t\t\t\t\"type\": \"bool\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"payable\": false,\r\n\t\t\"stateMutability\": \"nonpayable\",\r\n\t\t\"type\": \"function\"\r\n\t},\r\n\t{\r\n\t\t\"constant\": true,\r\n\t\t\"inputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"who\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"name\": \"balanceOf\",\r\n\t\t\"outputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"\",\r\n\t\t\t\t\"type\": \"uint256\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"payable\": false,\r\n\t\t\"stateMutability\": \"view\",\r\n\t\t\"type\": \"function\"\r\n\t},\r\n\t{\r\n\t\t\"constant\": false,\r\n\t\t\"inputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"to\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t},\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"value\",\r\n\t\t\t\t\"type\": \"uint256\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"name\": \"transfer\",\r\n\t\t\"outputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"\",\r\n\t\t\t\t\"type\": \"bool\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"payable\": false,\r\n\t\t\"stateMutability\": \"nonpayable\",\r\n\t\t\"type\": \"function\"\r\n\t},\r\n\t{\r\n\t\t\"constant\": true,\r\n\t\t\"inputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"owner\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t},\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"spender\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"name\": \"allowance\",\r\n\t\t\"outputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"name\": \"\",\r\n\t\t\t\t\"type\": \"uint256\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"payable\": false,\r\n\t\t\"stateMutability\": \"view\",\r\n\t\t\"type\": \"function\"\r\n\t},\r\n\t{\r\n\t\t\"anonymous\": false,\r\n\t\t\"inputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"indexed\": true,\r\n\t\t\t\t\"name\": \"owner\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t},\r\n\t\t\t{\r\n\t\t\t\t\"indexed\": true,\r\n\t\t\t\t\"name\": \"spender\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t},\r\n\t\t\t{\r\n\t\t\t\t\"indexed\": false,\r\n\t\t\t\t\"name\": \"value\",\r\n\t\t\t\t\"type\": \"uint256\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"name\": \"Approval\",\r\n\t\t\"type\": \"event\"\r\n\t},\r\n\t{\r\n\t\t\"anonymous\": false,\r\n\t\t\"inputs\": [\r\n\t\t\t{\r\n\t\t\t\t\"indexed\": true,\r\n\t\t\t\t\"name\": \"from\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t},\r\n\t\t\t{\r\n\t\t\t\t\"indexed\": true,\r\n\t\t\t\t\"name\": \"to\",\r\n\t\t\t\t\"type\": \"address\"\r\n\t\t\t},\r\n\t\t\t{\r\n\t\t\t\t\"indexed\": false,\r\n\t\t\t\t\"name\": \"value\",\r\n\t\t\t\t\"type\": \"uint256\"\r\n\t\t\t}\r\n\t\t],\r\n\t\t\"name\": \"Transfer\",\r\n\t\t\"type\": \"event\"\r\n\t}\r\n]"
+
 func init() {
+	abiJSON := abiConst
+	abiResult, _ = abi.JSON(strings.NewReader(abiJSON))
+	Xrc20Cmd.AddCommand(Xrc20TotalsupplyCmd)
+	Xrc20Cmd.AddCommand(Xrc20BalanceofCmd)
+	Xrc20Cmd.AddCommand(Xrc20TransferCmd)
+	Xrc20Cmd.AddCommand(Xrc20TransferFromCmd)
+	Xrc20Cmd.AddCommand(Xrc20ApproveCmd)
+	Xrc20Cmd.AddCommand(Xrc20AllowanceCmd)
+	Xrc20Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
+		config.ReadConfig.Endpoint, "set endpoint for once")
+	Xrc20Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
+		"insecure connection for once")
 	ActionCmd.AddCommand(actionHashCmd)
 	ActionCmd.AddCommand(actionTransferCmd)
 	ActionCmd.AddCommand(actionDeployCmd)
@@ -58,8 +86,10 @@ func init() {
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
 		"insecure connection for once")
-	setActionFlags(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionReadCmd, actionClaimCmd,
+	setActionFlagsAction(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionReadCmd, actionClaimCmd,
 		actionDepositCmd)
+	setActionFlagsXrc(Xrc20TotalsupplyCmd, Xrc20BalanceofCmd, Xrc20TransferCmd, Xrc20TransferFromCmd, Xrc20ApproveCmd, Xrc20AllowanceCmd)
+
 }
 
 func inputToExecution(contract string, amount *big.Int) (*action.Execution, error) {
@@ -86,7 +116,12 @@ func inputToExecution(contract string, amount *big.Int) (*action.Execution, erro
 		}
 		nonce = accountMeta.PendingNonce
 	}
-	bytecodeBytes, err := hex.DecodeString(strings.TrimLeft(bytecodeString, "0x"))
+	var bytecodeBytes []byte
+	if bytecodeString != "" {
+		bytecodeBytes, err = hex.DecodeString(strings.TrimLeft(bytecodeString, "0x"))
+	} else {
+		bytecodeBytes = bytes
+	}
 	if err != nil {
 		log.L().Error("cannot decode bytecode string", zap.Error(err))
 		return nil, err
@@ -94,7 +129,7 @@ func inputToExecution(contract string, amount *big.Int) (*action.Execution, erro
 	return action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecodeBytes)
 }
 
-func setActionFlags(cmds ...*cobra.Command) {
+func setActionFlagsAction(cmds ...*cobra.Command) {
 	for _, cmd := range cmds {
 		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
 		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "1",
@@ -107,6 +142,19 @@ func setActionFlags(cmds ...*cobra.Command) {
 
 			cmd.MarkFlagRequired("gas-limit")
 			cmd.MarkFlagRequired("bytecode")
+		}
+	}
+}
+
+func setActionFlagsXrc(cmds ...*cobra.Command) {
+	for _, cmd := range cmds {
+		cmd.Flags().StringVarP(&contractAddress, "contract-address", "c", "1",
+			"set contract address")
+		if cmd == Xrc20TransferCmd || cmd == Xrc20TransferFromCmd || cmd == Xrc20ApproveCmd {
+			cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
+			cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
+			cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "1",
+				"set gas price (unit: 10^(-6)Iotx)")
 		}
 	}
 }
