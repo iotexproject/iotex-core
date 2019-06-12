@@ -29,15 +29,35 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-var consensusDurationMtc = prometheus.NewGaugeVec(
-	prometheus.GaugeOpts{
-		Name: "iotex_consensus_elapse_time",
-		Help: "Consensus elapse time.",
-	},
-	[]string{},
+var (
+	timeSlotMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_consensus_round",
+			Help: "Consensus round",
+		},
+		[]string{},
+	)
+
+	blockIntervalMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_consensus_block_interval",
+			Help: "Consensus block interval",
+		},
+		[]string{},
+	)
+
+	consensusDurationMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_consensus_elapse_time",
+			Help: "Consensus elapse time.",
+		},
+		[]string{},
+	)
 )
 
 func init() {
+	prometheus.MustRegister(timeSlotMtc)
+	prometheus.MustRegister(blockIntervalMtc)
 	prometheus.MustRegister(consensusDurationMtc)
 }
 
@@ -283,6 +303,7 @@ func (ctx *rollDPoSCtx) Prepare() (
 	}
 	delay = ctx.round.StartTime().Sub(ctx.clock.Now())
 
+	timeSlotMtc.WithLabelValues().Set(float64(ctx.round.roundNum))
 	return
 }
 
@@ -433,6 +454,16 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	}
 
 	consensusDurationMtc.WithLabelValues().Set(float64(time.Since(ctx.round.roundStartTime)))
+	if pendingBlock.Height() > 1 {
+		prevBlkHeader, err := ctx.chain.BlockHeaderByHeight(pendingBlock.Height() - 1)
+		if err != nil {
+			log.L().Error("Error when getting the previous block header.",
+				zap.Error(err),
+				zap.Uint64("height", pendingBlock.Height()-1),
+			)
+		}
+		blockIntervalMtc.WithLabelValues().Set(float64(pendingBlock.Timestamp().Sub(prevBlkHeader.Timestamp())))
+	}
 	return true, nil
 }
 
