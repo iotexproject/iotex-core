@@ -9,6 +9,7 @@ package block
 import (
 	"bytes"
 
+	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -65,6 +66,12 @@ func (b *Builder) SetReceipts(receipts []*action.Receipt) *Builder {
 // SetReceiptRoot sets the receipt root after running actions included in this building block.
 func (b *Builder) SetReceiptRoot(h hash.Hash256) *Builder {
 	b.blk.Header.receiptRoot = h
+	return b
+}
+
+// SetLogsBloom sets the logs bloom filter value after running actions included in this building block.
+func (b *Builder) SetLogsBloom(f bloom.BloomFilter) *Builder {
+	b.blk.Header.logsBloom = f
 	return b
 }
 

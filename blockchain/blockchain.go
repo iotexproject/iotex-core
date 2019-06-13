@@ -16,14 +16,15 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/go-pkgs/bloom"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -635,6 +636,7 @@ func (bc *blockchain) MintNewBlock(
 		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
 		SetReceiptRoot(calculateReceiptRoot(rc)).
+		SetLogsBloom(calculateLogsBloom(bc.config, newblockHeight, rc)).
 		SignAndBuild(sk)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
@@ -1377,4 +1379,19 @@ func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
 	}
 	res := crypto.NewMerkleTree(h).HashTree()
 	return res
+}
+
+func calculateLogsBloom(cfg config.Config, height uint64, receipts []*action.Receipt) bloom.BloomFilter {
+	if height < cfg.Genesis.AleutianBlockHeight {
+		return nil
+	}
+	bloom, _ := bloom.NewBloomFilter(2048, 3)
+	for _, receipt := range receipts {
+		for _, log := range receipt.Logs {
+			for _, topic := range log.Topics {
+				bloom.Add(topic[:])
+			}
+		}
+	}
+	return bloom
 }

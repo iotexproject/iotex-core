@@ -47,6 +47,7 @@ func defaultConfig() Genesis {
 			NumCandidateDelegates: 36,
 			TimeBasedRotation:     false,
 			PacificBlockHeight:    432001,
+			AleutianBlockHeight:   695001,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -114,6 +115,8 @@ type (
 		// PacificBlockHeight is the start height of using the logic of Pacific version
 		// TODO: PacificBlockHeight is not added into protobuf definition for backward compatibility
 		PacificBlockHeight uint64 `yaml:"pacificHeight"`
+		// AleutianBlockHeight is the start height of adding bloom filter of all events into block header
+		AleutianBlockHeight uint64 `yaml:"aleutianHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
