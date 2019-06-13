@@ -19,19 +19,19 @@ type (
 	Flag interface {
 		Label() string
 		RegisterCommand(*cobra.Command)
+		Value() interface{}
+		MarkFlagRequired(*cobra.Command)
 	}
 
-	// StringVarP is a flag of StringVarP type
-	StringVarP struct {
+	stringVarP struct {
 		flagBase
-		Value        string
+		value        string
 		defaultValue string
 	}
 
-	// Uint64VarP is a flag of Uint64VarP type
-	Uint64VarP struct {
+	uint64VarP struct {
 		flagBase
-		Value        uint64
+		value        uint64
 		defaultValue uint64
 	}
 )
@@ -40,13 +40,18 @@ func (f *flagBase) MarkFlagRequired(cmd *cobra.Command) {
 	cmd.MarkFlagRequired(f.label)
 }
 
+func (f *flagBase) Label() string {
+	return f.label
+}
+
+// NewStringVarP creates a new stringVarP flag
 func NewStringVarP(
 	label string,
 	shortLabel string,
 	defaultValue string,
 	description string,
-) *StringVarP {
-	return &StringVarP{
+) Flag {
+	return &stringVarP{
 		flagBase: flagBase{
 			label:       label,
 			shortLabel:  shortLabel,
@@ -56,17 +61,22 @@ func NewStringVarP(
 	}
 }
 
-func (f *StringVarP) RegisterCommand(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&f.Value, f.label, f.shortLabel, f.defaultValue, f.description)
+func (f *stringVarP) Value() interface{} {
+	return f.value
 }
 
+func (f *stringVarP) RegisterCommand(cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&f.value, f.label, f.shortLabel, f.defaultValue, f.description)
+}
+
+// NewUint64VarP creates a new uint64VarP flag
 func NewUint64VarP(
 	label string,
 	shortLabel string,
 	defaultValue uint64,
 	description string,
-) *Uint64VarP {
-	return &Uint64VarP{
+) Flag {
+	return &uint64VarP{
 		flagBase: flagBase{
 			label:       label,
 			shortLabel:  shortLabel,
@@ -76,6 +86,10 @@ func NewUint64VarP(
 	}
 }
 
-func (f *Uint64VarP) RegisterCommand(cmd *cobra.Command) {
-	cmd.Flags().Uint64VarP(&f.Value, f.label, f.shortLabel, f.defaultValue, f.description)
+func (f *uint64VarP) RegisterCommand(cmd *cobra.Command) {
+	cmd.Flags().Uint64VarP(&f.value, f.label, f.shortLabel, f.defaultValue, f.description)
+}
+
+func (f *uint64VarP) Value() interface{} {
+	return f.value
 }

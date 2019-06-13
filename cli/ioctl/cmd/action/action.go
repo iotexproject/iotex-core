@@ -65,15 +65,15 @@ func init() {
 }
 
 func decodeBytecode() ([]byte, error) {
-	return hex.DecodeString(strings.TrimLeft(bytecodeFlag.Value, "0x"))
+	return hex.DecodeString(strings.TrimLeft(bytecodeFlag.Value().(string), "0x"))
 }
 
 func signer() (string, error) {
-	return alias.Address(signerFlag.Value)
+	return alias.Address(signerFlag.Value().(string))
 }
 
 func nonce(executor string) (uint64, error) {
-	nonce := nonceFlag.Value
+	nonce := nonceFlag.Value().(uint64)
 	if nonce != 0 {
 		return nonce, nil
 	}
@@ -94,7 +94,7 @@ func registerWriteCommand(cmd *cobra.Command) {
 
 // gasPriceInRau returns the suggest gas price
 func gasPriceInRau() (*big.Int, error) {
-	gasPrice := gasPriceFlag.Value
+	gasPrice := gasPriceFlag.Value().(string)
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
@@ -126,7 +126,8 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 	if err != nil {
 		return
 	}
-	tx, err := action.NewExecution(contract, nonce, amount, gasLimitFlag.Value, gasPriceRau, bytecode)
+	gasLimit := gasLimitFlag.Value().(uint64)
+	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil || tx == nil {
 		err = errors.Wrap(err, "cannot make a Execution instance")
 		log.L().Error("error when invoke an execution", zap.Error(err))
@@ -136,7 +137,7 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
 			SetGasPrice(gasPriceRau).
-			SetGasLimit(gasLimitFlag.Value).
+			SetGasLimit(gasLimit).
 			SetAction(tx).Build(),
 		signer,
 	)

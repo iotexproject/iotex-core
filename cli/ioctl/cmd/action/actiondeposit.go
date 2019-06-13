@@ -32,7 +32,7 @@ var actionDepositCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		gasLimit := gasLimitFlag.Value
+		gasLimit := gasLimitFlag.Value().(uint64)
 		if gasLimit == 0 {
 			gasLimit = action.DepositToRewardingFundBaseGas +
 				action.DepositToRewardingFundGasPerByte*uint64(len(payload))

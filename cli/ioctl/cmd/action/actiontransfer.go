@@ -44,7 +44,7 @@ var actionTransferCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		gasLimit := gasLimitFlag.Value
+		gasLimit := gasLimitFlag.Value().(uint64)
 		if gasLimit == 0 {
 			gasLimit = action.TransferBaseIntrinsicGas +
 				action.TransferPayloadGas*uint64(len(payload))

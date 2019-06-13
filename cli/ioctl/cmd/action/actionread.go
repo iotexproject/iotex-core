@@ -34,7 +34,7 @@ var actionReadCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		contract, err := alias.Address(args[0])
+		contract, err := alias.IOAddress(args[0])
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func init() {
 
 // read reads smart contract on IoTeX blockchain
 func read(contract address.Address, bytecode []byte) (string, error) {
-	signer := signerFlag.Value
+	signer := signerFlag.Value().(string)
 	if len(signer) == 0 {
 		signer = defaultSigner
 	}
