@@ -47,13 +47,13 @@ func TestBlockDAO(t *testing.T) {
 		tsf3, err := testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 3, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		tsf4, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(28), 2, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+		tsf4, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(28), 2, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		tsf5, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), 3, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+		tsf5, err := testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(29), 3, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
-		tsf6, err := testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 4, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+		tsf6, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), 4, big.NewInt(int64(amount)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
 		require.NoError(t, err)
 
 		// create testing executions
@@ -262,10 +262,10 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, depositHash1, senderActions[3])
 		recipientActionCount, err := getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(28).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, uint64(2), recipientActionCount)
+		require.Equal(t, uint64(1), recipientActionCount)
 		recipientActions, err := getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(28).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, 2, len(recipientActions))
+		require.Equal(t, 1, len(recipientActions))
 
 		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
@@ -276,10 +276,10 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, depositHash2, senderActions[3])
 		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, uint64(2), recipientActionCount)
+		require.Equal(t, uint64(1), recipientActionCount)
 		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, 2, len(recipientActions))
+		require.Equal(t, 1, len(recipientActions))
 
 		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
@@ -290,10 +290,10 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, depositHash3, senderActions[3])
 		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, uint64(2), recipientActionCount)
+		require.Equal(t, uint64(1), recipientActionCount)
 		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, 2, len(recipientActions))
+		require.Equal(t, 1, len(recipientActions))
 
 		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(31).Bytes()))
 		require.NoError(t, err)
