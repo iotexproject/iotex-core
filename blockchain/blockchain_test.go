@@ -39,26 +39,15 @@ import (
 
 func addTestingTsfBlocks(bc Blockchain) error {
 	// Add block 0
-	tsf0, _ := action.NewTransfer(
-		1,
-		big.NewInt(90000000),
-		identityset.Address(27).String(),
-		[]byte{}, uint64(100000),
-		big.NewInt(10),
-	)
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf0).
-		SetNonce(1).
-		SetGasLimit(100000).
-		SetGasPrice(big.NewInt(10)).Build()
-	selp, err := action.Sign(elp, identityset.PrivateKey(0))
+	addr0 := identityset.Address(27).String()
+	tsf0, err := testutil.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[identityset.Address(0).String()] = []action.SealedEnvelope{selp}
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[identityset.Address(0).String()] = []action.SealedEnvelope{tsf0}
 	blk, err := bc.MintNewBlock(
-		actionMap,
+		accMap,
 		testutil.TimestampNow(),
 	)
 	if err != nil {
@@ -71,7 +60,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 
-	addr0 := identityset.Address(27).String()
 	priKey0 := identityset.PrivateKey(27)
 	addr1 := identityset.Address(28).String()
 	priKey1 := identityset.PrivateKey(28)
@@ -109,9 +97,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	accMap := make(map[string][]action.SealedEnvelope)
+	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[addr0] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
-
 	blk, err = bc.MintNewBlock(
 		accMap,
 		testutil.TimestampNow(),
@@ -148,6 +135,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
+
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	blk, err = bc.MintNewBlock(
@@ -157,7 +145,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-
 	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
@@ -183,14 +170,12 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	blk, err = bc.MintNewBlock(
 		accMap,
 		testutil.TimestampNow(),
 	)
-
 	if err != nil {
 		return err
 	}
@@ -239,7 +224,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	accMap[addr5] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
 	accMap[addr3] = []action.SealedEnvelope{tsf7}
 	accMap[addr1] = []action.SealedEnvelope{tsf8}
-
 	blk, err = bc.MintNewBlock(
 		accMap,
 		testutil.TimestampNow(),
@@ -248,9 +232,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
-	if blk.TxRoot() != blk.CalculateTxRoot() {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -437,364 +418,182 @@ func (ms *MockSubscriber) Counter() int {
 }
 
 func TestLoadBlockchainfromDB(t *testing.T) {
-	require := require.New(t)
-	ctx := context.Background()
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
+	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
+		require := require.New(t)
+		ctx := context.Background()
 
-	cfg := config.Default
-	cfg.Plugins[config.GatewayPlugin] = true
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Genesis.EnableGravityChainVoting = false
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol(0))
-
-	// Create a blockchain from scratch
-	registry := protocol.Registry{}
-	acc := account.NewProtocol(0)
-	require.NoError(registry.Register(account.ProtocolID, acc))
-	bc := NewBlockchain(
-		cfg,
-		PrecreatedStateFactoryOption(sf),
-		BoltDBDaoOption(),
-		RegistryOption(&registry),
-		EnableExperimentalActions(),
-	)
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(acc)
-	sf.AddActionHandlers(acc)
-	require.NoError(bc.Start(ctx))
-	require.NoError(addCreatorToFactory(sf))
-
-	ms := &MockSubscriber{counter: 0}
-	err = bc.AddSubscriber(ms)
-	require.NoError(err)
-	require.Equal(0, ms.Counter())
-
-	height := bc.TipHeight()
-	fmt.Printf("Open blockchain pass, height = %d\n", height)
-	require.Nil(addTestingTsfBlocks(bc))
-	err = bc.Stop(ctx)
-	require.NoError(err)
-	require.Equal(24, ms.Counter())
-
-	// Load a blockchain from DB
-	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.NoError(err)
-	accountProtocol := account.NewProtocol(0)
-	sf.AddActionHandlers(accountProtocol)
-	registry = protocol.Registry{}
-	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
-	bc = NewBlockchain(
-		cfg,
-		PrecreatedStateFactoryOption(sf),
-		BoltDBDaoOption(),
-		EnableExperimentalActions(),
-	)
-	rolldposProtocol := rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
-	)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
-	rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
-	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
-	bc.Validator().AddActionValidators(accountProtocol)
-	require.NoError(bc.Start(ctx))
-	defer func() {
-		require.NoError(bc.Stop(ctx))
-	}()
-
-	hash1, err := bc.GetHashByHeight(1)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(hash1)
-	require.NoError(err)
-	require.Equal(uint64(1), height)
-	header, err := bc.BlockHeaderByHash(hash1)
-	require.NoError(err)
-	require.Equal(hash1, header.HashBlock())
-	fmt.Printf("block 1 hash = %x\n", hash1)
-
-	hash2, err := bc.GetHashByHeight(2)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(hash2)
-	require.NoError(err)
-	require.Equal(uint64(2), height)
-	header, err = bc.BlockHeaderByHash(hash2)
-	require.NoError(err)
-	require.Equal(hash2, header.HashBlock())
-	fmt.Printf("block 2 hash = %x\n", hash2)
-
-	hash3, err := bc.GetHashByHeight(3)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(hash3)
-	require.NoError(err)
-	require.Equal(uint64(3), height)
-	header, err = bc.BlockHeaderByHash(hash3)
-	require.NoError(err)
-	require.Equal(hash3, header.HashBlock())
-	fmt.Printf("block 3 hash = %x\n", hash3)
-
-	hash4, err := bc.GetHashByHeight(4)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(hash4)
-	require.NoError(err)
-	require.Equal(uint64(4), height)
-	header, err = bc.BlockHeaderByHash(hash4)
-	require.NoError(err)
-	require.Equal(hash4, header.HashBlock())
-	fmt.Printf("block 4 hash = %x\n", hash4)
-
-	hash5, err := bc.GetHashByHeight(5)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(hash5)
-	require.NoError(err)
-	require.Equal(uint64(5), height)
-	header, err = bc.BlockHeaderByHash(hash5)
-	require.NoError(err)
-	require.Equal(hash5, header.HashBlock())
-	fmt.Printf("block 5 hash = %x\n", hash5)
-
-	empblk, err := bc.GetBlockByHash(hash.ZeroHash256)
-	require.Nil(empblk)
-	require.NotNil(err.Error())
-
-	header, err = bc.BlockHeaderByHeight(60000)
-	require.Nil(header)
-	require.Error(err)
-
-	// add wrong blocks
-	h := bc.TipHeight()
-	blkhash := bc.TipHash()
-	header, err = bc.BlockHeaderByHeight(h)
-	require.NoError(err)
-	require.Equal(blkhash, header.HashBlock())
-	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
-
-	// add block with wrong height
-	selp, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	require.NoError(err)
-
-	nblk, err := block.NewTestingBuilder().
-		SetHeight(h + 2).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(identityset.PrivateKey(29))
-	require.NoError(err)
-
-	err = bc.ValidateBlock(&nblk)
-	require.Error(err)
-	fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
-
-	// add block with zero prev hash
-	selp2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	require.NoError(err)
-
-	nblk, err = block.NewTestingBuilder().
-		SetHeight(h + 1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(identityset.PrivateKey(29))
-	require.NoError(err)
-	err = bc.ValidateBlock(&nblk)
-	require.Error(err)
-	fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
-
-	// add existing block again will have no effect
-	blk, err := bc.GetBlockByHeight(3)
-	require.NotNil(blk)
-	require.NoError(err)
-	require.NoError(bc.(*blockchain).commitBlock(blk))
-	fmt.Printf("Cannot add block 3 again: %v\n", err)
-
-	// check all Tx from block 4
-	header, err = bc.BlockHeaderByHeight(5)
-	require.NoError(err)
-	require.Equal(hash5, header.HashBlock())
-
-	// invalid address returns error
-	act, err := bc.StateByAddr("")
-	require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
-	require.Nil(act)
-
-	// valid but unused address should return empty account
-	act, err = bc.StateByAddr("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
-	require.NoError(err)
-	require.Equal(uint64(0), act.Nonce)
-	require.Equal(big.NewInt(0), act.Balance)
-}
-
-func TestLoadBlockchainfromDBWithoutExplorer(t *testing.T) {
-	require := require.New(t)
-
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-
-	ctx := context.Background()
-	cfg := config.Default
-	cfg.DB.UseBadgerDB = false // test with boltDB
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Genesis.EnableGravityChainVoting = false
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol(0))
-	// Create a blockchain from scratch
-	registry := protocol.Registry{}
-	acc := account.NewProtocol(0)
-	require.NoError(registry.Register(account.ProtocolID, acc))
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	bc := NewBlockchain(
-		cfg,
-		PrecreatedStateFactoryOption(sf),
-		BoltDBDaoOption(),
-		RegistryOption(&registry),
-		EnableExperimentalActions(),
-	)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(acc)
-	sf.AddActionHandlers(acc)
-	require.NoError(bc.Start(ctx))
-
-	require.NoError(addCreatorToFactory(sf))
-
-	ms := &MockSubscriber{counter: 0}
-	err = bc.AddSubscriber(ms)
-	require.NoError(err)
-	require.Equal(0, ms.counter)
-	err = bc.RemoveSubscriber(ms)
-	require.NoError(err)
-
-	height := bc.TipHeight()
-	fmt.Printf("Open blockchain pass, height = %d\n", height)
-	require.Nil(addTestingTsfBlocks(bc))
-	err = bc.Stop(ctx)
-	require.NoError(err)
-	require.Equal(0, ms.counter)
-
-	// Load a blockchain from DB
-	sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol(0))
-
-	bc = NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
-	bc.Validator().AddActionValidators(account.NewProtocol(0))
-	require.NoError(bc.Start(ctx))
-	defer func() {
-		err := bc.Stop(ctx)
+		// Create a blockchain from scratch
+		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 		require.NoError(err)
+		acc := account.NewProtocol(0)
+		sf.AddActionHandlers(acc)
+		registry := protocol.Registry{}
+		require.NoError(registry.Register(account.ProtocolID, acc))
+		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+		bc := NewBlockchain(
+			cfg,
+			PrecreatedStateFactoryOption(sf),
+			BoltDBDaoOption(),
+			RegistryOption(&registry),
+			EnableExperimentalActions(),
+		)
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+		bc.Validator().AddActionValidators(acc)
+		require.NoError(bc.Start(ctx))
+		require.NoError(addCreatorToFactory(sf))
+
+		ms := &MockSubscriber{counter: 0}
+		require.NoError(bc.AddSubscriber(ms))
+		require.Equal(0, ms.Counter())
+
+		height := bc.TipHeight()
+		fmt.Printf("Open blockchain pass, height = %d\n", height)
+		require.Nil(addTestingTsfBlocks(bc))
+		require.NoError(bc.Stop(ctx))
+		require.Equal(24, ms.Counter())
+
+		// Load a blockchain from DB
+		sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+		require.NoError(err)
+		accountProtocol := account.NewProtocol(0)
+		sf.AddActionHandlers(accountProtocol)
+		registry = protocol.Registry{}
+		require.NoError(registry.Register(account.ProtocolID, accountProtocol))
+		bc = NewBlockchain(
+			cfg,
+			PrecreatedStateFactoryOption(sf),
+			BoltDBDaoOption(),
+			RegistryOption(&registry),
+			EnableExperimentalActions(),
+		)
+		rolldposProtocol := rolldpos.NewProtocol(
+			genesis.Default.NumCandidateDelegates,
+			genesis.Default.NumDelegates,
+			genesis.Default.NumSubEpochs,
+		)
+		require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+		rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
+		require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, 0))
+		bc.Validator().AddActionValidators(accountProtocol)
+		require.NoError(bc.Start(ctx))
+		defer func() {
+			require.NoError(bc.Stop(ctx))
+		}()
+
+		// verify block header hash
+		for i := uint64(1); i <= 5; i++ {
+			hash, err := bc.GetHashByHeight(i)
+			require.NoError(err)
+			height, err = bc.GetHeightByHash(hash)
+			require.NoError(err)
+			require.Equal(i, height)
+			header, err := bc.BlockHeaderByHash(hash)
+			require.NoError(err)
+			require.Equal(hash, header.HashBlock())
+		}
+
+		empblk, err := bc.GetBlockByHash(hash.ZeroHash256)
+		require.Nil(empblk)
+		require.NotNil(err.Error())
+
+		header, err := bc.BlockHeaderByHeight(60000)
+		require.Nil(header)
+		require.Error(err)
+
+		// add wrong blocks
+		h := bc.TipHeight()
+		blkhash := bc.TipHash()
+		header, err = bc.BlockHeaderByHeight(h)
+		require.NoError(err)
+		require.Equal(blkhash, header.HashBlock())
+		fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
+
+		// add block with wrong height
+		selp, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+		require.NoError(err)
+
+		nblk, err := block.NewTestingBuilder().
+			SetHeight(h + 2).
+			SetPrevBlockHash(blkhash).
+			SetTimeStamp(testutil.TimestampNow()).
+			AddActions(selp).SignAndBuild(identityset.PrivateKey(29))
+		require.NoError(err)
+
+		err = bc.ValidateBlock(&nblk)
+		require.Error(err)
+		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
+
+		// add block with zero prev hash
+		selp2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
+		require.NoError(err)
+
+		nblk, err = block.NewTestingBuilder().
+			SetHeight(h + 1).
+			SetPrevBlockHash(hash.ZeroHash256).
+			SetTimeStamp(testutil.TimestampNow()).
+			AddActions(selp2).SignAndBuild(identityset.PrivateKey(29))
+		require.NoError(err)
+		err = bc.ValidateBlock(&nblk)
+		require.Error(err)
+		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
+
+		// add existing block again will have no effect
+		blk, err := bc.GetBlockByHeight(3)
+		require.NotNil(blk)
+		require.NoError(err)
+		require.NoError(bc.(*blockchain).commitBlock(blk))
+		fmt.Printf("Cannot add block 3 again: %v\n", err)
+
+		// invalid address returns error
+		act, err := bc.StateByAddr("")
+		require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
+		require.Nil(act)
+
+		// valid but unused address should return empty account
+		act, err = bc.StateByAddr("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
+		require.NoError(err)
+		require.Equal(uint64(0), act.Nonce)
+		require.Equal(big.NewInt(0), act.Balance)
+	}
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+	defer func() {
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
 	}()
-	require.NotNil(bc)
-	// check hash<-->height mapping
-	hash1, err := bc.GetHashByHeight(1)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(hash1)
-	require.NoError(err)
-	require.Equal(uint64(1), height)
-	blk, err := bc.GetBlockByHash(hash1)
-	require.NoError(err)
-	require.Equal(hash1, blk.HashBlock())
-	fmt.Printf("block 1 hash = %x\n", hash1)
-	hash2, err := bc.GetHashByHeight(2)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(hash2)
-	require.NoError(err)
-	require.Equal(uint64(2), height)
-	blk, err = bc.GetBlockByHash(hash2)
-	require.NoError(err)
-	require.Equal(hash2, blk.HashBlock())
-	fmt.Printf("block 2 hash = %x\n", hash2)
-	hash3, err := bc.GetHashByHeight(3)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(hash3)
-	require.NoError(err)
-	require.Equal(uint64(3), height)
-	blk, err = bc.GetBlockByHash(hash3)
-	require.NoError(err)
-	require.Equal(hash3, blk.HashBlock())
-	fmt.Printf("block 3 hash = %x\n", hash3)
-	hash4, err := bc.GetHashByHeight(4)
-	require.NoError(err)
-	height, err = bc.GetHeightByHash(hash4)
-	require.NoError(err)
-	require.Equal(uint64(4), height)
-	blk, err = bc.GetBlockByHash(hash4)
-	require.NoError(err)
-	require.Equal(hash4, blk.HashBlock())
-	fmt.Printf("block 4 hash = %x\n", hash4)
-	empblk, err := bc.GetBlockByHash(hash.ZeroHash256)
-	require.Nil(empblk)
-	require.NotNil(err.Error())
-	blk, err = bc.GetBlockByHeight(60000)
-	require.Nil(blk)
-	require.Error(err)
-	// add wrong blocks
-	h := bc.TipHeight()
-	blkhash := bc.TipHash()
-	blk, err = bc.GetBlockByHeight(h)
-	require.NoError(err)
-	require.Equal(blkhash, blk.HashBlock())
-	fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
-	// add block with wrong height
-	selp, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	require.NoError(err)
 
-	nblk, err := block.NewTestingBuilder().
-		SetHeight(h + 2).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp).SignAndBuild(identityset.PrivateKey(29))
-	require.NoError(err)
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Genesis.EnableGravityChainVoting = false
 
-	err = bc.ValidateBlock(&nblk)
-	require.Error(err)
-	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
-	// add block with zero prev hash
-	selp2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	require.NoError(err)
+	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
+		testValidateBlockchain(cfg, t)
+	})
 
-	nblk, err = block.NewTestingBuilder().
-		SetHeight(h + 1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp2).SignAndBuild(identityset.PrivateKey(29))
-	require.NoError(err)
-	err = bc.ValidateBlock(&nblk)
-	require.Error(err)
-	fmt.Printf("Cannot validate block %d: %v\n", blk.Height(), err)
-	// add existing block again will have no effect
-	blk, err = bc.GetBlockByHeight(3)
-	require.NotNil(blk)
-	require.NoError(err)
-	require.NoError(bc.(*blockchain).commitBlock(blk))
-	fmt.Printf("Cannot add block 3 again: %v\n", err)
-	// check all Tx from block 4
-	blk, err = bc.GetBlockByHeight(4)
-	require.NoError(err)
-	require.Equal(hash4, blk.HashBlock())
+	testTrieFile, _ = ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath2 := testTrieFile.Name()
+	testDBFile, _ = ioutil.TempFile(os.TempDir(), "db")
+	testDBPath2 := testDBFile.Name()
+	defer func() {
+		testutil.CleanupPath(t, testTriePath2)
+		testutil.CleanupPath(t, testDBPath2)
+	}()
 
-	// invalid address returns error
-	act, err := bc.StateByAddr("")
-	require.Equal("invalid bech32 string length 0", errors.Cause(err).Error())
-	require.Nil(act)
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.TrieDBPath = testTriePath2
+	cfg.Chain.ChainDBPath = testDBPath2
+	cfg.Genesis.EnableGravityChainVoting = false
 
-	// valid but unused address should return empty account
-	act, err = bc.StateByAddr("io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n")
-	require.NoError(err)
-	require.Equal(uint64(0), act.Nonce)
-	require.Equal(big.NewInt(0), act.Balance)
+	t.Run("load blockchain from DB", func(t *testing.T) {
+		testValidateBlockchain(cfg, t)
+	})
 }
 
 func TestBlockchain_Validator(t *testing.T) {
