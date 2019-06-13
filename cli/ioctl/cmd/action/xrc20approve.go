@@ -8,8 +8,6 @@ package action
 
 import (
 	"fmt"
-	"math/big"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -33,11 +31,7 @@ var Xrc20ApproveCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		transfer, err := strconv.ParseInt(args[1], 10, 64)
-		if err != nil {
-			return err
-		}
-		xrc20TransferAmount = uint64(transfer)
+		xrc20TransferAmount.SetString(args[1], 10)
 		output, err := approve(args)
 		if err == nil {
 			fmt.Println(output)
@@ -51,7 +45,7 @@ func approve(args []string) (string, error) {
 	var err error
 	args[0] = xrc20ContractAddress
 	args[1] = "0"
-	xrc20Bytes, err = xrc20ABI.Pack("approve", toEthAddr(xrc20SpenderAddress), new(big.Int).SetUint64(xrc20TransferAmount))
+	xrc20Bytes, err = xrc20ABI.Pack("approve", toEthAddr(xrc20SpenderAddress), &xrc20TransferAmount)
 	if err != nil {
 		return "", err
 	}

@@ -8,8 +8,6 @@ package action
 
 import (
 	"fmt"
-	"math/big"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -42,10 +40,7 @@ var Xrc20TransferFromCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		xrc20TransferAmount, err = strconv.ParseUint(args[2], 10, 64)
-		if err != nil {
-			return err
-		}
+		xrc20TransferAmount.SetString(args[2], 10)
 		output, err := transferFrom(args)
 		if err == nil {
 			fmt.Println(output)
@@ -59,7 +54,7 @@ func transferFrom(args []string) (string, error) {
 	args[0] = xrc20ContractAddress
 	args[1] = "0"
 	var err error
-	xrc20Bytes, err = xrc20ABI.Pack("transferFrom", toEthAddr(xrc20OwnerAddress), toEthAddr(xrc20TargetAddress), new(big.Int).SetUint64(xrc20TransferAmount))
+	xrc20Bytes, err = xrc20ABI.Pack("transferFrom", toEthAddr(xrc20OwnerAddress), toEthAddr(xrc20TargetAddress), &xrc20TransferAmount)
 	if err != nil {
 		return "", err
 	}

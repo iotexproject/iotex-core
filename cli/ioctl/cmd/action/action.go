@@ -41,7 +41,7 @@ var (
 	bytecodeString       string
 	gasPrice             string
 	xrc20ContractAddress string
-	xrc20TransferAmount  uint64
+	xrc20TransferAmount  big.Int
 	xrc20Bytes           []byte
 	xrc20ABI             abi.ABI
 	xrc20OwnerAddress    address.Address
