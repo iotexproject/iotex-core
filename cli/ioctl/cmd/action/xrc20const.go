@@ -1,5 +1,13 @@
 package action
 
+import (
+	"strings"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"go.uber.org/zap"
+)
+
 const abiConst = `[
 	{
 		"constant": false,
@@ -175,3 +183,13 @@ const abiConst = `[
 		"type": "event"
 	}
 ]`
+
+var xrc20ABI abi.ABI
+
+func init() {
+	var err error
+	xrc20ABI, err = abi.JSON(strings.NewReader(abiConst))
+	if err != nil {
+		log.L().Panic("cannot get abi JSON data", zap.Error(err))
+	}
+}
