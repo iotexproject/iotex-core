@@ -166,6 +166,11 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 		}
 		dstAddrBytes := hash.BytesToHash160(dstAddr.Bytes())
 
+		if dstAddrBytes == callerAddrBytes {
+			// recipient is same as sender
+			continue
+		}
+
 		// get action count for recipient
 		recipientActionCount, err := getActionCountByRecipientAddress(store, dstAddrBytes)
 		if err != nil {
