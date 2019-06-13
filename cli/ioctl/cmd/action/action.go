@@ -11,6 +11,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
+	"os/signal"
 	"strings"
 	"syscall"
 
@@ -19,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -181,6 +184,17 @@ func GetGasPrice() (*big.Int, error) {
 
 func sendAction(elp action.Envelope) (string, error) {
 	fmt.Printf("Enter password #%s:\n", signer)
+	signalListener := make(chan os.Signal, 1)
+	signal.Notify(signalListener, os.Interrupt)
+	termios, err := unix.IoctlGetTermios(1, unix.TIOCGETA)
+	if err != nil {
+		return "", err
+	}
+	go func() {
+		<-signalListener
+		unix.IoctlSetTermios(1, unix.TIOCSETA, termios)
+		os.Exit(0)
+	}()
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
