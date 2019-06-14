@@ -230,6 +230,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if err := cs.consensus.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting consensus")
 	}
+	if cs.indexBuilder != nil {
+		if err := cs.indexBuilder.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting index builder")
+		}
+	}
 	if err := cs.blocksync.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting blocksync")
 	}
@@ -239,11 +244,7 @@ func (cs *ChainService) Start(ctx context.Context) error {
 			return errors.Wrap(err, "err when starting API server")
 		}
 	}
-	if cs.indexBuilder != nil {
-		if err := cs.indexBuilder.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting index builder")
-		}
-	}
+
 	return nil
 }
 

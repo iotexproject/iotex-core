@@ -46,6 +46,7 @@ const (
 var (
 	topHeightKey     = []byte("th")
 	totalActionsKey  = []byte("ta")
+	indexActionsKey  = []byte("ia")
 	hashPrefix       = []byte("ha.")
 	heightPrefix     = []byte("he.")
 	actionFromPrefix = []byte("fr.")
