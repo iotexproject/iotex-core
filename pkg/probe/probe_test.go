@@ -75,7 +75,7 @@ func TestBasicProbe(t *testing.T) {
 
 func TestReadniessHandler(t *testing.T) {
 	ctx := context.Background()
-	s := New(7789, WithReadinessHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := New(7788, WithReadinessHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 	})))
 	defer s.Stop(ctx)
