@@ -582,6 +582,25 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	return &out, nil
 }
 
+func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {
+	var actionInfo []*iotexapi.ActionInfo
+	for i := start; i < start+count; i++ {
+		hash, err := api.bc.GetActionHashFromIndex(i)
+		if err != nil {
+			continue
+		}
+		act, err := api.getAction(hash, false)
+		if err != nil {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		actionInfo = append(actionInfo, act)
+	}
+	return &iotexapi.GetActionsResponse{
+		Total:      totalActions,
+		ActionInfo: actionInfo,
+	}, nil
+}
+
 // GetActions returns actions within the range
 // This is a workaround for the slow access issue if the start index is very big
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
@@ -599,7 +618,9 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	if start >= totalActions {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
-
+	if api.hasActionIndex {
+		return api.getActionsFromIndex(totalActions, start, count)
+	}
 	// Finding actions in reverse order saves time for querying most recent actions
 	reverseStart := totalActions - (start + count)
 	if totalActions < start+count {
