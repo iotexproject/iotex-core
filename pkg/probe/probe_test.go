@@ -10,6 +10,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,7 +33,7 @@ func TestBasicProbe(t *testing.T) {
 	s := New(7788)
 	ctx := context.Background()
 	require.NoError(t, s.Start(ctx))
-
+	time.Sleep(time.Second * 2)
 	test1 := []testCase{
 		{
 			endpoint: "/liveness",
@@ -81,6 +82,7 @@ func TestReadniessHandler(t *testing.T) {
 	defer s.Stop(ctx)
 
 	require.NoError(t, s.Start(ctx))
+	time.Sleep(time.Second * 2)
 	test := []testCase{
 		{
 			endpoint: "/liveness",
