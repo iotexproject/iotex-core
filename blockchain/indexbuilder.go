@@ -9,13 +9,13 @@ package blockchain
 import (
 	"strconv"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
@@ -119,10 +119,10 @@ func (ib *IndexBuilder) HandleBlock(blk *block.Block) error {
 	ib.pendingBlks <- blk
 	return nil
 }
-func (ib *IndexBuilder) initIndexActionsKey() error {
-	_, err := ib.store.Get(blockActionBlockMappingNS, indexActionsKey)
+func initIndexActionsKey(store db.KVStore) error {
+	_, err := store.Get(blockActionBlockMappingNS, indexActionsKey)
 	if err != nil && errors.Cause(err) == db.ErrNotExist {
-		if err = ib.store.Put(blockActionBlockMappingNS, indexActionsKey, make([]byte, 8)); err != nil {
+		if err = store.Put(blockActionBlockMappingNS, indexActionsKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to write initial value for index actions")
 		}
 		return nil
@@ -172,7 +172,7 @@ func (ib *IndexBuilder) commitBatchAndClear(tipIndex uint64, batch db.KVStoreBat
 	return nil
 }
 func (ib *IndexBuilder) initAndLoadActions() error {
-	err := ib.initIndexActionsKey()
+	err := initIndexActionsKey(ib.store)
 	if err != nil {
 		return err
 	}
@@ -238,8 +238,11 @@ func getNextIndex(store db.KVStore) (uint64, error) {
 func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 	hash := blk.HashBlock()
 	startIndex, err := getNextIndex(store)
-	if err != nil {
-		return err
+	if err != nil && errors.Cause(err) == db.ErrNotExist {
+		err = initIndexActionsKey(store)
+		if err != nil {
+			return err
+		}
 	}
 	err = indexBlockHash(startIndex, hash, store, blk, batch)
 	if err != nil {
