@@ -232,7 +232,7 @@ func getNextIndex(store db.KVStore) (uint64, error) {
 		return 0, err
 	}
 	startActionNum := enc.MachineEndian.Uint64(value)
-	startActionNum += 1
+	startActionNum++
 	return startActionNum, nil
 }
 func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
