@@ -10,9 +10,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 )
 
@@ -63,6 +66,24 @@ func Address(in string) (string, error) {
 		return addr, nil
 	}
 	return "", fmt.Errorf("cannot find address from " + in)
+}
+
+// IOAddress returns the address in iotex address format
+func IOAddress(in string) (address.Address, error) {
+	addr, err := Address(in)
+	if err != nil {
+		return nil, err
+	}
+	return address.FromString(addr)
+}
+
+// EtherAddress returns the address in ether format
+func EtherAddress(in string) (common.Address, error) {
+	addr, err := Address(in)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return util.IoAddrToEvmAddr(addr)
 }
 
 // Alias returns the alias corresponding to address

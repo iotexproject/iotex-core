@@ -7,61 +7,46 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
-	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 )
 
-// Xrc20TransferFromCmd could transfer from owner address to target address
-var Xrc20TransferFromCmd = &cobra.Command{
-	Use: "transferfrom (ALIAS|OWNER_ADDRESS) (ALIAS|TARGET_ADDRESS) (AMOUNT)" +
-		" -c (ALIAS|CONTRACT_ADDRESS) -l GAS_LIMIT -s SIGNER [-p GAS_PRICE]",
+// xrc20TransferFromCmd could transfer from owner address to target address
+var xrc20TransferFromCmd = &cobra.Command{
+	Use: "transferFrom (ALIAS|OWNER_ADDRESS) (ALIAS|RECIPIENT_ADDRESS) AMOUNT" +
+		" -c (ALIAS|CONTRACT_ADDRESS) -s SIGNER [-l GAS_LIMIT] [-p GAS_PRICE]",
 	Short: "Send amount of tokens from owner address to target address",
 	Args:  cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-
-		addr, err := alias.Address(args[0])
+		owner, err := alias.EtherAddress(args[0])
 		if err != nil {
 			return err
 		}
-		xrc20OwnerAddress, err = address.FromString(addr)
+		recipient, err := alias.EtherAddress(args[1])
 		if err != nil {
 			return err
 		}
-		addr, err = alias.Address(args[1])
+		amount, ok := new(big.Int).SetString(args[2], 10)
+		if !ok {
+			return errors.Errorf("invalid XRC20 amount format %s", args[1])
+		}
+		bytecode, err := xrc20ABI.Pack("transferFrom", owner, recipient, amount)
 		if err != nil {
 			return err
 		}
-		xrc20TargetAddress, err = address.FromString(addr)
+		contract, err := xrc20Contract()
 		if err != nil {
 			return err
 		}
-		xrc20TransferAmount, err = strconv.ParseUint(args[2], 10, 64)
-		if err != nil {
-			return err
-		}
-		output, err := transferFrom(args)
-		if err == nil {
-			fmt.Println(output)
-		}
-		return err
+		return execute(contract.String(), nil, bytecode)
 	},
 }
 
-// read reads smart contract on IoTeX blockchain
-func transferFrom(args []string) (string, error) {
-	args[0] = xrc20ContractAddress
-	args[1] = "0"
-	var err error
-	xrc20Bytes, err = xrc20ABI.Pack("transferFrom", toEthAddr(xrc20OwnerAddress), toEthAddr(xrc20TargetAddress), new(big.Int).SetUint64(xrc20TransferAmount))
-	if err != nil {
-		return "", err
-	}
-	return invoke(args)
+func init() {
+	registerWriteCommand(xrc20TransferFromCmd)
 }

@@ -7,53 +7,42 @@
 package action
 
 import (
-	"fmt"
 	"math/big"
-	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 )
 
-// Xrc20ApproveCmd could config target address limited amount
-var Xrc20ApproveCmd = &cobra.Command{
-	Use: "approve (ALIAS|SPENDER_ADDRESS) (AMOUNT)" +
-		" -c ALIAS|CONTRACT_ADDRESS -s SIGNER -l GAS_LIMIT ",
+// xrc20ApproveCmd could config target address limited amount
+var xrc20ApproveCmd = &cobra.Command{
+	Use: "approve (ALIAS|SPENDER_ADDRESS) (XRC20_AMOUNT)" +
+		" -c ALIAS|CONTRACT_ADDRESS -s SIGNER [-l GAS_LIMIT]",
 	Short: "Allow spender to withdraw from your account, multiple times, up to the amount",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		addr, err := alias.Address(args[0])
+		spender, err := alias.EtherAddress(args[0])
 		if err != nil {
 			return err
 		}
-		xrc20SpenderAddress, err = address.FromString(addr)
+		amount, ok := new(big.Int).SetString(args[1], 10)
+		if !ok {
+			return errors.Errorf("invalid XRC20 amount format %s", args[1])
+		}
+		bytecode, err := xrc20ABI.Pack("approve", spender, amount)
 		if err != nil {
 			return err
 		}
-		transfer, err := strconv.ParseInt(args[1], 10, 64)
+		contract, err := xrc20Contract()
 		if err != nil {
 			return err
 		}
-		xrc20TransferAmount = uint64(transfer)
-		output, err := approve(args)
-		if err == nil {
-			fmt.Println(output)
-		}
-		return err
+		return execute(contract.String(), big.NewInt(0), bytecode)
 	},
 }
 
-// read reads smart contract on IoTeX blockchain
-func approve(args []string) (string, error) {
-	var err error
-	args[0] = xrc20ContractAddress
-	args[1] = "0"
-	xrc20Bytes, err = xrc20ABI.Pack("approve", toEthAddr(xrc20SpenderAddress), new(big.Int).SetUint64(xrc20TransferAmount))
-	if err != nil {
-		return "", err
-	}
-	return invoke(args)
+func init() {
+	registerWriteCommand(xrc20ApproveCmd)
 }

@@ -14,39 +14,34 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/flag"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
+const defaultSigner = "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7"
+
 // Flags
 var (
-	gasLimit             uint64
-	nonce                uint64
-	signer               string
-	bytecodeString       string
-	gasPrice             string
-	xrc20ContractAddress string
-	xrc20TransferAmount  uint64
-	xrc20Bytes           []byte
-	xrc20ABI             abi.ABI
-	xrc20OwnerAddress    address.Address
-	xrc20TargetAddress   address.Address
-	xrc20SpenderAddress  address.Address
+	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", 300000, "set gas limit")
+	gasPriceFlag = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
+	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
+	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
+	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
 )
 
 // ActionCmd represents the account command
@@ -55,29 +50,7 @@ var ActionCmd = &cobra.Command{
 	Short: "Manage actions of IoTeX blockchain",
 }
 
-//Xrc20Cmd represent erc20 standard command-line
-var Xrc20Cmd = &cobra.Command{
-	Use:   "xrc20",
-	Short: "Supporting ERC20 standard command-line from ioctl",
-}
-
 func init() {
-	var err error
-	xrc20ABI, err = abi.JSON(strings.NewReader(abiConst))
-	if err != nil {
-		log.L().Error("cannot get abi JSON data", zap.Error(err))
-		return
-	}
-	Xrc20Cmd.AddCommand(Xrc20TotalsupplyCmd)
-	Xrc20Cmd.AddCommand(Xrc20BalanceofCmd)
-	Xrc20Cmd.AddCommand(Xrc20TransferCmd)
-	Xrc20Cmd.AddCommand(Xrc20TransferFromCmd)
-	Xrc20Cmd.AddCommand(Xrc20ApproveCmd)
-	Xrc20Cmd.AddCommand(Xrc20AllowanceCmd)
-	Xrc20Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, "set endpoint for once")
-	Xrc20Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		"insecure connection for once")
 	ActionCmd.AddCommand(actionHashCmd)
 	ActionCmd.AddCommand(actionTransferCmd)
 	ActionCmd.AddCommand(actionDeployCmd)
@@ -89,81 +62,42 @@ func init() {
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
 		"insecure connection for once")
-	setActionFlagsAction(actionTransferCmd, actionDeployCmd, actionInvokeCmd, actionReadCmd, actionClaimCmd,
-		actionDepositCmd)
-	setActionFlagsXrc(Xrc20TotalsupplyCmd, Xrc20BalanceofCmd, Xrc20TransferCmd, Xrc20TransferFromCmd, Xrc20ApproveCmd, Xrc20AllowanceCmd)
-
 }
 
-func inputToExecution(contract string, amount *big.Int) (*action.Execution, error) {
-	executor, err := alias.Address(signer)
+func decodeBytecode() ([]byte, error) {
+	return hex.DecodeString(strings.TrimLeft(bytecodeFlag.Value().(string), "0x"))
+}
+
+func signer() (string, error) {
+	return alias.Address(signerFlag.Value().(string))
+}
+
+func nonce(executor string) (uint64, error) {
+	nonce := nonceFlag.Value().(uint64)
+	if nonce != 0 {
+		return nonce, nil
+	}
+	accountMeta, err := account.GetAccountMeta(executor)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	var gasPriceRau *big.Int
-	if len(gasPrice) == 0 {
-		gasPriceRau, err = GetGasPrice()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		gasPriceRau, err = util.StringToRau(gasPrice, util.GasPriceDecimalNum)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if nonce == 0 {
-		accountMeta, err := account.GetAccountMeta(executor)
-		if err != nil {
-			return nil, err
-		}
-		nonce = accountMeta.PendingNonce
-	}
-	var bytecodeBytes []byte
-	if bytecodeString != "" {
-		bytecodeBytes, err = hex.DecodeString(strings.TrimLeft(bytecodeString, "0x"))
-	} else {
-		bytecodeBytes = xrc20Bytes
-	}
-	if err != nil {
-		log.L().Error("cannot decode bytecode string", zap.Error(err))
-		return nil, err
-	}
-	return action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecodeBytes)
+	return accountMeta.PendingNonce, nil
 }
 
-func setActionFlagsAction(cmds ...*cobra.Command) {
-	for _, cmd := range cmds {
-		cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
-		cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "1",
-			"set gas price (unit: 10^(-6)Iotx)")
-		cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
-		cmd.Flags().Uint64VarP(&nonce, "nonce", "n", 0, "set nonce")
-		cmd.MarkFlagRequired("signer")
-		if cmd == actionDeployCmd || cmd == actionInvokeCmd || cmd == actionReadCmd {
-			cmd.Flags().StringVarP(&bytecodeString, "bytecode", "b", "", "set the byte code")
-
-			cmd.MarkFlagRequired("gas-limit")
-			cmd.MarkFlagRequired("bytecode")
-		}
-	}
+func registerWriteCommand(cmd *cobra.Command) {
+	gasLimitFlag.RegisterCommand(cmd)
+	gasPriceFlag.RegisterCommand(cmd)
+	signerFlag.RegisterCommand(cmd)
+	nonceFlag.RegisterCommand(cmd)
+	signerFlag.MarkFlagRequired(cmd)
 }
 
-func setActionFlagsXrc(cmds ...*cobra.Command) {
-	for _, cmd := range cmds {
-		cmd.Flags().StringVarP(&xrc20ContractAddress, "contract-address", "c", "1",
-			"set contract address")
-		if cmd == Xrc20TransferCmd || cmd == Xrc20TransferFromCmd || cmd == Xrc20ApproveCmd {
-			cmd.Flags().Uint64VarP(&gasLimit, "gas-limit", "l", 0, "set gas limit")
-			cmd.Flags().StringVarP(&signer, "signer", "s", "", "choose a signing account")
-			cmd.Flags().StringVarP(&gasPrice, "gas-price", "p", "1",
-				"set gas price (unit: 10^(-6)Iotx)")
-		}
+// gasPriceInRau returns the suggest gas price
+func gasPriceInRau() (*big.Int, error) {
+	gasPrice := gasPriceFlag.Value().(string)
+	if len(gasPrice) != 0 {
+		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
-}
-
-// GetGasPrice gets the suggest gas price
-func GetGasPrice() (*big.Int, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, err
@@ -179,29 +113,59 @@ func GetGasPrice() (*big.Int, error) {
 	return new(big.Int).SetUint64(response.GasPrice), nil
 }
 
-func sendAction(elp action.Envelope) (string, error) {
+func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
+	gasPriceRau, err := gasPriceInRau()
+	if err != nil {
+		return
+	}
+	signer, err := signer()
+	if err != nil {
+		return err
+	}
+	nonce, err := nonce(signer)
+	if err != nil {
+		return
+	}
+	gasLimit := gasLimitFlag.Value().(uint64)
+	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
+	if err != nil || tx == nil {
+		err = errors.Wrap(err, "cannot make a Execution instance")
+		log.L().Error("error when invoke an execution", zap.Error(err))
+		return
+	}
+	return sendAction(
+		(&action.EnvelopeBuilder{}).
+			SetNonce(nonce).
+			SetGasPrice(gasPriceRau).
+			SetGasLimit(gasLimit).
+			SetAction(tx).Build(),
+		signer,
+	)
+}
+
+func sendAction(elp action.Envelope, signer string) error {
 	fmt.Printf("Enter password #%s:\n", signer)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
+		return err
 	}
 	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer prvKey.Zero()
 	sealed, err := action.Sign(elp, prvKey)
 	prvKey.Zero()
 	if err != nil {
 		log.L().Error("failed to sign action", zap.Error(err))
-		return "", err
+		return err
 	}
 	selp := sealed.Proto()
 
 	actionInfo, err := printActionProto(selp)
 	if err != nil {
-		return "", err
+		return err
 	}
 	var confirm string
 	fmt.Println("\n" + actionInfo + "\n" +
@@ -209,13 +173,13 @@ func sendAction(elp action.Envelope) (string, error) {
 		"Type 'YES' to continue, quit for anything else.")
 	fmt.Scanf("%s", &confirm)
 	if confirm != "YES" && confirm != "yes" {
-		return "Quit", nil
+		return nil
 	}
 	fmt.Println()
 
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -224,35 +188,12 @@ func sendAction(elp action.Envelope) (string, error) {
 	request := &iotexapi.SendActionRequest{Action: selp}
 	if _, err = cli.SendAction(ctx, request); err != nil {
 		if sta, ok := status.FromError(err); ok {
-			return "", fmt.Errorf(sta.Message())
+			return fmt.Errorf(sta.Message())
 		}
-		return "", err
+		return err
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
-	return "Action has been sent to blockchain.\n" +
-		"Wait for several seconds and query this action by hash:\n" +
-		hex.EncodeToString(shash[:]), nil
-}
-
-func readAction(exec *action.Execution, caller string) (string, error) {
-	fmt.Println()
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-	if err != nil {
-		return "", err
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
-
-	request := &iotexapi.ReadContractRequest{
-		Execution:     exec.Proto(),
-		CallerAddress: caller}
-	res, err := cli.ReadContract(ctx, request)
-	if err != nil {
-		if sta, ok := status.FromError(err); ok {
-			return "", fmt.Errorf(sta.Message())
-		}
-		return "", err
-	}
-	return res.Data, nil
+	fmt.Println("Action has been sent to blockchain.")
+	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", hex.EncodeToString(shash[:]))
+	return nil
 }

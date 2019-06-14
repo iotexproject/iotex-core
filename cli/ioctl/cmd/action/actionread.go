@@ -7,25 +7,42 @@
 package action
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
+
+var defaultGasPrice = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 
 // actionReadCmd represents the action read command
 var actionReadCmd = &cobra.Command{
-	Use: "read (ALIAS|CONTRACT_ADDRESS)" +
-		" -s SIGNER -b BYTE_CODE -l GAS_LIMIT [-p GAS_PRICE]",
+	Use:   "read (ALIAS|CONTRACT_ADDRESS) -b BYTE_CODE [-s SIGNER]",
 	Short: "Read smart contract on IoTeX blockchain",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := read(args)
+		contract, err := alias.IOAddress(args[0])
+		if err != nil {
+			return err
+		}
+		bytecode, err := decodeBytecode()
+		if err != nil {
+			return err
+		}
+		output, err := read(contract, bytecode)
 		if err == nil {
 			fmt.Println(output)
 		}
@@ -33,20 +50,44 @@ var actionReadCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	signerFlag.RegisterCommand(actionReadCmd)
+	bytecodeFlag.RegisterCommand(actionReadCmd)
+	bytecodeFlag.MarkFlagRequired(actionReadCmd)
+}
+
 // read reads smart contract on IoTeX blockchain
-func read(args []string) (string, error) {
-	contract, err := alias.Address(args[0])
+func read(contract address.Address, bytecode []byte) (string, error) {
+	signer := signerFlag.Value().(string)
+	if len(signer) == 0 {
+		signer = defaultSigner
+	}
+	caller, err := alias.Address(signer)
 	if err != nil {
 		return "", err
 	}
-	executor, err := alias.Address(signer)
+	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), genesis.Default.ActionGasLimit, defaultGasPrice, bytecode)
+	if err != nil {
+		log.L().Error("cannot make an Execution instance", zap.Error(err))
+		return "", err
+	}
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", err
 	}
-	tx, err := inputToExecution(contract, big.NewInt(0))
-	if err != nil || tx == nil {
-		log.L().Error("cannot make a Execution instance", zap.Error(err))
-		return "", err
+	defer conn.Close()
+	res, err := iotexapi.NewAPIServiceClient(conn).ReadContract(
+		context.Background(),
+		&iotexapi.ReadContractRequest{
+			Execution:     exec.Proto(),
+			CallerAddress: caller,
+		},
+	)
+	if err == nil {
+		return res.Data, nil
 	}
-	return readAction(tx, executor)
+	if sta, ok := status.FromError(err); ok {
+		return "", fmt.Errorf(sta.Message())
+	}
+	return "", err
 }
