@@ -19,7 +19,7 @@ import (
 var xrc20TransferCmd = &cobra.Command{
 	Use: "transfer (ALIAS|TARGET_ADDRESS) AMOUNT" +
 		" -c ALIAS|CONTRACT_ADDRESS [-l GAS_LIMIT] -s SIGNER [-p GAS_PRICE]",
-	Short: "Get account balance",
+	Short: "Transfer token to the target address",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
