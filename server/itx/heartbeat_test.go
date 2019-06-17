@@ -18,9 +18,6 @@ import (
 )
 
 func TestNewHeartbeatHandler(t *testing.T) {
-	// TODO: enable if after fix data race
-	t.Skip()
-
 	require := require.New(t)
 	cfg := config.Default
 	s, err := NewServer(cfg)
@@ -37,7 +34,7 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
 	err = probeSvr.Start(ctx)
 	require.NoError(err)
-	go StartServer(ctx, s, probeSvr, cfg)
+	require.NoError(s.Start(ctx))
 	time.Sleep(time.Second * 2)
 	handler.Log()
 	cancel()
