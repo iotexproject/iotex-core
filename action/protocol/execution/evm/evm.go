@@ -56,6 +56,14 @@ type (
 	}
 )
 
+// NewHeightChange creates a height change config
+func NewHeightChange(pacific, aleutian uint64) HeightChange {
+	return HeightChange{
+		pacific,
+		aleutian,
+	}
+}
+
 // NewParams creates a new context for use in the EVM.
 func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
@@ -145,10 +153,10 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
-	hc *HeightChange,
+	hc HeightChange,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	stateDB := NewStateDBAdapter(cm, sm, hc, raCtx.BlockHeight, execution.Hash())
+	stateDB := NewStateDBAdapter(cm, sm, &hc, raCtx.BlockHeight, execution.Hash())
 	ps, err := NewParams(raCtx, execution, stateDB)
 	if err != nil {
 		return nil, nil, err

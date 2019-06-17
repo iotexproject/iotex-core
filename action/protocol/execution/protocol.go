@@ -51,7 +51,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if !ok {
 		return nil, nil
 	}
-	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.cm, &p.hc)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.cm, p.hc)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")
