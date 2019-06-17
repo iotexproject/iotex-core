@@ -18,9 +18,6 @@ import (
 )
 
 func TestNewHeartbeatHandler(t *testing.T) {
-	// TODO: enable if after fix data race
-	t.Skip()
-
 	require := require.New(t)
 	cfg := config.Default
 	s, err := NewServer(cfg)
