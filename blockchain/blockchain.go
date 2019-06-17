@@ -28,7 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -746,7 +746,10 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		ws,
 		ex,
 		bc,
-		bc.config.Genesis.PacificBlockHeight,
+		evm.NewHeightChange(
+			bc.config.Genesis.PacificBlockHeight,
+			bc.config.Genesis.AleutianBlockHeight,
+		),
 	)
 }
 
@@ -1370,12 +1373,12 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
+	if len(receipts) == 0 {
+		return hash.ZeroHash256
+	}
 	h := make([]hash.Hash256, 0, len(receipts))
 	for _, receipt := range receipts {
 		h = append(h, receipt.Hash())
-	}
-	if len(h) == 0 {
-		return hash.ZeroHash256
 	}
 	res := crypto.NewMerkleTree(h).HashTree()
 	return res

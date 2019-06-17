@@ -302,7 +302,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	exec := execution.NewProtocol(bc, 0)
+	exec := execution.NewProtocol(bc, 0, 0)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
 	bc.GetFactory().AddActionHandlers(acc, exec)
