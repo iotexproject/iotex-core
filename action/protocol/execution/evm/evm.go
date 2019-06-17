@@ -38,15 +38,30 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	db.AddBalance(toHash, amount)
 }
 
-// Params is the context and parameters
-type Params struct {
-	context            vm.Context
-	nonce              uint64
-	executorRawAddress string
-	amount             *big.Int
-	contract           *common.Address
-	gas                uint64
-	data               []byte
+type (
+	// Params is the context and parameters
+	Params struct {
+		context            vm.Context
+		nonce              uint64
+		executorRawAddress string
+		amount             *big.Int
+		contract           *common.Address
+		gas                uint64
+		data               []byte
+	}
+	// HeightChange lists heights at which certain fixes take effect
+	HeightChange struct {
+		PacificHeight  uint64
+		AleutianHeight uint64
+	}
+)
+
+// NewHeightChange creates a height change config
+func NewHeightChange(pacific, aleutian uint64) HeightChange {
+	return HeightChange{
+		pacific,
+		aleutian,
+	}
 }
 
 // NewParams creates a new context for use in the EVM.
@@ -138,10 +153,10 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
-	pacificHeight uint64,
+	hc HeightChange,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	stateDB := NewStateDBAdapter(cm, sm, raCtx.BlockHeight, execution.Hash())
+	stateDB := NewStateDBAdapter(cm, sm, &hc, raCtx.BlockHeight, execution.Hash())
 	ps, err := NewParams(raCtx, execution, stateDB)
 	if err != nil {
 		return nil, nil, err
@@ -161,7 +176,7 @@ func ExecuteContract(
 	} else {
 		receipt.Status = action.SuccessReceiptStatus
 	}
-	if raCtx.BlockHeight >= pacificHeight {
+	if raCtx.BlockHeight >= hc.PacificHeight {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
 	} else {

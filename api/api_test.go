@@ -1544,7 +1544,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	}
 
 	acc := account.NewProtocol(0)
-	evm := execution.NewProtocol(bc, 0)
+	evm := execution.NewProtocol(bc, 0, 0)
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1581,7 +1581,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 		return nil, err
 	}
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	ap.AddActionValidators(execution.NewProtocol(bc, 0))
+	ap.AddActionValidators(execution.NewProtocol(bc, 0, 0))
 
 	return ap, nil
 }

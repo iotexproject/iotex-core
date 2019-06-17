@@ -55,11 +55,18 @@ type (
 		preimageSnapshot map[int]preimageMap
 		dao              db.KVStore
 		cb               db.CachedBatch
+		hc               *HeightChange
 	}
 )
 
 // NewStateDBAdapter creates a new state db with iotex blockchain
-func NewStateDBAdapter(cm protocol.ChainManager, sm protocol.StateManager, blockHeight uint64, executionHash hash.Hash256) *StateDBAdapter {
+func NewStateDBAdapter(
+	cm protocol.ChainManager,
+	sm protocol.StateManager,
+	hc *HeightChange,
+	blockHeight uint64,
+	executionHash hash.Hash256,
+) *StateDBAdapter {
 	return &StateDBAdapter{
 		cm:               cm,
 		sm:               sm,
@@ -75,6 +82,7 @@ func NewStateDBAdapter(cm protocol.ChainManager, sm protocol.StateManager, block
 		preimageSnapshot: make(map[int]preimageMap),
 		dao:              sm.GetDB(),
 		cb:               sm.GetCachedBatch(),
+		hc:               hc,
 	}
 }
 
@@ -399,6 +407,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		Data:        evmLog.Data,
 		BlockHeight: stateDB.blockHeight,
 		ActionHash:  stateDB.executionHash,
+		PreAleutian: stateDB.hc != nil && stateDB.blockHeight < stateDB.hc.AleutianHeight,
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }
