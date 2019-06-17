@@ -274,10 +274,10 @@ func (sct *SmartContractTest) prepareBlockchain(
 
 	r.NotNil(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, 0), reward)
+	bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, 0, 0), reward)
 	sf := bc.GetFactory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(NewProtocol(bc, 0), reward)
+	sf.AddActionHandlers(NewProtocol(bc, 0, 0), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
@@ -318,7 +318,7 @@ func (sct *SmartContractTest) deployContracts(
 
 		ws, err := bc.GetFactory().NewWorkingSet()
 		r.NoError(err)
-		stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc, ws, nil, uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		addr, _ := address.FromString(receipt.ContractAddress)
 		copy(evmContractAddrHash[:], addr.Bytes())
@@ -423,10 +423,10 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-		bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, 0))
+		bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, 0, 0))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
-		sf.AddActionHandlers(NewProtocol(bc, 0))
+		sf.AddActionHandlers(NewProtocol(bc, 0, 0))
 
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
@@ -478,7 +478,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
 
-		stateDB := evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc, ws, nil, uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		copy(evmContractAddrHash[:], contract.Bytes())
 		code := stateDB.GetCode(evmContractAddrHash)
@@ -525,7 +525,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
-		stateDB = evm.NewStateDBAdapter(bc, ws, uint64(0), hash.ZeroHash256)
+		stateDB = evm.NewStateDBAdapter(bc, ws, nil, uint64(0), hash.ZeroHash256)
 		var emptyEVMHash common.Hash
 		v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 		require.Equal(byte(15), v[31])
@@ -698,7 +698,7 @@ func TestProtocol_Validate(t *testing.T) {
 	defer ctrl.Finish()
 
 	mbc := mock_blockchain.NewMockBlockchain(ctrl)
-	protocol := NewProtocol(mbc, 0)
+	protocol := NewProtocol(mbc, 0, 0)
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	data := tmpPayload[:]

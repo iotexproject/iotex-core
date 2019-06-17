@@ -30,19 +30,19 @@ const (
 
 // Protocol defines the protocol of handling executions
 type Protocol struct {
-	cm            protocol.ChainManager
-	addr          address.Address
-	pacificHeight uint64
+	cm   protocol.ChainManager
+	addr address.Address
+	hc   evm.HeightChange
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(cm protocol.ChainManager, pacificHeight uint64) *Protocol {
+func NewProtocol(cm protocol.ChainManager, pacificHeight, aleutianHeight uint64) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
-	return &Protocol{cm: cm, addr: addr, pacificHeight: pacificHeight}
+	return &Protocol{cm: cm, addr: addr, hc: evm.HeightChange{pacificHeight, aleutianHeight}}
 }
 
 // Handle handles an execution
@@ -51,7 +51,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if !ok {
 		return nil, nil
 	}
-	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.cm, p.pacificHeight)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.cm, p.hc)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")

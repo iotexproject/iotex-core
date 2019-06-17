@@ -14,7 +14,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
@@ -23,38 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
 )
-
-func TestLogReceipt(t *testing.T) {
-	require := require.New(t)
-	log := action.Log{Address: "abcde", Data: []byte("12345"), BlockHeight: 5, Index: 6}
-	topic := hash.Hash256b([]byte("12345"))
-	log.Topics = []hash.Hash256{topic}
-	log.ActionHash = hash.Hash256b([]byte("11111"))
-	s, err := log.Serialize()
-	require.NoError(err)
-	actuallog := action.Log{}
-	require.NoError(actuallog.Deserialize(s))
-	require.Equal(log.Address, actuallog.Address)
-	require.Equal(log.Topics[0], actuallog.Topics[0])
-	require.Equal(len(log.Topics), len(actuallog.Topics))
-	require.Equal(log.Data, actuallog.Data)
-	require.Equal(log.BlockHeight, actuallog.BlockHeight)
-	require.Equal(log.ActionHash, actuallog.ActionHash)
-	require.Equal(log.Index, actuallog.Index)
-
-	receipt := action.Receipt{Status: 5, GasConsumed: 6, ContractAddress: "aaaaa", Logs: []*action.Log{&log}}
-	receipt.ActionHash = hash.Hash256b([]byte("33333"))
-	s, err = receipt.Serialize()
-	require.NoError(err)
-	actualReceipt := action.Receipt{}
-	require.NoError(actualReceipt.Deserialize(s))
-	require.Equal(receipt.Status, actualReceipt.Status)
-	require.Equal(receipt.GasConsumed, actualReceipt.GasConsumed)
-	require.Equal(receipt.ContractAddress, actualReceipt.ContractAddress)
-	require.Equal(receipt.Logs[0], actualReceipt.Logs[0])
-	require.Equal(len(receipt.Logs), len(actualReceipt.Logs))
-	require.Equal(receipt.ActionHash, actualReceipt.ActionHash)
-}
 
 func TestExecuteContractFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -86,7 +53,7 @@ func TestExecuteContractFailure(t *testing.T) {
 		GasLimit: testutil.TestGasLimit,
 	})
 
-	retval, receipt, err := ExecuteContract(ctx, sm, e, cm, 0)
+	retval, receipt, err := ExecuteContract(ctx, sm, e, cm, NewHeightChange(0, 0))
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
