@@ -506,7 +506,7 @@ func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, err
 // GetActionsFromIndex returns actions from index
 func (bc *blockchain) GetActionHashFromIndex(index uint64) (hash.Hash256, error) {
 	hash := hash.ZeroHash256
-	value, err := bc.dao.kvstore.Get(blockActionBlockMappingNS, indexActionsKey)
+	value, err := bc.dao.kvstore.Get(blockActionBlockMappingNS, indexActionsTipIndexKey)
 	if err != nil {
 		return hash, err
 	}

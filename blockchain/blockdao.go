@@ -44,13 +44,14 @@ const (
 )
 
 var (
-	topHeightKey     = []byte("th")
-	totalActionsKey  = []byte("ta")
-	indexActionsKey  = []byte("ia")
-	hashPrefix       = []byte("ha.")
-	heightPrefix     = []byte("he.")
-	actionFromPrefix = []byte("fr.")
-	actionToPrefix   = []byte("to.")
+	topHeightKey             = []byte("th")
+	totalActionsKey          = []byte("ta")
+	indexActionsTipIndexKey  = []byte("iati")
+	indexActionsTipHeightKey = []byte("iath")
+	hashPrefix               = []byte("ha.")
+	heightPrefix             = []byte("he.")
+	actionFromPrefix         = []byte("fr.")
+	actionToPrefix           = []byte("to.")
 )
 
 var (

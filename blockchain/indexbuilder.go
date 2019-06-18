@@ -120,55 +120,42 @@ func (ib *IndexBuilder) HandleBlock(blk *block.Block) error {
 	return nil
 }
 func initIndexActionsKey(store db.KVStore) error {
-	_, err := store.Get(blockActionBlockMappingNS, indexActionsKey)
+	_, err := store.Get(blockActionBlockMappingNS, indexActionsTipIndexKey)
 	if err != nil && errors.Cause(err) == db.ErrNotExist {
-		if err = store.Put(blockActionBlockMappingNS, indexActionsKey, make([]byte, 8)); err != nil {
-			return errors.Wrap(err, "failed to write initial value for index actions")
+		if err = store.Put(blockActionBlockMappingNS, indexActionsTipIndexKey, make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to write initial value for tip index of index actions")
 		}
-		return nil
+	}
+
+	_, err = store.Get(blockActionBlockMappingNS, indexActionsTipHeightKey)
+	if err != nil && errors.Cause(err) == db.ErrNotExist {
+		if err = store.Put(blockActionBlockMappingNS, indexActionsTipHeightKey, make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to write initial value for tip height of index actions")
+		}
 	}
 	return err
 }
-func (ib *IndexBuilder) getStartHeightAndIndex(tipHeight uint64) (startHeight, startIndex uint64, err error) {
+func (ib *IndexBuilder) getStartHeightAndIndex() (startHeight, startIndex uint64, err error) {
 	// get index that already builded
 	startIndex, err = getNextIndex(ib.store)
 	if err != nil {
 		return
 	}
-	currentNumOfActions := uint64(0)
-	startHeight = uint64(1)
-	for i := uint64(1); i <= tipHeight; i++ {
-		hash, errs := ib.dao.getBlockHash(i)
-		if errs != nil {
-			err = errs
-			return
-		}
-		body, errs := ib.dao.body(hash)
-		if errs != nil {
-			err = errs
-			return
-		}
-		currentNumOfActions += uint64(len(body.Actions))
-		// get the block height that needs to build index and reset start index
-		if currentNumOfActions > startIndex {
-			// reset startIndex to this block's first action
-			startIndex = currentNumOfActions - uint64(len(body.Actions))
-			startHeight = i
-			break
-		}
-		if i == tipHeight {
-			startHeight = tipHeight + 1
-		}
+	// get height that already builded
+	startHeight, err = getNextHeight(ib.store)
+	if err != nil {
+		return
 	}
 	return
 }
-func (ib *IndexBuilder) commitBatchAndClear(tipIndex uint64, batch db.KVStoreBatch) error {
-	indexActionsBytes := byteutil.Uint64ToBytes(tipIndex)
-	batch.Put(blockActionBlockMappingNS, indexActionsKey, indexActionsBytes, "failed to put index actions")
+func (ib *IndexBuilder) commitBatchAndClear(tipIndex, tipHeight uint64, batch db.KVStoreBatch) error {
+	tipIndexBytes := byteutil.Uint64ToBytes(tipIndex)
+	batch.Put(blockActionBlockMappingNS, indexActionsTipIndexKey, tipIndexBytes, "failed to put tip index of actions")
+	tipHeightBytes := byteutil.Uint64ToBytes(tipHeight)
+	batch.Put(blockActionBlockMappingNS, indexActionsTipHeightKey, tipHeightBytes, "failed to put tip height")
 	if err := ib.store.Commit(batch); err != nil {
 		return err
 	}
-	batch.Clear()
 	return nil
 }
 func (ib *IndexBuilder) initAndLoadActions() error {
@@ -180,13 +167,14 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 	if err != nil {
 		return err
 	}
-	startHeight, startIndex, err := ib.getStartHeightAndIndex(tipHeight)
+	startHeight, startIndex, err := ib.getStartHeightAndIndex()
 	if err != nil {
 		return err
 	}
 	zap.L().Info("Loading actions", zap.Uint64("startHeight", startHeight), zap.Uint64("startIndex", startIndex))
 	batch := db.NewBatch()
-	for i := startHeight; i <= tipHeight; i++ {
+	i := startHeight
+	for ; i <= tipHeight; i++ {
 		hash, err := ib.dao.getBlockHash(i)
 		if err != nil {
 			return err
@@ -211,44 +199,57 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 		startIndex += uint64(len(blk.Actions))
 		// commit once every 10000 heights
 		if i%10000 == 0 {
-			if err := ib.commitBatchAndClear(startIndex, batch); err != nil {
+			if err := ib.commitBatchAndClear(startIndex, i, batch); err != nil {
 				return err
 			}
 		}
-		// log once every 1000 heights
 		if i%1000 == 0 {
-			zap.L().Info("Loading actions", zap.Uint64("height", i), zap.Uint64("startIndex", startIndex))
+			zap.L().Info("committing actions", zap.Uint64("height", i), zap.Uint64("index", startIndex))
 		}
 	}
 	// last commit
-	if err := ib.commitBatchAndClear(startIndex, batch); err != nil {
+	zap.L().Info("last committing actions", zap.Uint64("height", i-1), zap.Uint64("index", startIndex))
+	if err := ib.commitBatchAndClear(startIndex, i-1, batch); err != nil {
 		return err
 	}
 	return nil
 }
 func getNextIndex(store db.KVStore) (uint64, error) {
-	value, err := store.Get(blockActionBlockMappingNS, indexActionsKey)
+	value, err := store.Get(blockActionBlockMappingNS, indexActionsTipIndexKey)
 	if err != nil {
 		return 0, err
 	}
-	startActionNum := enc.MachineEndian.Uint64(value)
-	return startActionNum, nil
+	NextIndex := enc.MachineEndian.Uint64(value)
+	return NextIndex, nil
+}
+func getNextHeight(store db.KVStore) (uint64, error) {
+	value, err := store.Get(blockActionBlockMappingNS, indexActionsTipHeightKey)
+	if err != nil {
+		return 0, err
+	}
+	NextHeight := enc.MachineEndian.Uint64(value)
+	NextHeight++
+	return NextHeight, nil
 }
 func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 	hash := blk.HashBlock()
+	// get index that already builded
 	startIndex, err := getNextIndex(store)
-	if err != nil && errors.Cause(err) == db.ErrNotExist {
-		err = initIndexActionsKey(store)
-		if err != nil {
-			return err
-		}
-	}
-	err = indexBlockHash(startIndex, hash, store, blk, batch)
 	if err != nil {
 		return err
 	}
-	indexActionsBytes := byteutil.Uint64ToBytes(startIndex + uint64(len(blk.Actions)))
-	batch.Put(blockActionBlockMappingNS, indexActionsKey, indexActionsBytes, "failed to put index actions")
+	// get height that already builded
+	startHeight, err := getNextHeight(store)
+	if err != nil {
+		return err
+	}
+	if err = indexBlockHash(startIndex, hash, store, blk, batch); err != nil {
+		return err
+	}
+	tipIndexBytes := byteutil.Uint64ToBytes(startIndex + uint64(len(blk.Actions)))
+	batch.Put(blockActionBlockMappingNS, indexActionsTipIndexKey, tipIndexBytes, "failed to put index actions")
+	tipHeightBytes := byteutil.Uint64ToBytes(startHeight)
+	batch.Put(blockActionBlockMappingNS, indexActionsTipHeightKey, tipHeightBytes, "failed to put tip height")
 	return nil
 }
 func indexBlockHash(startActionsNum uint64, blkHash hash.Hash256, store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
