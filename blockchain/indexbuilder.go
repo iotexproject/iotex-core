@@ -216,16 +216,16 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 }
 func getNextIndex(store db.KVStore) (uint64, error) {
 	value, err := store.Get(blockActionBlockMappingNS, indexActionsTipIndexKey)
-	if err != nil {
-		return 0, err
+	if err != nil && errors.Cause(err) == db.ErrNotExist {
+		return 0, initIndexActionsKey(store)
 	}
 	NextIndex := enc.MachineEndian.Uint64(value)
 	return NextIndex, nil
 }
 func getNextHeight(store db.KVStore) (uint64, error) {
 	value, err := store.Get(blockActionBlockMappingNS, indexActionsTipHeightKey)
-	if err != nil {
-		return 0, err
+	if err != nil && errors.Cause(err) == db.ErrNotExist {
+		return 0, initIndexActionsKey(store)
 	}
 	NextHeight := enc.MachineEndian.Uint64(value)
 	NextHeight++
