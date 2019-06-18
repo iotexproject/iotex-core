@@ -340,7 +340,7 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 // putReceipts store receipt into db
 func putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, batch db.KVStoreBatch) {
 	if blkReceipts == nil {
-		zap.L().Info("Receipt empty", zap.Uint64("height", blkHeight))
+		zap.L().Info("Block contains no receipt", zap.Uint64("height", blkHeight))
 		return
 	}
 	var heightBytes [8]byte
