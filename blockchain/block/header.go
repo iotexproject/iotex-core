@@ -65,6 +65,9 @@ func (h *Header) ReceiptRoot() hash.Hash256 { return h.receiptRoot }
 // HashBlock return the hash of this block (actually hash of block header)
 func (h *Header) HashBlock() hash.Hash256 { return h.HashHeader() }
 
+// LogsBloomfilter return the bloom filter for all contract log events
+func (h *Header) LogsBloomfilter() bloom.BloomFilter { return h.logsBloom }
+
 // BlockHeaderProto returns BlockHeader proto.
 func (h *Header) BlockHeaderProto() *iotextypes.BlockHeader {
 	return &iotextypes.BlockHeader{

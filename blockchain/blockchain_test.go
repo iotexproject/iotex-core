@@ -37,8 +37,16 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+var (
+	deployHash  hash.Hash256                                                                           // in block 2
+	setHash     hash.Hash256                                                                           // in block 3
+	getHash     hash.Hash256                                                                           // in block 4
+	setTopic, _ = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000001f40") // in block 3
+	getTopic, _ = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001") // in block 4
+)
+
 func addTestingTsfBlocks(bc Blockchain) error {
-	// Add block 0
+	// Add block 1
 	addr0 := identityset.Address(27).String()
 	tsf0, err := testutil.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
@@ -64,6 +72,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	addr1 := identityset.Address(28).String()
 	priKey1 := identityset.PrivateKey(28)
 	addr2 := identityset.Address(29).String()
+	priKey2 := identityset.PrivateKey(29)
 	addr3 := identityset.Address(30).String()
 	priKey3 := identityset.PrivateKey(30)
 	addr4 := identityset.Address(31).String()
@@ -71,7 +80,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	addr5 := identityset.Address(32).String()
 	priKey5 := identityset.PrivateKey(32)
 	addr6 := identityset.Address(33).String()
-	// Add block 1
+	// Add block 2
 	// test --> A, B, C, D, E, F
 	tsf1, err := testutil.SignedTransfer(addr1, priKey0, 1, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
@@ -97,8 +106,16 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
+	// deploy simple smart contract
+	data, _ := hex.DecodeString("608060405234801561001057600080fd5b50610233806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680635bec9e671461005c57806360fe47b114610073578063c2bc2efc146100a0575b600080fd5b34801561006857600080fd5b506100716100f7565b005b34801561007f57600080fd5b5061009e60048036038101908080359060200190929190505050610143565b005b3480156100ac57600080fd5b506100e1600480360381019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919050505061017a565b6040518082815260200191505060405180910390f35b5b6001156101155760008081548092919060010191905055506100f8565b7f8bfaa460932ccf8751604dd60efa3eafa220ec358fccb32ef703f91c509bc3ea60405160405180910390a1565b80600081905550807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a250565b60008073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff16141515156101b757600080fd5b6000548273ffffffffffffffffffffffffffffffffffffffff167fbde7a70c2261170a87678200113c8e12f82f63d0a1d1cfa45681cbac328e87e360405160405180910390a360005490509190505600a165627a7a723058203198d0390613dab2dff2fa053c1865e802618d628429b01ab05b8458afc347eb0029")
+	ex1, err := testutil.SignedExecution(action.EmptyAddress, priKey2, 1, big.NewInt(0), 200000, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	deployHash = ex1.Hash()
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[addr0] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
+	accMap[addr2] = []action.SealedEnvelope{ex1}
 	blk, err = bc.MintNewBlock(
 		accMap,
 		testutil.TimestampNow(),
@@ -113,7 +130,18 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 
-	// Add block 2
+	// get deployed contract address
+	var contract string
+	cfg := bc.(*blockchain).config
+	if cfg.Plugins[config.GatewayPlugin] == true {
+		r, err := bc.GetReceiptByActionHash(deployHash)
+		if err != nil {
+			return err
+		}
+		contract = r.ContractAddress
+	}
+
+	// Add block 3
 	// Charlie --> A, B, D, E, test
 	tsf1, err = testutil.SignedTransfer(addr1, priKey3, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
@@ -135,9 +163,17 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-
+	// call set() to set storedData = 0x1f40
+	data, _ = hex.DecodeString("60fe47b1")
+	data = append(data, setTopic...)
+	ex1, err = testutil.SignedExecution(contract, priKey2, 2, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	setHash = ex1.Hash()
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
+	accMap[addr2] = []action.SealedEnvelope{ex1}
 	blk, err = bc.MintNewBlock(
 		accMap,
 		testutil.TimestampNow(),
@@ -152,7 +188,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 
-	// Add block 3
+	// Add block 4
 	// Delta --> B, E, F, test
 	tsf1, err = testutil.SignedTransfer(addr2, priKey4, 1, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
@@ -170,8 +206,16 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
+	data, _ = hex.DecodeString("c2bc2efc")
+	data = append(data, getTopic...)
+	ex1, err = testutil.SignedExecution(contract, priKey2, 3, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	getHash = ex1.Hash()
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
+	accMap[addr2] = []action.SealedEnvelope{ex1}
 	blk, err = bc.MintNewBlock(
 		accMap,
 		testutil.TimestampNow(),
@@ -186,7 +230,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 		return err
 	}
 
-	// Add block 4
+	// Add block 5
 	// Delta --> A, B, C, D, F, test
 	tsf1, err = testutil.SignedTransfer(addr1, priKey5, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
@@ -253,8 +297,10 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry), EnableExperimentalActions())
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(acc)
-	bc.GetFactory().AddActionHandlers(acc)
+	exec := execution.NewProtocol(bc, 0, 0)
+	require.NoError(registry.Register(execution.ProtocolID, exec))
+	bc.Validator().AddActionValidators(acc, exec)
+	bc.GetFactory().AddActionHandlers(acc, exec)
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -348,8 +394,10 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-	bc.Validator().AddActionValidators(acc)
-	bc.GetFactory().AddActionHandlers(acc)
+	exec := execution.NewProtocol(bc, 0, 0)
+	require.NoError(t, registry.Register(execution.ProtocolID, exec))
+	bc.Validator().AddActionValidators(acc, exec)
+	bc.GetFactory().AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -440,7 +488,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			EnableExperimentalActions(),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
-		bc.Validator().AddActionValidators(acc)
+		exec := execution.NewProtocol(bc, 0, cfg.Genesis.AleutianBlockHeight)
+		require.NoError(registry.Register(execution.ProtocolID, exec))
+		bc.Validator().AddActionValidators(acc, exec)
+		sf.AddActionHandlers(exec)
 		require.NoError(bc.Start(ctx))
 		require.NoError(addCreatorToFactory(sf))
 
@@ -493,6 +544,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			header, err := bc.BlockHeaderByHash(hash)
 			require.NoError(err)
 			require.Equal(hash, header.HashBlock())
+
+			// bloomfilter only exists after aleutian height
+			require.Equal(height >= cfg.Genesis.AleutianBlockHeight, header.LogsBloomfilter() != nil)
 		}
 
 		empblk, err := bc.GetBlockByHash(hash.ZeroHash256)
@@ -557,6 +611,34 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(err)
 		require.Equal(uint64(0), act.Nonce)
 		require.Equal(big.NewInt(0), act.Balance)
+
+		if cfg.Plugins[config.GatewayPlugin] == true && !cfg.Chain.EnableAsyncIndexWrite {
+			// verify deployed contract
+			r, err := bc.GetReceiptByActionHash(deployHash)
+			require.NoError(err)
+			require.NotNil(r)
+			require.Equal(uint64(1), r.Status)
+			require.Equal(uint64(2), r.BlockHeight)
+
+			// 2 topics in block 3 calling set()
+			funcSig := hash.Hash256b([]byte("Set(uint256)"))
+			blk, err := bc.GetBlockByHeight(3)
+			require.NoError(err)
+			f := blk.Header.LogsBloomfilter()
+			require.NotNil(f)
+			require.True(f.Exist(funcSig[:]))
+			require.True(f.Exist(setTopic))
+
+			// 3 topics in block 4 calling get()
+			funcSig = hash.Hash256b([]byte("Get(address,uint256)"))
+			blk, err = bc.GetBlockByHeight(4)
+			require.NoError(err)
+			f = blk.Header.LogsBloomfilter()
+			require.NotNil(f)
+			require.True(f.Exist(funcSig[:]))
+			require.True(f.Exist(setTopic))
+			require.True(f.Exist(getTopic))
+		}
 	}
 
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
@@ -589,7 +671,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
-	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.AleutianBlockHeight = 3
 
 	t.Run("load blockchain from DB", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
