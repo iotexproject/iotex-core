@@ -65,7 +65,7 @@ func TestPutBlockProto(t *testing.T) {
 	assertPB(npb)
 }
 
-func TestPutBlockByteStream(t *testing.T) {
+func TestPutBlockSerialize(t *testing.T) {
 	addr := identityset.Address(27)
 	roots := make(map[string]hash.Hash256)
 	roots["10002"] = hash.BytesToHash256([]byte("10002"))
@@ -80,9 +80,9 @@ func TestPutBlockByteStream(t *testing.T) {
 		10003,
 		big.NewInt(10004),
 	)
-	b := pb.ByteStream()
+	b := pb.Serialize()
 
 	for i := 0; i < 10; i++ {
-		assert.Equal(t, b, pb.ByteStream())
+		assert.Equal(t, b, pb.Serialize())
 	}
 }

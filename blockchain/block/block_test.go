@@ -115,9 +115,6 @@ func TestConvertFromBlockPb(t *testing.T) {
 	err = newblk.Deserialize(raw)
 	require.Nil(t, err)
 
-	blockBytes := blk.ByteStream()
-	require.True(t, len(blockBytes) > 0)
-
 	require.Equal(t, uint64(123456789), newblk.Header.height)
 	require.Equal(t, uint64(101), newblk.Actions[0].Nonce())
 	require.Equal(t, uint64(102), newblk.Actions[1].Nonce())
