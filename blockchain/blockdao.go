@@ -44,12 +44,14 @@ const (
 )
 
 var (
-	topHeightKey     = []byte("th")
-	totalActionsKey  = []byte("ta")
-	hashPrefix       = []byte("ha.")
-	heightPrefix     = []byte("he.")
-	actionFromPrefix = []byte("fr.")
-	actionToPrefix   = []byte("to.")
+	topHeightKey             = []byte("th")
+	totalActionsKey          = []byte("ta")
+	indexActionsTipIndexKey  = []byte("iati")
+	indexActionsTipHeightKey = []byte("iath")
+	hashPrefix               = []byte("ha.")
+	heightPrefix             = []byte("he.")
+	actionFromPrefix         = []byte("fr.")
+	actionToPrefix           = []byte("to.")
 )
 
 var (
@@ -328,6 +330,21 @@ func (dao *blockDAO) footer(h hash.Hash256) (*block.Footer, error) {
 		dao.footerCache.Add(h, footer)
 	}
 	return footer, nil
+}
+
+// getActionHashFromIndex returns the action hash from index
+func (dao *blockDAO) getActionHashFromIndex(index uint64) (hash.Hash256, error) {
+	hash := hash.ZeroHash256
+	indexActionsBytes := byteutil.Uint64ToBytes(index)
+	value, err := dao.kvstore.Get(blockActionBlockMappingNS, indexActionsBytes)
+	if err != nil {
+		return hash, errors.Wrap(err, "failed to get action hash")
+	}
+	if len(hash) != len(value) {
+		return hash, errors.Wrap(err, "action hash is broken")
+	}
+	copy(hash[:], value)
+	return hash, nil
 }
 
 // getBlockchainHeight returns the blockchain height
