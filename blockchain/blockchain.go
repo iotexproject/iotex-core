@@ -28,7 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -611,6 +611,12 @@ func (bc *blockchain) MintNewBlock(
 			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
+
+	if newblockHeight == bc.config.Genesis.AleutianBlockHeight {
+		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
+			return nil, err
+		}
+	}
 	_, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
@@ -1051,6 +1057,11 @@ func (bc *blockchain) runActions(
 			Registry:       bc.registry,
 		})
 
+	if acts.BlockHeight() == bc.config.Genesis.AleutianBlockHeight {
+		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
+			return nil, err
+		}
+	}
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
 }
 
@@ -1059,10 +1070,12 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	if bc.sf == nil {
 		return hash.ZeroHash256, nil, nil, errors.New("statefactory cannot be nil")
 	}
+
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
 
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
+
 	// initial action iterator
 	actionIterator := actioniterator.NewActionIterator(actionMap)
 	for {
@@ -1370,6 +1383,18 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 		)
 	}
 	return nil
+}
+
+func (bc *blockchain) updateAleutianEpochRewardAmount(ctx context.Context, ws factory.WorkingSet) error {
+	p, ok := bc.registry.Find(rewarding.ProtocolID)
+	if !ok {
+		return errors.New("rewarding protocol isn't found")
+	}
+	rp, ok := p.(*rewarding.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting protocol")
+	}
+	return rp.SetReward(ctx, ws, bc.config.Genesis.AleutianEpochReward(), false)
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
