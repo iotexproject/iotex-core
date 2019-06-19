@@ -27,15 +27,19 @@ var xrc20TransferCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		contract, err := xrc20Contract()
+		if err != nil {
+			return err
+		}
 		amount, ok := new(big.Int).SetString(args[1], 10)
 		if !ok {
 			return errors.Errorf("invalid XRC20 amount format %s", args[1])
 		}
-		bytecode, err := xrc20ABI.Pack("transfer", recipient, amount)
+		amount, err = amountTransfer(contract, amount)
 		if err != nil {
 			return err
 		}
-		contract, err := xrc20Contract()
+		bytecode, err := xrc20ABI.Pack("transfer", recipient, amount)
 		if err != nil {
 			return err
 		}
