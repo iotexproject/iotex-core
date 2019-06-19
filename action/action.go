@@ -35,7 +35,7 @@ type Action interface {
 }
 
 type actionPayload interface {
-	ByteStream() []byte
+	Serialize() []byte
 	Cost() (*big.Int, error)
 	IntrinsicGas() (uint64, error)
 	SetEnvelopeContext(SealedEnvelope)
@@ -233,14 +233,14 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	return nil
 }
 
-// ByteStream returns encoded binary.
-func (elp *Envelope) ByteStream() []byte {
+// Serialize returns encoded binary.
+func (elp *Envelope) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(elp.Proto()))
 }
 
 // Hash returns the hash value of SealedEnvelope.
 func (elp *Envelope) Hash() hash.Hash256 {
-	return hash.Hash256b(elp.ByteStream())
+	return hash.Hash256b(elp.Serialize())
 }
 
 // Hash returns the hash value of SealedEnvelope.

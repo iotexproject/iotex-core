@@ -30,7 +30,7 @@ func TestTransferSignVerify(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
 
-	elp.ByteStream()
+	elp.Serialize()
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))
@@ -58,7 +58,7 @@ func TestTransfer(t *testing.T) {
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
 
-	elp.ByteStream()
+	elp.Serialize()
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))

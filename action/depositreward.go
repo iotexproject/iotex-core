@@ -38,8 +38,8 @@ func (d *DepositToRewardingFund) Amount() *big.Int { return d.amount }
 // Data returns the additional data
 func (d *DepositToRewardingFund) Data() []byte { return d.data }
 
-// ByteStream returns a raw byte stream of a deposit action
-func (d *DepositToRewardingFund) ByteStream() []byte {
+// Serialize returns a raw byte stream of a deposit action
+func (d *DepositToRewardingFund) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(d.Proto()))
 }
 
