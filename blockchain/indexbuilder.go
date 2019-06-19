@@ -72,8 +72,7 @@ func NewIndexBuilder(chain Blockchain) (*IndexBuilder, error) {
 
 // Start starts the index builder
 func (ib *IndexBuilder) Start(_ context.Context) error {
-	err := ib.initAndLoadActions()
-	if err != nil {
+	if err := ib.initAndLoadActions(); err != nil {
 		return err
 	}
 	go func() {
@@ -198,7 +197,7 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 		putReceipts(i, receipts, batch)
 		startIndex += uint64(len(blk.Actions))
 		// commit once every 10000 heights
-		if i%10000 == 0 {
+		if i%10000 == 0 || i == tipHeight {
 			if err := ib.commitBatchAndClear(startIndex, i, batch); err != nil {
 				return err
 			}
@@ -207,11 +206,6 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 			zap.L().Info("committing actions", zap.Uint64("height", i), zap.Uint64("index", startIndex))
 		}
 	}
-	// last commit
-	zap.L().Info("last committing actions", zap.Uint64("height", i-1), zap.Uint64("index", startIndex))
-	if err := ib.commitBatchAndClear(startIndex, i-1, batch); err != nil {
-		return err
-	}
 	return nil
 }
 func getNextIndex(store db.KVStore) (uint64, error) {
@@ -219,17 +213,17 @@ func getNextIndex(store db.KVStore) (uint64, error) {
 	if err != nil && errors.Cause(err) == db.ErrNotExist {
 		return 0, initIndexActionsKey(store)
 	}
-	NextIndex := enc.MachineEndian.Uint64(value)
-	return NextIndex, nil
+	nextIndex := enc.MachineEndian.Uint64(value)
+	return nextIndex, nil
 }
 func getNextHeight(store db.KVStore) (uint64, error) {
 	value, err := store.Get(blockActionBlockMappingNS, indexActionsTipHeightKey)
 	if err != nil && errors.Cause(err) == db.ErrNotExist {
 		return 0, initIndexActionsKey(store)
 	}
-	NextHeight := enc.MachineEndian.Uint64(value)
-	NextHeight++
-	return NextHeight, nil
+	nextHeight := enc.MachineEndian.Uint64(value)
+	nextHeight++
+	return nextHeight, nil
 }
 func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error {
 	hash := blk.HashBlock()

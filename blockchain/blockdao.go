@@ -332,6 +332,21 @@ func (dao *blockDAO) footer(h hash.Hash256) (*block.Footer, error) {
 	return footer, nil
 }
 
+// getActionHashFromIndex returns the action hash from index
+func (dao *blockDAO) getActionHashFromIndex(index uint64) (hash.Hash256, error) {
+	hash := hash.ZeroHash256
+	indexActionsBytes := byteutil.Uint64ToBytes(index)
+	value, err := dao.kvstore.Get(blockActionBlockMappingNS, indexActionsBytes)
+	if err != nil {
+		return hash, errors.Wrap(err, "failed to get action hash")
+	}
+	if len(hash) != len(value) {
+		return hash, errors.Wrap(err, "action hash is broken")
+	}
+	copy(hash[:], value)
+	return hash, nil
+}
+
 // getBlockchainHeight returns the blockchain height
 func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)

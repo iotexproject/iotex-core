@@ -14,6 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 type testCase struct {
@@ -33,7 +35,10 @@ func TestBasicProbe(t *testing.T) {
 	s := New(7788)
 	ctx := context.Background()
 	require.NoError(t, s.Start(ctx))
-	time.Sleep(time.Second * 2)
+	require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (b bool, e error) {
+		_, err := http.Get("http://localhost:7788/liveness")
+		return err == nil, nil
+	}))
 	test1 := []testCase{
 		{
 			endpoint: "/liveness",
@@ -82,7 +87,10 @@ func TestReadniessHandler(t *testing.T) {
 	defer s.Stop(ctx)
 
 	require.NoError(t, s.Start(ctx))
-	time.Sleep(time.Second * 2)
+	require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 2*time.Second, func() (b bool, e error) {
+		_, err := http.Get("http://localhost:7788/liveness")
+		return err == nil, nil
+	}))
 	test := []testCase{
 		{
 			endpoint: "/liveness",
