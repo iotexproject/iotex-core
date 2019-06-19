@@ -17,8 +17,6 @@ var (
 	ErrInsufficientBalanceForGas = errors.New("Insufficient balance for gas")
 	// ErrOutOfGas is the error when running out of gas
 	ErrOutOfGas = errors.New("Out of gas")
-	// ErrGasHigherThanLimit indicates the error of gas value
-	ErrGasHigherThanLimit = errors.New("invalid gas for action")
 	// ErrTransfer indicates the error of transfer
 	ErrTransfer = errors.New("invalid transfer")
 	// ErrNonce indicates the error of nonce

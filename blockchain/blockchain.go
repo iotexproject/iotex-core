@@ -28,7 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -615,7 +615,6 @@ func (bc *blockchain) MintNewBlock(
 			BlockTimeStamp: timestamp,
 			Producer:       bc.config.ProducerAddress(),
 			GasLimit:       gasLimitForContext,
-			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
 	_, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
@@ -744,7 +743,6 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		Producer:       producer,
 		Caller:         caller,
 		GasLimit:       gasLimit,
-		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		GasPrice:       big.NewInt(0),
 		IntrinsicGas:   0,
 	})
@@ -780,12 +778,11 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			GasLimit:       gasLimit,
-			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
-			Caller:         callerAddr,
-			ActionHash:     hash.ZeroHash256,
-			Nonce:          0,
-			Registry:       bc.registry,
+			GasLimit:   gasLimit,
+			Caller:     callerAddr,
+			ActionHash: hash.ZeroHash256,
+			Nonce:      0,
+			Registry:   bc.registry,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
@@ -1054,7 +1051,6 @@ func (bc *blockchain) runActions(
 			BlockTimeStamp: acts.BlockTimeStamp(),
 			Producer:       producer,
 			GasLimit:       gasLimit,
-			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
 
@@ -1306,7 +1302,6 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		BlockHeight:    0,
 		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		GasLimit:       0,
-		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		Producer:       nil,
 		Caller:         nil,
 		ActionHash:     hash.ZeroHash256,

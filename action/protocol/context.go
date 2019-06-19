@@ -34,8 +34,6 @@ type RunActionsCtx struct {
 	Caller address.Address
 	// ActionHash is the hash of the action with the sealed envelope
 	ActionHash hash.Hash256
-	// ActionGasLimit is the action gas limit
-	ActionGasLimit uint64
 	// GasPrice is the action gas price
 	GasPrice *big.Int
 	// IntrinsicGas is the action intrinsic gas

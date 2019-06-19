@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -173,7 +172,7 @@ func TestLocalCommit(t *testing.T) {
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol(0)
 	registry.Register(account.ProtocolID, acc)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(acc, rewardingProtocol)
 	chain.GetFactory().AddActionHandlers(acc, rewardingProtocol)
 	require.NoError(chain.Start(ctx))
