@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"encoding/hex"
 	"time"
 
@@ -14,21 +15,39 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
 var (
 	// ErrExpiredEndorsement indicates that the endorsement is expired
 	ErrExpiredEndorsement = errors.New("the endorsement has been replaced or expired")
+	collectionDB          db.KVStore
+	cfg                   = config.Default.DB
 )
+
+func init() {
+	path := "endorsement.bolt"
+	cfg.DbPath = path
+	collectionDB = db.NewOnDiskDB(cfg)
+
+	ctx := context.Background()
+	err := collectionsDB.Start(ctx)
+	if err != nil {
+		return nil
+	}
+}
 
 type endorserEndorsementCollection struct {
 	endorsements map[ConsensusVoteTopic]*endorsement.Endorsement
+	nameSpace    string
 }
 
 func newEndorserEndorsementCollection() *endorserEndorsementCollection {
 	return &endorserEndorsementCollection{
 		endorsements: map[ConsensusVoteTopic]*endorsement.Endorsement{},
+		nameSpace:    "endorserEndorsement",
 	}
 }
 
@@ -41,6 +60,8 @@ func (ee *endorserEndorsementCollection) AddEndorsement(
 			return ErrExpiredEndorsement
 		}
 	}
+
+	collectionDB.Put(ee.nameSpace, []byte(topic), []byte(en))
 	ee.endorsements[topic] = en
 
 	return nil
@@ -144,12 +165,15 @@ func (bc *blockEndorsementCollection) Endorsements(
 
 type endorsementManager struct {
 	collections map[string]*blockEndorsementCollection
+	nameSpace   string
 }
 
 func newEndorsementManager() *endorsementManager {
-	return &endorsementManager{
+	em := &endorsementManager{
 		collections: map[string]*blockEndorsementCollection{},
+		nameSpace:   "Endorsement_Manager",
 	}
+	return em
 }
 
 func (m *endorsementManager) CollectionByBlockHash(blkHash []byte) *blockEndorsementCollection {
