@@ -120,20 +120,29 @@ func StringToIOTX(amount string) (iotx string, err error) {
 func TypePassword() (string, error) {
 	signalListener := make(chan os.Signal, 1)
 	signal.Notify(signalListener, os.Interrupt)
+	routineTerminate := make(chan struct{})
 	sta, err := terminal.GetState(1)
 	if err != nil {
 		return "", err
 	}
 	go func() {
-		<-signalListener
-		err = terminal.Restore(1, sta)
-		if err != nil {
-			log.L().Error("failed restore terminal", zap.Error(err))
-			return
+		for {
+			select {
+			case <-signalListener:
+				err = terminal.Restore(1, sta)
+				if err != nil {
+					log.L().Error("failed restore terminal", zap.Error(err))
+					return
+				}
+				os.Exit(130)
+			case <-routineTerminate:
+				return
+			default:
+			}
 		}
-		os.Exit(0)
 	}()
 	bytePass, err := terminal.ReadPassword(int(syscall.Stdin))
+	close(routineTerminate)
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err

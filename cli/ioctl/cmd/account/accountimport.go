@@ -9,7 +9,6 @@ package account
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -84,12 +83,11 @@ func writeToFile(alias, addr string) (string, error) {
 		alias), nil
 }
 func readPasswordFromStdin() (string, error) {
-	Password, err := util.TypePassword()
+	password, err := util.TypePassword()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
-	password := strings.TrimSpace(Password)
 	return password, nil
 }
 func accountImportKey(args []string) (string, error) {

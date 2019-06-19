@@ -9,12 +9,11 @@ package account
 import (
 	"fmt"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/util"
-
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
