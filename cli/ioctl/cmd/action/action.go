@@ -201,17 +201,22 @@ func sendAction(elp action.Envelope, signer string) error {
 }
 
 func amountTransfer(contract address.Address, amount *big.Int) (*big.Int, error) {
-	decimalbytecode, err := hex.DecodeString("313ce567")
+	decimalBytecode, err := hex.DecodeString("313ce567")
 	if err != nil {
 		return nil, err
 	}
-	output, err := read(contract, decimalbytecode)
+	output, err := read(contract, decimalBytecode)
 	if err != nil {
 		return nil, err
 	}
-	decimal, err := strconv.ParseInt(output, 16, 8)
-	if err != nil {
-		return nil, err
+	var decimal int64
+	if output != "" {
+		decimal, err = strconv.ParseInt(output, 16, 8)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		decimal = 0
 	}
 	for index := int64(0); index < decimal; index++ {
 		amount.Mul(amount, big.NewInt(10))

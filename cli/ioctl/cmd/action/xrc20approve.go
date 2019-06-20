@@ -31,11 +31,11 @@ var xrc20ApproveCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		amount, ok := new(big.Int).SetString(args[1], 10)
+		rawAmount, ok := new(big.Int).SetString(args[1], 10)
 		if !ok {
 			return errors.Errorf("invalid XRC20 amount format %s", args[1])
 		}
-		amount, err = amountTransfer(contract, amount)
+		amount, err := amountTransfer(contract, rawAmount)
 		if err != nil {
 			return err
 		}
