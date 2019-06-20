@@ -85,8 +85,8 @@ func (tsf *Transfer) TotalSize() uint32 {
 	return size + uint32(len(tsf.payload))
 }
 
-// ByteStream returns a raw byte stream of this Transfer
-func (tsf *Transfer) ByteStream() []byte {
+// Serialize returns a raw byte stream of this Transfer
+func (tsf *Transfer) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(tsf.Proto()))
 }
 

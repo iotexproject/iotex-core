@@ -155,6 +155,8 @@ type Blockchain interface {
 
 	// RemoveSubscriber make you listen to every single produced block
 	RemoveSubscriber(BlockCreationSubscriber) error
+	// GetActionHashFromIndex returns action hash from index
+	GetActionHashFromIndex(index uint64) (hash.Hash256, error)
 }
 
 // blockchain implements the Blockchain interface
@@ -498,6 +500,11 @@ func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, err
 		return nil, err
 	}
 	return getActionsBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+}
+
+// GetActionsFromIndex returns actions from index
+func (bc *blockchain) GetActionHashFromIndex(index uint64) (hash.Hash256, error) {
+	return bc.dao.getActionHashFromIndex(index)
 }
 
 // GetActionToAddress returns action to address

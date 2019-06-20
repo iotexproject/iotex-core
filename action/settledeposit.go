@@ -69,8 +69,8 @@ func (sd *SettleDeposit) Recipient() string { return sd.recipient }
 // Destination returns the recipient address. The recipient should be an address on the sub-chain
 func (sd *SettleDeposit) Destination() string { return sd.Recipient() }
 
-// ByteStream returns a raw byte stream of the settle deposit action
-func (sd *SettleDeposit) ByteStream() []byte {
+// Serialize returns a raw byte stream of the settle deposit action
+func (sd *SettleDeposit) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(sd.Proto()))
 }
 

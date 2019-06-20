@@ -72,8 +72,8 @@ func (d *CreateDeposit) Recipient() string { return d.recipient }
 // Destination returns the recipient address. The recipient should be an address on the sub-chain
 func (d *CreateDeposit) Destination() string { return d.Recipient() }
 
-// ByteStream returns a raw byte stream of the deposit action
-func (d *CreateDeposit) ByteStream() []byte {
+// Serialize returns a raw byte stream of the deposit action
+func (d *CreateDeposit) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(d.Proto()))
 }
 

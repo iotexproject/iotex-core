@@ -413,7 +413,7 @@ func TestBlockEpochReward(t *testing.T) {
 	}
 
 	//Wait until all the pending actions are settled
-	err = testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
+	err = testutil.WaitUntil(100*time.Millisecond, 40*time.Second, func() (bool, error) {
 		updateExpectationWithPendingClaimList(t, chains[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 		return len(pendingClaimActions) == 0, nil
 	})
