@@ -143,12 +143,12 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 
 func sendAction(elp action.Envelope, signer string) error {
 	fmt.Printf("Enter password #%s:\n", signer)
-	bytePassword, err := util.TypePassword()
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return err
 	}
-	prvKey, err := account.KsAccountToPrivateKey(signer, bytePassword)
+	prvKey, err := account.KsAccountToPrivateKey(signer, password)
 	if err != nil {
 		return err
 	}

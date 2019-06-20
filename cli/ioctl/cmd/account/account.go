@@ -134,13 +134,13 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 
 func newAccount(alias string, walletDir string) (string, error) {
 	fmt.Printf("#%s: Set password\n", alias)
-	password, err := util.TypePassword()
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
 	fmt.Printf("#%s: Enter password again\n", alias)
-	passwordAgain, err := util.TypePassword()
+	passwordAgain, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
@@ -163,13 +163,13 @@ func newAccount(alias string, walletDir string) (string, error) {
 
 func newAccountByKey(alias string, privateKey string, walletDir string) (string, error) {
 	fmt.Printf("#%s: Set password\n", alias)
-	password, err := util.TypePassword()
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
 	fmt.Printf("#%s: Enter password again\n", alias)
-	passwordAgain, err := util.TypePassword()
+	passwordAgain, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err

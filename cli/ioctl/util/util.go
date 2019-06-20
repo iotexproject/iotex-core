@@ -116,8 +116,8 @@ func StringToIOTX(amount string) (iotx string, err error) {
 	return
 }
 
-//TypePassword used to safely get password input
-func TypePassword() (string, error) {
+// ReadSecretFromStdin used to safely get password input
+func ReadSecretFromStdin() (string, error) {
 	signalListener := make(chan os.Signal, 1)
 	signal.Notify(signalListener, os.Interrupt)
 	routineTerminate := make(chan struct{})

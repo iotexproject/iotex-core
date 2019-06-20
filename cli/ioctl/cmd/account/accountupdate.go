@@ -54,7 +54,7 @@ func accountUpdate(args []string) (string, error) {
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(address.Bytes(), v.Address.Bytes()) {
 			fmt.Printf("#%s: Enter current password\n", account)
-			currentPassword, err := util.TypePassword()
+			currentPassword, err := util.ReadSecretFromStdin()
 			if err != nil {
 				log.L().Error("failed to get current password", zap.Error(err))
 				return "", err
@@ -64,13 +64,13 @@ func accountUpdate(args []string) (string, error) {
 				return "", err
 			}
 			fmt.Printf("#%s: Enter new password\n", account)
-			password, err := util.TypePassword()
+			password, err := util.ReadSecretFromStdin()
 			if err != nil {
 				log.L().Error("failed to get password", zap.Error(err))
 				return "", err
 			}
 			fmt.Printf("#%s: Enter new password again\n", account)
-			passwordAgain, err := util.TypePassword()
+			passwordAgain, err := util.ReadSecretFromStdin()
 			if err != nil {
 				log.L().Error("failed to get password", zap.Error(err))
 				return "", err

@@ -38,7 +38,7 @@ func accountExportPublic(args []string) (string, error) {
 		return "", err
 	}
 	fmt.Printf("Enter password #%s:\n", args[0])
-	password, err := util.TypePassword()
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err

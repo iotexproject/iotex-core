@@ -83,7 +83,7 @@ func writeToFile(alias, addr string) (string, error) {
 		alias), nil
 }
 func readPasswordFromStdin() (string, error) {
-	password, err := util.TypePassword()
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
@@ -116,7 +116,7 @@ func accountImportKeyStore(args []string) (string, error) {
 		return "", err
 	}
 	fmt.Printf("#%s: Enter your password of keystore, which will not be exposed on the screen.\n", alias)
-	password, err := readPasswordFromStdin()
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		return "", nil
 	}
