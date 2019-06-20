@@ -7,8 +7,12 @@
 package rolldpos
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"encoding/hex"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -25,6 +29,7 @@ var (
 	ErrExpiredEndorsement = errors.New("the endorsement has been replaced or expired")
 	collectionDB          db.KVStore
 	cfg                   = config.Default.DB
+	nameSpace             = "endorsement"
 )
 
 func init() {
@@ -33,21 +38,19 @@ func init() {
 	collectionDB = db.NewOnDiskDB(cfg)
 
 	ctx := context.Background()
-	err := collectionsDB.Start(ctx)
+	err := collectionDB.Start(ctx)
 	if err != nil {
-		return nil
+		return
 	}
 }
 
 type endorserEndorsementCollection struct {
 	endorsements map[ConsensusVoteTopic]*endorsement.Endorsement
-	nameSpace    string
 }
 
 func newEndorserEndorsementCollection() *endorserEndorsementCollection {
 	return &endorserEndorsementCollection{
 		endorsements: map[ConsensusVoteTopic]*endorsement.Endorsement{},
-		nameSpace:    "endorserEndorsement",
 	}
 }
 
@@ -60,8 +63,6 @@ func (ee *endorserEndorsementCollection) AddEndorsement(
 			return ErrExpiredEndorsement
 		}
 	}
-
-	collectionDB.Put(ee.nameSpace, []byte(topic), []byte(en))
 	ee.endorsements[topic] = en
 
 	return nil
@@ -164,21 +165,54 @@ func (bc *blockEndorsementCollection) Endorsements(
 }
 
 type endorsementManager struct {
-	collections map[string]*blockEndorsementCollection
-	nameSpace   string
+	managerKey []byte
 }
 
 func newEndorsementManager() *endorsementManager {
-	em := &endorsementManager{
-		collections: map[string]*blockEndorsementCollection{},
-		nameSpace:   "Endorsement_Manager",
+	timeKey := time.Now().UnixNano()
+	timeBytes := []byte(strconv.FormatInt(timeKey, 10))
+	var managerMap map[string]*blockEndorsementCollection
+	mapBytes, err := getBytes(managerMap)
+	if err != nil {
+		fmt.Println(err)
+		return nil
 	}
-	return em
+	collectionDB.Put(nameSpace, timeBytes, mapBytes)
+
+	return &endorsementManager{
+		managerKey: timeBytes,
+	}
+}
+
+func getBytes(data interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(data)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func getInterface(bts []byte, data interface{}) error {
+	buf := bytes.NewBuffer(bts)
+	dec := gob.NewDecoder(buf)
+	err := dec.Decode(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m *endorsementManager) CollectionByBlockHash(blkHash []byte) *blockEndorsementCollection {
+	var managerMap map[string]*blockEndorsementCollection
+	collectionBytes, err := collectionDB.Get(nameSpace, m.managerKey)
+	err = getInterface(collectionBytes, &managerMap)
+	if err != nil {
+		return nil
+	}
 	encodedBlockHash := encodeToString(blkHash)
-	c, exists := m.collections[encodedBlockHash]
+	c, exists := managerMap[encodedBlockHash]
 	if !exists {
 		return nil
 	}
@@ -186,12 +220,24 @@ func (m *endorsementManager) CollectionByBlockHash(blkHash []byte) *blockEndorse
 }
 
 func (m *endorsementManager) Size() int {
-	return len(m.collections)
+	var managerMap map[string]*blockEndorsementCollection
+	collectionBytes, err := collectionDB.Get(nameSpace, m.managerKey)
+	err = getInterface(collectionBytes, &managerMap)
+	if err != nil {
+		return 0
+	}
+	return len(managerMap)
 }
 
 func (m *endorsementManager) SizeWithBlock() int {
+	var managerMap map[string]*blockEndorsementCollection
+	collectionBytes, err := collectionDB.Get(nameSpace, m.managerKey)
+	err = getInterface(collectionBytes, &managerMap)
+	if err != nil {
+		return 0
+	}
 	size := 0
-	for _, c := range m.collections {
+	for _, c := range managerMap {
 		if c.Block() != nil {
 			size++
 		}
@@ -202,10 +248,22 @@ func (m *endorsementManager) SizeWithBlock() int {
 func (m *endorsementManager) RegisterBlock(blk *block.Block) error {
 	blkHash := blk.HashBlock()
 	encodedBlockHash := encodeToString(blkHash[:])
-	if c, exists := m.collections[encodedBlockHash]; exists {
+	var managerMap map[string]*blockEndorsementCollection
+	fmt.Println(m.managerKey)
+	collectionBytes, err := collectionDB.Get(nameSpace, m.managerKey)
+	err = getInterface(collectionBytes, &managerMap)
+	if err != nil {
+		return err
+	}
+	if c, exists := managerMap[encodedBlockHash]; exists {
 		return c.SetBlock(blk)
 	}
-	m.collections[encodedBlockHash] = newBlockEndorsementCollection(blk)
+	managerMap[encodedBlockHash] = newBlockEndorsementCollection(blk)
+	mapBytes, err := getBytes(managerMap)
+	if err != nil {
+		return err
+	}
+	collectionDB.Put(nameSpace, m.managerKey, mapBytes)
 
 	return nil
 }
@@ -214,23 +272,45 @@ func (m *endorsementManager) AddVoteEndorsement(
 	vote *ConsensusVote,
 	en *endorsement.Endorsement,
 ) error {
+	var managerMap map[string]*blockEndorsementCollection
+	collectionBytes, err := collectionDB.Get(nameSpace, m.managerKey)
+	err = getInterface(collectionBytes, &managerMap)
+	if err != nil {
+		return err
+	}
 	encoded := encodeToString(vote.BlockHash())
-	c, exists := m.collections[encoded]
+	c, exists := managerMap[encoded]
 	if !exists {
 		c = newBlockEndorsementCollection(nil)
 	}
 	if err := c.AddEndorsement(vote.Topic(), en); err != nil {
 		return err
 	}
-	m.collections[encoded] = c
-
+	managerMap[encoded] = c
+	mapBytes, err := getBytes(managerMap)
+	if err != nil {
+		return err
+	}
+	collectionDB.Put(nameSpace, m.managerKey, mapBytes)
 	return nil
 }
 
 func (m *endorsementManager) Cleanup(timestamp time.Time) *endorsementManager {
 	cleaned := newEndorsementManager()
-	for encoded, c := range m.collections {
-		cleaned.collections[encoded] = c.Cleanup(timestamp)
+	var managerMap map[string]*blockEndorsementCollection
+	collectionBytes, err := collectionDB.Get(nameSpace, m.managerKey)
+	err = getInterface(collectionBytes, &managerMap)
+	if err != nil {
+		return nil
+	}
+	var cleanMap map[string]*blockEndorsementCollection
+	cleanBytes, err := collectionDB.Get(nameSpace, m.managerKey)
+	err = getInterface(cleanBytes, &managerMap)
+	if err != nil {
+		return nil
+	}
+	for encoded, c := range managerMap {
+		cleanMap[encoded] = c.Cleanup(timestamp)
 	}
 
 	return cleaned
@@ -240,7 +320,13 @@ func (m *endorsementManager) Log(
 	logger *zap.Logger,
 	delegates []string,
 ) *zap.Logger {
-	for encoded, c := range m.collections {
+	var managerMap map[string]*blockEndorsementCollection
+	collectionBytes, err := collectionDB.Get(nameSpace, m.managerKey)
+	err = getInterface(collectionBytes, &managerMap)
+	if err != nil {
+		return nil
+	}
+	for encoded, c := range managerMap {
 		proposalEndorsements := c.Endorsements(
 			[]ConsensusVoteTopic{PROPOSAL},
 		)
