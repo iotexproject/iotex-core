@@ -89,6 +89,12 @@ func NewParams(
 		contractAddrPointer = &contractAddr
 	}
 
+	gasLimit := execution.GasLimit()
+	// Reset gas limit to the system wide action gas limit cap if it's greater than it
+	if raCtx.BlockHeight < hc.AleutianHeight && gasLimit > preAleutianActionGasLimit {
+		gasLimit = preAleutianActionGasLimit
+	}
+
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
@@ -98,14 +104,8 @@ func NewParams(
 		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp.Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
-		GasLimit:    execution.GasLimit(),
+		GasLimit:    gasLimit,
 		GasPrice:    execution.GasPrice(),
-	}
-
-	gasLimit := execution.GasLimit()
-	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if raCtx.BlockHeight < hc.AleutianHeight && gasLimit > preAleutianActionGasLimit {
-		gasLimit = preAleutianActionGasLimit
 	}
 
 	return &Params{
