@@ -1388,7 +1388,7 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 func (bc *blockchain) updateAleutianEpochRewardAmount(ctx context.Context, ws factory.WorkingSet) error {
 	p, ok := bc.registry.Find(rewarding.ProtocolID)
 	if !ok {
-		return errors.New("rewarding protocol isn't found")
+		return nil
 	}
 	rp, ok := p.(*rewarding.Protocol)
 	if !ok {
