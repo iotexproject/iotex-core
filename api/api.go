@@ -82,7 +82,7 @@ type Server struct {
 	broadcastHandler BroadcastOutbound
 	cfg              config.Config
 	registry         *protocol.Registry
-	blockListener    *blockListener
+	chainListener    Listener
 	grpcserver       *grpc.Server
 	hasActionIndex   bool
 }
@@ -119,7 +119,7 @@ func NewServer(
 		broadcastHandler: apiCfg.broadcastHandler,
 		cfg:              cfg,
 		registry:         registry,
-		blockListener:    newBlockListener(),
+		chainListener:    NewChainListener(),
 		gs:               gasstation.NewGasStation(chain, cfg.API),
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
@@ -509,7 +509,7 @@ func (api *Server) GetRawBlocks(
 // StreamBlocks streams blocks
 func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
 	errChan := make(chan error)
-	if err := api.blockListener.AddStream(stream, errChan); err != nil {
+	if err := api.chainListener.AddResponder(NewBlockListener(stream, errChan)); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
 
@@ -539,11 +539,11 @@ func (api *Server) Start() error {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
 	}()
-	if err := api.bc.AddSubscriber(api.blockListener); err != nil {
+	if err := api.bc.AddSubscriber(api.chainListener); err != nil {
 		return errors.Wrap(err, "failed to subscribe to block creations")
 	}
-	if err := api.blockListener.Start(); err != nil {
-		return errors.Wrap(err, "failed to start block listener")
+	if err := api.chainListener.Start(); err != nil {
+		return errors.Wrap(err, "failed to start blockchain listener")
 	}
 	return nil
 }
@@ -551,10 +551,10 @@ func (api *Server) Start() error {
 // Stop stops the API server
 func (api *Server) Stop() error {
 	api.grpcserver.Stop()
-	if err := api.bc.RemoveSubscriber(api.blockListener); err != nil {
-		return errors.Wrap(err, "failed to unsubscribe block listener")
+	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
+		return errors.Wrap(err, "failed to unsubscribe blockchain listener")
 	}
-	return api.blockListener.Stop()
+	return api.chainListener.Stop()
 }
 
 func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
