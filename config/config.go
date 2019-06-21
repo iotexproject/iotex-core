@@ -103,7 +103,7 @@ var (
 			CompressBlock:                 false,
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
-			PollInitialCandidatesInterval: 3 * time.Second,
+			PollInitialCandidatesInterval: 10 * time.Second,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
