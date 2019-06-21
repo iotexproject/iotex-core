@@ -46,4 +46,6 @@ type ServiceClient interface {
 	GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBlocksRequest, opts ...grpc.CallOption) (*iotexapi.GetRawBlocksResponse, error)
 	// get block info in stream
 	StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error)
+	// get filtered logs in stream
+	StreamFilterLogs(ctx context.Context, in *iotexapi.FilterLogsRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamFilterLogsClient, error)
 }

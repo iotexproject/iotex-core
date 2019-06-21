@@ -524,6 +524,56 @@ func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexap
 	}
 }
 
+// StreamFilterLogs streams logs that match the filter condition
+func (api *Server) StreamFilterLogs(in *iotexapi.FilterLogsRequest, stream iotexapi.APIService_StreamFilterLogsServer) error {
+	if len(in.BlockHash) > 0 {
+		// query logs in a specific block
+		blk, err := api.bc.GetBlockByHash(hash.BytesToHash256(in.BlockHash))
+		if err != nil {
+			return status.Error(codes.InvalidArgument, err.Error())
+		}
+		filter := NewLogFilter(in, stream, make(chan error))
+		return filter.Respond(blk)
+	}
+
+	if in.ToBlock != 0 && in.FromBlock > in.ToBlock {
+		return status.Error(codes.InvalidArgument, "start block > end block")
+	}
+
+	endBlock := in.ToBlock
+	errChan := make(chan error)
+	filter := NewLogFilter(in, stream, errChan)
+	if in.ToBlock == 0 {
+		// register the log filter so it will match logs in new blocks
+		if err := api.chainListener.AddResponder(filter); err != nil {
+			return status.Error(codes.Internal, err.Error())
+		}
+		endBlock = api.bc.TipHeight()
+	}
+
+	// filter logs within fromBlock --> endBlock
+	for i := in.FromBlock; i < endBlock; i++ {
+		blk, err := api.bc.GetBlockByHeight(i)
+		if err != nil {
+			return status.Error(codes.InvalidArgument, err.Error())
+		}
+		filter.Respond(blk)
+	}
+
+	if in.ToBlock == 0 {
+		for {
+			select {
+			case err := <-errChan:
+				if err != nil {
+					err = status.Error(codes.Aborted, err.Error())
+				}
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Start starts the API server
 func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.API.Port)

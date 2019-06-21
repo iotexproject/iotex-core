@@ -34,8 +34,7 @@ func (bl *blockListener) Respond(blk *block.Block) error {
 		Receipts: receiptsPb,
 	}
 	// send blockInfo thru streaming API
-	err := bl.stream.Send(&iotexapi.StreamBlocksResponse{Block: blockInfo})
-	if err != nil {
+	if err := bl.stream.Send(&iotexapi.StreamBlocksResponse{Block: blockInfo}); err != nil {
 		log.L().Info(
 			"Error when streaming the block",
 			zap.Uint64("height", blockInfo.GetBlock().GetHeader().GetCore().GetHeight()),
@@ -43,7 +42,7 @@ func (bl *blockListener) Respond(blk *block.Block) error {
 		)
 		bl.errChan <- err
 	}
-	return err
+	return nil
 }
 
 // Exit send to error channel
