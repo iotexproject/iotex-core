@@ -13,6 +13,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -252,13 +253,12 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	timeDuration := blks[len(blks)-1].Timestamp.GetSeconds() - blks[0].Timestamp.GetSeconds()
-	// if time duration is less than 1 second, we set it to be 1 second
-	if timeDuration < 1 {
-		timeDuration = 1
-	}
-
-	tps := numActions / timeDuration
+	t1 := time.Unix(blks[0].Timestamp.GetSeconds(), int64(blks[0].Timestamp.GetNanos()))
+	t2 := time.Unix(blks[len(blks)-1].Timestamp.GetSeconds(), int64(blks[len(blks)-1].Timestamp.GetNanos()))
+	// duration of time difference in milli-seconds
+	// TODO: use config.Genesis.BlockInterval after PR1289 merges
+	timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
+	tps := float32(numActions*1000) / float32(timeDiff)
 
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
