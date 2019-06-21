@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -23,7 +22,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
@@ -198,28 +196,4 @@ func sendAction(elp action.Envelope, signer string) error {
 	fmt.Println("Action has been sent to blockchain.")
 	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", hex.EncodeToString(shash[:]))
 	return nil
-}
-
-func amountTransfer(contract address.Address, amount *big.Int) (*big.Int, error) {
-	decimalBytecode, err := hex.DecodeString("313ce567")
-	if err != nil {
-		return nil, err
-	}
-	output, err := read(contract, decimalBytecode)
-	if err != nil {
-		return nil, err
-	}
-	var decimal int64
-	if output != "" {
-		decimal, err = strconv.ParseInt(output, 16, 8)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		decimal = 0
-	}
-	for index := int64(0); index < decimal; index++ {
-		amount.Mul(amount, big.NewInt(10))
-	}
-	return amount, nil
 }
