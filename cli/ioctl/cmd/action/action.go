@@ -12,13 +12,11 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"syscall"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -145,12 +143,12 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 
 func sendAction(elp action.Envelope, signer string) error {
 	fmt.Printf("Enter password #%s:\n", signer)
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return err
 	}
-	prvKey, err := account.KsAccountToPrivateKey(signer, string(bytePassword))
+	prvKey, err := account.KsAccountToPrivateKey(signer, password)
 	if err != nil {
 		return err
 	}
