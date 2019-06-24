@@ -1567,7 +1567,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		return nil, nil, err
 	}
 	sf.AddActionHandlers(acc, evm, r)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(acc, evm, r)
 
 	return bc, &registry, nil
@@ -1578,7 +1578,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 	if err != nil {
 		return nil, err
 	}
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	ap.AddActionValidators(execution.NewProtocol(bc, 0, 0))
 
 	return ap, nil
@@ -1598,6 +1598,7 @@ func newConfig() config.Config {
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
+	cfg.API.RangeQueryLimit = 100
 	return cfg
 }
 
@@ -1636,12 +1637,11 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		}
 	}
 
-	apiCfg := config.API{TpsWindow: cfg.API.TpsWindow, GasStation: cfg.API.GasStation, RangeQueryLimit: 100}
 	svr := &Server{
 		bc:             bc,
 		ap:             ap,
-		cfg:            apiCfg,
-		gs:             gasstation.NewGasStation(bc, apiCfg, config.Default.Genesis.ActionGasLimit),
+		cfg:            cfg,
+		gs:             gasstation.NewGasStation(bc, cfg.API),
 		registry:       registry,
 		hasActionIndex: true,
 	}

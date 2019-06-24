@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -32,7 +31,7 @@ import (
 
 func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
-	require.NotNil(NewGasStation(nil, config.Default.API, 0))
+	require.NotNil(NewGasStation(nil, config.Default.API))
 }
 func TestSuggestGasPriceForUserAction(t *testing.T) {
 	ctx := context.Background()
@@ -48,7 +47,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	blkMemDao := blockchain.InMemDaoOption()
 	blkRegistryOption := blockchain.RegistryOption(&registry)
 	bc := blockchain.NewBlockchain(cfg, blkState, blkMemDao, blkRegistryOption)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	exec := execution.NewProtocol(bc, 0, 0)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
@@ -99,7 +98,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, cfg.API, cfg.Genesis.ActionGasLimit)
+	gs := NewGasStation(bc, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -122,7 +121,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	blkMemDao := blockchain.InMemDaoOption()
 	blkRegistryOption := blockchain.RegistryOption(&registry)
 	bc := blockchain.NewBlockchain(cfg, blkState, blkMemDao, blkRegistryOption)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	exec := execution.NewProtocol(bc, 0, 0)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
@@ -155,7 +154,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, cfg.API, cfg.Genesis.ActionGasLimit)
+	gs := NewGasStation(bc, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -173,7 +172,7 @@ func TestEstimateGasForAction(t *testing.T) {
 	bc := blockchain.NewBlockchain(cfg, blockchain.InMemDaoOption(), blockchain.InMemStateFactoryOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-	gs := NewGasStation(bc, config.Default.API, config.Default.Genesis.ActionGasLimit)
+	gs := NewGasStation(bc, config.Default.API)
 	require.NotNil(gs)
 	ret, err := gs.EstimateGasForAction(act)
 	require.NoError(err)
