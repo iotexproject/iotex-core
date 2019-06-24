@@ -33,7 +33,7 @@ func bcInfo() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("height:%d  numActions:%d  tps:%d\nepochNum:%d  epochStartHeight:%d"+
+	return fmt.Sprintf("height:%d  numActions:%d  tps:%3f\nepochNum:%d  epochStartHeight:%d"+
 		"  gravityChainStartHeight:%d", chainMeta.Height, chainMeta.NumActions, chainMeta.Tps,
 		chainMeta.Epoch.Num, chainMeta.Epoch.Height, chainMeta.Epoch.GravityChainStartHeight), nil
 }

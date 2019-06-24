@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -47,7 +46,7 @@ func TestAddSubChainActions(t *testing.T) {
 	require.NoError(t, err)
 	p := NewProtocol(bc)
 	ap.AddActionValidators(p)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
 	}()

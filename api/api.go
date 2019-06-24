@@ -13,6 +13,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -79,7 +80,7 @@ type Server struct {
 	ap               actpool.ActPool
 	gs               *gasstation.GasStation
 	broadcastHandler BroadcastOutbound
-	cfg              config.API
+	cfg              config.Config
 	registry         *protocol.Registry
 	blockListener    *blockListener
 	grpcserver       *grpc.Server
@@ -116,10 +117,10 @@ func NewServer(
 		dp:               dispatcher,
 		ap:               actPool,
 		broadcastHandler: apiCfg.broadcastHandler,
-		cfg:              cfg.API,
+		cfg:              cfg,
 		registry:         registry,
 		blockListener:    newBlockListener(),
-		gs:               gasstation.NewGasStation(chain, cfg.API, cfg.Genesis.ActionGasLimit),
+		gs:               gasstation.NewGasStation(chain, cfg.API),
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		svr.hasActionIndex = true
@@ -213,7 +214,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	blockLimit := int64(api.cfg.TpsWindow)
+	blockLimit := int64(api.cfg.API.TpsWindow)
 	if blockLimit <= 0 {
 		return nil, status.Errorf(codes.Internal, "block limit is %d", blockLimit)
 	}
@@ -252,13 +253,12 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	timeDuration := blks[len(blks)-1].Timestamp.GetSeconds() - blks[0].Timestamp.GetSeconds()
-	// if time duration is less than 1 second, we set it to be 1 second
-	if timeDuration < 1 {
-		timeDuration = 1
-	}
-
-	tps := numActions / timeDuration
+	t1 := time.Unix(blks[0].Timestamp.GetSeconds(), int64(blks[0].Timestamp.GetNanos()))
+	t2 := time.Unix(blks[len(blks)-1].Timestamp.GetSeconds(), int64(blks[len(blks)-1].Timestamp.GetNanos()))
+	// duration of time difference in milli-seconds
+	// TODO: use config.Genesis.BlockInterval after PR1289 merges
+	timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
+	tps := float32(numActions*1000) / float32(timeDiff)
 
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
@@ -349,7 +349,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		sc.Contract(),
 		caller.Nonce+1,
 		sc.Amount(),
-		api.gs.ActionGasLimit(),
+		api.cfg.Genesis.BlockGasLimit,
 		big.NewInt(0),
 		sc.Data(),
 	)
@@ -470,7 +470,7 @@ func (api *Server) GetRawBlocks(
 	ctx context.Context,
 	in *iotexapi.GetRawBlocksRequest,
 ) (*iotexapi.GetRawBlocksResponse, error) {
-	if in.Count == 0 || in.Count > api.cfg.RangeQueryLimit {
+	if in.Count == 0 || in.Count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -526,7 +526,7 @@ func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexap
 
 // Start starts the API server
 func (api *Server) Start() error {
-	portStr := ":" + strconv.Itoa(api.cfg.Port)
+	portStr := ":" + strconv.Itoa(api.cfg.API.Port)
 	lis, err := net.Listen("tcp", portStr)
 	if err != nil {
 		log.L().Error("API server failed to listen.", zap.Error(err))
@@ -604,7 +604,7 @@ func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iote
 // GetActions returns actions within the range
 // This is a workaround for the slow access issue if the start index is very big
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -670,7 +670,7 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -705,7 +705,7 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -733,7 +733,7 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -761,7 +761,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 // getBlockMetas gets block within the height range
 func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlockMetasResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 

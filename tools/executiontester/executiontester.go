@@ -46,7 +46,6 @@ func main() {
 	cfg := config.Default
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
-	cfg.Genesis.ActionGasLimit = 10000000
 	cfg.Genesis.BlockInterval = 2 * time.Second
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 	itxsvr, err := itx.NewServer(cfg)
