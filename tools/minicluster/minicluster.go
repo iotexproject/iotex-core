@@ -401,7 +401,6 @@ func newConfig(
 	cfg.API.Port = apiPort
 
 	cfg.Genesis.BlockInterval = 6 * time.Second
-	cfg.Genesis.ActionGasLimit = 10000000
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true

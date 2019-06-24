@@ -83,11 +83,11 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	// Add action validators
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	// Install protocols
 	if err := registerDefaultProtocols(cs, cfg); err != nil {
@@ -171,11 +171,11 @@ func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Opti
 	}
 	cs.ActionPool().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	cs.Blockchain().Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain(), cfg.Genesis.ActionGasLimit),
+			protocol.NewGenericValidator(cs.Blockchain()),
 		)
 	if err := registerDefaultProtocols(cs, cfg); err != nil {
 		return err

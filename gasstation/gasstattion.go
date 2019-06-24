@@ -19,17 +19,15 @@ import (
 
 // GasStation provide gas related api
 type GasStation struct {
-	bc             blockchain.Blockchain
-	cfg            config.API
-	actionGasLimit uint64
+	bc  blockchain.Blockchain
+	cfg config.API
 }
 
 // NewGasStation creates a new gas station
-func NewGasStation(bc blockchain.Blockchain, cfg config.API, limit uint64) *GasStation {
+func NewGasStation(bc blockchain.Blockchain, cfg config.API) *GasStation {
 	return &GasStation{
-		bc:             bc,
-		cfg:            cfg,
-		actionGasLimit: limit,
+		bc:  bc,
+		cfg: cfg,
 	}
 }
 
@@ -113,11 +111,6 @@ func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, er
 		return 0, err
 	}
 	return gas, nil
-}
-
-// ActionGasLimit returns the action gas limit
-func (gs *GasStation) ActionGasLimit() uint64 {
-	return gs.actionGasLimit
 }
 
 type bigIntArray []*big.Int
