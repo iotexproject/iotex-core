@@ -22,14 +22,14 @@ func TestWithRunActionsCtx(t *testing.T) {
 	require := require.New(t)
 	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	actionCtx := RunActionsCtx{1, time.Now(), 1, addr, addr, hash.ZeroHash256, 0, nil, 0, 0, nil}
+	actionCtx := RunActionsCtx{1, time.Now(), 1, addr, addr, hash.ZeroHash256, nil, 0, 0, nil}
 	require.NotNil(WithRunActionsCtx(context.Background(), actionCtx))
 }
 func TestGetRunActionsCtx(t *testing.T) {
 	require := require.New(t)
 	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	actionCtx := RunActionsCtx{1111, time.Now(), 1, addr, addr, hash.ZeroHash256, 0, nil, 0, 0, nil}
+	actionCtx := RunActionsCtx{1111, time.Now(), 1, addr, addr, hash.ZeroHash256, nil, 0, 0, nil}
 	ctx := WithRunActionsCtx(context.Background(), actionCtx)
 	require.NotNil(ctx)
 	ret, ok := GetRunActionsCtx(ctx)
@@ -40,7 +40,7 @@ func TestMustGetRunActionsCtx(t *testing.T) {
 	require := require.New(t)
 	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	actionCtx := RunActionsCtx{1111, time.Now(), 1, addr, addr, hash.ZeroHash256, 0, nil, 0, 0, nil}
+	actionCtx := RunActionsCtx{1111, time.Now(), 1, addr, addr, hash.ZeroHash256, nil, 0, 0, nil}
 	ctx := WithRunActionsCtx(context.Background(), actionCtx)
 	require.NotNil(ctx)
 	// Case I: Normal

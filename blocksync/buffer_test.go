@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -43,7 +42,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
