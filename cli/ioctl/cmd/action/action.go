@@ -133,6 +133,21 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 		log.L().Error("error when invoke an execution", zap.Error(err))
 		return
 	}
+	accountMeta, err := account.GetAccountMeta(signer)
+	if err != nil {
+		return err
+	}
+	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	if !ok {
+		return fmt.Errorf("failed to convert balance into big int")
+	}
+	cost, err := tx.Cost()
+	if err != nil {
+		return err
+	}
+	if balance.Cmp(cost) < 0 {
+		return fmt.Errorf("balance is not enough")
+	}
 	return sendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
