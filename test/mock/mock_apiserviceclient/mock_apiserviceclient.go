@@ -287,20 +287,20 @@ func (mr *MockServiceClientMockRecorder) StreamBlocks(ctx, in interface{}, opts 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamBlocks", reflect.TypeOf((*MockServiceClient)(nil).StreamBlocks), varargs...)
 }
 
-// StreamFilterLogs mocks base method
-func (m *MockServiceClient) StreamFilterLogs(ctx context.Context, in *iotexapi.FilterLogsRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamFilterLogsClient, error) {
+// StreamLogs mocks base method
+func (m *MockServiceClient) StreamLogs(ctx context.Context, in *iotexapi.StreamLogsRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamLogsClient, error) {
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "StreamFilterLogs", varargs...)
-	ret0, _ := ret[0].(iotexapi.APIService_StreamFilterLogsClient)
+	ret := m.ctrl.Call(m, "StreamLogs", varargs...)
+	ret0, _ := ret[0].(iotexapi.APIService_StreamLogsClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// StreamFilterLogs indicates an expected call of StreamFilterLogs
-func (mr *MockServiceClientMockRecorder) StreamFilterLogs(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// StreamLogs indicates an expected call of StreamLogs
+func (mr *MockServiceClientMockRecorder) StreamLogs(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamFilterLogs", reflect.TypeOf((*MockServiceClient)(nil).StreamFilterLogs), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamLogs", reflect.TypeOf((*MockServiceClient)(nil).StreamLogs), varargs...)
 }

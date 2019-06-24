@@ -13,9 +13,9 @@ import (
 
 // LogFilter contains options for contract log filtering.
 type LogFilter struct {
-	stream  iotexapi.APIService_StreamFilterLogsServer
+	stream  iotexapi.APIService_StreamLogsServer
 	errChan chan error
-	*iotexapi.FilterLogsRequest
+	*iotexapi.LogsFilter
 	// FilterLogsRequest.Topics restricts matches to particular event topics. Each event has a list
 	// of topics. Topics matches a prefix of that list. An empty element slice matches any
 	// topic. Non-empty elements represent an alternative that matches any of the
@@ -30,17 +30,17 @@ type LogFilter struct {
 }
 
 // NewLogFilter returns a new log filter
-func NewLogFilter(in *iotexapi.FilterLogsRequest, stream iotexapi.APIService_StreamFilterLogsServer, errChan chan error) Responder {
+func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer, errChan chan error) Responder {
 	return &LogFilter{
-		FilterLogsRequest: in,
-		stream:            stream,
-		errChan:           errChan,
+		stream:     stream,
+		errChan:    errChan,
+		LogsFilter: in,
 	}
 }
 
 // Respond to new block
 func (l *LogFilter) Respond(blk *block.Block) error {
-	logs := l.matchBlock(blk)
+	logs := l.MatchBlock(blk)
 	if len(logs) == 0 {
 		return nil
 	}
@@ -63,8 +63,8 @@ func (l *LogFilter) Exit() {
 	l.errChan <- nil
 }
 
-// matchBlock returns matching logs in a given block
-func (l *LogFilter) matchBlock(blk *block.Block) []*iotextypes.Log {
+// MatchBlock returns matching logs in a given block
+func (l *LogFilter) MatchBlock(blk *block.Block) []*iotextypes.Log {
 	var logs []*iotextypes.Log
 	for _, r := range blk.Receipts {
 		for _, v := range r.Logs {
@@ -79,7 +79,16 @@ func (l *LogFilter) matchBlock(blk *block.Block) []*iotextypes.Log {
 
 // match checks if a given log matches the filter
 func (l *LogFilter) match(log *iotextypes.Log) bool {
-	if l.Address != log.ContractAddress {
+	addrMatch := len(l.Address) == 0
+	if !addrMatch {
+		for _, e := range l.Address {
+			if e == log.ContractAddress {
+				addrMatch = true
+				break
+			}
+		}
+	}
+	if !addrMatch {
 		return false
 	}
 	if len(l.Topics) > len(log.Topics) {
@@ -87,7 +96,7 @@ func (l *LogFilter) match(log *iotextypes.Log) bool {
 		return false
 	}
 	if len(l.Topics) == 0 {
-		// {} or nil matches any topic list
+		// {} or nil matches any address or topic list
 		return true
 	}
 	for i, e := range l.Topics {

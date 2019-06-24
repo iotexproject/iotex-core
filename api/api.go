@@ -506,6 +506,40 @@ func (api *Server) GetRawBlocks(
 	return &iotexapi.GetRawBlocksResponse{Blocks: res}, nil
 }
 
+// GetLogs get logs filtered by contract address and topics
+func (api *Server) GetLogs(
+	ctx context.Context,
+	in *iotexapi.GetLogsRequest,
+) (*iotexapi.GetLogsResponse, error) {
+	switch {
+	case in.GetByBlock() != nil:
+		req := in.GetByBlock()
+		h, err := api.bc.GetHeightByHash(hash.BytesToHash256(req.BlockHash))
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
+		}
+		filter, ok := NewLogFilter(in.Filter, nil, nil).(*LogFilter)
+		if !ok {
+			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
+		}
+		logs, err := api.getLogsInBlock(filter, h, h)
+		return &iotexapi.GetLogsResponse{Logs: logs}, err
+	case in.GetByRange() != nil:
+		req := in.GetByRange()
+		if req.FromBlock > req.ToBlock {
+			return nil, status.Error(codes.InvalidArgument, "start block > end block")
+		}
+		filter, ok := NewLogFilter(in.Filter, nil, nil).(*LogFilter)
+		if !ok {
+			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
+		}
+		logs, err := api.getLogsInBlock(filter, req.FromBlock, req.ToBlock)
+		return &iotexapi.GetLogsResponse{Logs: logs}, err
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
+	}
+}
+
 // StreamBlocks streams blocks
 func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
 	errChan := make(chan error)
@@ -525,53 +559,22 @@ func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexap
 }
 
 // StreamFilterLogs streams logs that match the filter condition
-func (api *Server) StreamFilterLogs(in *iotexapi.FilterLogsRequest, stream iotexapi.APIService_StreamFilterLogsServer) error {
-	if len(in.BlockHash) > 0 {
-		// query logs in a specific block
-		blk, err := api.bc.GetBlockByHash(hash.BytesToHash256(in.BlockHash))
-		if err != nil {
-			return status.Error(codes.InvalidArgument, err.Error())
-		}
-		filter := NewLogFilter(in, stream, make(chan error))
-		return filter.Respond(blk)
-	}
-
-	if in.ToBlock != 0 && in.FromBlock > in.ToBlock {
-		return status.Error(codes.InvalidArgument, "start block > end block")
-	}
-
-	endBlock := in.ToBlock
+func (api *Server) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.APIService_StreamLogsServer) error {
 	errChan := make(chan error)
-	filter := NewLogFilter(in, stream, errChan)
-	if in.ToBlock == 0 {
-		// register the log filter so it will match logs in new blocks
-		if err := api.chainListener.AddResponder(filter); err != nil {
-			return status.Error(codes.Internal, err.Error())
-		}
-		endBlock = api.bc.TipHeight()
+	// register the log filter so it will match logs in new blocks
+	if err := api.chainListener.AddResponder(NewLogFilter(in.Filter, stream, errChan)); err != nil {
+		return status.Error(codes.Internal, err.Error())
 	}
 
-	// filter logs within fromBlock --> endBlock
-	for i := in.FromBlock; i < endBlock; i++ {
-		blk, err := api.bc.GetBlockByHeight(i)
-		if err != nil {
-			return status.Error(codes.InvalidArgument, err.Error())
-		}
-		filter.Respond(blk)
-	}
-
-	if in.ToBlock == 0 {
-		for {
-			select {
-			case err := <-errChan:
-				if err != nil {
-					err = status.Error(codes.Aborted, err.Error())
-				}
-				return err
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				err = status.Error(codes.Aborted, err.Error())
 			}
+			return err
 		}
 	}
-	return nil
 }
 
 // Start starts the API server
@@ -1031,4 +1034,17 @@ func getTranferAmountInBlock(blk *block.Block) *big.Int {
 		totalAmount.Add(totalAmount, transfer.Amount())
 	}
 	return totalAmount
+}
+
+func (api *Server) getLogsInBlock(filter *LogFilter, start, end uint64) ([]*iotextypes.Log, error) {
+	// filter logs within start --> end
+	var logs []*iotextypes.Log
+	for i := start; i <= end; i++ {
+		blk, err := api.bc.GetBlockByHeight(i)
+		if err != nil {
+			return logs, status.Error(codes.InvalidArgument, err.Error())
+		}
+		logs = append(logs, filter.MatchBlock(blk)...)
+	}
+	return logs, nil
 }
