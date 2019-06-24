@@ -48,8 +48,9 @@ func TestBroadcast(t *testing.T) {
 		}
 	}
 	u := func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {}
+	bootnodePort := testutil.RandomPort()
 	cfg := config.Config{
-		Network: config.Network{Host: "127.0.0.1", Port: 9999},
+		Network: config.Network{Host: "127.0.0.1", Port: bootnodePort},
 	}
 	bootnode := NewAgent(cfg, b, u)
 	require.NoError(t, bootnode.Start(ctx))
@@ -57,7 +58,7 @@ func TestBroadcast(t *testing.T) {
 		ip := net.ParseIP("127.0.0.1")
 		tcpAddr := net.TCPAddr{
 			IP:   ip,
-			Port: 9999,
+			Port: bootnodePort,
 		}
 		_, err := net.DialTCP("tcp", nil, &tcpAddr)
 		return err == nil, nil
