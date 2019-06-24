@@ -9,7 +9,6 @@ package action
 import (
 	"math/big"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
@@ -27,15 +26,15 @@ var xrc20ApproveCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		amount, ok := new(big.Int).SetString(args[1], 10)
-		if !ok {
-			return errors.Errorf("invalid XRC20 amount format %s", args[1])
-		}
-		bytecode, err := xrc20ABI.Pack("approve", spender, amount)
+		contract, err := xrc20Contract()
 		if err != nil {
 			return err
 		}
-		contract, err := xrc20Contract()
+		amount, err := parseAmount(contract, args[1])
+		if err != nil {
+			return err
+		}
+		bytecode, err := xrc20ABI.Pack("approve", spender, amount)
 		if err != nil {
 			return err
 		}

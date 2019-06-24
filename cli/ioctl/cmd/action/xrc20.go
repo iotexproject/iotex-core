@@ -7,6 +7,12 @@
 package action
 
 import (
+	"encoding/hex"
+	"fmt"
+	"math/big"
+	"strconv"
+
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -40,4 +46,36 @@ func init() {
 	Xrc20Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
 		"insecure connection for once (default false)")
 	cobra.MarkFlagRequired(Xrc20Cmd.PersistentFlags(), "contract-address")
+}
+
+func parseAmount(contract address.Address, amount string) (*big.Int, error) {
+	decimalBytecode, err := hex.DecodeString("313ce567")
+	if err != nil {
+		return nil, err
+	}
+	output, err := read(contract, decimalBytecode)
+	if err != nil {
+		return nil, err
+	}
+	var decimal int64
+	if output != "" {
+		decimal, err = strconv.ParseInt(output, 16, 8)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		decimal = int64(0)
+	}
+	amountFloat, ok := (*big.Float).SetString(new(big.Float), amount)
+	if !ok {
+		return nil, err
+	}
+	amountResultFloat := amountFloat.Mul(amountFloat, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(decimal), nil)))
+	if !amountResultFloat.IsInt() {
+		fmt.Println("Please enter appropriate amount")
+		return nil, errors.Wrap(err, "Unappropriate amount")
+	}
+	var amountResultInt *big.Int
+	amountResultInt, _ = amountResultFloat.Int(amountResultInt)
+	return amountResultInt, nil
 }
