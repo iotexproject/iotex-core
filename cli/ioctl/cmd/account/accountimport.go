@@ -9,15 +9,13 @@ package account
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -85,14 +83,10 @@ func writeToFile(alias, addr string) (string, error) {
 		alias), nil
 }
 func readPasswordFromStdin() (string, error) {
-	passwordBytes, err := terminal.ReadPassword(int(syscall.Stdin))
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
-	}
-	password := strings.TrimSpace(string(passwordBytes))
-	for i := 0; i < len(passwordBytes); i++ {
-		passwordBytes[i] = 0
 	}
 	return password, nil
 }
@@ -122,7 +116,7 @@ func accountImportKeyStore(args []string) (string, error) {
 		return "", err
 	}
 	fmt.Printf("#%s: Enter your password of keystore, which will not be exposed on the screen.\n", alias)
-	password, err := readPasswordFromStdin()
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		return "", nil
 	}

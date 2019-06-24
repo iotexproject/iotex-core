@@ -10,15 +10,21 @@ import (
 	"crypto/tls"
 	"fmt"
 	"math/big"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
@@ -108,4 +114,38 @@ func StringToIOTX(amount string) (iotx string, err error) {
 	}
 	iotx = RauToString(amountInt, 18)
 	return
+}
+
+// ReadSecretFromStdin used to safely get password input
+func ReadSecretFromStdin() (string, error) {
+	signalListener := make(chan os.Signal, 1)
+	signal.Notify(signalListener, os.Interrupt)
+	routineTerminate := make(chan struct{})
+	sta, err := terminal.GetState(1)
+	if err != nil {
+		return "", err
+	}
+	go func() {
+		for {
+			select {
+			case <-signalListener:
+				err = terminal.Restore(1, sta)
+				if err != nil {
+					log.L().Error("failed restore terminal", zap.Error(err))
+					return
+				}
+				os.Exit(130)
+			case <-routineTerminate:
+				return
+			default:
+			}
+		}
+	}()
+	bytePass, err := terminal.ReadPassword(int(syscall.Stdin))
+	close(routineTerminate)
+	if err != nil {
+		log.L().Error("failed to get password", zap.Error(err))
+		return "", err
+	}
+	return string(bytePass), nil
 }

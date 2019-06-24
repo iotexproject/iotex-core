@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
-	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
@@ -26,7 +25,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
@@ -136,19 +134,18 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 
 func newAccount(alias string, walletDir string) (string, error) {
 	fmt.Printf("#%s: Set password\n", alias)
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
-	password := string(bytePassword)
 	fmt.Printf("#%s: Enter password again\n", alias)
-	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
+	passwordAgain, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
-	if password != string(bytePassword) {
+	if password != passwordAgain {
 		return "", ErrPasswdNotMatch
 	}
 	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
@@ -166,19 +163,18 @@ func newAccount(alias string, walletDir string) (string, error) {
 
 func newAccountByKey(alias string, privateKey string, walletDir string) (string, error) {
 	fmt.Printf("#%s: Set password\n", alias)
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
-	password := string(bytePassword)
 	fmt.Printf("#%s: Enter password again\n", alias)
-	bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
+	passwordAgain, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
-	if password != string(bytePassword) {
+	if password != passwordAgain {
 		return "", ErrPasswdNotMatch
 	}
 	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
