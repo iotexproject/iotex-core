@@ -48,8 +48,6 @@ var (
 	ErrInvalidBlock = errors.New("failed to validate the block")
 	// ErrActionNonce is the error when the nonce of the action is wrong
 	ErrActionNonce = errors.New("invalid action nonce")
-	// ErrGasHigherThanLimit indicates the error of gas value
-	ErrGasHigherThanLimit = errors.New("invalid gas for action")
 	// ErrInsufficientGas indicates the error of insufficient gas value for data storage
 	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
 	// ErrBalance indicates the error of balance

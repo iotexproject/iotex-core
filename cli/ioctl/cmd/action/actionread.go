@@ -11,21 +11,23 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
-var defaultGasPrice = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
+const defaultGasLimit = uint64(20000000)
+
+var defaultGasPrice = big.NewInt(unit.Qev)
 
 // actionReadCmd represents the action read command
 var actionReadCmd = &cobra.Command{
@@ -66,7 +68,7 @@ func read(contract address.Address, bytecode []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), genesis.Default.ActionGasLimit, defaultGasPrice, bytecode)
+	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), defaultGasLimit, defaultGasPrice, bytecode)
 	if err != nil {
 		log.L().Error("cannot make an Execution instance", zap.Error(err))
 		return "", err

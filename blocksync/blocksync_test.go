@@ -28,7 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -178,7 +177,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain, genesis.Default.ActionGasLimit))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
@@ -236,7 +235,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(&registry),
 	)
 	require.NotNil(chain1)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesis.Default.ActionGasLimit))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
 	chain1.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain1.Start(ctx))
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -257,7 +256,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(&registry2),
 	)
 	require.NotNil(chain2)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesis.Default.ActionGasLimit))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
 	chain2.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain2.Start(ctx))
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -328,7 +327,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
 	)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1, genesis.Default.ActionGasLimit))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
 	chain1.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
@@ -348,7 +347,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry2),
 	)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2, genesis.Default.ActionGasLimit))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
 	chain2.Validator().AddActionValidators(account.NewProtocol(0))
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
