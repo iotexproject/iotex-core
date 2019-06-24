@@ -30,7 +30,7 @@ func TestActionProto(t *testing.T) {
 	ctx := ValidateActionsCtx{1, "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", caller}
 	c := WithValidateActionsCtx(context.Background(), ctx)
 	cm := &MockChainManager{}
-	valid := NewGenericValidator(cm, 100000)
+	valid := NewGenericValidator(cm)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	// Case I: Normal
@@ -47,23 +47,7 @@ func TestActionProto(t *testing.T) {
 		require.NoError(nselp.LoadProto(selp.Proto()))
 		require.NoError(valid.Validate(c, nselp))
 	}
-	// Case II: GasLimit higher
-	{
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
-		require.NoError(err)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
-			SetGasLimit(uint64(1000000)).
-			SetAction(v).Build()
-		selp, err := action.Sign(elp, identityset.PrivateKey(28))
-		require.NoError(err)
-		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
-		err = valid.Validate(c, nselp)
-		require.Error(err)
-		require.True(strings.Contains(err.Error(), "gas is higher than gas limit"))
-	}
-	// Case III: GasLimit lower
+	// Case II: GasLimit lower
 	{
 		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 		require.NoError(err)
@@ -79,7 +63,7 @@ func TestActionProto(t *testing.T) {
 		require.Error(err)
 		require.True(strings.Contains(err.Error(), "insufficient gas"))
 	}
-	// Case IV: Call cm Nonce err
+	// Case III: Call cm Nonce err
 	{
 		caller, err := address.FromString("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6")
 		require.NoError(err)
@@ -99,7 +83,7 @@ func TestActionProto(t *testing.T) {
 		require.Error(err)
 		require.True(strings.Contains(err.Error(), "invalid nonce value of account"))
 	}
-	// Case V: Call Nonce err
+	// Case IV: Call Nonce err
 	{
 		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)
 		require.NoError(err)

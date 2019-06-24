@@ -17,26 +17,20 @@ import (
 
 // GenericValidator is the validator for generic action verification
 type GenericValidator struct {
-	mu             sync.RWMutex
-	cm             ChainManager
-	actionGasLimit uint64
+	mu sync.RWMutex
+	cm ChainManager
 }
 
 // NewGenericValidator constructs a new genericValidator
-func NewGenericValidator(cm ChainManager, actionGasLimit uint64) *GenericValidator {
+func NewGenericValidator(cm ChainManager) *GenericValidator {
 	return &GenericValidator{
-		cm:             cm,
-		actionGasLimit: actionGasLimit,
+		cm: cm,
 	}
 }
 
 // Validate validates a generic action
 func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelope) error {
 	vaCtx := MustGetValidateActionsCtx(ctx)
-	// Reject over-gassed action
-	if act.GasLimit() > v.actionGasLimit {
-		return errors.Wrap(action.ErrGasHigherThanLimit, "gas is higher than gas limit")
-	}
 	// Reject action with insufficient gas limit
 	intrinsicGas, err := act.IntrinsicGas()
 	if intrinsicGas > act.GasLimit() || err != nil {
