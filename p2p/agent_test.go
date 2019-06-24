@@ -8,6 +8,7 @@ package p2p
 
 import (
 	"context"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -47,22 +48,41 @@ func TestBroadcast(t *testing.T) {
 		}
 	}
 	u := func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {}
+	bootnodePort := testutil.RandomPort()
 	cfg := config.Config{
-		Network: config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()},
+		Network: config.Network{Host: "127.0.0.1", Port: bootnodePort},
 	}
 	bootnode := NewAgent(cfg, b, u)
 	require.NoError(t, bootnode.Start(ctx))
-
+	require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (b bool, e error) {
+		ip := net.ParseIP("127.0.0.1")
+		tcpAddr := net.TCPAddr{
+			IP:   ip,
+			Port: bootnodePort,
+		}
+		_, err := net.DialTCP("tcp", nil, &tcpAddr)
+		return err == nil, nil
+	}))
 	for i := 0; i < n; i++ {
+		port := testutil.RandomPort()
 		cfg := config.Config{
 			Network: config.Network{
 				Host:           "127.0.0.1",
-				Port:           testutil.RandomPort(),
+				Port:           port,
 				BootstrapNodes: []string{bootnode.Self()[0].String()},
 			},
 		}
 		agent := NewAgent(cfg, b, u)
 		require.NoError(t, agent.Start(ctx))
+		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (b bool, e error) {
+			ip := net.ParseIP("127.0.0.1")
+			tcpAddr := net.TCPAddr{
+				IP:   ip,
+				Port: port,
+			}
+			_, err := net.DialTCP("tcp", nil, &tcpAddr)
+			return err == nil, nil
+		}))
 		agents = append(agents, agent)
 	}
 
