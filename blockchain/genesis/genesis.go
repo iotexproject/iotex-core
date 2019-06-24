@@ -56,14 +56,15 @@ func defaultConfig() Genesis {
 			EnableGravityChainVoting: true,
 		},
 		Rewarding: Rewarding{
-			InitBalanceStr:                 unit.ConvertIotxToRau(1200000000).String(),
+			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
 			BlockRewardStr:                 unit.ConvertIotxToRau(16).String(),
-			EpochRewardStr:                 unit.ConvertIotxToRau(300000).String(),
+			EpochRewardStr:                 unit.ConvertIotxToRau(12500).String(),
+			AleutianEpochRewardStr:         unit.ConvertIotxToRau(15000).String(),
 			NumDelegatesForEpochReward:     100,
 			ExemptAddrStrsFromEpochReward:  []string{},
-			FoundationBonusStr:             unit.ConvertIotxToRau(2880).String(),
+			FoundationBonusStr:             unit.ConvertIotxToRau(80).String(),
 			NumDelegatesForFoundationBonus: 36,
-			FoundationBonusLastEpoch:       365,
+			FoundationBonusLastEpoch:       8760,
 		},
 	}
 }
@@ -161,6 +162,8 @@ type (
 		BlockRewardStr string `yaml:"blockReward"`
 		// EpochReward is the epoch reward amount in decimal string format
 		EpochRewardStr string `yaml:"epochReward"`
+		// AleutianEpochRewardStr is the epoch reward amount in decimal string format after aleutian fork
+		AleutianEpochRewardStr string `yaml:"aleutianEpochReward"`
 		// NumDelegatesForEpochReward is the number of top candidates that will share a epoch reward
 		NumDelegatesForEpochReward uint64 `yaml:"numDelegatesForEpochReward"`
 		// ExemptAddrStrsFromEpochReward is the list of addresses in encoded string format that exempt from epoch reward
@@ -347,6 +350,15 @@ func (r *Rewarding) BlockReward() *big.Int {
 // EpochReward returns the epoch reward amount
 func (r *Rewarding) EpochReward() *big.Int {
 	val, ok := big.NewInt(0).SetString(r.EpochRewardStr, 10)
+	if !ok {
+		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
+	}
+	return val
+}
+
+// AleutianEpochReward returns the epoch reward amount after Aleutian fork
+func (r *Rewarding) AleutianEpochReward() *big.Int {
+	val, ok := big.NewInt(0).SetString(r.AleutianEpochRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting epoch reward string %s into big int", r.EpochRewardStr)
 	}
