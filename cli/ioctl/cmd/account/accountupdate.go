@@ -12,12 +12,12 @@ import (
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -25,9 +25,9 @@ import (
 
 // accountUpdateCmd represents the account update command
 var accountUpdateCmd = &cobra.Command{
-	Use:   "update (ALIAS|ADDRESS)",
+	Use:   "update [ALIAS|ADDRESS]",
 	Short: "Update password for IoTeX account",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		output, err := accountUpdate(args)
@@ -39,12 +39,15 @@ var accountUpdateCmd = &cobra.Command{
 }
 
 func accountUpdate(args []string) (string, error) {
-	account := args[0]
-	addr, err := alias.Address(account)
+	addr, err := config.GetAddress(args)
 	if err != nil {
 		return "", err
 	}
-	address, err := address.FromString(addr)
+	account, err := alias.Address(addr)
+	if err != nil {
+		return "", err
+	}
+	address, err := address.FromString(account)
 	if err != nil {
 		log.L().Error("failed to convert string into address", zap.Error(err))
 		return "", err

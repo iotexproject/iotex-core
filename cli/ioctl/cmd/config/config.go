@@ -41,10 +41,11 @@ var ConfigCmd = &cobra.Command{
 
 // Config defines the config schema
 type Config struct {
-	Wallet        string            `yaml:"wallet"`
-	Endpoint      string            `yaml:"endpoint"`
-	SecureConnect bool              `yaml:"secureConnect"`
-	Aliases       map[string]string `yaml:"aliases"`
+	Wallet         string            `yaml:"wallet"`
+	Endpoint       string            `yaml:"endpoint"`
+	SecureConnect  bool              `yaml:"secureConnect"`
+	Aliases        map[string]string `yaml:"aliases"`
+	CurrentContext string            `yaml:"currentcontext"`
 }
 
 var (
