@@ -131,21 +131,6 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 		log.L().Error("error when invoke an execution", zap.Error(err))
 		return
 	}
-	accountMeta, err := account.GetAccountMeta(signer)
-	if err != nil {
-		return err
-	}
-	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
-	if !ok {
-		return fmt.Errorf("failed to convert balance into big int")
-	}
-	cost, err := tx.Cost()
-	if err != nil {
-		return err
-	}
-	if balance.Cmp(cost) < 0 {
-		return fmt.Errorf("balance is not enough")
-	}
 	return sendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
@@ -172,6 +157,10 @@ func sendAction(elp action.Envelope, signer string) error {
 	prvKey.Zero()
 	if err != nil {
 		log.L().Error("failed to sign action", zap.Error(err))
+		return err
+	}
+	err = isBalanceEnough(signer, sealed)
+	if err != nil {
 		return err
 	}
 	selp := sealed.Proto()
@@ -209,4 +198,21 @@ func sendAction(elp action.Envelope, signer string) error {
 	fmt.Println("Action has been sent to blockchain.")
 	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", hex.EncodeToString(shash[:]))
 	return nil
+}
+func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
+	accountMeta, err := account.GetAccountMeta(address)
+	if err != nil {
+		return
+	}
+	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	if !ok {
+		err = fmt.Errorf("failed to convert balance into big int")
+		return
+	}
+	cost, err := act.Cost()
+	if balance.Cmp(cost) < 0 {
+		err = fmt.Errorf("balance is not enough")
+		return
+	}
+	return
 }
