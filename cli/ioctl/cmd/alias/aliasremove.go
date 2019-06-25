@@ -19,12 +19,16 @@ import (
 
 // aliasRemoveCmd represents the alias remove command
 var aliasRemoveCmd = &cobra.Command{
-	Use:   "remove ALIAS",
+	Use:   "remove [ALIAS]",
 	Short: "Remove alias",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := remove(args[0])
+		removeAlias, err := config.GetAddress(args)
+		if err != nil {
+			return err
+		}
+		output, err := remove(removeAlias)
 		if err == nil {
 			fmt.Println(output)
 		}

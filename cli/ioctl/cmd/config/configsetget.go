@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -23,7 +24,7 @@ const (
 )
 
 var (
-	validArgs       = []string{"endpoint", "wallet"}
+	validArgs       = []string{"endpoint", "wallet", "currentcontext"}
 	endpointCompile = regexp.MustCompile("^" + endpointPattern + "$")
 )
 
@@ -53,7 +54,7 @@ var configGetCmd = &cobra.Command{
 var configSetCmd = &cobra.Command{
 	Use:       "set VARIABLE VALUE",
 	Short:     "Set config for ioctl",
-	ValidArgs: []string{"endpoint", "wallet"},
+	ValidArgs: validArgs,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 2 {
 			return fmt.Errorf("accepts 2 arg(s), received %d,"+
@@ -89,7 +90,31 @@ func Get(arg string) (string, error) {
 			ReadConfig.SecureConnect), nil
 	case "wallet":
 		return ReadConfig.Wallet, nil
+	case "currentcontext":
+		return ReadConfig.CurrentContext, nil
 	}
+}
+
+// GetContext gets current context
+func GetContext() (string, error) {
+	currentcontext := ReadConfig.CurrentContext
+	if strings.EqualFold(currentcontext, "") {
+		return "", fmt.Errorf(`use "ioctl config set currentcontext" to config current account first`)
+	}
+	return currentcontext, nil
+}
+
+// GetAddress gets address from args or context
+func GetAddress(args []string) (address string, err error) {
+	if len(args) == 1 {
+		address = args[0]
+	} else {
+		address, err = GetContext()
+		if err != nil {
+			return
+		}
+	}
+	return
 }
 
 // make sure endpoint match pattern
@@ -110,6 +135,8 @@ func set(args []string) (string, error) {
 		ReadConfig.SecureConnect = !Insecure
 	case "wallet":
 		ReadConfig.Wallet = args[1]
+	case "currentcontext":
+		ReadConfig.CurrentContext = args[1]
 	}
 	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {

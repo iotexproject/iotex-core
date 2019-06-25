@@ -25,9 +25,9 @@ import (
 
 // accountDeleteCmd represents the account delete command
 var accountDeleteCmd = &cobra.Command{
-	Use:   "delete (ALIAS|ADDRESS)",
+	Use:   "delete [ALIAS|ADDRESS]",
 	Short: "Delete an IoTeX account/address from wallet/config",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		output, err := accountDelete(args)
@@ -39,7 +39,11 @@ var accountDeleteCmd = &cobra.Command{
 }
 
 func accountDelete(args []string) (string, error) {
-	addr, err := alias.Address(args[0])
+	addr, err := config.GetAddress(args)
+	if err != nil {
+		return "", err
+	}
+	addr, err = alias.Address(addr)
 	if err != nil {
 		return "", err
 	}
