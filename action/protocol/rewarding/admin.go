@@ -232,6 +232,28 @@ func (p *Protocol) ProductivityThreshold(_ context.Context, sm protocol.StateMan
 	return a.productivityThreshold, nil
 }
 
+// SetReward updates block or epoch reward amount
+func (p *Protocol) SetReward(
+	ctx context.Context,
+	sm protocol.StateManager,
+	amount *big.Int,
+	blockLevel bool,
+) error {
+	if err := p.assertAmount(amount); err != nil {
+		return err
+	}
+	a := admin{}
+	if err := p.state(sm, adminKey, &a); err != nil {
+		return err
+	}
+	if blockLevel {
+		a.blockReward = amount
+	} else {
+		a.epochReward = amount
+	}
+	return p.putState(sm, adminKey, &a)
+}
+
 func (p *Protocol) assertAmount(amount *big.Int) error {
 	if amount.Cmp(big.NewInt(0)) >= 0 {
 		return nil

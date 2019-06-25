@@ -9,17 +9,16 @@ package account
 import (
 	"bytes"
 	"fmt"
-	"syscall"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -55,30 +54,28 @@ func accountUpdate(args []string) (string, error) {
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(address.Bytes(), v.Address.Bytes()) {
 			fmt.Printf("#%s: Enter current password\n", account)
-			byteCurrentPassword, err := terminal.ReadPassword(int(syscall.Stdin))
+			currentPassword, err := util.ReadSecretFromStdin()
 			if err != nil {
 				log.L().Error("failed to get current password", zap.Error(err))
 				return "", err
 			}
-			currentPassword := string(byteCurrentPassword)
 			_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
 			if err != nil {
 				return "", err
 			}
 			fmt.Printf("#%s: Enter new password\n", account)
-			bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+			password, err := util.ReadSecretFromStdin()
 			if err != nil {
 				log.L().Error("failed to get password", zap.Error(err))
 				return "", err
 			}
-			password := string(bytePassword)
 			fmt.Printf("#%s: Enter new password again\n", account)
-			bytePassword, err = terminal.ReadPassword(int(syscall.Stdin))
+			passwordAgain, err := util.ReadSecretFromStdin()
 			if err != nil {
 				log.L().Error("failed to get password", zap.Error(err))
 				return "", err
 			}
-			if password != string(bytePassword) {
+			if password != passwordAgain {
 				return "", ErrPasswdNotMatch
 			}
 			if err := ks.Update(v, currentPassword, password); err != nil {

@@ -8,13 +8,12 @@ package account
 
 import (
 	"fmt"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -39,12 +38,12 @@ func accountExportPublic(args []string) (string, error) {
 		return "", err
 	}
 	fmt.Printf("Enter password #%s:\n", args[0])
-	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return "", err
 	}
-	prvKey, err := KsAccountToPrivateKey(addr, string(bytePassword))
+	prvKey, err := KsAccountToPrivateKey(addr, password)
 	if err != nil {
 		return "", err
 	}
