@@ -539,7 +539,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		}()
 		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 60*time.Second, func() (bool, error) {
 			for _, chain := range chains {
-				if chain.TipHeight() < 5 {
+				if chain.TipHeight() < 48 {
 					return false, nil
 				}
 			}
