@@ -23,7 +23,7 @@ require (
 	github.com/iotexproject/go-pkgs v0.1.1-0.20190613181553-bd03f6d4187e
 	github.com/iotexproject/iotex-address v0.2.0
 	github.com/iotexproject/iotex-election v0.1.10
-	github.com/iotexproject/iotex-proto v0.2.1-0.20190621191822-304e5c94b9b3
+	github.com/iotexproject/iotex-proto v0.2.1-0.20190625001831-d2b1e66ef4cd
 	github.com/ipfs/go-datastore v0.0.5 // indirect
 	github.com/karalabe/hid v1.0.0 // indirect
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
@@ -54,6 +54,7 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734
 	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
+	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	golang.org/x/tools v0.0.0-20190430194229-2d28432af7a5 // indirect
