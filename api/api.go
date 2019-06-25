@@ -522,18 +522,18 @@ func (api *Server) GetLogs(
 		if !ok {
 			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
 		}
-		logs, err := api.getLogsInBlock(filter, h, h)
+		logs, err := api.getLogsInBlock(filter, h, 1)
 		return &iotexapi.GetLogsResponse{Logs: logs}, err
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
-		if req.FromBlock > req.ToBlock {
-			return nil, status.Error(codes.InvalidArgument, "start block > end block")
+		if req.FromBlock > api.bc.TipHeight() {
+			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
 		}
 		filter, ok := NewLogFilter(in.Filter, nil, nil).(*LogFilter)
 		if !ok {
 			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
 		}
-		logs, err := api.getLogsInBlock(filter, req.FromBlock, req.ToBlock)
+		logs, err := api.getLogsInBlock(filter, req.FromBlock, req.Count)
 		return &iotexapi.GetLogsResponse{Logs: logs}, err
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
@@ -558,7 +558,7 @@ func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexap
 	}
 }
 
-// StreamFilterLogs streams logs that match the filter condition
+// StreamLogs streams logs that match the filter condition
 func (api *Server) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.APIService_StreamLogsServer) error {
 	errChan := make(chan error)
 	// register the log filter so it will match logs in new blocks
@@ -1036,9 +1036,13 @@ func getTranferAmountInBlock(blk *block.Block) *big.Int {
 	return totalAmount
 }
 
-func (api *Server) getLogsInBlock(filter *LogFilter, start, end uint64) ([]*iotextypes.Log, error) {
+func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*iotextypes.Log, error) {
 	// filter logs within start --> end
 	var logs []*iotextypes.Log
+	end := start + count - 1
+	if end > api.bc.TipHeight() {
+		end = api.bc.TipHeight()
+	}
 	for i := start; i <= end; i++ {
 		blk, err := api.bc.GetBlockByHeight(i)
 		if err != nil {
