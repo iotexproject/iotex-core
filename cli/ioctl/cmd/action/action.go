@@ -159,6 +159,9 @@ func sendAction(elp action.Envelope, signer string) error {
 		log.L().Error("failed to sign action", zap.Error(err))
 		return err
 	}
+	if err := isBalanceEnough(signer, sealed); err != nil {
+		return err
+	}
 	selp := sealed.Proto()
 
 	actionInfo, err := printActionProto(selp)
@@ -194,4 +197,21 @@ func sendAction(elp action.Envelope, signer string) error {
 	fmt.Println("Action has been sent to blockchain.")
 	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", hex.EncodeToString(shash[:]))
 	return nil
+}
+func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
+	accountMeta, err := account.GetAccountMeta(address)
+	if err != nil {
+		return
+	}
+	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	if !ok {
+		err = fmt.Errorf("failed to convert balance into big int")
+		return
+	}
+	cost, err := act.Cost()
+	if balance.Cmp(cost) < 0 {
+		err = fmt.Errorf("balance is not enough")
+		return
+	}
+	return
 }
