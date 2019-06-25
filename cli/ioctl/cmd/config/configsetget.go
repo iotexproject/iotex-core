@@ -14,6 +14,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 )
 
 const (
@@ -91,25 +93,25 @@ func Get(arg string) (string, error) {
 	case "wallet":
 		return ReadConfig.Wallet, nil
 	case "currentcontext":
-		return ReadConfig.CurrentContext, nil
+		return fmt.Sprint(ReadConfig.CurrentContext), nil
 	}
 }
 
 // GetContext gets current context
-func GetContext() (string, error) {
+func GetContextAddressOrAlias() (string, error) {
 	currentcontext := ReadConfig.CurrentContext
-	if strings.EqualFold(currentcontext, "") {
-		return "", fmt.Errorf(`use "ioctl config set currentcontext" to config current account first`)
+	if strings.EqualFold(currentcontext.AddressOrAlias, "") {
+		return "", fmt.Errorf(`use "ioctl config set currentcontext address or alias" to config current account first`)
 	}
-	return currentcontext, nil
+	return currentcontext.AddressOrAlias, nil
 }
 
-// GetAddress gets address from args or context
-func GetAddress(args []string) (address string, err error) {
-	if len(args) == 1 {
+// GetAddressOrAlias gets address from args or context
+func GetAddressOrAlias(args []string) (address string, err error) {
+	if len(args) == 1 && !strings.EqualFold(args[0], "") {
 		address = args[0]
 	} else {
-		address, err = GetContext()
+		address, err = GetContextAddressOrAlias()
 		if err != nil {
 			return
 		}
@@ -136,7 +138,12 @@ func set(args []string) (string, error) {
 	case "wallet":
 		ReadConfig.Wallet = args[1]
 	case "currentcontext":
-		ReadConfig.CurrentContext = args[1]
+		err1 := validator.ValidateAlias(args[1])
+		err2 := validator.ValidateAddress(args[1])
+		if err1 != nil && err2 != nil {
+			return "", fmt.Errorf("failed to validate alias or address:%s %s", err1, err2)
+		}
+		ReadConfig.CurrentContext.AddressOrAlias = args[1]
 	}
 	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {

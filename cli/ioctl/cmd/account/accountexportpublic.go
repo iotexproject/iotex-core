@@ -12,8 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -34,11 +32,7 @@ var accountExportPublicCmd = &cobra.Command{
 }
 
 func accountExportPublic(args []string) (string, error) {
-	addr, err := config.GetAddress(args)
-	if err != nil {
-		return "", err
-	}
-	addr, err = alias.Address(addr)
+	addr, err := util.GetAddress(args)
 	if err != nil {
 		return "", err
 	}

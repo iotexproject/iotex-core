@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -38,11 +37,7 @@ var accountUpdateCmd = &cobra.Command{
 }
 
 func accountUpdate(args []string) (string, error) {
-	addr, err := config.GetAddress(args)
-	if err != nil {
-		return "", err
-	}
-	account, err := alias.Address(addr)
+	account, err := util.GetAddress(args)
 	if err != nil {
 		return "", err
 	}

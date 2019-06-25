@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/flag"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
@@ -30,8 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
-
-const defaultSigner = "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7"
 
 // Flags
 var (
@@ -67,14 +64,7 @@ func decodeBytecode() ([]byte, error) {
 }
 
 func signer() (address string, err error) {
-	address = signerFlag.Value().(string)
-	if strings.EqualFold(address, "") {
-		address, err = config.GetContext()
-		if err != nil {
-			return
-		}
-	}
-	return alias.Address(address)
+	return util.GetAddress([]string{signerFlag.Value().(string)})
 }
 
 func nonce(executor string) (uint64, error) {

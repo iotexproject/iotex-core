@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -26,7 +25,7 @@ var actionTransferCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		recipient, err := alias.Address(args[0])
+		recipient, err := util.Address(args[0])
 		if err != nil {
 			return err
 		}

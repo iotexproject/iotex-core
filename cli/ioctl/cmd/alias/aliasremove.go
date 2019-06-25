@@ -24,7 +24,7 @@ var aliasRemoveCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		removeAlias, err := config.GetAddress(args)
+		removeAlias, err := config.GetAddressOrAlias(args)
 		if err != nil {
 			return err
 		}

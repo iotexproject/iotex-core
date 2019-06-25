@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -44,12 +43,12 @@ func accountSign(args []string) (string, error) {
 		msg = args[1]
 	} else {
 		msg = args[0]
-		address, err = config.GetContext()
+		address, err = config.GetContextAddressOrAlias()
 		if err != nil {
 			return "", err
 		}
 	}
-	addr, err := alias.Address(address)
+	addr, err := util.Address(address)
 	if err != nil {
 		return "", err
 	}
