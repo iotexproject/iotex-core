@@ -97,7 +97,7 @@ func Get(arg string) (string, error) {
 	}
 }
 
-// GetContext gets current context
+// GetContextAddressOrAlias gets current context
 func GetContextAddressOrAlias() (string, error) {
 	currentcontext := ReadConfig.CurrentContext
 	if strings.EqualFold(currentcontext.AddressOrAlias, "") {
