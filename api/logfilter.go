@@ -104,10 +104,11 @@ func (l *LogFilter) match(log *iotextypes.Log) bool {
 			continue
 		}
 		target := log.Topics[i]
-		var match bool
+		match := false
 		for _, v := range e.Topic {
-			if !match && bytes.Compare(v, target) == 0 {
+			if bytes.Compare(v, target) == 0 {
 				match = true
+				break
 			}
 		}
 		if !match {
