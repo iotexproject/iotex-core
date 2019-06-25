@@ -1,0 +1,63 @@
+// Copyright (c) 2019 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:$GOPATH/src *.proto
+syntax = "proto3";
+package iotextypes;
+option go_package = "github.com/iotexproject/iotex-proto/golang/iotextypes";
+
+message Genesis {
+    GenesisBlockchain blockchain = 1;
+    GenesisAccount account = 2;
+    GenesisPoll poll = 3;
+    GenesisRewarding rewarding = 4;
+}
+
+message GenesisBlockchain {
+    int64 timestamp = 1;
+    uint64 blockGasLimit = 2;
+    uint64 actionGasLimit = 3;
+    int64 blockInterval = 4;
+    uint64 numSubEpochs = 5;
+    uint64 numDelegates = 6;
+    uint64 numCandidateDelegates = 7;
+    bool timeBasedRotation = 8;
+}
+
+message GenesisAccount {
+    repeated string initBalanceAddrs = 1;
+    repeated string initBalances = 2;
+}
+
+message GenesisPoll {
+    bool enableGravityChainVoting = 1;
+    uint64 gravityChainStartHeight = 2;
+    string registerContractAddress = 3;
+    string stakingContractAddress = 4;
+    string voteThreshold = 5;
+    string scoreThreshold = 6;
+    string selfStakingThreshold = 7;
+    repeated GenesisDelegate delegates = 8;
+}
+
+message GenesisDelegate {
+    string operatorAddr = 1;
+    string rewardAddr = 2;
+    string votes = 3;
+}
+
+message GenesisRewarding {
+    string initAdminAddr = 1;
+    string initBalance = 2;
+    string blockReward = 3;
+    string epochReward = 4;
+    uint64 numDelegatesForEpochReward = 5;
+    string foundationBonus = 6;
+    uint64 numDelegatesForFoundationBonus = 7;
+    uint64 foundationBonusLastEpoch  = 8;
+    uint64 productivityThreshold = 9;
+}

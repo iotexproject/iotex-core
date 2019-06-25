@@ -1,0 +1,228 @@
+// Copyright (c) 2018 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:$GOPATH/src *.proto
+syntax = "proto3";
+package iotextypes;
+option go_package = "github.com/iotexproject/iotex-proto/golang/iotextypes";
+
+message Transfer {
+  // used by state-based model
+  string amount  = 1;
+  string recipient = 2;
+  bytes payload  = 3;
+}
+
+// Candidates and list of candidates
+message Candidate {
+  string address = 1;
+  bytes votes = 2;
+  bytes pubKey = 3;
+  string rewardAddress = 4;
+}
+
+message CandidateList {
+  repeated Candidate candidates = 1;
+}
+
+message PutPollResult {
+  uint64 height = 1;
+  CandidateList	candidates = 2;
+}
+
+message Execution {
+  string amount  = 1;
+  string contract = 2;
+  bytes data = 3;
+}
+
+message StartSubChain {
+  // TODO: chainID chould be assigned by system and returned via a receipt
+  uint32 chainID = 1;
+  string securityDeposit = 2;
+  string operationDeposit = 3;
+  uint64 startHeight = 4;
+  uint64 parentHeightOffset = 5;
+}
+
+message StopSubChain {
+  uint32 chainID = 1;
+  uint64 stopHeight = 2;
+  string subChainAddress = 3;
+}
+
+message MerkleRoot {
+  string name = 1;
+  bytes value = 2;
+}
+
+message PutBlock {
+  string subChainAddress = 1;
+  uint64 height = 2;
+  repeated MerkleRoot roots = 3;
+}
+
+message CreateDeposit {
+  uint32 chainID = 1;
+  string amount  = 2;
+  string recipient = 3;
+}
+
+message SettleDeposit {
+  string amount  = 1;
+  string recipient = 2;
+  uint64 index = 3;
+}
+
+// plum main chain APIs
+message CreatePlumChain {
+}
+
+message TerminatePlumChain {
+  string subChainAddress = 1;
+}
+
+message PlumPutBlock {
+  string subChainAddress = 1;
+  uint64 height = 2;
+  map<string, bytes> roots = 3;
+}
+
+message PlumCreateDeposit {
+  string subChainAddress = 1;
+  string amount = 2;
+  string recipient = 3;
+}
+
+message PlumStartExit {
+  string subChainAddress = 1;
+  bytes previousTransfer = 2;
+  bytes previousTransferBlockProof = 3;
+  uint64 previousTransferBlockHeight = 4;
+  bytes exitTransfer = 5;
+  bytes exitTransferBlockProof = 6;
+  uint64 exitTransferBlockHeight = 7;
+}
+
+message PlumChallengeExit {
+  string subChainAddress = 1;
+  uint64 coinID = 2;
+  bytes challengeTransfer = 3;
+  bytes challengeTransferBlockProof = 4;
+  uint64 challengeTransferBlockHeight = 5;
+}
+
+message PlumResponseChallengeExit {
+  string subChainAddress = 1;
+  uint64 coinID = 2;
+  bytes challengeTransfer = 3;
+  bytes responseTransfer = 4;
+  bytes responseTransferBlockProof = 5;
+  uint64 previousTransferBlockHeight = 6;
+}
+
+message PlumFinalizeExit {
+  string subChainAddress = 1;
+  uint64 coinID = 2;
+}
+
+// plum sub chain APIs
+message PlumSettleDeposit {
+  uint64 coinID = 1;
+}
+
+message PlumTransfer {
+  uint64 coinID = 1;
+  bytes denomination = 2;
+  string owner = 3;
+  string recipient = 4;
+}
+
+message ActionCore {
+  uint32 version = 1;
+  uint64 nonce = 2;
+  uint64 gasLimit = 3;
+  string gasPrice = 4;
+  oneof action {
+    Transfer transfer = 10;
+    Execution execution = 12;
+    // FedChain
+    StartSubChain startSubChain = 13;
+    StopSubChain stopSubChain = 14;
+    PutBlock putBlock = 15;
+    CreateDeposit createDeposit = 16;
+    SettleDeposit settleDeposit = 17;
+
+    // PlumChain
+    CreatePlumChain createPlumChain = 18;
+    TerminatePlumChain terminatePlumChain = 19;
+    PlumPutBlock plumPutBlock = 20;
+    PlumCreateDeposit plumCreateDeposit = 21;
+    PlumStartExit plumStartExit = 22;
+    PlumChallengeExit plumChallengeExit = 23;
+    PlumResponseChallengeExit plumResponseChallengeExit = 24;
+    PlumFinalizeExit plumFinalizeExit = 25;
+    PlumSettleDeposit plumSettleDeposit = 26;
+    PlumTransfer plumTransfer = 27;
+
+    // Rewarding protocol actions
+    DepositToRewardingFund depositToRewardingFund = 30;
+    ClaimFromRewardingFund claimFromRewardingFund = 31;
+    GrantReward grantReward = 32;
+
+    PutPollResult putPollResult = 50;
+  }
+}
+
+message Action {
+  ActionCore core = 1;
+  bytes senderPubKey = 2;
+  bytes signature = 3;
+}
+
+message Receipt {
+  uint64 status = 1;
+  uint64 blkHeight = 2;
+  bytes actHash = 3;
+  uint64 gasConsumed = 4;
+  string contractAddress = 5;
+  repeated Log logs = 6;
+}
+
+message Log{
+  string contractAddress = 1;
+  repeated bytes topics = 2;
+  bytes data = 3;
+  uint64 blkHeight = 4;
+  bytes actHash = 5;
+  uint32 index = 6;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// BELOW ARE DEFINITIONS FOR BLOCK PRODUCER PROTOCOL
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+message DepositToRewardingFund {
+  string amount = 1;
+  bytes data = 2;
+}
+
+message ClaimFromRewardingFund {
+  string amount = 1;
+  bytes data = 2;
+}
+
+enum RewardType {
+  BlockReward = 0;
+  EpochReward = 1;
+}
+
+message GrantReward {
+  RewardType type = 1;
+  uint64 height = 2;
+}

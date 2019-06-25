@@ -1,0 +1,27 @@
+syntax="proto3";
+
+package rolldpos;
+
+import "types/endorsement.proto";
+import "types/blockchain.proto";
+
+option go_package="rolldpos";
+
+message endorserEndorsementCollection{
+    string endorser = 1;
+    repeated uint32 topics = 2;
+    repeated iotextypes.Endorsement endorsements = 3;
+}
+
+message blockEndorsementCollection{
+    iotextypes.Block blk=2;
+    repeated endorserEndorsementCollection blockMap=3;
+}
+
+message managerCollection{
+    repeated blockEndorsementCollection blockEndorsements=1;
+}
+
+
+
+
