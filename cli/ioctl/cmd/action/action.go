@@ -160,7 +160,6 @@ func sendAction(elp action.Envelope, signer string) error {
 		return err
 	}
 	if err := isBalanceEnough(signer, sealed); err != nil {
-	if err != nil {
 		return err
 	}
 	selp := sealed.Proto()
