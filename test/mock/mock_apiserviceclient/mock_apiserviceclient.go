@@ -269,6 +269,24 @@ func (mr *MockServiceClientMockRecorder) GetRawBlocks(ctx, in interface{}, opts 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRawBlocks", reflect.TypeOf((*MockServiceClient)(nil).GetRawBlocks), varargs...)
 }
 
+// GetLogs mocks base method
+func (m *MockServiceClient) GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest, opts ...grpc.CallOption) (*iotexapi.GetLogsResponse, error) {
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetLogs", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetLogsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLogs indicates an expected call of GetLogs
+func (mr *MockServiceClientMockRecorder) GetLogs(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogs", reflect.TypeOf((*MockServiceClient)(nil).GetLogs), varargs...)
+}
+
 // StreamBlocks mocks base method
 func (m *MockServiceClient) StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error) {
 	varargs := []interface{}{ctx, in}
