@@ -100,7 +100,7 @@ func (l *LogFilter) match(log *iotextypes.Log) bool {
 		return true
 	}
 	for i, e := range l.Topics {
-		if len(e.Topic) == 0 {
+		if e == nil || len(e.Topic) == 0 {
 			continue
 		}
 		target := log.Topics[i]
