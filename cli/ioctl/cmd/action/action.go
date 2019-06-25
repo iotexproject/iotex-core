@@ -159,7 +159,7 @@ func sendAction(elp action.Envelope, signer string) error {
 		log.L().Error("failed to sign action", zap.Error(err))
 		return err
 	}
-	err = isBalanceEnough(signer, sealed)
+	if err := isBalanceEnough(signer, sealed); err != nil {
 	if err != nil {
 		return err
 	}
