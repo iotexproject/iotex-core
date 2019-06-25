@@ -82,7 +82,7 @@ type Server struct {
 	broadcastHandler BroadcastOutbound
 	cfg              config.Config
 	registry         *protocol.Registry
-	blockListener    *blockListener
+	chainListener    Listener
 	grpcserver       *grpc.Server
 	hasActionIndex   bool
 }
@@ -119,7 +119,7 @@ func NewServer(
 		broadcastHandler: apiCfg.broadcastHandler,
 		cfg:              cfg,
 		registry:         registry,
-		blockListener:    newBlockListener(),
+		chainListener:    NewChainListener(),
 		gs:               gasstation.NewGasStation(chain, cfg.API),
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
@@ -506,10 +506,63 @@ func (api *Server) GetRawBlocks(
 	return &iotexapi.GetRawBlocksResponse{Blocks: res}, nil
 }
 
+// GetLogs get logs filtered by contract address and topics
+func (api *Server) GetLogs(
+	ctx context.Context,
+	in *iotexapi.GetLogsRequest,
+) (*iotexapi.GetLogsResponse, error) {
+	switch {
+	case in.GetByBlock() != nil:
+		req := in.GetByBlock()
+		h, err := api.bc.GetHeightByHash(hash.BytesToHash256(req.BlockHash))
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
+		}
+		filter, ok := NewLogFilter(in.Filter, nil, nil).(*LogFilter)
+		if !ok {
+			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
+		}
+		logs, err := api.getLogsInBlock(filter, h, 1)
+		return &iotexapi.GetLogsResponse{Logs: logs}, err
+	case in.GetByRange() != nil:
+		req := in.GetByRange()
+		if req.FromBlock > api.bc.TipHeight() {
+			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
+		}
+		filter, ok := NewLogFilter(in.Filter, nil, nil).(*LogFilter)
+		if !ok {
+			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
+		}
+		logs, err := api.getLogsInBlock(filter, req.FromBlock, req.Count)
+		return &iotexapi.GetLogsResponse{Logs: logs}, err
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
+	}
+}
+
 // StreamBlocks streams blocks
 func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
 	errChan := make(chan error)
-	if err := api.blockListener.AddStream(stream, errChan); err != nil {
+	if err := api.chainListener.AddResponder(NewBlockListener(stream, errChan)); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				err = status.Error(codes.Aborted, err.Error())
+			}
+			return err
+		}
+	}
+}
+
+// StreamLogs streams logs that match the filter condition
+func (api *Server) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.APIService_StreamLogsServer) error {
+	errChan := make(chan error)
+	// register the log filter so it will match logs in new blocks
+	if err := api.chainListener.AddResponder(NewLogFilter(in.Filter, stream, errChan)); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
 
@@ -539,11 +592,11 @@ func (api *Server) Start() error {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
 	}()
-	if err := api.bc.AddSubscriber(api.blockListener); err != nil {
+	if err := api.bc.AddSubscriber(api.chainListener); err != nil {
 		return errors.Wrap(err, "failed to subscribe to block creations")
 	}
-	if err := api.blockListener.Start(); err != nil {
-		return errors.Wrap(err, "failed to start block listener")
+	if err := api.chainListener.Start(); err != nil {
+		return errors.Wrap(err, "failed to start blockchain listener")
 	}
 	return nil
 }
@@ -551,10 +604,10 @@ func (api *Server) Start() error {
 // Stop stops the API server
 func (api *Server) Stop() error {
 	api.grpcserver.Stop()
-	if err := api.bc.RemoveSubscriber(api.blockListener); err != nil {
-		return errors.Wrap(err, "failed to unsubscribe block listener")
+	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
+		return errors.Wrap(err, "failed to unsubscribe blockchain listener")
 	}
-	return api.blockListener.Stop()
+	return api.chainListener.Stop()
 }
 
 func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
@@ -981,4 +1034,21 @@ func getTranferAmountInBlock(blk *block.Block) *big.Int {
 		totalAmount.Add(totalAmount, transfer.Amount())
 	}
 	return totalAmount
+}
+
+func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*iotextypes.Log, error) {
+	// filter logs within start --> end
+	var logs []*iotextypes.Log
+	end := start + count - 1
+	if end > api.bc.TipHeight() {
+		end = api.bc.TipHeight()
+	}
+	for i := start; i <= end; i++ {
+		blk, err := api.bc.GetBlockByHeight(i)
+		if err != nil {
+			return logs, status.Error(codes.InvalidArgument, err.Error())
+		}
+		logs = append(logs, filter.MatchBlock(blk)...)
+	}
+	return logs, nil
 }

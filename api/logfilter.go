@@ -1,0 +1,119 @@
+package api
+
+import (
+	"bytes"
+
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/pkg/log"
+)
+
+// LogFilter contains options for contract log filtering.
+type LogFilter struct {
+	stream  iotexapi.APIService_StreamLogsServer
+	errChan chan error
+	*iotexapi.LogsFilter
+	// FilterLogsRequest.Topics restricts matches to particular event topics. Each event has a list
+	// of topics. Topics matches a prefix of that list. An empty element slice matches any
+	// topic. Non-empty elements represent an alternative that matches any of the
+	// contained topics.
+	//
+	// Examples:
+	// {} or nil          matches any topic list
+	// {{A}}              matches topic A in first position
+	// {{}, {B}}          matches any topic in first position, B in second position
+	// {{A}, {B}}         matches topic A in first position, B in second position
+	// {{A, B}}, {C, D}}  matches topic (A OR B) in first position, (C OR D) in second position
+}
+
+// NewLogFilter returns a new log filter
+func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer, errChan chan error) Responder {
+	return &LogFilter{
+		stream:     stream,
+		errChan:    errChan,
+		LogsFilter: in,
+	}
+}
+
+// Respond to new block
+func (l *LogFilter) Respond(blk *block.Block) error {
+	logs := l.MatchBlock(blk)
+	if len(logs) == 0 {
+		return nil
+	}
+	// send matched logs thru streaming API
+	for _, e := range logs {
+		err := l.stream.Send(e)
+		if err != nil {
+			l.errChan <- err
+			log.L().Info("error streaming the log",
+				zap.Uint64("height", e.BlkHeight),
+				zap.Error(err))
+			return err
+		}
+	}
+	return nil
+}
+
+// Exit send to error channel
+func (l *LogFilter) Exit() {
+	l.errChan <- nil
+}
+
+// MatchBlock returns matching logs in a given block
+func (l *LogFilter) MatchBlock(blk *block.Block) []*iotextypes.Log {
+	var logs []*iotextypes.Log
+	for _, r := range blk.Receipts {
+		for _, v := range r.Logs {
+			log := v.ConvertToLogPb()
+			if l.match(log) {
+				logs = append(logs, log)
+			}
+		}
+	}
+	return logs
+}
+
+// match checks if a given log matches the filter
+func (l *LogFilter) match(log *iotextypes.Log) bool {
+	addrMatch := len(l.Address) == 0
+	if !addrMatch {
+		for _, e := range l.Address {
+			if e == log.ContractAddress {
+				addrMatch = true
+				break
+			}
+		}
+	}
+	if !addrMatch {
+		return false
+	}
+	if len(l.Topics) > len(log.Topics) {
+		// trying to match a prefix of log's topic list, so topics longer than that is consider invalid
+		return false
+	}
+	if len(l.Topics) == 0 {
+		// {} or nil matches any address or topic list
+		return true
+	}
+	for i, e := range l.Topics {
+		if e == nil || len(e.Topic) == 0 {
+			continue
+		}
+		target := log.Topics[i]
+		match := false
+		for _, v := range e.Topic {
+			if bytes.Compare(v, target) == 0 {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	return true
+}
