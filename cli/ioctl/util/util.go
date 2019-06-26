@@ -157,9 +157,6 @@ func GetAddress(args []string) (addr string, err error) {
 		return
 	}
 	addr, err = Address(addr)
-	if err != nil {
-		return
-	}
 	return
 }
 

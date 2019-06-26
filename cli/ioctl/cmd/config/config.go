@@ -50,7 +50,7 @@ type Config struct {
 	Endpoint       string            `yaml:"endpoint"`
 	SecureConnect  bool              `yaml:"secureConnect"`
 	Aliases        map[string]string `yaml:"aliases"`
-	CurrentContext Context           `yaml:"currentcontext"`
+	CurrentContext Context           `yaml:"currentContext"`
 }
 
 var (

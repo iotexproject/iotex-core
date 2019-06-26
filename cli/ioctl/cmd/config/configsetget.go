@@ -112,9 +112,6 @@ func GetAddressOrAlias(args []string) (address string, err error) {
 		address = args[0]
 	} else {
 		address, err = GetContextAddressOrAlias()
-		if err != nil {
-			return
-		}
 	}
 	return
 }
