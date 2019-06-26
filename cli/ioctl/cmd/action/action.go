@@ -63,7 +63,7 @@ func init() {
 }
 
 func decodeBytecode() ([]byte, error) {
-	return hex.DecodeString(strings.TrimLeft(bytecodeFlag.Value().(string), "0x"))
+	return hex.DecodeString(strings.TrimPrefix(bytecodeFlag.Value().(string), "0x"))
 }
 
 func signer() (string, error) {
