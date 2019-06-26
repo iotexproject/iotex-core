@@ -473,6 +473,7 @@ func (ctx *rollDPoSCtx) Broadcast(endorsedMsg interface{}) {
 	ecm, ok := endorsedMsg.(*EndorsedConsensusMessage)
 	if !ok {
 		ctx.loggerWithStats().Error("invalid message type", zap.Any("message", ecm))
+		return
 	}
 	msg, err := ecm.Proto()
 	if err != nil {

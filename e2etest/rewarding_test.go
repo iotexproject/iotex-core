@@ -610,10 +610,10 @@ func newConfig(
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 120 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 90 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 90 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 30 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.CommitTTL = 10 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 200 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 100 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 100 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.CommitTTL = 100 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
@@ -625,7 +625,7 @@ func newConfig(
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[0:numNodes]
 
-	cfg.Genesis.BlockInterval = 300 * time.Millisecond
+	cfg.Genesis.BlockInterval = 500 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
 	return cfg

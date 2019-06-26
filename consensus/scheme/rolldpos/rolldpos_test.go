@@ -354,15 +354,15 @@ func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 400 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 200 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 200 * time.Millisecond
-		cfg.Consensus.RollDPoS.FSM.CommitTTL = 200 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 800 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 400 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 400 * time.Millisecond
+		cfg.Consensus.RollDPoS.FSM.CommitTTL = 400 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.UnmatchedEventTTL = time.Second
 		cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 10 * time.Millisecond
 		cfg.Consensus.RollDPoS.ToleratedOvertime = 200 * time.Millisecond
 
-		cfg.Genesis.BlockInterval = time.Second
+		cfg.Genesis.BlockInterval = 2 * time.Second
 		cfg.Genesis.Blockchain.NumDelegates = uint64(numNodes)
 		cfg.Genesis.Blockchain.NumSubEpochs = 1
 		cfg.Genesis.EnableGravityChainVoting = false
@@ -537,7 +537,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 60*time.Second, func() (bool, error) {
+		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 100*time.Second, func() (bool, error) {
 			for _, chain := range chains {
 				if chain.TipHeight() < 48 {
 					return false, nil
@@ -675,7 +675,17 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, chains[i].Stop(ctx))
 			}
 		}()
-		time.Sleep(5 * time.Second)
+		assert.NoError(t, testutil.WaitUntil(200*time.Millisecond, 60*time.Second, func() (bool, error) {
+			for i, chain := range chains {
+				if i == 0 {
+					continue
+				}
+				if chain.TipHeight() < 2 {
+					return false, nil
+				}
+			}
+			return true, nil
+		}))
 		for i, chain := range chains {
 			header, err := chain.BlockHeaderByHeight(1)
 			if i == 0 {
