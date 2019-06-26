@@ -53,7 +53,7 @@ var (
 	// ErrReceipt indicates the error of receipt
 	ErrReceipt = errors.New("invalid receipt")
 	// ErrAction indicates the error of action
-	ErrAction = errors.New("invalid action")
+	ErrAction        = errors.New("invalid action")
 	candidateNameLen = 12
 )
 
