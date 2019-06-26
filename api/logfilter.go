@@ -46,8 +46,7 @@ func (l *LogFilter) Respond(blk *block.Block) error {
 	}
 	// send matched logs thru streaming API
 	for _, e := range logs {
-		err := l.stream.Send(e)
-		if err != nil {
+		if err := l.stream.Send(&iotexapi.StreamLogsResponse{Log: e}); err != nil {
 			l.errChan <- err
 			log.L().Info("error streaming the log",
 				zap.Uint64("height", e.BlkHeight),
