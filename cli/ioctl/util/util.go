@@ -149,3 +149,28 @@ func ReadSecretFromStdin() (string, error) {
 	}
 	return string(bytePass), nil
 }
+
+// GetAddress get address from address or alias
+func GetAddress(args []string) (addr string, err error) {
+	addr, err = config.GetAddressOrAlias(args)
+	if err != nil {
+		return
+	}
+	addr, err = Address(addr)
+	return
+}
+
+// Address returns the address corresponding to alias. if 'in' is an IoTeX address, returns 'in'
+func Address(in string) (string, error) {
+	if len(in) >= validator.IoAddrLen {
+		if err := validator.ValidateAddress(in); err != nil {
+			return "", err
+		}
+		return in, nil
+	}
+	addr, ok := config.ReadConfig.Aliases[in]
+	if ok {
+		return addr, nil
+	}
+	return "", fmt.Errorf("cannot find address from " + in)
+}

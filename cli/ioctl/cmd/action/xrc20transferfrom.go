@@ -15,7 +15,7 @@ import (
 // xrc20TransferFromCmd could transfer from owner address to target address
 var xrc20TransferFromCmd = &cobra.Command{
 	Use: "transferFrom (ALIAS|OWNER_ADDRESS) (ALIAS|RECIPIENT_ADDRESS) AMOUNT" +
-		" -c (ALIAS|CONTRACT_ADDRESS) -s SIGNER [-l GAS_LIMIT] [-p GAS_PRICE]",
+		" -c (ALIAS|CONTRACT_ADDRESS) [-s SIGNER] [-l GAS_LIMIT] [-p GAS_PRICE]",
 	Short: "Send amount of tokens from owner address to target address",
 	Args:  cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -60,11 +60,7 @@ func init() {
 
 // read reads smart contract on IoTeX blockchain
 func read(contract address.Address, bytecode []byte) (string, error) {
-	signer := signerFlag.Value().(string)
-	if len(signer) == 0 {
-		signer = defaultSigner
-	}
-	caller, err := alias.Address(signer)
+	caller, err := signer()
 	if err != nil {
 		return "", err
 	}

@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 )
 
@@ -34,7 +33,7 @@ var accountEthaddrCmd = &cobra.Command{
 
 func accountEthaddr(args []string) (string, error) {
 	var ethAddress common.Address
-	ioAddr, err := alias.Address(args[0])
+	ioAddr, err := util.Address(args[0])
 	if err != nil {
 		if ok := common.IsHexAddress(args[0]); !ok {
 			return "", fmt.Errorf("invalid input")
