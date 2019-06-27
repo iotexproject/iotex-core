@@ -27,6 +27,6 @@ var (
 	ErrGasPrice = errors.New("invalid gas price")
 	// ErrVotee indicates the error of votee
 	ErrVotee = errors.New("votee is not a candidate")
-	// ErrHash indicates the error of action's hash
-	ErrHash = errors.New("invalid hash")
+	// ErrNotFound indicates the nonexistence of action
+	ErrNotFound = errors.New("action not found")
 )
