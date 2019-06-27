@@ -69,6 +69,7 @@ func TestSnapshot(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	testSnapshot(ws, t)
+	testRevert(ws, t)
 }
 
 func TestSDBSnapshot(t *testing.T) {
@@ -84,8 +85,68 @@ func TestSDBSnapshot(t *testing.T) {
 	ws, err := sdb.NewWorkingSet()
 	require.NoError(err)
 	testSnapshot(ws, t)
+	testSDBRevert(ws, t)
 }
+func testRevert(ws WorkingSet, t *testing.T) {
+	require := require.New(t)
+	addr := identityset.Address(28).String()
+	_, err := accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(5))
+	require.NoError(err)
+	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
+	s, err := accountutil.LoadAccount(ws, sHash)
+	require.NoError(err)
+	require.Equal(big.NewInt(5), s.Balance)
+	s0 := ws.Snapshot()
+	require.Equal(1, s0)
+
+	h0 := ws.RootHash()
+	require.NotEqual(h0, hash.ZeroHash256)
+
+	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.Equal(big.NewInt(10), s.Balance)
+	require.NoError(ws.PutState(sHash, s))
+
+	h1 := ws.RootHash()
+	require.NotEqual(h1, h0)
+
+	require.NoError(ws.Revert(s0))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(5), s.Balance)
+
+	h2 := ws.RootHash()
+	require.Equal(h0, h2)
+}
+func testSDBRevert(ws WorkingSet, t *testing.T) {
+	require := require.New(t)
+	addr := identityset.Address(28).String()
+	_, err := accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(5))
+	require.NoError(err)
+	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
+
+	s, err := accountutil.LoadAccount(ws, sHash)
+	require.NoError(err)
+	require.Equal(big.NewInt(5), s.Balance)
+	s0 := ws.Snapshot()
+	require.Equal(1, s0)
+
+	h0 := ws.Digest()
+	require.NotEqual(h0, hash.ZeroHash256)
+
+	s.Balance.Add(s.Balance, big.NewInt(5))
+	require.Equal(big.NewInt(10), s.Balance)
+	require.NoError(ws.PutState(sHash, s))
+
+	h1 := ws.Digest()
+	require.NotEqual(h1, h0)
+
+	require.NoError(ws.Revert(s0))
+	require.NoError(ws.State(sHash, s))
+	require.Equal(big.NewInt(5), s.Balance)
+
+	h2 := ws.Digest()
+	require.Equal(h0, h2)
+}
 func testSnapshot(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
 	addr := identityset.Address(28).String()
@@ -398,22 +459,102 @@ func TestFactory_RootHashByHeight(t *testing.T) {
 }
 
 func TestRunActions(t *testing.T) {
-	sf, err := NewFactory(config.Default, InMemTrieOption())
-	require.NoError(t, err)
+	require := require.New(t)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
+
+	cfg := config.Default
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	require.NoError(err)
+	sf.AddActionHandlers(account.NewProtocol(0))
+	require.NoError(sf.Start(context.Background()))
+	defer func() {
+		require.NoError(sf.Stop(context.Background()))
+	}()
 	ws, err := sf.NewWorkingSet()
-	require.NoError(t, err)
+	require.NoError(err)
 	testRunActions(ws, t)
 }
 
 func TestSTXRunActions(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(0)})
-	testRunActions(ws, t)
+	require := require.New(t)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testStateDBPath := testTrieFile.Name()
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testStateDBPath
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(err)
+	sdb.AddActionHandlers(account.NewProtocol(0))
+	require.NoError(sdb.Start(context.Background()))
+	defer func() {
+		require.NoError(sdb.Stop(context.Background()))
+	}()
+	ws, err := sdb.NewWorkingSet()
+	require.NoError(err)
+	testSTXRunActions(ws, t)
 }
 
 func testRunActions(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
 	require.Equal(uint64(0), ws.Version())
-	require.NoError(ws.GetDB().Start(context.Background()))
+	a := identityset.Address(28).String()
+	priKeyA := identityset.PrivateKey(28)
+	b := identityset.Address(29).String()
+	priKeyB := identityset.PrivateKey(29)
+	_, err := accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
+	require.NoError(err)
+	_, err = accountutil.LoadOrCreateAccount(ws, b, big.NewInt(200))
+	require.NoError(err)
+
+	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(1).SetAction(tx1).Build()
+	selp1, err := action.Sign(elp, priKeyA)
+	require.NoError(err)
+
+	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(100000), big.NewInt(0))
+	require.NoError(err)
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetNonce(1).SetAction(tx2).Build()
+	selp2, err := action.Sign(elp, priKeyB)
+	require.NoError(err)
+
+	gasLimit := uint64(1000000)
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			Producer: identityset.Address(27),
+			GasLimit: gasLimit,
+		})
+	s0 := ws.Snapshot()
+	rootHash0 := ws.RootHash()
+	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp1, selp2})
+	require.NoError(err)
+	rootHash1 := ws.UpdateBlockLevelInfo(1)
+
+	rootHash2 := ws.RootHash()
+	require.Equal(rootHash1, rootHash2)
+	h := ws.Height()
+	require.Equal(uint64(1), h)
+
+	require.NoError(ws.Revert(s0))
+	require.Equal(rootHash0, ws.RootHash())
+
+	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp2, selp1})
+	require.NoError(err)
+	rootHash1 = ws.UpdateBlockLevelInfo(1)
+	require.NoError(ws.Commit())
+	rootHash3 := ws.RootHash()
+	require.Equal(rootHash1, rootHash3)
+	h = ws.Height()
+	require.Equal(uint64(1), h)
+	require.Equal(rootHash3, rootHash2)
+}
+func testSTXRunActions(ws WorkingSet, t *testing.T) {
+	require := require.New(t)
+	require.Equal(uint64(0), ws.Version())
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
@@ -443,15 +584,29 @@ func testRunActions(ws WorkingSet, t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
+
+	s0 := ws.Snapshot()
+	rootHash0 := ws.Digest()
+
 	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp1, selp2})
 	require.NoError(err)
-	rootHash1 := ws.UpdateBlockLevelInfo(1)
-	require.NoError(ws.Commit())
+	ws.UpdateBlockLevelInfo(1)
 
-	rootHash2 := ws.RootHash()
-	require.Equal(rootHash1, rootHash2)
+	rootHash2 := ws.Digest()
 	h := ws.Height()
 	require.Equal(uint64(1), h)
+
+	require.NoError(ws.Revert(s0))
+	require.Equal(rootHash0, ws.Digest())
+
+	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp2, selp1})
+	require.NoError(err)
+	ws.UpdateBlockLevelInfo(1)
+	require.NoError(ws.Commit())
+	rootHash3 := ws.Digest()
+	h = ws.Height()
+	require.Equal(uint64(1), h)
+	require.NotEqual(rootHash2, rootHash3)
 }
 
 func TestCachedBatch(t *testing.T) {
