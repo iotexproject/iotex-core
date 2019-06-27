@@ -21,12 +21,12 @@ var actionSendRawCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		act := &iotextypes.Action{}
-		actByte, err := hex.DecodeString(args[0])
+		actBytes, err := hex.DecodeString(args[0])
 		if err != nil {
 			return err
 		}
-		if err := proto.Unmarshal(actByte, act); err != nil {
+		act := &iotextypes.Action{}
+		if err := proto.Unmarshal(actBytes, act); err != nil {
 			return err
 		}
 		return sendRaw(act)
