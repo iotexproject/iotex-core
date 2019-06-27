@@ -12,16 +12,15 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // accountExportPublicCmd represents the account export public key command
 var accountExportPublicCmd = &cobra.Command{
-	Use:   "exportpublic (ALIAS|ADDRESS)",
+	Use:   "exportpublic [ALIAS|ADDRESS]",
 	Short: "Export IoTeX public key from wallet",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		output, err := accountExportPublic(args)
@@ -33,11 +32,11 @@ var accountExportPublicCmd = &cobra.Command{
 }
 
 func accountExportPublic(args []string) (string, error) {
-	addr, err := alias.Address(args[0])
+	addr, err := util.GetAddress(args)
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("Enter password #%s:\n", args[0])
+	fmt.Printf("Enter password #%s:\n", addr)
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))

@@ -19,17 +19,21 @@ import (
 
 // xrc20AllowanceCmd represents your signer limited amount on target address
 var xrc20AllowanceCmd = &cobra.Command{
-	Use: "allowance (ALIAS|OWNER_ADDRESS) (ALIAS|SPENDER_ADDRESS) " +
+	Use: "allowance [-s SIGNER] (ALIAS|SPENDER_ADDRESS) " +
 		" -c ALIAS|CONTRACT_ADDRESS ",
 	Short: "the amount which spender is still allowed to withdraw from owner",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		owner, err := alias.EtherAddress(args[0])
+		caller, err := signer()
 		if err != nil {
 			return err
 		}
-		spender, err := alias.EtherAddress(args[1])
+		owner, err := alias.EtherAddress(caller)
+		if err != nil {
+			return err
+		}
+		spender, err := alias.EtherAddress(args[0])
 		if err != nil {
 			return err
 		}

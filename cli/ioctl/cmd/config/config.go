@@ -39,12 +39,18 @@ var ConfigCmd = &cobra.Command{
 	Short: "Set or get configuration for ioctl",
 }
 
+// Context represents the current context
+type Context struct {
+	AddressOrAlias string `yaml:"addressOralias"`
+}
+
 // Config defines the config schema
 type Config struct {
-	Wallet        string            `yaml:"wallet"`
-	Endpoint      string            `yaml:"endpoint"`
-	SecureConnect bool              `yaml:"secureConnect"`
-	Aliases       map[string]string `yaml:"aliases"`
+	Wallet         string            `yaml:"wallet"`
+	Endpoint       string            `yaml:"endpoint"`
+	SecureConnect  bool              `yaml:"secureConnect"`
+	Aliases        map[string]string `yaml:"aliases"`
+	CurrentContext Context           `yaml:"currentContext"`
 }
 
 var (
