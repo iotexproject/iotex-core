@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -88,7 +87,7 @@ func rewardPool() (string, error) {
 }
 
 func reward(args []string) (string, error) {
-	address, err := alias.Address(args[0])
+	address, err := util.Address(args[0])
 	if err != nil {
 		return "", err
 	}

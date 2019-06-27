@@ -27,7 +27,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -91,7 +90,7 @@ func Sign(signer, password, message string) (signedMessage string, err error) {
 
 // KsAccountToPrivateKey generates our PrivateKey interface from Keystore account
 func KsAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
-	addr, err := alias.Address(signer)
+	addr, err := util.Address(signer)
 	if err != nil {
 		return nil, err
 	}

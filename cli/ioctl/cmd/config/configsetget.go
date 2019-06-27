@@ -10,9 +10,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	
+	"github.com/iotexproject/iotex-core/cli/ioctl/validator"
 )
 
 const (
@@ -23,7 +26,7 @@ const (
 )
 
 var (
-	validArgs       = []string{"endpoint", "wallet"}
+	validArgs       = []string{"endpoint", "wallet", "currentcontext"}
 	endpointCompile = regexp.MustCompile("^" + endpointPattern + "$")
 )
 
@@ -53,7 +56,7 @@ var configGetCmd = &cobra.Command{
 var configSetCmd = &cobra.Command{
 	Use:       "set VARIABLE VALUE",
 	Short:     "Set config for ioctl",
-	ValidArgs: []string{"endpoint", "wallet"},
+	ValidArgs: validArgs,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 2 {
 			return fmt.Errorf("accepts 2 arg(s), received %d,"+
@@ -89,7 +92,28 @@ func Get(arg string) (string, error) {
 			ReadConfig.SecureConnect), nil
 	case "wallet":
 		return ReadConfig.Wallet, nil
+	case "currentcontext":
+		return fmt.Sprint(ReadConfig.CurrentContext), nil
 	}
+}
+
+// GetContextAddressOrAlias gets current context
+func GetContextAddressOrAlias() (string, error) {
+	currentcontext := ReadConfig.CurrentContext
+	if strings.EqualFold(currentcontext.AddressOrAlias, "") {
+		return "", fmt.Errorf(`use "ioctl config set currentcontext address or alias" to config current account first`)
+	}
+	return currentcontext.AddressOrAlias, nil
+}
+
+// GetAddressOrAlias gets address from args or context
+func GetAddressOrAlias(args []string) (address string, err error) {
+	if len(args) == 1 && !strings.EqualFold(args[0], "") {
+		address = args[0]
+	} else {
+		address, err = GetContextAddressOrAlias()
+	}
+	return
 }
 
 // make sure endpoint match pattern
@@ -110,6 +134,13 @@ func set(args []string) (string, error) {
 		ReadConfig.SecureConnect = !Insecure
 	case "wallet":
 		ReadConfig.Wallet = args[1]
+	case "currentcontext":
+		err1 := validator.ValidateAlias(args[1])
+		err2 := validator.ValidateAddress(args[1])
+		if err1 != nil && err2 != nil {
+			return "", fmt.Errorf("failed to validate alias or address:%s %s", err1, err2)
+		}
+		ReadConfig.CurrentContext.AddressOrAlias = args[1]
 	}
 	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {

@@ -8,7 +8,6 @@ package alias
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
@@ -53,24 +52,9 @@ func init() {
 	AliasCmd.AddCommand(aliasExportCmd)
 }
 
-// Address returns the address corresponding to alias. if 'in' is an IoTeX address, returns 'in'
-func Address(in string) (string, error) {
-	if len(in) >= validator.IoAddrLen {
-		if err := validator.ValidateAddress(in); err != nil {
-			return "", err
-		}
-		return in, nil
-	}
-	addr, ok := config.ReadConfig.Aliases[in]
-	if ok {
-		return addr, nil
-	}
-	return "", fmt.Errorf("cannot find address from " + in)
-}
-
 // IOAddress returns the address in iotex address format
 func IOAddress(in string) (address.Address, error) {
-	addr, err := Address(in)
+	addr, err := util.Address(in)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +63,7 @@ func IOAddress(in string) (address.Address, error) {
 
 // EtherAddress returns the address in ether format
 func EtherAddress(in string) (common.Address, error) {
-	addr, err := Address(in)
+	addr, err := util.Address(in)
 	if err != nil {
 		return common.Address{}, err
 	}
