@@ -11,19 +11,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 )
 
 // actionInvokeCmd represents the action invoke command
 var actionInvokeCmd = &cobra.Command{
 	Use: "invoke (ALIAS|CONTRACT_ADDRESS) [AMOUNT_IOTX]" +
-		" -s SIGNER -b BYTE_CODE [-l GAS_LIMIT] [-p GAS_PRICE]",
+		" [-s SIGNER] -b BYTE_CODE [-l GAS_LIMIT] [-p GAS_PRICE]",
 	Short: "Invoke smart contract on IoTeX blockchain",
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		contract, err := alias.Address(args[0])
+		contract, err := util.Address(args[0])
 		if err != nil {
 			return err
 		}

@@ -22,16 +22,14 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/cli/ioctl/flag"
 	"github.com/iotexproject/iotex-core/cli/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
-
-const defaultSigner = "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7"
 
 // Flags
 var (
@@ -56,6 +54,7 @@ func init() {
 	ActionCmd.AddCommand(actionReadCmd)
 	ActionCmd.AddCommand(actionClaimCmd)
 	ActionCmd.AddCommand(actionDepositCmd)
+	ActionCmd.AddCommand(actionSendRawCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
@@ -63,11 +62,11 @@ func init() {
 }
 
 func decodeBytecode() ([]byte, error) {
-	return hex.DecodeString(strings.TrimLeft(bytecodeFlag.Value().(string), "0x"))
+	return hex.DecodeString(strings.TrimPrefix(bytecodeFlag.Value().(string), "0x"))
 }
 
-func signer() (string, error) {
-	return alias.Address(signerFlag.Value().(string))
+func signer() (address string, err error) {
+	return util.GetAddress([]string{signerFlag.Value().(string)})
 }
 
 func nonce(executor string) (uint64, error) {
@@ -87,7 +86,6 @@ func registerWriteCommand(cmd *cobra.Command) {
 	gasPriceFlag.RegisterCommand(cmd)
 	signerFlag.RegisterCommand(cmd)
 	nonceFlag.RegisterCommand(cmd)
-	signerFlag.MarkFlagRequired(cmd)
 }
 
 // gasPriceInRau returns the suggest gas price
@@ -140,41 +138,7 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 		signer,
 	)
 }
-
-func sendAction(elp action.Envelope, signer string) error {
-	fmt.Printf("Enter password #%s:\n", signer)
-	password, err := util.ReadSecretFromStdin()
-	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return err
-	}
-	prvKey, err := account.KsAccountToPrivateKey(signer, password)
-	if err != nil {
-		return err
-	}
-	defer prvKey.Zero()
-	sealed, err := action.Sign(elp, prvKey)
-	prvKey.Zero()
-	if err != nil {
-		log.L().Error("failed to sign action", zap.Error(err))
-		return err
-	}
-	selp := sealed.Proto()
-
-	actionInfo, err := printActionProto(selp)
-	if err != nil {
-		return err
-	}
-	var confirm string
-	fmt.Println("\n" + actionInfo + "\n" +
-		"Please confirm your action.\n" +
-		"Type 'YES' to continue, quit for anything else.")
-	fmt.Scanf("%s", &confirm)
-	if confirm != "YES" && confirm != "yes" {
-		return nil
-	}
-	fmt.Println()
-
+func sendRaw(selp *iotextypes.Action) error {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return err
@@ -194,4 +158,59 @@ func sendAction(elp action.Envelope, signer string) error {
 	fmt.Println("Action has been sent to blockchain.")
 	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", hex.EncodeToString(shash[:]))
 	return nil
+}
+func sendAction(elp action.Envelope, signer string) error {
+	fmt.Printf("Enter password #%s:\n", signer)
+	password, err := util.ReadSecretFromStdin()
+	if err != nil {
+		log.L().Error("failed to get password", zap.Error(err))
+		return err
+	}
+	prvKey, err := account.KsAccountToPrivateKey(signer, password)
+	if err != nil {
+		return err
+	}
+	defer prvKey.Zero()
+	sealed, err := action.Sign(elp, prvKey)
+	prvKey.Zero()
+	if err != nil {
+		log.L().Error("failed to sign action", zap.Error(err))
+		return err
+	}
+	if err := isBalanceEnough(signer, sealed); err != nil {
+		return err
+	}
+	selp := sealed.Proto()
+
+	actionInfo, err := printActionProto(selp)
+	if err != nil {
+		return err
+	}
+	var confirm string
+	fmt.Println("\n" + actionInfo + "\n" +
+		"Please confirm your action.\n" +
+		"Type 'YES' to continue, quit for anything else.")
+	fmt.Scanf("%s", &confirm)
+	if confirm != "YES" && confirm != "yes" {
+		return nil
+	}
+	fmt.Println()
+	return sendRaw(selp)
+}
+func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
+	accountMeta, err := account.GetAccountMeta(address)
+	if err != nil {
+		return
+	}
+	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
+	if !ok {
+		err = fmt.Errorf("failed to convert balance into big int")
+		return
+	}
+	cost, err := act.Cost()
+	if balance.Cmp(cost) < 0 {
+		err = fmt.Errorf("balance is not enough")
+		return
+	}
+	return
 }
