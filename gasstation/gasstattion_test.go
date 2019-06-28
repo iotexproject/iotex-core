@@ -36,7 +36,7 @@ func TestNewGasStation(t *testing.T) {
 func TestSuggestGasPriceForUserAction(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	cfg.Genesis.BlockGasLimit = uint64(100000)
+	cfg.Genesis.BlockGasLimit = uint64(1000000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
 	acc := account.NewProtocol(0)
@@ -105,6 +105,12 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, err)
 	// i from 10 to 29,gasprice for 20 to 39,60%*20+20=31
 	require.Equal(t, big.NewInt(1).Mul(big.NewInt(int64(31)), big.NewInt(unit.Qev)).Uint64(), gp)
+
+	act := getActionWithContractCreate()
+	require.NotNil(t, act)
+	ret, err := gs.EstimateGasForAction(act)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1000000), ret)
 }
 
 func TestSuggestGasPriceForSystemAction(t *testing.T) {
@@ -218,6 +224,31 @@ func getActionWithPayload() (act *iotextypes.Action) {
 			Nonce:   101,
 		},
 		SenderPubKey: pubKey1.Bytes(),
+	}
+	return
+}
+func getActionWithContractCreate() (act *iotextypes.Action) {
+	//pubKey1 := identityset.PrivateKey(20).PublicKey()
+	pubKey1 := identityset.PrivateKey(0)
+	exec, _ := action.NewExecution(
+		"",
+		30,
+		big.NewInt(0),
+		10000,
+		big.NewInt(10),
+		[]byte("608060405234801561001057600080fd5b50610205806100206000396000f30060806040526004361061004c576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806370a0823114610051578063a9059cbb146100a8575b600080fd5b34801561005d57600080fd5b50610092600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506100f5565b6040518082815260200191505060405180910390f35b3480156100b457600080fd5b506100f3600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291908035906020019092919050505061013d565b005b60008060008373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050919050565b806000803373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008282540392505081905550806000808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000206000828254019250508190555050505600a165627a7a72305820bf5914d696d0145114f3d3d789bc6aef8493d1dbeaa1320b0583e28bfe50b8cb0029"),
+	)
+	builder := &action.EnvelopeBuilder{}
+	elp := builder.SetAction(exec).
+		SetNonce(exec.Nonce()).
+		SetGasLimit(exec.GasLimit()).
+		SetGasPrice(exec.GasPrice()).
+		Build()
+	selp, _ := action.Sign(elp, pubKey1)
+
+	act = &iotextypes.Action{
+		Core:         selp.Proto().Core,
+		SenderPubKey: pubKey1.PublicKey().Bytes(),
 	}
 	return
 }
