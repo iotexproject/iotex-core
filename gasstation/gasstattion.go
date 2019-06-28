@@ -7,6 +7,7 @@
 package gasstation
 
 import (
+	"errors"
 	"math/big"
 	"sort"
 
@@ -103,6 +104,9 @@ func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, er
 		_, receipt, err := gs.bc.ExecuteContractRead(callerAddr, sc, true)
 		if err != nil {
 			return 0, err
+		}
+		if receipt.Status != action.SuccessReceiptStatus {
+			return 0, errors.New("execute contract failed")
 		}
 		return receipt.GasConsumed, nil
 	}
