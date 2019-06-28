@@ -7,7 +7,7 @@
 package main
 
 import (
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd"
+	"github.com/iotexproject/iotex-core/ioctl/cmd"
 )
 
 func main() {

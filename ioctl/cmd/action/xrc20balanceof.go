@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 )
 
 // xrc20BalanceOfCmd represents balanceOf function

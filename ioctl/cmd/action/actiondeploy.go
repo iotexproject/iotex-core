@@ -9,7 +9,7 @@ package action
 import (
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
