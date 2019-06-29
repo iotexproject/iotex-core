@@ -739,17 +739,24 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 	}
 
 	var res []*iotexapi.ActionInfo
-	for i := start; i < uint64(len(actions)) && i < start+count; i++ {
-		act, err := api.getAction(actions[i], false)
+	// sort action by timestamp
+	for _, action := range actions {
+		act, err := api.getAction(action, false)
 		if err != nil {
 			continue
 		}
 		res = append(res, act)
 	}
-	// sort action by timestamp
 	sort.Slice(res, func(i, j int) bool {
 		return res[i].Timestamp.Seconds < res[j].Timestamp.Seconds
 	})
+
+	end := start+count
+	if end > uint64(len(res)) {
+		end = uint64(len(res))
+	}
+	res = res[start:end]
+
 	return &iotexapi.GetActionsResponse{
 		Total:      uint64(len(actions)),
 		ActionInfo: res,
