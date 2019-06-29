@@ -33,12 +33,12 @@ import (
 
 // Flags
 var (
-	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", 300000, "set gas limit")
-	gasPriceFlag = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
-	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
-	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
-	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
-	notConfirmed = errors.New("not confirmed and quit")
+	gasLimitFlag    = flag.NewUint64VarP("gas-limit", "l", 300000, "set gas limit")
+	gasPriceFlag    = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
+	nonceFlag       = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
+	signerFlag      = flag.NewStringVarP("signer", "s", "", "choose a signing account")
+	bytecodeFlag    = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
+	errNotConfirmed = errors.New("not confirmed and quit")
 )
 
 // ActionCmd represents the account command
@@ -234,7 +234,7 @@ func signAndConfirm(elp action.Envelope, signer string, forEstimate bool) (selp 
 		fmt.Scanf("%s", &confirm)
 		if confirm != "YES" && confirm != "yes" {
 			fmt.Println("Quit")
-			return nil, notConfirmed
+			return nil, errNotConfirmed
 		}
 		fmt.Println()
 	}
