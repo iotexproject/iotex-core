@@ -38,6 +38,7 @@ var (
 	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
 	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
 	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
+	notConfirmed = errors.New("not confirmed and quit")
 )
 
 // ActionCmd represents the account command
@@ -55,6 +56,7 @@ func init() {
 	ActionCmd.AddCommand(actionClaimCmd)
 	ActionCmd.AddCommand(actionDepositCmd)
 	ActionCmd.AddCommand(actionSendRawCmd)
+	ActionCmd.AddCommand(actionEstimateCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
@@ -109,94 +111,6 @@ func gasPriceInRau() (*big.Int, error) {
 	return new(big.Int).SetUint64(response.GasPrice), nil
 }
 
-func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
-	gasPriceRau, err := gasPriceInRau()
-	if err != nil {
-		return
-	}
-	signer, err := signer()
-	if err != nil {
-		return err
-	}
-	nonce, err := nonce(signer)
-	if err != nil {
-		return
-	}
-	gasLimit := gasLimitFlag.Value().(uint64)
-	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
-	if err != nil || tx == nil {
-		err = errors.Wrap(err, "cannot make a Execution instance")
-		log.L().Error("error when invoke an execution", zap.Error(err))
-		return
-	}
-	return sendAction(
-		(&action.EnvelopeBuilder{}).
-			SetNonce(nonce).
-			SetGasPrice(gasPriceRau).
-			SetGasLimit(gasLimit).
-			SetAction(tx).Build(),
-		signer,
-	)
-}
-func sendRaw(selp *iotextypes.Action) error {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
-
-	request := &iotexapi.SendActionRequest{Action: selp}
-	if _, err = cli.SendAction(ctx, request); err != nil {
-		if sta, ok := status.FromError(err); ok {
-			return fmt.Errorf(sta.Message())
-		}
-		return err
-	}
-	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
-	fmt.Println("Action has been sent to blockchain.")
-	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", hex.EncodeToString(shash[:]))
-	return nil
-}
-func sendAction(elp action.Envelope, signer string) error {
-	fmt.Printf("Enter password #%s:\n", signer)
-	password, err := util.ReadSecretFromStdin()
-	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return err
-	}
-	prvKey, err := account.KsAccountToPrivateKey(signer, password)
-	if err != nil {
-		return err
-	}
-	defer prvKey.Zero()
-	sealed, err := action.Sign(elp, prvKey)
-	prvKey.Zero()
-	if err != nil {
-		log.L().Error("failed to sign action", zap.Error(err))
-		return err
-	}
-	if err := isBalanceEnough(signer, sealed); err != nil {
-		return err
-	}
-	selp := sealed.Proto()
-
-	actionInfo, err := printActionProto(selp)
-	if err != nil {
-		return err
-	}
-	var confirm string
-	fmt.Println("\n" + actionInfo + "\n" +
-		"Please confirm your action.\n" +
-		"Type 'YES' to continue, quit for anything else.")
-	fmt.Scanf("%s", &confirm)
-	if confirm != "YES" && confirm != "yes" {
-		return nil
-	}
-	fmt.Println()
-	return sendRaw(selp)
-}
 func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
 	accountMeta, err := account.GetAccountMeta(address)
 	if err != nil {
@@ -213,4 +127,149 @@ func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
 		return
 	}
 	return
+}
+
+func makeExecution(contract string, amount *big.Int, bytecode []byte) (elp action.Envelope, signers string, err error) {
+	gasPriceRau, err := gasPriceInRau()
+	if err != nil {
+		return
+	}
+	signers, err = signer()
+	if err != nil {
+		return
+	}
+	n, err := nonce(signers)
+	if err != nil {
+		return
+	}
+	gasLimit := gasLimitFlag.Value().(uint64)
+	tx, err := action.NewExecution(contract, n, amount, gasLimit, gasPriceRau, bytecode)
+	if err != nil || tx == nil {
+		err = errors.Wrap(err, "cannot make a Execution instance")
+		log.L().Error("error when invoke an execution", zap.Error(err))
+		return
+	}
+	elp = (&action.EnvelopeBuilder{}).
+		SetNonce(n).
+		SetGasPrice(gasPriceRau).
+		SetGasLimit(gasLimit).
+		SetAction(tx).Build()
+	return
+}
+
+func sendToChain(request interface{}) (err error) {
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	ctx := context.Background()
+	switch req := request.(type) {
+	case *iotexapi.SendActionRequest:
+		if _, err = cli.SendAction(ctx, req); err != nil {
+			if sta, ok := status.FromError(err); ok {
+				err = fmt.Errorf(sta.Message())
+				return
+			}
+			return
+		}
+	case *iotexapi.EstimateGasForActionRequest:
+		resp, errs := cli.EstimateGasForAction(ctx, req)
+		if errs != nil {
+			if sta, ok := status.FromError(errs); ok {
+				return fmt.Errorf(sta.Message())
+			}
+			return errs
+		}
+		fmt.Printf("Gas estimated is: %d\n", resp.Gas)
+	}
+	return
+}
+
+func sendRaw(selp *iotextypes.Action) error {
+	request := &iotexapi.SendActionRequest{Action: selp}
+	err := sendToChain(request)
+	if err != nil {
+		return err
+	}
+	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
+	fmt.Println("Action has been sent to blockchain.")
+	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", hex.EncodeToString(shash[:]))
+	return nil
+}
+
+func signAndConfirm(elp action.Envelope, signer string, forEstimate bool) (selp *iotextypes.Action, err error) {
+	fmt.Printf("Enter password #%s:\n", signer)
+	password, err := util.ReadSecretFromStdin()
+	if err != nil {
+		log.L().Error("failed to get password", zap.Error(err))
+		return
+	}
+	prvKey, err := account.KsAccountToPrivateKey(signer, password)
+	if err != nil {
+		return
+	}
+	defer prvKey.Zero()
+	sealed, err := action.Sign(elp, prvKey)
+	prvKey.Zero()
+	if err != nil {
+		log.L().Error("failed to sign action", zap.Error(err))
+		return
+	}
+	selp = sealed.Proto()
+	var actionInfo string
+	if !forEstimate {
+		if err = isBalanceEnough(signer, sealed); err != nil {
+			return
+		}
+		actionInfo, err = printActionProto(selp)
+		if err != nil {
+			return
+		}
+		var confirm string
+		fmt.Println("\n" + actionInfo + "\n" +
+			"Please confirm your action.\n" +
+			"Type 'YES' to continue, quit for anything else.")
+		fmt.Scanf("%s", &confirm)
+		if confirm != "YES" && confirm != "yes" {
+			fmt.Println("Quit")
+			return nil, notConfirmed
+		}
+		fmt.Println()
+	}
+	return
+}
+
+func sendAction(elp action.Envelope, signer string) error {
+	selp, err := signAndConfirm(elp, signer, false)
+	if err != nil && errors.Cause(err) == notConfirmed {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return sendRaw(selp)
+}
+
+func estimateGas(contract string, amount *big.Int, bytecode []byte) (err error) {
+	elp, signer, err := makeExecution(contract, amount, bytecode)
+	if err != nil {
+		return
+	}
+	selp, err := signAndConfirm(elp, signer, true)
+	if err != nil && errors.Cause(err) == notConfirmed {
+		return nil
+	}
+	if err != nil {
+		return
+	}
+	request := &iotexapi.EstimateGasForActionRequest{Action: selp}
+	err = sendToChain(request)
+	return
+}
+
+func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
+	elp, signer, err := makeExecution(contract, amount, bytecode)
+	return sendAction(elp, signer)
 }
