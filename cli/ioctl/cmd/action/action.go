@@ -243,7 +243,7 @@ func signAndConfirm(elp action.Envelope, signer string, forEstimate bool) (selp 
 
 func sendAction(elp action.Envelope, signer string) error {
 	selp, err := signAndConfirm(elp, signer, false)
-	if err != nil && errors.Cause(err) == notConfirmed {
+	if err != nil && errors.Cause(err) == errNotConfirmed {
 		return nil
 	}
 	if err != nil {
@@ -258,7 +258,7 @@ func estimateGas(contract string, amount *big.Int, bytecode []byte) (err error) 
 		return
 	}
 	selp, err := signAndConfirm(elp, signer, true)
-	if err != nil && errors.Cause(err) == notConfirmed {
+	if err != nil && errors.Cause(err) == errNotConfirmed {
 		return nil
 	}
 	if err != nil {
