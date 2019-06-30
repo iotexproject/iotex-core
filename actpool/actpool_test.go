@@ -980,7 +980,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	require.NoError(err)
 	require.Equal(tsf1, act)
 	act, err = ap.GetActionByHash(hash2)
-	require.Equal(action.ErrHash, errors.Cause(err))
+	require.Equal(action.ErrNotFound, errors.Cause(err))
 	require.Equal(action.SealedEnvelope{}, act)
 
 	ap.allActions[hash2] = tsf2
