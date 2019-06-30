@@ -152,7 +152,7 @@ func TestLoadStoreCommit(t *testing.T) {
 			},
 		}
 
-		for _, test := range tests {
+		for i, test := range tests {
 			c := test.contract
 			// set code
 			for _, e := range test.codes {
@@ -161,6 +161,15 @@ func TestLoadStoreCommit(t *testing.T) {
 			// set states
 			for _, e := range test.states {
 				require.NoError(c.SetState(e.k, e.v))
+				if i > 0 {
+					// committed state == value of previous test's SetState()
+					committed := tests[i-1].states
+					for _, e := range committed {
+						v, err := c.GetCommittedState(e.k)
+						require.NoError(err)
+						require.Equal(e.v, v)
+					}
+				}
 				v, err := c.GetState(e.k)
 				require.NoError(err)
 				require.Equal(e.v, v)

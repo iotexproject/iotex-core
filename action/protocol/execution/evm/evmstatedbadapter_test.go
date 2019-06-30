@@ -444,6 +444,56 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 	})
 }
 
+func TestGetCommittedState(t *testing.T) {
+	testCommittedState := func(cfg config.Config, t *testing.T) {
+		require := require.New(t)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx := context.Background()
+		var sf factory.Factory
+		if cfg.Chain.EnableTrielessStateDB {
+			sf, _ = factory.NewStateDB(cfg, factory.InMemStateDBOption())
+		} else {
+			sf, _ = factory.NewFactory(cfg, factory.InMemTrieOption())
+		}
+		require.NoError(sf.Start(ctx))
+		defer func() {
+			require.NoError(sf.Stop(ctx))
+		}()
+		ws, err := sf.NewWorkingSet()
+		require.NoError(err)
+		stateDB := NewStateDBAdapter(nil, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+
+		stateDB.SetState(c1, k1, v1)
+		// k2 does not exist
+		require.Equal(common.Hash{}, stateDB.GetCommittedState(c1, common.BytesToHash(k2[:])))
+		require.Equal(v1, stateDB.GetState(c1, k1))
+		require.Equal(common.Hash{}, stateDB.GetCommittedState(c1, common.BytesToHash(k2[:])))
+
+		// commit (k1, v1)
+		require.NoError(stateDB.CommitContracts())
+		stateDB.clear()
+
+		require.Equal(v1, stateDB.GetState(c1, k1))
+		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
+		stateDB.SetState(c1, k1, v2)
+		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
+		require.Equal(v2, stateDB.GetState(c1, k1))
+		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
+	}
+
+	cfg := config.Default
+	t.Run("committed state with stateDB", func(t *testing.T) {
+		testCommittedState(cfg, t)
+	})
+
+	cfg.Chain.EnableTrielessStateDB = false
+	t.Run("committed state with trie", func(t *testing.T) {
+		testCommittedState(cfg, t)
+	})
+}
+
 func TestGetBalanceOnError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
