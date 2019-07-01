@@ -146,7 +146,12 @@ func sendRaw(selp *iotextypes.Action) error {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
-
+	v := selp.Signature[64]
+	if v >= 37 {
+		selp.Signature[64] = v - 37
+	} else if v >= 27 {
+		selp.Signature[64] = v - 27
+	}
 	request := &iotexapi.SendActionRequest{Action: selp}
 	if _, err = cli.SendAction(ctx, request); err != nil {
 		if sta, ok := status.FromError(err); ok {
