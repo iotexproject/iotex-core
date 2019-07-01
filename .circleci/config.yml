@@ -113,7 +113,7 @@ jobs:
     working_directory: ~/iotex-core
     steps:
       - checkout
-      - run: cd cli/ioctl/ && ./buildcli.sh
+      - run: cd ioctl/ && ./buildcli.sh
       - run: cd tools/actioninjector.v2/ && ./build_injector.sh
       - run: 
           name: build bin put s3 (unstable) or github (release)        
@@ -123,12 +123,12 @@ jobs:
                 go get -u github.com/tcnksm/ghr
                 arg="-t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${VERSION}"
                 echo $arg
-                ghr $arg cli/ioctl/release/
+                ghr $arg ioctl/release/
                 ghr $arg tools/actioninjector.v2/release/
             else
                 sudo apt-get install python python-pip
                 sudo pip install awscli
-                aws s3 sync cli/ioctl/release/ ${S3_BUCKET_DIR}
+                aws s3 sync ioctl/release/ ${S3_BUCKET_DIR}
                 aws s3 sync tools/actioninjector.v2/release/ ${S3_BUCKET_DIR}
             fi
 
@@ -165,7 +165,7 @@ jobs:
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            cd cli/ioctl/ && ./buildcli.sh
+            cd ioctl/ && ./buildcli.sh
             cd ../../tools/actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
@@ -175,11 +175,11 @@ jobs:
                 go get -u github.com/tcnksm/ghr
                 arg="-t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${VERSION}"
                 echo $arg
-                ghr $arg cli/ioctl/release/
+                ghr $arg ioctl/release/
                 ghr $arg tools/actioninjector.v2/release/
             else
                 sudo pip install awscli
-                aws s3 sync cli/ioctl/release/ ${S3_BUCKET_DIR}
+                aws s3 sync ioctl/release/ ${S3_BUCKET_DIR}
                 aws s3 sync tools/actioninjector.v2/release/ ${S3_BUCKET_DIR}
             fi
 

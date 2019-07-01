@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/cli/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 func main() {
