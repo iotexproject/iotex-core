@@ -751,7 +751,7 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 		return res[i].Timestamp.Seconds < res[j].Timestamp.Seconds
 	})
 
-	end := start+count
+	end := start + count
 	if end > uint64(len(res)) {
 		end = uint64(len(res))
 	}
