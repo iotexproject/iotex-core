@@ -277,7 +277,7 @@ func (ap *actPool) GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, er
 
 	act, ok := ap.allActions[hash]
 	if !ok {
-		return action.SealedEnvelope{}, errors.Wrapf(action.ErrHash, "action hash %x does not exist in pool", hash)
+		return action.SealedEnvelope{}, errors.Wrapf(action.ErrNotFound, "action hash %x does not exist in pool", hash)
 	}
 	return act, nil
 }
