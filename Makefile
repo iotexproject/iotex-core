@@ -79,7 +79,7 @@ fmt:
 
 .PHONY: lint
 lint:
-	go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/ | xargs $(GOLINT)
+	go list ./... | xargs $(GOLINT)
 
 .PHONY: lint-rich
 lint-rich:
@@ -185,4 +185,4 @@ recover:
 
 .PHONY: ioctl
 ioctl:
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./cli/ioctl
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./ioctl

@@ -13,6 +13,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -79,9 +80,9 @@ type Server struct {
 	ap               actpool.ActPool
 	gs               *gasstation.GasStation
 	broadcastHandler BroadcastOutbound
-	cfg              config.API
+	cfg              config.Config
 	registry         *protocol.Registry
-	blockListener    *blockListener
+	chainListener    Listener
 	grpcserver       *grpc.Server
 	hasActionIndex   bool
 }
@@ -116,10 +117,10 @@ func NewServer(
 		dp:               dispatcher,
 		ap:               actPool,
 		broadcastHandler: apiCfg.broadcastHandler,
-		cfg:              cfg.API,
+		cfg:              cfg,
 		registry:         registry,
-		blockListener:    newBlockListener(),
-		gs:               gasstation.NewGasStation(chain, cfg.API, cfg.Genesis.ActionGasLimit),
+		chainListener:    NewChainListener(),
+		gs:               gasstation.NewGasStation(chain, cfg.API),
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		svr.hasActionIndex = true
@@ -213,7 +214,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	blockLimit := int64(api.cfg.TpsWindow)
+	blockLimit := int64(api.cfg.API.TpsWindow)
 	if blockLimit <= 0 {
 		return nil, status.Errorf(codes.Internal, "block limit is %d", blockLimit)
 	}
@@ -252,13 +253,12 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	timeDuration := blks[len(blks)-1].Timestamp.GetSeconds() - blks[0].Timestamp.GetSeconds()
-	// if time duration is less than 1 second, we set it to be 1 second
-	if timeDuration < 1 {
-		timeDuration = 1
-	}
-
-	tps := numActions / timeDuration
+	t1 := time.Unix(blks[0].Timestamp.GetSeconds(), int64(blks[0].Timestamp.GetNanos()))
+	t2 := time.Unix(blks[len(blks)-1].Timestamp.GetSeconds(), int64(blks[len(blks)-1].Timestamp.GetNanos()))
+	// duration of time difference in milli-seconds
+	// TODO: use config.Genesis.BlockInterval after PR1289 merges
+	timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
+	tps := float32(numActions*1000) / float32(timeDiff)
 
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
@@ -349,7 +349,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		sc.Contract(),
 		caller.Nonce+1,
 		sc.Amount(),
-		api.gs.ActionGasLimit(),
+		api.cfg.Genesis.BlockGasLimit,
 		big.NewInt(0),
 		sc.Data(),
 	)
@@ -470,7 +470,7 @@ func (api *Server) GetRawBlocks(
 	ctx context.Context,
 	in *iotexapi.GetRawBlocksRequest,
 ) (*iotexapi.GetRawBlocksResponse, error) {
-	if in.Count == 0 || in.Count > api.cfg.RangeQueryLimit {
+	if in.Count == 0 || in.Count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -506,10 +506,63 @@ func (api *Server) GetRawBlocks(
 	return &iotexapi.GetRawBlocksResponse{Blocks: res}, nil
 }
 
+// GetLogs get logs filtered by contract address and topics
+func (api *Server) GetLogs(
+	ctx context.Context,
+	in *iotexapi.GetLogsRequest,
+) (*iotexapi.GetLogsResponse, error) {
+	switch {
+	case in.GetByBlock() != nil:
+		req := in.GetByBlock()
+		h, err := api.bc.GetHeightByHash(hash.BytesToHash256(req.BlockHash))
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
+		}
+		filter, ok := NewLogFilter(in.Filter, nil, nil).(*LogFilter)
+		if !ok {
+			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
+		}
+		logs, err := api.getLogsInBlock(filter, h, 1)
+		return &iotexapi.GetLogsResponse{Logs: logs}, err
+	case in.GetByRange() != nil:
+		req := in.GetByRange()
+		if req.FromBlock > api.bc.TipHeight() {
+			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
+		}
+		filter, ok := NewLogFilter(in.Filter, nil, nil).(*LogFilter)
+		if !ok {
+			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
+		}
+		logs, err := api.getLogsInBlock(filter, req.FromBlock, req.Count)
+		return &iotexapi.GetLogsResponse{Logs: logs}, err
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
+	}
+}
+
 // StreamBlocks streams blocks
 func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexapi.APIService_StreamBlocksServer) error {
 	errChan := make(chan error)
-	if err := api.blockListener.AddStream(stream, errChan); err != nil {
+	if err := api.chainListener.AddResponder(NewBlockListener(stream, errChan)); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				err = status.Error(codes.Aborted, err.Error())
+			}
+			return err
+		}
+	}
+}
+
+// StreamLogs streams logs that match the filter condition
+func (api *Server) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.APIService_StreamLogsServer) error {
+	errChan := make(chan error)
+	// register the log filter so it will match logs in new blocks
+	if err := api.chainListener.AddResponder(NewLogFilter(in.Filter, stream, errChan)); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
 
@@ -526,7 +579,7 @@ func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexap
 
 // Start starts the API server
 func (api *Server) Start() error {
-	portStr := ":" + strconv.Itoa(api.cfg.Port)
+	portStr := ":" + strconv.Itoa(api.cfg.API.Port)
 	lis, err := net.Listen("tcp", portStr)
 	if err != nil {
 		log.L().Error("API server failed to listen.", zap.Error(err))
@@ -539,11 +592,11 @@ func (api *Server) Start() error {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
 	}()
-	if err := api.bc.AddSubscriber(api.blockListener); err != nil {
+	if err := api.bc.AddSubscriber(api.chainListener); err != nil {
 		return errors.Wrap(err, "failed to subscribe to block creations")
 	}
-	if err := api.blockListener.Start(); err != nil {
-		return errors.Wrap(err, "failed to start block listener")
+	if err := api.chainListener.Start(); err != nil {
+		return errors.Wrap(err, "failed to start blockchain listener")
 	}
 	return nil
 }
@@ -551,10 +604,10 @@ func (api *Server) Start() error {
 // Stop stops the API server
 func (api *Server) Stop() error {
 	api.grpcserver.Stop()
-	if err := api.bc.RemoveSubscriber(api.blockListener); err != nil {
-		return errors.Wrap(err, "failed to unsubscribe block listener")
+	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
+		return errors.Wrap(err, "failed to unsubscribe blockchain listener")
 	}
-	return api.blockListener.Stop()
+	return api.chainListener.Stop()
 }
 
 func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest) (*iotexapi.ReadStateResponse, error) {
@@ -582,10 +635,29 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	return &out, nil
 }
 
+func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {
+	var actionInfo []*iotexapi.ActionInfo
+	for i := start; i < start+count; i++ {
+		hash, err := api.bc.GetActionHashFromIndex(i)
+		if err != nil {
+			continue
+		}
+		act, err := api.getAction(hash, false)
+		if err != nil {
+			return nil, status.Error(codes.Unavailable, err.Error())
+		}
+		actionInfo = append(actionInfo, act)
+	}
+	return &iotexapi.GetActionsResponse{
+		Total:      totalActions,
+		ActionInfo: actionInfo,
+	}, nil
+}
+
 // GetActions returns actions within the range
 // This is a workaround for the slow access issue if the start index is very big
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -599,7 +671,9 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	if start >= totalActions {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
-
+	if api.hasActionIndex {
+		return api.getActionsFromIndex(totalActions, start, count)
+	}
 	// Finding actions in reverse order saves time for querying most recent actions
 	reverseStart := totalActions - (start + count)
 	if totalActions < start+count {
@@ -649,7 +723,7 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -684,7 +758,7 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -712,7 +786,7 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -740,7 +814,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 // getBlockMetas gets block within the height range
 func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlockMetasResponse, error) {
-	if count > api.cfg.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -960,4 +1034,21 @@ func getTranferAmountInBlock(blk *block.Block) *big.Int {
 		totalAmount.Add(totalAmount, transfer.Amount())
 	}
 	return totalAmount
+}
+
+func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*iotextypes.Log, error) {
+	// filter logs within start --> end
+	var logs []*iotextypes.Log
+	end := start + count - 1
+	if end > api.bc.TipHeight() {
+		end = api.bc.TipHeight()
+	}
+	for i := start; i <= end; i++ {
+		blk, err := api.bc.GetBlockByHeight(i)
+		if err != nil {
+			return logs, status.Error(codes.InvalidArgument, err.Error())
+		}
+		logs = append(logs, filter.MatchBlock(blk)...)
+	}
+	return logs, nil
 }

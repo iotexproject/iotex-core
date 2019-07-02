@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -101,7 +100,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(addCreatorToFactory(sf))
 
 	val := &validator{sf: sf, validatorAddr: "", enableExperimentalActions: true}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	val.AddActionValidators(account.NewProtocol(0))
 
 	// correct nonce
@@ -243,9 +242,9 @@ func TestWrongAddress(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	val := &validator{sf: bc.GetFactory(), validatorAddr: "", enableExperimentalActions: true}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc, genesis.Default.ActionGasLimit))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	val.AddActionValidators(account.NewProtocol(0),
-		execution.NewProtocol(bc, 0))
+		execution.NewProtocol(bc, 0, 0))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))

@@ -39,6 +39,7 @@ type Log struct {
 	BlockHeight uint64
 	ActionHash  hash.Hash256
 	Index       uint
+	PreAleutian bool
 }
 
 // ConvertToReceiptPb converts a Receipt to protobuf's Receipt
@@ -101,7 +102,13 @@ func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l.ContractAddress = log.Address
 	l.Topics = [][]byte{}
 	for _, topic := range log.Topics {
-		l.Topics = append(l.Topics, topic[:])
+		if log.PreAleutian {
+			l.Topics = append(l.Topics, topic[:])
+		} else {
+			data := make([]byte, len(topic))
+			copy(data, topic[:])
+			l.Topics = append(l.Topics, data)
+		}
 	}
 	l.Data = log.Data
 	l.BlkHeight = log.BlockHeight

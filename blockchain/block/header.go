@@ -65,6 +65,9 @@ func (h *Header) ReceiptRoot() hash.Hash256 { return h.receiptRoot }
 // HashBlock return the hash of this block (actually hash of block header)
 func (h *Header) HashBlock() hash.Hash256 { return h.HashHeader() }
 
+// LogsBloomfilter return the bloom filter for all contract log events
+func (h *Header) LogsBloomfilter() bloom.BloomFilter { return h.logsBloom }
+
 // BlockHeaderProto returns BlockHeader proto.
 func (h *Header) BlockHeaderProto() *iotextypes.BlockHeader {
 	return &iotextypes.BlockHeader{
@@ -129,14 +132,9 @@ func (h *Header) loadFromBlockHeaderCoreProto(pb *iotextypes.BlockHeaderCore) er
 	return err
 }
 
-// CoreByteStream returns byte stream for header core.
-func (h *Header) CoreByteStream() []byte {
+// SerializeCore returns byte stream for header core.
+func (h *Header) SerializeCore() []byte {
 	return byteutil.Must(proto.Marshal(h.BlockHeaderCoreProto()))
-}
-
-// ByteStream returns byte stream for header.
-func (h *Header) ByteStream() []byte {
-	return byteutil.Must(proto.Marshal(h.BlockHeaderProto()))
 }
 
 // Serialize returns the serialized byte stream of the block header
@@ -155,12 +153,13 @@ func (h *Header) Deserialize(buf []byte) error {
 
 // HashHeader hashes the header
 func (h *Header) HashHeader() hash.Hash256 {
-	return hash.Hash256b(h.ByteStream())
+	s, _ := h.Serialize()
+	return hash.Hash256b(s)
 }
 
 // HashHeaderCore hahes the header core.
 func (h *Header) HashHeaderCore() hash.Hash256 {
-	return hash.Hash256b(h.CoreByteStream())
+	return hash.Hash256b(h.SerializeCore())
 }
 
 // VerifySignature verifies the signature saved in block header

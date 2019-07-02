@@ -155,6 +155,8 @@ type Blockchain interface {
 
 	// RemoveSubscriber make you listen to every single produced block
 	RemoveSubscriber(BlockCreationSubscriber) error
+	// GetActionHashFromIndex returns action hash from index
+	GetActionHashFromIndex(index uint64) (hash.Hash256, error)
 }
 
 // blockchain implements the Blockchain interface
@@ -500,6 +502,11 @@ func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, err
 	return getActionsBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
 }
 
+// GetActionsFromIndex returns actions from index
+func (bc *blockchain) GetActionHashFromIndex(index uint64) (hash.Hash256, error) {
+	return bc.dao.getActionHashFromIndex(index)
+}
+
 // GetActionToAddress returns action to address
 func (bc *blockchain) GetActionsToAddress(addrStr string) ([]hash.Hash256, error) {
 	addr, err := address.FromString(addrStr)
@@ -608,9 +615,14 @@ func (bc *blockchain) MintNewBlock(
 			BlockTimeStamp: timestamp,
 			Producer:       bc.config.ProducerAddress(),
 			GasLimit:       gasLimitForContext,
-			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
+
+	if newblockHeight == bc.config.Genesis.AleutianBlockHeight {
+		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
+			return nil, err
+		}
+	}
 	_, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
@@ -737,7 +749,6 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		Producer:       producer,
 		Caller:         caller,
 		GasLimit:       gasLimit,
-		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		GasPrice:       big.NewInt(0),
 		IntrinsicGas:   0,
 	})
@@ -746,7 +757,10 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		ws,
 		ex,
 		bc,
-		bc.config.Genesis.PacificBlockHeight,
+		evm.NewHeightChange(
+			bc.config.Genesis.PacificBlockHeight,
+			bc.config.Genesis.AleutianBlockHeight,
+		),
 	)
 }
 
@@ -770,12 +784,11 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	}
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			GasLimit:       gasLimit,
-			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
-			Caller:         callerAddr,
-			ActionHash:     hash.ZeroHash256,
-			Nonce:          0,
-			Registry:       bc.registry,
+			GasLimit:   gasLimit,
+			Caller:     callerAddr,
+			ActionHash: hash.ZeroHash256,
+			Nonce:      0,
+			Registry:   bc.registry,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to run the account creation")
@@ -1044,10 +1057,14 @@ func (bc *blockchain) runActions(
 			BlockTimeStamp: acts.BlockTimeStamp(),
 			Producer:       producer,
 			GasLimit:       gasLimit,
-			ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 			Registry:       bc.registry,
 		})
 
+	if acts.BlockHeight() == bc.config.Genesis.AleutianBlockHeight {
+		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
+			return nil, err
+		}
+	}
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
 }
 
@@ -1056,10 +1073,12 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	if bc.sf == nil {
 		return hash.ZeroHash256, nil, nil, errors.New("statefactory cannot be nil")
 	}
+
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
 
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
+
 	// initial action iterator
 	actionIterator := actioniterator.NewActionIterator(actionMap)
 	for {
@@ -1296,7 +1315,6 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 		BlockHeight:    0,
 		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		GasLimit:       0,
-		ActionGasLimit: bc.config.Genesis.ActionGasLimit,
 		Producer:       nil,
 		Caller:         nil,
 		ActionHash:     hash.ZeroHash256,
@@ -1369,13 +1387,25 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 	return nil
 }
 
+func (bc *blockchain) updateAleutianEpochRewardAmount(ctx context.Context, ws factory.WorkingSet) error {
+	p, ok := bc.registry.Find(rewarding.ProtocolID)
+	if !ok {
+		return nil
+	}
+	rp, ok := p.(*rewarding.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting protocol")
+	}
+	return rp.SetReward(ctx, ws, bc.config.Genesis.AleutianEpochReward(), false)
+}
+
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
+	if len(receipts) == 0 {
+		return hash.ZeroHash256
+	}
 	h := make([]hash.Hash256, 0, len(receipts))
 	for _, receipt := range receipts {
 		h = append(h, receipt.Hash())
-	}
-	if len(h) == 0 {
-		return hash.ZeroHash256
 	}
 	res := crypto.NewMerkleTree(h).HashTree()
 	return res

@@ -17,8 +17,6 @@ var (
 	ErrInsufficientBalanceForGas = errors.New("Insufficient balance for gas")
 	// ErrOutOfGas is the error when running out of gas
 	ErrOutOfGas = errors.New("Out of gas")
-	// ErrGasHigherThanLimit indicates the error of gas value
-	ErrGasHigherThanLimit = errors.New("invalid gas for action")
 	// ErrTransfer indicates the error of transfer
 	ErrTransfer = errors.New("invalid transfer")
 	// ErrNonce indicates the error of nonce
@@ -29,6 +27,6 @@ var (
 	ErrGasPrice = errors.New("invalid gas price")
 	// ErrVotee indicates the error of votee
 	ErrVotee = errors.New("votee is not a candidate")
-	// ErrHash indicates the error of action's hash
-	ErrHash = errors.New("invalid hash")
+	// ErrNotFound indicates the nonexistence of action
+	ErrNotFound = errors.New("action not found")
 )

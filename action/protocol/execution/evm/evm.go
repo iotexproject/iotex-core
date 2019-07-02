@@ -21,11 +21,18 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
-var ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
+var (
+	// TODO: whenever ActionGasLimit is removed from genesis, we need to hard code it to 5M to make it compatible with
+	// the mainnet.
+	preAleutianActionGasLimit = genesis.Default.ActionGasLimit
+
+	// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
+	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
+)
 
 // CanTransfer checks whether the from account has enough balance
 func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
@@ -38,28 +45,39 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	db.AddBalance(toHash, amount)
 }
 
-// Params is the context and parameters
-type Params struct {
-	context            vm.Context
-	nonce              uint64
-	executorRawAddress string
-	amount             *big.Int
-	contract           *common.Address
-	gas                uint64
-	data               []byte
+type (
+	// Params is the context and parameters
+	Params struct {
+		context            vm.Context
+		nonce              uint64
+		executorRawAddress string
+		amount             *big.Int
+		contract           *common.Address
+		gas                uint64
+		data               []byte
+	}
+	// HeightChange lists heights at which certain fixes take effect
+	HeightChange struct {
+		PacificHeight  uint64
+		AleutianHeight uint64
+	}
+)
+
+// NewHeightChange creates a height change config
+func NewHeightChange(pacific, aleutian uint64) HeightChange {
+	return HeightChange{
+		pacific,
+		aleutian,
+	}
 }
 
 // NewParams creates a new context for use in the EVM.
-func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateDB *StateDBAdapter) (*Params, error) {
-	// If we don't have an explicit author (i.e. not mining), extract from the header
-	/*
-		var beneficiary common.Address
-		if author == nil {
-			beneficiary, _ = chain.Engine().Author(header) // Ignore error, we're past header validation
-		} else {
-			beneficiary = *author
-		}
-	*/
+func NewParams(
+	raCtx protocol.RunActionsCtx,
+	execution *action.Execution,
+	stateDB *StateDBAdapter,
+	hc HeightChange,
+) (*Params, error) {
 	executorAddr := common.BytesToAddress(raCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
@@ -70,12 +88,11 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		contractAddr := common.BytesToAddress(contract.Bytes())
 		contractAddrPointer = &contractAddr
 	}
-	producer := common.BytesToAddress(raCtx.Producer.Bytes())
 
 	gasLimit := execution.GasLimit()
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if gasLimit > raCtx.ActionGasLimit {
-		gasLimit = raCtx.ActionGasLimit
+	if raCtx.BlockHeight < hc.AleutianHeight && gasLimit > preAleutianActionGasLimit {
+		gasLimit = preAleutianActionGasLimit
 	}
 
 	context := vm.Context{
@@ -83,7 +100,7 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		Transfer:    MakeTransfer,
 		GetHash:     GetHashFn(stateDB),
 		Origin:      executorAddr,
-		Coinbase:    producer,
+		Coinbase:    common.BytesToAddress(raCtx.Producer.Bytes()),
 		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
 		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp.Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
@@ -97,7 +114,7 @@ func NewParams(raCtx protocol.RunActionsCtx, execution *action.Execution, stateD
 		raCtx.Caller.String(),
 		execution.Amount(),
 		contractAddrPointer,
-		execution.GasLimit(),
+		gasLimit,
 		execution.Data(),
 	}, nil
 }
@@ -138,11 +155,11 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
-	pacificHeight uint64,
+	hc HeightChange,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	stateDB := NewStateDBAdapter(cm, sm, raCtx.BlockHeight, execution.Hash())
-	ps, err := NewParams(raCtx, execution, stateDB)
+	stateDB := NewStateDBAdapter(cm, sm, &hc, raCtx.BlockHeight, execution.Hash())
+	ps, err := NewParams(raCtx, execution, stateDB, hc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -161,7 +178,7 @@ func ExecuteContract(
 	} else {
 		receipt.Status = action.SuccessReceiptStatus
 	}
-	if raCtx.BlockHeight >= pacificHeight {
+	if raCtx.BlockHeight >= hc.PacificHeight {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
 	} else {

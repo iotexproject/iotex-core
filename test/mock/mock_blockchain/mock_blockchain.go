@@ -533,3 +533,16 @@ func (m *MockBlockchain) RemoveSubscriber(arg0 blockchain.BlockCreationSubscribe
 func (mr *MockBlockchainMockRecorder) RemoveSubscriber(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSubscriber", reflect.TypeOf((*MockBlockchain)(nil).RemoveSubscriber), arg0)
 }
+
+// GetActionHashFromIndex mocks base method
+func (m *MockBlockchain) GetActionHashFromIndex(index uint64) (hash.Hash256, error) {
+	ret := m.ctrl.Call(m, "GetActionHashFromIndex", index)
+	ret0, _ := ret[0].(hash.Hash256)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActionHashFromIndex indicates an expected call of GetActionHashFromIndex
+func (mr *MockBlockchainMockRecorder) GetActionHashFromIndex(index interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionHashFromIndex", reflect.TypeOf((*MockBlockchain)(nil).GetActionHashFromIndex), index)
+}
