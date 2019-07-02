@@ -166,7 +166,7 @@ jobs:
             export GOROOT="/usr/local/go"
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
             cd ioctl/ && ./buildcli.sh
-            cd ../../tools/actioninjector.v2/ && ./build_injector.sh
+            cd ../tools/actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
           command: |
