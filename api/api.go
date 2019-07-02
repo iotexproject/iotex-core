@@ -738,22 +738,45 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
-	var res []*iotexapi.ActionInfo
-	for i := start; i < uint64(len(actions)) && i < start+count; i++ {
-		act, err := api.getAction(actions[i], false)
+	res := &iotexapi.GetActionsResponse{Total: uint64(len(actions))}
+
+	account, err := api.bc.StateByAddr(address)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get account state by address")
+	}
+
+	// In the case of contract address, do not sort in order to save db I/O performance
+	// TODO: This is a workaround to keep actions in correct order while not affecting db I/O performance too much
+	if account.IsContract() {
+		for i := start; i < uint64(len(actions)) && i < start+count; i++ {
+			act, err := api.getAction(actions[i], false)
+			if err != nil {
+				continue
+			}
+			res.ActionInfo = append(res.ActionInfo, act)
+		}
+		return res, nil
+	}
+
+	// sort action by timestamp
+	for _, action := range actions {
+		act, err := api.getAction(action, false)
 		if err != nil {
 			continue
 		}
-		res = append(res, act)
+		res.ActionInfo = append(res.ActionInfo, act)
 	}
-	// sort action by timestamp
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].Timestamp.Seconds < res[j].Timestamp.Seconds
+	sort.Slice(res.ActionInfo, func(i, j int) bool {
+		return res.ActionInfo[i].Timestamp.Seconds < res.ActionInfo[j].Timestamp.Seconds
 	})
-	return &iotexapi.GetActionsResponse{
-		Total:      uint64(len(actions)),
-		ActionInfo: res,
-	}, nil
+
+	end := start + count
+	if end > uint64(len(res.ActionInfo)) {
+		end = uint64(len(res.ActionInfo))
+	}
+	res.ActionInfo = res.ActionInfo[start:end]
+
+	return res, nil
 }
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
