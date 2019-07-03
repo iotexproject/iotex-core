@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -68,21 +69,8 @@ func decodeBytecode() ([]byte, error) {
 	return hex.DecodeString(strings.TrimPrefix(bytecodeFlag.Value().(string), "0x"))
 }
 
-func signer() (addr string, err error) {
-	addr, err = util.GetAddress([]string{signerFlag.Value().(string)})
-	addres, err := address.FromString(addr)
-	if err != nil {
-		return
-	}
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, account := range ks.Accounts() {
-		if bytes.Equal(addres.Bytes(), account.Address.Bytes()) {
-			return
-		}
-	}
-	err = errors.Errorf("cannot find %s,please import first", addr)
-	return
+func signer() (address string, err error) {
+	return util.GetAddress([]string{signerFlag.Value().(string)})
 }
 
 func nonce(executor string) (uint64, error) {
@@ -176,13 +164,28 @@ func sendRaw(selp *iotextypes.Action) error {
 	return nil
 }
 func sendAction(elp action.Envelope, signer string) error {
-	fmt.Printf("Enter password #%s:\n", signer)
-	password, err := util.ReadSecretFromStdin()
-	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return err
+	var (
+		prvKey           crypto.PrivateKey
+		err              error
+		prvKeyOrPassword string
+	)
+	if !signerIsExist(signer) {
+		fmt.Printf("Enter private key #%s:\n", signer)
+		prvKeyOrPassword, err = util.ReadSecretFromStdin()
+		if err != nil {
+			log.L().Error("failed to get private key", zap.Error(err))
+			return err
+		}
+		prvKey, err = crypto.HexStringToPrivateKey(prvKeyOrPassword)
+	} else {
+		fmt.Printf("Enter password #%s:\n", signer)
+		prvKeyOrPassword, err = util.ReadSecretFromStdin()
+		if err != nil {
+			log.L().Error("failed to get password", zap.Error(err))
+			return err
+		}
+		prvKey, err = account.KsAccountToPrivateKey(signer, prvKeyOrPassword)
 	}
-	prvKey, err := account.KsAccountToPrivateKey(signer, password)
 	if err != nil {
 		return err
 	}
@@ -229,4 +232,19 @@ func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
 		return
 	}
 	return
+}
+func signerIsExist(signer string) bool {
+	address, err := address.FromString(signer)
+	if err != nil {
+		return false
+	}
+	// find the account in keystore
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+		keystore.StandardScryptN, keystore.StandardScryptP)
+	for _, account := range ks.Accounts() {
+		if bytes.Equal(address.Bytes(), account.Address.Bytes()) {
+			return true
+		}
+	}
+	return false
 }
