@@ -43,6 +43,7 @@ cd iotex-core
 If you put the project code under your `$GOPATH\src`, you will need to set up an environment variable
 ```
 export GO111MODULE=on
+set GO111MODULE=on (for windows)
 ```
 
 Build the project by
