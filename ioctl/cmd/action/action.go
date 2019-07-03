@@ -177,20 +177,13 @@ func sendRaw(selp *iotextypes.Action) error {
 	return nil
 }
 func sendAction(elp action.Envelope, signer string) error {
-	var (
-		prvKey           crypto.PrivateKey
-		err              error
-		prvKeyOrPassword string
-	)
-
 	fmt.Printf("Enter password #%s:\n", signer)
-	prvKeyOrPassword, err = util.ReadSecretFromStdin()
+	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		log.L().Error("failed to get password", zap.Error(err))
 		return err
 	}
-	prvKey, err = account.KsAccountToPrivateKey(signer, prvKeyOrPassword)
-
+	prvKey, err := account.KsAccountToPrivateKey(signer, password)
 	if err != nil {
 		return err
 	}
