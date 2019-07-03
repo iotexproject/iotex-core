@@ -148,7 +148,7 @@ type Blockchain interface {
 	// For smart contract operations
 	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 	// cause any state change
-	ExecuteContractRead(caller address.Address, ex *action.Execution, forEstimateGas bool) ([]byte, *action.Receipt, error)
+	ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
 
 	// AddSubscriber make you listen to every single produced block
 	AddSubscriber(BlockCreationSubscriber) error
@@ -726,7 +726,7 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 
 // ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
 // cause any state change
-func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Execution, forEstimateGas bool) ([]byte, *action.Receipt, error) {
+func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
 	// use latest block as carrier to run the offline execution
 	// the block itself is not used
 	h := bc.TipHeight()
@@ -761,7 +761,6 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 			bc.config.Genesis.PacificBlockHeight,
 			bc.config.Genesis.AleutianBlockHeight,
 		),
-		forEstimateGas,
 	)
 }
 

@@ -156,16 +156,12 @@ func ExecuteContract(
 	execution *action.Execution,
 	cm protocol.ChainManager,
 	hc HeightChange,
-	forEstimateGas bool,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	stateDB := NewStateDBAdapter(cm, sm, &hc, raCtx.BlockHeight, execution.Hash())
 	ps, err := NewParams(raCtx, execution, stateDB, hc)
 	if err != nil {
 		return nil, nil, err
-	}
-	if forEstimateGas {
-		ps.gas = raCtx.GasLimit
 	}
 	retval, depositGas, remainingGas, contractAddress, failed, err := executeInEVM(ps, stateDB, raCtx.GasLimit)
 	if err != nil {
