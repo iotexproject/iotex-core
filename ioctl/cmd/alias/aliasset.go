@@ -11,7 +11,7 @@ import (
 	"io/ioutil"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
@@ -43,8 +43,9 @@ func set(args []string) (string, error) {
 	}
 	addr := args[1]
 	aliases := GetAliasMap()
-	if aliases[addr] != "" {
+	for aliases[addr] != "" {
 		delete(config.ReadConfig.Aliases, aliases[addr])
+		aliases = GetAliasMap()
 	}
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)

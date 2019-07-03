@@ -12,7 +12,7 @@ import (
 	"io/ioutil"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 )
@@ -63,8 +63,9 @@ func aliasImport(cmd *cobra.Command, args []string) (string, error) {
 			fmt.Println("existed alias " + importedAlias.Name)
 			continue
 		}
-		if aliases[importedAlias.Address] != "" {
+		for aliases[importedAlias.Address] != "" {
 			delete(config.ReadConfig.Aliases, aliases[importedAlias.Name])
+			aliases = GetAliasMap()
 		}
 		config.ReadConfig.Aliases[importedAlias.Name] = importedAlias.Address
 		importedNum++
