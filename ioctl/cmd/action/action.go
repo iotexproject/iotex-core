@@ -69,8 +69,21 @@ func decodeBytecode() ([]byte, error) {
 	return hex.DecodeString(strings.TrimPrefix(bytecodeFlag.Value().(string), "0x"))
 }
 
-func signer() (address string, err error) {
-	return util.GetAddress([]string{signerFlag.Value().(string)})
+func signer() (addr string, err error) {
+	addr, err = util.GetAddress([]string{signerFlag.Value().(string)})
+	addres, err := address.FromString(addr)
+	if err != nil {
+		return
+	}
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+		keystore.StandardScryptN, keystore.StandardScryptP)
+	for _, account := range ks.Accounts() {
+		if bytes.Equal(addres.Bytes(), account.Address.Bytes()) {
+			return
+		}
+	}
+	err = errors.Errorf("cannot find %s,please import first", addr)
+	return
 }
 
 func nonce(executor string) (uint64, error) {
@@ -169,23 +182,15 @@ func sendAction(elp action.Envelope, signer string) error {
 		err              error
 		prvKeyOrPassword string
 	)
-	if !signerIsExist(signer) {
-		fmt.Printf("Enter private key #%s:\n", signer)
-		prvKeyOrPassword, err = util.ReadSecretFromStdin()
-		if err != nil {
-			log.L().Error("failed to get private key", zap.Error(err))
-			return err
-		}
-		prvKey, err = crypto.HexStringToPrivateKey(prvKeyOrPassword)
-	} else {
-		fmt.Printf("Enter password #%s:\n", signer)
-		prvKeyOrPassword, err = util.ReadSecretFromStdin()
-		if err != nil {
-			log.L().Error("failed to get password", zap.Error(err))
-			return err
-		}
-		prvKey, err = account.KsAccountToPrivateKey(signer, prvKeyOrPassword)
+
+	fmt.Printf("Enter password #%s:\n", signer)
+	prvKeyOrPassword, err = util.ReadSecretFromStdin()
+	if err != nil {
+		log.L().Error("failed to get password", zap.Error(err))
+		return err
 	}
+	prvKey, err = account.KsAccountToPrivateKey(signer, prvKeyOrPassword)
+
 	if err != nil {
 		return err
 	}
@@ -232,19 +237,4 @@ func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
 		return
 	}
 	return
-}
-func signerIsExist(signer string) bool {
-	address, err := address.FromString(signer)
-	if err != nil {
-		return false
-	}
-	// find the account in keystore
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, account := range ks.Accounts() {
-		if bytes.Equal(address.Bytes(), account.Address.Bytes()) {
-			return true
-		}
-	}
-	return false
 }
