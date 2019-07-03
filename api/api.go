@@ -54,6 +54,10 @@ var (
 	ErrAction = errors.New("invalid action")
 )
 
+const (
+	secp256pubKeyLength = 65
+)
+
 // BroadcastOutbound sends a broadcast message to the whole network
 type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Message) error
 
@@ -289,6 +293,12 @@ func (api *Server) GetServerMeta(ctx context.Context,
 // SendAction is the API to send an action to blockchain.
 func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (res *iotexapi.SendActionResponse, err error) {
 	log.L().Debug("receive send action request")
+	if len(in.Action.SenderPubKey) == secp256pubKeyLength-1 {
+		in.Action.SenderPubKey = append([]byte{4}, in.Action.SenderPubKey...)
+	}
+	if in.Action.Signature[secp256pubKeyLength-1] >= 27 {
+		in.Action.Signature[secp256pubKeyLength-1] -= 27
+	}
 
 	// broadcast to the network
 	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
