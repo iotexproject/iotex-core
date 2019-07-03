@@ -718,6 +718,27 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		var prevAct *iotexapi.ActionInfo
+		for _, act := range res.ActionInfo {
+			if prevAct != nil {
+				require.True(act.Timestamp.GetSeconds() >= prevAct.Timestamp.GetSeconds())
+			}
+			prevAct = act
+		}
+		if test.start > 0 && len(res.ActionInfo) > 0 {
+			request = &iotexapi.GetActionsRequest{
+				Lookup: &iotexapi.GetActionsRequest_ByAddr{
+					ByAddr: &iotexapi.GetActionsByAddressRequest{
+						Address: test.address,
+						Start:   0,
+						Count:   test.start,
+					},
+				},
+			}
+			prevRes, err := svr.GetActions(context.Background(), request)
+			require.NoError(err)
+			require.True(prevRes.ActionInfo[len(prevRes.ActionInfo)-1].Timestamp.GetSeconds() <= res.ActionInfo[0].Timestamp.GetSeconds())
+		}
 	}
 }
 
