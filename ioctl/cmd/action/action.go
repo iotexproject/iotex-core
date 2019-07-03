@@ -158,8 +158,10 @@ func sendRaw(selp *iotextypes.Action) error {
 		return err
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
+	txhash := hex.EncodeToString(shash[:])
 	fmt.Println("Action has been sent to blockchain.")
-	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", hex.EncodeToString(shash[:]))
+	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", txhash)
+	fmt.Printf("IoTeX Explorer link: iotexscan.io/action/%s\n", txhash)
 	return nil
 }
 func sendAction(elp action.Envelope, signer string) error {
