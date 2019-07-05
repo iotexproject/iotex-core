@@ -40,7 +40,10 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 	cfg, err := New()
 	require.NotNil(t, err)
 	require.Equal(t, Config{}, cfg)
-	require.Contains(t, err.Error(), "open wrong_path: no such file or directory")
+	if strings.Contains(err.Error(),
+		"open wrong_path: The system cannot find the file specified") == false { // for Windows
+		require.Contains(t, err.Error(), "open wrong_path: no such file or directory")
+	}
 }
 
 func TestNewConfigWithOverride(t *testing.T) {
