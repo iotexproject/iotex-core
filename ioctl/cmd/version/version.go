@@ -69,7 +69,7 @@ func version() output.Error {
 	message = versionMessage{Type: output.Result, Object: config.ReadConfig.Endpoint}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		oErr = output.Error{Code: output.Network_Error, Info: err.Error()}
+		oErr = output.Error{Code: output.NetworkError, Info: err.Error()}
 		printVersion(message, oErr)
 		return oErr
 	}
@@ -84,7 +84,7 @@ func version() output.Error {
 			oErr = output.Error{Code: 1, Info: sta.Message()}
 		} else {
 			oErr = output.Error{
-				Code: output.API_Error,
+				Code: output.APIError,
 				Info: "failed to get version from server: " + err.Error(),
 			}
 		}

@@ -6,15 +6,21 @@
 
 package output
 
+// OutputFormat is the target of output-format flag
 var OutputFormat string
 
+// ErrorCode is the code of error
 type ErrorCode int
 
 const (
+	// NoError used when no error is happened
 	NoError ErrorCode = iota
-	Undefined_Error
-	Network_Error
-	API_Error
+	// UndefinedError used when an error cat't be classified 
+	UndefinedError
+	// NetworkError used when an network error is happened
+	NetworkError
+	// APIError used when an API error is happened
+	APIError
 )
 
 // MessageType marks the type of output message
@@ -29,15 +35,18 @@ const (
 	Query
 )
 
+// Output is used for format output
 type Output struct {
 	Error   Error   `json:"error"`
 	Message Message `json:"message"`
 }
 
+// Error is the error part of Output
 type Error struct {
 	Code ErrorCode `json:"code"`
 	Info string    `json:"info"`
 }
 
+// Message is the message part of Output
 type Message interface {
 }
