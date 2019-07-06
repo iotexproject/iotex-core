@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/endorsement"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -72,9 +73,62 @@ func TestEndorserEndorsementCollection(t *testing.T) {
 }
 
 func TestBlockEndorsementCollection(t *testing.T) {
+	require := require.New(t)
+	b := getBlock(t)
+	ec := newBlockEndorsementCollection(&b)
+	require.NotNil(ec)
+	require.NoError(ec.SetBlock(&b))
+	require.Equal(&b, ec.Block())
+	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
 
+	require.NoError(ec.AddEndorsement(PROPOSAL, end))
+	require.Equal(end, ec.Endorsement(b.PublicKey().HexString(), PROPOSAL))
+	ends := ec.Endorsements([]ConsensusVoteTopic{PROPOSAL})
+	require.Equal(1, len(ends))
+	require.Equal(end, ends[0])
+
+	cleaned := ec.Cleanup(time.Now().Add(time.Second * 10 * -1))
+	require.Equal(1, len(cleaned.endorsers))
+	require.Equal(1, len(cleaned.endorsers[b.PublicKey().HexString()].endorsements))
+	require.Equal(end, cleaned.endorsers[b.PublicKey().HexString()].Endorsement(PROPOSAL))
 }
 
 func TestEndorsementManager(t *testing.T) {
+	require := require.New(t)
+	em := newEndorsementManager()
+	require.NotNil(em)
+	require.Equal(0, em.Size())
+	require.Equal(0, em.SizeWithBlock())
 
+	b := getBlock(t)
+	require.NoError(em.RegisterBlock(&b))
+
+	require.Panics(func() {
+		em.AddVoteEndorsement(nil, nil)
+	}, "vote is nil")
+	blkHash := b.HashBlock()
+	cv := NewConsensusVote(blkHash[:], PROPOSAL)
+	require.NotNil(cv)
+
+	require.Panics(func() {
+		em.AddVoteEndorsement(cv, nil)
+	}, "endorsement is nil")
+
+	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
+	require.NoError(em.AddVoteEndorsement(cv, end))
+
+	require.Panics(func() {
+		em.Log(nil, nil)
+	}, "logger is nil")
+	l := em.Log(log.L(), nil)
+	require.NotNil(l)
+	l.Info("test output")
+	cleaned := em.Cleanup(time.Now().Add(time.Second * 10 * -1))
+	require.NotNil(cleaned)
+	require.Equal(1, len(cleaned.collections))
+	encoded := encodeToString(cv.BlockHash())
+	require.Equal(1, len(cleaned.collections[encoded].endorsers))
+
+	collection := cleaned.collections[encoded].endorsers[end.Endorser().HexString()]
+	require.Equal(end, collection.endorsements[PROPOSAL])
 }
