@@ -50,6 +50,37 @@ var (
 	priKey6 = identityset.PrivateKey(33)
 )
 
+func TestActPool_NewActPool(t *testing.T) {
+	require := require.New(t)
+	cfg := config.Default
+
+	//error caused by nil blockchain
+	_, err := NewActPool(nil, cfg.ActPool, nil)
+	require.Error(err)
+
+	// all good
+	opt := EnableExperimentalActions()
+	require.Panics(func() { blockchain.NewBlockchain(cfg, nil) }, "option is nil")
+	bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption())
+	act, err := NewActPool(bc, cfg.ActPool, opt)
+	require.NoError(err)
+	require.NotNil(act)
+
+	// panic caused by option is nil
+	require.Panics(func() { NewActPool(bc, cfg.ActPool, nil) }, "option is nil")
+
+	// error caused by option
+	opt2 := func(pool *actPool) error {
+		return errors.New("test error")
+	}
+	_, err = NewActPool(bc, cfg.ActPool, opt2)
+	require.Error(err)
+
+	// test AddAction nil
+	require.NotPanics(func() { act.AddActionValidators(nil) }, "option is nil")
+	require.NotPanics(func() { act.AddActionEnvelopeValidators(nil) }, "option is nil")
+}
+
 func TestActPool_validateGenericAction(t *testing.T) {
 	require := require.New(t)
 
