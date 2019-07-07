@@ -51,7 +51,7 @@ func TestUpdateRound(t *testing.T) {
 	// (31+120)%24
 	ra, err = rc.UpdateRound(ra, 31, time.Unix(1562382522, 0))
 	require.NoError(err)
-	require.Equal("io1eq4ehs6xx6zj9gcsax7h3qydwlxut9xcfcjras", ra.proposer)
+	require.Equal(identityset.Address(7).String(), ra.proposer)
 }
 func TestNewRound(t *testing.T) {
 	require := require.New(t)
@@ -59,29 +59,32 @@ func TestNewRound(t *testing.T) {
 	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
 	proposer, err := rc.calculateProposer(5, 1, []string{"1", "2", "3", "4", "5"})
 	require.Error(err)
-
-	validDelegates := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"}
-	proposer, err = rc.calculateProposer(5, 1, validDelegates)
+	var validDelegates [24]string
+	for i := 0; i < 24; i++ {
+		validDelegates[i] = identityset.Address(i).String()
+	}
+	proposer, err = rc.calculateProposer(5, 1, validDelegates[:])
 	require.NoError(err)
-	require.Equal("7", proposer)
+	require.Equal(validDelegates[6], proposer)
 
 	rc.timeBasedRotation = false
-	proposer, err = rc.calculateProposer(50, 1, validDelegates)
+	proposer, err = rc.calculateProposer(50, 1, validDelegates[:])
 	require.NoError(err)
-	require.Equal("3", proposer)
+	require.Equal(validDelegates[2], proposer)
 
 	ra, err := rc.NewRound(1, time.Unix(1562382392, 0))
 	require.NoError(err)
 	require.Equal(uint32(19), ra.roundNum)
 	require.Equal(uint64(1), ra.height)
-	require.Equal("io1l3wc0smczyay8xq747e2hw63mzg3ctp6uf8wsg", ra.proposer)
+	// sorted by address hash
+	require.Equal(identityset.Address(16).String(), ra.proposer)
 
 	rc.timeBasedRotation = true
 	ra, err = rc.NewRound(1, time.Unix(1562382392, 0))
 	require.NoError(err)
 	require.Equal(uint32(19), ra.roundNum)
 	require.Equal(uint64(1), ra.height)
-	require.Equal("io1fxzh50pa6qc6x5cprgmgw4qrp5vw97zk5pxt3q", ra.proposer)
+	require.Equal(identityset.Address(5).String(), ra.proposer)
 }
 func TestDelegates(t *testing.T) {
 	require := require.New(t)
@@ -94,8 +97,8 @@ func TestDelegates(t *testing.T) {
 	require.NoError(err)
 	require.Equal(roll.NumDelegates(), uint64(len(dels)))
 
-	require.False(rc.IsDelegate("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", 2))
-	require.True(rc.IsDelegate("io14gnqxf9dpkn05g337rl7eyt2nxasphf5m6n0rd", 2))
+	require.False(rc.IsDelegate(identityset.Address(25).String(), 2))
+	require.True(rc.IsDelegate(identityset.Address(5).String(), 2))
 }
 func TestRoundInfo(t *testing.T) {
 	require := require.New(t)
@@ -206,8 +209,5 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	}
 	require.Equal(uint64(50), chain.TipHeight())
 	require.NoError(err)
-	//defer func() {
-	//	require.NoError(chain.Stop(ctx))
-	//}()
 	return chain, rolldposProtocol
 }

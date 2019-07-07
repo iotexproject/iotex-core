@@ -7,7 +7,6 @@
 package rolldpos
 
 import (
-	"encoding/hex"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestNewBlockProposal(t *testing.T) {
@@ -29,7 +29,7 @@ func TestNewBlockProposal(t *testing.T) {
 	bp2 := newBlockProposal(&b, nil)
 	require.NotNil(bp2)
 	require.Equal(uint64(123), bp2.Height())
-	require.Equal("io1vdtfpzkwpyngzvx7u2mauepnzja7kd5rryp0sg", bp2.ProposerAddress())
+	require.Equal(identityset.Address(0).String(), bp2.ProposerAddress())
 
 	h, err := bp2.Hash()
 	require.NoError(err)
@@ -57,9 +57,7 @@ func getBlock(t *testing.T) block.Block {
 		ReceiptRoot:      []byte(""),
 	}
 	header := block.Header{}
-	pk, err := hex.DecodeString("04ea8046cf8dc5bc9cda5f2e83e5d2d61932ad7e0e402b4f4cb65b58e9618891f54cba5cfcda873351ad9da1f5a819f54bba9e8343f2edd1ad34dcf7f35de552f3")
-	require.NoError(err)
-	require.NoError(header.LoadFromBlockHeaderProto(&iotextypes.BlockHeader{Core: hcore, ProducerPubkey: pk}))
+	require.NoError(header.LoadFromBlockHeaderProto(&iotextypes.BlockHeader{Core: hcore, ProducerPubkey: identityset.PrivateKey(0).PublicKey().Bytes()}))
 
 	b := block.Block{Header: header}
 	return b
