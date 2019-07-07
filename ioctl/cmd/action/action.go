@@ -7,7 +7,6 @@
 package action
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -234,7 +233,7 @@ func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
 	return
 }
 func signerIsExist(signer string) bool {
-	address, err := address.FromString(signer)
+	addr, err := address.FromString(signer)
 	if err != nil {
 		return false
 	}
@@ -242,7 +241,7 @@ func signerIsExist(signer string) bool {
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, account := range ks.Accounts() {
-		if bytes.Equal(address.Bytes(), account.Address.Bytes()) {
+		if address.Equal(addr, account.Address) {
 			return true
 		}
 	}
