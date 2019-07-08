@@ -61,7 +61,7 @@ type ErrorMessage struct {
 func PrintError(code ErrorCode, info string) error {
 	switch {
 	default:
-		return fmt.Errorf("%d,%s", code, info)
+		return fmt.Errorf("%d, %s", code, info)
 	case OutputFormat == "json":
 		out := Output{
 			MessageType: Error,
