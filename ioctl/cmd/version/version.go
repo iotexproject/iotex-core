@@ -30,8 +30,8 @@ var VersionCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		version()
-		return nil
+		err := version()
+		return err
 	},
 }
 
