@@ -30,16 +30,12 @@ var VersionCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		oErr := version()
-		if output.OutputFormat == "" && oErr.Code != 0 {
-			return fmt.Errorf("Code %d, Info:%s", oErr.Code, oErr.Info)
-		}
+		version()
 		return nil
 	},
 }
 
 type versionMessage struct {
-	Type        output.MessageType     `json:"type"`
 	Object      string                 `json:"object"`
 	VersionInfo *iotextypes.ServerMeta `json:"versionInfo"`
 }
@@ -51,10 +47,8 @@ func init() {
 		"insecure connection for once")
 }
 
-func version() output.Error {
-	message := versionMessage{Type: output.Result}
-	emptyError := output.Error{Code: 0, Info: ""}
-	var oErr output.Error
+func version() error {
+	message := versionMessage{}
 
 	message.Object = "Client"
 	message.VersionInfo = &iotextypes.ServerMeta{
@@ -64,14 +58,12 @@ func version() output.Error {
 		GoVersion:       ver.GoVersion,
 		BuildTime:       ver.BuildTime,
 	}
-	printVersion(message, emptyError)
+	printVersion(message)
 
-	message = versionMessage{Type: output.Result, Object: config.ReadConfig.Endpoint}
+	message = versionMessage{Object: config.ReadConfig.Endpoint}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		oErr = output.Error{Code: output.NetworkError, Info: err.Error()}
-		printVersion(message, oErr)
-		return oErr
+		return output.PrintError(output.NetworkError, err.Error())
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -81,33 +73,23 @@ func version() output.Error {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			oErr = output.Error{Code: 1, Info: sta.Message()}
-		} else {
-			oErr = output.Error{
-				Code: output.APIError,
-				Info: "failed to get version from server: " + err.Error(),
-			}
+			return output.PrintError(output.NetworkError, sta.Message())
 		}
-		printVersion(message, oErr)
-		return oErr
+		return output.PrintError(output.APIError,
+			"failed to get version from server: "+err.Error())
 	}
 
 	message.VersionInfo = response.ServerMeta
-	printVersion(message, emptyError)
-	return oErr
+	printVersion(message)
+	return nil
 }
 
-func printVersion(message versionMessage, oErr output.Error) {
+func printVersion(message versionMessage) {
 	switch {
 	default:
-		if oErr.Code == 0 {
-			fmt.Printf("%s:\n%+v\n\n", message.Object, message.VersionInfo)
-		} else {
-			fmt.Printf("%s:\n", message.Object)
-		}
-
+		fmt.Printf("%s:\n%+v\n\n", message.Object, message.VersionInfo)
 	case output.OutputFormat == "json":
-		out := output.Output{Error: oErr, Message: message}
+		out := output.Output{MessageType: output.Result, Message: message}
 		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
 			log.Panic(err)

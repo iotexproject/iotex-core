@@ -6,6 +6,12 @@
 
 package output
 
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+)
+
 // OutputFormat is the target of output-format flag
 var OutputFormat string
 
@@ -13,10 +19,8 @@ var OutputFormat string
 type ErrorCode int
 
 const (
-	// NoError used when no error is happened
-	NoError ErrorCode = iota
-	// UndefinedError used when an error cat't be classified 
-	UndefinedError
+	// UndefinedError used when an error cat't be classified
+	UndefinedError ErrorCode = iota
 	// NetworkError used when an network error is happened
 	NetworkError
 	// APIError used when an API error is happened
@@ -33,20 +37,41 @@ const (
 	Confirmation
 	// Query represents request for answer of certain question
 	Query
+	// Error represents error occured when running a command
+	Error
 )
 
 // Output is used for format output
 type Output struct {
-	Error   Error   `json:"error"`
-	Message Message `json:"message"`
+	MessageType MessageType `json:"messageType"`
+	Message     Message     `json:"message"`
 }
 
-// Error is the error part of Output
-type Error struct {
+// Message is the message part of output
+type Message interface {
+}
+
+// ErrorMessage is the struct of an Error output
+type ErrorMessage struct {
 	Code ErrorCode `json:"code"`
 	Info string    `json:"info"`
 }
 
-// Message is the message part of Output
-type Message interface {
+// PrintError prints error message in format, and returns golang error when using default output
+func PrintError(code ErrorCode, info string) error {
+	switch {
+	default:
+		return fmt.Errorf("Error%d:%s", code, info)
+	case OutputFormat == "json":
+		out := Output{
+			MessageType: Error,
+			Message:     ErrorMessage{Code: code, Info: info},
+		}
+		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			log.Panic(err)
+		}
+		fmt.Println(string(byteAsJSON))
+	}
+	return nil
 }
