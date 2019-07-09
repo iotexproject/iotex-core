@@ -8,12 +8,15 @@ package version
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	ver "github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -27,12 +30,14 @@ var VersionCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := version()
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := version()
 		return err
 	},
+}
+
+type versionMessage struct {
+	Object      string                 `json:"object"`
+	VersionInfo *iotextypes.ServerMeta `json:"versionInfo"`
 }
 
 func init() {
@@ -42,18 +47,23 @@ func init() {
 		"insecure connection for once")
 }
 
-func version() (string, error) {
-	versionInfo := &iotextypes.ServerMeta{
+func version() error {
+	message := versionMessage{}
+
+	message.Object = "Client"
+	message.VersionInfo = &iotextypes.ServerMeta{
 		PackageVersion:  ver.PackageVersion,
 		PackageCommitID: ver.PackageCommitID,
 		GitStatus:       ver.GitStatus,
 		GoVersion:       ver.GoVersion,
 		BuildTime:       ver.BuildTime,
 	}
-	fmt.Printf("Client:\n%+v\n\n", versionInfo)
+	printVersion(message)
+
+	message = versionMessage{Object: config.ReadConfig.Endpoint}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.NetworkError, err.Error())
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -63,9 +73,27 @@ func version() (string, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return "", fmt.Errorf(sta.Message())
+			return output.PrintError(output.NetworkError, sta.Message())
 		}
-		return "", fmt.Errorf("failed to get version from server: " + err.Error())
+		return output.PrintError(output.APIError,
+			"failed to get version from server: "+err.Error())
 	}
-	return fmt.Sprintf("Server: %s\n%+v", config.ReadConfig.Endpoint, response.ServerMeta), nil
+
+	message.VersionInfo = response.ServerMeta
+	printVersion(message)
+	return nil
+}
+
+func printVersion(message versionMessage) {
+	switch output.Format {
+	default:
+		fmt.Printf("%s:\n%+v\n\n", message.Object, message.VersionInfo)
+	case "json":
+		out := output.Output{MessageType: output.Result, Message: message}
+		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			log.Panic(err)
+		}
+		fmt.Println(string(byteAsJSON))
+	}
 }
