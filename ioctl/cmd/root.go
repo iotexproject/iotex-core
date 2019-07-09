@@ -45,6 +45,6 @@ func init() {
 	RootCmd.AddCommand(update.UpdateCmd)
 	RootCmd.AddCommand(version.VersionCmd)
 	RootCmd.AddCommand(action.Xrc20Cmd)
-	RootCmd.PersistentFlags().StringVarP(&output.OutputFormat, "output-format", "o", "",
+	RootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
 		"output format")
 }
