@@ -26,7 +26,8 @@ const (
 )
 
 var (
-	validArgs       = []string{"endpoint", "wallet", "currentcontext"}
+	validArgs       = []string{"endpoint", "wallet", "explorer", "currentcontext"}
+	validExpl       = []string{"iotexscan", "iotxplorer"}
 	endpointCompile = regexp.MustCompile("^" + endpointPattern + "$")
 )
 
@@ -37,8 +38,8 @@ var configGetCmd = &cobra.Command{
 	ValidArgs: validArgs,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
-			return fmt.Errorf("accepts 1 arg(s), received %d,"+
-				" valid arg(s): %s", len(args), validArgs)
+			return fmt.Errorf("Accepts 1 arg(s), received %d\n"+
+				"Valid arg(s): %s\n", len(args), validArgs)
 		}
 		return cobra.OnlyValidArgs(cmd, args)
 	},
@@ -59,14 +60,28 @@ var configSetCmd = &cobra.Command{
 	ValidArgs: validArgs,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 2 {
-			return fmt.Errorf("accepts 2 arg(s), received %d,"+
-				" valid arg(s): %s", len(args), validArgs)
+			return fmt.Errorf("Accepts 2 arg(s), received %d\n"+
+				"Valid arg(s): %s\n", len(args), validArgs)
 		}
 		return cobra.OnlyValidArgs(cmd, args[:1])
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		output, err := set(args)
+		if err == nil {
+			fmt.Println(output)
+		}
+		return err
+	},
+}
+
+// configResetCmd represents the config reset command
+var configResetCmd = &cobra.Command{
+	Use:   "reset",
+	Short: "Reset config to default",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
+		output, err := reset()
 		if err == nil {
 			fmt.Println(output)
 		}
@@ -94,6 +109,8 @@ func Get(arg string) (string, error) {
 		return ReadConfig.Wallet, nil
 	case "currentcontext":
 		return fmt.Sprint(ReadConfig.CurrentContext), nil
+	case "explorer":
+		return ReadConfig.Explorer, nil
 	}
 }
 
@@ -134,6 +151,18 @@ func set(args []string) (string, error) {
 		ReadConfig.SecureConnect = !Insecure
 	case "wallet":
 		ReadConfig.Wallet = args[1]
+	case "explorer":
+		lowArg := strings.ToLower(args[1])
+		valid := false
+		for _, v := range validExpl {
+			if lowArg == v {
+				ReadConfig.Explorer = v
+				valid = true
+			}
+		}
+		if !valid {
+			return "", fmt.Errorf("Explorer %s is not valid\nValid Explorers: %s", args[1], validExpl)
+		}
 	case "currentcontext":
 		err1 := validator.ValidateAlias(args[1])
 		err2 := validator.ValidateAddress(args[1])
@@ -149,5 +178,22 @@ func set(args []string) (string, error) {
 	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
 		return "", fmt.Errorf("failed to write to config file %s", DefaultConfigFile)
 	}
-	return args[0] + " is set to " + args[1], nil
+	return strings.Title(args[0]) + " is set to " + args[1], nil
+}
+
+// reset all values of config
+func reset() (string, error) {
+	ReadConfig.Wallet = ConfigDir
+	ReadConfig.Endpoint = ""
+	ReadConfig.SecureConnect = true
+	ReadConfig.CurrentContext = *new(Context)
+	ReadConfig.Explorer = "iotexscan"
+	out, err := yaml.Marshal(&ReadConfig)
+	if err != nil {
+		return "", err
+	}
+	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
+		return "", fmt.Errorf("failed to write to config file %s", DefaultConfigFile)
+	}
+	return "Config reset to default values", nil
 }
