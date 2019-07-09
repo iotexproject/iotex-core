@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/cmd/node"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/update"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/version"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -44,4 +45,6 @@ func init() {
 	RootCmd.AddCommand(update.UpdateCmd)
 	RootCmd.AddCommand(version.VersionCmd)
 	RootCmd.AddCommand(action.Xrc20Cmd)
+	RootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
+		"output format")
 }
