@@ -59,7 +59,7 @@ func defaultConfig() Genesis {
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
 			BlockRewardStr:                 unit.ConvertIotxToRau(16).String(),
 			EpochRewardStr:                 unit.ConvertIotxToRau(12500).String(),
-			AleutianEpochRewardStr:         unit.ConvertIotxToRau(15000).String(),
+			AleutianEpochRewardStr:         unit.ConvertIotxToRau(18750).String(),
 			NumDelegatesForEpochReward:     100,
 			ExemptAddrStrsFromEpochReward:  []string{},
 			FoundationBonusStr:             unit.ConvertIotxToRau(80).String(),
