@@ -96,6 +96,7 @@ func printImport(message importMessage) {
 		for _, alias := range message.Unimported {
 			fmt.Print(" " + alias.Name)
 		}
+		fmt.Println()
 	case "json":
 		out := output.Output{MessageType: output.Result, Message: message}
 		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
