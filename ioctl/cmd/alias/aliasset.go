@@ -7,13 +7,16 @@
 package alias
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
@@ -24,22 +27,19 @@ var aliasSetCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := set(args)
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := set(args)
 		return err
 	},
 }
 
 // set sets alias
-func set(args []string) (string, error) {
+func set(args []string) error {
 	if err := validator.ValidateAlias(args[0]); err != nil {
-		return "", err
+		return output.PrintError(output.ValidationError, err.Error())
 	}
 	alias := args[0]
 	if err := validator.ValidateAddress(args[1]); err != nil {
-		return "", err
+		return output.PrintError(output.ValidationError, err.Error())
 	}
 	addr := args[1]
 	aliases := GetAliasMap()
@@ -50,10 +50,26 @@ func set(args []string) (string, error) {
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.SerializationError, err.Error())
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
+		return output.PrintError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	return "set", nil
+	printSet()
+	return nil
+}
+
+func printSet() {
+	switch output.Format {
+	default:
+		fmt.Println("set")
+	case "json":
+		out := output.Output{MessageType: output.Result, Message: "set"}
+		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			log.Panic(err)
+		}
+		fmt.Println(string(byteAsJSON))
+	}
 }

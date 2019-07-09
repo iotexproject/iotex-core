@@ -25,6 +25,16 @@ const (
 	NetworkError
 	// APIError used when an API error is happened
 	APIError
+	// ValidationError used when validation is not passed
+	ValidationError
+	// SerializationError used when marshal or unmarshal meets error
+	SerializationError
+	// ReadFileError used when error occurs during reading a file
+	ReadFileError
+	// WriteFileError used when error occurs during writing a file
+	WriteFileError
+	// FlagError used when invalid flag is set
+	FlagError
 )
 
 // MessageType marks the type of output message

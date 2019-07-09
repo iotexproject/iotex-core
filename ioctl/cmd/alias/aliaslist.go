@@ -7,13 +7,15 @@
 package alias
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // aliasListCmd represents the alias list command
@@ -22,19 +24,46 @@ var aliasListCmd = &cobra.Command{
 	Short: "List aliases",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(aliasList())
+		aliasList()
 	},
 }
 
-func aliasList() string {
-	lines := make([]string, 0)
+type aliasListMessage struct {
+	AliasNumber int         `json:"aliasNumber"`
+	AliasList   []aliasMeta `json:"aliasList"`
+}
+
+type aliasMeta struct {
+	Address string `json:"address"`
+	Alias   string `json:"alias"`
+}
+
+func aliasList() {
 	var keys []string
 	for alias := range config.ReadConfig.Aliases {
 		keys = append(keys, alias)
 	}
 	sort.Strings(keys)
+	aliasListMessage := aliasListMessage{AliasNumber: len(keys)}
 	for _, alias := range keys {
-		lines = append(lines, config.ReadConfig.Aliases[alias]+" - "+alias)
+		aliasMeta := aliasMeta{Address: config.ReadConfig.Aliases[alias], Alias: alias}
+		aliasListMessage.AliasList = append(aliasListMessage.AliasList, aliasMeta)
 	}
-	return strings.Join(lines, "\n")
+	printAliasList(aliasListMessage)
+}
+
+func printAliasList(message aliasListMessage) {
+	switch output.Format {
+	default:
+		for _, aliasMeta := range message.AliasList {
+			fmt.Printf("%s - %s\n", aliasMeta.Address, aliasMeta.Alias)
+		}
+	case "json":
+		out := output.Output{MessageType: output.Result, Message: message}
+		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			log.Panic(err)
+		}
+		fmt.Println(string(byteAsJSON))
+	}
 }

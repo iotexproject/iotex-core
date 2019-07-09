@@ -7,13 +7,16 @@
 package alias
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
@@ -24,27 +27,40 @@ var aliasRemoveCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := remove(args[0])
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := remove(args[0])
 		return err
 	},
 }
 
 // remove removes alias
-func remove(arg string) (string, error) {
+func remove(arg string) error {
 	if err := validator.ValidateAlias(arg); err != nil {
-		return "", err
+		return output.PrintError(output.ValidationError, err.Error())
 	}
 	alias := arg
 	delete(config.ReadConfig.Aliases, alias)
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.SerializationError, err.Error())
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
+		return output.PrintError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	return alias + " is removed", nil
+	printRemove(alias + " is removed")
+	return nil
+}
+
+func printRemove(message string) {
+	switch output.Format {
+	default:
+		fmt.Println(message)
+	case "json":
+		out := output.Output{MessageType: output.Result, Message: message}
+		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			log.Panic(err)
+		}
+		fmt.Println(string(byteAsJSON))
+	}
 }

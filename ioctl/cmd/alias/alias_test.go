@@ -34,18 +34,17 @@ func TestAlias(t *testing.T) {
 		{raullen, "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"},
 		{jing, "io188fptstp82y53l3x0eadfhxg6qmywgny24mgfp"},
 	}
-	expected := []error{
-		nil,
-		validator.ErrLongAlias,
-		validator.ErrInvalidAddr,
-		nil,
-		nil,
+	expected := []string{
+		"",
+		validator.ErrLongAlias.Error(),
+		validator.ErrInvalidAddr.Error(),
+		"",
+		"",
 	}
 	for i, testCase := range aliasTestCase {
-		responce, err := set(testCase)
-		require.Equal(expected[i], err)
-		if err == nil {
-			require.Equal("set", responce)
+		err := set(testCase)
+		if err != nil {
+			require.Contains(err.Error(), expected[i])
 		}
 	}
 	require.Equal("io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx", config.ReadConfig.Aliases[raullen])
@@ -55,13 +54,11 @@ func TestAlias(t *testing.T) {
 	require.Equal(raullen, aliases["io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx"])
 	require.Equal(jing, aliases["io188fptstp82y53l3x0eadfhxg6qmywgny24mgfp"])
 	require.Equal("", aliases["io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1"])
-	responce, err := remove(raullen)
+	err := remove(raullen)
 	require.NoError(err)
-	require.Equal(raullen+" is removed", responce)
 	require.Equal("", config.ReadConfig.Aliases[raullen])
-	responce, err = set([]string{jing, "io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8"})
+	err = set([]string{jing, "io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8"})
 	require.NoError(err)
-	require.Equal("set", responce)
 	require.Equal("io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8", config.ReadConfig.Aliases[jing])
 	aliases = GetAliasMap()
 	require.Equal("", aliases["io188fptstp82y53l3x0eadfhxg6qmywgny24mgfp"])
