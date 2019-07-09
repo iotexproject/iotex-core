@@ -12,8 +12,8 @@ import (
 	"log"
 )
 
-// OutputFormat is the target of output-format flag
-var OutputFormat string
+// Format is the target of output-format flag
+var Format string
 
 // ErrorCode is the code of error
 type ErrorCode int
@@ -59,10 +59,10 @@ type ErrorMessage struct {
 
 // PrintError prints error message in format, and returns golang error when using default output
 func PrintError(code ErrorCode, info string) error {
-	switch {
+	switch Format {
 	default:
 		return fmt.Errorf("%d, %s", code, info)
-	case OutputFormat == "json":
+	case "json":
 		out := Output{
 			MessageType: Error,
 			Message:     ErrorMessage{Code: code, Info: info},

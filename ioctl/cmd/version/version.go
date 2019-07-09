@@ -85,10 +85,10 @@ func version() error {
 }
 
 func printVersion(message versionMessage) {
-	switch {
+	switch output.Format {
 	default:
 		fmt.Printf("%s:\n%+v\n\n", message.Object, message.VersionInfo)
-	case output.OutputFormat == "json":
+	case "json":
 		out := output.Output{MessageType: output.Result, Message: message}
 		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
