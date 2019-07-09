@@ -26,7 +26,8 @@ const (
 )
 
 var (
-	validArgs       = []string{"endpoint", "wallet", "explorer", "currentcontext"}
+	validArgs       = []string{"endpoint", "wallet", "explorer", "defaultacc"}
+	validGetArgs    = []string{"endpoint", "wallet", "explorer", "defaultacc", "all"}
 	validExpl       = []string{"iotexscan", "iotxplorer"}
 	endpointCompile = regexp.MustCompile("^" + endpointPattern + "$")
 )
@@ -34,12 +35,13 @@ var (
 // configGetCmd represents the config get command
 var configGetCmd = &cobra.Command{
 	Use:       "get VARIABLE",
-	Short:     "Get config from ioctl",
-	ValidArgs: validArgs,
+	Short:     "Get config fields from ioctl",
+	Long:      "Get config fields from ioctl\nValid Variables: [" + strings.Join(validGetArgs, ", ") + "]",
+	ValidArgs: validGetArgs,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
 			return fmt.Errorf("Accepts 1 arg(s), received %d\n"+
-				"Valid arg(s): %s\n", len(args), validArgs)
+				"Valid arg(s): %s\n", len(args), validGetArgs)
 		}
 		return cobra.OnlyValidArgs(cmd, args)
 	},
@@ -56,7 +58,8 @@ var configGetCmd = &cobra.Command{
 // configSetCmd represents the config set command
 var configSetCmd = &cobra.Command{
 	Use:       "set VARIABLE VALUE",
-	Short:     "Set config for ioctl",
+	Short:     "Set config fields for ioctl",
+	Long:      "Set config fields for ioctl\nValid Variables: [" + strings.Join(validArgs, ", ") + "]",
 	ValidArgs: validArgs,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 2 {
@@ -107,20 +110,23 @@ func Get(arg string) (string, error) {
 			ReadConfig.SecureConnect), nil
 	case "wallet":
 		return ReadConfig.Wallet, nil
-	case "currentcontext":
-		return fmt.Sprint(ReadConfig.CurrentContext), nil
+	case "defaultacc":
+		return fmt.Sprint(ReadConfig.DefaultAccount), nil
 	case "explorer":
 		return ReadConfig.Explorer, nil
+	case "all":
+		all, err := ioutil.ReadFile(DefaultConfigFile)
+		return string(all), err
 	}
 }
 
 // GetContextAddressOrAlias gets current context
 func GetContextAddressOrAlias() (string, error) {
-	currentcontext := ReadConfig.CurrentContext
-	if strings.EqualFold(currentcontext.AddressOrAlias, "") {
-		return "", fmt.Errorf(`use "ioctl config set currentcontext address or alias" to config current account first`)
+	defaultAccount := ReadConfig.DefaultAccount
+	if strings.EqualFold(defaultAccount.AddressOrAlias, "") {
+		return "", fmt.Errorf(`use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`)
 	}
-	return currentcontext.AddressOrAlias, nil
+	return defaultAccount.AddressOrAlias, nil
 }
 
 // GetAddressOrAlias gets address from args or context
@@ -163,13 +169,13 @@ func set(args []string) (string, error) {
 		if !valid {
 			return "", fmt.Errorf("Explorer %s is not valid\nValid Explorers: %s", args[1], validExpl)
 		}
-	case "currentcontext":
+	case "defaultacc":
 		err1 := validator.ValidateAlias(args[1])
 		err2 := validator.ValidateAddress(args[1])
 		if err1 != nil && err2 != nil {
 			return "", fmt.Errorf("failed to validate alias or address:%s %s", err1, err2)
 		}
-		ReadConfig.CurrentContext.AddressOrAlias = args[1]
+		ReadConfig.DefaultAccount.AddressOrAlias = args[1]
 	}
 	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {
@@ -186,7 +192,7 @@ func reset() (string, error) {
 	ReadConfig.Wallet = ConfigDir
 	ReadConfig.Endpoint = ""
 	ReadConfig.SecureConnect = true
-	ReadConfig.CurrentContext = *new(Context)
+	ReadConfig.DefaultAccount = *new(Context)
 	ReadConfig.Explorer = "iotexscan"
 	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {

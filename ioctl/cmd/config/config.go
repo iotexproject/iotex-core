@@ -54,7 +54,7 @@ type Config struct {
 	Endpoint       string            `yaml:"endpoint"`
 	SecureConnect  bool              `yaml:"secureConnect"`
 	Aliases        map[string]string `yaml:"aliases"`
-	CurrentContext Context           `yaml:"currentContext"`
+	DefaultAccount Context           `yaml:"defaultAccount"`
 	Explorer       string            `yaml:"explorer"`
 }
 

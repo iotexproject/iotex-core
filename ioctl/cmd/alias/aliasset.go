@@ -55,5 +55,5 @@ func set(args []string) (string, error) {
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
 		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
 	}
-	return "set", nil
+	return "Set " + addr + " to alias " + alias, nil
 }
