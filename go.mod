@@ -20,7 +20,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.2.10
-	github.com/iotexproject/go-pkgs v0.1.1-0.20190708233003-85a24189bbd4 // indirect
+	github.com/iotexproject/go-pkgs v0.1.1-0.20190708233003-85a24189bbd4
 	github.com/iotexproject/iotex-address v0.2.0
 	github.com/iotexproject/iotex-election v0.1.10
 	github.com/iotexproject/iotex-proto v0.2.1-0.20190709074746-6665141c6f2f // indirect
