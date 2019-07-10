@@ -104,11 +104,9 @@ func FormatString(t MessageType, m Message) string {
 // PrintError prints error message in format, and returns golang error when using default output
 func PrintError(code ErrorCode, info string) error {
 	errMessage := ErrorMessage{Code: code, Info: info}
-	switch Format {
-	default:
+	if Format == "" {
 		return fmt.Errorf(errMessage.String())
-	case "json":
-		fmt.Println(errMessage.String())
 	}
+	fmt.Println(errMessage.String())
 	return nil
 }
