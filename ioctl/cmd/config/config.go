@@ -39,10 +39,6 @@ var ConfigCmd = &cobra.Command{
 	Short: "Get, set, or reset configuration for ioctl",
 }
 
-// // configHelpCmd represents the config help command
-// func configHelpFunc(cmd *cobra.Command, args []string) {
-// }
-
 // Context represents the current context
 type Context struct {
 	AddressOrAlias string `yaml:"addressOralias"`
