@@ -167,7 +167,7 @@ func sendRaw(selp *iotextypes.Action) error {
 	case "iotxplorer":
 		fmt.Printf("iotxplorer.io/actions/%s\n", txhash)
 	default:
-		fmt.Println(txhash)
+		fmt.Println(config.ReadConfig.Explorer + txhash)
 	}
 	return nil
 }

@@ -21,6 +21,7 @@ import (
 const (
 	ipPattern       = `((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)`
 	domainPattern   = `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
+	urlPattern      = `[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`
 	localPattern    = "localhost"
 	endpointPattern = "(" + ipPattern + "|(" + domainPattern + ")" + "|(" + localPattern + "))" + `(:\d{1,5})?`
 )
@@ -29,6 +30,7 @@ var (
 	validArgs       = []string{"endpoint", "wallet", "explorer", "defaultacc"}
 	validGetArgs    = []string{"endpoint", "wallet", "explorer", "defaultacc", "all"}
 	validExpl       = []string{"iotexscan", "iotxplorer"}
+	urlCompile      = regexp.MustCompile(urlPattern)
 	endpointCompile = regexp.MustCompile("^" + endpointPattern + "$")
 )
 
@@ -144,6 +146,25 @@ func isMatch(endpoint string) bool {
 	return endpointCompile.MatchString(endpoint)
 }
 
+// checks if explorer is valid
+func isValidExplorer(arg string) bool {
+	for _, exp := range validExpl {
+		if arg == exp {
+			return true
+		}
+	}
+	return false
+}
+
+// write to config file
+func writeConfig() error {
+	out, err := yaml.Marshal(&ReadConfig)
+	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
+		return fmt.Errorf("failed to write to config file %s", DefaultConfigFile)
+	}
+	return err
+}
+
 // set sets config variable
 func set(args []string) (string, error) {
 	switch args[0] {
@@ -159,15 +180,27 @@ func set(args []string) (string, error) {
 		ReadConfig.Wallet = args[1]
 	case "explorer":
 		lowArg := strings.ToLower(args[1])
-		valid := false
-		for _, v := range validExpl {
-			if lowArg == v {
-				ReadConfig.Explorer = v
-				valid = true
+		switch {
+		case isValidExplorer(lowArg):
+			ReadConfig.Explorer = lowArg
+		case args[1] == "custom":
+			fmt.Println("Please enter a custom link below:")
+			fmt.Println("Example: iotexscan.io/action/")
+			fmt.Print("Link: ")
+			var link string
+			fmt.Scanln(&link)
+			match, err := regexp.MatchString(urlPattern, link)
+			if err != nil {
+				return "", fmt.Errorf("")
 			}
-		}
-		if !valid {
-			return "", fmt.Errorf("Explorer %s is not valid\nValid Explorers: %s", args[1], validExpl)
+			if match {
+				ReadConfig.Explorer = link
+				writeConfig()
+				return strings.Title(args[0]) + " is set to " + link, nil
+			}
+			return "", fmt.Errorf("Invalid link")
+		default:
+			return "", fmt.Errorf("Explorer %s is not valid\nValid Explorers: %s", args[1], append(validExpl, "custom"))
 		}
 	case "defaultacc":
 		err1 := validator.ValidateAlias(args[1])
@@ -177,12 +210,9 @@ func set(args []string) (string, error) {
 		}
 		ReadConfig.DefaultAccount.AddressOrAlias = args[1]
 	}
-	out, err := yaml.Marshal(&ReadConfig)
+	err := writeConfig()
 	if err != nil {
 		return "", err
-	}
-	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("failed to write to config file %s", DefaultConfigFile)
 	}
 	return strings.Title(args[0]) + " is set to " + args[1], nil
 }
