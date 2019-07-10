@@ -1004,6 +1004,42 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 	}
 }
 
+func TestServer_EstimateActionGasConsumption(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+
+	// test for contract deploy
+	data := "608060405234801561001057600080fd5b50610123600102600281600019169055503373ffffffffffffffffffffffffffffffffffffffff166001026003816000191690555060035460025417600481600019169055506102ae806100656000396000f300608060405260043610610078576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680630cc0e1fb1461007d57806328f371aa146100b05780636b1d752b146100df578063d4b8399214610112578063daea85c514610145578063eb6fd96a14610188575b600080fd5b34801561008957600080fd5b506100926101bb565b60405180826000191660001916815260200191505060405180910390f35b3480156100bc57600080fd5b506100c56101c1565b604051808215151515815260200191505060405180910390f35b3480156100eb57600080fd5b506100f46101d7565b60405180826000191660001916815260200191505060405180910390f35b34801561011e57600080fd5b506101276101dd565b60405180826000191660001916815260200191505060405180910390f35b34801561015157600080fd5b50610186600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506101e3565b005b34801561019457600080fd5b5061019d61027c565b60405180826000191660001916815260200191505060405180910390f35b60035481565b6000600454600019166001546000191614905090565b60025481565b60045481565b3373ffffffffffffffffffffffffffffffffffffffff166001028173ffffffffffffffffffffffffffffffffffffffff16600102176001816000191690555060016000808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060006101000a81548160ff02191690831515021790555050565b600154815600a165627a7a7230582089b5f99476d642b66a213c12cd198207b2e813bb1caf3bd75e22be535ebf5d130029"
+	byteCodes, err := hex.DecodeString(data)
+	require.NoError(err)
+	execution, err := action.NewExecution("", 1, big.NewInt(0), 0, big.NewInt(0), byteCodes)
+	require.NoError(err)
+	request := &iotexapi.EstimateActionGasConsumptionRequest{
+		Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
+			Execution: execution.Proto(),
+		},
+		CallerAddress: identityset.Address(0).String(),
+	}
+	res, err := svr.EstimateActionGasConsumption(context.Background(), request)
+	require.NoError(err)
+	require.Equal(uint64(286579), res.Gas)
+
+	// test for transfer
+	tran, err := action.NewTransfer(0, big.NewInt(0), "", []byte("123"), 0, big.NewInt(0))
+	require.NoError(err)
+	request = &iotexapi.EstimateActionGasConsumptionRequest{
+		Action: &iotexapi.EstimateActionGasConsumptionRequest_Transfer{
+			Transfer: tran.Proto(),
+		},
+		CallerAddress: identityset.Address(0).String(),
+	}
+	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	require.NoError(err)
+	require.Equal(uint64(10300), res.Gas)
+}
+
 func TestServer_ReadUnclaimedBalance(t *testing.T) {
 	cfg := newConfig()
 	cfg.Consensus.Scheme = config.RollDPoSScheme
