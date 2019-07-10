@@ -8,9 +8,7 @@ package version
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -58,7 +56,7 @@ func version() error {
 		GoVersion:       ver.GoVersion,
 		BuildTime:       ver.BuildTime,
 	}
-	printVersion(message)
+	fmt.Println(message.String())
 
 	message = versionMessage{Object: config.ReadConfig.Endpoint}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
@@ -80,20 +78,13 @@ func version() error {
 	}
 
 	message.VersionInfo = response.ServerMeta
-	printVersion(message)
+	fmt.Println(message.String())
 	return nil
 }
 
-func printVersion(message versionMessage) {
-	switch output.Format {
-	default:
-		fmt.Printf("%s:\n%+v\n\n", message.Object, message.VersionInfo)
-	case "json":
-		out := output.Output{MessageType: output.Result, Message: message}
-		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			log.Panic(err)
-		}
-		fmt.Println(string(byteAsJSON))
+func (m *versionMessage) String() string {
+	if output.Format == "" {
+		return fmt.Sprintf("%s:\n%+v\n", m.Object, m.VersionInfo)
 	}
+	return output.FormatString(output.Result, m)
 }
