@@ -18,6 +18,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -27,8 +29,6 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
@@ -394,6 +394,19 @@ func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.Estima
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
+}
+
+// EstimateActionGasConsumption estimate gas consume for exectution and transfer
+func (api *Server) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
+	switch {
+	case in.GetExecution() != nil:
+		request := in.GetExecution()
+		return api.estimateActionGasConsumptionForExecution(request, in.GetCallerAddress())
+	case in.GetTransfer() != nil:
+		request := in.GetTransfer()
+		return api.estimateActionGasConsumptionForTransfer(request)
+	}
+	return nil, status.Error(codes.InvalidArgument, "invalid argument")
 }
 
 // GetEpochMeta gets epoch metadata
@@ -1074,4 +1087,45 @@ func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*io
 		logs = append(logs, filter.MatchBlock(blk)...)
 	}
 	return logs, nil
+}
+
+func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Execution, sender string) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
+	sc := &action.Execution{}
+	if err := sc.LoadProto(exec); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	callerAddr, err := address.FromString(sender)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	caller, err := api.bc.StateByAddr(sender)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	sc, _ = action.NewExecution(
+		sc.Contract(),
+		caller.Nonce+1,
+		sc.Amount(),
+		api.cfg.Genesis.BlockGasLimit,
+		big.NewInt(0),
+		sc.Data(),
+	)
+
+	_, receipt, err := api.bc.ExecuteContractRead(callerAddr, sc)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if receipt.Status != action.SuccessReceiptStatus {
+		return nil, status.Error(codes.Internal, "receipt status failed")
+	}
+	return &iotexapi.EstimateActionGasConsumptionResponse{
+		Gas: receipt.GasConsumed,
+	}, nil
+}
+
+func (api *Server) estimateActionGasConsumptionForTransfer(transfer *iotextypes.Transfer) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
+	payloadSize := uint64(len(transfer.Payload))
+	return &iotexapi.EstimateActionGasConsumptionResponse{
+		Gas: payloadSize*action.TransferPayloadGas + action.TransferBaseIntrinsicGas,
+	}, nil
 }
