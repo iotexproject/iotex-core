@@ -16,6 +16,8 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 )
 
+// aliasExportCmd doesn't support global flag "output-format", use `ioctl alias list -o [FORMAT]` instead
+
 // aliasExportCmd represents the alias export command
 var aliasExportCmd = &cobra.Command{
 	Use:   "export",
