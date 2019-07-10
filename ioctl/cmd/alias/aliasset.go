@@ -7,10 +7,8 @@
 package alias
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
@@ -56,20 +54,7 @@ func set(args []string) error {
 		return output.PrintError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	printSet()
+	message := output.StringMessage("set")
+	fmt.Println(message.String())
 	return nil
-}
-
-func printSet() {
-	switch output.Format {
-	default:
-		fmt.Println("set")
-	case "json":
-		out := output.Output{MessageType: output.Result, Message: "set"}
-		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			log.Panic(err)
-		}
-		fmt.Println(string(byteAsJSON))
-	}
 }

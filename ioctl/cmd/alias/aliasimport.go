@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
@@ -61,12 +60,12 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 	}
 	importedNum, totalNum := 0, 0
 	aliases := GetAliasMap()
-	importMessage := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
+	message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
 	for _, importedAlias := range importedAliases.Aliases {
 		totalNum++
 		if !forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
-			importMessage.Unimported = append(importMessage.Unimported, importedAlias)
-			importMessage.ImportedNumber++
+			message.Unimported = append(message.Unimported, importedAlias)
+			message.ImportedNumber++
 			continue
 		}
 		for aliases[importedAlias.Address] != "" {
@@ -74,7 +73,7 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 			aliases = GetAliasMap()
 		}
 		config.ReadConfig.Aliases[importedAlias.Name] = importedAlias.Address
-		importMessage.Imported = append(importMessage.Imported, importedAlias)
+		message.Imported = append(message.Imported, importedAlias)
 		importedNum++
 	}
 	out, err := yaml.Marshal(&config.ReadConfig)
@@ -85,24 +84,17 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 		return output.PrintError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	printImport(importMessage)
+	fmt.Println(message.String())
 	return nil
 }
 
-func printImport(message importMessage) {
-	switch output.Format {
-	default:
-		fmt.Printf("%d/%d aliases imported\nExisted aliases:", message.ImportedNumber, message.TotalNumber)
-		for _, alias := range message.Unimported {
-			fmt.Print(" " + alias.Name)
+func (m *importMessage) String() string {
+	if output.Format == "" {
+		line:=fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", m.ImportedNumber, m.TotalNumber)
+		for _, alias := range m.Unimported {
+			line+=fmt.Sprint(" " + alias.Name)
 		}
-		fmt.Println()
-	case "json":
-		out := output.Output{MessageType: output.Result, Message: message}
-		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			log.Panic(err)
-		}
-		fmt.Println(string(byteAsJSON))
+		return line
 	}
+	return output.FormatString(output.Result, m)
 }

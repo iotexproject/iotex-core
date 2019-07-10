@@ -7,10 +7,8 @@
 package alias
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -47,20 +45,7 @@ func remove(arg string) error {
 		return output.PrintError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	printRemove(alias + " is removed")
+	message := output.StringMessage(alias + " is removed")
+	fmt.Println(message.String())
 	return nil
-}
-
-func printRemove(message string) {
-	switch output.Format {
-	default:
-		fmt.Println(message)
-	case "json":
-		out := output.Output{MessageType: output.Result, Message: message}
-		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			log.Panic(err)
-		}
-		fmt.Println(string(byteAsJSON))
-	}
 }

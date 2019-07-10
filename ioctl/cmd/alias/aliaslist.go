@@ -7,10 +7,9 @@
 package alias
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -29,41 +28,31 @@ var aliasListCmd = &cobra.Command{
 }
 
 type aliasListMessage struct {
-	AliasNumber int         `json:"aliasNumber"`
-	AliasList   []aliasMeta `json:"aliasList"`
-}
-
-type aliasMeta struct {
-	Address string `json:"address"`
-	Alias   string `json:"alias"`
+	AliasNumber int     `json:"aliasNumber"`
+	AliasList   []alias `json:"aliasList"`
 }
 
 func aliasList() {
 	var keys []string
-	for alias := range config.ReadConfig.Aliases {
-		keys = append(keys, alias)
+	for name := range config.ReadConfig.Aliases {
+		keys = append(keys, name)
 	}
 	sort.Strings(keys)
-	aliasListMessage := aliasListMessage{AliasNumber: len(keys)}
-	for _, alias := range keys {
-		aliasMeta := aliasMeta{Address: config.ReadConfig.Aliases[alias], Alias: alias}
-		aliasListMessage.AliasList = append(aliasListMessage.AliasList, aliasMeta)
+	message := aliasListMessage{AliasNumber: len(keys)}
+	for _, name := range keys {
+		aliasMeta := alias{Address: config.ReadConfig.Aliases[name], Name: name}
+		message.AliasList = append(message.AliasList, aliasMeta)
 	}
-	printAliasList(aliasListMessage)
+	fmt.Println(message.String())
 }
 
-func printAliasList(message aliasListMessage) {
-	switch output.Format {
-	default:
-		for _, aliasMeta := range message.AliasList {
-			fmt.Printf("%s - %s\n", aliasMeta.Address, aliasMeta.Alias)
+func (m *aliasListMessage) String() string {
+	if output.Format == "" {
+		lines := make([]string, 0)
+		for _, aliasMeta := range m.AliasList {
+			lines = append(lines, fmt.Sprintf("%s - %s", aliasMeta.Address, aliasMeta.Name))
 		}
-	case "json":
-		out := output.Output{MessageType: output.Result, Message: message}
-		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			log.Panic(err)
-		}
-		fmt.Println(string(byteAsJSON))
+		return fmt.Sprint(strings.Join(lines, "\n"))
 	}
+	return output.FormatString(output.Result, m)
 }

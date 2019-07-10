@@ -59,6 +59,7 @@ type Output struct {
 
 // Message is the message part of output
 type Message interface {
+	String() string
 }
 
 // ErrorMessage is the struct of an Error output
@@ -67,21 +68,47 @@ type ErrorMessage struct {
 	Info string    `json:"info"`
 }
 
-// PrintError prints error message in format, and returns golang error when using default output
-func PrintError(code ErrorCode, info string) error {
+func (m *ErrorMessage) String() string {
+	if Format == "" {
+		return fmt.Sprintf("%d, %s", m.Code, m.Info)
+	}
+	return FormatString(Error, m)
+}
+
+// StringMessage is for implementing string as interface Message
+type StringMessage string
+
+func (m StringMessage) String() string {
+	if Format == "" {
+		return string(m)
+	}
+	return FormatString(Result, m)
+}
+
+// FormatString returns Output as string in certain format
+func FormatString(t MessageType, m Message) string {
 	switch Format {
-	default:
-		return fmt.Errorf("%d, %s", code, info)
-	case "json":
+	default: // json is default
 		out := Output{
-			MessageType: Error,
-			Message:     ErrorMessage{Code: code, Info: info},
+			MessageType: t,
+			Message:     m,
 		}
 		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
 			log.Panic(err)
 		}
-		fmt.Println(string(byteAsJSON))
+		return fmt.Sprintln(string(byteAsJSON))
+	}
+}
+
+// PrintError prints error message in format, and returns golang error when using default output
+func PrintError(code ErrorCode, info string) error {
+	errMessage := ErrorMessage{Code: code, Info: info}
+	switch Format {
+	default:
+		return fmt.Errorf(errMessage.String())
+	case "json":
+		fmt.Println(errMessage.String())
 	}
 	return nil
 }
