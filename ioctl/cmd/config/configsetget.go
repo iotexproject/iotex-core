@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
+// Regexp patterns
 const (
 	ipPattern       = `((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)`
 	domainPattern   = `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
@@ -141,12 +142,12 @@ func GetAddressOrAlias(args []string) (address string, err error) {
 	return
 }
 
-// make sure endpoint match pattern
+// isMatch makes sure the endpoint matches the endpoint match pattern
 func isMatch(endpoint string) bool {
 	return endpointCompile.MatchString(endpoint)
 }
 
-// checks if explorer is valid
+// isValidExplorer checks if the explorer is a valid option
 func isValidExplorer(arg string) bool {
 	for _, exp := range validExpl {
 		if arg == exp {
@@ -156,7 +157,7 @@ func isValidExplorer(arg string) bool {
 	return false
 }
 
-// write to config file
+// writeConfig writes to config file
 func writeConfig() error {
 	out, err := yaml.Marshal(&ReadConfig)
 	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
@@ -217,7 +218,7 @@ func set(args []string) (string, error) {
 	return strings.Title(args[0]) + " is set to " + args[1], nil
 }
 
-// reset all values of config
+// reset resets all values of config
 func reset() (string, error) {
 	ReadConfig.Wallet = ConfigDir
 	ReadConfig.Endpoint = ""

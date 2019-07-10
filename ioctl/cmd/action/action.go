@@ -141,6 +141,7 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 		signer,
 	)
 }
+
 func sendRaw(selp *iotextypes.Action) error {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
@@ -171,6 +172,7 @@ func sendRaw(selp *iotextypes.Action) error {
 	}
 	return nil
 }
+
 func sendAction(elp action.Envelope, signer string) error {
 	var (
 		prvKey           crypto.PrivateKey
@@ -224,6 +226,7 @@ func sendAction(elp action.Envelope, signer string) error {
 	fmt.Println()
 	return sendRaw(selp)
 }
+
 func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
 	accountMeta, err := account.GetAccountMeta(address)
 	if err != nil {
@@ -241,6 +244,7 @@ func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
 	}
 	return
 }
+
 func signerIsExist(signer string) bool {
 	addr, err := address.FromString(signer)
 	if err != nil {
