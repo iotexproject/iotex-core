@@ -45,7 +45,7 @@ func TestAlias(t *testing.T) {
 		responce, err := set(testCase)
 		require.Equal(expected[i], err)
 		if err == nil {
-			require.Equal("set", responce)
+			require.Equal("Set "+aliasTestCase[i][1]+" to alias "+aliasTestCase[i][0], responce)
 		}
 	}
 	require.Equal("io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx", config.ReadConfig.Aliases[raullen])
@@ -61,7 +61,7 @@ func TestAlias(t *testing.T) {
 	require.Equal("", config.ReadConfig.Aliases[raullen])
 	responce, err = set([]string{jing, "io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8"})
 	require.NoError(err)
-	require.Equal("set", responce)
+	require.Equal("Set io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8 to alias jing", responce)
 	require.Equal("io1kmpejl35lys5pxcpk74g8am0kwmzwwuvsvqrp8", config.ReadConfig.Aliases[jing])
 	aliases = GetAliasMap()
 	require.Equal("", aliases["io188fptstp82y53l3x0eadfhxg6qmywgny24mgfp"])
