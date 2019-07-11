@@ -98,7 +98,7 @@ func (m *ErrorMessage) String() string {
 	return FormatString(Error, m)
 }
 
-// StringMessage is the Result Message for string
+// StringMessage is the Message for string
 type StringMessage string
 
 func (m StringMessage) String() string {
@@ -106,6 +106,14 @@ func (m StringMessage) String() string {
 		return string(m)
 	}
 	return FormatString(Result, m)
+}
+
+// Query prints query message
+func (m StringMessage) Query() string {
+	if Format == "" {
+		return string(m)
+	}
+	return FormatString(Query, m)
 }
 
 // FormatString returns Output as string in certain format
@@ -137,5 +145,5 @@ func PrintError(code ErrorCode, info string) error {
 // PrintQuery prints query message in format
 func PrintQuery(query string) {
 	message := StringMessage(query)
-	fmt.Println(message.String())
+	fmt.Println(message.Query())
 }
