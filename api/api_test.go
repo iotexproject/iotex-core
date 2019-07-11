@@ -303,7 +303,8 @@ var (
 		// Expected values
 		height     uint64
 		numActions int64
-		tps        float32
+		tps        int64
+		tpsFloat   float32
 		epoch      iotextypes.EpochData
 	}{
 		{
@@ -316,6 +317,7 @@ var (
 			lld,
 			4,
 			15,
+			1,
 			5 / 10.0,
 			iotextypes.EpochData{
 				Num:                     1,
@@ -329,6 +331,7 @@ var (
 			"governanceChainCommittee",
 			4,
 			15,
+			2,
 			15 / 13.0,
 			iotextypes.EpochData{
 				Num:                     1,
