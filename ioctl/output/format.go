@@ -39,7 +39,14 @@ const (
 	ConvertError
 	// CryptoError used when crypto error occurs
 	CryptoError
-	// InputError used when error occurs during reading from stdin
+	// AddressError used if an error is related to address
+	AddressError
+	// InputError used when error about input occurs
+	InputError
+	// KeystoreError used when an error related to keystore
+	KeystoreError
+	// ConfigError used when an error about config occurs
+	ConfigError
 )
 
 // MessageType marks the type of output message
@@ -140,6 +147,12 @@ func PrintError(code ErrorCode, info string) error {
 	}
 	fmt.Println(errMessage.String())
 	return nil
+}
+
+// PrintResult prints result message in format
+func PrintResult(result string) {
+	message := StringMessage(result)
+	fmt.Println(message.String())
 }
 
 // PrintQuery prints query message in format

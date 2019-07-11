@@ -45,7 +45,6 @@ func remove(arg string) error {
 		return output.PrintError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	message := output.StringMessage(alias + " is removed")
-	fmt.Println(message.String())
+	output.PrintResult(alias + " is removed")
 	return nil
 }

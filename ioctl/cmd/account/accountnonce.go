@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -21,24 +22,40 @@ var accountNonceCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := nonce(args)
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := nonce(args)
 		return err
 	},
 }
 
+type nonceMessage struct {
+	Address      string `json:"address"`
+	Nonce        int    `json:"nonce"`
+	PendingNonce int    `json:"pengingNonce"`
+}
+
 // nonce gets nonce and pending nonce of an IoTeX blockchain address
-func nonce(args []string) (string, error) {
+func nonce(args []string) error {
 	addr, err := util.GetAddress(args)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.AddressError, err.Error())
 	}
 	accountMeta, err := GetAccountMeta(addr)
 	if err != nil {
-		return "", err
+		return output.PrintError(0, err.Error()) // TODO: undefined error
 	}
-	return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
-		addr, accountMeta.Nonce, accountMeta.PendingNonce), nil
+	message := nonceMessage{
+		Address:      addr,
+		Nonce:        int(accountMeta.Nonce),
+		PendingNonce: int(accountMeta.PendingNonce),
+	}
+	fmt.Println(message.String())
+	return nil
+}
+
+func (m *nonceMessage) String() string {
+	if output.Format == "" {
+		return fmt.Sprintf("%s:\nNonce: %d, Pending Nonce: %d",
+			m.Address, m.Nonce, m.PendingNonce)
+	}
+	return output.FormatString(output.Result, m)
 }

@@ -46,8 +46,8 @@ func accountCreateAdd(args []string) error {
 		fmt.Println(message.String())
 		fmt.Scanf("%s", &confirm)
 		if !strings.EqualFold(confirm, "yes") {
-			message := output.StringMessage("quit")
-			fmt.Println(message.String())
+			output.PrintResult("quit")
+			return nil
 		}
 	}
 	addr, err := newAccount(alias, config.ReadConfig.Wallet)
@@ -63,8 +63,7 @@ func accountCreateAdd(args []string) error {
 		return output.PrintError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	message := output.StringMessage(fmt.Sprintf("New account \"%s\" is created.\n"+
+	output.PrintResult(fmt.Sprintf("New account \"%s\" is created.\n"+
 		"Please Keep your password, or your will lose your private key.", alias))
-	fmt.Println(message.String())
 	return nil
 }

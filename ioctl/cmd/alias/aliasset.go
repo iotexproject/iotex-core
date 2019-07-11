@@ -54,7 +54,6 @@ func set(args []string) error {
 		return output.PrintError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	message := output.StringMessage("set")
-	fmt.Println(message.String())
+	output.PrintResult("set")
 	return nil
 }

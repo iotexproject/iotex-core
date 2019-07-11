@@ -12,12 +12,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // accountListCmd represents the account list command
@@ -27,30 +26,50 @@ var accountListCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := accountList()
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := accountList()
 		return err
 	},
 }
 
-func accountList() (string, error) {
-	lines := make([]string, 0)
+type listMessage struct {
+	Accounts []account `json:"accounts"`
+}
+
+type account struct {
+	Address string `json:"address"`
+	Alias   string `json:"alias"`
+}
+
+func accountList() error {
+	message := listMessage{}
 	aliases := alias.GetAliasMap()
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
 		address, err := address.FromBytes(v.Address.Bytes())
 		if err != nil {
-			log.L().Error("failed to convert bytes into address", zap.Error(err))
-			return "", err
+			return output.PrintError(output.ConvertError, "failed to convert bytes into address")
 		}
-		line := address.String()
-		if len(aliases[line]) != 0 {
-			line += " - " + aliases[line]
-		}
-		lines = append(lines, line)
+		message.Accounts = append(message.Accounts, account{
+			Address: address.String(),
+			Alias:   aliases[address.String()],
+		})
 	}
-	return strings.Join(lines, "\n"), nil
+	fmt.Println(message.String())
+	return nil
+}
+
+func (m *listMessage) String() string {
+	if output.Format == "" {
+		lines := make([]string, 0)
+		for _, account := range m.Accounts {
+			line := account.Address
+			if account.Alias != "" {
+				line += " - " + account.Alias
+			}
+			lines = append(lines, line)
+		}
+		return strings.Join(lines, "\n")
+	}
+	return output.FormatString(output.Result, m)
 }
