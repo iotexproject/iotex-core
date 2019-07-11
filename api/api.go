@@ -9,6 +9,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"math"
 	"math/big"
 	"net"
 	"sort"
@@ -268,7 +269,8 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			GravityChainStartHeight: gravityChainStartHeight,
 		},
 		NumActions: int64(totalActions),
-		Tps:        tps,
+		Tps:        int64(math.Ceil(float64(tps))),
+		TpsFloat:   tps,
 	}
 
 	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta}, nil
