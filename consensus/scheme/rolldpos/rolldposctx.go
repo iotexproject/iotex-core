@@ -176,7 +176,7 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	}
 	proposerAddr := proposal.ProposerAddress()
 	if ctx.roundCalc.Proposer(height, proposal.block.Timestamp()) != proposerAddr {
-		return errors.Errorf("%s is not proposer of the correpsonding round", proposerAddr)
+		return errors.Errorf("%s is not proposer of the corresponding round", proposerAddr)
 	}
 	if !proposal.block.VerifySignature() {
 		return errors.Errorf("invalid block signature")
@@ -569,7 +569,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 		roundNum, _, err := ctx.roundCalc.RoundInfo(ed.Height(), ed.Endorsement().Timestamp())
 		if err != nil {
 			ctx.logger().Error(
-				"failed to calcualte round for generating consensus event",
+				"failed to calculate round for generating consensus event",
 				zap.String("eventType", string(eventType)),
 				zap.Uint64("height", ed.Height()),
 				zap.String("timestamp", ed.Endorsement().Timestamp().String()),

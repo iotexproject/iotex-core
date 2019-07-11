@@ -43,7 +43,7 @@ var (
 	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
 )
 
-// ActionCmd represents the account command
+// ActionCmd represents the action command
 var ActionCmd = &cobra.Command{
 	Use:   "action",
 	Short: "Manage actions of IoTeX blockchain",
@@ -141,6 +141,7 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 		signer,
 	)
 }
+
 func sendRaw(selp *iotextypes.Action) error {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
@@ -158,10 +159,20 @@ func sendRaw(selp *iotextypes.Action) error {
 		return err
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
+	txhash := hex.EncodeToString(shash[:])
 	fmt.Println("Action has been sent to blockchain.")
-	fmt.Printf("Wait for several seconds and query this action by hash: %s\n", hex.EncodeToString(shash[:]))
+	fmt.Println("Wait for several seconds and query this action by hash:")
+	switch config.ReadConfig.Explorer {
+	case "iotexscan":
+		fmt.Printf("iotexscan.io/action/%s\n", txhash)
+	case "iotxplorer":
+		fmt.Printf("iotxplorer.io/actions/%s\n", txhash)
+	default:
+		fmt.Println(config.ReadConfig.Explorer + txhash)
+	}
 	return nil
 }
+
 func sendAction(elp action.Envelope, signer string) error {
 	var (
 		prvKey           crypto.PrivateKey
@@ -215,6 +226,7 @@ func sendAction(elp action.Envelope, signer string) error {
 	fmt.Println()
 	return sendRaw(selp)
 }
+
 func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
 	accountMeta, err := account.GetAccountMeta(address)
 	if err != nil {
@@ -232,6 +244,7 @@ func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
 	}
 	return
 }
+
 func signerIsExist(signer string) bool {
 	addr, err := address.FromString(signer)
 	if err != nil {

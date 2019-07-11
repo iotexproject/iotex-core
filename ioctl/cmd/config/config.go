@@ -28,15 +28,15 @@ var (
 // Error strings
 var (
 	// ErrConfigNotMatch indicates error for no config matchs
-	ErrConfigNotMatch = fmt.Errorf("no config matchs")
+	ErrConfigNotMatch = fmt.Errorf("No matching config")
 	// ErrEmptyEndpoint indicates error for empty endpoint
-	ErrEmptyEndpoint = fmt.Errorf("no endpoint has been set")
+	ErrEmptyEndpoint = fmt.Errorf("No endpoint has been set")
 )
 
 // ConfigCmd represents the config command
 var ConfigCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Set or get configuration for ioctl",
+	Short: "Get, set, or reset configuration for ioctl",
 }
 
 // Context represents the current context
@@ -50,7 +50,8 @@ type Config struct {
 	Endpoint       string            `yaml:"endpoint"`
 	SecureConnect  bool              `yaml:"secureConnect"`
 	Aliases        map[string]string `yaml:"aliases"`
-	CurrentContext Context           `yaml:"currentContext"`
+	DefaultAccount Context           `yaml:"defaultAccount"`
+	Explorer       string            `yaml:"explorer"`
 }
 
 var (
@@ -62,9 +63,11 @@ var (
 
 func init() {
 	ConfigDir = os.Getenv("HOME") + "/.config/ioctl/default"
+	// Create path to config directory
 	if err := os.MkdirAll(ConfigDir, 0700); err != nil {
 		log.L().Panic(err.Error())
 	}
+	// Path to config file
 	DefaultConfigFile = ConfigDir + "/config.default"
 	var err error
 	ReadConfig, err = LoadConfig()
@@ -80,13 +83,14 @@ func init() {
 		if err != nil {
 			log.L().Panic(err.Error())
 		}
+		// If default config not exist, create new default config
 		if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
 			log.L().Panic(fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile))
 		}
-
 	}
 	ConfigCmd.AddCommand(configGetCmd)
 	ConfigCmd.AddCommand(configSetCmd)
+	ConfigCmd.AddCommand(configResetCmd)
 }
 
 // LoadConfig loads config file in yaml format

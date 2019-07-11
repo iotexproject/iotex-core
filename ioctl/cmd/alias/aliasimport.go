@@ -41,7 +41,7 @@ func init() {
 	aliasImportCmd.Flags().StringVarP(&format,
 		"format=", "f", "json", "set format: json/yaml")
 	aliasImportCmd.Flags().BoolVarP(&forceImport,
-		"force-import", "F", false, "cover existed aliases forcely")
+		"force-import", "F", false, "override existing aliases")
 }
 
 func aliasImport(cmd *cobra.Command, args []string) error {
