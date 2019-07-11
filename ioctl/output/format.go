@@ -35,6 +35,11 @@ const (
 	WriteFileError
 	// FlagError used when invalid flag is set
 	FlagError
+	// ConvertError used when fail to converting data
+	ConvertError
+	// CryptoError used when crypto error occurs
+	CryptoError
+	// InputError used when error occurs during reading from stdin
 )
 
 // MessageType marks the type of output message
@@ -62,6 +67,24 @@ type Message interface {
 	String() string
 }
 
+// ComfirmationMessage is the struct of an Confirmation output
+type ComfirmationMessage struct {
+	Info    string   `json:"info"`
+	Options []string `json:"options"`
+}
+
+func (m *ComfirmationMessage) String() string {
+	if Format == "" {
+		line := fmt.Sprintf("%s\nOptions:", m.Info)
+		for _, option := range m.Options {
+			line += " " + option
+		}
+		line += "\nQuit for anything else."
+		return line
+	}
+	return FormatString(Confirmation, m)
+}
+
 // ErrorMessage is the struct of an Error output
 type ErrorMessage struct {
 	Code ErrorCode `json:"code"`
@@ -75,7 +98,7 @@ func (m *ErrorMessage) String() string {
 	return FormatString(Error, m)
 }
 
-// StringMessage is for implementing string as interface Message
+// StringMessage is the Result Message for string
 type StringMessage string
 
 func (m StringMessage) String() string {
@@ -97,11 +120,11 @@ func FormatString(t MessageType, m Message) string {
 		if err != nil {
 			log.Panic(err)
 		}
-		return fmt.Sprintln(string(byteAsJSON))
+		return fmt.Sprint(string(byteAsJSON))
 	}
 }
 
-// PrintError prints error message in format, and returns golang error when using default output
+// PrintError sprints error message in format, and returns golang error when using default output
 func PrintError(code ErrorCode, info string) error {
 	errMessage := ErrorMessage{Code: code, Info: info}
 	if Format == "" {
@@ -109,4 +132,10 @@ func PrintError(code ErrorCode, info string) error {
 	}
 	fmt.Println(errMessage.String())
 	return nil
+}
+
+// PrintQuery prints query message in format
+func PrintQuery(query string) {
+	message := StringMessage(query)
+	fmt.Println(message.String())
 }
