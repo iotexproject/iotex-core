@@ -37,7 +37,7 @@ type balanceMessage struct {
 func balance(args []string) error {
 	address, err := util.GetAddress(args)
 	if err != nil {
-		return output.PrintError(0, err.Error()) // TODO: undefined error
+		return output.PrintError(output.AddressError, err.Error())
 	}
 	accountMeta, err := GetAccountMeta(address)
 	if err != nil {

@@ -39,7 +39,7 @@ var accountDeleteCmd = &cobra.Command{
 func accountDelete(args []string) error {
 	addr, err := util.GetAddress(args)
 	if err != nil {
-		return output.PrintError(output.UndefinedError, err.Error()) // TODO: undefined error
+		return output.PrintError(output.AddressError, err.Error())
 	}
 	account, err := address.FromString(addr)
 	if err != nil {
