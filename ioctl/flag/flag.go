@@ -34,6 +34,12 @@ type (
 		value        uint64
 		defaultValue uint64
 	}
+
+	boolVarP struct {
+		flagBase
+		value        bool
+		defaultValue bool
+	}
 )
 
 func (f *flagBase) MarkFlagRequired(cmd *cobra.Command) {
@@ -92,4 +98,29 @@ func (f *uint64VarP) RegisterCommand(cmd *cobra.Command) {
 
 func (f *uint64VarP) Value() interface{} {
 	return f.value
+}
+
+// BoolVarP creates a new stringVarP flag
+func BoolVarP(
+	label string,
+	shortLabel string,
+	defaultValue bool,
+	description string,
+) Flag {
+	return &boolVarP{
+		flagBase: flagBase{
+			label:       label,
+			shortLabel:  shortLabel,
+			description: description,
+		},
+		defaultValue: defaultValue,
+	}
+}
+
+func (f *boolVarP) Value() interface{} {
+	return f.value
+}
+
+func (f *boolVarP) RegisterCommand(cmd *cobra.Command) {
+	cmd.Flags().BoolVarP(&f.value, f.label, f.shortLabel, f.defaultValue, f.description)
 }
