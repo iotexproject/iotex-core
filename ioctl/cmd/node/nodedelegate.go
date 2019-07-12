@@ -35,7 +35,7 @@ var (
 // nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
 	Use:   "delegate [-e epoch-num|-n]",
-	Short: "print consensus delegates information in certain epoch",
+	Short: "Print consensus delegates information in certain epoch",
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

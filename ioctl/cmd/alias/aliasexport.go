@@ -21,7 +21,7 @@ import (
 // aliasExportCmd represents the alias export command
 var aliasExportCmd = &cobra.Command{
 	Use:   "export",
-	Short: "Export aliases",
+	Short: "Export aliases to either json or yaml format",
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
