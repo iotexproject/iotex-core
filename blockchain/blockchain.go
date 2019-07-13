@@ -102,6 +102,10 @@ type Blockchain interface {
 	GetActionsFromAddress(address string) ([]hash.Hash256, error)
 	// GetActionsToAddress returns actions to address
 	GetActionsToAddress(address string) ([]hash.Hash256, error)
+	// GetActionsFromAddressCount returns actions from address
+	GetActionsFromAddressCount(address string, start uint64, count uint64) ([]hash.Hash256, error)
+	// GetActionsToAddressCount returns actions to address
+	GetActionsToAddressCount(address string, start uint64, count uint64) ([]hash.Hash256, error)
 	// GetActionCountByAddress returns action count by address
 	GetActionCountByAddress(address string) (uint64, error)
 	// GetActionByActionHash returns action by action hash
@@ -500,6 +504,54 @@ func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, err
 		return nil, err
 	}
 	return getActionsBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+}
+
+// GetActionsFromAddressCount returns actions from address
+func (bc *blockchain) GetActionsFromAddressCount(addrStr string, start uint64, count uint64) ([]hash.Hash256, error) {
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return nil, err
+	}
+	addrBytes := hash.BytesToHash160(addr.Bytes())
+	var res []hash.Hash256
+	for i := start; i < start+count; i++ {
+		key := append(actionFromPrefix, addrBytes[:]...)
+		key = append(key, byteutil.Uint64ToBytes(i)...)
+		value, err := bc.dao.kvstore.Get(blockAddressActionMappingNS, key)
+		if err != nil {
+			log.L().Warn("failed to get action for index.", zap.Uint64("index", i), zap.Error(err))
+			continue
+		}
+		if len(value) == 0 {
+			log.L().Warn("action for index missing.", zap.Uint64("index", i), zap.Error(err))
+			continue
+		}
+		res = append(res, hash.BytesToHash256(value))
+	}
+	return res, nil
+}
+func (bc *blockchain) GetActionsToAddressCount(addrStr string, start uint64, count uint64) ([]hash.Hash256, error) {
+	addr, err := address.FromString(addrStr)
+	if err != nil {
+		return nil, err
+	}
+	addrBytes := hash.BytesToHash160(addr.Bytes())
+	var res []hash.Hash256
+	for i := start; i < start+count; i++ {
+		key := append(actionToPrefix, addrBytes[:]...)
+		key = append(key, byteutil.Uint64ToBytes(i)...)
+		value, err := bc.dao.kvstore.Get(blockAddressActionMappingNS, key)
+		if err != nil {
+			log.L().Warn("failed to get action for index.", zap.Uint64("index", i), zap.Error(err))
+			continue
+		}
+		if len(value) == 0 {
+			log.L().Warn("action for index missing.", zap.Uint64("index", i), zap.Error(err))
+			continue
+		}
+		res = append(res, hash.BytesToHash256(value))
+	}
+	return res, nil
 }
 
 // GetActionsFromIndex returns actions from index

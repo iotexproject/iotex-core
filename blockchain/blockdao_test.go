@@ -152,6 +152,8 @@ func TestBlockDAO(t *testing.T) {
 		defer func() {
 			err = dao.Stop(ctx)
 			assert.Nil(t, err)
+			// need to clear this delta
+			clearMap()
 		}()
 
 		height, err := dao.getBlockchainHeight()
@@ -224,6 +226,8 @@ func TestBlockDAO(t *testing.T) {
 		defer func() {
 			err = dao.Stop(ctx)
 			assert.Nil(t, err)
+			// need to clear this delta
+			clearMap()
 		}()
 
 		err = dao.putBlock(blks[0])
@@ -315,6 +319,8 @@ func TestBlockDAO(t *testing.T) {
 		defer func() {
 			err = dao.Stop(ctx)
 			assert.Nil(t, err)
+			// need to clear this delta
+			clearMap()
 		}()
 
 		// Put blocks first
@@ -411,6 +417,8 @@ func BenchmarkBlockCache(b *testing.B) {
 				return
 			}
 			require.NoError(b, os.RemoveAll(path))
+			// need to clear this delta
+			clearMap()
 		}()
 		store := db.NewOnDiskDB(cfg)
 
