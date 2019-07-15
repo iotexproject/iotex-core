@@ -37,7 +37,7 @@ type verifyMessage struct {
 }
 
 func accountVerify() error {
-	fmt.Println("Enter private key:\n")
+	fmt.Println("Enter private key:")
 	privateKey, err := util.ReadSecretFromStdin()
 	if err != nil {
 		return output.PrintError(output.InputError, err.Error())
@@ -61,7 +61,7 @@ func accountVerify() error {
 
 func (m *verifyMessage) String() string {
 	if output.Format == "" {
-		fmt.Sprintf("Address: %s\nPublic Key:%s", m.Address, m.PublicKey)
+		return fmt.Sprintf("Address: %s\nPublic Key:%s", m.Address, m.PublicKey)
 	}
 	return output.FormatString(output.Result, m)
 }
