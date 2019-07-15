@@ -41,6 +41,8 @@ var (
 	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
 	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
 	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
+	yesFlag      = flag.BoolVarP("assume-yes", "y", false, " answer yes for all confirmations")
+	passwordFlag = flag.NewStringVarP("password", "P", "", "input password for account")
 )
 
 // ActionCmd represents the action command
@@ -89,6 +91,8 @@ func registerWriteCommand(cmd *cobra.Command) {
 	gasPriceFlag.RegisterCommand(cmd)
 	signerFlag.RegisterCommand(cmd)
 	nonceFlag.RegisterCommand(cmd)
+	yesFlag.RegisterCommand(cmd)
+	passwordFlag.RegisterCommand(cmd)
 }
 
 // gasPriceInRau returns the suggest gas price
@@ -187,15 +191,18 @@ func sendAction(elp action.Envelope, signer string) error {
 			return err
 		}
 		prvKey, err = crypto.HexStringToPrivateKey(prvKeyOrPassword)
-	} else {
+	} else if passwordFlag.Value() == "" {
 		fmt.Printf("Enter password #%s:\n", signer)
 		prvKeyOrPassword, err = util.ReadSecretFromStdin()
 		if err != nil {
 			log.L().Error("failed to get password", zap.Error(err))
 			return err
 		}
-		prvKey, err = account.KsAccountToPrivateKey(signer, prvKeyOrPassword)
+	} else {
+		prvKeyOrPassword = passwordFlag.Value().(string)
 	}
+	prvKey, err = account.KsAccountToPrivateKey(signer, prvKeyOrPassword)
+
 	if err != nil {
 		return err
 	}
@@ -215,13 +222,15 @@ func sendAction(elp action.Envelope, signer string) error {
 	if err != nil {
 		return err
 	}
-	var confirm string
-	fmt.Println("\n" + actionInfo + "\n" +
-		"Please confirm your action.\n" +
-		"Type 'YES' to continue, quit for anything else.")
-	fmt.Scanf("%s", &confirm)
-	if confirm != "YES" && confirm != "yes" {
-		return nil
+	if yesFlag.Value() == false {
+		var confirm string
+		fmt.Println("\n" + actionInfo + "\n" +
+			"Please confirm your action.\n" +
+			"Type 'YES' to continue, quit for anything else.")
+		fmt.Scanf("%s", &confirm)
+		if confirm != "YES" && confirm != "yes" {
+			return nil
+		}
 	}
 	fmt.Println()
 	return sendRaw(selp)
