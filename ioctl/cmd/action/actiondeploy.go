@@ -16,7 +16,7 @@ import (
 
 // actionDeployCmd represents the action deploy command
 var actionDeployCmd = &cobra.Command{
-	Use:   "deploy [AMOUNT_IOTX] [-s SIGNER] -b BYTE_CODE [-l GAS_LIMIT] [-p GAS_PRICE]",
+	Use:   "deploy [AMOUNT_IOTX] [-s SIGNER] -b BYTE_CODE [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 	Short: "Deploy smart contract on IoTeX blockchain",
 	Args:  cobra.MaximumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
