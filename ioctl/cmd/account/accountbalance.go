@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -22,28 +23,41 @@ var accountBalanceCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := balance(args)
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := balance(args)
 		return err
 	},
 }
 
+type balanceMessage struct {
+	Address string `json:"address"`
+	Balance string `json:"balance"`
+}
+
 // balance gets balance of an IoTeX blockchain address
-func balance(args []string) (string, error) {
+func balance(args []string) error {
 	address, err := util.GetAddress(args)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.AddressError, err.Error())
 	}
 	accountMeta, err := GetAccountMeta(address)
 	if err != nil {
-		return "", err
+		return output.PrintError(0, err.Error()) // TODO: undefined error
 	}
 	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
 	if !ok {
-		return "", fmt.Errorf("failed to convert balance into big int")
+		return output.PrintError(output.ConvertError, err.Error())
 	}
-	return fmt.Sprintf("%s: %s IOTX", address,
-		util.RauToString(balance, util.IotxDecimalNum)), nil
+	message := balanceMessage{
+		Address: address,
+		Balance: util.RauToString(balance, util.IotxDecimalNum),
+	}
+	fmt.Println((message.String()))
+	return nil
+}
+
+func (m *balanceMessage) String() string {
+	if output.Format == "" {
+		return fmt.Sprintf("%s: %s IOTX", m.Address, m.Balance)
+	}
+	return output.FormatString(output.Result, m)
 }

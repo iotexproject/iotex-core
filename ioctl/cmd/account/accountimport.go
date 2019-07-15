@@ -11,13 +11,12 @@ import (
 	"io/ioutil"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 var (
@@ -33,10 +32,7 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			output, err := accountImportKey(args)
-			if err == nil {
-				fmt.Println(output)
-			}
+			err := accountImportKey(args)
 			return err
 		},
 	}
@@ -47,10 +43,7 @@ var (
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			output, err := accountImportKeyStore(args)
-			if err == nil {
-				fmt.Println(output)
-			}
+			err := accountImportKeyStore(args)
 			return err
 		},
 	}
@@ -69,60 +62,62 @@ func validataAlias(alias string) error {
 	}
 	return nil
 }
-func writeToFile(alias, addr string) (string, error) {
+func writeToFile(alias, addr string) error {
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.SerializationError, err.Error())
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
+		return output.PrintError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	return fmt.Sprintf(
-		"New account #%s is created. Keep your password, or your will lose your private key.",
-		alias), nil
+	output.PrintResult(fmt.Sprintf("New account #%s is created. Keep your password, "+
+		"or your will lose your private key.", alias))
+	return nil
 }
 func readPasswordFromStdin() (string, error) {
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("failed to get password")
 	}
 	return password, nil
 }
-func accountImportKey(args []string) (string, error) {
+func accountImportKey(args []string) error {
 	// Validate inputs
 	alias := args[0]
 	err := validataAlias(alias)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.ValidationError, err.Error())
 	}
-	fmt.Printf("#%s: Enter your private key, which will not be exposed on the screen.\n", alias)
+	output.PrintQuery(fmt.Sprintf("#%s: Enter your private key, "+
+		"which will not be exposed on the screen.", alias))
 	privateKey, err := readPasswordFromStdin()
 	if err != nil {
-		return "", nil
+		return output.PrintError(output.InputError, err.Error())
 	}
 	addr, err := newAccountByKey(alias, privateKey, config.ReadConfig.Wallet)
 	if err != nil {
-		return "", err
+		return output.PrintError(0, err.Error()) // TODO: undefined error
 	}
 	return writeToFile(alias, addr)
 }
-func accountImportKeyStore(args []string) (string, error) {
+func accountImportKeyStore(args []string) error {
 	// Validate inputs
 	alias := args[0]
 	err := validataAlias(alias)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.ValidationError, err.Error())
 	}
-	fmt.Printf("#%s: Enter your password of keystore, which will not be exposed on the screen.\n", alias)
+	output.PrintQuery(fmt.Sprintf("#%s: Enter your password of keystore, "+
+		"which will not be exposed on the screen.", alias))
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
-		return "", nil
+		return output.PrintError(output.InputError, err.Error())
 	}
 	addr, err := newAccountByKeyStore(alias, password, args[1], config.ReadConfig.Wallet)
 	if err != nil {
-		return "", err
+		return output.PrintError(0, err.Error()) // TODO: undefined error
 	}
 	return writeToFile(alias, addr)
 }
