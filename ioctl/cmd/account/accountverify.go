@@ -61,7 +61,7 @@ func accountVerify() error {
 
 func (m *verifyMessage) String() string {
 	if output.Format == "" {
-		return fmt.Sprintf("Address: %s\nPublic Key:%s", m.Address, m.PublicKey)
+		return fmt.Sprintf("Address:\t%s\nPublic Key:\t%s", m.Address, m.PublicKey)
 	}
 	return output.FormatString(output.Result, m)
 }
