@@ -318,7 +318,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 			return
 		}
 	}
-	executionProtocol := execution.NewProtocol(cs.Blockchain(), genesisConfig.PacificBlockHeight, genesisConfig.AleutianBlockHeight)
+	executionProtocol := execution.NewProtocol(cs.Blockchain(), config.NewHeightChange(cfg))
 	if err = cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
 		return
 	}

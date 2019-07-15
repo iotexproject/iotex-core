@@ -273,10 +273,10 @@ func (sct *SmartContractTest) prepareBlockchain(
 
 	r.NotNil(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, 0, 0), reward)
+	bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, config.NewHeightChange(cfg)), reward)
 	sf := bc.GetFactory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(NewProtocol(bc, 0, 0), reward)
+	sf.AddActionHandlers(NewProtocol(bc, config.NewHeightChange(cfg)), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
@@ -422,10 +422,10 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-		bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, 0, 0))
+		bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, config.NewHeightChange(cfg)))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
-		sf.AddActionHandlers(NewProtocol(bc, 0, 0))
+		sf.AddActionHandlers(NewProtocol(bc, config.NewHeightChange(cfg)))
 
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
@@ -697,7 +697,7 @@ func TestProtocol_Validate(t *testing.T) {
 	defer ctrl.Finish()
 
 	mbc := mock_blockchain.NewMockBlockchain(ctrl)
-	protocol := NewProtocol(mbc, 0, 0)
+	protocol := NewProtocol(mbc, config.NewHeightChange(config.Default))
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	data := tmpPayload[:]

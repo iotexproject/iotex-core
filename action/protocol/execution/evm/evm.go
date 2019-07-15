@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -56,27 +57,14 @@ type (
 		gas                uint64
 		data               []byte
 	}
-	// HeightChange lists heights at which certain fixes take effect
-	HeightChange struct {
-		PacificHeight  uint64
-		AleutianHeight uint64
-	}
 )
-
-// NewHeightChange creates a height change config
-func NewHeightChange(pacific, aleutian uint64) HeightChange {
-	return HeightChange{
-		pacific,
-		aleutian,
-	}
-}
 
 // NewParams creates a new context for use in the EVM.
 func NewParams(
 	raCtx protocol.RunActionsCtx,
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
-	hc HeightChange,
+	hc config.HeightChange,
 ) (*Params, error) {
 	executorAddr := common.BytesToAddress(raCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
@@ -91,7 +79,7 @@ func NewParams(
 
 	gasLimit := execution.GasLimit()
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if raCtx.BlockHeight < hc.AleutianHeight && gasLimit > preAleutianActionGasLimit {
+	if hc.IsPre(raCtx.BlockHeight, config.Aleutian) && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
 	}
 
@@ -155,7 +143,7 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
-	hc HeightChange,
+	hc config.HeightChange,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	stateDB := NewStateDBAdapter(cm, sm, &hc, raCtx.BlockHeight, execution.Hash())
@@ -178,7 +166,7 @@ func ExecuteContract(
 	} else {
 		receipt.Status = action.SuccessReceiptStatus
 	}
-	if raCtx.BlockHeight >= hc.PacificHeight {
+	if hc.IsPost(raCtx.BlockHeight, config.Pacific) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
 	} else {

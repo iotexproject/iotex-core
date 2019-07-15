@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -32,17 +33,17 @@ const (
 type Protocol struct {
 	cm   protocol.ChainManager
 	addr address.Address
-	hc   evm.HeightChange
+	hc   config.HeightChange
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(cm protocol.ChainManager, pacificHeight, aleutianHeight uint64) *Protocol {
+func NewProtocol(cm protocol.ChainManager, hc config.HeightChange) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
-	return &Protocol{cm: cm, addr: addr, hc: evm.HeightChange{pacificHeight, aleutianHeight}}
+	return &Protocol{cm: cm, addr: addr, hc: hc}
 }
 
 // Handle handles an execution

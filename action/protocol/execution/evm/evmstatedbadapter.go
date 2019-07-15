@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -55,7 +56,7 @@ type (
 		preimageSnapshot map[int]preimageMap
 		dao              db.KVStore
 		cb               db.CachedBatch
-		hc               *HeightChange
+		hc               *config.HeightChange
 	}
 )
 
@@ -63,7 +64,7 @@ type (
 func NewStateDBAdapter(
 	cm protocol.ChainManager,
 	sm protocol.StateManager,
-	hc *HeightChange,
+	hc *config.HeightChange,
 	blockHeight uint64,
 	executionHash hash.Hash256,
 ) *StateDBAdapter {
@@ -407,7 +408,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		Data:        evmLog.Data,
 		BlockHeight: stateDB.blockHeight,
 		ActionHash:  stateDB.executionHash,
-		PreAleutian: stateDB.hc != nil && stateDB.blockHeight < stateDB.hc.AleutianHeight,
+		PreAleutian: stateDB.hc != nil && stateDB.hc.IsPre(stateDB.blockHeight, config.Aleutian),
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }
