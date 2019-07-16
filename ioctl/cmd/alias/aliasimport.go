@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2019 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -90,9 +90,9 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 
 func (m *importMessage) String() string {
 	if output.Format == "" {
-		line:=fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", m.ImportedNumber, m.TotalNumber)
+		line := fmt.Sprintf("%d/%d aliases imported\nExisted aliases:", m.ImportedNumber, m.TotalNumber)
 		for _, alias := range m.Unimported {
-			line+=fmt.Sprint(" " + alias.Name)
+			line += fmt.Sprint(" " + alias.Name)
 		}
 		return line
 	}
