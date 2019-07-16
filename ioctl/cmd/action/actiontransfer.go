@@ -20,7 +20,7 @@ import (
 // actionTransferCmd represents the action transfer command
 var actionTransferCmd = &cobra.Command{
 	Use: "transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX [DATA]" +
-		" [-s SIGNER] [-l GAS_LIMIT] [-p GAS_PRICE]",
+		" [-s SIGNER] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 	Short: "Transfer tokens on IoTeX blokchain",
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
