@@ -131,6 +131,8 @@ github.com/iotexproject/iotex-address v0.2.0/go.mod h1:ias6axlk8TFocZ2stKY7L0k5h
 github.com/iotexproject/iotex-core v0.5.1/go.mod h1:8nEaqyRRzZK6IAH8H/bB/hUCz2jpTsQ0DBuhSm+nBEk=
 github.com/iotexproject/iotex-election v0.1.10 h1:YecHvKZP1jakkhMUPRfiGEeCNZFyzWA3bVP9mUiPMT0=
 github.com/iotexproject/iotex-election v0.1.10/go.mod h1:kx1vlh018FHFzwLBFynmZCY49sT6r1zIfnsEc6Z8uXY=
+github.com/iotexproject/iotex-proto v0.2.1-0.20190626221605-1f92737a3f6a h1:eN5zoe19/P+4y4HuvLqSG9HtHTSyK6vcCx8UXVVMuP0=
+github.com/iotexproject/iotex-proto v0.2.1-0.20190626221605-1f92737a3f6a/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
 github.com/iotexproject/iotex-proto v0.2.1-0.20190711042234-eb3d2a61ab27 h1:u/Fk5l75IqKWdu68t7AQz2y4FMHIeJqE2VLq8fmKD0Q=
 github.com/iotexproject/iotex-proto v0.2.1-0.20190711042234-eb3d2a61ab27/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
 github.com/ipfs/go-cid v0.0.1 h1:GBjWPktLnNyX0JiQCNFpUuUSoMw5KMyqrsejHYlILBE=

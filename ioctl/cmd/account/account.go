@@ -24,12 +24,11 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Errors
@@ -96,8 +95,7 @@ func KsAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 	}
 	address, err := address.FromString(addr)
 	if err != nil {
-		log.L().Error("failed to convert string into address", zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("failed to convert bytes into address")
 	}
 	// find the account in keystore
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
@@ -132,17 +130,15 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 }
 
 func newAccount(alias string, walletDir string) (string, error) {
-	fmt.Printf("#%s: Set password\n", alias)
+	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("failed to get password")
 	}
-	fmt.Printf("#%s: Enter password again\n", alias)
+	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := util.ReadSecretFromStdin()
 	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("failed to get password")
 	}
 	if password != passwordAgain {
 		return "", ErrPasswdNotMatch
@@ -154,24 +150,21 @@ func newAccount(alias string, walletDir string) (string, error) {
 	}
 	addr, err := address.FromBytes(account.Address.Bytes())
 	if err != nil {
-		log.L().Error("failed to convert bytes into address", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("failed to convert bytes into address")
 	}
 	return addr.String(), nil
 }
 
 func newAccountByKey(alias string, privateKey string, walletDir string) (string, error) {
-	fmt.Printf("#%s: Set password\n", alias)
+	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("failed to get password")
 	}
-	fmt.Printf("#%s: Enter password again\n", alias)
+	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
 	passwordAgain, err := util.ReadSecretFromStdin()
 	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("failed to get password")
 	}
 	if password != passwordAgain {
 		return "", ErrPasswdNotMatch
@@ -189,8 +182,7 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 	}
 	addr, err := address.FromBytes(account.Address.Bytes())
 	if err != nil {
-		log.L().Error("failed to convert bytes into address", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("failed to convert bytes into address")
 	}
 	return addr.String(), nil
 }

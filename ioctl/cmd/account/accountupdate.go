@@ -12,13 +12,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // accountUpdateCmd represents the account update command
@@ -28,23 +27,19 @@ var accountUpdateCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := accountUpdate(args)
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := accountUpdate(args)
 		return err
 	},
 }
 
-func accountUpdate(args []string) (string, error) {
+func accountUpdate(args []string) error {
 	account, err := util.GetAddress(args)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.AddressError, err.Error())
 	}
 	address, err := address.FromString(account)
 	if err != nil {
-		log.L().Error("failed to convert string into address", zap.Error(err))
-		return "", err
+		return output.PrintError(output.ConvertError, "failed to convert string into address")
 	}
 	// find the keystore and update
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
@@ -54,34 +49,30 @@ func accountUpdate(args []string) (string, error) {
 			fmt.Printf("#%s: Enter current password\n", account)
 			currentPassword, err := util.ReadSecretFromStdin()
 			if err != nil {
-				log.L().Error("failed to get current password", zap.Error(err))
-				return "", err
+				return output.PrintError(output.InputError, "failed to get current password")
 			}
 			_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
 			if err != nil {
-				return "", err
+				return output.PrintError(output.KeystoreError, err.Error())
 			}
 			fmt.Printf("#%s: Enter new password\n", account)
 			password, err := util.ReadSecretFromStdin()
 			if err != nil {
-				log.L().Error("failed to get password", zap.Error(err))
-				return "", err
+				return output.PrintError(output.InputError, "failed to get current password")
 			}
 			fmt.Printf("#%s: Enter new password again\n", account)
 			passwordAgain, err := util.ReadSecretFromStdin()
 			if err != nil {
-				log.L().Error("failed to get password", zap.Error(err))
-				return "", err
+				return output.PrintError(output.InputError, "failed to get current password")
 			}
 			if password != passwordAgain {
-				return "", ErrPasswdNotMatch
+				return output.PrintError(output.InputError, ErrPasswdNotMatch.Error())
 			}
 			if err := ks.Update(v, currentPassword, password); err != nil {
-				log.L().Error("failed to update keystore", zap.Error(err))
-				return "", err
+				return output.PrintError(output.KeystoreError, "failed to update keystore")
 			}
-			return fmt.Sprintf("Account #%s has been updated.", account), nil
+			output.PrintResult(fmt.Sprintf("Account #%s has been updated.", account))
 		}
 	}
-	return "", fmt.Errorf("account #%s not found", account)
+	return output.PrintError(output.KeystoreError, fmt.Sprintf("account #%s not found", account))
 }

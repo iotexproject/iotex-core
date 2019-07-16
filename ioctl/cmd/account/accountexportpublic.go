@@ -10,10 +10,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // accountExportPublicCmd represents the account export public key command
@@ -23,29 +22,26 @@ var accountExportPublicCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := accountExportPublic(args)
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := accountExportPublic(args)
 		return err
 	},
 }
 
-func accountExportPublic(args []string) (string, error) {
+func accountExportPublic(args []string) error {
 	addr, err := util.GetAddress(args)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.AddressError, err.Error())
 	}
 	fmt.Printf("Enter password #%s:\n", addr)
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
+		return output.PrintError(output.InputError, "failed to get password")
 	}
 	prvKey, err := KsAccountToPrivateKey(addr, password)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.KeystoreError, err.Error())
 	}
 	defer prvKey.Zero()
-	return prvKey.PublicKey().HexString(), nil
+	output.PrintResult(prvKey.PublicKey().HexString())
+	return nil
 }

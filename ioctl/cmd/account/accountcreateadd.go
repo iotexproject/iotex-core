@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
@@ -25,41 +26,44 @@ var accountCreateAddCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := accountCreateAdd(args)
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := accountCreateAdd(args)
 		return err
 	},
 }
 
-func accountCreateAdd(args []string) (string, error) {
+func accountCreateAdd(args []string) error {
 	// Validate inputs
 	if err := validator.ValidateAlias(args[0]); err != nil {
-		return "", err
+		return output.PrintError(output.ValidationError, err.Error())
 	}
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
 		var confirm string
-		fmt.Printf("** Alias \"%s\" has already used for %s\nOverwriting the account will keep the previous keystore file stay, but bind the alias to the new one.\nType 'YES' to continue, quit for anything else.\n", alias, addr)
+		info := fmt.Sprintf("** Alias \"%s\" has already used for %s\n"+
+			"Overwriting the account will keep the previous keystore file stay, "+
+			"but bind the alias to the new one.\nWould you like to continue?\n", alias, addr)
+		message := output.ComfirmationMessage{Info: info, Options: []string{"yes"}}
+		fmt.Println(message.String())
 		fmt.Scanf("%s", &confirm)
 		if !strings.EqualFold(confirm, "yes") {
-			return "Quit", nil
+			output.PrintResult("quit")
+			return nil
 		}
 	}
 	addr, err := newAccount(alias, config.ReadConfig.Wallet)
 	if err != nil {
-		return "", err
+		return output.PrintError(0, err.Error()) // TODO: undefined error
 	}
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.SerializationError, err.Error())
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("failed to write to config file %s", config.DefaultConfigFile)
+		return output.PrintError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
 	}
-	return fmt.Sprintf(
-		"New account \"%s\" is created.\n"+
-			"Please Keep your password, or your will lose your private key.", alias), nil
+	output.PrintResult(fmt.Sprintf("New account \"%s\" is created.\n"+
+		"Please Keep your password, or your will lose your private key.", alias))
+	return nil
 }

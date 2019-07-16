@@ -9,13 +9,13 @@ package account
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 var numAccounts uint
@@ -27,15 +27,12 @@ var accountCreateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := accountCreate()
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := accountCreate()
 		return err
 	},
 }
 
-type generatedAccounts struct {
+type createMessage struct {
 	Accounts []generatedAccount `json:"accounts"`
 }
 
@@ -49,17 +46,16 @@ func init() {
 	accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1, "number of accounts to create")
 }
 
-func accountCreate() (string, error) {
+func accountCreate() error {
 	newAccounts := make([]generatedAccount, 0)
 	for i := 0; i < int(numAccounts); i++ {
 		private, err := crypto.GenerateKey()
 		if err != nil {
-			return "", err
+			return output.PrintError(output.CryptoError, err.Error())
 		}
 		addr, err := address.FromBytes(private.PublicKey().Hash())
 		if err != nil {
-			log.L().Error("failed to convert bytes into address", zap.Error(err))
-			return "", err
+			return output.PrintError(output.ConvertError, err.Error())
 		}
 		newAccount := generatedAccount{
 			Address:    addr.String(),
@@ -68,11 +64,19 @@ func accountCreate() (string, error) {
 		}
 		newAccounts = append(newAccounts, newAccount)
 	}
-	var output []byte
-	var err error
-	output, err = json.MarshalIndent(&generatedAccounts{Accounts: newAccounts}, "", "  ")
-	if err != nil {
-		return "", err
+
+	message := createMessage{Accounts: newAccounts}
+	fmt.Println(message.String())
+	return nil
+}
+
+func (m *createMessage) String() string {
+	if output.Format == "" {
+		byteAsJSON, err := json.MarshalIndent(m, "", "  ")
+		if err != nil {
+			log.Panic(err)
+		}
+		return fmt.Sprint(string(byteAsJSON))
 	}
-	return string(output), nil
+	return output.FormatString(output.Result, m)
 }
