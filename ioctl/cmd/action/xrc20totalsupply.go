@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // xrc20TotalSupplyCmd represents total supply of the contract

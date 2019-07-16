@@ -9,11 +9,11 @@ package action
 import (
 	"encoding/hex"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // actionSendRawCmd represents the action send raw transaction command

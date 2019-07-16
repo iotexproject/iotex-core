@@ -7,10 +7,10 @@
 package action
 
 import (
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // xrc20TransferFromCmd could transfer from owner address to target address

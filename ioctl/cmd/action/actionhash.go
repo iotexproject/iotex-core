@@ -13,8 +13,6 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -27,6 +25,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 

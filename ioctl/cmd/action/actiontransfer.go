@@ -9,11 +9,11 @@ package action
 import (
 	"encoding/hex"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // actionTransferCmd represents the action transfer command
