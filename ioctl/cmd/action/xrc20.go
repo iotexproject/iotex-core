@@ -39,7 +39,7 @@ type amountMessage struct {
 
 func (m *amountMessage) String() string {
 	if output.Format == "" {
-		return fmt.Sprintf("Raw output: %d\nOutput in decimal: %d\n", m.RawData, m.Decimal)
+		return fmt.Sprintf("Raw output: %s\nOutput in decimal: %s", m.RawData, m.Decimal)
 	}
 	return output.FormatString(output.Result, m)
 }
