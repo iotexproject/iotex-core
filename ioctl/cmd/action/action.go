@@ -36,7 +36,7 @@ import (
 
 // Flags
 var (
-	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", 300000, "set gas limit")
+	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", 0, "set gas limit")
 	gasPriceFlag = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
 	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
 	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
@@ -116,6 +116,30 @@ func gasPriceInRau() (*big.Int, error) {
 	return new(big.Int).SetUint64(response.GasPrice), nil
 }
 
+func fixGasLimit(signer string, execution *action.Execution) (*action.Execution, error) {
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	caller, err := address.FromString(signer)
+	if err != nil {
+		return nil, err
+	}
+	request := &iotexapi.EstimateActionGasConsumptionRequest{
+		Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
+			Execution: execution.Proto(),
+		},
+		CallerAddress: caller.String(),
+	}
+	res, err := cli.EstimateActionGasConsumption(context.Background(), request)
+	if err != nil {
+		return nil, errors.New("error when invoke EstimateActionGasConsumption api")
+	}
+	return action.NewExecution(execution.Contract(), execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), execution.Data())
+}
+
 func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
@@ -135,6 +159,15 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 		err = errors.Wrap(err, "cannot make a Execution instance")
 		log.L().Error("error when invoke an execution", zap.Error(err))
 		return
+	}
+	if gasLimit == 0 {
+		tx, err = fixGasLimit(signer, tx)
+		if err != nil || tx == nil {
+			err = errors.Wrap(err, "cannot fix Execution gaslimit")
+			log.L().Error("error when invoke an execution", zap.Error(err))
+			return
+		}
+		gasLimit = tx.GasLimit()
 	}
 	return sendAction(
 		(&action.EnvelopeBuilder{}).
