@@ -74,13 +74,13 @@ type Message interface {
 	String() string
 }
 
-// ComfirmationMessage is the struct of an Confirmation output
-type ComfirmationMessage struct {
+// ConfirmationMessage is the struct of an Confirmation output
+type ConfirmationMessage struct {
 	Info    string   `json:"info"`
 	Options []string `json:"options"`
 }
 
-func (m *ComfirmationMessage) String() string {
+func (m *ConfirmationMessage) String() string {
 	if Format == "" {
 		line := fmt.Sprintf("%s\nOptions:", m.Info)
 		for _, option := range m.Options {

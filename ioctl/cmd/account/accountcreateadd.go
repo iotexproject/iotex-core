@@ -42,7 +42,7 @@ func accountCreateAdd(args []string) error {
 		info := fmt.Sprintf("** Alias \"%s\" has already used for %s\n"+
 			"Overwriting the account will keep the previous keystore file stay, "+
 			"but bind the alias to the new one.\nWould you like to continue?\n", alias, addr)
-		message := output.ComfirmationMessage{Info: info, Options: []string{"yes"}}
+		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 		fmt.Println(message.String())
 		fmt.Scanf("%s", &confirm)
 		if !strings.EqualFold(confirm, "yes") {

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -22,7 +23,7 @@ var actionClaimCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		amount, err := util.StringToRau(args[0], util.IotxDecimalNum)
 		if err != nil {
-			return err
+			return output.PrintError(output.ConvertError, err.Error())
 		}
 		payload := make([]byte, 0)
 		if len(args) == 2 {
@@ -30,7 +31,7 @@ var actionClaimCmd = &cobra.Command{
 		}
 		sender, err := signer()
 		if err != nil {
-			return err
+			return output.PrintError(output.AddressError, err.Error())
 		}
 		gasLimit := gasLimitFlag.Value().(uint64)
 		if gasLimit == 0 {
@@ -40,7 +41,7 @@ var actionClaimCmd = &cobra.Command{
 		gasPriceRau, err := gasPriceInRau()
 		nonce, err := nonce(sender)
 		if err != nil {
-			return err
+			return output.PrintError(0, err.Error()) //TODO: undefined error
 		}
 		act := (&action.ClaimFromRewardingFundBuilder{}).SetAmount(amount).SetData(payload).Build()
 

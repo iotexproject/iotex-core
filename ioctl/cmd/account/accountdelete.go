@@ -53,7 +53,7 @@ func accountDelete(args []string) error {
 			info := fmt.Sprintf("** This is an irreversible action!\n" +
 				"Once an account is deleted, all the assets under this account may be lost!\n" +
 				"Type 'YES' to continue, quit for anything else.")
-			message := output.ComfirmationMessage{Info: info, Options: []string{"yes"}}
+			message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 			fmt.Println(message.String())
 			fmt.Scanf("%s", &confirm)
 			if !strings.EqualFold(confirm, "yes") {

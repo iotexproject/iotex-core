@@ -9,6 +9,8 @@ package action
 import (
 	"encoding/hex"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
@@ -23,11 +25,11 @@ var actionSendRawCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		actBytes, err := hex.DecodeString(args[0])
 		if err != nil {
-			return err
+			return output.PrintError(output.ConvertError, err.Error())
 		}
 		act := &iotextypes.Action{}
 		if err := proto.Unmarshal(actBytes, act); err != nil {
-			return err
+			return output.PrintError(output.SerializationError, err.Error())
 		}
 		return sendRaw(act)
 	},
