@@ -198,7 +198,7 @@ var (
 		},
 		{
 			identityset.Address(30).String(),
-			1,
+			0,
 			8,
 			8,
 		},

@@ -52,6 +52,7 @@ var (
 	heightPrefix             = []byte("he.")
 	actionFromPrefix         = []byte("fr.")
 	actionToPrefix           = []byte("to.")
+	actionAddressPrefix      = []byte("ad.")
 )
 
 var (
@@ -468,6 +469,8 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	if err := indexBlock(dao.kvstore, blk, batch); err != nil {
 		return err
 	}
+	// need to clear delta
+	clearMap()
 	return dao.kvstore.Commit(batch)
 }
 
