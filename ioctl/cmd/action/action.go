@@ -146,7 +146,7 @@ func fixGasLimit(signer string, execution *action.Execution) (*action.Execution,
 	}
 	res, err := cli.EstimateActionGasConsumption(context.Background(), request)
 	if err != nil {
-		return nil, errors.New("error when invoke EstimateActionGasConsumption api")
+		return nil, fmt.Errorf("error when invoke EstimateActionGasConsumption api")
 	}
 	return action.NewExecution(execution.Contract(), execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), execution.Data())
 }
@@ -173,7 +173,7 @@ func execute(contract string, amount *big.Int, bytecode []byte) error {
 	if gasLimit == 0 {
 		tx, err = fixGasLimit(signer, tx)
 		if err != nil || tx == nil {
-      return output.PrintError(0, "cannot fix Execution gaslimit"+err.Error()) // TODO: undefined error
+			return output.PrintError(0, "cannot fix Execution gaslimit"+err.Error()) // TODO: undefined error
 		}
 		gasLimit = tx.GasLimit()
 	}
