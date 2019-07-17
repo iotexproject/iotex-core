@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // xrc20TransferCmd could do transfer action
@@ -24,19 +25,19 @@ var xrc20TransferCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		recipient, err := alias.EtherAddress(args[0])
 		if err != nil {
-			return err
+			return output.PrintError(output.AddressError, err.Error())
 		}
 		contract, err := xrc20Contract()
 		if err != nil {
-			return err
+			return output.PrintError(output.AddressError, err.Error())
 		}
 		amount, err := parseAmount(contract, args[1])
 		if err != nil {
-			return err
+			return output.PrintError(0, err.Error()) // TODO: undefined error
 		}
 		bytecode, err := xrc20ABI.Pack("transfer", recipient, amount)
 		if err != nil {
-			return err
+			return output.PrintError(0, "cannot generate bytecode from given command"+err.Error()) // TODO: undefined error
 		}
 		return execute(contract.String(), big.NewInt(0), bytecode)
 	},

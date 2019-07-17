@@ -9,9 +9,10 @@ package action
 import (
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // actionDeployCmd represents the action deploy command
@@ -23,13 +24,13 @@ var actionDeployCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		bytecode, err := decodeBytecode()
 		if err != nil {
-			return err
+			return output.PrintError(output.FlagError, "Invalid bytecode flag:"+err.Error())
 		}
 		amount := big.NewInt(0)
 		if len(args) == 1 {
 			amount, err = util.StringToRau(args[0], util.IotxDecimalNum)
 			if err != nil {
-				return errors.Wrapf(err, "Invalid amount format %s", args[0])
+				return output.PrintError(output.ConvertError, "Invalid amount:"+err.Error())
 			}
 		}
 		return execute("", amount, bytecode)

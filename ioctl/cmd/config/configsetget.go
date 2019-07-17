@@ -133,9 +133,9 @@ func GetContextAddressOrAlias() (string, error) {
 }
 
 // GetAddressOrAlias gets address from args or context
-func GetAddressOrAlias(args []string) (address string, err error) {
-	if len(args) == 1 && !strings.EqualFold(args[0], "") {
-		address = args[0]
+func GetAddressOrAlias(in string) (address string, err error) {
+	if !strings.EqualFold(in, "") {
+		address = in
 	} else {
 		address, err = GetContextAddressOrAlias()
 	}

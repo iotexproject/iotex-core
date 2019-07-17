@@ -12,12 +12,12 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 //Xrc20Cmd represent erc20 standard command-line
@@ -30,6 +30,18 @@ var xrc20ContractAddress string
 
 func xrc20Contract() (address.Address, error) {
 	return alias.IOAddress(xrc20ContractAddress)
+}
+
+type amountMessage struct {
+	RawData string `json"rawData"`
+	Decimal string `json:"decimal"`
+}
+
+func (m *amountMessage) String() string {
+	if output.Format == "" {
+		return fmt.Sprintf("Raw output: %s\nOutput in decimal: %s", m.RawData, m.Decimal)
+	}
+	return output.FormatString(output.Result, m)
 }
 
 func init() {
@@ -72,8 +84,7 @@ func parseAmount(contract address.Address, amount string) (*big.Int, error) {
 	}
 	amountResultFloat := amountFloat.Mul(amountFloat, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(decimal), nil)))
 	if !amountResultFloat.IsInt() {
-		fmt.Println("Please enter appropriate amount")
-		return nil, errors.Wrap(err, "Unappropriate amount")
+		return nil, fmt.Errorf("Unappropriate amount")
 	}
 	var amountResultInt *big.Int
 	amountResultInt, _ = amountResultFloat.Int(amountResultInt)

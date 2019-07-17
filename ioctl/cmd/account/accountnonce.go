@@ -22,7 +22,7 @@ var accountNonceCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := nonce(args)
+		err := nonce(args[0])
 		return err
 	},
 }
@@ -34,8 +34,8 @@ type nonceMessage struct {
 }
 
 // nonce gets nonce and pending nonce of an IoTeX blockchain address
-func nonce(args []string) error {
-	addr, err := util.GetAddress(args)
+func nonce(arg string) error {
+	addr, err := util.GetAddress(arg)
 	if err != nil {
 		return output.PrintError(output.AddressError, err.Error())
 	}

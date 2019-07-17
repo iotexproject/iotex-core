@@ -150,9 +150,9 @@ func ReadSecretFromStdin() (string, error) {
 	return string(bytePass), nil
 }
 
-// GetAddress get address from address or alias
-func GetAddress(args []string) (addr string, err error) {
-	addr, err = config.GetAddressOrAlias(args)
+// GetAddress get address from address or alias or context
+func GetAddress(in string) (addr string, err error) {
+	addr, err = config.GetAddressOrAlias(in)
 	if err != nil {
 		return
 	}

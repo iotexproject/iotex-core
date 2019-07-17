@@ -14,14 +14,13 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
@@ -38,16 +37,17 @@ var actionReadCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		contract, err := alias.IOAddress(args[0])
 		if err != nil {
-			return err
+			return output.PrintError(output.AddressError, err.Error())
 		}
 		bytecode, err := decodeBytecode()
 		if err != nil {
-			return err
+			return output.PrintError(output.ConvertError, err.Error())
 		}
-		output, err := read(contract, bytecode)
-		if err == nil {
-			fmt.Println(output)
+		result, err := read(contract, bytecode)
+		if err != nil {
+			return output.PrintError(0, err.Error()) // TODO: undefined error
 		}
+		output.PrintResult(result)
 		return err
 	},
 }
@@ -66,8 +66,7 @@ func read(contract address.Address, bytecode []byte) (string, error) {
 	}
 	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), defaultGasLimit, defaultGasPrice, bytecode)
 	if err != nil {
-		log.L().Error("cannot make an Execution instance", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("cannot make an Execution instance" + err.Error())
 	}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
