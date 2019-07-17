@@ -757,10 +757,7 @@ func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Exe
 		ws,
 		ex,
 		bc,
-		evm.NewHeightChange(
-			bc.config.Genesis.PacificBlockHeight,
-			bc.config.Genesis.AleutianBlockHeight,
-		),
+		config.NewHeightUpgrade(bc.config),
 	)
 }
 

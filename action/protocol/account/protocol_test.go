@@ -70,7 +70,7 @@ func TestProtocol_Initialize(t *testing.T) {
 		require.NoError(t, stateDB.Stop(context.Background()))
 	}()
 
-	p := NewProtocol(0)
+	p := NewProtocol(config.NewHeightUpgrade(cfg))
 
 	ws, err := stateDB.NewWorkingSet()
 	require.NoError(t, err)
