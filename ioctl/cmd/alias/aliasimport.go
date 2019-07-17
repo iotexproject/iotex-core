@@ -72,7 +72,6 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 		config.ReadConfig.Aliases[importedAlias.Name] = importedAlias.Address
 		message.Imported = append(message.Imported, importedAlias)
 		message.ImportedNumber++
-
 	}
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
