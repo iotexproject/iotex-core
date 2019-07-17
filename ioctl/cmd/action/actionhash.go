@@ -123,7 +123,7 @@ func getActionByHash(args []string) error {
 }
 
 func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
-	output, err := printActionProto(actionInfo.Action)
+	result, err := printActionProto(actionInfo.Action)
 	if err != nil {
 		return "", err
 	}
@@ -132,11 +132,11 @@ func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		output += fmt.Sprintf("timeStamp: %d\n", ts.Unix())
-		output += fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
+		result += fmt.Sprintf("timeStamp: %d\n", ts.Unix())
+		result += fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
 	}
-	output += fmt.Sprintf("actHash: %s\n", actionInfo.ActHash)
-	return output, nil
+	result += fmt.Sprintf("actHash: %s\n", actionInfo.ActHash)
+	return result, nil
 }
 
 func printActionProto(action *iotextypes.Action) (string, error) {
@@ -148,7 +148,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to convert bytes into address" + err.Error())
 	}
-	output := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
+	result := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
 		fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
 		fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
 		fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
@@ -156,75 +156,75 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			Match(senderAddress.String(), "address"))
 	switch {
 	default:
-		output += proto.MarshalTextString(action.Core)
+		result += proto.MarshalTextString(action.Core)
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
 		amount, err := util.StringToIOTX(transfer.Amount)
 		if err != nil {
 			return "", err
 		}
-		output += "transfer: <\n" +
+		result += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				Match(transfer.Recipient, "address")) +
 			fmt.Sprintf("  amount: %s IOTX\n", amount)
 		if len(transfer.Payload) != 0 {
-			output += fmt.Sprintf("  payload: %s\n", transfer.Payload)
+			result += fmt.Sprintf("  payload: %s\n", transfer.Payload)
 		}
-		output += ">\n"
+		result += ">\n"
 	case action.Core.GetExecution() != nil:
 		execution := action.Core.GetExecution()
-		output += "execution: <\n" +
+		result += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
 				Match(execution.Contract, "address"))
 		if execution.Amount != "0" {
-			output += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
+			result += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
 		}
-		output += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
+		result += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
 	case action.Core.GetPutPollResult() != nil:
 		putPollResult := action.Core.GetPutPollResult()
-		output += "putPollResult: <\n" +
+		result += "putPollResult: <\n" +
 			fmt.Sprintf("  height: %d\n", putPollResult.Height) +
 			"  candidates: <\n"
 		for _, candidate := range putPollResult.Candidates.Candidates {
-			output += "    candidate: <\n" +
+			result += "    candidate: <\n" +
 				fmt.Sprintf("      address: %s\n", candidate.Address)
 			votes := big.NewInt(0).SetBytes(candidate.Votes)
-			output += fmt.Sprintf("      votes: %s\n", votes.String()) +
+			result += fmt.Sprintf("      votes: %s\n", votes.String()) +
 				fmt.Sprintf("      rewardAdress: %s\n", candidate.RewardAddress) +
 				"    >\n"
 		}
-		output += "  >\n" +
+		result += "  >\n" +
 			">\n"
 	}
-	output += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
+	result += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 		fmt.Sprintf("signature: %x\n", action.Signature)
 
-	return output, nil
+	return result, nil
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
-	output := fmt.Sprintf("status: %d %s\n", receipt.Status,
+	result := fmt.Sprintf("status: %d %s\n", receipt.Status,
 		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		fmt.Sprintf("blkHeight: %d\n", receipt.BlkHeight) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		fmt.Sprintf("logs: %d", len(receipt.Logs))
 	if len(receipt.ContractAddress) != 0 {
-		output += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
+		result += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
 			Match(receipt.ContractAddress, "address"))
 	}
-	return output
+	return result
 }
 
 // Match returns human readable expression
 func Match(in string, matchType string) string {
 	switch matchType {
 	case "address":
-		alias, err := alias.Alias(in)
+		matchedAlias, err := alias.Alias(in)
 		if err != nil {
 			return ""
 		}
-		return "(" + alias + ")"
+		return "(" + matchedAlias + ")"
 	case "status":
 		if in == "0" {
 			return "(Failure)"

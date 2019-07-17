@@ -58,14 +58,11 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 			return output.PrintError(output.SerializationError, err.Error())
 		}
 	}
-	importedNum, totalNum := 0, 0
 	aliases := GetAliasMap()
 	message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
 	for _, importedAlias := range importedAliases.Aliases {
-		totalNum++
 		if !forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
 			message.Unimported = append(message.Unimported, importedAlias)
-			message.ImportedNumber++
 			continue
 		}
 		for aliases[importedAlias.Address] != "" {
@@ -74,7 +71,8 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 		}
 		config.ReadConfig.Aliases[importedAlias.Name] = importedAlias.Address
 		message.Imported = append(message.Imported, importedAlias)
-		importedNum++
+		message.ImportedNumber++
+
 	}
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {

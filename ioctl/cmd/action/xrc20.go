@@ -33,7 +33,7 @@ func xrc20Contract() (address.Address, error) {
 }
 
 type amountMessage struct {
-	RawData string `json"rawData"`
+	RawData string `json:"rawData"`
 	Decimal string `json:"decimal"`
 }
 
@@ -65,13 +65,13 @@ func parseAmount(contract address.Address, amount string) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	output, err := read(contract, decimalBytecode)
+	result, err := read(contract, decimalBytecode)
 	if err != nil {
 		return nil, err
 	}
 	var decimal int64
-	if output != "" {
-		decimal, err = strconv.ParseInt(output, 16, 8)
+	if result != "" {
+		decimal, err = strconv.ParseInt(result, 16, 8)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +84,7 @@ func parseAmount(contract address.Address, amount string) (*big.Int, error) {
 	}
 	amountResultFloat := amountFloat.Mul(amountFloat, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(decimal), nil)))
 	if !amountResultFloat.IsInt() {
-		return nil, fmt.Errorf("Unappropriate amount")
+		return nil, fmt.Errorf("unappropriate amount")
 	}
 	var amountResultInt *big.Int
 	amountResultInt, _ = amountResultFloat.Int(amountResultInt)
