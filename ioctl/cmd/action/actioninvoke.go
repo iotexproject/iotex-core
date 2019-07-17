@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
@@ -24,18 +25,18 @@ var actionInvokeCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		contract, err := util.Address(args[0])
 		if err != nil {
-			return err
+			return output.PrintError(output.AddressError, err.Error())
 		}
 		amount := big.NewInt(0)
 		if len(args) == 2 {
 			amount, err = util.StringToRau(args[1], util.IotxDecimalNum)
 			if err != nil {
-				return err
+				return output.PrintError(output.ConvertError, err.Error())
 			}
 		}
 		bytecode, err := decodeBytecode()
 		if err != nil {
-			return err
+			return output.PrintError(output.ConvertError, err.Error())
 		}
 		return execute(contract, amount, bytecode)
 	},

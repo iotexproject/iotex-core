@@ -10,11 +10,10 @@ import (
 	"encoding/hex"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // actionTransferCmd represents the action transfer command
@@ -27,22 +26,22 @@ var actionTransferCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		recipient, err := util.Address(args[0])
 		if err != nil {
-			return err
+			return output.PrintError(output.AddressError, err.Error())
 		}
 		amount, err := util.StringToRau(args[1], util.IotxDecimalNum)
 		if err != nil {
-			return err
+			return output.PrintError(output.ConvertError, err.Error())
 		}
 		var payload []byte
 		if len(args) == 3 {
 			payload, err = hex.DecodeString(args[2])
 			if err != nil {
-				return err
+				return output.PrintError(output.ConvertError, err.Error())
 			}
 		}
 		sender, err := signer()
 		if err != nil {
-			return err
+			return output.PrintError(output.AddressError, err.Error())
 		}
 		gasLimit := gasLimitFlag.Value().(uint64)
 		if gasLimit == 0 {
@@ -51,17 +50,16 @@ var actionTransferCmd = &cobra.Command{
 		}
 		gasPriceRau, err := gasPriceInRau()
 		if err != nil {
-			return err
+			return output.PrintError(output.ConvertError, err.Error())
 		}
 		nonce, err := nonce(sender)
 		if err != nil {
-			return err
+			return output.PrintError(0, err.Error()) //TODO: undefined error
 		}
 		tx, err := action.NewTransfer(nonce, amount,
 			recipient, payload, gasLimit, gasPriceRau)
 		if err != nil {
-			log.L().Error("failed to make a Transfer instance", zap.Error(err))
-			return err
+			return output.PrintError(0, "failed to make a Transfer instance"+err.Error()) // TODO: undefined error
 		}
 		return sendAction(
 			(&action.EnvelopeBuilder{}).

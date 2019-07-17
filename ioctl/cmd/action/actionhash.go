@@ -9,6 +9,7 @@ package action
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/big"
 	"strconv"
 
@@ -19,14 +20,13 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // actionHashCmd represents the action hash command
@@ -36,66 +36,90 @@ var actionHashCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := getActionByHash(args)
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := getActionByHash(args)
 		return err
 	},
 }
 
+type actionState int
+
+const (
+	// Pending action is in the action pool but not executed by blockchain
+	Pending actionState = iota
+	// Executed action has been run and recorded on blockchain
+	Executed
+)
+
+type actionMessage struct {
+	State   actionState          `json:"state"`
+	Proto   *iotexapi.ActionInfo `json:"proto"`
+	Receipt *iotextypes.Receipt  `json:"receipt"`
+}
+
+func (m *actionMessage) String() string {
+	if output.Format == "" {
+		message, err := printAction(m.Proto)
+		if err != nil {
+			log.Panic(err.Error())
+		}
+		if m.State == Pending {
+			message += "\n#This action is pending"
+		} else {
+			message += "\n#This action has been written on blockchain\n\n" + printReceiptProto(m.Receipt)
+		}
+		return message
+	}
+	return output.FormatString(output.Result, m)
+}
+
 // getActionByHash gets action of IoTeX Blockchain by hash
-func getActionByHash(args []string) (string, error) {
+func getActionByHash(args []string) error {
 	hash := args[0]
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return "", err
+		return output.PrintError(output.NetworkError, err.Error())
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 
 	// search action on blockchain
-	requestGetActionByHash := &iotexapi.GetActionByHashRequest{
-		ActionHash:   hash,
-		CheckPending: false,
-	}
 	requestGetAction := iotexapi.GetActionsRequest{
 		Lookup: &iotexapi.GetActionsRequest_ByHash{
-			ByHash: requestGetActionByHash,
+			ByHash: &iotexapi.GetActionByHashRequest{
+				ActionHash:   hash,
+				CheckPending: false,
+			},
 		},
 	}
 	response, err := cli.GetActions(ctx, &requestGetAction)
 	if err != nil {
-		// search action in action pool
-		requestGetActionByHash.CheckPending = true
-		response, err = cli.GetActions(ctx, &requestGetAction)
-		if err != nil {
-			return "", err
+		sta, ok := status.FromError(err)
+		if ok {
+			return output.PrintError(output.APIError, sta.Message())
 		}
+		return output.PrintError(output.NetworkError, err.Error())
 	}
 	if len(response.ActionInfo) == 0 {
-		return "", fmt.Errorf("No action info returned")
+		return output.PrintError(output.APIError, "No action info returned")
 	}
-	output, err := printAction(response.ActionInfo[0])
-	if err != nil {
-		return "", err
-	}
-	fmt.Println(output)
+	message := actionMessage{Proto: response.ActionInfo[0]}
 
 	requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: hash}
 	responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok && sta.Code() == codes.NotFound {
-			return "\n#This action is pending", nil
+			message.State = Pending
 		} else if ok {
-			return "", fmt.Errorf(sta.Message())
+			return output.PrintError(output.APIError, sta.Message())
 		}
-		return "", err
+		return output.PrintError(output.NetworkError, err.Error())
 	}
-	return "\n#This action has been written on blockchain\n" +
-		printReceiptProto(responseReceipt.ReceiptInfo.Receipt), nil
+	message.State = Executed
+	message.Receipt = responseReceipt.ReceiptInfo.Receipt
+	fmt.Println(message.String())
+	return nil
 }
 
 func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
@@ -118,13 +142,11 @@ func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
 func printActionProto(action *iotextypes.Action) (string, error) {
 	pubKey, err := crypto.BytesToPublicKey(action.SenderPubKey)
 	if err != nil {
-		log.L().Error("failed to convert pubkey", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("failed to convert pubkey:" + err.Error())
 	}
 	senderAddress, err := address.FromBytes(pubKey.Hash())
 	if err != nil {
-		log.L().Error("failed to convert bytes into address", zap.Error(err))
-		return "", err
+		return "", fmt.Errorf("failed to convert bytes into address" + err.Error())
 	}
 	output := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
 		fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +

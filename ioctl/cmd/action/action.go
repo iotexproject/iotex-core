@@ -20,17 +20,15 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -49,6 +47,19 @@ var (
 var ActionCmd = &cobra.Command{
 	Use:   "action",
 	Short: "Manage actions of IoTeX blockchain",
+}
+
+type sendMessage struct {
+	Info   string `json:"info"`
+	TxHash string `json:"txHash"`
+	URL    string `json:"url"`
+}
+
+func (m *sendMessage) String() string {
+	if output.Format == "" {
+		return fmt.Sprintf("%s\nWait for several seconds and query this action by hash:%s", m.Info, m.URL)
+	}
+	return output.FormatString(output.Result, m)
 }
 
 func init() {
@@ -71,7 +82,7 @@ func decodeBytecode() ([]byte, error) {
 }
 
 func signer() (address string, err error) {
-	return util.GetAddress([]string{signerFlag.Value().(string)})
+	return util.GetAddress(signerFlag.Value().(string))
 }
 
 func nonce(executor string) (uint64, error) {
@@ -135,37 +146,34 @@ func fixGasLimit(signer string, execution *action.Execution) (*action.Execution,
 	}
 	res, err := cli.EstimateActionGasConsumption(context.Background(), request)
 	if err != nil {
-		return nil, errors.New("error when invoke EstimateActionGasConsumption api")
+		return nil, fmt.Errorf("error when invoke EstimateActionGasConsumption api")
 	}
 	return action.NewExecution(execution.Contract(), execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), execution.Data())
 }
 
-func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
+// execute must be used at the end of a command
+func execute(contract string, amount *big.Int, bytecode []byte) error {
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
-		return
+		return output.PrintError(output.ConvertError, err.Error())
 	}
 	signer, err := signer()
 	if err != nil {
-		return err
+		return output.PrintError(output.AddressError, err.Error())
 	}
 	nonce, err := nonce(signer)
 	if err != nil {
-		return
+		return output.PrintError(0, err.Error()) // TODO: undefined error
 	}
 	gasLimit := gasLimitFlag.Value().(uint64)
 	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
 	if err != nil || tx == nil {
-		err = errors.Wrap(err, "cannot make a Execution instance")
-		log.L().Error("error when invoke an execution", zap.Error(err))
-		return
+		return output.PrintError(0, "cannot make a Execution instance"+err.Error()) // TODO: undefined error
 	}
 	if gasLimit == 0 {
 		tx, err = fixGasLimit(signer, tx)
 		if err != nil || tx == nil {
-			err = errors.Wrap(err, "cannot fix Execution gaslimit")
-			log.L().Error("error when invoke an execution", zap.Error(err))
-			return
+			return output.PrintError(0, "cannot fix Execution gaslimit"+err.Error()) // TODO: undefined error
 		}
 		gasLimit = tx.GasLimit()
 	}
@@ -179,10 +187,11 @@ func execute(contract string, amount *big.Int, bytecode []byte) (err error) {
 	)
 }
 
+// sendRaw must be used at the end of a command
 func sendRaw(selp *iotextypes.Action) error {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return err
+		return output.PrintError(output.NetworkError, err.Error())
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -191,25 +200,26 @@ func sendRaw(selp *iotextypes.Action) error {
 	request := &iotexapi.SendActionRequest{Action: selp}
 	if _, err = cli.SendAction(ctx, request); err != nil {
 		if sta, ok := status.FromError(err); ok {
-			return fmt.Errorf(sta.Message())
+			return output.PrintError(output.APIError, sta.Message())
 		}
-		return err
+		return output.PrintError(output.NetworkError, err.Error())
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
-	fmt.Println("Action has been sent to blockchain.")
-	fmt.Println("Wait for several seconds and query this action by hash:")
+	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash}
 	switch config.ReadConfig.Explorer {
 	case "iotexscan":
-		fmt.Printf("iotexscan.io/action/%s\n", txhash)
+		message.URL = "iotexscan.io/action/" + txhash
 	case "iotxplorer":
-		fmt.Printf("iotxplorer.io/actions/%s\n", txhash)
+		message.URL = "iotxplorer.io/actions/" + txhash
 	default:
-		fmt.Println(config.ReadConfig.Explorer + txhash)
+		message.URL = config.ReadConfig.Explorer + txhash
 	}
+	fmt.Println(message.String())
 	return nil
 }
 
+// sendAction must be used at the end of a command
 func sendAction(elp action.Envelope, signer string) error {
 	var (
 		prvKey           crypto.PrivateKey
@@ -217,55 +227,51 @@ func sendAction(elp action.Envelope, signer string) error {
 		prvKeyOrPassword string
 	)
 	if !signerIsExist(signer) {
-		fmt.Printf("Enter private key #%s:\n", signer)
+		output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
 		prvKeyOrPassword, err = util.ReadSecretFromStdin()
 		if err != nil {
-			log.L().Error("failed to get private key", zap.Error(err))
-			return err
+			return output.PrintError(output.InputError, err.Error())
 		}
 		prvKey, err = crypto.HexStringToPrivateKey(prvKeyOrPassword)
 	} else if passwordFlag.Value() == "" {
-		fmt.Printf("Enter password #%s:\n", signer)
+		output.PrintQuery(fmt.Sprintf("Enter password #%s:\n", signer))
 		prvKeyOrPassword, err = util.ReadSecretFromStdin()
 		if err != nil {
-			log.L().Error("failed to get password", zap.Error(err))
-			return err
+			return output.PrintError(output.InputError, err.Error())
 		}
 	} else {
 		prvKeyOrPassword = passwordFlag.Value().(string)
 	}
 	prvKey, err = account.KsAccountToPrivateKey(signer, prvKeyOrPassword)
-
 	if err != nil {
-		return err
+		return output.PrintError(output.KeystoreError, err.Error())
 	}
 	defer prvKey.Zero()
 	sealed, err := action.Sign(elp, prvKey)
 	prvKey.Zero()
 	if err != nil {
-		log.L().Error("failed to sign action", zap.Error(err))
-		return err
+		return output.PrintError(output.CryptoError, "failed to sign action"+err.Error())
 	}
 	if err := isBalanceEnough(signer, sealed); err != nil {
-		return err
+		return output.PrintError(0, err.Error()) // TODO: undefined error
 	}
 	selp := sealed.Proto()
 
 	actionInfo, err := printActionProto(selp)
 	if err != nil {
-		return err
+		return output.PrintError(output.ConvertError, err.Error())
 	}
 	if yesFlag.Value() == false {
 		var confirm string
-		fmt.Println("\n" + actionInfo + "\n" +
-			"Please confirm your action.\n" +
-			"Type 'YES' to continue, quit for anything else.")
+		info := fmt.Sprintln(actionInfo + "\nPlease confirm your action.\n")
+		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
+		fmt.Println(message.String())
 		fmt.Scanf("%s", &confirm)
-		if confirm != "YES" && confirm != "yes" {
+		if !strings.EqualFold(confirm, "yes") {
+			output.PrintResult("quit")
 			return nil
 		}
 	}
-	fmt.Println()
 	return sendRaw(selp)
 }
 
@@ -295,8 +301,8 @@ func signerIsExist(signer string) bool {
 	// find the account in keystore
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, account := range ks.Accounts() {
-		if address.Equal(addr, account.Address) {
+	for _, ksAccount := range ks.Accounts() {
+		if address.Equal(addr, ksAccount.Address) {
 			return true
 		}
 	}
