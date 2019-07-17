@@ -27,13 +27,13 @@ var accountUpdateCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := accountUpdate(args)
+		err := accountUpdate(args[0])
 		return err
 	},
 }
 
-func accountUpdate(args []string) error {
-	account, err := util.GetAddress(args)
+func accountUpdate(arg string) error {
+	account, err := util.GetAddress(arg)
 	if err != nil {
 		return output.PrintError(output.AddressError, err.Error())
 	}

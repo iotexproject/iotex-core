@@ -31,13 +31,13 @@ var accountDeleteCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := accountDelete(args)
+		err := accountDelete(args[0])
 		return err
 	},
 }
 
-func accountDelete(args []string) error {
-	addr, err := util.GetAddress(args)
+func accountDelete(arg string) error {
+	addr, err := util.GetAddress(arg)
 	if err != nil {
 		return output.PrintError(output.AddressError, err.Error())
 	}

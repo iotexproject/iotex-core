@@ -82,7 +82,7 @@ func decodeBytecode() ([]byte, error) {
 }
 
 func signer() (address string, err error) {
-	return util.GetAddress([]string{signerFlag.Value().(string)})
+	return util.GetAddress(signerFlag.Value().(string))
 }
 
 func nonce(executor string) (uint64, error) {
