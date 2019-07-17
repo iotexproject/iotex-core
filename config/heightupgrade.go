@@ -36,12 +36,12 @@ func NewHeightUpgrade(cfg Config) HeightUpgrade {
 }
 
 // IsPost return true if height is after the height upgrade
-func (hc *HeightUpgrade) IsPost(height uint64, name HeightName) bool {
+func (hu *HeightUpgrade) IsPost(height uint64, name HeightName) bool {
 	var h uint64
 	if name == Pacific {
-		h = hc.pacificHeight
+		h = hu.pacificHeight
 	} else if name == Aleutian {
-		h = hc.aleutianHeight
+		h = hu.aleutianHeight
 	} else {
 		log.Panic("invalid height name!")
 	}
@@ -49,6 +49,6 @@ func (hc *HeightUpgrade) IsPost(height uint64, name HeightName) bool {
 }
 
 // IsPre return true if height is before the height upgrade
-func (hc *HeightUpgrade) IsPre(height uint64, name HeightName) bool {
-	return !hc.IsPost(height, name)
+func (hu *HeightUpgrade) IsPre(height uint64, name HeightName) bool {
+	return !hu.IsPost(height, name)
 }

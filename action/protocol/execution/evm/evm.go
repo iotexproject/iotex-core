@@ -64,7 +64,7 @@ func NewParams(
 	raCtx protocol.RunActionsCtx,
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
-	hc config.HeightUpgrade,
+	hu config.HeightUpgrade,
 ) (*Params, error) {
 	executorAddr := common.BytesToAddress(raCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
@@ -79,7 +79,7 @@ func NewParams(
 
 	gasLimit := execution.GasLimit()
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if hc.IsPre(raCtx.BlockHeight, config.Aleutian) && gasLimit > preAleutianActionGasLimit {
+	if hu.IsPre(raCtx.BlockHeight, config.Aleutian) && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
 	}
 
@@ -143,11 +143,11 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
-	hc config.HeightUpgrade,
+	hu config.HeightUpgrade,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	stateDB := NewStateDBAdapter(cm, sm, hc, raCtx.BlockHeight, execution.Hash())
-	ps, err := NewParams(raCtx, execution, stateDB, hc)
+	stateDB := NewStateDBAdapter(cm, sm, hu, raCtx.BlockHeight, execution.Hash())
+	ps, err := NewParams(raCtx, execution, stateDB, hu)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -166,7 +166,7 @@ func ExecuteContract(
 	} else {
 		receipt.Status = action.SuccessReceiptStatus
 	}
-	if hc.IsPost(raCtx.BlockHeight, config.Pacific) {
+	if hu.IsPost(raCtx.BlockHeight, config.Pacific) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
 	} else {

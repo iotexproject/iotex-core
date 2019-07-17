@@ -272,8 +272,8 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 
 func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) (err error) {
 	genesisConfig := cfg.Genesis
-	hc := config.NewHeightUpgrade(cfg)
-	accountProtocol := account.NewProtocol(hc)
+	hu := config.NewHeightUpgrade(cfg)
+	accountProtocol := account.NewProtocol(hu)
 	if err = cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return
 	}
@@ -319,7 +319,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 			return
 		}
 	}
-	executionProtocol := execution.NewProtocol(cs.Blockchain(), hc)
+	executionProtocol := execution.NewProtocol(cs.Blockchain(), hu)
 	if err = cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
 		return
 	}

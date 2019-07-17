@@ -29,11 +29,11 @@ const ProtocolID = "account"
 // Protocol defines the protocol of handling account
 type Protocol struct {
 	addr address.Address
-	hc   config.HeightUpgrade
+	hu   config.HeightUpgrade
 }
 
 // NewProtocol instantiates the protocol of account
-func NewProtocol(hc config.HeightUpgrade) *Protocol {
+func NewProtocol(hu config.HeightUpgrade) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -41,7 +41,7 @@ func NewProtocol(hc config.HeightUpgrade) *Protocol {
 	}
 	return &Protocol{
 		addr: addr,
-		hc:   hc,
+		hu:   hu,
 	}
 }
 

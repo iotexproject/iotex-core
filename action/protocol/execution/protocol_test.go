@@ -258,8 +258,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	hc := config.NewHeightUpgrade(cfg)
-	acc := account.NewProtocol(hc)
+	hu := config.NewHeightUpgrade(cfg)
+	acc := account.NewProtocol(hu)
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -274,10 +274,10 @@ func (sct *SmartContractTest) prepareBlockchain(
 
 	r.NotNil(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	bc.Validator().AddActionValidators(account.NewProtocol(hc), NewProtocol(bc, hc), reward)
+	bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc, hu), reward)
 	sf := bc.GetFactory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(NewProtocol(bc, hc), reward)
+	sf.AddActionHandlers(NewProtocol(bc, hu), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
@@ -412,8 +412,8 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
 		registry := protocol.Registry{}
-		hc := config.NewHeightUpgrade(cfg)
-		acc := account.NewProtocol(hc)
+		hu := config.NewHeightUpgrade(cfg)
+		acc := account.NewProtocol(hu)
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -424,10 +424,10 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-		bc.Validator().AddActionValidators(account.NewProtocol(hc), NewProtocol(bc, hc))
+		bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc, hu))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
-		sf.AddActionHandlers(NewProtocol(bc, hc))
+		sf.AddActionHandlers(NewProtocol(bc, hu))
 
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)

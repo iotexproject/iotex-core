@@ -19,12 +19,12 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(1, Aleutian)
 	cfg := Default
 	cfg.Genesis.PacificBlockHeight = uint64(432001)
-	hc := NewHeightUpgrade(cfg)
-	require.Equal(uint64(432001), hc.pacificHeight)
-	require.Equal(uint64(864001), hc.aleutianHeight)
+	hu := NewHeightUpgrade(cfg)
+	require.Equal(uint64(432001), hu.pacificHeight)
+	require.Equal(uint64(864001), hu.aleutianHeight)
 
-	require.True(hc.IsPre(uint64(432000), Pacific))
-	require.True(hc.IsPost(uint64(432001), Pacific))
-	require.True(hc.IsPre(uint64(864000), Aleutian))
-	require.True(hc.IsPost(uint64(864001), Aleutian))
+	require.True(hu.IsPre(uint64(432000), Pacific))
+	require.True(hu.IsPost(uint64(432001), Pacific))
+	require.True(hu.IsPre(uint64(864000), Aleutian))
+	require.True(hu.IsPost(uint64(864001), Aleutian))
 }

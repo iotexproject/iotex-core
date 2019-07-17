@@ -56,7 +56,7 @@ type (
 		preimageSnapshot map[int]preimageMap
 		dao              db.KVStore
 		cb               db.CachedBatch
-		hc               config.HeightUpgrade
+		hu               config.HeightUpgrade
 	}
 )
 
@@ -64,7 +64,7 @@ type (
 func NewStateDBAdapter(
 	cm protocol.ChainManager,
 	sm protocol.StateManager,
-	hc config.HeightUpgrade,
+	hu config.HeightUpgrade,
 	blockHeight uint64,
 	executionHash hash.Hash256,
 ) *StateDBAdapter {
@@ -83,7 +83,7 @@ func NewStateDBAdapter(
 		preimageSnapshot: make(map[int]preimageMap),
 		dao:              sm.GetDB(),
 		cb:               sm.GetCachedBatch(),
-		hc:               hc,
+		hu:               hu,
 	}
 }
 
@@ -408,7 +408,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		Data:        evmLog.Data,
 		BlockHeight: stateDB.blockHeight,
 		ActionHash:  stateDB.executionHash,
-		PreAleutian: stateDB.hc.IsPre(stateDB.blockHeight, config.Aleutian),
+		PreAleutian: stateDB.hu.IsPre(stateDB.blockHeight, config.Aleutian),
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }
