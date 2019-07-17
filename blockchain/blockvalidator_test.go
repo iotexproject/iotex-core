@@ -244,7 +244,7 @@ func TestWrongAddress(t *testing.T) {
 	val := &validator{sf: bc.GetFactory(), validatorAddr: "", enableExperimentalActions: true}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	val.AddActionValidators(account.NewProtocol(0),
-		execution.NewProtocol(bc, config.NewHeightChange(cfg)))
+		execution.NewProtocol(bc, config.NewHeightUpgrade(cfg)))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))

@@ -92,10 +92,10 @@ func prepareBlockchain(
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	bc.Validator().AddActionValidators(account.NewProtocol(0), execution.NewProtocol(bc, config.NewHeightChange(cfg)), reward)
+	bc.Validator().AddActionValidators(account.NewProtocol(0), execution.NewProtocol(bc, config.NewHeightUpgrade(cfg)), reward)
 	sf := bc.GetFactory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(execution.NewProtocol(bc, config.NewHeightChange(cfg)), reward)
+	sf.AddActionHandlers(execution.NewProtocol(bc, config.NewHeightUpgrade(cfg)), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)

@@ -64,7 +64,7 @@ func NewParams(
 	raCtx protocol.RunActionsCtx,
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
-	hc config.HeightChange,
+	hc config.HeightUpgrade,
 ) (*Params, error) {
 	executorAddr := common.BytesToAddress(raCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
@@ -143,10 +143,10 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	cm protocol.ChainManager,
-	hc config.HeightChange,
+	hc config.HeightUpgrade,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	stateDB := NewStateDBAdapter(cm, sm, &hc, raCtx.BlockHeight, execution.Hash())
+	stateDB := NewStateDBAdapter(cm, sm, hc, raCtx.BlockHeight, execution.Hash())
 	ps, err := NewParams(raCtx, execution, stateDB, hc)
 	if err != nil {
 		return nil, nil, err

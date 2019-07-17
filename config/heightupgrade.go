@@ -6,45 +6,49 @@
 
 package config
 
-// Codename for height changes
+import (
+	"log"
+)
+
+// Codename for height upgrades
 const (
 	Pacific = iota
 	Aleutian
 )
 
 type (
-	// HeightName is codename for height changes
+	// HeightName is codename for height upgrades
 	HeightName int
 
-	// HeightChange lists heights at which certain fixes take effect
-	HeightChange struct {
+	// HeightUpgrade lists heights at which certain fixes take effect
+	HeightUpgrade struct {
 		pacificHeight  uint64
 		aleutianHeight uint64
 	}
 )
 
-// NewHeightChange creates a height change config
-func NewHeightChange(cfg Config) HeightChange {
-	return HeightChange{
+// NewHeightUpgrade creates a height upgrade config
+func NewHeightUpgrade(cfg Config) HeightUpgrade {
+	return HeightUpgrade{
 		cfg.Genesis.PacificBlockHeight,
 		cfg.Genesis.AleutianBlockHeight,
 	}
 }
 
-// IsPost return true if height is after the height change
-func (hc *HeightChange) IsPost(height uint64, name HeightName) bool {
+// IsPost return true if height is after the height upgrade
+func (hc *HeightUpgrade) IsPost(height uint64, name HeightName) bool {
 	var h uint64
 	if name == Pacific {
 		h = hc.pacificHeight
 	} else if name == Aleutian {
 		h = hc.aleutianHeight
 	} else {
-		panic("invalid height name!")
+		log.Panic("invalid height name!")
 	}
 	return height >= h
 }
 
-// IsPre return true if height is before the height change
-func (hc *HeightChange) IsPre(height uint64, name HeightName) bool {
+// IsPre return true if height is before the height upgrade
+func (hc *HeightUpgrade) IsPre(height uint64, name HeightName) bool {
 	return !hc.IsPost(height, name)
 }

@@ -33,11 +33,11 @@ const (
 type Protocol struct {
 	cm   protocol.ChainManager
 	addr address.Address
-	hc   config.HeightChange
+	hc   config.HeightUpgrade
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(cm protocol.ChainManager, hc config.HeightChange) *Protocol {
+func NewProtocol(cm protocol.ChainManager, hc config.HeightUpgrade) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
