@@ -258,7 +258,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol(0)
+	hc := config.NewHeightUpgrade(cfg)
+	acc := account.NewProtocol(hc)
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -273,10 +274,10 @@ func (sct *SmartContractTest) prepareBlockchain(
 
 	r.NotNil(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, config.NewHeightUpgrade(cfg)), reward)
+	bc.Validator().AddActionValidators(account.NewProtocol(hc), NewProtocol(bc, hc), reward)
 	sf := bc.GetFactory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(NewProtocol(bc, config.NewHeightUpgrade(cfg)), reward)
+	sf.AddActionHandlers(NewProtocol(bc, hc), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
@@ -317,7 +318,7 @@ func (sct *SmartContractTest) deployContracts(
 
 		ws, err := bc.GetFactory().NewWorkingSet()
 		r.NoError(err)
-		stateDB := evm.NewStateDBAdapter(bc, ws, config.HeightUpgrade{}, uint64(0), hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(config.Default), uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		addr, _ := address.FromString(receipt.ContractAddress)
 		copy(evmContractAddrHash[:], addr.Bytes())
@@ -411,7 +412,8 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
 		registry := protocol.Registry{}
-		acc := account.NewProtocol(0)
+		hc := config.NewHeightUpgrade(cfg)
+		acc := account.NewProtocol(hc)
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -422,10 +424,10 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-		bc.Validator().AddActionValidators(account.NewProtocol(0), NewProtocol(bc, config.NewHeightUpgrade(cfg)))
+		bc.Validator().AddActionValidators(account.NewProtocol(hc), NewProtocol(bc, hc))
 		sf := bc.GetFactory()
 		require.NotNil(sf)
-		sf.AddActionHandlers(NewProtocol(bc, config.NewHeightUpgrade(cfg)))
+		sf.AddActionHandlers(NewProtocol(bc, hc))
 
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)

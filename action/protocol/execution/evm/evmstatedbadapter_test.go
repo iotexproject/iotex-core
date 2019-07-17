@@ -350,7 +350,7 @@ func TestGetBalanceOnError(t *testing.T) {
 	for _, err := range errs {
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(err).Times(1)
 		addr := common.HexToAddress("test address")
-		stateDB := NewStateDBAdapter(mcm, sm, config.HeightUpgrade{}, 1, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(mcm, sm, config.NewHeightUpgrade(config.Default), 1, hash.ZeroHash256)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
 	}

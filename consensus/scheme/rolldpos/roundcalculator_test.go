@@ -190,7 +190,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
 	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
-	acc := account.NewProtocol(0)
+	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
 	registry.Register(account.ProtocolID, acc)
 	require.NoError(registry.Register(poll.ProtocolID, poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)))
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))

@@ -77,7 +77,8 @@ func prepareBlockchain(
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol(0)
+	hc := config.NewHeightUpgrade(cfg)
+	acc := account.NewProtocol(hc)
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -92,10 +93,10 @@ func prepareBlockchain(
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	bc.Validator().AddActionValidators(account.NewProtocol(0), execution.NewProtocol(bc, config.NewHeightUpgrade(cfg)), reward)
+	bc.Validator().AddActionValidators(account.NewProtocol(hc), execution.NewProtocol(bc, hc), reward)
 	sf := bc.GetFactory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(execution.NewProtocol(bc, config.NewHeightUpgrade(cfg)), reward)
+	sf.AddActionHandlers(execution.NewProtocol(bc, hc), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)

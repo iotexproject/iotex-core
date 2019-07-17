@@ -1601,7 +1601,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		return nil, nil, errors.New("failed to create blockchain")
 	}
 
-	acc := account.NewProtocol(0)
+	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
 	evm := execution.NewProtocol(bc, config.NewHeightUpgrade(cfg))
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
