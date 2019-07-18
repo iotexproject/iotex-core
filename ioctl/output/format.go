@@ -10,9 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 // Format is the target of output-format flag
@@ -114,6 +111,11 @@ func (m *ErrorMessage) String() string {
 	return FormatString(Error, m)
 }
 
+// Error implements error interface
+func (m ErrorMessage) Error() string {
+	return fmt.Sprintf("%d, %s", m.Code, m.Info)
+}
+
 // StringMessage is the Message for string
 type StringMessage string
 
@@ -153,40 +155,28 @@ func JSONString(out interface{}) string {
 	return fmt.Sprint(string(byteAsJSON))
 }
 
-func newError(code ErrorCode, info string, pre error) ErrorMessage {
-	// find out format Error message and recompose it
-	if pre != nil {
-		errParts := strings.Split(pre.Error(), ", ")
-		if len(errParts) >= 2 {
-			ok, _ := regexp.MatchString(`^[1-9]\d*$`, errParts[0]) // errParts[0] shouldn't be 0
-			if ok {
-				preCode, err := strconv.Atoi(errParts[0])
-				if err == nil {
-					if code == 0 {
-						// override error code
-						code = ErrorCode(preCode)
-					}
-					pre = fmt.Errorf(strings.Join(errParts[1:], ", "))
-				}
-			}
-
-		}
-		if len(info) != 0 {
-			info += ": "
-		}
-		info += pre.Error()
-	}
-	return ErrorMessage{Code: code, Info: info}
-}
-
 // NewError and returns golang error that contains Error Message
 // ErrorCode can pass zero only when previous error is always a format error
 // that contains non-zero error code. ErrorCode passes 0 means that I want to
 // use previous error's code rather than override it.
 // If there is no previous error, newInfo should not be empty.
-func NewError(code ErrorCode, newInfo string, pre error) error {
-	message := newError(code, newInfo, pre)
-	return fmt.Errorf(fmt.Sprintf("%d, %s", message.Code, message.Info))
+func NewError(code ErrorCode, info string, pre error) error {
+	if pre == nil {
+		return ErrorMessage{Code: code, Info: info}
+	}
+	message, ok := pre.(ErrorMessage)
+	if ok {
+		if code != 0 {
+			// override error code
+			message.Code = code
+		}
+		if len(info) != 0 {
+			message.Info = fmt.Sprintf("%s: %s", info, message.Info)
+		}
+	} else {
+		message = ErrorMessage{Code: code, Info: fmt.Sprintf("%s: %s", info, pre.Error())}
+	}
+	return message
 }
 
 // PrintError prints Error Message in format, only used at top layer of a command
@@ -194,10 +184,11 @@ func PrintError(err error) error {
 	if err == nil {
 		return nil
 	}
-	message := newError(0, "", err)
+	newErr := NewError(0, "", err)
 	if Format == "" {
-		return fmt.Errorf(message.String())
+		return newErr
 	}
+	message := newErr.(ErrorMessage)
 	fmt.Println(message.String())
 	return nil
 }
