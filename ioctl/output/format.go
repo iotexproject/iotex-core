@@ -158,18 +158,17 @@ func newError(code ErrorCode, info string, pre error) ErrorMessage {
 	if pre != nil {
 		errParts := strings.Split(pre.Error(), ", ")
 		if len(errParts) >= 2 {
-			if !strings.Contains(errParts[0], " ") {
-				ok, _ := regexp.MatchString(`^[1-9]\d|0$`, errParts[0])
-				if ok {
-					preCode, err := strconv.Atoi(errParts[0])
-					if err == nil {
-						if code == 0 {
-							code = ErrorCode(preCode)
-						}
-						pre = fmt.Errorf(strings.Join(errParts[1:], ", "))
+			ok, _ := regexp.MatchString(`^[1-9]\d*$`, errParts[0]) // errParts[0] shouldn't be 0
+			if ok {
+				preCode, err := strconv.Atoi(errParts[0])
+				if err == nil {
+					if code == 0 {
+						code = ErrorCode(preCode)
 					}
+					pre = fmt.Errorf(strings.Join(errParts[1:], ", "))
 				}
 			}
+
 		}
 		if len(info) != 0 {
 			info += ": "
