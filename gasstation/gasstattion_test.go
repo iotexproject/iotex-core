@@ -39,7 +39,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol(0)
+	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
@@ -48,7 +48,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	blkRegistryOption := blockchain.RegistryOption(&registry)
 	bc := blockchain.NewBlockchain(cfg, blkState, blkMemDao, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	exec := execution.NewProtocol(bc, 0, 0)
+	exec := execution.NewProtocol(bc, config.NewHeightUpgrade(cfg))
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
 	bc.GetFactory().AddActionHandlers(acc, exec)
@@ -113,7 +113,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol(0)
+	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
@@ -122,7 +122,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	blkRegistryOption := blockchain.RegistryOption(&registry)
 	bc := blockchain.NewBlockchain(cfg, blkState, blkMemDao, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	exec := execution.NewProtocol(bc, 0, 0)
+	exec := execution.NewProtocol(bc, config.NewHeightUpgrade(cfg))
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
 	bc.GetFactory().AddActionHandlers(acc, exec)

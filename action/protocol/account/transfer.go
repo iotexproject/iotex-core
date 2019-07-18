@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -52,7 +53,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		)
 	}
 
-	if raCtx.BlockHeight < p.pacificHeight {
+	if p.hu.IsPre(raCtx.BlockHeight, config.Pacific) {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", raCtx.Caller.String())
@@ -74,7 +75,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
-		if raCtx.BlockHeight >= p.pacificHeight {
+		if p.hu.IsPost(raCtx.BlockHeight, config.Pacific) {
 			if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
 				return nil, err
 			}
@@ -112,7 +113,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
-	if raCtx.BlockHeight >= p.pacificHeight {
+	if p.hu.IsPost(raCtx.BlockHeight, config.Pacific) {
 		if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
 			return nil, err
 		}
