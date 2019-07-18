@@ -28,51 +28,51 @@ var accountUpdateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := accountUpdate(args[0])
-		return err
+		return output.PrintError(err)
 	},
 }
 
 func accountUpdate(arg string) error {
 	account, err := util.GetAddress(arg)
 	if err != nil {
-		return output.PrintError(output.AddressError, err.Error())
+		return output.NewError(output.AddressError, "", err)
 	}
-	address, err := address.FromString(account)
+	addr, err := address.FromString(account)
 	if err != nil {
-		return output.PrintError(output.ConvertError, "failed to convert string into address")
+		return output.NewError(output.ConvertError, "failed to convert string into addr", err)
 	}
 	// find the keystore and update
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
-		if bytes.Equal(address.Bytes(), v.Address.Bytes()) {
+		if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
 			fmt.Printf("#%s: Enter current password\n", account)
 			currentPassword, err := util.ReadSecretFromStdin()
 			if err != nil {
-				return output.PrintError(output.InputError, "failed to get current password")
+				return output.NewError(output.InputError, "failed to get current password", err)
 			}
 			_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
 			if err != nil {
-				return output.PrintError(output.KeystoreError, err.Error())
+				return output.NewError(output.KeystoreError, "failed to check current password", err)
 			}
 			fmt.Printf("#%s: Enter new password\n", account)
 			password, err := util.ReadSecretFromStdin()
 			if err != nil {
-				return output.PrintError(output.InputError, "failed to get current password")
+				return output.NewError(output.InputError, "failed to get current password", err)
 			}
 			fmt.Printf("#%s: Enter new password again\n", account)
 			passwordAgain, err := util.ReadSecretFromStdin()
 			if err != nil {
-				return output.PrintError(output.InputError, "failed to get current password")
+				return output.NewError(output.InputError, "failed to get current password", err)
 			}
 			if password != passwordAgain {
-				return output.PrintError(output.InputError, ErrPasswdNotMatch.Error())
+				return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
 			}
 			if err := ks.Update(v, currentPassword, password); err != nil {
-				return output.PrintError(output.KeystoreError, "failed to update keystore")
+				return output.NewError(output.KeystoreError, "failed to update keystore", err)
 			}
 			output.PrintResult(fmt.Sprintf("Account #%s has been updated.", account))
 		}
 	}
-	return output.PrintError(output.KeystoreError, fmt.Sprintf("account #%s not found", account))
+	return output.NewError(output.KeystoreError, fmt.Sprintf("account #%s not found", account), nil)
 }

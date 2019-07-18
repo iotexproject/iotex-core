@@ -10,6 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
+	"strconv"
+	"strings"
 )
 
 // Format is the target of output-format flag
@@ -21,6 +24,10 @@ type ErrorCode int
 const (
 	// UndefinedError used when an error cat't be classified
 	UndefinedError ErrorCode = iota
+	// UpdateError used when an error occurs when running update command
+	UpdateError
+	// RuntimeError used when an error occurs in runtime
+	RuntimeError
 	// NetworkError used when an network error is happened
 	NetworkError
 	// APIError used when an API error is happened
@@ -47,6 +54,8 @@ const (
 	KeystoreError
 	// ConfigError used when an error about config occurs
 	ConfigError
+	// InstantiationError used when an error during instantiation
+	InstantiationError
 )
 
 // MessageType marks the type of output message
@@ -125,27 +134,67 @@ func (m StringMessage) Query() string {
 
 // FormatString returns Output as string in certain format
 func FormatString(t MessageType, m Message) string {
+	out := Output{
+		MessageType: t,
+		Message:     m,
+	}
 	switch Format {
-	default: // json is default
-		out := Output{
-			MessageType: t,
-			Message:     m,
-		}
-		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			log.Panic(err)
-		}
-		return fmt.Sprint(string(byteAsJSON))
+	default: // default is json
+		return JSONString(out)
 	}
 }
 
-// PrintError sprints error message in format, and returns golang error when using default output
-func PrintError(code ErrorCode, info string) error {
-	errMessage := ErrorMessage{Code: code, Info: info}
-	if Format == "" {
-		return fmt.Errorf(errMessage.String())
+// JSONString returns json string for message
+func JSONString(out interface{}) string {
+	byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		log.Panic(err)
 	}
-	fmt.Println(errMessage.String())
+	return fmt.Sprint(string(byteAsJSON))
+}
+
+func newError(code ErrorCode, info string, pre error) ErrorMessage {
+	// find out previous ErrorMessage and recompose it
+	if pre != nil {
+		errParts := strings.Split(pre.Error(), ", ")
+		if len(errParts) >= 2 {
+			if !strings.Contains(errParts[0], " ") {
+				ok, _ := regexp.MatchString(`^[1-9]\d|0$`, errParts[0])
+				if ok {
+					preCode, err := strconv.Atoi(errParts[0])
+					if err == nil {
+						if code == 0 {
+							code = ErrorCode(preCode)
+						}
+						pre = fmt.Errorf(strings.Join(errParts[1:], ", "))
+					}
+				}
+			}
+		}
+		if len(info) != 0 {
+			info += ": "
+		}
+		info += pre.Error()
+	}
+	return ErrorMessage{Code: code, Info: info}
+}
+
+// NewError and returns golang error that contains Error Message
+func NewError(code ErrorCode, newInfo string, pre error) error {
+	message := newError(code, newInfo, pre)
+	return fmt.Errorf(message.String())
+}
+
+// PrintError prints Error Message in format
+func PrintError(err error) error {
+	if err == nil {
+		return nil
+	}
+	message := newError(0, "", err)
+	if Format == "" {
+		return fmt.Errorf(message.String())
+	}
+	fmt.Println(message.String())
 	return nil
 }
 

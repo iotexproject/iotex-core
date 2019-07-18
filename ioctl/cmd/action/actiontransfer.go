@@ -24,54 +24,60 @@ var actionTransferCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		recipient, err := util.Address(args[0])
-		if err != nil {
-			return output.PrintError(output.AddressError, err.Error())
-		}
-		amount, err := util.StringToRau(args[1], util.IotxDecimalNum)
-		if err != nil {
-			return output.PrintError(output.ConvertError, err.Error())
-		}
-		var payload []byte
-		if len(args) == 3 {
-			payload, err = hex.DecodeString(args[2])
-			if err != nil {
-				return output.PrintError(output.ConvertError, err.Error())
-			}
-		}
-		sender, err := signer()
-		if err != nil {
-			return output.PrintError(output.AddressError, err.Error())
-		}
-		gasLimit := gasLimitFlag.Value().(uint64)
-		if gasLimit == 0 {
-			gasLimit = action.TransferBaseIntrinsicGas +
-				action.TransferPayloadGas*uint64(len(payload))
-		}
-		gasPriceRau, err := gasPriceInRau()
-		if err != nil {
-			return output.PrintError(output.ConvertError, err.Error())
-		}
-		nonce, err := nonce(sender)
-		if err != nil {
-			return output.PrintError(0, err.Error()) //TODO: undefined error
-		}
-		tx, err := action.NewTransfer(nonce, amount,
-			recipient, payload, gasLimit, gasPriceRau)
-		if err != nil {
-			return output.PrintError(0, "failed to make a Transfer instance"+err.Error()) // TODO: undefined error
-		}
-		return sendAction(
-			(&action.EnvelopeBuilder{}).
-				SetNonce(nonce).
-				SetGasPrice(gasPriceRau).
-				SetGasLimit(gasLimit).
-				SetAction(tx).Build(),
-			sender,
-		)
+		err := transfer(args)
+		return output.PrintError(err)
 	},
 }
 
 func init() {
 	registerWriteCommand(actionTransferCmd)
+}
+
+func transfer(args []string) error {
+	recipient, err := util.Address(args[0])
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get recipient address", err)
+	}
+	amount, err := util.StringToRau(args[1], util.IotxDecimalNum)
+	if err != nil {
+		return output.NewError(output.ConvertError, "invalid amount", err)
+	}
+	var payload []byte
+	if len(args) == 3 {
+		payload, err = hex.DecodeString(args[2])
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to decode data", err)
+		}
+	}
+	sender, err := signer()
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get signed address", err)
+	}
+	gasLimit := gasLimitFlag.Value().(uint64)
+	if gasLimit == 0 {
+		gasLimit = action.TransferBaseIntrinsicGas +
+			action.TransferPayloadGas*uint64(len(payload))
+	}
+	gasPriceRau, err := gasPriceInRau()
+	if err != nil {
+		return output.NewError(0, "failed to get gas price", err)
+	}
+	nonce, err := nonce(sender)
+	if err != nil {
+		return output.NewError(0, "failed to get nonce ", err)
+	}
+	tx, err := action.NewTransfer(nonce, amount,
+		recipient, payload, gasLimit, gasPriceRau)
+	if err != nil {
+		return output.NewError(output.InstantiationError, "failed to make a Transfer instance", err)
+	}
+	return SendAction(
+		(&action.EnvelopeBuilder{}).
+			SetNonce(nonce).
+			SetGasPrice(gasPriceRau).
+			SetGasLimit(gasLimit).
+			SetAction(tx).Build(),
+		sender,
+	)
+
 }

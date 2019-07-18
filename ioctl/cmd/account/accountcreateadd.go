@@ -27,14 +27,14 @@ var accountCreateAddCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := accountCreateAdd(args)
-		return err
+		return output.PrintError(err)
 	},
 }
 
 func accountCreateAdd(args []string) error {
 	// Validate inputs
 	if err := validator.ValidateAlias(args[0]); err != nil {
-		return output.PrintError(output.ValidationError, err.Error())
+		return output.NewError(output.ValidationError, "invalid alias", err)
 	}
 	alias := args[0]
 	if addr, ok := config.ReadConfig.Aliases[alias]; ok {
@@ -52,16 +52,16 @@ func accountCreateAdd(args []string) error {
 	}
 	addr, err := newAccount(alias, config.ReadConfig.Wallet)
 	if err != nil {
-		return output.PrintError(0, err.Error()) // TODO: undefined error
+		return output.NewError(0, "", err)
 	}
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return output.PrintError(output.SerializationError, err.Error())
+		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return output.PrintError(output.WriteFileError,
-			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	output.PrintResult(fmt.Sprintf("New account \"%s\" is created.\n"+
 		"Please Keep your password, or your will lose your private key.", alias))

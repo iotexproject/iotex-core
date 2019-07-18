@@ -27,7 +27,7 @@ var accountListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := accountList()
-		return err
+		return output.PrintError(err)
 	},
 }
 
@@ -48,7 +48,7 @@ func accountList() error {
 	for _, v := range ks.Accounts() {
 		address, err := address.FromBytes(v.Address.Bytes())
 		if err != nil {
-			return output.PrintError(output.ConvertError, "failed to convert bytes into address")
+			return output.NewError(output.ConvertError, "failed to convert bytes into address", err)
 		}
 		message.Accounts = append(message.Accounts, account{
 			Address: address.String(),
