@@ -25,6 +25,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -437,29 +438,36 @@ func (stateDB *StateDBAdapter) AddPreimage(hash common.Hash, preimage []byte) {
 }
 
 // ForEachStorage loops each storage
-func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(common.Hash, common.Hash) bool) {
+func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(common.Hash, common.Hash) bool) error {
 	ctt, err := stateDB.getContract(hash.BytesToHash160(addr[:]))
 	if err != nil {
 		// stateDB.err = err
-		return
+		return err
 	}
 	iter, err := ctt.Iterator()
 	if err != nil {
 		// stateDB.err = err
-		return
+		return err
 	}
 
 	for {
 		key, value, err := iter.Next()
+		if err == trie.ErrEndOfIterator {
+			// hit the end of the iterator, exit now
+			return nil
+		}
 		if err != nil {
-			break
+			return err
 		}
 		ckey := common.Hash{}
 		copy(ckey[:], key[:])
 		cvalue := common.Hash{}
 		copy(cvalue[:], value[:])
-		cb(ckey, cvalue)
+		if !cb(ckey, cvalue) {
+			return nil
+		}
 	}
+	return nil
 }
 
 // AccountState returns an account state

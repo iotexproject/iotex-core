@@ -135,5 +135,13 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(false, evm.ChainConfig().IsHomestead(evm.BlockNumber))
 		require.Equal(false, evm.ChainConfig().IsByzantium(evm.BlockNumber))
 		require.Equal(true, evm.ChainConfig().IsConstantinople(evm.BlockNumber))
+		require.Equal(true, evm.ChainConfig().IsPetersburg(evm.BlockNumber))
+
+		// verify chainRules
+		chainRules := chainConfig.Rules(ps.context.BlockNumber)
+		require.Equal(false, chainRules.IsHomestead)
+		require.Equal(false, chainRules.IsByzantium)
+		require.Equal(true, chainRules.IsConstantinople)
+		require.Equal(true, chainRules.IsPetersburg)
 	}
 }
