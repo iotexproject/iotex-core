@@ -26,24 +26,24 @@ var aliasRemoveCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := remove(args[0])
-		return err
+		return output.PrintError(err)
 	},
 }
 
 // remove removes alias
 func remove(arg string) error {
 	if err := validator.ValidateAlias(arg); err != nil {
-		return output.PrintError(output.ValidationError, err.Error())
+		return output.NewError(output.ValidationError, "invalid alias", err)
 	}
 	alias := arg
 	delete(config.ReadConfig.Aliases, alias)
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return output.PrintError(output.SerializationError, err.Error())
+		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return output.PrintError(output.WriteFileError,
-			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	output.PrintResult(alias + " is removed")
 	return nil

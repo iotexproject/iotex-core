@@ -8,12 +8,13 @@ package util
 
 import (
 	"crypto/tls"
-	"fmt"
 	"math/big"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/iotexproject/iotex-core/ioctl/output"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
@@ -39,7 +40,7 @@ const (
 func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 	endpoint := config.ReadConfig.Endpoint
 	if endpoint == "" {
-		return nil, fmt.Errorf(`use "ioctl config set endpoint" to config endpoint first`)
+		return nil, output.NewError(output.ConfigError, `use "ioctl config set endpoint" to config endpoint first`, nil)
 	}
 	if !secure {
 		return grpc.Dial(endpoint, grpc.WithInsecure())
@@ -52,22 +53,22 @@ func StringToRau(amount string, numDecimals int) (*big.Int, error) {
 	amountStrings := strings.Split(amount, ".")
 	if len(amountStrings) != 1 {
 		if len(amountStrings) > 2 || len(amountStrings[1]) > numDecimals {
-			return nil, fmt.Errorf("failed to convert string into big int")
+			return nil, output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 		}
 		amountStrings[0] += amountStrings[1]
 		numDecimals -= len(amountStrings[1])
 	}
 	if len(amountStrings[0]) == 0 {
-		return nil, fmt.Errorf("failed to convert string into big int")
+		return nil, output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 	}
 	zeroString := strings.Repeat("0", numDecimals)
 	amountStrings[0] += zeroString
 	amountRau, ok := big.NewInt(0).SetString(amountStrings[0], 10)
 	if !ok {
-		return nil, fmt.Errorf("failed to convert string into big int")
+		return nil, output.NewError(output.ConvertError, "failed to convert string into big int", nil)
 	}
 	if amountRau.Sign() < 0 {
-		return nil, fmt.Errorf("invalid number that is minus")
+		return nil, output.NewError(output.ConvertError, "invalid number that is minus", nil)
 	}
 	return amountRau, nil
 }
@@ -97,23 +98,22 @@ func RauToString(amount *big.Int, numDecimals int) string {
 // IoAddrToEvmAddr converts IoTeX address into evm address
 func IoAddrToEvmAddr(ioAddr string) (common.Address, error) {
 	if err := validator.ValidateAddress(ioAddr); err != nil {
-		return common.Address{}, err
+		return common.Address{}, output.NewError(output.ValidationError, "", err)
 	}
 	address, err := address.FromString(ioAddr)
 	if err != nil {
-		return common.Address{}, err
+		return common.Address{}, output.NewError(output.ConvertError, "", err)
 	}
 	return common.BytesToAddress(address.Bytes()), nil
 }
 
 // StringToIOTX converts Rau string to Iotx string
-func StringToIOTX(amount string) (iotx string, err error) {
+func StringToIOTX(amount string) (string, error) {
 	amountInt, err := StringToRau(amount, 0)
 	if err != nil {
-		return "", err
+		return "", output.NewError(output.ConvertError, "", err)
 	}
-	iotx = RauToString(amountInt, 18)
-	return
+	return RauToString(amountInt, 18), nil
 }
 
 // ReadSecretFromStdin used to safely get password input
@@ -123,7 +123,7 @@ func ReadSecretFromStdin() (string, error) {
 	routineTerminate := make(chan struct{})
 	sta, err := terminal.GetState(1)
 	if err != nil {
-		return "", err
+		return "", output.NewError(output.RuntimeError, "", err)
 	}
 	go func() {
 		for {
@@ -144,27 +144,25 @@ func ReadSecretFromStdin() (string, error) {
 	bytePass, err := terminal.ReadPassword(int(syscall.Stdin))
 	close(routineTerminate)
 	if err != nil {
-		log.L().Error("failed to get password", zap.Error(err))
-		return "", err
+		return "", output.NewError(output.RuntimeError, "failed to read password", nil)
 	}
 	return string(bytePass), nil
 }
 
 // GetAddress get address from address or alias or context
-func GetAddress(in string) (addr string, err error) {
-	addr, err = config.GetAddressOrAlias(in)
+func GetAddress(in string) (string, error) {
+	addr, err := config.GetAddressOrAlias(in)
 	if err != nil {
-		return
+		return "", output.NewError(output.AddressError, "", err)
 	}
-	addr, err = Address(addr)
-	return
+	return Address(addr)
 }
 
 // Address returns the address corresponding to alias. if 'in' is an IoTeX address, returns 'in'
 func Address(in string) (string, error) {
 	if len(in) >= validator.IoAddrLen {
 		if err := validator.ValidateAddress(in); err != nil {
-			return "", err
+			return "", output.NewError(output.ValidationError, "", err)
 		}
 		return in, nil
 	}
@@ -172,5 +170,5 @@ func Address(in string) (string, error) {
 	if ok {
 		return addr, nil
 	}
-	return "", fmt.Errorf("cannot find address from " + in)
+	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
 }

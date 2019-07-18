@@ -32,18 +32,19 @@ var accountDeleteCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := accountDelete(args[0])
-		return err
+		return output.PrintError(err)
 	},
 }
 
 func accountDelete(arg string) error {
 	addr, err := util.GetAddress(arg)
 	if err != nil {
-		return output.PrintError(output.AddressError, err.Error())
+		return output.NewError(output.AddressError, "failed to get address", err)
 	}
 	account, err := address.FromString(addr)
 	if err != nil {
-		return output.PrintError(output.ConvertError, fmt.Sprintf("failed to convert string into address"))
+		return output.NewError(output.ConvertError, fmt.Sprintf("failed to convert string into address"),
+			nil)
 	}
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
@@ -62,22 +63,22 @@ func accountDelete(arg string) error {
 			}
 
 			if err := os.Remove(v.URL.Path); err != nil {
-				return output.PrintError(output.WriteFileError, err.Error())
+				return output.NewError(output.WriteFileError, "failed to remove keystore file", err)
 			}
 
 			aliases := alias.GetAliasMap()
 			delete(config.ReadConfig.Aliases, aliases[addr])
 			out, err := yaml.Marshal(&config.ReadConfig)
 			if err != nil {
-				return output.PrintError(output.SerializationError, err.Error())
+				return output.NewError(output.SerializationError, "", err)
 			}
 			if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-				return output.PrintError(output.WriteFileError,
-					fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile))
+				return output.NewError(output.WriteFileError,
+					fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile), err)
 			}
 			output.PrintResult(fmt.Sprintf("Account #%s has been deleted.", addr))
 			return nil
 		}
 	}
-	return output.PrintError(output.ValidationError, fmt.Sprintf("account #%s not found", addr))
+	return output.NewError(output.ValidationError, fmt.Sprintf("account #%s not found", addr), nil)
 }

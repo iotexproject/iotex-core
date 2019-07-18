@@ -23,18 +23,23 @@ var actionSendRawCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		actBytes, err := hex.DecodeString(args[0])
-		if err != nil {
-			return output.PrintError(output.ConvertError, err.Error())
-		}
-		act := &iotextypes.Action{}
-		if err := proto.Unmarshal(actBytes, act); err != nil {
-			return output.PrintError(output.SerializationError, err.Error())
-		}
-		return sendRaw(act)
+		err := sendRaw(args[0])
+		return output.PrintError(err)
 	},
 }
 
 func init() {
 	registerWriteCommand(actionSendRawCmd)
+}
+
+func sendRaw(arg string) error {
+	actBytes, err := hex.DecodeString(arg)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to decode data", err)
+	}
+	act := &iotextypes.Action{}
+	if err := proto.Unmarshal(actBytes, act); err != nil {
+		return output.NewError(output.SerializationError, "failed to unmarshal data bytes", err)
+	}
+	return SendRaw(act)
 }

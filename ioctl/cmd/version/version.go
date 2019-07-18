@@ -61,7 +61,7 @@ func version() error {
 	message = versionMessage{Object: config.ReadConfig.Endpoint}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return output.PrintError(output.NetworkError, err.Error())
+		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -71,10 +71,10 @@ func version() error {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return output.PrintError(output.APIError, sta.Message())
+			return output.NewError(output.APIError, sta.Message(), nil)
 		}
-		return output.PrintError(output.NetworkError,
-			"failed to get version from server: "+err.Error())
+		return output.NewError(output.NetworkError,
+			"failed to get version from server", err)
 	}
 
 	message.VersionInfo = response.ServerMeta

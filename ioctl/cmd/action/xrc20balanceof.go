@@ -23,25 +23,30 @@ var xrc20BalanceOfCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		owner, err := alias.EtherAddress(args[0])
-		if err != nil {
-			return output.PrintError(output.AddressError, err.Error())
-		}
-		bytecode, err := xrc20ABI.Pack("balanceOf", owner)
-		if err != nil {
-			return output.PrintError(0, "cannot generate bytecode from given command"+err.Error()) // TODO: undefined error
-		}
-		contract, err := xrc20Contract()
-		if err != nil {
-			return output.PrintError(output.AddressError, err.Error())
-		}
-		result, err := read(contract, bytecode)
-		if err != nil {
-			return output.PrintError(0, err.Error()) // TODO: undefined error
-		}
-		decimal, _ := new(big.Int).SetString(result, 16)
-		message := amountMessage{RawData: result, Decimal: decimal.String()}
-		fmt.Println(message.String())
-		return err
+		err := balanceOf(args[0])
+		return output.PrintError(err)
 	},
+}
+
+func balanceOf(arg string) error {
+	owner, err := alias.EtherAddress(arg)
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get owner address", err)
+	}
+	bytecode, err := xrc20ABI.Pack("balanceOf", owner)
+	if err != nil {
+		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
+	}
+	contract, err := xrc20Contract()
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get contract address", err)
+	}
+	result, err := Read(contract, bytecode)
+	if err != nil {
+		return output.NewError(0, "failed to read contract", err)
+	}
+	decimal, _ := new(big.Int).SetString(result, 16)
+	message := amountMessage{RawData: result, Decimal: decimal.String()}
+	fmt.Println(message.String())
+	return err
 }

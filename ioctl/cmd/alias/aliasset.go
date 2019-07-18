@@ -26,18 +26,18 @@ var aliasSetCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := set(args)
-		return err
+		return output.PrintError(err)
 	},
 }
 
 // set sets alias
 func set(args []string) error {
 	if err := validator.ValidateAlias(args[0]); err != nil {
-		return output.PrintError(output.ValidationError, err.Error())
+		return output.NewError(output.ValidationError, "invalid alias", err)
 	}
 	alias := args[0]
 	if err := validator.ValidateAddress(args[1]); err != nil {
-		return output.PrintError(output.ValidationError, err.Error())
+		return output.NewError(output.ValidationError, "invalid address", err)
 	}
 	addr := args[1]
 	aliases := GetAliasMap()
@@ -48,11 +48,11 @@ func set(args []string) error {
 	config.ReadConfig.Aliases[alias] = addr
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return output.PrintError(output.SerializationError, err.Error())
+		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return output.PrintError(output.WriteFileError,
-			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	output.PrintResult("set")
 	return nil
