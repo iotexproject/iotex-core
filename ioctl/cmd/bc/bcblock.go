@@ -85,7 +85,7 @@ func getBlock(args []string) error {
 func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -102,12 +102,12 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, fmt.Errorf(sta.Message())
+			return nil, output.NewError(output.APIError, sta.Message(), err)
 		}
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
 	}
 	if len(response.BlkMetas) == 0 {
-		return nil, fmt.Errorf("no block returned")
+		return nil, output.NewError(output.APIError, "no block returned", err)
 	}
 	return response.BlkMetas[0], nil
 }
@@ -116,7 +116,7 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -130,12 +130,12 @@ func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, fmt.Errorf(sta.Message())
+			return nil, output.NewError(output.APIError, sta.Message(), err)
 		}
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
 	}
 	if len(response.BlkMetas) == 0 {
-		return nil, fmt.Errorf("no block returned")
+		return nil, output.NewError(output.APIError, "no block returned", err)
 	}
 	return response.BlkMetas[0], nil
 }
