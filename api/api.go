@@ -54,6 +54,7 @@ var (
 	ErrReceipt = errors.New("invalid receipt")
 	// ErrAction indicates the error of action
 	ErrAction = errors.New("invalid action")
+	candidateNameLen = 12
 )
 
 // BroadcastOutbound sends a broadcast message to the whole network
@@ -616,7 +617,7 @@ func (api *Server) GetVotes(
 	if err != nil {
 		return nil, err
 	}
-	if len(name) != 12 {
+	if len(name) != candidateNameLen {
 		return nil, errors.New("invalid candidate name")
 	}
 	votes := result.VotesByDelegate(name)
