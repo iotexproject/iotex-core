@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -43,7 +44,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		blockchain.RegistryOption(&registry),
 	)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
-	chain.Validator().AddActionValidators(account.NewProtocol(0))
+	chain.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())

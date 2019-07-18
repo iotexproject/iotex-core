@@ -1601,8 +1601,8 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		return nil, nil, errors.New("failed to create blockchain")
 	}
 
-	acc := account.NewProtocol(0)
-	evm := execution.NewProtocol(bc, 0, 0)
+	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
+	evm := execution.NewProtocol(bc, config.NewHeightUpgrade(cfg))
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1639,7 +1639,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 		return nil, err
 	}
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	ap.AddActionValidators(execution.NewProtocol(bc, 0, 0))
+	ap.AddActionValidators(execution.NewProtocol(bc, config.NewHeightUpgrade(config.Default)))
 
 	return ap, nil
 }

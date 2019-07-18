@@ -43,7 +43,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 
-	p := NewProtocol(0)
+	p := NewProtocol(config.NewHeightUpgrade(cfg))
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -145,7 +145,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
-	protocol := NewProtocol(0)
+	protocol := NewProtocol(config.NewHeightUpgrade(config.Default))
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]

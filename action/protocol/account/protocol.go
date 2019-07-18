@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -27,20 +28,20 @@ const ProtocolID = "account"
 
 // Protocol defines the protocol of handling account
 type Protocol struct {
-	addr          address.Address
-	pacificHeight uint64
+	addr address.Address
+	hu   config.HeightUpgrade
 }
 
 // NewProtocol instantiates the protocol of account
-func NewProtocol(pacificHeight uint64) *Protocol {
+func NewProtocol(hu config.HeightUpgrade) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
 	}
 	return &Protocol{
-		addr:          addr,
-		pacificHeight: pacificHeight,
+		addr: addr,
+		hu:   hu,
 	}
 }
 
