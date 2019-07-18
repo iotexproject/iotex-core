@@ -21,6 +21,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -53,6 +54,7 @@ var (
 	ErrReceipt = errors.New("invalid receipt")
 	// ErrAction indicates the error of action
 	ErrAction = errors.New("invalid action")
+	candidateNameLen = 12
 )
 
 // BroadcastOutbound sends a broadcast message to the whole network
@@ -76,16 +78,17 @@ func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
 
 // Server provides api for user to query blockchain data
 type Server struct {
-	bc               blockchain.Blockchain
-	dp               dispatcher.Dispatcher
-	ap               actpool.ActPool
-	gs               *gasstation.GasStation
-	broadcastHandler BroadcastOutbound
-	cfg              config.Config
-	registry         *protocol.Registry
-	chainListener    Listener
-	grpcserver       *grpc.Server
-	hasActionIndex   bool
+	bc                blockchain.Blockchain
+	dp                dispatcher.Dispatcher
+	ap                actpool.ActPool
+	gs                *gasstation.GasStation
+	broadcastHandler  BroadcastOutbound
+	cfg               config.Config
+	registry          *protocol.Registry
+	chainListener     Listener
+	grpcserver        *grpc.Server
+	hasActionIndex    bool
+	electionCommittee committee.Committee
 }
 
 // NewServer creates a new server
@@ -95,6 +98,7 @@ func NewServer(
 	dispatcher dispatcher.Dispatcher,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
+	electionCommittee committee.Committee,
 	opts ...Option,
 ) (*Server, error) {
 	apiCfg := Config{}
@@ -114,14 +118,15 @@ func NewServer(
 	}
 
 	svr := &Server{
-		bc:               chain,
-		dp:               dispatcher,
-		ap:               actPool,
-		broadcastHandler: apiCfg.broadcastHandler,
-		cfg:              cfg,
-		registry:         registry,
-		chainListener:    NewChainListener(),
-		gs:               gasstation.NewGasStation(chain, cfg.API),
+		bc:                chain,
+		dp:                dispatcher,
+		ap:                actPool,
+		broadcastHandler:  apiCfg.broadcastHandler,
+		cfg:               cfg,
+		registry:          registry,
+		chainListener:     NewChainListener(),
+		gs:                gasstation.NewGasStation(chain, cfg.API),
+		electionCommittee: electionCommittee,
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		svr.hasActionIndex = true
@@ -590,6 +595,60 @@ func (api *Server) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.AP
 			return err
 		}
 	}
+}
+
+// GetVotes gets votes for req
+func (api *Server) GetVotes(
+	ctx context.Context,
+	in *iotexapi.GetVotesRequest,
+) (*iotexapi.GetVotesResponse, error) {
+	if api.electionCommittee == nil {
+		return nil, nil
+	}
+	height, err := strconv.ParseUint(in.Height, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	result, err := api.electionCommittee.ResultByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	name, err := hex.DecodeString(in.Votee)
+	if err != nil {
+		return nil, err
+	}
+	if len(name) != candidateNameLen {
+		return nil, errors.New("invalid candidate name")
+	}
+	votes := result.VotesByDelegate(name)
+	if votes == nil {
+		return nil, errors.New("No buckets for the candidate")
+	}
+	offset := in.Offset
+	if int(offset) >= len(votes) {
+		return nil, errors.New("offset is out of range")
+	}
+	limit := in.Limit
+	// If limit is missing, return all buckets with indices starting from the offset
+	if limit == uint32(0) {
+		limit = math.MaxUint32
+	}
+	if int(offset+limit) >= len(votes) {
+		limit = uint32(len(votes)) - offset
+	}
+	response := &iotexapi.GetVotesResponse{
+		Buckets: make([]*iotexapi.Bucket, limit),
+	}
+	for i := uint32(0); i < limit; i++ {
+		vote := votes[offset+i]
+		response.Buckets[i] = &iotexapi.Bucket{
+			Voter:             hex.EncodeToString(vote.Voter()),
+			Votes:             vote.Amount().Text(10),
+			WeightedVotes:     vote.WeightedAmount().Text(10),
+			RemainingDuration: vote.RemainingTime(result.MintTime()).String(),
+		}
+	}
+	return response, nil
 }
 
 // Start starts the API server

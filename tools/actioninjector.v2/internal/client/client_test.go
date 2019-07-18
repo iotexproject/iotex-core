@@ -56,7 +56,7 @@ func TestClient(t *testing.T) {
 	newOption := api.WithBroadcastOutbound(func(_ context.Context, _ uint32, _ proto.Message) error {
 		return nil
 	})
-	apiServer, err := api.NewServer(cfg, bc, dp, ap, nil, newOption)
+	apiServer, err := api.NewServer(cfg, bc, dp, ap, nil, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()
