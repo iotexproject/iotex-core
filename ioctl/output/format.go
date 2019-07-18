@@ -182,7 +182,7 @@ func newError(code ErrorCode, info string, pre error) ErrorMessage {
 // NewError and returns golang error that contains Error Message
 func NewError(code ErrorCode, newInfo string, pre error) error {
 	message := newError(code, newInfo, pre)
-	return fmt.Errorf(message.String())
+	return fmt.Errorf(fmt.Sprintf("%d, %s", message.Code, message.Info))
 }
 
 // PrintError prints Error Message in format
