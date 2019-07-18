@@ -154,7 +154,7 @@ func JSONString(out interface{}) string {
 }
 
 func newError(code ErrorCode, info string, pre error) ErrorMessage {
-	// find out previous ErrorMessage and recompose it
+	// find out format Error message and recompose it
 	if pre != nil {
 		errParts := strings.Split(pre.Error(), ", ")
 		if len(errParts) >= 2 {
@@ -163,6 +163,7 @@ func newError(code ErrorCode, info string, pre error) ErrorMessage {
 				preCode, err := strconv.Atoi(errParts[0])
 				if err == nil {
 					if code == 0 {
+						// override error code
 						code = ErrorCode(preCode)
 					}
 					pre = fmt.Errorf(strings.Join(errParts[1:], ", "))
@@ -179,12 +180,16 @@ func newError(code ErrorCode, info string, pre error) ErrorMessage {
 }
 
 // NewError and returns golang error that contains Error Message
+// ErrorCode can pass zero only when previous error is always a format error
+// that contains non-zero error code. ErrorCode passes 0 means that I want to
+// use previous error's code rather than override it.
+// If there is no previous error, newInfo should not be empty.
 func NewError(code ErrorCode, newInfo string, pre error) error {
 	message := newError(code, newInfo, pre)
 	return fmt.Errorf(fmt.Sprintf("%d, %s", message.Code, message.Info))
 }
 
-// PrintError prints Error Message in format
+// PrintError prints Error Message in format, only used at top layer of a command
 func PrintError(err error) error {
 	if err == nil {
 		return nil
