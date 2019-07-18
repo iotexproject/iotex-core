@@ -7,6 +7,8 @@
 package action
 
 import (
+	"math/big"
+
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
@@ -40,7 +42,7 @@ var xrc20TransferFromCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return execute(contract.String(), nil, bytecode)
+		return execute(contract.String(), big.NewInt(0), bytecode)
 	},
 }
 
