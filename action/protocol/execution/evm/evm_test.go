@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -53,7 +54,7 @@ func TestExecuteContractFailure(t *testing.T) {
 		GasLimit: testutil.TestGasLimit,
 	})
 
-	retval, receipt, err := ExecuteContract(ctx, sm, e, cm, NewHeightChange(0, 0))
+	retval, receipt, err := ExecuteContract(ctx, sm, e, cm, config.NewHeightUpgrade(config.Default))
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)

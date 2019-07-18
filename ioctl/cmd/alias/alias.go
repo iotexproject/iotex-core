@@ -52,7 +52,7 @@ func init() {
 	AliasCmd.AddCommand(aliasExportCmd)
 }
 
-// IOAddress returns the address in iotex address format
+// IOAddress returns the address in IoTeX address format
 func IOAddress(in string) (address.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {

@@ -71,9 +71,9 @@ func version() error {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return output.PrintError(output.NetworkError, sta.Message())
+			return output.PrintError(output.APIError, sta.Message())
 		}
-		return output.PrintError(output.APIError,
+		return output.PrintError(output.NetworkError,
 			"failed to get version from server: "+err.Error())
 	}
 

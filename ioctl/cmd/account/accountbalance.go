@@ -23,7 +23,7 @@ var accountBalanceCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := balance(args)
+		err := balance(args[0])
 		return err
 	},
 }
@@ -34,8 +34,8 @@ type balanceMessage struct {
 }
 
 // balance gets balance of an IoTeX blockchain address
-func balance(args []string) error {
-	address, err := util.GetAddress(args)
+func balance(arg string) error {
+	address, err := util.GetAddress(arg)
 	if err != nil {
 		return output.PrintError(output.AddressError, err.Error())
 	}

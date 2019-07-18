@@ -88,7 +88,8 @@ func TestWrongNonce(t *testing.T) {
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol(0))
+	hu := config.NewHeightUpgrade(cfg)
+	sf.AddActionHandlers(account.NewProtocol(hu))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -101,7 +102,7 @@ func TestWrongNonce(t *testing.T) {
 
 	val := &validator{sf: sf, validatorAddr: "", enableExperimentalActions: true}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	val.AddActionValidators(account.NewProtocol(0))
+	val.AddActionValidators(account.NewProtocol(hu))
 
 	// correct nonce
 
@@ -234,7 +235,8 @@ func TestWrongAddress(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(0))
+	hu := config.NewHeightUpgrade(cfg)
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -243,8 +245,7 @@ func TestWrongAddress(t *testing.T) {
 	}()
 	val := &validator{sf: bc.GetFactory(), validatorAddr: "", enableExperimentalActions: true}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	val.AddActionValidators(account.NewProtocol(0),
-		execution.NewProtocol(bc, 0, 0))
+	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))

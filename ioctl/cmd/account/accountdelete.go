@@ -31,13 +31,13 @@ var accountDeleteCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := accountDelete(args)
+		err := accountDelete(args[0])
 		return err
 	},
 }
 
-func accountDelete(args []string) error {
-	addr, err := util.GetAddress(args)
+func accountDelete(arg string) error {
+	addr, err := util.GetAddress(arg)
 	if err != nil {
 		return output.PrintError(output.AddressError, err.Error())
 	}
@@ -53,7 +53,7 @@ func accountDelete(args []string) error {
 			info := fmt.Sprintf("** This is an irreversible action!\n" +
 				"Once an account is deleted, all the assets under this account may be lost!\n" +
 				"Type 'YES' to continue, quit for anything else.")
-			message := output.ComfirmationMessage{Info: info, Options: []string{"yes"}}
+			message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 			fmt.Println(message.String())
 			fmt.Scanf("%s", &confirm)
 			if !strings.EqualFold(confirm, "yes") {

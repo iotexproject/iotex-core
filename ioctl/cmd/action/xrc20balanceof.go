@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // xrc20BalanceOfCmd represents balanceOf function
@@ -24,22 +25,23 @@ var xrc20BalanceOfCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		owner, err := alias.EtherAddress(args[0])
 		if err != nil {
-			return err
+			return output.PrintError(output.AddressError, err.Error())
 		}
 		bytecode, err := xrc20ABI.Pack("balanceOf", owner)
 		if err != nil {
-			return err
+			return output.PrintError(0, "cannot generate bytecode from given command"+err.Error()) // TODO: undefined error
 		}
 		contract, err := xrc20Contract()
 		if err != nil {
-			return err
+			return output.PrintError(output.AddressError, err.Error())
 		}
-		output, err := read(contract, bytecode)
-		if err == nil {
-			fmt.Println("Raw output:", output)
-			decimal, _ := new(big.Int).SetString(output, 16)
-			fmt.Printf("Output in decimal: %d\n", decimal)
+		result, err := read(contract, bytecode)
+		if err != nil {
+			return output.PrintError(0, err.Error()) // TODO: undefined error
 		}
+		decimal, _ := new(big.Int).SetString(result, 16)
+		message := amountMessage{RawData: result, Decimal: decimal.String()}
+		fmt.Println(message.String())
 		return err
 	},
 }

@@ -43,7 +43,7 @@ func TestAddBalance(t *testing.T) {
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(mcm, ws, nil, 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
@@ -70,7 +70,7 @@ func TestRefundAPIs(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
-	stateDB := NewStateDBAdapter(mcm, ws, nil, 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
 	stateDB.AddRefund(refund)
@@ -94,7 +94,7 @@ func TestEmptyAndCode(t *testing.T) {
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(mcm, ws, nil, 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
@@ -121,7 +121,7 @@ func TestForEachStorage(t *testing.T) {
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(mcm, ws, nil, 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -157,7 +157,7 @@ func TestNonce(t *testing.T) {
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(mcm, ws, nil, 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))
 	stateDB.SetNonce(addr, 1)
 	require.Equal(uint64(1), stateDB.GetNonce(addr))
@@ -180,7 +180,7 @@ func TestSnapshotAndRevert(t *testing.T) {
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	mcm.EXPECT().ChainID().AnyTimes().Return(uint32(1))
-	stateDB := NewStateDBAdapter(mcm, ws, nil, 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
 	code := []byte("test contract creation")
 	addr1 := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
@@ -350,7 +350,7 @@ func TestGetBalanceOnError(t *testing.T) {
 	for _, err := range errs {
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(err).Times(1)
 		addr := common.HexToAddress("test address")
-		stateDB := NewStateDBAdapter(mcm, sm, nil, 1, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(mcm, sm, config.NewHeightUpgrade(config.Default), 1, hash.ZeroHash256)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
 	}
@@ -373,7 +373,7 @@ func TestPreimage(t *testing.T) {
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	mcm.EXPECT().ChainID().AnyTimes().Return(uint32(1))
-	stateDB := NewStateDBAdapter(mcm, ws, nil, 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
 	v1 := hash.Hash256b([]byte("cat"))
 	v2 := hash.Hash256b([]byte("dog"))
