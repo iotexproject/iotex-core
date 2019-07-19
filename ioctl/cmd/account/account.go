@@ -56,6 +56,7 @@ func init() {
 	AccountCmd.AddCommand(accountUpdateCmd)
 	AccountCmd.AddCommand(accountVerifyCmd)
 	AccountCmd.AddCommand(accountSignCmd)
+	AccountCmd.AddCommand(accountGetVotesCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
