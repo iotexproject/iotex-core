@@ -140,7 +140,7 @@ func New(
 
 	var indexBuilder *blockchain.IndexBuilder
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockchain.NewIndexBuilder(chain); err != nil {
+		if indexBuilder, err = blockchain.NewIndexBuilder(chain, cfg.Reindex); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {
