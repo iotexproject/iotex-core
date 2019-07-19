@@ -35,6 +35,7 @@ func init() {
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
 	flag.Var(&_plugins, "plugin", "Plugin of the node")
+	flag.BoolVar(&_reindex, "reindex", false, "reindex actions")
 }
 
 var (
@@ -44,6 +45,7 @@ var (
 	_secretPath   string
 	_subChainPath string
 	_plugins      strs
+	_reindex      bool
 )
 
 const (
@@ -166,6 +168,7 @@ var (
 			},
 		},
 		Genesis: genesis.Default,
+		Reindex: false,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -351,6 +354,7 @@ type (
 		Log        log.GlobalConfig            `yaml:"log"`
 		SubLogs    map[string]log.GlobalConfig `yaml:"subLogs"`
 		Genesis    genesis.Genesis             `yaml:"genesis"`
+		Reindex    bool                        `yaml:"reindex"`
 	}
 
 	// Validate is the interface of validating the config
@@ -379,7 +383,7 @@ func New(validates ...Validate) (Config, error) {
 	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
 	}
-
+	cfg.Reindex = _reindex
 	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
