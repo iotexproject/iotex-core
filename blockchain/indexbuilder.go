@@ -7,6 +7,8 @@
 package blockchain
 
 import (
+	"encoding/hex"
+	"fmt"
 	"strconv"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -301,8 +303,12 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch, actDe
 			}
 			senderDelta[callerAddrBytes] = senderActionCount
 		}
-		//str := hex.EncodeToString(callerAddrBytes[:]) + "::::" + fmt.Sprintf("%d", senderActionCount)
-		//zap.L().Info(str)
+		addr, err := address.FromBytes(selp.SrcPubkey().Hash())
+		if err != nil {
+			return err
+		}
+		str := addr.String() + "::::" + fmt.Sprintf("%d", senderActionCount)
+		zap.L().Info(str)
 		// put new action to sender
 		senderKey := append(actionFromPrefix, callerAddrBytes[:]...)
 		senderKey = append(senderKey, byteutil.Uint64ToBytes(senderActionCount)...)
