@@ -40,9 +40,20 @@ type stateDB struct {
 // StateDBOption sets stateDB construction parameter
 type StateDBOption func(*stateDB, config.Config) error
 
-// DefaultStateDBOption creates trie from config for state db
+// PrecreatedStateDBOption uses pre-created state db
+func PrecreatedStateDBOption(kv db.KVStore) StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		if kv == nil {
+			return errors.New("Invalid state db")
+		}
+		sdb.dao = kv
+		return nil
+	}
+}
+
+// DefaultStateDBOption creates default state db from config
 func DefaultStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) (err error) {
+	return func(sdb *stateDB, cfg config.Config) error {
 		dbPath := cfg.Chain.TrieDBPath
 		if len(dbPath) == 0 {
 			return errors.New("Invalid empty trie db path")
@@ -53,9 +64,9 @@ func DefaultStateDBOption() StateDBOption {
 	}
 }
 
-// InMemStateDBOption creates in memory trie for state db
+// InMemStateDBOption creates in memory state db
 func InMemStateDBOption() StateDBOption {
-	return func(sdb *stateDB, cfg config.Config) (err error) {
+	return func(sdb *stateDB, cfg config.Config) error {
 		sdb.dao = db.NewMemKVStore()
 		return nil
 	}
