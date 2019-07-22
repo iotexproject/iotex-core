@@ -7,7 +7,6 @@
 package blockchain
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strconv"
 
