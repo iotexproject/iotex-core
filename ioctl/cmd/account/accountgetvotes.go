@@ -20,7 +20,7 @@ import (
 
 // accountGetVotesCmd represents the account get votes command
 var accountGetVotesCmd = &cobra.Command{
-	Use:   "getvotes VOTEE HEIGHT OFFSET LIMIT",
+	Use:   "getVotes VOTEE HEIGHT OFFSET LIMIT",
 	Short: "Get votes of this votee",
 	Args:  cobra.ExactArgs(4),
 	RunE: func(cmd *cobra.Command, args []string) error {
