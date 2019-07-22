@@ -50,6 +50,7 @@ type IndexBuilder struct {
 type actionDelta struct {
 	senderDelta    map[hash.Hash160]uint64
 	recipientDelta map[hash.Hash160]uint64
+	reindex        bool
 }
 
 // NewIndexBuilder instantiates an index builder
@@ -162,8 +163,6 @@ func (ib *IndexBuilder) commitBatchAndClear(tipIndex, tipHeight uint64, batch db
 	if err := ib.store.Commit(batch); err != nil {
 		return err
 	}
-	actDelta.senderDelta = make(map[hash.Hash160]uint64)
-	actDelta.recipientDelta = make(map[hash.Hash160]uint64)
 	return nil
 }
 func (ib *IndexBuilder) initAndLoadActions() error {
@@ -187,6 +186,7 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 	actDelta := &actionDelta{
 		senderDelta:    make(map[hash.Hash160]uint64),
 		recipientDelta: make(map[hash.Hash160]uint64),
+		reindex:        ib.reindex,
 	}
 	i := startHeight
 	for ; i <= tipHeight; i++ {
@@ -256,6 +256,7 @@ func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 	actDelta := &actionDelta{
 		senderDelta:    make(map[hash.Hash160]uint64),
 		recipientDelta: make(map[hash.Hash160]uint64),
+		reindex:        false,
 	}
 	if err = indexBlockHash(startIndex, hashBlock, store, blk, batch, actDelta); err != nil {
 		return err
@@ -284,16 +285,21 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch, actDe
 		actHash := selp.Hash()
 		callerAddrBytes := hash.BytesToHash160(selp.SrcPubkey().Hash())
 
-		// get action count for sender
-		senderActionCount, err := getActionCountBySenderAddress(store, callerAddrBytes)
-		if err != nil {
-			return errors.Wrapf(err, "for sender %x", callerAddrBytes)
-		}
-		if delta, ok := senderDelta[callerAddrBytes]; ok {
-			senderActionCount += delta
+		var senderActionCount uint64
+		var err error
+		if _, ok := senderDelta[callerAddrBytes]; ok {
 			senderDelta[callerAddrBytes]++
+			senderActionCount = senderDelta[callerAddrBytes]
 		} else {
-			senderDelta[callerAddrBytes] = 1
+			// get action count for sender
+			senderActionCount, err = getActionCountBySenderAddress(store, callerAddrBytes)
+			if err != nil {
+				return errors.Wrapf(err, "for sender %x", callerAddrBytes)
+			}
+			if actDelta.reindex {
+				senderActionCount = 0
+			}
+			senderDelta[callerAddrBytes] = senderActionCount
 		}
 
 		// put new action to sender
@@ -323,16 +329,20 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch, actDe
 			continue
 		}
 
-		// get action count for recipient
-		recipientActionCount, err := getActionCountByRecipientAddress(store, dstAddrBytes)
-		if err != nil {
-			return errors.Wrapf(err, "for recipient %x", dstAddrBytes)
-		}
-		if delta, ok := recipientDelta[dstAddrBytes]; ok {
-			recipientActionCount += delta
+		var recipientActionCount uint64
+		if _, ok := recipientDelta[dstAddrBytes]; ok {
 			recipientDelta[dstAddrBytes]++
+			recipientActionCount = recipientDelta[dstAddrBytes]
 		} else {
-			recipientDelta[dstAddrBytes] = 1
+			// get action count for recipient
+			recipientActionCount, err = getActionCountByRecipientAddress(store, dstAddrBytes)
+			if err != nil {
+				return errors.Wrapf(err, "for recipient %x", dstAddrBytes)
+			}
+			if actDelta.reindex {
+				recipientActionCount = 0
+			}
+			recipientDelta[dstAddrBytes] = recipientActionCount
 		}
 
 		// put new action to recipient
