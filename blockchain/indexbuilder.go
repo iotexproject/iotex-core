@@ -350,8 +350,8 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch, actDe
 			}
 			recipientDelta[dstAddrBytes] = recipientActionCount
 		}
-		//str = hex.EncodeToString(dstAddrBytes[:]) + "receipt::::" + fmt.Sprintf("%d", recipientActionCount)
-		//zap.L().Info(str)
+		str = dst + "receipt::::" + fmt.Sprintf("%d", recipientActionCount)
+		zap.L().Info(str)
 		// put new action to recipient
 		recipientKey := append(actionToPrefix, dstAddrBytes[:]...)
 		recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientActionCount)...)
