@@ -288,12 +288,13 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch, actDe
 		callerAddrBytes := hash.BytesToHash160(selp.SrcPubkey().Hash())
 
 		var senderActionCount uint64
+		var err error
 		if _, ok := senderDelta[callerAddrBytes]; ok {
 			senderDelta[callerAddrBytes]++
 			senderActionCount = senderDelta[callerAddrBytes]
 		} else {
 			// get action count for sender
-			senderActionCount, err := getActionCountBySenderAddress(store, callerAddrBytes)
+			senderActionCount, err = getActionCountBySenderAddress(store, callerAddrBytes)
 			if err != nil {
 				return errors.Wrapf(err, "for sender %x", callerAddrBytes)
 			}
@@ -337,7 +338,7 @@ func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch, actDe
 			recipientActionCount = recipientDelta[dstAddrBytes]
 		} else {
 			// get action count for recipient
-			recipientActionCount, err := getActionCountByRecipientAddress(store, dstAddrBytes)
+			recipientActionCount, err = getActionCountByRecipientAddress(store, dstAddrBytes)
 			if err != nil {
 				return errors.Wrapf(err, "for recipient %x", dstAddrBytes)
 			}
