@@ -7,8 +7,6 @@
 package blockchain
 
 import (
-	"encoding/hex"
-	"fmt"
 	"strconv"
 
 	"github.com/iotexproject/go-pkgs/hash"
