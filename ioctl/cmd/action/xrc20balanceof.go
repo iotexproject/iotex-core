@@ -40,6 +40,12 @@ var xrc20BalanceOfCmd = &cobra.Command{
 			return output.PrintError(0, err.Error()) // TODO: undefined error
 		}
 		decimal, _ := new(big.Int).SetString(result, 16)
+		if result == "" {
+			result = "0"
+		}
+		if decimal == nil {
+			decimal = big.NewInt(0)
+		}
 		message := amountMessage{RawData: result, Decimal: decimal.String()}
 		fmt.Println(message.String())
 		return err
