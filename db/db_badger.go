@@ -150,8 +150,8 @@ func (b *badgerDB) Commit(batch KVStoreBatch) (err error) {
 }
 
 // DeleteBucket delete a Bucket
-func (m *badgerDB) DeleteBucket(key []byte) error {
-	return m.db.Update(func(txn *badger.Txn) error {
+func (b *badgerDB) DeleteBucket(key []byte) error {
+	return b.db.Update(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchSize = 10
 		it := txn.NewIterator(opts)
