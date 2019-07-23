@@ -7,7 +7,6 @@ require (
 	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/dgraph-io/badger v1.5.5-0.20190226225317-8115aed38f8f
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a

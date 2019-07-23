@@ -161,8 +161,7 @@ var (
 			EnableExperimentalActions: false,
 		},
 		DB: DB{
-			UseBadgerDB: false,
-			NumRetries:  3,
+			NumRetries: 3,
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
@@ -307,8 +306,6 @@ type (
 	// DB is the config for database
 	DB struct {
 		DbPath string `yaml:"dbPath"`
-		// Use BadgerDB, otherwise use BoltDB
-		UseBadgerDB bool `yaml:"useBadgerDB"`
 		// NumRetries is the number of retries
 		NumRetries uint8 `yaml:"numRetries"`
 
