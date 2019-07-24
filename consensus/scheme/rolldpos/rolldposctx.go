@@ -38,13 +38,6 @@ var (
 		[]string{},
 	)
 
-	consensusHeightMtc = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "iotex_consensus_height",
-			Help: "Consensus height",
-		},
-		[]string{},
-	)
 
 	blockIntervalMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -67,7 +60,6 @@ func init() {
 	prometheus.MustRegister(timeSlotMtc)
 	prometheus.MustRegister(blockIntervalMtc)
 	prometheus.MustRegister(consensusDurationMtc)
-	prometheus.MustRegister(consensusHeightMtc)
 
 }
 
