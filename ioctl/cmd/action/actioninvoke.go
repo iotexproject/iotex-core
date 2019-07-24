@@ -23,22 +23,8 @@ var actionInvokeCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		contract, err := util.Address(args[0])
-		if err != nil {
-			return output.PrintError(output.AddressError, err.Error())
-		}
-		amount := big.NewInt(0)
-		if len(args) == 2 {
-			amount, err = util.StringToRau(args[1], util.IotxDecimalNum)
-			if err != nil {
-				return output.PrintError(output.ConvertError, err.Error())
-			}
-		}
-		bytecode, err := decodeBytecode()
-		if err != nil {
-			return output.PrintError(output.ConvertError, err.Error())
-		}
-		return execute(contract, amount, bytecode)
+		err := invoke(args)
+		return output.PrintError(err)
 	},
 }
 
@@ -46,4 +32,23 @@ func init() {
 	registerWriteCommand(actionInvokeCmd)
 	bytecodeFlag.RegisterCommand(actionInvokeCmd)
 	bytecodeFlag.MarkFlagRequired(actionInvokeCmd)
+}
+
+func invoke(args []string) error {
+	contract, err := util.Address(args[0])
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get contract address", err)
+	}
+	amount := big.NewInt(0)
+	if len(args) == 2 {
+		amount, err = util.StringToRau(args[1], util.IotxDecimalNum)
+		if err != nil {
+			return output.NewError(output.ConvertError, "invalid amount", err)
+		}
+	}
+	bytecode, err := decodeBytecode()
+	if err != nil {
+		return output.NewError(output.ConvertError, "invalid bytecode", err)
+	}
+	return Execute(contract, amount, bytecode)
 }

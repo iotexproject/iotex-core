@@ -33,7 +33,7 @@ func xrc20Contract() (address.Address, error) {
 }
 
 type amountMessage struct {
-	RawData string `json"rawData"`
+	RawData string `json:"rawData"`
 	Decimal string `json:"decimal"`
 }
 
@@ -63,28 +63,29 @@ func init() {
 func parseAmount(contract address.Address, amount string) (*big.Int, error) {
 	decimalBytecode, err := hex.DecodeString("313ce567")
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.ConvertError, "failed to decode 313ce567", err)
 	}
-	output, err := read(contract, decimalBytecode)
+	result, err := Read(contract, decimalBytecode)
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(0, "failed to read contract", err)
 	}
 	var decimal int64
-	if output != "" {
-		decimal, err = strconv.ParseInt(output, 16, 8)
+	if result != "" {
+		decimal, err = strconv.ParseInt(result, 16, 8)
 		if err != nil {
-			return nil, err
+			return nil, output.NewError(output.ConvertError, "failed to convert string into int64", err)
 		}
 	} else {
 		decimal = int64(0)
 	}
 	amountFloat, ok := (*big.Float).SetString(new(big.Float), amount)
 	if !ok {
-		return nil, err
+		return nil, output.NewError(output.ConvertError, "failed to convert string into bit float", err)
 	}
-	amountResultFloat := amountFloat.Mul(amountFloat, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(decimal), nil)))
+	amountResultFloat := amountFloat.Mul(amountFloat, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10),
+		big.NewInt(decimal), nil)))
 	if !amountResultFloat.IsInt() {
-		return nil, fmt.Errorf("Unappropriate amount")
+		return nil, output.NewError(output.ValidationError, "unappropriated amount", nil)
 	}
 	var amountResultInt *big.Int
 	amountResultInt, _ = amountResultFloat.Int(amountResultInt)

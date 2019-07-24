@@ -26,7 +26,7 @@ var aliasImportCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := aliasImport(cmd, args)
-		return err
+		return output.PrintError(err)
 	},
 }
 
@@ -48,24 +48,21 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 	var importedAliases aliases
 	switch format {
 	default:
-		return output.PrintError(output.FlagError, fmt.Sprintf("invalid format flag %s", format))
+		return output.NewError(output.FlagError, fmt.Sprintf("invalid format flag %s", format), nil)
 	case "json":
 		if err := json.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
-			return output.PrintError(output.SerializationError, err.Error())
+			return output.NewError(output.SerializationError, "failed to unmarshal imported aliases", err)
 		}
 	case "yaml":
 		if err := yaml.Unmarshal([]byte(args[0]), &importedAliases); err != nil {
-			return output.PrintError(output.SerializationError, err.Error())
+			return output.NewError(output.SerializationError, "failed to unmarshal imported aliases", err)
 		}
 	}
-	importedNum, totalNum := 0, 0
 	aliases := GetAliasMap()
 	message := importMessage{TotalNumber: len(importedAliases.Aliases), ImportedNumber: 0}
 	for _, importedAlias := range importedAliases.Aliases {
-		totalNum++
 		if !forceImport && config.ReadConfig.Aliases[importedAlias.Name] != "" {
 			message.Unimported = append(message.Unimported, importedAlias)
-			message.ImportedNumber++
 			continue
 		}
 		for aliases[importedAlias.Address] != "" {
@@ -74,15 +71,15 @@ func aliasImport(cmd *cobra.Command, args []string) error {
 		}
 		config.ReadConfig.Aliases[importedAlias.Name] = importedAlias.Address
 		message.Imported = append(message.Imported, importedAlias)
-		importedNum++
+		message.ImportedNumber++
 	}
 	out, err := yaml.Marshal(&config.ReadConfig)
 	if err != nil {
-		return output.PrintError(output.SerializationError, err.Error())
+		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
 	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return output.PrintError(output.WriteFileError,
-			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile))
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	fmt.Println(message.String())
 	return nil

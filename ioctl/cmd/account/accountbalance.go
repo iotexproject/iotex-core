@@ -24,7 +24,7 @@ var accountBalanceCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := balance(args[0])
-		return err
+		return output.PrintError(err)
 	},
 }
 
@@ -37,15 +37,15 @@ type balanceMessage struct {
 func balance(arg string) error {
 	address, err := util.GetAddress(arg)
 	if err != nil {
-		return output.PrintError(output.AddressError, err.Error())
+		return output.NewError(output.AddressError, "", err)
 	}
 	accountMeta, err := GetAccountMeta(address)
 	if err != nil {
-		return output.PrintError(0, err.Error()) // TODO: undefined error
+		return output.NewError(0, "", err) // TODO: undefined error
 	}
 	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
 	if !ok {
-		return output.PrintError(output.ConvertError, err.Error())
+		return output.NewError(output.ConvertError, "", err)
 	}
 	message := balanceMessage{
 		Address: address,

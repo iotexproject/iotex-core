@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -26,22 +27,22 @@ var accountGetVotesCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := getVotes(args)
-		return err
+		return output.PrintError(err)
 	},
 }
 
 func getVotes(args []string) error {
 	offset, err := strconv.ParseUint(args[2], 10, 32)
 	if err != nil {
-		return output.PrintError(output.InputError, err.Error())
+		return output.NewError(output.ConvertError, "failed to get offset", err)
 	}
 	limit, err := strconv.ParseUint(args[3], 10, 32)
 	if err != nil {
-		return output.PrintError(output.InputError, err.Error())
+		return output.NewError(output.ConvertError, "failed to get limit", err)
 	}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return output.PrintError(output.NetworkError, err.Error())
+		return output.NewError(output.NetworkError, "failed to connect endpoint", err)
 	}
 	defer conn.Close()
 
@@ -55,7 +56,11 @@ func getVotes(args []string) error {
 		},
 	)
 	if err != nil {
-		return err
+		sta, ok := status.FromError(err)
+		if ok {
+			return output.NewError(output.APIError, sta.Message(), err)
+		}
+		return output.NewError(output.NetworkError, "failed to invoke GetVotes api", err)
 	}
 	output.PrintResult(res.String())
 	return nil

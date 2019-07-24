@@ -21,6 +21,10 @@ type ErrorCode int
 const (
 	// UndefinedError used when an error cat't be classified
 	UndefinedError ErrorCode = iota
+	// UpdateError used when an error occurs when running update command
+	UpdateError
+	// RuntimeError used when an error occurs in runtime
+	RuntimeError
 	// NetworkError used when an network error is happened
 	NetworkError
 	// APIError used when an API error is happened
@@ -47,6 +51,8 @@ const (
 	KeystoreError
 	// ConfigError used when an error about config occurs
 	ConfigError
+	// InstantiationError used when an error during instantiation
+	InstantiationError
 )
 
 // MessageType marks the type of output message
@@ -105,6 +111,11 @@ func (m *ErrorMessage) String() string {
 	return FormatString(Error, m)
 }
 
+// Error implements error interface
+func (m ErrorMessage) Error() string {
+	return fmt.Sprintf("%d, %s", m.Code, m.Info)
+}
+
 // StringMessage is the Message for string
 type StringMessage string
 
@@ -125,27 +136,60 @@ func (m StringMessage) Query() string {
 
 // FormatString returns Output as string in certain format
 func FormatString(t MessageType, m Message) string {
+	out := Output{
+		MessageType: t,
+		Message:     m,
+	}
 	switch Format {
-	default: // json is default
-		out := Output{
-			MessageType: t,
-			Message:     m,
-		}
-		byteAsJSON, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			log.Panic(err)
-		}
-		return fmt.Sprint(string(byteAsJSON))
+	default: // default is json
+		return JSONString(out)
 	}
 }
 
-// PrintError sprints error message in format, and returns golang error when using default output
-func PrintError(code ErrorCode, info string) error {
-	errMessage := ErrorMessage{Code: code, Info: info}
-	if Format == "" {
-		return fmt.Errorf(errMessage.String())
+// JSONString returns json string for message
+func JSONString(out interface{}) string {
+	byteAsJSON, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		log.Panic(err)
 	}
-	fmt.Println(errMessage.String())
+	return fmt.Sprint(string(byteAsJSON))
+}
+
+// NewError and returns golang error that contains Error Message
+// ErrorCode can pass zero only when previous error is always a format error
+// that contains non-zero error code. ErrorCode passes 0 means that I want to
+// use previous error's code rather than override it.
+// If there is no previous error, newInfo should not be empty.
+func NewError(code ErrorCode, info string, pre error) error {
+	if pre == nil {
+		return ErrorMessage{Code: code, Info: info}
+	}
+	message, ok := pre.(ErrorMessage)
+	if ok {
+		if code != 0 {
+			// override error code
+			message.Code = code
+		}
+		if len(info) != 0 {
+			message.Info = fmt.Sprintf("%s: %s", info, message.Info)
+		}
+	} else {
+		message = ErrorMessage{Code: code, Info: fmt.Sprintf("%s: %s", info, pre.Error())}
+	}
+	return message
+}
+
+// PrintError prints Error Message in format, only used at top layer of a command
+func PrintError(err error) error {
+	if err == nil {
+		return nil
+	}
+	newErr := NewError(0, "", err)
+	if Format == "" {
+		return newErr
+	}
+	message := newErr.(ErrorMessage)
+	fmt.Println(message.String())
 	return nil
 }
 
