@@ -22,24 +22,24 @@ var accountExportPublicCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := accountExportPublic(args[0])
-		return err
+		err := exportPublic(args[0])
+		return output.PrintError(err)
 	},
 }
 
-func accountExportPublic(arg string) error {
+func exportPublic(arg string) error {
 	addr, err := util.GetAddress(arg)
 	if err != nil {
-		return output.PrintError(output.AddressError, err.Error())
+		return output.NewError(output.AddressError, "failed to get address", err)
 	}
 	fmt.Printf("Enter password #%s:\n", addr)
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
-		return output.PrintError(output.InputError, "failed to get password")
+		return output.NewError(output.InputError, "failed to get password", nil)
 	}
 	prvKey, err := KsAccountToPrivateKey(addr, password)
 	if err != nil {
-		return output.PrintError(output.KeystoreError, err.Error())
+		return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
 	}
 	defer prvKey.Zero()
 	output.PrintResult(prvKey.PublicKey().HexString())

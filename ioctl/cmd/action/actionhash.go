@@ -37,7 +37,7 @@ var actionHashCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := getActionByHash(args)
-		return err
+		return output.PrintError(err)
 	},
 }
 
@@ -77,7 +77,7 @@ func getActionByHash(args []string) error {
 	hash := args[0]
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return output.PrintError(output.NetworkError, err.Error())
+		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -96,12 +96,12 @@ func getActionByHash(args []string) error {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return output.PrintError(output.APIError, sta.Message())
+			return output.NewError(output.APIError, sta.Message(), nil)
 		}
-		return output.PrintError(output.NetworkError, err.Error())
+		return output.NewError(output.NetworkError, "failed to invoke GetActions api", err)
 	}
 	if len(response.ActionInfo) == 0 {
-		return output.PrintError(output.APIError, "No action info returned")
+		return output.NewError(output.APIError, "no action info returned", nil)
 	}
 	message := actionMessage{Proto: response.ActionInfo[0]}
 
@@ -112,9 +112,9 @@ func getActionByHash(args []string) error {
 		if ok && sta.Code() == codes.NotFound {
 			message.State = Pending
 		} else if ok {
-			return output.PrintError(output.APIError, sta.Message())
+			return output.NewError(output.APIError, sta.Message(), nil)
 		}
-		return output.PrintError(output.NetworkError, err.Error())
+		return output.NewError(output.NetworkError, "failed to invoke GetReceiptByAction api", err)
 	}
 	message.State = Executed
 	message.Receipt = responseReceipt.ReceiptInfo.Receipt
@@ -123,7 +123,7 @@ func getActionByHash(args []string) error {
 }
 
 func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
-	output, err := printActionProto(actionInfo.Action)
+	result, err := printActionProto(actionInfo.Action)
 	if err != nil {
 		return "", err
 	}
@@ -132,23 +132,23 @@ func printAction(actionInfo *iotexapi.ActionInfo) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		output += fmt.Sprintf("timeStamp: %d\n", ts.Unix())
-		output += fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
+		result += fmt.Sprintf("timeStamp: %d\n", ts.Unix())
+		result += fmt.Sprintf("blkHash: %s\n", actionInfo.BlkHash)
 	}
-	output += fmt.Sprintf("actHash: %s\n", actionInfo.ActHash)
-	return output, nil
+	result += fmt.Sprintf("actHash: %s\n", actionInfo.ActHash)
+	return result, nil
 }
 
 func printActionProto(action *iotextypes.Action) (string, error) {
 	pubKey, err := crypto.BytesToPublicKey(action.SenderPubKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to convert pubkey:" + err.Error())
+		return "", output.NewError(output.ConvertError, "failed to convert public key from bytes", err)
 	}
 	senderAddress, err := address.FromBytes(pubKey.Hash())
 	if err != nil {
-		return "", fmt.Errorf("failed to convert bytes into address" + err.Error())
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
 	}
-	output := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
+	result := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
 		fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
 		fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
 		fmt.Sprintf("gasPrice: %s Rau\n", action.Core.GasPrice) +
@@ -156,64 +156,64 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			Match(senderAddress.String(), "address"))
 	switch {
 	default:
-		output += proto.MarshalTextString(action.Core)
+		result += proto.MarshalTextString(action.Core)
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
 		amount, err := util.StringToIOTX(transfer.Amount)
 		if err != nil {
-			return "", err
+			return "", output.NewError(output.ConvertError, "failed to convert string into IOTX amount", err)
 		}
-		output += "transfer: <\n" +
+		result += "transfer: <\n" +
 			fmt.Sprintf("  recipient: %s %s\n", transfer.Recipient,
 				Match(transfer.Recipient, "address")) +
 			fmt.Sprintf("  amount: %s IOTX\n", amount)
 		if len(transfer.Payload) != 0 {
-			output += fmt.Sprintf("  payload: %s\n", transfer.Payload)
+			result += fmt.Sprintf("  payload: %s\n", transfer.Payload)
 		}
-		output += ">\n"
+		result += ">\n"
 	case action.Core.GetExecution() != nil:
 		execution := action.Core.GetExecution()
-		output += "execution: <\n" +
+		result += "execution: <\n" +
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
 				Match(execution.Contract, "address"))
 		if execution.Amount != "0" {
-			output += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
+			result += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
 		}
-		output += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
+		result += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
 	case action.Core.GetPutPollResult() != nil:
 		putPollResult := action.Core.GetPutPollResult()
-		output += "putPollResult: <\n" +
+		result += "putPollResult: <\n" +
 			fmt.Sprintf("  height: %d\n", putPollResult.Height) +
 			"  candidates: <\n"
 		for _, candidate := range putPollResult.Candidates.Candidates {
-			output += "    candidate: <\n" +
+			result += "    candidate: <\n" +
 				fmt.Sprintf("      address: %s\n", candidate.Address)
 			votes := big.NewInt(0).SetBytes(candidate.Votes)
-			output += fmt.Sprintf("      votes: %s\n", votes.String()) +
+			result += fmt.Sprintf("      votes: %s\n", votes.String()) +
 				fmt.Sprintf("      rewardAdress: %s\n", candidate.RewardAddress) +
 				"    >\n"
 		}
-		output += "  >\n" +
+		result += "  >\n" +
 			">\n"
 	}
-	output += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
+	result += fmt.Sprintf("senderPubKey: %x\n", action.SenderPubKey) +
 		fmt.Sprintf("signature: %x\n", action.Signature)
 
-	return output, nil
+	return result, nil
 }
 
 func printReceiptProto(receipt *iotextypes.Receipt) string {
-	output := fmt.Sprintf("status: %d %s\n", receipt.Status,
+	result := fmt.Sprintf("status: %d %s\n", receipt.Status,
 		Match(strconv.Itoa(int(receipt.Status)), "status")) +
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		fmt.Sprintf("blkHeight: %d\n", receipt.BlkHeight) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
 		fmt.Sprintf("logs: %d", len(receipt.Logs))
 	if len(receipt.ContractAddress) != 0 {
-		output += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
+		result += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
 			Match(receipt.ContractAddress, "address"))
 	}
-	return output
+	return result
 }
 
 // Match returns human readable expression

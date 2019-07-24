@@ -28,7 +28,7 @@ var accountCreateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := accountCreate()
-		return err
+		return output.PrintError(err)
 	},
 }
 
@@ -51,11 +51,11 @@ func accountCreate() error {
 	for i := 0; i < int(numAccounts); i++ {
 		private, err := crypto.GenerateKey()
 		if err != nil {
-			return output.PrintError(output.CryptoError, err.Error())
+			return output.NewError(output.CryptoError, "failed to generate new private key", err)
 		}
 		addr, err := address.FromBytes(private.PublicKey().Hash())
 		if err != nil {
-			return output.PrintError(output.ConvertError, err.Error())
+			return output.NewError(output.ConvertError, "failed to convert public key into address", err)
 		}
 		newAccount := generatedAccount{
 			Address:    addr.String(),

@@ -92,7 +92,7 @@ func nonce(executor string) (uint64, error) {
 	}
 	accountMeta, err := account.GetAccountMeta(executor)
 	if err != nil {
-		return 0, err
+		return 0, output.NewError(0, "failed to get account meta", err)
 	}
 	return accountMeta.PendingNonce, nil
 }
@@ -114,7 +114,7 @@ func gasPriceInRau() (*big.Int, error) {
 	}
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -122,76 +122,45 @@ func gasPriceInRau() (*big.Int, error) {
 	request := &iotexapi.SuggestGasPriceRequest{}
 	response, err := cli.SuggestGasPrice(ctx, request)
 	if err != nil {
-		return nil, err
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
+		}
+		return nil, output.NewError(output.NetworkError, "failed to invoke SuggestGasPrice api", err)
 	}
 	return new(big.Int).SetUint64(response.GasPrice), nil
 }
 
-func fixGasLimit(signer string, execution *action.Execution) (*action.Execution, error) {
+func fixGasLimit(caller string, execution *action.Execution) (*action.Execution, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
-	caller, err := address.FromString(signer)
-	if err != nil {
-		return nil, err
-	}
 	request := &iotexapi.EstimateActionGasConsumptionRequest{
 		Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
 			Execution: execution.Proto(),
 		},
-		CallerAddress: caller.String(),
+		CallerAddress: caller,
 	}
 	res, err := cli.EstimateActionGasConsumption(context.Background(), request)
 	if err != nil {
-		return nil, fmt.Errorf("error when invoke EstimateActionGasConsumption api")
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
+		}
+		return nil, output.NewError(output.NetworkError,
+			"failed to invoke EstimateActionGasConsumption api", err)
 	}
 	return action.NewExecution(execution.Contract(), execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), execution.Data())
 }
 
-// execute must be used at the end of a command
-func execute(contract string, amount *big.Int, bytecode []byte) error {
-	gasPriceRau, err := gasPriceInRau()
-	if err != nil {
-		return output.PrintError(output.ConvertError, err.Error())
-	}
-	signer, err := signer()
-	if err != nil {
-		return output.PrintError(output.AddressError, err.Error())
-	}
-	nonce, err := nonce(signer)
-	if err != nil {
-		return output.PrintError(0, err.Error()) // TODO: undefined error
-	}
-	gasLimit := gasLimitFlag.Value().(uint64)
-	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
-	if err != nil || tx == nil {
-		return output.PrintError(0, "cannot make a Execution instance"+err.Error()) // TODO: undefined error
-	}
-	if gasLimit == 0 {
-		tx, err = fixGasLimit(signer, tx)
-		if err != nil || tx == nil {
-			return output.PrintError(0, "cannot fix Execution gaslimit"+err.Error()) // TODO: undefined error
-		}
-		gasLimit = tx.GasLimit()
-	}
-	return sendAction(
-		(&action.EnvelopeBuilder{}).
-			SetNonce(nonce).
-			SetGasPrice(gasPriceRau).
-			SetGasLimit(gasLimit).
-			SetAction(tx).Build(),
-		signer,
-	)
-}
-
-// sendRaw must be used at the end of a command
-func sendRaw(selp *iotextypes.Action) error {
+// SendRaw sends raw action to blockchain
+func SendRaw(selp *iotextypes.Action) error {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return output.PrintError(output.NetworkError, err.Error())
+		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -200,9 +169,9 @@ func sendRaw(selp *iotextypes.Action) error {
 	request := &iotexapi.SendActionRequest{Action: selp}
 	if _, err = cli.SendAction(ctx, request); err != nil {
 		if sta, ok := status.FromError(err); ok {
-			return output.PrintError(output.APIError, sta.Message())
+			return output.NewError(output.APIError, sta.Message(), nil)
 		}
-		return output.PrintError(output.NetworkError, err.Error())
+		return output.NewError(output.NetworkError, "failed to invoke SendAction api", err)
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
@@ -219,8 +188,8 @@ func sendRaw(selp *iotextypes.Action) error {
 	return nil
 }
 
-// sendAction must be used at the end of a command
-func sendAction(elp action.Envelope, signer string) error {
+// SendAction sends signed action to blockchain
+func SendAction(elp action.Envelope, signer string) error {
 	var (
 		prvKey           crypto.PrivateKey
 		err              error
@@ -230,36 +199,36 @@ func sendAction(elp action.Envelope, signer string) error {
 		output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
 		prvKeyOrPassword, err = util.ReadSecretFromStdin()
 		if err != nil {
-			return output.PrintError(output.InputError, err.Error())
+			return output.NewError(output.InputError, "failed to get private key", err)
 		}
 		prvKey, err = crypto.HexStringToPrivateKey(prvKeyOrPassword)
 	} else if passwordFlag.Value() == "" {
 		output.PrintQuery(fmt.Sprintf("Enter password #%s:\n", signer))
 		prvKeyOrPassword, err = util.ReadSecretFromStdin()
 		if err != nil {
-			return output.PrintError(output.InputError, err.Error())
+			return output.NewError(output.InputError, "failed to get password", err)
 		}
 	} else {
 		prvKeyOrPassword = passwordFlag.Value().(string)
 	}
 	prvKey, err = account.KsAccountToPrivateKey(signer, prvKeyOrPassword)
 	if err != nil {
-		return output.PrintError(output.KeystoreError, err.Error())
+		return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
 	}
 	defer prvKey.Zero()
 	sealed, err := action.Sign(elp, prvKey)
 	prvKey.Zero()
 	if err != nil {
-		return output.PrintError(output.CryptoError, "failed to sign action"+err.Error())
+		return output.NewError(output.CryptoError, "failed to sign action", err)
 	}
 	if err := isBalanceEnough(signer, sealed); err != nil {
-		return output.PrintError(0, err.Error()) // TODO: undefined error
+		return output.NewError(0, "failed to pass balance check", err) // TODO: undefined error
 	}
 	selp := sealed.Proto()
 
 	actionInfo, err := printActionProto(selp)
 	if err != nil {
-		return output.PrintError(output.ConvertError, err.Error())
+		return output.NewError(0, "failed to print action proto message", err)
 	}
 	if yesFlag.Value() == false {
 		var confirm string
@@ -272,25 +241,93 @@ func sendAction(elp action.Envelope, signer string) error {
 			return nil
 		}
 	}
-	return sendRaw(selp)
+	return SendRaw(selp)
 }
 
-func isBalanceEnough(address string, act action.SealedEnvelope) (err error) {
+// Execute sends signed execution transaction to blockchain
+func Execute(contract string, amount *big.Int, bytecode []byte) error {
+	gasPriceRau, err := gasPriceInRau()
+	if err != nil {
+		return output.NewError(0, "failed to get gas price", err)
+	}
+	signer, err := signer()
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get signer address", err)
+	}
+	nonce, err := nonce(signer)
+	if err != nil {
+		return output.NewError(0, "failed to get nonce", err)
+	}
+	gasLimit := gasLimitFlag.Value().(uint64)
+	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
+	if err != nil || tx == nil {
+		return output.NewError(output.InstantiationError, "failed to make a Execution instance", err)
+	}
+	if gasLimit == 0 {
+		tx, err = fixGasLimit(signer, tx)
+		if err != nil || tx == nil {
+			return output.NewError(0, "failed to fix Execution gaslimit", err)
+		}
+		gasLimit = tx.GasLimit()
+	}
+	return SendAction(
+		(&action.EnvelopeBuilder{}).
+			SetNonce(nonce).
+			SetGasPrice(gasPriceRau).
+			SetGasLimit(gasLimit).
+			SetAction(tx).Build(),
+		signer,
+	)
+}
+
+// Read reads smart contract on IoTeX blockchain
+func Read(contract address.Address, bytecode []byte) (string, error) {
+	caller, err := signer()
+	if err != nil {
+		return "", output.NewError(0, "failed to get signer address", err)
+	}
+	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), defaultGasLimit, defaultGasPrice, bytecode)
+	if err != nil {
+		return "", output.NewError(output.InstantiationError, "cannot make an Execution instance", err)
+	}
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return "", output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+	}
+	defer conn.Close()
+	res, err := iotexapi.NewAPIServiceClient(conn).ReadContract(
+		context.Background(),
+		&iotexapi.ReadContractRequest{
+			Execution:     exec.Proto(),
+			CallerAddress: caller,
+		},
+	)
+	if err == nil {
+		return res.Data, nil
+	}
+	if sta, ok := status.FromError(err); ok {
+		return "", output.NewError(output.APIError, sta.Message(), nil)
+	}
+	return "", output.NewError(output.NetworkError, "failed to invoke ReadContract api", err)
+}
+
+func isBalanceEnough(address string, act action.SealedEnvelope) error {
 	accountMeta, err := account.GetAccountMeta(address)
 	if err != nil {
-		return
+		return output.NewError(0, "failed to get account meta", err)
 	}
 	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
 	if !ok {
-		err = fmt.Errorf("failed to convert balance into big int")
-		return
+		return output.NewError(output.ConvertError, "failed to convert balance into big int", nil)
 	}
 	cost, err := act.Cost()
-	if balance.Cmp(cost) < 0 {
-		err = fmt.Errorf("balance is not enough")
-		return
+	if err != nil {
+		return output.NewError(output.RuntimeError, "failed to check cost of an action", nil)
 	}
-	return
+	if balance.Cmp(cost) < 0 {
+		return output.NewError(output.ValidationError, "balance is not enough", nil)
+	}
+	return nil
 }
 
 func signerIsExist(signer string) bool {

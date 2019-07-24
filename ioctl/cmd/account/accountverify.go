@@ -26,7 +26,7 @@ var (
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			err := accountVerify()
-			return err
+			return output.PrintError(err)
 		},
 	}
 )
@@ -40,15 +40,15 @@ func accountVerify() error {
 	fmt.Println("Enter private key:")
 	privateKey, err := util.ReadSecretFromStdin()
 	if err != nil {
-		return output.PrintError(output.InputError, err.Error())
+		return output.NewError(output.InputError, "failed to get private key", err)
 	}
 	priKey, err := crypto.HexStringToPrivateKey(privateKey)
 	if err != nil {
-		return output.PrintError(output.CryptoError, err.Error())
+		return output.NewError(output.CryptoError, "failed to generate private key from hex string", err)
 	}
 	addr, err := address.FromBytes(priKey.PublicKey().Hash())
 	if err != nil {
-		return output.PrintError(output.ConvertError, err.Error())
+		return output.NewError(output.ConvertError, "failed to convert public key into address", err)
 	}
 	message := verifyMessage{
 		Address:   addr.String(),

@@ -24,8 +24,8 @@ var accountEthaddrCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := accountEthaddr(args)
-		return err
+		err := accountEthaddr(args[0])
+		return output.PrintError(err)
 	},
 }
 
@@ -34,24 +34,24 @@ type ethaddrMessage struct {
 	EthAddr string `json:"ethAddr"`
 }
 
-func accountEthaddr(args []string) error {
+func accountEthaddr(arg string) error {
 	var ethAddress common.Address
-	ioAddr, err := util.Address(args[0])
+	ioAddr, err := util.Address(arg)
 	if err != nil {
-		if ok := common.IsHexAddress(args[0]); !ok {
-			return output.PrintError(output.AddressError, err.Error())
+		if ok := common.IsHexAddress(arg); !ok {
+			return output.NewError(output.AddressError, "", err)
 		}
-		ethAddress = common.HexToAddress(args[0])
+		ethAddress = common.HexToAddress(arg)
 		ioAddress, err := address.FromBytes(ethAddress.Bytes())
 		if err != nil {
-			return output.PrintError(output.AddressError,
-				fmt.Sprintf("failed to form IoTeX address from ETH address"))
+			return output.NewError(output.AddressError,
+				fmt.Sprintf("failed to form IoTeX address from ETH address"), nil)
 		}
 		ioAddr = ioAddress.String()
 	} else {
 		ethAddress, err = util.IoAddrToEvmAddr(ioAddr)
 		if err != nil {
-			return output.PrintError(output.AddressError, err.Error())
+			return output.NewError(output.AddressError, "", err)
 		}
 	}
 	message := ethaddrMessage{IOAddr: ioAddr, EthAddr: ethAddress.String()}

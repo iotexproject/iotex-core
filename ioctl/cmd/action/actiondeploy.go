@@ -22,18 +22,8 @@ var actionDeployCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		bytecode, err := decodeBytecode()
-		if err != nil {
-			return output.PrintError(output.FlagError, "Invalid bytecode flag:"+err.Error())
-		}
-		amount := big.NewInt(0)
-		if len(args) == 1 {
-			amount, err = util.StringToRau(args[0], util.IotxDecimalNum)
-			if err != nil {
-				return output.PrintError(output.ConvertError, "Invalid amount:"+err.Error())
-			}
-		}
-		return execute("", amount, bytecode)
+		err := deploy(args)
+		return output.PrintError(err)
 	},
 }
 
@@ -41,4 +31,19 @@ func init() {
 	registerWriteCommand(actionDeployCmd)
 	bytecodeFlag.RegisterCommand(actionDeployCmd)
 	bytecodeFlag.MarkFlagRequired(actionDeployCmd)
+}
+
+func deploy(args []string) error {
+	bytecode, err := decodeBytecode()
+	if err != nil {
+		return output.NewError(output.FlagError, "invalid bytecode flag", err)
+	}
+	amount := big.NewInt(0)
+	if len(args) == 1 {
+		amount, err = util.StringToRau(args[0], util.IotxDecimalNum)
+		if err != nil {
+			return output.NewError(output.ConvertError, "invalid amount", err)
+		}
+	}
+	return Execute("", amount, bytecode)
 }

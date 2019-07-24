@@ -8,7 +8,8 @@ package bc
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/iotexproject/iotex-core/ioctl/output"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -38,7 +39,7 @@ func init() {
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -48,9 +49,9 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, fmt.Errorf(sta.Message())
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to invoke GetChainMeta api", err)
 	}
 	return response.ChainMeta, nil
 }
