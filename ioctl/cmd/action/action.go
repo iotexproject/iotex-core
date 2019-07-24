@@ -284,7 +284,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 func Read(contract address.Address, bytecode []byte) (string, error) {
 	caller, err := signer()
 	if err != nil {
-		return "", output.NewError(0, "failed to get signer address", err)
+		caller = "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7" // zero address after encode in IoTeX blockchain
 	}
 	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), defaultGasLimit, defaultGasPrice, bytecode)
 	if err != nil {
