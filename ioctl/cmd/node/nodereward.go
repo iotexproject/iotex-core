@@ -11,15 +11,14 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
-
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 // nodeRewardCmd represents the node reward command
