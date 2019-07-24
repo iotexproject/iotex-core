@@ -38,7 +38,6 @@ var (
 		[]string{},
 	)
 
-
 	blockIntervalMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_consensus_block_interval",

@@ -24,7 +24,7 @@ type boltDB struct {
 	config config.DB
 }
 
-// NewOnBoltDB instantiates an BoltDB with implements KVStore
+// NewBoltDB instantiates an BoltDB with implements KVStore
 func NewBoltDB(cfg config.DB) KVStore {
 	return &boltDB{db: nil, path: cfg.DbPath, config: cfg}
 }
