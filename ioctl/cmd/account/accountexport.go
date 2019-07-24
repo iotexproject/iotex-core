@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -22,7 +23,15 @@ var accountExportCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := accountExport(args[0])
+		if len(args) == 1 {
+			err := accountExport(args[0])
+			return err
+		}
+		if config.ReadConfig.DefaultAccount.AddressOrAlias == "" {
+			fmt.Println("Please specify a account to export")
+			return nil
+		}
+		err := accountExport(config.ReadConfig.DefaultAccount.AddressOrAlias)
 		return output.PrintError(err)
 	},
 }

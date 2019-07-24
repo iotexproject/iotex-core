@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -22,7 +23,15 @@ var accountNonceCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := nonce(args[0])
+		if len(args) == 1 {
+			err := nonce(args[0])
+			return err
+		}
+		if config.ReadConfig.DefaultAccount.AddressOrAlias == "" {
+			fmt.Println("Please specify a account to query nonce")
+			return nil
+		}
+		err := nonce(config.ReadConfig.DefaultAccount.AddressOrAlias)
 		return output.PrintError(err)
 	},
 }
