@@ -82,7 +82,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Stop(context.Background()))
 
 	cfg.DB.DbPath = testTriePath
-	sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// reload same contract

@@ -60,7 +60,7 @@ func TestSnapshot(t *testing.T) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
 	defer func() {
@@ -236,7 +236,7 @@ func TestState(t *testing.T) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(t, err)
 	testState(sf, t)
 }
@@ -300,7 +300,7 @@ func TestNonce(t *testing.T) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(t, err)
 	testNonce(sf, t)
 }
@@ -465,7 +465,7 @@ func TestRunActions(t *testing.T) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(err)
 	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(sf.Start(context.Background()))
@@ -721,7 +721,7 @@ func BenchmarkDBRunAction(b *testing.B) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = tp
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	if err != nil {
 		b.Fatal(err)
 	}

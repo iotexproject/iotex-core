@@ -64,7 +64,7 @@ func TestKVStorePutGet(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testKVStorePutGet(NewOnDiskDB(cfg), t)
+		testKVStorePutGet(NewBoltDB(cfg), t)
 	})
 
 }
@@ -116,7 +116,7 @@ func TestBatchRollback(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testBatchRollback(NewOnDiskDB(cfg), t)
+		testBatchRollback(NewBoltDB(cfg), t)
 	})
 
 }
@@ -234,7 +234,7 @@ func TestDBBatch(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testBatchRollback(NewOnDiskDB(cfg), t)
+		testBatchRollback(NewBoltDB(cfg), t)
 	})
 
 }
@@ -287,7 +287,7 @@ func TestCacheKV(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testFunc(NewOnDiskDB(cfg), t)
+		testFunc(NewBoltDB(cfg), t)
 	})
 
 }
