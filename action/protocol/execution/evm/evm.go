@@ -79,7 +79,7 @@ func NewParams(
 
 	gasLimit := execution.GasLimit()
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if hu.IsPre(raCtx.BlockHeight, config.Aleutian) && gasLimit > preAleutianActionGasLimit {
+	if hu.IsPre(config.Aleutian, raCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
 	}
 
@@ -166,7 +166,7 @@ func ExecuteContract(
 	} else {
 		receipt.Status = action.SuccessReceiptStatus
 	}
-	if hu.IsPost(raCtx.BlockHeight, config.Pacific) {
+	if hu.IsPost(config.Pacific, raCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
 	} else {

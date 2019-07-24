@@ -36,7 +36,7 @@ func NewHeightUpgrade(cfg Config) HeightUpgrade {
 }
 
 // IsPost return true if height is after the height upgrade
-func (hu *HeightUpgrade) IsPost(height uint64, name HeightName) bool {
+func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 	var h uint64
 	if name == Pacific {
 		h = hu.pacificHeight
@@ -49,6 +49,6 @@ func (hu *HeightUpgrade) IsPost(height uint64, name HeightName) bool {
 }
 
 // IsPre return true if height is before the height upgrade
-func (hu *HeightUpgrade) IsPre(height uint64, name HeightName) bool {
-	return !hu.IsPost(height, name)
+func (hu *HeightUpgrade) IsPre(name HeightName, height uint64) bool {
+	return !hu.IsPost(name, height)
 }
