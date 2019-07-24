@@ -12,11 +12,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
-
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
@@ -73,7 +72,7 @@ var configSetCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := set(args)
-		return err
+		return output.PrintError(err)
 	},
 }
 
@@ -83,11 +82,8 @@ var configResetCmd = &cobra.Command{
 	Short: "Reset config to default",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := reset()
-		if err == nil {
-			fmt.Println(output)
-		}
-		return err
+		err := reset()
+		return output.PrintError(err)
 	},
 }
 
@@ -256,7 +252,7 @@ func set(args []string) error {
 }
 
 // reset resets all values of config
-func reset() (string, error) {
+func reset() error {
 	ReadConfig.Wallet = ConfigDir
 	ReadConfig.Endpoint = ""
 	ReadConfig.SecureConnect = true
@@ -264,10 +260,12 @@ func reset() (string, error) {
 	ReadConfig.Explorer = "iotexscan"
 	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {
-		return "", err
+		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
 	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("failed to write to config file %s", DefaultConfigFile)
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", DefaultConfigFile), err)
 	}
-	return "Config reset to default values", nil
+	output.PrintResult("Config reset to default values")
+	return nil
 }
