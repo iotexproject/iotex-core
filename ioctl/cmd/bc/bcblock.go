@@ -102,7 +102,7 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), err)
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
 	}
@@ -130,7 +130,7 @@ func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), err)
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
 	}

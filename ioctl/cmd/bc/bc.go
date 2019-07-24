@@ -55,3 +55,23 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 	}
 	return response.ChainMeta, nil
 }
+
+func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	request := &iotexapi.GetEpochMetaRequest{EpochNumber: epochNum}
+	ctx := context.Background()
+	response, err := cli.GetEpochMeta(ctx, request)
+	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
+		}
+		return nil, output.NewError(output.NetworkError, "failed to invoke GetEpochMeta api", err)
+	}
+	return response, nil
+}
