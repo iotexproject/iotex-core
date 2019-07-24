@@ -9,6 +9,8 @@ package alias
 import (
 	"errors"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 
@@ -56,7 +58,7 @@ func init() {
 func IOAddress(in string) (address.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.AddressError, "", err)
 	}
 	return address.FromString(addr)
 }
@@ -65,7 +67,7 @@ func IOAddress(in string) (address.Address, error) {
 func EtherAddress(in string) (common.Address, error) {
 	addr, err := util.Address(in)
 	if err != nil {
-		return common.Address{}, err
+		return common.Address{}, output.NewError(output.AddressError, "", err)
 	}
 	return util.IoAddrToEvmAddr(addr)
 }
@@ -73,14 +75,14 @@ func EtherAddress(in string) (common.Address, error) {
 // Alias returns the alias corresponding to address
 func Alias(address string) (string, error) {
 	if err := validator.ValidateAddress(address); err != nil {
-		return "", err
+		return "", output.NewError(output.ValidationError, "", err)
 	}
 	for alias, addr := range config.ReadConfig.Aliases {
 		if addr == address {
 			return alias, nil
 		}
 	}
-	return "", ErrNoAliasFound
+	return "", output.NewError(output.AddressError, ErrNoAliasFound.Error(), nil)
 }
 
 // GetAliasMap gets the map from address to alias

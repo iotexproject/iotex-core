@@ -23,30 +23,35 @@ var xrc20TransferFromCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		owner, err := alias.EtherAddress(args[0])
-		if err != nil {
-			return output.PrintError(output.AddressError, err.Error())
-		}
-		recipient, err := alias.EtherAddress(args[1])
-		if err != nil {
-			return output.PrintError(output.AddressError, err.Error())
-		}
-		contract, err := xrc20Contract()
-		if err != nil {
-			return output.PrintError(output.AddressError, err.Error())
-		}
-		amount, err := parseAmount(contract, args[2])
-		if err != nil {
-			return output.PrintError(0, err.Error()) // TODO: undefined error
-		}
-		bytecode, err := xrc20ABI.Pack("transferFrom", owner, recipient, amount)
-		if err != nil {
-			return output.PrintError(0, "cannot generate bytecode from given command"+err.Error()) // TODO: undefined error
-		}
-		return execute(contract.String(), big.NewInt(0), bytecode)
+		err := transferFrom(args)
+		return output.PrintError(err)
 	},
 }
 
 func init() {
 	registerWriteCommand(xrc20TransferFromCmd)
+}
+
+func transferFrom(args []string) error {
+	owner, err := alias.EtherAddress(args[0])
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get owner address", err)
+	}
+	recipient, err := alias.EtherAddress(args[1])
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get recipient address", err)
+	}
+	contract, err := xrc20Contract()
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get contract address", err)
+	}
+	amount, err := parseAmount(contract, args[2])
+	if err != nil {
+		return output.NewError(0, "failed to parse amount", err)
+	}
+	bytecode, err := xrc20ABI.Pack("transferFrom", owner, recipient, amount)
+	if err != nil {
+		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
+	}
+	return Execute(contract.String(), big.NewInt(0), bytecode)
 }

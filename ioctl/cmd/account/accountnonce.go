@@ -23,7 +23,7 @@ var accountNonceCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := nonce(args[0])
-		return err
+		return output.PrintError(err)
 	},
 }
 
@@ -37,11 +37,11 @@ type nonceMessage struct {
 func nonce(arg string) error {
 	addr, err := util.GetAddress(arg)
 	if err != nil {
-		return output.PrintError(output.AddressError, err.Error())
+		return output.NewError(output.AddressError, "failed to get address", err)
 	}
 	accountMeta, err := GetAccountMeta(addr)
 	if err != nil {
-		return output.PrintError(0, err.Error()) // TODO: undefined error
+		return output.NewError(0, "", err)
 	}
 	message := nonceMessage{
 		Address:      addr,
