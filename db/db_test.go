@@ -64,7 +64,7 @@ func TestKVStorePutGet(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testKVStorePutGet(NewOnDiskDB(cfg), t)
+		testKVStorePutGet(&boltDB{db: nil, path: cfg.DbPath, config: cfg}, t)
 	})
 
 }
@@ -94,10 +94,10 @@ func TestBatchRollback(t *testing.T) {
 		assert.Equal(testV1[2], value)
 
 		testV := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
-		if kvboltDB, ok := kvStore.(*boltDB); ok {
-			err = kvboltDB.batchPutForceFail(bucket1, testK1[:], testV[:])
-			assert.NotNil(err)
-		}
+		kvboltDB := kvStore.(*boltDB)
+		err = kvboltDB.batchPutForceFail(bucket1, testK1[:], testV[:])
+		assert.NotNil(err)
+
 		value, err = kvStore.Get(bucket1, testK1[0])
 		assert.Nil(err)
 		assert.Equal(testV1[0], value)
@@ -116,7 +116,7 @@ func TestBatchRollback(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testBatchRollback(NewOnDiskDB(cfg), t)
+		testBatchRollback(&boltDB{db: nil, path: cfg.DbPath, config: cfg}, t)
 	})
 
 }
@@ -234,7 +234,7 @@ func TestDBBatch(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testBatchRollback(NewOnDiskDB(cfg), t)
+		testBatchRollback(&boltDB{db: nil, path: cfg.DbPath, config: cfg}, t)
 	})
 
 }
@@ -287,7 +287,7 @@ func TestCacheKV(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testFunc(NewOnDiskDB(cfg), t)
+		testFunc(&boltDB{db: nil, path: cfg.DbPath, config: cfg}, t)
 	})
 
 }
