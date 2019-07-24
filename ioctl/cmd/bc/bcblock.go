@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/iotexproject/iotex-core/ioctl/output"
+
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
@@ -30,16 +30,26 @@ var bcBlockCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := getBlock(args)
-		if err == nil {
-			fmt.Println(output)
-		}
-		return err
+		err := getBlock(args)
+		return output.PrintError(err)
 	},
 }
 
+type blockMessage struct {
+	Node  string                `json:"node"`
+	Block *iotextypes.BlockMeta `json:"block"`
+}
+
+func (m *blockMessage) String() string {
+	if output.Format == "" {
+		message := fmt.Sprintf("Blockchain Node: %s\n%s", m.Node, output.JSONString(m.Block))
+		return message
+	}
+	return output.FormatString(output.Result, m)
+}
+
 // getBlock get block from block chain
-func getBlock(args []string) (string, error) {
+func getBlock(args []string) error {
 	var height uint64
 	var err error
 	isHeight := true
@@ -48,12 +58,12 @@ func getBlock(args []string) (string, error) {
 		if err != nil {
 			isHeight = false
 		} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-			return "", err
+			return output.NewError(output.ValidationError, "invalid height", err)
 		}
 	} else {
 		chainMeta, err := GetChainMeta()
 		if err != nil {
-			return "", err
+			return output.NewError(0, "failed to get chain meta", err)
 		}
 		height = chainMeta.Height
 	}
@@ -64,29 +74,18 @@ func getBlock(args []string) (string, error) {
 		blockMeta, err = GetBlockMetaByHash(args[0])
 	}
 	if err != nil {
-		return "", err
+		return output.NewError(0, "failed to get block meta", err)
 	}
-	ts, err := ptypes.Timestamp(blockMeta.Timestamp)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("Transactions: %d\n", blockMeta.NumActions) +
-		fmt.Sprintf("Height: %d\n", blockMeta.Height) +
-		fmt.Sprintf("Total Amount: %s\n", blockMeta.TransferAmount) +
-		fmt.Sprintf("Timestamp: %d\n", ts.Unix()) +
-		fmt.Sprintf("Producer Address: %s %s\n", blockMeta.ProducerAddress,
-			action.Match(blockMeta.ProducerAddress, "address")) +
-		fmt.Sprintf("Transactions Root: %s\n", blockMeta.TxRoot) +
-		fmt.Sprintf("Receipt Root: %s\n", blockMeta.ReceiptRoot) +
-		fmt.Sprintf("Delta State Digest: %s\n", blockMeta.DeltaStateDigest) +
-		fmt.Sprintf("Hash: %s", blockMeta.Hash), nil
+	message := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta}
+	fmt.Println(message.String())
+	return nil
 }
 
 // GetBlockMetaByHeight gets block metadata by height
 func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -103,12 +102,12 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, fmt.Errorf(sta.Message())
+			return nil, output.NewError(output.APIError, sta.Message(), err)
 		}
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
 	}
 	if len(response.BlkMetas) == 0 {
-		return nil, fmt.Errorf("no block returned")
+		return nil, output.NewError(output.APIError, "no block returned", err)
 	}
 	return response.BlkMetas[0], nil
 }
@@ -117,7 +116,7 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -131,12 +130,12 @@ func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, fmt.Errorf(sta.Message())
+			return nil, output.NewError(output.APIError, sta.Message(), err)
 		}
-		return nil, err
+		return nil, output.NewError(output.NetworkError, "failed to invoke GetBlockMetas api", err)
 	}
 	if len(response.BlkMetas) == 0 {
-		return nil, fmt.Errorf("no block returned")
+		return nil, output.NewError(output.APIError, "no block returned", err)
 	}
 	return response.BlkMetas[0], nil
 }

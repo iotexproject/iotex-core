@@ -114,6 +114,10 @@ func Get(arg string) (string, error) {
 	case "wallet":
 		return ReadConfig.Wallet, nil
 	case "defaultacc":
+		configRes := ReadConfig.DefaultAccount
+		if configRes.AddressOrAlias == "" {
+			return fmt.Sprintf("Default account did not set"), nil
+		}
 		return fmt.Sprint(ReadConfig.DefaultAccount), nil
 	case "explorer":
 		return ReadConfig.Explorer, nil

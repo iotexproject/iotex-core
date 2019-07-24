@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
+
 	"github.com/spf13/cobra"
 )
 
@@ -24,10 +26,7 @@ var UpdateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := update()
-		if err == nil {
-			fmt.Println(output)
-		}
+		err := update()
 		return err
 	},
 }
@@ -37,11 +36,11 @@ func init() {
 		`set version type, "stable" or "unstable"`)
 }
 
-func update() (string, error) {
+func update() error {
 	var cmdString string
 	switch versionType {
 	default:
-		return "", fmt.Errorf("invalid flag %s", versionType)
+		return output.NewError(output.FlagError, "invalid version-type flag: "+versionType, nil)
 	case "stable":
 		cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" +
 			"iotex-core/master/install-cli.sh | sh"
@@ -51,10 +50,11 @@ func update() (string, error) {
 
 	}
 	cmd := exec.Command("bash", "-c", cmdString)
-	fmt.Printf("Downloading the latest %s version ...\n", versionType)
+	output.PrintResult(fmt.Sprintf("Downloading the latest %s version ...\n", versionType))
 	err := cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("failed to update ioctl")
+		return output.NewError(output.UpdateError, "failed to update ioctl", nil)
 	}
-	return "ioctl is up-to-date now.", nil
+	output.PrintResult("ioctl is up-to-date now.")
+	return nil
 }
