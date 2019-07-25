@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
@@ -50,11 +51,8 @@ var configGetCmd = &cobra.Command{
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := Get(args[0])
-		if err == nil {
-			fmt.Println(output)
-		}
-		return err
+		err := Get(args[0])
+		return output.PrintError(err)
 	},
 }
 
@@ -73,11 +71,8 @@ var configSetCmd = &cobra.Command{
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := set(args)
-		if err == nil {
-			fmt.Println(output)
-		}
-		return err
+		err := set(args)
+		return output.PrintError(err)
 	},
 }
 
@@ -87,12 +82,38 @@ var configResetCmd = &cobra.Command{
 	Short: "Reset config to default",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		output, err := reset()
-		if err == nil {
-			fmt.Println(output)
-		}
-		return err
+		err := reset()
+		return output.PrintError(err)
 	},
+}
+
+type endpointMessage struct {
+	Endpoint      string `json:"endpoint"`
+	SecureConnect bool   `json:"secureConnect"`
+}
+
+func (m *endpointMessage) String() string {
+	if output.Format == "" {
+		message := fmt.Sprint(m.Endpoint, "    secure connect(TLS):", m.SecureConnect)
+		return message
+	}
+	return output.FormatString(output.Result, m)
+}
+
+func (m *Context) String() string {
+	if output.Format == "" {
+		message := output.JSONString(m)
+		return message
+	}
+	return output.FormatString(output.Result, m)
+}
+
+func (m *Config) String() string {
+	if output.Format == "" {
+		message := output.JSONString(m)
+		return message
+	}
+	return output.FormatString(output.Result, m)
 }
 
 func init() {
@@ -101,29 +122,32 @@ func init() {
 }
 
 // Get gets config variable
-func Get(arg string) (string, error) {
+func Get(arg string) error {
 	switch arg {
 	default:
-		return "", ErrConfigNotMatch
+		return output.NewError(output.ConfigError, ErrConfigNotMatch.Error(), nil)
 	case "endpoint":
 		if ReadConfig.Endpoint == "" {
-			return "", ErrEmptyEndpoint
+			return output.NewError(output.ConfigError, ErrEmptyEndpoint.Error(), nil)
 		}
-		return fmt.Sprint(ReadConfig.Endpoint, "    secure connect(TLS):",
-			ReadConfig.SecureConnect), nil
+		message := endpointMessage{Endpoint: ReadConfig.Endpoint, SecureConnect: ReadConfig.SecureConnect}
+		fmt.Println(message.String())
+		return nil
 	case "wallet":
-		return ReadConfig.Wallet, nil
+		output.PrintResult(ReadConfig.Wallet)
+		return nil
 	case "defaultacc":
-		configRes := ReadConfig.DefaultAccount
-		if configRes.AddressOrAlias == "" {
-			return fmt.Sprintf("Default account did not set"), nil
+		if ReadConfig.DefaultAccount.AddressOrAlias == "" {
+			return output.NewError(output.ConfigError, "default account did not set", nil)
 		}
-		return fmt.Sprint(ReadConfig.DefaultAccount), nil
+		fmt.Println(ReadConfig.DefaultAccount.String())
+		return nil
 	case "explorer":
-		return ReadConfig.Explorer, nil
+		output.PrintResult(ReadConfig.Explorer)
+		return nil
 	case "all":
-		all, err := ioutil.ReadFile(DefaultConfigFile)
-		return string(all), err
+		fmt.Println(ReadConfig.String())
+		return nil
 	}
 }
 
@@ -131,7 +155,8 @@ func Get(arg string) (string, error) {
 func GetContextAddressOrAlias() (string, error) {
 	defaultAccount := ReadConfig.DefaultAccount
 	if strings.EqualFold(defaultAccount.AddressOrAlias, "") {
-		return "", fmt.Errorf(`use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`)
+		return "", output.NewError(output.ConfigError,
+			`use "ioctl config set defaultacc ADDRESS|ALIAS" to config default account first`, nil)
 	}
 	return defaultAccount.AddressOrAlias, nil
 }
@@ -146,8 +171,8 @@ func GetAddressOrAlias(in string) (address string, err error) {
 	return
 }
 
-// isMatch makes sure the endpoint matches the endpoint match pattern
-func isMatch(endpoint string) bool {
+// isValidEndpoint makes sure the endpoint matches the endpoint match pattern
+func isValidEndpoint(endpoint string) bool {
 	return endpointCompile.MatchString(endpoint)
 }
 
@@ -164,20 +189,24 @@ func isValidExplorer(arg string) bool {
 // writeConfig writes to config file
 func writeConfig() error {
 	out, err := yaml.Marshal(&ReadConfig)
-	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-		return fmt.Errorf("failed to write to config file %s", DefaultConfigFile)
+	if err != nil {
+		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
-	return err
+	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", DefaultConfigFile), err)
+	}
+	return nil
 }
 
 // set sets config variable
-func set(args []string) (string, error) {
+func set(args []string) error {
 	switch args[0] {
 	default:
-		return "", ErrConfigNotMatch
+		return output.NewError(output.ConfigError, ErrConfigNotMatch.Error(), nil)
 	case "endpoint":
-		if !isMatch(args[1]) {
-			return "", fmt.Errorf("Endpoint %s is not valid", args[1])
+		if !isValidEndpoint(args[1]) {
+			return output.NewError(output.ConfigError, fmt.Sprintf("endpoint %s is not valid", args[1]), nil)
 		}
 		ReadConfig.Endpoint = args[1]
 		ReadConfig.SecureConnect = !Insecure
@@ -189,41 +218,41 @@ func set(args []string) (string, error) {
 		case isValidExplorer(lowArg):
 			ReadConfig.Explorer = lowArg
 		case args[1] == "custom":
-			fmt.Println("Please enter a custom link below:")
-			fmt.Println("Example: iotexscan.io/action/")
-			fmt.Print("Link: ")
+			output.PrintQuery(`Please enter a custom link below:("Example: iotexscan.io/action/")`)
 			var link string
 			fmt.Scanln(&link)
 			match, err := regexp.MatchString(urlPattern, link)
 			if err != nil {
-				return "", fmt.Errorf("")
+				return output.NewError(output.UndefinedError, "failed to validate link", nil)
 			}
 			if match {
 				ReadConfig.Explorer = link
-				writeConfig()
-				return strings.Title(args[0]) + " is set to " + link, nil
+			} else {
+				return output.NewError(output.ValidationError, "invalid link", err)
 			}
-			return "", fmt.Errorf("Invalid link")
 		default:
-			return "", fmt.Errorf("Explorer %s is not valid\nValid Explorers: %s", args[1], append(validExpl, "custom"))
+			return output.NewError(output.ConfigError,
+				fmt.Sprintf("Explorer %s is not valid\nValid Explorers: %s",
+					args[1], append(validExpl, "custom")), nil)
 		}
 	case "defaultacc":
 		err1 := validator.ValidateAlias(args[1])
 		err2 := validator.ValidateAddress(args[1])
 		if err1 != nil && err2 != nil {
-			return "", fmt.Errorf("failed to validate alias or address:%s %s", err1, err2)
+			return output.NewError(output.ValidationError, "failed to validate alias or address", nil)
 		}
 		ReadConfig.DefaultAccount.AddressOrAlias = args[1]
 	}
 	err := writeConfig()
 	if err != nil {
-		return "", err
+		return err
 	}
-	return strings.Title(args[0]) + " is set to " + args[1], nil
+	output.PrintResult(strings.Title(args[0]) + " is set to " + args[1])
+	return nil
 }
 
 // reset resets all values of config
-func reset() (string, error) {
+func reset() error {
 	ReadConfig.Wallet = ConfigDir
 	ReadConfig.Endpoint = ""
 	ReadConfig.SecureConnect = true
@@ -231,10 +260,12 @@ func reset() (string, error) {
 	ReadConfig.Explorer = "iotexscan"
 	out, err := yaml.Marshal(&ReadConfig)
 	if err != nil {
-		return "", err
+		return output.NewError(output.SerializationError, "failed to marshal config", err)
 	}
 	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-		return "", fmt.Errorf("failed to write to config file %s", DefaultConfigFile)
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", DefaultConfigFile), err)
 	}
-	return "Config reset to default values", nil
+	output.PrintResult("Config reset to default values")
+	return nil
 }

@@ -53,18 +53,25 @@ var (
 		},
 		[]string{},
 	)
+
+	consensusHeightMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_consensus_height",
+			Help: "Consensus height",
+		},
+		[]string{},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(timeSlotMtc)
 	prometheus.MustRegister(blockIntervalMtc)
 	prometheus.MustRegister(consensusDurationMtc)
-
+	prometheus.MustRegister(consensusHeightMtc)
 }
 
 // CandidatesByHeightFunc defines a function to overwrite candidates
 type CandidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
-
 type rollDPoSCtx struct {
 	cfg config.RollDPoS
 	// TODO: explorer dependency deleted at #1085, need to add api params here
@@ -304,6 +311,7 @@ func (ctx *rollDPoSCtx) Prepare() (
 	}
 	delay = ctx.round.StartTime().Sub(ctx.clock.Now())
 
+	consensusHeightMtc.WithLabelValues().Set(float64(ctx.round.height))
 	timeSlotMtc.WithLabelValues().Set(float64(ctx.round.roundNum))
 	return
 }
