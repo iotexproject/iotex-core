@@ -7,8 +7,9 @@
 package node
 
 import (
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 )
 
 // NodeCmd represents the node command

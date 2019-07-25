@@ -41,17 +41,17 @@ var ConfigCmd = &cobra.Command{
 
 // Context represents the current context
 type Context struct {
-	AddressOrAlias string `yaml:"addressOralias"`
+	AddressOrAlias string `json:"addressOrAlias" yaml:"addressOrAlias"`
 }
 
 // Config defines the config schema
 type Config struct {
-	Wallet         string            `yaml:"wallet"`
-	Endpoint       string            `yaml:"endpoint"`
-	SecureConnect  bool              `yaml:"secureConnect"`
-	Aliases        map[string]string `yaml:"aliases"`
-	DefaultAccount Context           `yaml:"defaultAccount"`
-	Explorer       string            `yaml:"explorer"`
+	Wallet         string            `json:"wallet" yaml:"wallet"`
+	Endpoint       string            `json:"endpoint" yaml:"endpoint"`
+	SecureConnect  bool              `json:"secureConnect" yaml:"secureConnect"`
+	Aliases        map[string]string `json:"aliases" yaml:"aliases"`
+	DefaultAccount Context           `json:"defaultAccount" yaml:"defaultAccount"`
+	Explorer       string            `json:"explorer" yaml:"explorer"`
 }
 
 var (

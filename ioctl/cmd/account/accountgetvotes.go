@@ -58,7 +58,7 @@ func getVotes(args []string) error {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return output.NewError(output.APIError, sta.Message(), err)
+			return output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return output.NewError(output.NetworkError, "failed to invoke GetVotes api", err)
 	}
