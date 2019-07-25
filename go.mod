@@ -3,11 +3,9 @@ module github.com/iotexproject/iotex-core
 go 1.12
 
 require (
-	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
 	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-sql-driver/mysql v1.4.1
@@ -20,7 +18,7 @@ require (
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.2.10
 	github.com/iotexproject/go-pkgs v0.1.1-0.20190708233003-85a24189bbd4
-	github.com/iotexproject/iotex-address v0.2.0
+	github.com/iotexproject/iotex-address v0.2.1-0.20190725020429-99e5492ea0c3
 	github.com/iotexproject/iotex-election v0.1.10
 	github.com/iotexproject/iotex-proto v0.2.1-0.20190717000031-25b6ccc65ebd
 	github.com/ipfs/go-datastore v0.0.5 // indirect
