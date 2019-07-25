@@ -56,6 +56,7 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 	return response.ChainMeta, nil
 }
 
+// GetEpochMeta gets blockchain epoch meta
 func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
