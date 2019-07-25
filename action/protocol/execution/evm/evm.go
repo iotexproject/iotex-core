@@ -8,10 +8,12 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
@@ -35,6 +37,13 @@ var (
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
 )
 
+// TransferLog record one transfer happened in evm
+type TransferLog struct {
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Amount string `json:"amount"`
+}
+
 // CanTransfer checks whether the from account has enough balance
 func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
 	return db.GetBalance(fromHash).Cmp(balance) >= 0
@@ -44,6 +53,19 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool 
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
+	from, _ := address.FromBytes(fromHash.Bytes())
+	to, _ := address.FromBytes(toHash.Bytes())
+	transferLog := TransferLog{
+		From:   from.String(),
+		To:     to.String(),
+		Amount: amount.String(),
+	}
+	data, _ := json.Marshal(transferLog)
+	db.AddLog(&types.Log{
+		Address: fromHash,
+		Topics:  nil,
+		Data:    data,
+	})
 }
 
 type (
