@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -98,10 +99,23 @@ func (h *HeartbeatHandler) Log() {
 		}
 		rolldpos, ok := cs.Scheme().(*rolldpos.RollDPoS)
 		numPendingEvts := 0
+		consensusEpoch := uint64(0)
+		consensusHeight := uint64(0)
+
+		var consensusMetrics scheme.ConsensusMetrics
 		var state fsm.State
 		if ok {
 			numPendingEvts = rolldpos.NumPendingEvts()
 			state = rolldpos.CurrentState()
+
+			// RollDpos Concensus Metrics
+			consensusMetrics, err = rolldpos.Metrics()
+			if err != nil {
+				log.L().Error("failed to read consensus metrics", zap.Error(err))
+				return
+			}
+			consensusEpoch = consensusMetrics.LatestEpoch
+			consensusHeight = consensusMetrics.LatestHeight
 		} else {
 			log.L().Debug("scheme is not the instance of RollDPoS")
 		}
@@ -121,9 +135,13 @@ func (h *HeartbeatHandler) Log() {
 			zap.Uint64("actpoolCapacity", actPoolCapacity),
 			zap.Uint32("chainID", c.ChainID()),
 			zap.Uint64("targetHeight", targetHeight),
+			zap.Uint64("concensusEpoch", consensusEpoch),
+			zap.Uint64("consensusHeight", consensusHeight),
 		)
 
 		chainIDStr := strconv.FormatUint(uint64(c.ChainID()), 10)
+		heartbeatMtc.WithLabelValues("consensusEpoch", chainIDStr).Set(float64(consensusHeight))
+		heartbeatMtc.WithLabelValues("consensusRound", chainIDStr).Set(float64(consensusEpoch))
 		heartbeatMtc.WithLabelValues("pendingRolldposEvents", chainIDStr).Set(float64(numPendingEvts))
 		heartbeatMtc.WithLabelValues("blockchainHeight", chainIDStr).Set(float64(height))
 		heartbeatMtc.WithLabelValues("actpoolSize", chainIDStr).Set(float64(actPoolSize))
