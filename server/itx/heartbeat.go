@@ -111,7 +111,7 @@ func (h *HeartbeatHandler) Log() {
 			// RollDpos Concensus Metrics
 			consensusMetrics, err = rolldpos.Metrics()
 			if err != nil {
-				log.L().Error("failed to read consensus metrics", err)
+				log.L().Error("failed to read consensus metrics", zap.Error(err))
 				return
 			}
 			consensusEpoch = consensusMetrics.LatestEpoch
