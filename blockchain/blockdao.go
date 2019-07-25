@@ -606,6 +606,11 @@ func (dao *blockDAO) deleteTipBlock() error {
 	return dao.kvstore.Commit(batch)
 }
 
+// deleteBucket
+func (dao *blockDAO) deleteBucket(namespace string) error {
+	return dao.kvstore.DeleteBucket([]byte(namespace))
+}
+
 // deleteReceipts deletes receipt information from db
 func deleteReceipts(blk *block.Block, batch db.KVStoreBatch) error {
 	for _, r := range blk.Receipts {
