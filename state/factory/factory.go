@@ -97,7 +97,7 @@ func DefaultTrieOption() Option {
 			return errors.New("Invalid empty trie db path")
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		sf.dao = db.NewOnDiskDB(cfg.DB)
+		sf.dao = db.NewBoltDB(cfg.DB)
 		return nil
 	}
 }

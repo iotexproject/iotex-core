@@ -7,7 +7,6 @@ require (
 	github.com/beorn7/perks v1.0.0 // indirect
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/dgraph-io/badger v1.5.5-0.20190226225317-8115aed38f8f
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
@@ -52,12 +51,13 @@ require (
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/config v1.3.1
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734
-	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
+	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
+	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
+	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190430194229-2d28432af7a5 // indirect
+	golang.org/x/tools v0.0.0-20190724185037-8aa4eac1a7c1 // indirect
 	golang.org/x/xerrors v0.0.0-20190410155217-1f06c39b4373 // indirect
 	google.golang.org/appengine v1.5.0 // indirect
 	google.golang.org/grpc v1.20.1

@@ -59,6 +59,7 @@ func init() {
 	prometheus.MustRegister(timeSlotMtc)
 	prometheus.MustRegister(blockIntervalMtc)
 	prometheus.MustRegister(consensusDurationMtc)
+
 }
 
 // CandidatesByHeightFunc defines a function to overwrite candidates

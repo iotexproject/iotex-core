@@ -353,20 +353,20 @@ func TestBlockDAO(t *testing.T) {
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
-		testBlockDao(db.NewOnDiskDB(cfg), t)
+		testBlockDao(db.NewBoltDB(cfg), t)
 	})
 	t.Run("In-memory KV Store for actions", func(t *testing.T) {
 		testActionsDao(db.NewMemKVStore(), t)
 	})
 	t.Run("Bolt DB for actions", func(t *testing.T) {
-		testActionsDao(db.NewOnDiskDB(cfg), t)
+		testActionsDao(db.NewBoltDB(cfg), t)
 	})
 	t.Run("In-memory KV Store deletions", func(t *testing.T) {
 		testDeleteDao(db.NewMemKVStore(), t)
 	})
 
 	t.Run("Bolt DB deletions", func(t *testing.T) {
-		testDeleteDao(db.NewOnDiskDB(cfg), t)
+		testDeleteDao(db.NewBoltDB(cfg), t)
 	})
 }
 
@@ -412,7 +412,7 @@ func BenchmarkBlockCache(b *testing.B) {
 			}
 			require.NoError(b, os.RemoveAll(path))
 		}()
-		store := db.NewOnDiskDB(cfg)
+		store := db.NewBoltDB(cfg)
 
 		blkDao := newBlockDAO(store, false, false, cacheSize)
 		require.NoError(b, blkDao.Start(context.Background()))

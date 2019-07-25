@@ -235,7 +235,7 @@ func BoltDBDaoOption() Option {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		bc.dao = newBlockDAO(
-			db.NewOnDiskDB(cfg.DB),
+			db.NewBoltDB(cfg.DB),
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 			cfg.Chain.MaxCacheSize,

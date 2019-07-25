@@ -64,16 +64,9 @@ func TestKVStorePutGet(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testKVStorePutGet(NewOnDiskDB(cfg), t)
+		testKVStorePutGet(NewBoltDB(cfg), t)
 	})
 
-	path = "test-kv-store.badger"
-	testPath, _ = ioutil.TempDir(os.TempDir(), path)
-	cfg.DbPath = testPath
-	cfg.UseBadgerDB = true
-	t.Run("Badger DB", func(t *testing.T) {
-		testKVStorePutGet(NewOnDiskDB(cfg), t)
-	})
 }
 
 func TestBatchRollback(t *testing.T) {
@@ -101,13 +94,9 @@ func TestBatchRollback(t *testing.T) {
 		assert.Equal(testV1[2], value)
 
 		testV := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
-		if kvboltDB, ok := kvStore.(*boltDB); ok {
-			err = kvboltDB.batchPutForceFail(bucket1, testK1[:], testV[:])
-			assert.NotNil(err)
-		} else if kvbadgerDB, ok := kvStore.(*boltDB); ok {
-			err = kvbadgerDB.batchPutForceFail(bucket1, testK1[:], testV[:])
-			assert.NotNil(err)
-		}
+		kvboltDB := kvStore.(*boltDB)
+		err = kvboltDB.batchPutForceFail(bucket1, testK1[:], testV[:])
+		assert.NotNil(err)
 
 		value, err = kvStore.Get(bucket1, testK1[0])
 		assert.Nil(err)
@@ -127,16 +116,9 @@ func TestBatchRollback(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testBatchRollback(NewOnDiskDB(cfg), t)
+		testBatchRollback(NewBoltDB(cfg), t)
 	})
 
-	path = "test-batch-rollback.badger"
-	testPath, _ = ioutil.TempDir(os.TempDir(), path)
-	cfg.DbPath = testPath
-	cfg.UseBadgerDB = true
-	t.Run("Badger DB", func(t *testing.T) {
-		testBatchRollback(NewOnDiskDB(cfg), t)
-	})
 }
 
 func TestDBInMemBatchCommit(t *testing.T) {
@@ -252,16 +234,9 @@ func TestDBBatch(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testBatchRollback(NewOnDiskDB(cfg), t)
+		testBatchRollback(NewBoltDB(cfg), t)
 	})
 
-	path = "test-batch-commit.badger"
-	testPath, _ = ioutil.TempDir(os.TempDir(), path)
-	cfg.DbPath = testPath
-	cfg.UseBadgerDB = true
-	t.Run("Badger DB", func(t *testing.T) {
-		testBatchRollback(NewOnDiskDB(cfg), t)
-	})
 }
 
 func TestCacheKV(t *testing.T) {
@@ -312,14 +287,7 @@ func TestCacheKV(t *testing.T) {
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testFunc(NewOnDiskDB(cfg), t)
+		testFunc(NewBoltDB(cfg), t)
 	})
 
-	path = "test-cache-kv.badger"
-	testPath, _ = ioutil.TempDir(os.TempDir(), path)
-	cfg.DbPath = testPath
-	cfg.UseBadgerDB = true
-	t.Run("Badger DB", func(t *testing.T) {
-		testFunc(NewOnDiskDB(cfg), t)
-	})
 }

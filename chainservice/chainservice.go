@@ -105,7 +105,7 @@ func New(
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
-		kvstore := db.NewOnDiskDB(cfg.Chain.GravityChainDB)
+		kvstore := db.NewBoltDB(cfg.Chain.GravityChainDB)
 		if committeeConfig.GravityChainStartHeight != 0 {
 			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
 				kvstore,

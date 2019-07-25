@@ -389,9 +389,9 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		// re-open the StateFactory
 		cfg.DB.DbPath = cfg.Chain.TrieDBPath
 		if cfg.Chain.EnableTrielessStateDB {
-			sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(db.NewOnDiskDB(cfg.DB)))
+			sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(db.NewBoltDB(cfg.DB)))
 		} else {
-			sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewOnDiskDB(cfg.DB)))
+			sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 		}
 		require.NoError(err)
 		require.NoError(sf.Start(ctx))
