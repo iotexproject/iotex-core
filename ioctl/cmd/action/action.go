@@ -15,13 +15,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/protobuf/proto"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
+
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
@@ -284,7 +285,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 func Read(contract address.Address, bytecode []byte) (string, error) {
 	caller, err := signer()
 	if err != nil {
-		return "", output.NewError(0, "failed to get signer address", err)
+		caller = address.ZeroAddress
 	}
 	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), defaultGasLimit, defaultGasPrice, bytecode)
 	if err != nil {
