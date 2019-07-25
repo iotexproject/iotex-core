@@ -11,16 +11,16 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
-
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // bcBlockCmd represents the bc Block command
