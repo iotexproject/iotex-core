@@ -165,6 +165,7 @@ var (
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
+			SplitDBLength: 100000,
 		},
 		Genesis: genesis.Default,
 		Reindex: false,
@@ -314,6 +315,9 @@ type (
 
 		// SQLite3 is the config for SQLITE3
 		SQLITE3 SQLITE3 `yaml:"SQLITE3"`
+
+		// SplitDBLength is the config for DB's split length
+		SplitDBLength uint64 `yaml:"splitDBLength"`
 	}
 
 	// RDS is the cloud rds config
