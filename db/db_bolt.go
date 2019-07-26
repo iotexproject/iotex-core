@@ -95,17 +95,26 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 	return nil, errors.Wrap(ErrIO, err.Error())
 }
 
-// Delete deletes a record
+// Delete deletes a record,if key is nil,this will delete the whole bucket
 func (b *boltDB) Delete(namespace string, key []byte) (err error) {
 	numRetries := b.config.NumRetries
 	for c := uint8(0); c < numRetries; c++ {
-		err = b.db.Update(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket([]byte(namespace))
-			if bucket == nil {
+		if key == nil {
+			err = b.db.Update(func(tx *bolt.Tx) error {
+				if err := tx.DeleteBucket([]byte(namespace)); err != bolt.ErrBucketNotFound {
+					return err
+				}
 				return nil
-			}
-			return bucket.Delete(key)
-		})
+			})
+		} else {
+			err = b.db.Update(func(tx *bolt.Tx) error {
+				bucket := tx.Bucket([]byte(namespace))
+				if bucket == nil {
+					return nil
+				}
+				return bucket.Delete(key)
+			})
+		}
 		if err == nil {
 			break
 		}
@@ -167,16 +176,6 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
-}
-
-// DeleteBucket delete namespace
-func (b *boltDB) DeleteBucket(key []byte) (err error) {
-	return b.db.Update(func(tx *bolt.Tx) error {
-		if err := tx.DeleteBucket(key); err != bolt.ErrBucketNotFound {
-			return err
-		}
-		return nil
-	})
 }
 
 //======================================

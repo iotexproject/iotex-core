@@ -182,10 +182,10 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 			return err
 		}
 	} else {
-		if err = ib.dao.deleteBucket(blockAddressActionMappingNS); err != nil {
+		if err = ib.dao.kvstore.Delete(blockAddressActionMappingNS, nil); err != nil {
 			return err
 		}
-		if err = ib.dao.deleteBucket(blockAddressActionCountMappingNS); err != nil {
+		if err = ib.dao.kvstore.Delete(blockAddressActionCountMappingNS, nil); err != nil {
 			return err
 		}
 	}

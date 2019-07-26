@@ -310,7 +310,7 @@ func TestDeleteBucket(t *testing.T) {
 		v, _ = kv.Get(bucket2, testK1[0])
 		require.Equal(testV1[0], v)
 
-		require.NoError(kv.DeleteBucket([]byte(bucket1)))
+		require.NoError(kv.Delete(bucket1, nil))
 		v, _ = kv.Get(bucket1, testK1[0])
 		require.Equal([]uint8([]byte(nil)), v)
 
