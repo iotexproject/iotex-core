@@ -388,7 +388,13 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 				expectedBalance.Balance(),
 			)
 		}
-		r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
+		transferLogs := 0
+		for i := 0; i < len(receipt.Logs); i++ {
+			if len(receipt.Logs[i].Topics) == 0 {
+				transferLogs++
+			}
+		}
+		r.Equal(len(exec.ExpectedLogs), len(receipt.Logs)-transferLogs)
 		// TODO: check value of logs
 	}
 }
