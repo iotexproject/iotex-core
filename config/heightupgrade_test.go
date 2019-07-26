@@ -22,9 +22,12 @@ func TestNewHeightChange(t *testing.T) {
 	hu := NewHeightUpgrade(cfg)
 	require.Equal(uint64(432001), hu.pacificHeight)
 	require.Equal(uint64(864001), hu.aleutianHeight)
+	require.Equal(uint64(1106641), hu.beringHeight)
 
-	require.True(hu.IsPre(uint64(432000), Pacific))
-	require.True(hu.IsPost(uint64(432001), Pacific))
-	require.True(hu.IsPre(uint64(864000), Aleutian))
-	require.True(hu.IsPost(uint64(864001), Aleutian))
+	require.True(hu.IsPre(Pacific, uint64(432000)))
+	require.True(hu.IsPost(Pacific, uint64(432001)))
+	require.True(hu.IsPre(Aleutian, uint64(864000)))
+	require.True(hu.IsPost(Aleutian, uint64(864001)))
+	require.True(hu.IsPre(Bering, uint64(1106640)))
+	require.True(hu.IsPost(Bering, uint64(1106641)))
 }

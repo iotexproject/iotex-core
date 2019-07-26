@@ -408,7 +408,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		Data:        evmLog.Data,
 		BlockHeight: stateDB.blockHeight,
 		ActionHash:  stateDB.executionHash,
-		PreAleutian: stateDB.hu.IsPre(stateDB.blockHeight, config.Aleutian),
+		PreAleutian: stateDB.hu.IsPre(config.Aleutian, stateDB.blockHeight),
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }
