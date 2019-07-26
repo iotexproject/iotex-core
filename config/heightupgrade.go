@@ -14,6 +14,7 @@ import (
 const (
 	Pacific = iota
 	Aleutian
+	Bering
 )
 
 type (
@@ -24,6 +25,7 @@ type (
 	HeightUpgrade struct {
 		pacificHeight  uint64
 		aleutianHeight uint64
+		beringHeight   uint64
 	}
 )
 
@@ -32,16 +34,19 @@ func NewHeightUpgrade(cfg Config) HeightUpgrade {
 	return HeightUpgrade{
 		cfg.Genesis.PacificBlockHeight,
 		cfg.Genesis.AleutianBlockHeight,
+		cfg.Genesis.BeringBlockHeight,
 	}
 }
 
 // IsPost return true if height is after the height upgrade
-func (hu *HeightUpgrade) IsPost(height uint64, name HeightName) bool {
+func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 	var h uint64
 	if name == Pacific {
 		h = hu.pacificHeight
 	} else if name == Aleutian {
 		h = hu.aleutianHeight
+	} else if name == Bering {
+		h = hu.beringHeight
 	} else {
 		log.Panic("invalid height name!")
 	}
@@ -49,6 +54,6 @@ func (hu *HeightUpgrade) IsPost(height uint64, name HeightName) bool {
 }
 
 // IsPre return true if height is before the height upgrade
-func (hu *HeightUpgrade) IsPre(height uint64, name HeightName) bool {
-	return !hu.IsPost(height, name)
+func (hu *HeightUpgrade) IsPre(name HeightName, height uint64) bool {
+	return !hu.IsPost(name, height)
 }
