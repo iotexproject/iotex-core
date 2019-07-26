@@ -40,7 +40,7 @@ func defaultConfig() Genesis {
 		Blockchain: Blockchain{
 			Timestamp:             1546329600,
 			BlockGasLimit:         20000000,
-			ActionGasLimit:        5000000,
+			ActionGasLimit:        10000000,
 			BlockInterval:         10 * time.Second,
 			NumSubEpochs:          2,
 			NumDelegates:          24,
