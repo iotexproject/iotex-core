@@ -48,6 +48,7 @@ func defaultConfig() Genesis {
 			TimeBasedRotation:     false,
 			PacificBlockHeight:    432001,
 			AleutianBlockHeight:   864001,
+			BeringBlockHeight:     1106641,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -118,6 +119,8 @@ type (
 		PacificBlockHeight uint64 `yaml:"pacificHeight"`
 		// AleutianBlockHeight is the start height of adding bloom filter of all events into block header
 		AleutianBlockHeight uint64 `yaml:"aleutianHeight"`
+		// BeringBlockHeight is the start height of reducing block interval to 5 seconds
+		BeringBlockHeight uint64 `yaml:"beringHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {

@@ -291,3 +291,40 @@ func TestCacheKV(t *testing.T) {
 	})
 
 }
+
+func TestDeleteBucket(t *testing.T) {
+	testFunc := func(kv KVStore, t *testing.T) {
+		require := require.New(t)
+
+		require.Nil(kv.Start(context.Background()))
+		defer func() {
+			err := kv.Stop(context.Background())
+			require.Nil(err)
+		}()
+
+		require.NoError(kv.Put(bucket1, testK1[0], testV1[0]))
+		v, _ := kv.Get(bucket1, testK1[0])
+		require.Equal(testV1[0], v)
+
+		require.NoError(kv.Put(bucket2, testK1[0], testV1[0]))
+		v, _ = kv.Get(bucket2, testK1[0])
+		require.Equal(testV1[0], v)
+
+		require.NoError(kv.Delete(bucket1, nil))
+		v, _ = kv.Get(bucket1, testK1[0])
+		require.Equal([]uint8([]byte(nil)), v)
+
+		v, _ = kv.Get(bucket2, testK1[0])
+		require.Equal(testV1[0], v)
+	}
+
+	path := "test-cache-kv.bolt"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
+	t.Run("Bolt DB", func(t *testing.T) {
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
+		testFunc(NewBoltDB(cfg), t)
+	})
+}
