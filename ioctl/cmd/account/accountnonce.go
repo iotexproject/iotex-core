@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -23,15 +22,11 @@ var accountNonceCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+		arg := ""
 		if len(args) == 1 {
-			err := nonce(args[0])
-			return err
+			arg = args[0]
 		}
-		if config.ReadConfig.DefaultAccount.AddressOrAlias == "" {
-			fmt.Println("Please specify a account to query nonce")
-			return nil
-		}
-		err := nonce(config.ReadConfig.DefaultAccount.AddressOrAlias)
+		err := nonce(arg)
 		return output.PrintError(err)
 	},
 }
@@ -39,7 +34,7 @@ var accountNonceCmd = &cobra.Command{
 type nonceMessage struct {
 	Address      string `json:"address"`
 	Nonce        int    `json:"nonce"`
-	PendingNonce int    `json:"pengingNonce"`
+	PendingNonce int    `json:"pendingNonce"`
 }
 
 // nonce gets nonce and pending nonce of an IoTeX blockchain address
