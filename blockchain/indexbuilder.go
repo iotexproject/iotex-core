@@ -181,6 +181,13 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 		if err != nil {
 			return err
 		}
+	} else {
+		if err = ib.dao.kvstore.Delete(blockAddressActionMappingNS, nil); err != nil {
+			return err
+		}
+		if err = ib.dao.kvstore.Delete(blockAddressActionCountMappingNS, nil); err != nil {
+			return err
+		}
 	}
 	zap.L().Info("Loading actions", zap.Uint64("startHeight", startHeight), zap.Uint64("startIndex", startIndex))
 	batch := db.NewBatch()
