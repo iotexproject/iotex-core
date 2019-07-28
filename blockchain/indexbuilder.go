@@ -50,6 +50,7 @@ type IndexBuilder struct {
 type actionDelta struct {
 	senderDelta    map[hash.Hash160]uint64
 	recipientDelta map[hash.Hash160]uint64
+	totalDelta     map[hash.Hash160]uint64
 }
 
 // NewIndexBuilder instantiates an index builder
@@ -164,6 +165,7 @@ func (ib *IndexBuilder) commitBatchAndClear(tipIndex, tipHeight uint64, batch db
 	}
 	actDelta.senderDelta = make(map[hash.Hash160]uint64)
 	actDelta.recipientDelta = make(map[hash.Hash160]uint64)
+	actDelta.totalDelta = make(map[hash.Hash160]uint64)
 	return nil
 }
 func (ib *IndexBuilder) initAndLoadActions() error {
@@ -194,6 +196,7 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 	actDelta := &actionDelta{
 		senderDelta:    make(map[hash.Hash160]uint64),
 		recipientDelta: make(map[hash.Hash160]uint64),
+		totalDelta:     make(map[hash.Hash160]uint64),
 	}
 	i := startHeight
 	for ; i <= tipHeight; i++ {
@@ -263,6 +266,7 @@ func indexBlock(store db.KVStore, blk *block.Block, batch db.KVStoreBatch) error
 	actDelta := &actionDelta{
 		senderDelta:    make(map[hash.Hash160]uint64),
 		recipientDelta: make(map[hash.Hash160]uint64),
+		totalDelta:     make(map[hash.Hash160]uint64),
 	}
 	if err = indexBlockHash(startIndex, hashBlock, store, blk, batch, actDelta); err != nil {
 		return err
@@ -283,14 +287,84 @@ func indexBlockHash(startActionsNum uint64, blkHash hash.Hash256, store db.KVSto
 
 	return putActions(store, blk, batch, actDelta)
 }
+func putTotal(store db.KVStore, selp action.SealedEnvelope, batch db.KVStoreBatch, actDelta *actionDelta) error {
+	totalDelta := actDelta.totalDelta
 
+	actHash := selp.Hash()
+	callerAddrBytes := hash.BytesToHash160(selp.SrcPubkey().Hash())
+	// get total action count for sender
+	totalActionCount, err := getTotalActionCountByAddress(store, callerAddrBytes)
+	if err != nil {
+		return errors.Wrapf(err, "for total %x", callerAddrBytes)
+	}
+	if delta, ok := totalDelta[callerAddrBytes]; ok {
+		totalActionCount += delta
+		totalDelta[callerAddrBytes]++
+	} else {
+		totalDelta[callerAddrBytes] = 1
+	}
+	// put new action to address
+	addressKey := append(actionTotalPrefix, callerAddrBytes[:]...)
+	addressKey = append(addressKey, byteutil.Uint64ToBytes(totalActionCount)...)
+	batch.Put(blockAddressActionMappingNS, addressKey, actHash[:],
+		"failed to put action hash %x for address %x", actHash, callerAddrBytes)
+
+	// update sender action count
+	totalActionCountKey := append(actionTotalPrefix, callerAddrBytes[:]...)
+	batch.Put(blockAddressActionCountMappingNS, totalActionCountKey,
+		byteutil.Uint64ToBytes(totalActionCount+1),
+		"failed to bump action count %x for address %x", actHash, callerAddrBytes)
+
+	dst, ok := selp.Destination()
+	if !ok || dst == "" {
+		return nil
+	}
+	dstAddr, err := address.FromString(dst)
+	if err != nil {
+		return err
+	}
+	dstAddrBytes := hash.BytesToHash160(dstAddr.Bytes())
+
+	if dstAddrBytes == callerAddrBytes {
+		// recipient is same as sender
+		return nil
+	}
+
+	// get action count for recipient
+	recipientActionCount, err := getTotalActionCountByAddress(store, dstAddrBytes)
+	if err != nil {
+		return errors.Wrapf(err, "for total %x", dstAddrBytes)
+	}
+	if delta, ok := totalDelta[dstAddrBytes]; ok {
+		recipientActionCount += delta
+		totalDelta[dstAddrBytes]++
+	} else {
+		totalDelta[dstAddrBytes] = 1
+	}
+
+	// put new action to recipient
+	recipientKey := append(actionTotalPrefix, dstAddrBytes[:]...)
+	recipientKey = append(recipientKey, byteutil.Uint64ToBytes(recipientActionCount)...)
+	batch.Put(blockAddressActionMappingNS, recipientKey, actHash[:],
+		"failed to put action hash %x for total %x", actHash, dstAddrBytes)
+
+	// update recipient action count
+	recipientActionCountKey := append(actionTotalPrefix, dstAddrBytes[:]...)
+	batch.Put(blockAddressActionCountMappingNS, recipientActionCountKey,
+		byteutil.Uint64ToBytes(recipientActionCount+1), "failed to bump action count %x for total %x",
+		actHash, dstAddrBytes)
+	return nil
+}
 func putActions(store db.KVStore, blk *block.Block, batch db.KVStoreBatch, actDelta *actionDelta) error {
 	senderDelta := actDelta.senderDelta
 	recipientDelta := actDelta.recipientDelta
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
 		callerAddrBytes := hash.BytesToHash160(selp.SrcPubkey().Hash())
-
+		err := putTotal(store, selp, batch, actDelta)
+		if err != nil {
+			return err
+		}
 		// get action count for sender
 		senderActionCount, err := getActionCountBySenderAddress(store, callerAddrBytes)
 		if err != nil {
@@ -398,6 +472,19 @@ func getActionCountBySenderAddress(store db.KVStore, addrBytes hash.Hash160) (ui
 	}
 	if len(value) == 0 {
 		return 0, errors.New("count of actions by sender is broken")
+	}
+	return enc.MachineEndian.Uint64(value), nil
+}
+
+// getTotalActionCountByAddress returns action count by address
+func getTotalActionCountByAddress(store db.KVStore, addrBytes hash.Hash160) (uint64, error) {
+	senderActionCountKey := append(actionTotalPrefix, addrBytes[:]...)
+	value, err := store.Get(blockAddressActionCountMappingNS, senderActionCountKey)
+	if err != nil {
+		return 0, nil
+	}
+	if len(value) == 0 {
+		return 0, errors.New("count of actions by address is broken")
 	}
 	return enc.MachineEndian.Uint64(value), nil
 }

@@ -275,6 +275,20 @@ func (mr *MockBlockchainMockRecorder) GetActionsFromAddress(address interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionsFromAddress", reflect.TypeOf((*MockBlockchain)(nil).GetActionsFromAddress), address)
 }
 
+// GetAllActionsFromAddress mocks base method
+func (m *MockBlockchain) GetAllActionsFromAddress(addrStr string, start uint64, count uint64) ([]hash.Hash256, uint64, error) {
+	ret := m.ctrl.Call(m, "GetActionsFromAddressCount", addrStr, start, count)
+	ret0, _ := ret[0].([]hash.Hash256)
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetAllActionsFromAddress indicates an expected call of GetAllActionsFromAddress
+func (mr *MockBlockchainMockRecorder) GetAllActionsFromAddress(address, start, count interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllActionsFromAddress", reflect.TypeOf((*MockBlockchain)(nil).GetAllActionsFromAddress), address, start, count)
+}
+
 // GetActionsToAddress mocks base method
 func (m *MockBlockchain) GetActionsToAddress(address string) ([]hash.Hash256, error) {
 	ret := m.ctrl.Call(m, "GetActionsToAddress", address)
