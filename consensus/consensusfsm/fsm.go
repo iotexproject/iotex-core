@@ -202,6 +202,13 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 			[]fsm.State{
 				sAcceptPreCommitEndorsement,
 				sPrepare, // reach consensus, start next epoch
+			}).
+		AddTransition(
+			sAcceptPreCommitEndorsement,
+			eReceiveLockEndorsement,
+			cm.onStopReceivingLockEndorsement,
+			[]fsm.State{
+				sPrepare, // move to next epoch
 			})
 	// Add the backdoor transition so that we could unit test the transition from any given state
 	for _, state := range consensusStates {
