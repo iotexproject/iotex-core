@@ -94,6 +94,7 @@ func main() {
 			config.Network.MasterKey = "bootnode"
 		}
 		config.Genesis.AleutianBlockHeight = 1
+		config.Genesis.PacificBlockHeight = 1
 		configs[i] = config
 	}
 	defer func() {
