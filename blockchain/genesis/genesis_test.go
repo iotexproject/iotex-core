@@ -33,7 +33,7 @@ func TestHash(t *testing.T) {
 	cfg, err := New()
 	require.NoError(err)
 	hash := cfg.Hash()
-	require.Equal("b7cbd9f80634e83b863c20282ef31c08cb2b0b96ab7929b0e9dd581aabca720e", hex.EncodeToString(hash[:]))
+	require.Equal("3dfcdee76186b59a9f9abd0ded8e6c093c35bddea23834044550fb68626adb62", hex.EncodeToString(hash[:]))
 }
 func TestAccount_InitBalances(t *testing.T) {
 	require := require.New(t)
