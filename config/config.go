@@ -165,7 +165,7 @@ var (
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
-			SplitDBLength: 100000,
+			SplitDBLength: 0,
 		},
 		Genesis: genesis.Default,
 		Reindex: false,
