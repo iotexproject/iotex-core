@@ -40,6 +40,7 @@ type Log struct {
 	ActionHash  hash.Hash256
 	Index       uint
 	PreAleutian bool
+	//ErrorMessage string
 }
 
 // ConvertToReceiptPb converts a Receipt to protobuf's Receipt

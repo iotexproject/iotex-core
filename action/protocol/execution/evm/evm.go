@@ -151,7 +151,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, failed, err, msg := executeInEVM(ps, stateDB, raCtx.GasLimit)
+	retval, depositGas, remainingGas, contractAddress, failed, msg, err := executeInEVM(ps, stateDB, raCtx.GasLimit)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -189,7 +189,7 @@ func ExecuteContract(
 	receipt.Logs = stateDB.Logs()
 	if failed {
 		log := &action.Log{
-			Address: 	msg,
+			Address: msg,
 		}
 		receipt.Logs = append(receipt.Logs, log)
 	}
@@ -205,21 +205,21 @@ func getChainConfig() *params.ChainConfig {
 	return &chainConfig
 }
 
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) ([]byte, uint64, uint64, string, bool, error, string) {
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) ([]byte, uint64, uint64, string, bool, string, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
-		return nil, 0, 0, action.EmptyAddress, true, err, err.Error()
+		return nil, 0, 0, action.EmptyAddress, true, err.Error(), err
 	}
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, err, err.Error()
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, err.Error(), err
 	}
 	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, action.ErrOutOfGas, err.Error()
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, action.ErrOutOfGas.Error(), action.ErrOutOfGas
 	}
 	remainingGas -= intriGas
 	contractRawAddress := action.EmptyAddress
@@ -244,7 +244,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) (
 	if evmErr != nil {
 		log.L().Debug("evm error", zap.Error(evmErr))
 		if evmErr == vm.ErrInsufficientBalance {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, nil, evmErr.Error()
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, evmErr.Error(), nil
 		}
 	}
 	if stateDB.Error() != nil {
@@ -258,9 +258,9 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) (
 
 	if evmErr != nil {
 		// for the error message specification
-		return ret, evmParams.gas, remainingGas, contractRawAddress, true, nil, evmErr.Error()
+		return ret, evmParams.gas, remainingGas, contractRawAddress, true, evmErr.Error(), nil
 	}
-	return ret, evmParams.gas, remainingGas, contractRawAddress, false, nil, ""
+	return ret, evmParams.gas, remainingGas, contractRawAddress, false, "", nil
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
