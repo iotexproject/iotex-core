@@ -658,7 +658,7 @@ func (dao *blockDAO) getDBFromHash(h hash.Hash256) (db.KVStore, int, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	index := getDBIndex(hei, dao.cfg.SplitDBLength)
+	index := getDBIndex(hei, dao.cfg.SplitDBLength, dao.cfg.SplitDBHeight)
 	return db, index, nil
 }
 
@@ -697,7 +697,7 @@ func (dao *blockDAO) getDBFromIndex(index int) (kvstore db.KVStore, err error) {
 
 //getDBFromHeight
 func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvstore db.KVStore, err error) {
-	index := getDBIndex(blkHeight, dao.cfg.SplitDBLength)
+	index := getDBIndex(blkHeight, dao.cfg.SplitDBLength, dao.cfg.SplitDBHeight)
 	return dao.getDBFromIndex(index)
 }
 
@@ -818,9 +818,12 @@ func deleteActions(dao *blockDAO, blk *block.Block, batch db.KVStoreBatch) error
 }
 
 // getDBIndex get db index from block height
-func getDBIndex(hei uint64, split uint64) int {
+func getDBIndex(hei, split, splitStartHeight uint64) int {
 	if split == 0 {
 		return 0
 	}
-	return int(hei / split)
+	if hei <= splitStartHeight {
+		return 0
+	}
+	return int((hei-splitStartHeight)/split) + 1 //from 1....N
 }
