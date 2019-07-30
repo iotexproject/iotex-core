@@ -41,13 +41,13 @@ func (t *TransferLogs) AddLog(from, to, amount string) {
 }
 
 // Serialize serializes TransferLogs state into bytes
-func (st TransferLogs) Serialize() ([]byte, error) {
-	return json.Marshal(st)
+func (t TransferLogs) Serialize() ([]byte, error) {
+	return json.Marshal(t)
 }
 
 // Deserialize deserializes bytes into TransferLogs state
-func (st *TransferLogs) Deserialize(buf []byte) error {
-	if err := json.Unmarshal(buf, st); err != nil {
+func (t *TransferLogs) Deserialize(buf []byte) error {
+	if err := json.Unmarshal(buf, t); err != nil {
 		return err
 	}
 	return nil
