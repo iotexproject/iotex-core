@@ -31,6 +31,7 @@ const (
 type (
 	// Contract is a special type of account with code and storage trie.
 	Contract interface {
+		GetCommittedState(hash.Hash256) ([]byte, error)
 		GetState(hash.Hash256) ([]byte, error)
 		SetState(hash.Hash256, []byte) error
 		GetCode() ([]byte, error)
@@ -49,6 +50,7 @@ type (
 		dirtyState bool   // contract's account state has changed
 		code       []byte // contract byte-code
 		root       hash.Hash256
+		committed  map[hash.Hash256][]byte
 		dao        db.KVStore
 		trie       trie.Trie // storage trie of the contract
 	}
@@ -58,17 +60,31 @@ func (c *contract) Iterator() (trie.Iterator, error) {
 	return trie.NewLeafIterator(c.trie)
 }
 
+// GetState get the committed value of a key
+func (c *contract) GetCommittedState(key hash.Hash256) ([]byte, error) {
+	if v, ok := c.committed[key]; ok {
+		return v, nil
+	}
+	return c.GetState(key)
+}
+
 // GetState get the value from contract storage
 func (c *contract) GetState(key hash.Hash256) ([]byte, error) {
 	v, err := c.trie.Get(key[:])
 	if err != nil {
 		return nil, err
 	}
+	if _, ok := c.committed[key]; !ok {
+		c.committed[key] = v
+	}
 	return v, nil
 }
 
 // SetState set the value into contract storage
 func (c *contract) SetState(key hash.Hash256, value []byte) error {
+	if _, ok := c.committed[key]; !ok {
+		c.GetState(key)
+	}
 	c.dirtyState = true
 	err := c.trie.Upsert(key[:], value)
 	c.Account.Root = hash.BytesToHash256(c.trie.RootHash())
@@ -101,6 +117,9 @@ func (c *contract) Commit() error {
 		// record the new root hash, global account trie will Commit all pending writes to DB
 		c.Account.Root = hash.BytesToHash256(c.trie.RootHash())
 		c.dirtyState = false
+		// purge the committed value cache
+		c.committed = nil
+		c.committed = make(map[hash.Hash256][]byte)
 	}
 	if c.dirtyCode {
 		// put the code into storage DB
@@ -130,6 +149,7 @@ func (c *contract) Snapshot() Contract {
 		dirtyState: c.dirtyState,
 		code:       c.code,
 		root:       c.Account.Root,
+		committed:  c.committed,
 		dao:        c.dao,
 		// note we simply save the trie (which is an interface/pointer)
 		// later Revert() call needs to reset the saved trie root
@@ -163,9 +183,10 @@ func newContract(addr hash.Hash160, state *state.Account, dao db.KVStore, batch 
 	}
 
 	return &contract{
-		Account: state,
-		root:    state.Root,
-		dao:     dao,
-		trie:    tr,
+		Account:   state,
+		root:      state.Root,
+		committed: make(map[hash.Hash256][]byte),
+		dao:       dao,
+		trie:      tr,
 	}, nil
 }

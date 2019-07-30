@@ -134,15 +134,24 @@ func TestForEachStorage(t *testing.T) {
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234561"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234561"),
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234562"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234562"),
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234563"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234563"),
+		common.HexToHash("2345670123456701234567012345670123456701234567012345670123456301"): common.HexToHash("2345670123456701234567012345670123456701234567012345670123456301"),
+		common.HexToHash("4567012345670123456701234567012345670123456701234567012345630123"): common.HexToHash("4567012345670123456701234567012345670123456701234567012345630123"),
+		common.HexToHash("6701234567012345670123456701234567012345670123456701234563012345"): common.HexToHash("6701234567012345670123456701234567012345670123456701234563012345"),
+		common.HexToHash("0123456701234567012345670123456701234567012345670123456301234567"): common.HexToHash("0123456701234567012345670123456701234567012345670123456301234567"),
+		common.HexToHash("ab45670123456701234567012345670123456701234567012345630123456701"): common.HexToHash("ab45670123456701234567012345670123456701234567012345630123456701"),
+		common.HexToHash("cd67012345670123456701234567012345670123456701234563012345670123"): common.HexToHash("cd67012345670123456701234567012345670123456701234563012345670123"),
+		common.HexToHash("ef01234567012345670123456701234567012345670123456301234567012345"): common.HexToHash("ef01234567012345670123456701234567012345670123456301234567012345"),
 	}
 	for k, v := range kvs {
 		stateDB.SetState(addr, k, v)
 	}
-	stateDB.ForEachStorage(addr, func(k common.Hash, v common.Hash) bool {
-		require.Equal(k, v)
-		delete(kvs, k)
-		return true
-	})
+	require.NoError(
+		stateDB.ForEachStorage(addr, func(k common.Hash, v common.Hash) bool {
+			require.Equal(k, v)
+			delete(kvs, k)
+			return true
+		}),
+	)
 	require.Equal(0, len(kvs))
 }
 
@@ -441,6 +450,56 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath2
 	t.Run("contract snapshot/revert/commit with trie", func(t *testing.T) {
 		testSnapshotAndRevert(cfg, t)
+	})
+}
+
+func TestGetCommittedState(t *testing.T) {
+	testCommittedState := func(cfg config.Config, t *testing.T) {
+		require := require.New(t)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		ctx := context.Background()
+		var sf factory.Factory
+		if cfg.Chain.EnableTrielessStateDB {
+			sf, _ = factory.NewStateDB(cfg, factory.InMemStateDBOption())
+		} else {
+			sf, _ = factory.NewFactory(cfg, factory.InMemTrieOption())
+		}
+		require.NoError(sf.Start(ctx))
+		defer func() {
+			require.NoError(sf.Stop(ctx))
+		}()
+		ws, err := sf.NewWorkingSet()
+		require.NoError(err)
+		stateDB := NewStateDBAdapter(nil, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+
+		stateDB.SetState(c1, k1, v1)
+		// k2 does not exist
+		require.Equal(common.Hash{}, stateDB.GetCommittedState(c1, common.BytesToHash(k2[:])))
+		require.Equal(v1, stateDB.GetState(c1, k1))
+		require.Equal(common.Hash{}, stateDB.GetCommittedState(c1, common.BytesToHash(k2[:])))
+
+		// commit (k1, v1)
+		require.NoError(stateDB.CommitContracts())
+		stateDB.clear()
+
+		require.Equal(v1, stateDB.GetState(c1, k1))
+		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
+		stateDB.SetState(c1, k1, v2)
+		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
+		require.Equal(v2, stateDB.GetState(c1, k1))
+		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
+	}
+
+	cfg := config.Default
+	t.Run("committed state with stateDB", func(t *testing.T) {
+		testCommittedState(cfg, t)
+	})
+
+	cfg.Chain.EnableTrielessStateDB = false
+	t.Run("committed state with trie", func(t *testing.T) {
+		testCommittedState(cfg, t)
 	})
 }
 

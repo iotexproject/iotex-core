@@ -15,7 +15,9 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -38,12 +40,136 @@ import (
 )
 
 var (
-	deployHash  hash.Hash256                                                                           // in block 2
-	setHash     hash.Hash256                                                                           // in block 3
-	getHash     hash.Hash256                                                                           // in block 4
-	setTopic, _ = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000001f40") // in block 3
-	getTopic, _ = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001") // in block 4
+	deployHash   hash.Hash256                                                                           // in block 2
+	setHash      hash.Hash256                                                                           // in block 3
+	shrHash      hash.Hash256                                                                           // in block 4
+	shlHash      hash.Hash256                                                                           // in block 5
+	sarHash      hash.Hash256                                                                           // in block 6
+	extHash      hash.Hash256                                                                           // in block 7
+	crt2Hash     hash.Hash256                                                                           // in block 8
+	setTopic, _  = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f40") // in block 3
+	getTopic, _  = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001") // in block 4
+	shrTopic, _  = hex.DecodeString("00fe00000000000000000000000000000000000000000000000000000000001f") // in block 4
+	shlTopic, _  = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f00") // in block 5
+	sarTopic, _  = hex.DecodeString("fffe00000000000000000000000000000000000000000000000000000000001f") // in block 6
+	extTopic, _  = hex.DecodeString("4a98ce81a2fd5177f0f42b49cb25b01b720f9ce8019f3937f63b789766c938e2") // in block 7
+	crt2Topic, _ = hex.DecodeString("0000000000000000000000001895e6033cd1081f18e0bd23a4501d9376028523") // in block 8
 )
+
+func addTestingConstantinopleBlocks(bc Blockchain) error {
+	// Add block 1
+	addr0 := identityset.Address(27).String()
+	priKey0 := identityset.PrivateKey(27)
+	data, err := hex.DecodeString("608060405234801561001057600080fd5b506104d5806100206000396000f3fe608060405234801561001057600080fd5b50600436106100885760003560e01c806381ea44081161005b57806381ea440814610101578063a91b336214610159578063c2bc2efc14610177578063f5eacece146101cf57610088565b80635bec9e671461008d57806360fe47b1146100975780636bc8ecaa146100c5578063744f5f83146100e3575b600080fd5b6100956101ed565b005b6100c3600480360360208110156100ad57600080fd5b8101908080359060200190929190505050610239565b005b6100cd610270565b6040518082815260200191505060405180910390f35b6100eb6102b3565b6040518082815260200191505060405180910390f35b6101436004803603602081101561011757600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506102f6565b6040518082815260200191505060405180910390f35b61016161036a565b6040518082815260200191505060405180910390f35b6101b96004803603602081101561018d57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506103ad565b6040518082815260200191505060405180910390f35b6101d761045f565b6040518082815260200191505060405180910390f35b5b60011561020b5760008081548092919060010191905055506101ee565b7f8bfaa460932ccf8751604dd60efa3eafa220ec358fccb32ef703f91c509bc3ea60405160405180910390a1565b80600081905550807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a250565b6000805460081d905080600081905550807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a280905090565b6000805460081c905080600081905550807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a280905090565b60008073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff16141561033157600080fd5b813f9050807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a2809050919050565b6000805460081b905080600081905550807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a280905090565b60008073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1614156103e857600080fd5b7fbde7a70c2261170a87678200113c8e12f82f63d0a1d1cfa45681cbac328e87e382600054604051808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018281526020019250505060405180910390a16000549050919050565b60008080602060406000f59150817fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a2819150509056fea265627a7a72305820209a8ef04c4d621759f34878b27b238650e8605c8a71d6efc619a769a64aa9cc64736f6c634300050a0032")
+	if err != nil {
+		return err
+	}
+	ex1, err := testutil.SignedExecution(action.EmptyAddress, priKey0, 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return err
+	}
+	deployHash = ex1.Hash()
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[addr0] = []action.SealedEnvelope{ex1}
+	blockTime := time.Unix(1546329600, 0)
+	blk, err := bc.MintNewBlock(
+		accMap,
+		blockTime,
+	)
+	if err != nil {
+		return err
+	}
+	if err := bc.ValidateBlock(blk); err != nil {
+		return err
+	}
+	if err := bc.CommitBlock(blk); err != nil {
+		return err
+	}
+
+	// get deployed contract address
+	r, err := bc.GetReceiptByActionHash(deployHash)
+	if err != nil {
+		return err
+	}
+	contract := r.ContractAddress
+
+	addOneBlock := func(nonce uint64, data []byte) (hash.Hash256, error) {
+		ex1, err := testutil.SignedExecution(contract, priKey0, nonce, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+		if err != nil {
+			return hash.ZeroHash256, err
+		}
+		accMap := make(map[string][]action.SealedEnvelope)
+		accMap[addr0] = []action.SealedEnvelope{ex1}
+		blockTime = blockTime.Add(time.Second)
+		blk, err = bc.MintNewBlock(
+			accMap,
+			blockTime,
+		)
+		if err != nil {
+			return hash.ZeroHash256, err
+		}
+		if err := bc.ValidateBlock(blk); err != nil {
+			return hash.ZeroHash256, err
+		}
+		if err := bc.CommitBlock(blk); err != nil {
+			return hash.ZeroHash256, err
+		}
+		return ex1.Hash(), nil
+	}
+
+	// Add block 2
+	// call set() to set storedData = 0xfe...1f40
+	funcSig := hash.Hash256b([]byte("set(uint256)"))
+	data = append(funcSig[:4], setTopic...)
+	setHash, err = addOneBlock(2, data)
+	if err != nil {
+		return err
+	}
+
+	// Add block 3
+	// call shright() to test SHR opcode, storedData => 0x00fe...1f
+	funcSig = hash.Hash256b([]byte("shright()"))
+	shrHash, err = addOneBlock(3, funcSig[:4])
+	if err != nil {
+		return err
+	}
+
+	// Add block 4
+	// call shleft() to test SHL opcode, storedData => 0xfe...1f00
+	funcSig = hash.Hash256b([]byte("shleft()"))
+	shlHash, err = addOneBlock(4, funcSig[:4])
+	if err != nil {
+		return err
+	}
+
+	// Add block 5
+	// call saright() to test SAR opcode, storedData => 0xfffe...1f
+	funcSig = hash.Hash256b([]byte("saright()"))
+	sarHash, err = addOneBlock(5, funcSig[:4])
+	if err != nil {
+		return err
+	}
+
+	// Add block 6
+	// call getCodeHash() to test EXTCODEHASH opcode
+	funcSig = hash.Hash256b([]byte("getCodeHash(address)"))
+	addr, _ := address.FromString(contract)
+	ethaddr := hash.BytesToHash256(addr.Bytes())
+	data = append(funcSig[:4], ethaddr[:]...)
+	extHash, err = addOneBlock(6, data)
+	if err != nil {
+		return err
+	}
+
+	// Add block 7
+	// call create2() to test CREATE2 opcode
+	funcSig = hash.Hash256b([]byte("create2()"))
+	crt2Hash, err = addOneBlock(7, funcSig[:4])
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func addTestingTsfBlocks(bc Blockchain) error {
 	// Add block 1
@@ -170,7 +296,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	setHash = ex1.Hash()
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
 	accMap[addr2] = []action.SealedEnvelope{ex1}
@@ -212,7 +337,6 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	if err != nil {
 		return err
 	}
-	getHash = ex1.Hash()
 	accMap = make(map[string][]action.SealedEnvelope)
 	accMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
 	accMap[addr2] = []action.SealedEnvelope{ex1}
@@ -468,6 +592,129 @@ func (ms *MockSubscriber) Counter() int {
 	return ms.counter
 }
 
+func TestConstantinople(t *testing.T) {
+	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
+		require := require.New(t)
+		ctx := context.Background()
+
+		// Create a blockchain from scratch
+		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+		require.NoError(err)
+		hc := config.NewHeightUpgrade(cfg)
+		acc := account.NewProtocol(hc)
+		sf.AddActionHandlers(acc)
+		registry := protocol.Registry{}
+		require.NoError(registry.Register(account.ProtocolID, acc))
+		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+		bc := NewBlockchain(
+			cfg,
+			PrecreatedStateFactoryOption(sf),
+			BoltDBDaoOption(),
+			RegistryOption(&registry),
+			EnableExperimentalActions(),
+		)
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+		exec := execution.NewProtocol(bc, hc)
+		require.NoError(registry.Register(execution.ProtocolID, exec))
+		bc.Validator().AddActionValidators(acc, exec)
+		sf.AddActionHandlers(exec)
+		require.NoError(bc.Start(ctx))
+		require.NoError(addCreatorToFactory(sf))
+		defer func() {
+			require.NoError(bc.Stop(ctx))
+		}()
+
+		require.Nil(addTestingConstantinopleBlocks(bc))
+
+		hashTopic := []struct {
+			h       hash.Hash256
+			blkHash string
+			topic   []byte
+		}{
+			{
+				deployHash,
+				"d1ff0e7fe2a54600a171d3bcc9e222c656d584b3a0e7b33373e634de3f8cd010",
+				nil,
+			},
+			{
+				setHash,
+				"24667a8d9ca9f4d8c1bc651b9be205cc8422aca36dba8895aa39c50a8937be09",
+				setTopic,
+			},
+			{
+				shrHash,
+				"fd8ef98e94689d4a69fc828693dc931c48767b53dec717329bbac043c21fa78c",
+				shrTopic,
+			},
+			{
+				shlHash,
+				"77d0861e5e7164691c71fe5031087dda5ea20039bd096feaae9d8166bdf6a6a9",
+				shlTopic,
+			},
+			{
+				sarHash,
+				"7946fa90bd7c25f84bf83f727cc4589abc690d488ec8fa4f4af2ec9d19c71e74",
+				sarTopic,
+			},
+			{
+				extHash,
+				"0d35e9623375411f39c701ddf78f743abf3615f732977c01966a2fe359ae46f9",
+				extTopic,
+			},
+			{
+				crt2Hash,
+				"63f147cfecd0a58a9d6211886b53533cfe3ae57a539a2fecab05b27beab04e69",
+				crt2Topic,
+			},
+		}
+
+		for i := 0; i < len(hashTopic); i++ {
+			r, err := bc.GetReceiptByActionHash(hashTopic[i].h)
+			require.NoError(err)
+			require.NotNil(r)
+			require.Equal(uint64(1), r.Status)
+
+			blk, err := bc.GetBlockByHeight(uint64(i) + 1)
+			require.NoError(err)
+			h := blk.HashBlock()
+			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(h[:]))
+
+			if hashTopic[i].topic != nil {
+				funcSig := hash.Hash256b([]byte("Set(uint256)"))
+				blk, err := bc.GetBlockByHeight(1 + uint64(i))
+				require.NoError(err)
+				f := blk.Header.LogsBloomfilter()
+				require.NotNil(f)
+				require.True(f.Exist(funcSig[:]))
+				require.True(f.Exist(hashTopic[i].topic))
+			}
+		}
+	}
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+	defer func() {
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+	}()
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
+	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.AleutianBlockHeight = 2
+
+	t.Run("test Constantinople contract", func(t *testing.T) {
+		testValidateBlockchain(cfg, t)
+	})
+}
+
 func TestLoadBlockchainfromDB(t *testing.T) {
 	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
 		require := require.New(t)
@@ -657,6 +904,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.Plugins[config.GatewayPlugin] = false
 
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)

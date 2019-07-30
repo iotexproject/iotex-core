@@ -15,16 +15,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -141,7 +142,6 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 		stateDB.logError(err)
 	}
-	// stateDB.GetBalance(evmAddr)
 }
 
 // AddBalance adds balance to account
@@ -237,6 +237,16 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 		log.L().Error("Failed to set nonce.", zap.Error(err))
 		stateDB.logError(err)
 	}
+}
+
+// SubRefund subtracts refund
+func (stateDB *StateDBAdapter) SubRefund(gas uint64) {
+	log.L().Debug("Called SubRefund.", zap.Uint64("gas", gas))
+	// stateDB.journal.append(refundChange{prev: self.refund})
+	if gas > stateDB.refund {
+		panic("Refund counter not enough!")
+	}
+	stateDB.refund -= gas
 }
 
 // AddRefund adds refund
@@ -428,29 +438,36 @@ func (stateDB *StateDBAdapter) AddPreimage(hash common.Hash, preimage []byte) {
 }
 
 // ForEachStorage loops each storage
-func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(common.Hash, common.Hash) bool) {
-	ctt, err := stateDB.Contract(hash.BytesToHash160(addr[:]))
+func (stateDB *StateDBAdapter) ForEachStorage(addr common.Address, cb func(common.Hash, common.Hash) bool) error {
+	ctt, err := stateDB.getContract(hash.BytesToHash160(addr[:]))
 	if err != nil {
 		// stateDB.err = err
-		return
+		return err
 	}
 	iter, err := ctt.Iterator()
 	if err != nil {
 		// stateDB.err = err
-		return
+		return err
 	}
 
 	for {
 		key, value, err := iter.Next()
+		if err == trie.ErrEndOfIterator {
+			// hit the end of the iterator, exit now
+			return nil
+		}
 		if err != nil {
-			break
+			return err
 		}
 		ckey := common.Hash{}
 		copy(ckey[:], key[:])
 		cvalue := common.Hash{}
 		copy(cvalue[:], value[:])
-		cb(ckey, cvalue)
+		if !cb(ckey, cvalue) {
+			return nil
+		}
 	}
+	return nil
 }
 
 // AccountState returns an account state
@@ -527,64 +544,66 @@ func (stateDB *StateDBAdapter) GetCodeSize(evmAddr common.Address) int {
 // SetCode sets contract's code
 func (stateDB *StateDBAdapter) SetCode(evmAddr common.Address, code []byte) {
 	addr := hash.BytesToHash160(evmAddr[:])
-	if contract, ok := stateDB.cachedContract[addr]; ok {
-		contract.SetCode(hash.Hash256b(code), code)
-		return
-	}
 	contract, err := stateDB.getContract(addr)
 	if err != nil {
 		log.L().Error("Failed to get contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+		stateDB.logError(err)
+		return
 	}
 	contract.SetCode(hash.Hash256b(code), code)
 }
 
+// GetCommittedState gets committed state
+func (stateDB *StateDBAdapter) GetCommittedState(evmAddr common.Address, k common.Hash) common.Hash {
+	addr := hash.BytesToHash160(evmAddr[:])
+	contract, err := stateDB.getContract(addr)
+	if err != nil {
+		log.L().Error("Failed to get contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+		stateDB.logError(err)
+		return common.Hash{}
+	}
+	v, err := contract.GetCommittedState(hash.BytesToHash256(k[:]))
+	if err != nil {
+		log.L().Error("Failed to get committed state.", zap.Error(err))
+		stateDB.logError(err)
+		return common.Hash{}
+	}
+	return common.BytesToHash(v)
+}
+
 // GetState gets state
 func (stateDB *StateDBAdapter) GetState(evmAddr common.Address, k common.Hash) common.Hash {
-	storage := common.Hash{}
-	v, err := stateDB.getContractState(hash.BytesToHash160(evmAddr[:]), hash.BytesToHash256(k[:]))
+	addr := hash.BytesToHash160(evmAddr[:])
+	contract, err := stateDB.getContract(addr)
 	if err != nil {
-		log.L().Debug("Failed to get state.", zap.Error(err))
-		return storage
+		log.L().Error("Failed to get contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+		stateDB.logError(err)
+		return common.Hash{}
 	}
-	log.L().Debug("Called GetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
-	copy(storage[:], v[:])
-	return storage
+	v, err := contract.GetState(hash.BytesToHash256(k[:]))
+	if err != nil {
+		log.L().Error("Failed to get state.", zap.Error(err))
+		stateDB.logError(err)
+		return common.Hash{}
+	}
+	return common.BytesToHash(v)
 }
 
 // SetState sets state
 func (stateDB *StateDBAdapter) SetState(evmAddr common.Address, k, v common.Hash) {
-	if err := stateDB.setContractState(hash.BytesToHash160(evmAddr[:]), hash.BytesToHash256(k[:]), hash.BytesToHash256(v[:])); err != nil {
-		log.L().Error("Failed to set state.", zap.Error(err))
+	addr := hash.BytesToHash160(evmAddr[:])
+	contract, err := stateDB.getContract(addr)
+	if err != nil {
+		log.L().Error("Failed to get contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
 		stateDB.logError(err)
 		return
 	}
 	log.L().Debug("Called SetState", log.Hex("addrHash", evmAddr[:]), log.Hex("k", k[:]))
-}
-
-// getContractState returns contract's storage value
-func (stateDB *StateDBAdapter) getContractState(addr hash.Hash160, key hash.Hash256) (hash.Hash256, error) {
-	if contract, ok := stateDB.cachedContract[addr]; ok {
-		v, err := contract.GetState(key)
-		return hash.BytesToHash256(v), err
+	if err := contract.SetState(hash.BytesToHash256(k[:]), v[:]); err != nil {
+		log.L().Error("Failed to set state.", zap.Error(err), log.Hex("addrHash", addr[:]))
+		stateDB.logError(err)
+		return
 	}
-	contract, err := stateDB.getContract(addr)
-	if err != nil {
-		return hash.ZeroHash256, errors.Wrapf(err, "failed to GetContractState for contract %x", addr)
-	}
-	v, err := contract.GetState(key)
-	return hash.BytesToHash256(v), err
-}
-
-// setContractState writes contract's storage value
-func (stateDB *StateDBAdapter) setContractState(addr hash.Hash160, key, value hash.Hash256) error {
-	if contract, ok := stateDB.cachedContract[addr]; ok {
-		return contract.SetState(key, value[:])
-	}
-	contract, err := stateDB.getContract(addr)
-	if err != nil {
-		return errors.Wrapf(err, "failed to SetContractState for contract %x", addr)
-	}
-	return contract.SetState(key, value[:])
 }
 
 // CommitContracts commits contract code to db and update pending contract account changes to trie
@@ -659,15 +678,15 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 	return nil
 }
 
-// Contract returns the contract of addr
-func (stateDB *StateDBAdapter) Contract(addr hash.Hash160) (Contract, error) {
+// getContract returns the contract of addr
+func (stateDB *StateDBAdapter) getContract(addr hash.Hash160) (Contract, error) {
 	if contract, ok := stateDB.cachedContract[addr]; ok {
 		return contract, nil
 	}
-	return stateDB.getContract(addr)
+	return stateDB.getNewContract(addr)
 }
 
-func (stateDB *StateDBAdapter) getContract(addr hash.Hash160) (Contract, error) {
+func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, error) {
 	account, err := accountutil.LoadAccount(stateDB.sm, addr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
