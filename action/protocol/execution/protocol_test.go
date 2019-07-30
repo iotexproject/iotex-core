@@ -392,6 +392,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		if receipt.Status == action.SuccessReceiptStatus {
 			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
 		}
+
 		// TODO: check value of logs
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -188,8 +189,12 @@ func ExecuteContract(
 	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
 	if failed {
+		topics := []hash.Hash256{
+			hash.Hash256b([]byte("ErrorMessage")),
+		}
 		log := &action.Log{
-			Address: msg,
+			Topics: topics,
+			Data:   []byte(msg),
 		}
 		receipt.Logs = append(receipt.Logs, log)
 	}
