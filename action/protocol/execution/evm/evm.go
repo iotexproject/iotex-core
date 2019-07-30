@@ -24,6 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -44,6 +46,23 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool 
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
+
+	// track evm transfer
+	if sdb, ok := db.(*StateDBAdapter); ok {
+		from, _ := address.FromBytes(fromHash.Bytes())
+		to, _ := address.FromBytes(toHash.Bytes())
+		cb := sdb.sm.GetCachedBatch()
+		var tLogs state.TransferLogs
+		byteLog, err := cb.Get(factory.TransferLog, sdb.executionHash[:])
+		if err != nil {
+			tLogs = state.NewTransferLogs(from.String(), to.String(), amount.String())
+		} else {
+			tLogs.Deserialize(byteLog)
+			tLogs.AddLog(from.String(), to.String(), amount.String())
+		}
+		byteLog, _ = tLogs.Serialize()
+		cb.Put(factory.TransferLog, sdb.executionHash[:], byteLog, "failed to store evm transfer logs")
+	}
 }
 
 type (

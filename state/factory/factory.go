@@ -41,6 +41,9 @@ const (
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
 	AccountTrieRootKey = "accountTrieRoot"
+
+	// TransferLog is the bucket name for transfer log storage
+	TransferLog = "transferLog"
 )
 
 type (
