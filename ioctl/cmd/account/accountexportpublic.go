@@ -22,7 +22,11 @@ var accountExportPublicCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := exportPublic(args[0])
+		arg := ""
+		if len(args) == 1 {
+			arg = args[0]
+		}
+		err := exportPublic(arg)
 		return output.PrintError(err)
 	},
 }
