@@ -188,7 +188,9 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
-	if failed {
+
+	// block after than BeringHeight,log includes error message
+	if hu.IsPost(config.Bering, raCtx.BlockHeight) && failed {
 		topics := []hash.Hash256{
 			hash.Hash256b([]byte("ErrorMessage")),
 		}
