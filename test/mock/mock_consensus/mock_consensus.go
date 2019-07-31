@@ -38,6 +38,7 @@ func (m *MockConsensus) EXPECT() *MockConsensusMockRecorder {
 
 // Start mocks base method
 func (m *MockConsensus) Start(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -45,11 +46,13 @@ func (m *MockConsensus) Start(arg0 context.Context) error {
 
 // Start indicates an expected call of Start
 func (mr *MockConsensusMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockConsensus)(nil).Start), arg0)
 }
 
 // Stop mocks base method
 func (m *MockConsensus) Stop(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -57,11 +60,13 @@ func (m *MockConsensus) Stop(arg0 context.Context) error {
 
 // Stop indicates an expected call of Stop
 func (mr *MockConsensusMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockConsensus)(nil).Stop), arg0)
 }
 
 // HandleConsensusMsg mocks base method
 func (m *MockConsensus) HandleConsensusMsg(arg0 *iotextypes.ConsensusMessage) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -69,21 +74,25 @@ func (m *MockConsensus) HandleConsensusMsg(arg0 *iotextypes.ConsensusMessage) er
 
 // HandleConsensusMsg indicates an expected call of HandleConsensusMsg
 func (mr *MockConsensusMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockConsensus)(nil).HandleConsensusMsg), arg0)
 }
 
 // Calibrate mocks base method
 func (m *MockConsensus) Calibrate(arg0 uint64) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Calibrate", arg0)
 }
 
 // Calibrate indicates an expected call of Calibrate
 func (mr *MockConsensusMockRecorder) Calibrate(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Calibrate", reflect.TypeOf((*MockConsensus)(nil).Calibrate), arg0)
 }
 
 // ValidateBlockFooter mocks base method
 func (m *MockConsensus) ValidateBlockFooter(arg0 *block.Block) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateBlockFooter", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -91,11 +100,13 @@ func (m *MockConsensus) ValidateBlockFooter(arg0 *block.Block) error {
 
 // ValidateBlockFooter indicates an expected call of ValidateBlockFooter
 func (mr *MockConsensusMockRecorder) ValidateBlockFooter(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlockFooter", reflect.TypeOf((*MockConsensus)(nil).ValidateBlockFooter), arg0)
 }
 
 // Metrics mocks base method
 func (m *MockConsensus) Metrics() (scheme.ConsensusMetrics, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Metrics")
 	ret0, _ := ret[0].(scheme.ConsensusMetrics)
 	ret1, _ := ret[1].(error)
@@ -104,21 +115,25 @@ func (m *MockConsensus) Metrics() (scheme.ConsensusMetrics, error) {
 
 // Metrics indicates an expected call of Metrics
 func (mr *MockConsensusMockRecorder) Metrics() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockConsensus)(nil).Metrics))
 }
 
 // Activate mocks base method
 func (m *MockConsensus) Activate(arg0 bool) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Activate", arg0)
 }
 
 // Activate indicates an expected call of Activate
 func (mr *MockConsensusMockRecorder) Activate(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Activate", reflect.TypeOf((*MockConsensus)(nil).Activate), arg0)
 }
 
 // Active mocks base method
 func (m *MockConsensus) Active() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Active")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -126,5 +141,6 @@ func (m *MockConsensus) Active() bool {
 
 // Active indicates an expected call of Active
 func (mr *MockConsensusMockRecorder) Active() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Active", reflect.TypeOf((*MockConsensus)(nil).Active))
 }

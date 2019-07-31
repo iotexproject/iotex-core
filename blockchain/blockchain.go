@@ -1391,6 +1391,7 @@ func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws facto
 		bc.config.Genesis.NumDelegatesForFoundationBonus,
 		bc.config.Genesis.FoundationBonusLastEpoch,
 		bc.config.Genesis.ProductivityThreshold,
+		bc.config.Genesis.BeringBlockHeight,
 	)
 }
 

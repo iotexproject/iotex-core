@@ -159,7 +159,8 @@ func (r *RollDPoS) Calibrate(height uint64) {
 
 // ValidateBlockFooter validates the signatures in the block footer
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
-	round, err := r.ctx.RoundCalc().NewRound(blk.Height(), blk.Timestamp(), nil)
+	height := blk.Height()
+	round, err := r.ctx.RoundCalc().NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
 	if err != nil {
 		return err
 	}
@@ -192,7 +193,7 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
 	height := r.ctx.chain.TipHeight()
-	round, err := r.ctx.RoundCalc().NewRound(height+1, r.ctx.clock.Now(), nil)
+	round, err := r.ctx.RoundCalc().NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.clock.Now(), nil)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating round")
 	}
@@ -326,10 +327,9 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	}
 	b.cfg.DB.DbPath = b.cfg.Consensus.RollDPoS.ConsensusDBPath
 	ctx, err := newRollDPoSCtx(
-		b.cfg.Consensus.RollDPoS,
+		consensusfsm.NewConsensusConfig(b.cfg),
 		b.cfg.DB,
 		b.cfg.System.Active,
-		b.cfg.Genesis.Blockchain.BlockInterval,
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
 		b.cfg.Genesis.TimeBasedRotation,
 		b.chain,
@@ -345,7 +345,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing consensus context")
 	}
-	cfsm, err := consensusfsm.NewConsensusFSM(b.cfg.Consensus.RollDPoS.FSM, ctx, b.clock)
+	cfsm, err := consensusfsm.NewConsensusFSM(ctx, b.clock)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
 	}

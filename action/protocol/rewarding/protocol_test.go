@@ -118,6 +118,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 				5,
 				365,
 				50,
+				10000,
 			))
 	} else {
 		require.NoError(
@@ -134,6 +135,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 				5,
 				365,
 				50,
+				10000,
 			))
 	}
 
@@ -234,6 +236,7 @@ func TestProtocol_Handle(t *testing.T) {
 		5,
 		0,
 		50,
+		10000,
 	))
 	require.NoError(t, stateDB.Commit(ws))
 

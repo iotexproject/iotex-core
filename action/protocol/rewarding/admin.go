@@ -27,6 +27,8 @@ type admin struct {
 	numDelegatesForFoundationBonus uint64
 	foundationBonusLastEpoch       uint64
 	productivityThreshold          uint64
+	beringHeight                   uint64
+	beringBlockReward              *big.Int
 }
 
 // Serialize serializes admin state into bytes
@@ -39,6 +41,8 @@ func (a admin) Serialize() ([]byte, error) {
 		NumDelegatesForFoundationBonus: a.numDelegatesForFoundationBonus,
 		FoundationBonusLastEpoch:       a.foundationBonusLastEpoch,
 		ProductivityThreshold:          a.productivityThreshold,
+		BeringHeight:                   a.beringHeight,
+		BeringBlockReward:              a.beringBlockReward.String(),
 	}
 	return proto.Marshal(&gen)
 }
@@ -61,6 +65,10 @@ func (a *admin) Deserialize(data []byte) error {
 	if !ok {
 		return errors.New("failed to set bootstrap bonus")
 	}
+	beringBlockReward, ok := big.NewInt(0).SetString(gen.BeringBlockReward, 10)
+	if !ok {
+		return errors.New("failed to set block reward")
+	}
 	a.blockReward = blockReward
 	a.epochReward = epochReward
 	a.numDelegatesForEpochReward = gen.NumDelegatesForEpochReward
@@ -68,6 +76,8 @@ func (a *admin) Deserialize(data []byte) error {
 	a.numDelegatesForFoundationBonus = gen.NumDelegatesForFoundationBonus
 	a.foundationBonusLastEpoch = gen.FoundationBonusLastEpoch
 	a.productivityThreshold = gen.ProductivityThreshold
+	a.beringHeight = gen.BeringHeight
+	a.beringBlockReward = beringBlockReward
 	return nil
 }
 
@@ -115,6 +125,7 @@ func (p *Protocol) Initialize(
 	numDelegatesForFoundationBonus uint64,
 	foundationBonusLastEpoch uint64,
 	productivityThreshold uint64,
+	beringHeight uint64,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
@@ -137,6 +148,8 @@ func (p *Protocol) Initialize(
 			numDelegatesForFoundationBonus: numDelegatesForFoundationBonus,
 			foundationBonusLastEpoch:       foundationBonusLastEpoch,
 			productivityThreshold:          productivityThreshold,
+			beringHeight:                   beringHeight,
+			beringBlockReward:              new(big.Int).Div(blockReward, big.NewInt(2)),
 		},
 	); err != nil {
 		return err
@@ -162,12 +175,16 @@ func (p *Protocol) Initialize(
 
 // BlockReward returns the block reward amount
 func (p *Protocol) BlockReward(
-	_ context.Context,
+	ctx context.Context,
 	sm protocol.StateManager,
 ) (*big.Int, error) {
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return nil, err
+	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.BlockHeight >= a.beringHeight {
+		return a.beringBlockReward, nil
 	}
 	return a.blockReward, nil
 }

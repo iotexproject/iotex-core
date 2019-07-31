@@ -302,9 +302,9 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
-	clock.Add(r.ctx.RoundCalc().BlockInterval())
+	clock.Add(r.ctx.BlockInterval(blockHeight))
 	require.NoError(t, r.ctx.Start(context.Background()))
-	r.ctx.round, err = r.ctx.RoundCalc().UpdateRound(r.ctx.round, blockHeight+1, clock.Now(), 2*time.Second)
+	r.ctx.round, err = r.ctx.RoundCalc().UpdateRound(r.ctx.round, blockHeight+1, r.ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second)
 	require.NoError(t, err)
 
 	m, err := r.Metrics()

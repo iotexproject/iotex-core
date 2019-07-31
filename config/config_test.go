@@ -46,6 +46,15 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 	}
 }
 
+func TestNewConfigWithDiffFormat(t *testing.T) {
+	_overwritePath = "./config.yaml"
+	defer func() { _overwritePath = "" }()
+
+	cfg, err := New()
+	require.NoError(t, err)
+	require.Equal(t, "12.34.56.78", cfg.Network.ExternalHost)
+}
+
 func TestNewConfigWithOverride(t *testing.T) {
 	sk, err := crypto.GenerateKey()
 	require.Nil(t, err)
