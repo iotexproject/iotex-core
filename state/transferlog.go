@@ -15,7 +15,7 @@ type TransferLogs struct {
 	Transfers []TransferLog `json:"transfers"`
 }
 
-// TransferLogs represents one evm transfer trace
+// TransferLog represents one evm transfer trace
 type TransferLog struct {
 	From   string `json:"from"`
 	To     string `json:"to"`
