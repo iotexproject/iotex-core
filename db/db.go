@@ -13,9 +13,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
+	// ErrBucketNotExist indicates certain bucket does not exist in db
+	ErrBucketNotExist = errors.New("bucket not exist in DB")
 	// ErrNotExist indicates certain item does not exist in Blockchain database
 	ErrNotExist = errors.New("not exist in DB")
 	// ErrAlreadyDeleted indicates the key has been deleted
@@ -38,6 +41,10 @@ type KVStore interface {
 	Delete(string, []byte) error
 	// Commit commits a batch
 	Commit(KVStoreBatch) error
+	// CountingIndex returns the index, and nil if not exist
+	CountingIndex([]byte) (CountingIndex, error)
+	// CreateCountingIndexNX creates a new index if it does not exist, otherwise return existing index
+	CreateCountingIndexNX([]byte) (CountingIndex, error)
 }
 
 const (
@@ -121,4 +128,30 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 	}
 
 	return e
+}
+
+// CountingIndex returns the index, and nil if not exist
+func (m *memKVStore) CountingIndex(name []byte) (CountingIndex, error) {
+	if _, ok := m.bucket.Load(string(name)); !ok {
+		return nil, errors.Wrapf(ErrBucketNotExist, "bucket = %s doesn't exist", name)
+	}
+	size, err := m.Get(string(name), ZeroIndex)
+	if err != nil {
+		return nil, err
+	}
+	return NewInMemCountingIndex(m, name, byteutil.BytesToUint64BigEndian(size))
+}
+
+// CreateCountingIndexNX creates a new index if it does not exist, otherwise return existing index
+func (m *memKVStore) CreateCountingIndexNX(name []byte) (CountingIndex, error) {
+	var size uint64
+	if total, _ := m.Get(string(name), ZeroIndex); total == nil {
+		// put 0 as total number of keys
+		if err := m.Put(string(name), ZeroIndex, ZeroIndex); err != nil {
+			return nil, err
+		}
+	} else {
+		size = byteutil.BytesToUint64BigEndian(total)
+	}
+	return NewInMemCountingIndex(m, name, size)
 }
