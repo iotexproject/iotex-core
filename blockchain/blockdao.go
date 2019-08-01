@@ -73,6 +73,8 @@ var (
 		},
 		[]string{"result"},
 	)
+	modelLen  = len("00000000.db")
+	suffexLen = len(".db")
 )
 
 type blockDAO struct {
@@ -87,6 +89,7 @@ type blockDAO struct {
 	bodyCache     *cache.ThreadSafeLruCache
 	footerCache   *cache.ThreadSafeLruCache
 	cfg           config.DB
+	mutex         sync.Mutex // for create new db file
 }
 
 // newBlockDAO instantiates a block DAO
@@ -163,10 +166,10 @@ func (dao *blockDAO) initStores() error {
 	for _, file := range files {
 		name := file.Name()
 		lens := len(name)
-		if lens < 11 || !strings.Contains(name, model) {
+		if lens < modelLen || !strings.Contains(name, model) {
 			continue
 		}
-		num := name[lens-11 : lens-3]
+		num := name[lens-modelLen : lens-suffexLen]
 		n, err := strconv.Atoi(num)
 		if err != nil {
 			continue
@@ -703,15 +706,15 @@ func (dao *blockDAO) deleteTipBlock() error {
 
 // getDBFromHash returns db of this block stored
 func (dao *blockDAO) getDBFromHash(h hash.Hash256) (db.KVStore, uint64, error) {
-	hei, err := dao.getBlockHeight(h)
+	height, err := dao.getBlockHeight(h)
 	if err != nil {
 		return nil, 0, err
 	}
-	return dao.getDBFromHeight(hei, blockHeightToFileKey)
+	return dao.getDBFromHeight(height, blockHeightToFileKey)
 }
 
 func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint64, err error) {
-	if dao.cfg.SplitDBSize == 0 {
+	if dao.cfg.SplitDBSizeMB == 0 {
 		return dao.kvstore, 0, nil
 	}
 	if blkHeight <= dao.cfg.SplitDBHeight {
@@ -724,12 +727,16 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	}
 	longFileName := dir + "/" + file + fmt.Sprintf("-%08d", topIndex) + ".db"
 	dat, err := os.Stat(longFileName)
-	if err != nil {
+	if err != nil && os.IsNotExist(err) {
 		// db file is not exist,this will create
 		return dao.openDB(topIndex)
 	}
+	// other errors except file is not exist
+	if err != nil {
+		return
+	}
 	// dao.cfg.SplitDBSize need convert to M
-	if uint64(dat.Size()) > dao.cfg.SplitDBSize*1024*1024 {
+	if uint64(dat.Size()) > dao.cfg.SplitDBSize() {
 		kvstore, index, err = dao.openDB(topIndex + 1)
 		dao.topIndex.Store(index)
 		return
@@ -748,7 +755,7 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 }
 
 func (dao *blockDAO) getDBFromHeight(blkHeight uint64, keyPrefix []byte) (kvstore db.KVStore, index uint64, err error) {
-	if dao.cfg.SplitDBSize == 0 {
+	if dao.cfg.SplitDBSizeMB == 0 {
 		return dao.kvstore, 0, nil
 	}
 	if blkHeight <= dao.cfg.SplitDBHeight {
@@ -807,6 +814,8 @@ func (dao *blockDAO) openDB(idx uint64) (kvstore db.KVStore, index uint64, err e
 	if idx == 0 {
 		return dao.kvstore, 0, nil
 	}
+	dao.mutex.Lock()
+	defer dao.mutex.Unlock()
 	cfg := dao.cfg
 	model, _ := getFileNameAndDir(cfg.DbPath)
 	name := model + fmt.Sprintf("-%08d", idx) + ".db"
