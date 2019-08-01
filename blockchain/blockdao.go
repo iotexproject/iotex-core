@@ -612,7 +612,7 @@ func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 	return blockReceipts, nil
 }
 
-// deleteBlock deletes the tip block
+// deleteTipBlock deletes the tip block
 func (dao *blockDAO) deleteTipBlock() error {
 	batch := db.NewBatch()
 	batchForBlock := db.NewBatch()
@@ -701,7 +701,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 	return dao.kvstore.Commit(batch)
 }
 
-// getDBForHash returns db of this block stored
+// getDBFromHash returns db of this block stored
 func (dao *blockDAO) getDBFromHash(h hash.Hash256) (db.KVStore, uint64, error) {
 	hei, err := dao.getBlockHeight(h)
 	if err != nil {
@@ -710,7 +710,6 @@ func (dao *blockDAO) getDBFromHash(h hash.Hash256) (db.KVStore, uint64, error) {
 	return dao.getDBFromHeight(hei, blockHeightToFileKey)
 }
 
-//getDBFromHeight
 func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint64, err error) {
 	if dao.cfg.SplitDBSize == 0 {
 		return dao.kvstore, 0, nil
@@ -748,7 +747,6 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	return dao.openDB(topIndex)
 }
 
-//getDBFromHeight
 func (dao *blockDAO) getDBFromHeight(blkHeight uint64, keyPrefix []byte) (kvstore db.KVStore, index uint64, err error) {
 	if dao.cfg.SplitDBSize == 0 {
 		return dao.kvstore, 0, nil
@@ -766,7 +764,6 @@ func (dao *blockDAO) getDBFromHeight(blkHeight uint64, keyPrefix []byte) (kvstor
 	return dao.getDBFromIndex(heiIndex)
 }
 
-// getDBFromIndex
 func (dao *blockDAO) getDBFromIndex(idx uint64) (kvstore db.KVStore, index uint64, err error) {
 	if idx == 0 {
 		return dao.kvstore, 0, nil
@@ -805,7 +802,7 @@ func (dao *blockDAO) getBlockValue(blockNS string, h hash.Hash256) ([]byte, erro
 	return value, err
 }
 
-// open file if exists, or create new file
+// openDB open file if exists, or create new file
 func (dao *blockDAO) openDB(idx uint64) (kvstore db.KVStore, index uint64, err error) {
 	if idx == 0 {
 		return dao.kvstore, 0, nil
