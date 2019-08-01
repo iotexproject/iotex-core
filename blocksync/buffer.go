@@ -9,8 +9,7 @@ package blocksync
 import (
 	"sync"
 
-	"github.com/iotexproject/iotex-core/db"
-
+	"github.com/iotexproject/iotex-election/db"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
