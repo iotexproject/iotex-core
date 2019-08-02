@@ -62,7 +62,6 @@ var (
 	actionFromPrefix         = []byte("fr.")
 	actionToPrefix           = []byte("to.")
 	blockHeightToFileKey     = []byte("bhf.")
-	receiptHeightToFileKey   = []byte("rhf.")
 )
 
 var (
@@ -433,7 +432,7 @@ func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, er
 		return nil, errors.Wrapf(err, "failed to get receipt index for action %x", h)
 	}
 	height := enc.MachineEndian.Uint64(heightBytes)
-	kvstore, _, err := dao.getDBFromHeight(height, receiptHeightToFileKey)
+	kvstore, _, err := dao.getDBFromHeight(height)
 	if err != nil {
 		return nil, err
 	}
@@ -456,54 +455,60 @@ func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, er
 }
 
 // putBlock puts a block
-func (dao *blockDAO) putBlock(blk *block.Block) error {
+func (dao *blockDAO) putBlock(blk *block.Block) (kv db.KVStore, index uint64, err error) {
 	batch := db.NewBatch()
 	batchForBlock := db.NewBatch()
 	height := byteutil.Uint64ToBytes(blk.Height())
 	hash := blk.HashBlock()
 	serHeader, err := blk.Header.Serialize()
 	if err != nil {
-		return errors.Wrap(err, "failed to serialize block header")
+		err = errors.Wrap(err, "failed to serialize block header")
+		return
 	}
 	serBody, err := blk.Body.Serialize()
 	if err != nil {
-		return errors.Wrap(err, "failed to serialize block body")
+		err = errors.Wrap(err, "failed to serialize block body")
+		return
 	}
 	serFooter, err := blk.Footer.Serialize()
 	if err != nil {
-		return errors.Wrap(err, "failed to serialize block footer")
+		err = errors.Wrap(err, "failed to serialize block footer")
+		return
 	}
 	if dao.compressBlock {
 		timer := dao.timerFactory.NewTimer("compress_header")
 		serHeader, err = compress.Compress(serHeader)
 		timer.End()
 		if err != nil {
-			return errors.Wrapf(err, "error when compressing a block header")
+			err = errors.Wrapf(err, "error when compressing a block header")
+			return
 		}
 		timer = dao.timerFactory.NewTimer("compress_body")
 		serBody, err = compress.Compress(serBody)
 		timer.End()
 		if err != nil {
-			return errors.Wrapf(err, "error when compressing a block body")
+			err = errors.Wrapf(err, "error when compressing a block body")
+			return
 		}
 		timer = dao.timerFactory.NewTimer("compress_footer")
 		serFooter, err = compress.Compress(serFooter)
 		timer.End()
 		if err != nil {
-			return errors.Wrapf(err, "error when compressing a block footer")
+			err = errors.Wrapf(err, "error when compressing a block footer")
+			return
 		}
 	}
 	batchForBlock.Put(blockHeaderNS, hash[:], serHeader, "failed to put block header")
 	batchForBlock.Put(blockBodyNS, hash[:], serBody, "failed to put block body")
 	batchForBlock.Put(blockFooterNS, hash[:], serFooter, "failed to put block footer")
-	kv, fileindex, err := dao.getTopDB(blk.Height())
+	kv, index, err = dao.getTopDB(blk.Height())
 	if err != nil {
-		return err
+		return
 	}
 
 	err = kv.Commit(batchForBlock)
 	if err != nil {
-		return err
+		return
 	}
 
 	hashKey := append(hashPrefix, hash[:]...)
@@ -513,12 +518,13 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	batch.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
 
 	heightToFile := append(blockHeightToFileKey, height...)
-	fileindexBytes := byteutil.Uint64ToBytes(fileindex)
+	fileindexBytes := byteutil.Uint64ToBytes(index)
 	batch.Put(blockNS, heightToFile, fileindexBytes, "failed to put height -> file index mapping")
 
 	value, err := dao.kvstore.Get(blockNS, topHeightKey)
 	if err != nil {
-		return errors.Wrap(err, "failed to get top height")
+		err = errors.Wrap(err, "failed to get top height")
+		return
 	}
 	topHeight := enc.MachineEndian.Uint64(value)
 	if blk.Height() > topHeight {
@@ -527,7 +533,8 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 
 	value, err = dao.kvstore.Get(blockNS, totalActionsKey)
 	if err != nil {
-		return errors.Wrap(err, "failed to get total actions")
+		err = errors.Wrap(err, "failed to get total actions")
+		return
 	}
 	totalActions := enc.MachineEndian.Uint64(value)
 	totalActions += uint64(len(blk.Actions))
@@ -535,20 +542,18 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
 
 	if !dao.writeIndex {
-		return dao.kvstore.Commit(batch)
+		err = dao.kvstore.Commit(batch)
+		return
 	}
-	if err := indexBlock(dao.kvstore, blk, batch); err != nil {
-		return err
+	if err = indexBlock(dao.kvstore, blk, batch); err != nil {
+		return
 	}
-	return dao.kvstore.Commit(batch)
+	err = dao.kvstore.Commit(batch)
+	return
 }
 
 // putReceipts store receipt into db
-func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt) error {
-	kvstore, fileindex, err := dao.getTopDB(blkHeight)
-	if err != nil {
-		return err
-	}
+func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, kvstore db.KVStore, fileindex uint64) error {
 	if blkReceipts == nil {
 		return nil
 	}
@@ -579,16 +584,12 @@ func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 	if err != nil {
 		return err
 	}
-	height := byteutil.Uint64ToBytes(blkHeight)
-	heightToFile := append(receiptHeightToFileKey, height...)
-	fileindexBytes := byteutil.Uint64ToBytes(fileindex)
-	batch.Put(blockNS, heightToFile, fileindexBytes, "failed to put height -> file index mapping")
 	return dao.kvstore.Commit(batch)
 }
 
 // getReceipts gets receipts
 func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
-	kvstore, _, err := dao.getDBFromHeight(blkHeight, receiptHeightToFileKey)
+	kvstore, _, err := dao.getDBFromHeight(blkHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -710,7 +711,7 @@ func (dao *blockDAO) getDBFromHash(h hash.Hash256) (db.KVStore, uint64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	return dao.getDBFromHeight(height, blockHeightToFileKey)
+	return dao.getDBFromHeight(height)
 }
 
 func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint64, err error) {
@@ -754,7 +755,7 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	return dao.openDB(topIndex)
 }
 
-func (dao *blockDAO) getDBFromHeight(blkHeight uint64, keyPrefix []byte) (kvstore db.KVStore, index uint64, err error) {
+func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvstore db.KVStore, index uint64, err error) {
 	if dao.cfg.SplitDBSizeMB == 0 {
 		return dao.kvstore, 0, nil
 	}
@@ -762,7 +763,7 @@ func (dao *blockDAO) getDBFromHeight(blkHeight uint64, keyPrefix []byte) (kvstor
 		return dao.kvstore, 0, nil
 	}
 	hei := byteutil.Uint64ToBytes(blkHeight)
-	heightToFile := append(keyPrefix, hei...)
+	heightToFile := append(blockHeightToFileKey, hei...)
 	value, err := dao.kvstore.Get(blockNS, heightToFile[:])
 	if err != nil {
 		return
