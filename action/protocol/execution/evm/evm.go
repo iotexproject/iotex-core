@@ -252,37 +252,41 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, i
 	}
 	remainingGas += refund
 
-	if isPostBering {
-		if evmErr != nil {
-			//needs failure code
-			switch evmErr {
-			case vm.ErrOutOfGas:
-				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrOutOfGas, nil
-			case vm.ErrCodeStoreOutOfGas:
-				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrCodeStoreOutOfGas, nil
-			case vm.ErrDepth:
-				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrDepth, nil
-			case vm.ErrContractAddressCollision:
-				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrContractAddressCollision, nil
-			case vm.ErrNoCompatibleInterpreter:
-				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrNoCompatibleInterpreter, nil
-			case action.ErrExecutionReverted:
-				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrExecutionReverted, nil
-			case action.ErrMaxCodeSizeExceeded:
-				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrMaxCodeSizeExceeded, nil
-			case action.ErrWriteProtection:
-				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrWriteProtection, nil
-			default:
-				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureUnknown, nil
-			}
-		}
-		return ret, evmParams.gas, remainingGas, contractRawAddress, action.SuccessReceiptStatus, nil
-	}
+
 	if evmErr != nil {
-		return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureReceiptStatus, nil
+		return ret, evmParams.gas, remainingGas, contractRawAddress, evmErrToErrStatusCode(evmErr, isPostBering), nil
 	}
 	return ret, evmParams.gas, remainingGas, contractRawAddress, action.SuccessReceiptStatus, nil
+}
 
+// evmErrToErrStatusCode returns ReceiptStatuscode which describes error type  
+func evmErrToErrStatusCode(evmErr error, isPostBering bool) (errStatusCode uint64) {
+	errStatusCode = action.FailureUnknown 
+	if isPostBering {
+		switch evmErr {
+			case vm.ErrOutOfGas:
+				errStatusCode = action.FailureErrOutOfGas
+			case vm.ErrCodeStoreOutOfGas:
+				errStatusCode = raction.FailureErrCodeStoreOutOfGas
+			case vm.ErrDepth:
+				errStatusCode = action.FailureErrDepth
+			case vm.ErrContractAddressCollision:
+				errStatusCode = action.FailureErrContractAddressCollision
+			case vm.ErrNoCompatibleInterpreter:
+				errStatusCode = action.FailureErrNoCompatibleInterpreter
+			case action.ErrExecutionReverted:
+				errStatusCode = action.FailureErrExecutionReverted
+			case action.ErrMaxCodeSizeExceeded:
+				errStatusCode = action.FailureErrMaxCodeSizeExceeded
+			case action.ErrWriteProtection:
+				errStatusCode = action.FailureErrWriteProtection, 
+			default:
+				errStatusCode = action.FailureUnknown 
+			}
+	} else {
+		// it prevents from breaking chain
+		errStatusCode = action.FailureReceiptStatus 
+	}
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
