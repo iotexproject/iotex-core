@@ -61,7 +61,7 @@ var (
 	heightPrefix             = []byte("he.")
 	actionFromPrefix         = []byte("fr.")
 	actionToPrefix           = []byte("to.")
-	blockHeightToFileKey     = []byte("bhf.")
+	heightToFilePrefix       = []byte("hf.")
 )
 
 var (
@@ -72,8 +72,8 @@ var (
 		},
 		[]string{"result"},
 	)
-	modelLen  = len("00000000.db")
-	suffexLen = len(".db")
+	patternLen = len("00000000.db")
+	suffixLen  = len(".db")
 )
 
 type blockDAO struct {
@@ -165,10 +165,10 @@ func (dao *blockDAO) initStores() error {
 	for _, file := range files {
 		name := file.Name()
 		lens := len(name)
-		if lens < modelLen || !strings.Contains(name, model) {
+		if lens < patternLen || !strings.Contains(name, model) {
 			continue
 		}
-		num := name[lens-modelLen : lens-suffexLen]
+		num := name[lens-patternLen : lens-suffixLen]
 		n, err := strconv.Atoi(num)
 		if err != nil {
 			continue
@@ -517,7 +517,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) (kv db.KVStore, err error) {
 	heightKey := append(heightPrefix, height...)
 	batch.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
 
-	heightToFile := append(blockHeightToFileKey, height...)
+	heightToFile := append(heightToFilePrefix, height...)
 	fileindexBytes := byteutil.Uint64ToBytes(index)
 	batch.Put(blockNS, heightToFile, fileindexBytes, "failed to put height -> file index mapping")
 
@@ -763,7 +763,7 @@ func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvstore db.KVStore, inde
 		return dao.kvstore, 0, nil
 	}
 	hei := byteutil.Uint64ToBytes(blkHeight)
-	heightToFile := append(blockHeightToFileKey, hei...)
+	heightToFile := append(heightToFilePrefix, hei...)
 	value, err := dao.kvstore.Get(blockNS, heightToFile[:])
 	if err != nil {
 		return
