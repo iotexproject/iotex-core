@@ -455,7 +455,7 @@ func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, er
 }
 
 // putBlock puts a block
-func (dao *blockDAO) putBlock(blk *block.Block) (kv db.KVStore, index uint64, err error) {
+func (dao *blockDAO) putBlock(blk *block.Block) (kv db.KVStore, err error) {
 	batch := db.NewBatch()
 	batchForBlock := db.NewBatch()
 	height := byteutil.Uint64ToBytes(blk.Height())
@@ -501,7 +501,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) (kv db.KVStore, index uint64, er
 	batchForBlock.Put(blockHeaderNS, hash[:], serHeader, "failed to put block header")
 	batchForBlock.Put(blockBodyNS, hash[:], serBody, "failed to put block body")
 	batchForBlock.Put(blockFooterNS, hash[:], serFooter, "failed to put block footer")
-	kv, index, err = dao.getTopDB(blk.Height())
+	kv, index, err := dao.getTopDB(blk.Height())
 	if err != nil {
 		return
 	}
@@ -553,7 +553,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) (kv db.KVStore, index uint64, er
 }
 
 // putReceipts store receipt into db
-func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, kvstore db.KVStore, fileindex uint64) error {
+func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt, kvstore db.KVStore) error {
 	if blkReceipts == nil {
 		return nil
 	}
