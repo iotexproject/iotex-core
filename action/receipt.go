@@ -7,6 +7,8 @@
 package action
 
 import (
+	"errors"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -19,6 +21,24 @@ const (
 	FailureReceiptStatus = uint64(0)
 	// SuccessReceiptStatus is the status that contract execution success
 	SuccessReceiptStatus = uint64(1)
+	FailureErrOutOfGas                 = uint64(2)
+	FailureErrCodeStoreOutOfGas        = uint64(3)
+	FailureErrDepth                    = uint64(4)
+	FailureErrContractAddressCollision = uint64(5)
+	FailureErrNoCompatibleInterpreter  = uint64(6)
+	FailureErrExecutionReverted        = uint64(7)
+	FailureErrMaxCodeSizeExceeded      = uint64(8)
+	FailureErrWriteProtection          = uint64(9)
+	FailureUnknown                     = uint64(10)
+)
+
+// Error Variables from Go-ethereum "github.com/go-ethereum/core/vm/instructions.go"
+var (
+	ErrWriteProtection       = errors.New("evm: write protection")
+	ErrReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
+	ErrExecutionReverted     = errors.New("evm: execution reverted")
+	ErrMaxCodeSizeExceeded   = errors.New("evm: max code size exceeded")
+	ErrInvalidJump           = errors.New("evm: invalid jump destination")
 )
 
 // Receipt represents the result of a contract

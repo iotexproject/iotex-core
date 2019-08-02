@@ -49,12 +49,16 @@ type ExpectedBalance struct {
 	RawBalance string `json:"rawBalance"`
 }
 
+// BlockConfig defines an blockHeight 
+type BlockConfig struct {
+	BlockHeight uint64 `json:"blockHeight"`
+}
+
 func (eb *ExpectedBalance) Balance() *big.Int {
 	balance, ok := new(big.Int).SetString(eb.RawBalance, 10)
 	if !ok {
 		log.L().Panic("invalid balance", zap.String("balance", eb.RawBalance))
 	}
-
 	return balance
 }
 
@@ -78,6 +82,7 @@ type ExecutionConfig struct {
 	Failed                  bool              `json:"failed"`
 	RawReturnValue          string            `json:"rawReturnValue"`
 	RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
+	ExpectedStatus 			uint64            `json:"expectedStatus"`
 	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
 	ExpectedLogs            []Log             `json:"expectedLogs"`
 }
@@ -176,6 +181,7 @@ func (cfg *ExecutionConfig) ExpectedReturnValue() []byte {
 
 type SmartContractTest struct {
 	// the order matters
+	//InitBlockHeight []BlockConfig  `json:"initBlockHeight`
 	InitBalances []ExpectedBalance `json:"initBalances"`
 	Deployments  []ExecutionConfig `json:"deployments"`
 	Executions   []ExecutionConfig `json:"executions"`

@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -152,7 +151,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, failed, msg, err := executeInEVM(ps, stateDB, raCtx.GasLimit)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, raCtx.GasLimit, hu.IsPost(config.Bering, raCtx.BlockHeight))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -162,11 +161,9 @@ func ExecuteContract(
 		ActionHash:      execution.Hash(),
 		ContractAddress: contractAddress,
 	}
-	if failed {
-		receipt.Status = action.FailureReceiptStatus
-	} else {
-		receipt.Status = action.SuccessReceiptStatus
-	}
+
+	receipt.Status = statusCode
+
 	if hu.IsPost(config.Pacific, raCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
@@ -188,18 +185,6 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
-
-	// block after than BeringHeight,log includes error message
-	if hu.IsPost(config.Bering, raCtx.BlockHeight) && failed {
-		topics := []hash.Hash256{
-			hash.Hash256b([]byte("ErrorMessage")),
-		}
-		log := &action.Log{
-			Topics: topics,
-			Data:   []byte(msg),
-		}
-		receipt.Logs = append(receipt.Logs, log)
-	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }
@@ -212,21 +197,22 @@ func getChainConfig() *params.ChainConfig {
 	return &chainConfig
 }
 
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) ([]byte, uint64, uint64, string, bool, string, error) {
+//Error in executeInEVM is a consensus issue
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, isPostBering bool) ([]byte, uint64, uint64, string, uint64, error) {
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
-		return nil, 0, 0, action.EmptyAddress, true, err.Error(), err
+		return nil, 0, 0, action.EmptyAddress, action.FailureReceiptStatus, err
 	}
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, err.Error(), err
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.FailureReceiptStatus, err
 	}
 	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, action.ErrOutOfGas.Error(), action.ErrOutOfGas
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.FailureReceiptStatus, action.ErrOutOfGas
 	}
 	remainingGas -= intriGas
 	contractRawAddress := action.EmptyAddress
@@ -250,8 +236,11 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) (
 	}
 	if evmErr != nil {
 		log.L().Debug("evm error", zap.Error(evmErr))
-		if evmErr == vm.ErrInsufficientBalance {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, evmErr.Error(), nil
+		// The only possible consensus-error would be if there wasn't
+		// sufficient balance to make the transfer happen.
+		// Should be a hard fork (Bering)
+		if evmErr == vm.ErrInsufficientBalance && isPostBering {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.FailureReceiptStatus, evmErr
 		}
 	}
 	if stateDB.Error() != nil {
@@ -263,11 +252,37 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) (
 	}
 	remainingGas += refund
 
-	if evmErr != nil {
-		// for the error message specification
-		return ret, evmParams.gas, remainingGas, contractRawAddress, true, evmErr.Error(), nil
+	if isPostBering {
+		if evmErr != nil {
+			//needs failure code
+			switch evmErr {
+			case vm.ErrOutOfGas:
+				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrOutOfGas, nil
+			case vm.ErrCodeStoreOutOfGas:
+				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrCodeStoreOutOfGas, nil
+			case vm.ErrDepth:
+				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrDepth, nil
+			case vm.ErrContractAddressCollision:
+				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrContractAddressCollision, nil
+			case vm.ErrNoCompatibleInterpreter:
+				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrNoCompatibleInterpreter, nil
+			case action.ErrExecutionReverted:
+				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrExecutionReverted, nil
+			case action.ErrMaxCodeSizeExceeded:
+				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrMaxCodeSizeExceeded, nil
+			case action.ErrWriteProtection:
+				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureErrWriteProtection, nil
+			default:
+				return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureUnknown, nil
+			}
+		}
+		return ret, evmParams.gas, remainingGas, contractRawAddress, action.SuccessReceiptStatus, nil
 	}
-	return ret, evmParams.gas, remainingGas, contractRawAddress, false, "", nil
+	if evmErr != nil {
+		return ret, evmParams.gas, remainingGas, contractRawAddress, action.FailureReceiptStatus, nil
+	}
+	return ret, evmParams.gas, remainingGas, contractRawAddress, action.SuccessReceiptStatus, nil
+
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
