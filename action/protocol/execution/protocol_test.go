@@ -49,7 +49,7 @@ type ExpectedBalance struct {
 	RawBalance string `json:"rawBalance"`
 }
 
-// BlockConfig defines an blockHeight 
+// BlockConfig defines an blockHeight
 type BlockConfig struct {
 	BlockHeight uint64 `json:"blockHeight"`
 }
@@ -82,7 +82,7 @@ type ExecutionConfig struct {
 	Failed                  bool              `json:"failed"`
 	RawReturnValue          string            `json:"rawReturnValue"`
 	RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
-	ExpectedStatus 			uint64            `json:"expectedStatus"`
+//	ExpectedStatus          uint64            `json:"expectedStatus"`
 	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
 	ExpectedLogs            []Log             `json:"expectedLogs"`
 }
@@ -181,10 +181,10 @@ func (cfg *ExecutionConfig) ExpectedReturnValue() []byte {
 
 type SmartContractTest struct {
 	// the order matters
-	InitBlockHeight []BlockConfig  `json:"initBlockHeight`
-	InitBalances []ExpectedBalance `json:"initBalances"`
-	Deployments  []ExecutionConfig `json:"deployments"`
-	Executions   []ExecutionConfig `json:"executions"`
+//	InitBlockHeight []BlockConfig     `json:"initBlockHeight`
+	InitBalances    []ExpectedBalance `json:"initBalances"`
+	Deployments     []ExecutionConfig `json:"deployments"`
+	Executions      []ExecutionConfig `json:"executions"`
 }
 
 func NewSmartContractTest(t *testing.T, file string) {
@@ -301,10 +301,10 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
 
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	for _, e := range sct.InitBlockHeight {
-		raCtx.height = e.BlockHeight 
-	}
+//	raCtx := protocol.MustGetRunActionsCtx(ctx)
+//	for _, e := range sct.InitBlockHeight {
+//		raCtx.height = e.BlockHeight
+//	}
 	return bc
 }
 
@@ -367,16 +367,16 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		retval, receipt, err := runExecution(bc, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
-		if exec.Bering {
-			r.Equal(exec.ExpectedStatus, recipt.Status)
-		}else {
-			if exec.Failed {
-				r.Equal(action.FailureReceiptStatus, receipt.Status)
-			} else {
-				r.Equal(action.SuccessReceiptStatus, receipt.Status)
-			}
-		}
-		
+//		if exec.Bering {
+//			r.Equal(exec.ExpectedStatus, recipt.Status)
+//		} else {
+//			if exec.Failed {
+//				r.Equal(action.FailureReceiptStatus, receipt.Status)
+//			} else {
+//				r.Equal(action.SuccessReceiptStatus, receipt.Status)
+//			}
+//		}
+
 		if exec.ExpectedGasConsumed() != 0 {
 			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed)
 		}

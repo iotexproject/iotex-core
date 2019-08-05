@@ -20,7 +20,7 @@ const (
 	// FailureReceiptStatus is the status that contract execution failed
 	FailureReceiptStatus = uint64(0)
 	// SuccessReceiptStatus is the status that contract execution success
-	SuccessReceiptStatus = uint64(1)
+	SuccessReceiptStatus               = uint64(1)
 	FailureErrOutOfGas                 = uint64(2)
 	FailureErrCodeStoreOutOfGas        = uint64(3)
 	FailureErrDepth                    = uint64(4)

@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -151,7 +152,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, raCtx.GasLimit, hu.IsPost(config.Bering, raCtx.BlockHeight))
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, raCtx.GasLimit, raCtx, hu)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -198,7 +199,8 @@ func getChainConfig() *params.ChainConfig {
 }
 
 //Error in executeInEVM is a consensus issue
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, isPostBering bool) ([]byte, uint64, uint64, string, uint64, error) {
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, raCtx protocol.RunActionsCtx, hu config.HeightUpgrade) ([]byte, uint64, uint64, string, uint64, error) {
+	isPostBering := hu.IsPost(config.Bering, raCtx.BlockHeight)
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
@@ -252,41 +254,40 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, i
 	}
 	remainingGas += refund
 
-
 	if evmErr != nil {
 		return ret, evmParams.gas, remainingGas, contractRawAddress, evmErrToErrStatusCode(evmErr, isPostBering), nil
 	}
-	return ret, evmParams.gas, remainingGas, contractRawAddress, action.SuccessReceiptStatus, nil
+	return ret, evmParams.gas, remainingGas, contractRawAddress, iotextypes.ReceiptStatus_SuccessReceiptStatus, nil
 }
 
-// evmErrToErrStatusCode returns ReceiptStatuscode which describes error type  
+// evmErrToErrStatusCode returns ReceiptStatuscode which describes error type
 func evmErrToErrStatusCode(evmErr error, isPostBering bool) (errStatusCode uint64) {
-	errStatusCode = action.FailureUnknown 
 	if isPostBering {
 		switch evmErr {
-			case vm.ErrOutOfGas:
-				errStatusCode = action.FailureErrOutOfGas
-			case vm.ErrCodeStoreOutOfGas:
-				errStatusCode = raction.FailureErrCodeStoreOutOfGas
-			case vm.ErrDepth:
-				errStatusCode = action.FailureErrDepth
-			case vm.ErrContractAddressCollision:
-				errStatusCode = action.FailureErrContractAddressCollision
-			case vm.ErrNoCompatibleInterpreter:
-				errStatusCode = action.FailureErrNoCompatibleInterpreter
-			case action.ErrExecutionReverted:
-				errStatusCode = action.FailureErrExecutionReverted
-			case action.ErrMaxCodeSizeExceeded:
-				errStatusCode = action.FailureErrMaxCodeSizeExceeded
-			case action.ErrWriteProtection:
-				errStatusCode = action.FailureErrWriteProtection, 
-			default:
-				errStatusCode = action.FailureUnknown 
-			}
+		case vm.ErrOutOfGas:
+			errStatusCode = iotextypes.ReceiptStatus_FailureErrOutOfGas
+		case vm.ErrCodeStoreOutOfGas:
+			errStatusCode = iotextypes.ReceiptStatus_FailureErrCodeStoreOutOfGas
+		case vm.ErrDepth:
+			errStatusCode = iotextypes.ReceiptStatus_FailureErrDepth
+		case vm.ErrContractAddressCollision:
+			errStatusCode = iotextypes.ReceiptStatus_FailureErrContractAddressCollision
+		case vm.ErrNoCompatibleInterpreter:
+			errStatusCode = iotextypes.ReceiptStatus_FailureErrNoCompatibleInterpreter
+		case action.ErrExecutionReverted:
+			errStatusCode = iotextypes.ReceiptStatus_FailureErrExecutionReverted
+		case action.ErrMaxCodeSizeExceeded:
+			errStatusCode = iotextypes.ReceiptStatus_FailureErrMaxCodeSizeExceeded
+		case action.ErrWriteProtection:
+			errStatusCode = iotextypes.ReceiptStatus_FailureErrWriteProtection
+		default:
+			errStatusCode = iotextypes.ReceiptStatus_FailureUnknown
+		}
 	} else {
 		// it prevents from breaking chain
-		errStatusCode = action.FailureReceiptStatus 
+		errStatusCode = iotextypes.ReceiptStatus_FailureReceiptStatus
 	}
+	return
 }
 
 // intrinsicGas returns the intrinsic gas of an execution
