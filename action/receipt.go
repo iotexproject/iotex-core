@@ -15,7 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
-
+/*
 const (
 	// FailureReceiptStatus is the status that contract execution failed
 	FailureReceiptStatus = uint64(0)
@@ -31,6 +31,7 @@ const (
 	FailureErrWriteProtection          = uint64(9)
 	FailureUnknown                     = uint64(10)
 )
+*/
 
 // Error Variables from Go-ethereum "github.com/go-ethereum/core/vm/instructions.go"
 var (
