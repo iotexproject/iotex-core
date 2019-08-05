@@ -15,24 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
-/*
-const (
-	// FailureReceiptStatus is the status that contract execution failed
-	FailureReceiptStatus = uint64(0)
-	// SuccessReceiptStatus is the status that contract execution success
-	SuccessReceiptStatus               = uint64(1)
-	FailureErrOutOfGas                 = uint64(2)
-	FailureErrCodeStoreOutOfGas        = uint64(3)
-	FailureErrDepth                    = uint64(4)
-	FailureErrContractAddressCollision = uint64(5)
-	FailureErrNoCompatibleInterpreter  = uint64(6)
-	FailureErrExecutionReverted        = uint64(7)
-	FailureErrMaxCodeSizeExceeded      = uint64(8)
-	FailureErrWriteProtection          = uint64(9)
-	FailureUnknown                     = uint64(10)
-)
-*/
-
 // Error Variables from Go-ethereum "github.com/go-ethereum/core/vm/instructions.go"
 var (
 	ErrWriteProtection       = errors.New("evm: write protection")
