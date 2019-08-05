@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// GetPrivateKey get privatekey from keystore
 func GetPrivateKey(walletPath, addr, password string) (crypto.PrivateKey, error) {
 	ks := keystore.NewKeyStore(walletPath,
 		keystore.StandardScryptN, keystore.StandardScryptP)

@@ -29,7 +29,7 @@ var (
 	// Default is the default config
 	Default = Config{
 		API: API{
-			Url: "api.testnet.iotex.one:80",
+			URL: "api.testnet.iotex.one:80",
 		},
 	}
 
@@ -37,11 +37,10 @@ var (
 	ErrInvalidCfg = errors.New("invalid config value")
 )
 
-// Network is the config struct for network package
 type (
 	// API is the api service config
 	API struct {
-		Url string `yaml:"url"`
+		URL string `yaml:"url"`
 	}
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
@@ -81,6 +80,7 @@ type (
 	}
 )
 
+// New create config
 func New() (Config, error) {
 	opts := make([]uconfig.YAMLOption, 0)
 	opts = append(opts, uconfig.Static(Default))

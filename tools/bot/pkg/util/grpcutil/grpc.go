@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 )
 
+// ConnectToEndpoint connect to endpoint
 func ConnectToEndpoint(url string, secure bool) (*grpc.ClientConn, error) {
 	endpoint := url
 	if endpoint == "" {
@@ -23,6 +24,8 @@ func ConnectToEndpoint(url string, secure bool) (*grpc.ClientConn, error) {
 	}
 	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 }
+
+// GetReceiptByActionHash get receipt by action hash
 func GetReceiptByActionHash(url string, secure bool, hash string) error {
 	conn, err := ConnectToEndpoint(url, secure)
 	if err != nil {
@@ -41,6 +44,8 @@ func GetReceiptByActionHash(url string, secure bool, hash string) error {
 	}
 	return nil
 }
+
+// SendAction send action to endpoint
 func SendAction(url string, secure bool, action *iotextypes.Action) error {
 	conn, err := ConnectToEndpoint(url, secure)
 	if err != nil {
@@ -54,6 +59,8 @@ func SendAction(url string, secure bool, action *iotextypes.Action) error {
 	}
 	return nil
 }
+
+// GetNonce get nonce of address
 func GetNonce(url string, secure bool, address string) (nonce uint64, err error) {
 	conn, err := ConnectToEndpoint(url, secure)
 	if err != nil {

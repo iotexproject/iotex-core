@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/grpcutil"
 )
 
-// Execution
+// Execution defines a execution
 type Execution struct {
 	cfg    config.Config
 	ctx    context.Context
@@ -35,7 +35,7 @@ type Execution struct {
 	alert  Alert
 }
 
-// NewTransfer
+// NewTransfer make a new execution
 func NewExecution(cfg config.Config, name string) (Service, error) {
 	return newExecution(cfg, name)
 }
@@ -48,6 +48,7 @@ func newExecution(cfg config.Config, name string) (Service, error) {
 	return &svr, nil
 }
 
+// Alert add alert
 func (s *Execution) Alert(a Alert) {
 	s.alert = a
 }
@@ -64,7 +65,7 @@ func (s *Execution) Stop() error {
 	return nil
 }
 
-// Name
+// Name returns name
 func (s *Execution) Name() string {
 	return s.name
 }
@@ -93,7 +94,7 @@ func (s *Execution) checkAndAlert(hs string) {
 
 	select {
 	case <-t.C:
-		err := grpcutil.GetReceiptByActionHash(s.cfg.API.Url, false, hs)
+		err := grpcutil.GetReceiptByActionHash(s.cfg.API.URL, false, hs)
 		if err != nil {
 			log.L().Error("Execution timeout:", zap.String("Execution hash", hs), zap.Error(err))
 			if s.alert != nil {
@@ -105,7 +106,7 @@ func (s *Execution) checkAndAlert(hs string) {
 	}
 }
 func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
-	nonce, err := grpcutil.GetNonce(s.cfg.API.Url, false, s.cfg.Execution.From[0])
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, false, s.cfg.Execution.From[0])
 	if err != nil {
 		return
 	}
@@ -134,7 +135,7 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	err = grpcutil.SendAction(s.cfg.API.Url, false, selp.Proto())
+	err = grpcutil.SendAction(s.cfg.API.URL, false, selp.Proto())
 	if err != nil {
 		return
 	}

@@ -16,12 +16,15 @@ import (
 	"github.com/iotexproject/iotex-core/tools/bot/pkg/log"
 )
 
+// Service defines service interface
 type Service interface {
 	Start(ctx context.Context) error
 	Stop() error
 	Name() string
 	Alert(a Alert)
 }
+
+// Alert defines alert interface
 type Alert interface {
 	Send(string) error
 }
@@ -63,13 +66,15 @@ func (s *Server) Stop() error {
 	return nil
 }
 
-// Stop stops the server
+// Register register services
 func (s *Server) Register(ss ...Service) error {
 	for _, service := range ss {
 		s.runServices[service.Name()] = service
 	}
 	return nil
 }
+
+// RegisterAlert register alert
 func (s *Server) RegisterAlert(alert Alert) error {
 	for _, service := range s.runServices {
 		service.Alert(alert)

@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/grpcutil"
 )
 
-// Transfer
+// Transfer defines transfer struct
 type Transfer struct {
 	cfg    config.Config
 	ctx    context.Context
@@ -35,7 +35,7 @@ type Transfer struct {
 	alert  Alert
 }
 
-// NewTransfer
+// NewTransfer make new transfer
 func NewTransfer(cfg config.Config, name string) (Service, error) {
 	return newTransfer(cfg, name)
 }
@@ -48,6 +48,7 @@ func newTransfer(cfg config.Config, name string) (Service, error) {
 	return &svr, nil
 }
 
+// Alert add a alert
 func (s *Transfer) Alert(a Alert) {
 	s.alert = a
 }
@@ -64,7 +65,7 @@ func (s *Transfer) Stop() error {
 	return nil
 }
 
-// Name
+// Name returns name
 func (s *Transfer) Name() string {
 	return s.name
 }
@@ -93,7 +94,7 @@ func (s *Transfer) checkAndAlert(hs string) {
 
 	select {
 	case <-t.C:
-		err := grpcutil.GetReceiptByActionHash(s.cfg.API.Url, false, hs)
+		err := grpcutil.GetReceiptByActionHash(s.cfg.API.URL, false, hs)
 		if err != nil {
 			log.L().Error("transfer timeout:", zap.String("transfer hash", hs), zap.Error(err))
 			if s.alert != nil {
@@ -105,7 +106,7 @@ func (s *Transfer) checkAndAlert(hs string) {
 	}
 }
 func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
-	nonce, err := grpcutil.GetNonce(s.cfg.API.Url, false, s.cfg.Transfer.From[0])
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, false, s.cfg.Transfer.From[0])
 	if err != nil {
 		return
 	}
@@ -130,7 +131,7 @@ func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	err = grpcutil.SendAction(s.cfg.API.Url, false, selp.Proto())
+	err = grpcutil.SendAction(s.cfg.API.URL, false, selp.Proto())
 	if err != nil {
 		return
 	}

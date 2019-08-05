@@ -36,7 +36,7 @@ const (
 	transferSha3  = "a9059cbb"
 )
 
-// Xrc20
+// Xrc20 defines xrc20 struct
 type Xrc20 struct {
 	cfg    config.Config
 	ctx    context.Context
@@ -45,7 +45,7 @@ type Xrc20 struct {
 	alert  Alert
 }
 
-// NewTransfer
+// NewTransfer make a new transfer
 func NewXrc20(cfg config.Config, name string) (Service, error) {
 	return newXrc20(cfg, name)
 }
@@ -58,6 +58,7 @@ func newXrc20(cfg config.Config, name string) (Service, error) {
 	return &svr, nil
 }
 
+// Alert add a alert
 func (s *Xrc20) Alert(a Alert) {
 	s.alert = a
 }
@@ -74,7 +75,7 @@ func (s *Xrc20) Stop() error {
 	return nil
 }
 
-// Name
+// Name returns name
 func (s *Xrc20) Name() string {
 	return s.name
 }
@@ -103,7 +104,7 @@ func (s *Xrc20) checkAndAlert(hs string) {
 
 	select {
 	case <-t.C:
-		err := grpcutil.GetReceiptByActionHash(s.cfg.API.Url, false, hs)
+		err := grpcutil.GetReceiptByActionHash(s.cfg.API.URL, false, hs)
 		if err != nil {
 			log.L().Error("xrc20 transfer timeout:", zap.String("xrc20 transfer hash", hs), zap.Error(err))
 			if s.alert != nil {
@@ -115,7 +116,7 @@ func (s *Xrc20) checkAndAlert(hs string) {
 	}
 }
 func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
-	nonce, err := grpcutil.GetNonce(s.cfg.API.Url, false, s.cfg.Xrc20.From[0])
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, false, s.cfg.Xrc20.From[0])
 	if err != nil {
 		return
 	}
@@ -150,7 +151,7 @@ func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	err = grpcutil.SendAction(s.cfg.API.Url, false, selp.Proto())
+	err = grpcutil.SendAction(s.cfg.API.URL, false, selp.Proto())
 	if err != nil {
 		return
 	}
