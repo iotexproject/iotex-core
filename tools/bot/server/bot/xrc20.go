@@ -45,7 +45,7 @@ type Xrc20 struct {
 	alert  Alert
 }
 
-// NewTransfer make a new transfer
+// NewXrc20 make a new transfer
 func NewXrc20(cfg config.Config, name string) (Service, error) {
 	return newXrc20(cfg, name)
 }

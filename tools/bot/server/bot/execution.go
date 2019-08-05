@@ -35,7 +35,7 @@ type Execution struct {
 	alert  Alert
 }
 
-// NewTransfer make a new execution
+// NewExecution make a new execution
 func NewExecution(cfg config.Config, name string) (Service, error) {
 	return newExecution(cfg, name)
 }
