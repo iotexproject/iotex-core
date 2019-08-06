@@ -159,7 +159,7 @@ func TestBlockDAO(t *testing.T) {
 		assert.Equal(t, uint64(0), height)
 
 		// block put order is 0 2 1
-		_, err = dao.putBlock(blks[0])
+		err = dao.putBlock(blks[0])
 		assert.Nil(t, err)
 		blk, err := dao.getBlock(blks[0].HashBlock())
 		assert.Nil(t, err)
@@ -169,7 +169,7 @@ func TestBlockDAO(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(1), height)
 
-		_, err = dao.putBlock(blks[2])
+		err = dao.putBlock(blks[2])
 		assert.Nil(t, err)
 		blk, err = dao.getBlock(blks[2].HashBlock())
 		assert.Nil(t, err)
@@ -179,7 +179,7 @@ func TestBlockDAO(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(3), height)
 
-		_, err = dao.putBlock(blks[1])
+		err = dao.putBlock(blks[1])
 		assert.Nil(t, err)
 		blk, err = dao.getBlock(blks[1].HashBlock())
 		assert.Nil(t, err)
@@ -226,11 +226,11 @@ func TestBlockDAO(t *testing.T) {
 			assert.Nil(t, err)
 		}()
 
-		_, err = dao.putBlock(blks[0])
+		err = dao.putBlock(blks[0])
 		assert.Nil(t, err)
-		_, err = dao.putBlock(blks[1])
+		err = dao.putBlock(blks[1])
 		assert.Nil(t, err)
-		_, err = dao.putBlock(blks[2])
+		err = dao.putBlock(blks[2])
 
 		depositHash1 := blks[0].Actions[3].Hash()
 		depositHash2 := blks[1].Actions[3].Hash()
@@ -318,11 +318,11 @@ func TestBlockDAO(t *testing.T) {
 		}()
 
 		// Put blocks first
-		_, err = dao.putBlock(blks[0])
+		err = dao.putBlock(blks[0])
 		require.NoError(err)
-		_, err = dao.putBlock(blks[1])
+		err = dao.putBlock(blks[1])
 		require.NoError(err)
-		_, err = dao.putBlock(blks[2])
+		err = dao.putBlock(blks[2])
 		require.NoError(err)
 
 		tipHeight, err := dao.getBlockchainHeight()
@@ -390,7 +390,7 @@ func TestBlockDao_putReceipts(t *testing.T) {
 			Logs:            []*action.Log{},
 		},
 	}
-	require.NoError(t, blkDao.putReceipts(1, receipts, blkDao.kvstore))
+	require.NoError(t, blkDao.putReceipts(1, receipts))
 	for _, receipt := range receipts {
 		r, err := blkDao.getReceiptByActionHash(receipt.ActionHash)
 		require.NoError(t, err)
@@ -444,7 +444,7 @@ func BenchmarkBlockCache(b *testing.B) {
 				AddActions(actions...).
 				SignAndBuild(identityset.PrivateKey(0))
 			require.NoError(b, err)
-			_, err = blkDao.putBlock(&blk)
+			err = blkDao.putBlock(&blk)
 			require.NoError(b, err)
 			prevHash = blk.HashBlock()
 		}
