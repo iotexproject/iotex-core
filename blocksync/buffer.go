@@ -9,6 +9,7 @@ package blocksync
 import (
 	"sync"
 
+	"github.com/iotexproject/iotex-election/db"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -79,7 +80,7 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 		}
 		delete(b.blocks, heightToSync)
 		if err := commitBlock(b.bc, b.ap, b.cs, blk); err != nil && errors.Cause(err) != blockchain.ErrInvalidTipHeight {
-			if errors.Cause(err) == poll.ErrProposedDelegatesLength || errors.Cause(err) == poll.ErrDelegatesNotAsExpected {
+			if errors.Cause(err) == poll.ErrProposedDelegatesLength || errors.Cause(err) == poll.ErrDelegatesNotAsExpected || errors.Cause(err) == db.ErrNotExist {
 				l.Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
 			} else {
 				l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
