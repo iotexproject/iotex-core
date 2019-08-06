@@ -690,6 +690,12 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("cashier", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/cashier.json")
 	})
+	// wireconnection 
+	// [Issue #1422] This unit test proves that there is no problem when we want to deploy and execute the contract 
+	// which inherits abstract contract and implements abstract functions and call each other (Utterance() calls utterance()) 
+	t.Run("wireconnection", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/wireconnection.json")
+	})
 }
 
 func TestProtocol_Validate(t *testing.T) {
