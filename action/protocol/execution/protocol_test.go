@@ -19,12 +19,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -689,6 +690,10 @@ func TestProtocol_Handle(t *testing.T) {
 	// cashier
 	t.Run("cashier", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/cashier.json")
+	})
+	// gas-test
+	t.Run("gas-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/gas-test.json")
 	})
 }
 
