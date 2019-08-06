@@ -1001,7 +1001,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
-	kv, err := bc.dao.putBlock(blk)
+	err = bc.dao.putBlock(blk)
 	putTimer.End()
 	if err != nil {
 		return err
@@ -1023,7 +1023,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 		// write smart contract receipt into DB
 		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
-		err = bc.dao.putReceipts(blk.Height(), blk.Receipts, kv)
+		err = bc.dao.putReceipts(blk.Height(), blk.Receipts)
 		receiptTimer.End()
 		if err != nil {
 			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
