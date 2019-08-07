@@ -44,7 +44,7 @@ const (
 )
 
 var (
-	// AccountIndexPrefix for save account max version
+	// AccountMaxVersionPrefix for save account max version
 	AccountMaxVersionPrefix = []byte("vp.")
 )
 
