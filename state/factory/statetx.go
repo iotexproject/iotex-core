@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"encoding/binary"
 
 	"github.com/pkg/errors"
 
@@ -178,7 +179,23 @@ func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
 	stx.cb.Put(AccountKVNameSpace, pkHash[:], ss, "error when putting k = %x", pkHash)
+	stx.putIndex(pkHash, ss)
 	return nil
+}
+
+func (stx *stateTX) putIndex(pkHash hash.Hash160, ss []byte) error {
+	currentVersion := make([]byte, 8)
+	//stx.ver is last height,should be this block to pack action
+	binary.BigEndian.PutUint64(currentVersion, stx.ver+1)
+
+	indexKey := append(AccountMaxVersionPrefix, pkHash[:]...)
+	err := stx.dao.Put(AccountKVNameSpace, indexKey, currentVersion)
+	if err != nil {
+		return err
+	}
+	stateKey := append(pkHash[:], currentVersion...)
+
+	return stx.dao.Put(AccountKVNameSpace, stateKey, ss)
 }
 
 // DelState deletes a state from DB
