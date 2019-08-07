@@ -165,6 +165,8 @@ var (
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
+			SplitDBSizeMB: 640,
+			SplitDBHeight: 900000,
 		},
 		Genesis: genesis.Default,
 		Reindex: false,
@@ -314,6 +316,12 @@ type (
 
 		// SQLite3 is the config for SQLITE3
 		SQLITE3 SQLITE3 `yaml:"SQLITE3"`
+
+		// SplitDBSize is the config for DB's split file size
+		SplitDBSizeMB uint64 `yaml:"splitDBSizeMB"`
+
+		// SplitDBHeight is the config for DB's split start height
+		SplitDBHeight uint64 `yaml:"splitDBHeight"`
 	}
 
 	// RDS is the cloud rds config
@@ -357,6 +365,11 @@ type (
 	// Validate is the interface of validating the config
 	Validate func(Config) error
 )
+
+// SplitDBSize returns the configured SplitDBSizeMB
+func (db DB) SplitDBSize() uint64 {
+	return db.SplitDBSizeMB * 1024 * 1024
+}
 
 // New creates a config instance. It first loads the default configs. If the config path is not empty, it will read from
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,
