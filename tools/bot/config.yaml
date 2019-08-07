@@ -20,7 +20,7 @@ transfer:
   amountInRau: 0
   gaslimit: 1000000
   gasprice: 1000000000000
-  alertThreshold: 15
+  alertThreshold: 20
 xrc20:
   contract: io1hhu3gwt5uankzl3zlp2cz8w0sl9uj336rq0334
   from: ["io1vdtfpzkwpyngzvx7u2mauepnzja7kd5rryp0sg","xx"]
@@ -28,7 +28,7 @@ xrc20:
   amount: 10
   gaslimit: 1000000
   gasprice: 1000000000000
-  alertThreshold: 15
+  alertThreshold: 20
 execution:
   contract: io1hxfy5pf0ykws7gk0mznt48jw5ejf47qqmje3dv
   from: ["io1vdtfpzkwpyngzvx7u2mauepnzja7kd5rryp0sg","xx"]

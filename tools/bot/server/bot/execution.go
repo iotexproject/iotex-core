@@ -19,9 +19,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/tools/bot/config"
-	"github.com/iotexproject/iotex-core/tools/bot/pkg/log"
 	"github.com/iotexproject/iotex-core/tools/bot/pkg/util"
 	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/grpcutil"
 )
@@ -94,7 +94,7 @@ func (s *Execution) checkAndAlert(hs string) {
 
 	select {
 	case <-t.C:
-		err := grpcutil.GetReceiptByActionHash(s.cfg.API.URL, false, hs)
+		err := grpcutil.GetReceiptByActionHash(s.cfg.API.URL, hs)
 		if err != nil {
 			log.L().Error("Execution timeout:", zap.String("Execution hash", hs), zap.Error(err))
 			if s.alert != nil {
@@ -106,7 +106,7 @@ func (s *Execution) checkAndAlert(hs string) {
 	}
 }
 func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
-	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, false, s.cfg.Execution.From[0])
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Execution.From[0])
 	if err != nil {
 		return
 	}
@@ -135,7 +135,8 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	err = grpcutil.SendAction(s.cfg.API.URL, false, selp.Proto())
+
+	err = grpcutil.SendAction(s.cfg.API.URL, selp.Proto())
 	if err != nil {
 		return
 	}

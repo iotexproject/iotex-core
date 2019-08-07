@@ -4,11 +4,6 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-// Usage:
-//   make build
-//   ./bin/server -config-file=./config.yaml
-//
-
 package main
 
 import (
@@ -21,8 +16,8 @@ import (
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/tools/bot/config"
-	"github.com/iotexproject/iotex-core/tools/bot/pkg/log"
 	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/mailutil"
 	"github.com/iotexproject/iotex-core/tools/bot/server/bot"
 )
@@ -58,7 +53,7 @@ func main() {
 	// xrc20
 	xrc20, err := bot.NewXrc20(cfg, "xrc20")
 	if err != nil {
-		log.L().Fatal("new transfer:", zap.Error(err))
+		log.L().Fatal("new xrc20 transfer:", zap.Error(err))
 	}
 
 	// multisend
@@ -81,7 +76,7 @@ func main() {
 }
 
 func initLogger(cfg config.Config) {
-	if err := log.InitLoggers(cfg.Log); err != nil {
+	if err := log.InitLoggers(cfg.Log, cfg.SubLogs); err != nil {
 		glog.Println("Cannot config global logger, use default one: ", err)
 	}
 }
