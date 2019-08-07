@@ -239,6 +239,7 @@ func BoltDBDaoOption() Option {
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 			cfg.Chain.MaxCacheSize,
+			cfg.DB,
 		)
 		return nil
 	}
@@ -253,6 +254,7 @@ func InMemDaoOption() Option {
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 			cfg.Chain.MaxCacheSize,
+			cfg.DB,
 		)
 
 		return nil

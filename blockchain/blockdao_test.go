@@ -146,7 +146,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, false, false, 0)
+		dao := newBlockDAO(kvstore, false, false, 0, config.Default.DB)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -218,7 +218,7 @@ func TestBlockDAO(t *testing.T) {
 
 	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false, 0)
+		dao := newBlockDAO(kvstore, true, false, 0, config.Default.DB)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -309,7 +309,7 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false, 0)
+		dao := newBlockDAO(kvstore, true, false, 0, config.Default.DB)
 		err := dao.Start(ctx)
 		require.NoError(err)
 		defer func() {
@@ -371,7 +371,7 @@ func TestBlockDAO(t *testing.T) {
 }
 
 func TestBlockDao_putReceipts(t *testing.T) {
-	blkDao := newBlockDAO(db.NewMemKVStore(), true, false, 0)
+	blkDao := newBlockDAO(db.NewMemKVStore(), true, false, 0, config.Default.DB)
 	receipts := []*action.Receipt{
 		{
 			BlockHeight:     1,
@@ -414,7 +414,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		}()
 		store := db.NewBoltDB(cfg)
 
-		blkDao := newBlockDAO(store, false, false, cacheSize)
+		blkDao := newBlockDAO(store, false, false, cacheSize, config.Default.DB)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))
@@ -444,7 +444,8 @@ func BenchmarkBlockCache(b *testing.B) {
 				AddActions(actions...).
 				SignAndBuild(identityset.PrivateKey(0))
 			require.NoError(b, err)
-			require.NoError(b, blkDao.putBlock(&blk))
+			err = blkDao.putBlock(&blk)
+			require.NoError(b, err)
 			prevHash = blk.HashBlock()
 		}
 		b.ResetTimer()
