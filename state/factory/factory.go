@@ -44,9 +44,10 @@ const (
 )
 
 var (
-	//AccountIndexPrefix
+	// AccountIndexPrefix for save account max version
 	AccountMaxVersionPrefix = []byte("vp.")
 )
+
 type (
 	// Factory defines an interface for managing states
 	Factory interface {
