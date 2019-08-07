@@ -38,9 +38,9 @@ func NewStakingCommittee(
 		}
 	}
 	return &stakingCommittee{
-		hu: hu,
+		hu:                hu,
 		governanceStaking: gs,
-		nativeStaking: ns,
+		nativeStaking:     ns,
 	}, nil
 }
 

@@ -96,16 +96,16 @@ type Blockchain interface {
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
 	// GetTotalActions returns the total number of actions
 	GetTotalActions() (uint64, error)
-	// GetNumActions returns the number of actions
+	// GetNumActions returns the number of actions in certain block
 	GetNumActions(height uint64) (uint64, error)
 	// GetTranferAmount returns the transfer amount
 	GetTranferAmount(height uint64) (*big.Int, error)
 	// GetReceiptByActionHash returns the receipt by action hash
 	GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error)
-	// GetActionsFromAddress returns actions from address
-	GetActionsFromAddress(address string) ([]hash.Hash256, error)
-	// GetActionsToAddress returns actions to address
-	GetActionsToAddress(address string) ([]hash.Hash256, error)
+	// GetActionsFromIndex returns action hash from index
+	GetActionsFromIndex(uint64, uint64) ([][]byte, error)
+	// GetActionsByAddress returns actions by address
+	GetActionsByAddress(string, uint64, uint64) ([][]byte, error)
 	// GetActionCountByAddress returns action count by address
 	GetActionCountByAddress(address string) (uint64, error)
 	// GetActionByActionHash returns action by action hash
@@ -159,8 +159,6 @@ type Blockchain interface {
 
 	// RemoveSubscriber make you listen to every single produced block
 	RemoveSubscriber(BlockCreationSubscriber) error
-	// GetActionHashFromIndex returns action hash from index
-	GetActionHashFromIndex(index uint64) (hash.Hash256, error)
 }
 
 // blockchain implements the Blockchain interface
@@ -503,27 +501,23 @@ func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 	return bc.dao.getReceiptByActionHash(h)
 }
 
-// GetActionsFromAddress returns actions from address
-func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, error) {
+// GetActionsFromIndex returns action hash from index
+func (bc *blockchain) GetActionsFromIndex(start, count uint64) ([][]byte, error) {
+	return bc.dao.getActionHashFromIndex(start, count)
+}
+
+// GetActionsByAddress returns action hash by address
+func (bc *blockchain) GetActionsByAddress(addrStr string, start, count uint64) ([][]byte, error) {
 	addr, err := address.FromString(addrStr)
 	if err != nil {
 		return nil, err
 	}
-	return getActionsBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
-}
-
-// GetActionsFromIndex returns actions from index
-func (bc *blockchain) GetActionHashFromIndex(index uint64) (hash.Hash256, error) {
-	return bc.dao.getActionHashFromIndex(index)
-}
-
-// GetActionToAddress returns action to address
-func (bc *blockchain) GetActionsToAddress(addrStr string) ([]hash.Hash256, error) {
-	addr, err := address.FromString(addrStr)
-	if err != nil {
-		return nil, err
+	actions, err := bc.dao.getActionsByAddress(hash.BytesToHash160(addr.Bytes()), start, count)
+	if err != nil && errors.Cause(err) == db.ErrBucketNotExist {
+		// no actions associated with address, return nil
+		return nil, nil
 	}
-	return getActionsByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	return actions, err
 }
 
 // GetActionCountByAddress returns action count by address
@@ -532,24 +526,12 @@ func (bc *blockchain) GetActionCountByAddress(addrStr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	fromCount, err := getActionCountBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
-	if err != nil {
-		return 0, err
-	}
-	toCount, err := getActionCountByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
-	if err != nil {
-		return 0, err
-	}
-	return fromCount + toCount, nil
-}
-
-func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256, error) {
-	return getBlockHashByActionHash(bc.dao.kvstore, h)
+	return bc.dao.getActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 }
 
 // GetActionByActionHash returns action by action hash
 func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	blkHash, err := bc.getActionByActionHashHelper(h)
+	blkHash, err := bc.dao.getBlockHashByActionHash(h)
 	if err != nil {
 		return action.SealedEnvelope{}, err
 	}
@@ -568,7 +550,7 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 
 // GetBlockHashByActionHash returns Block hash by action hash
 func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	return getBlockHashByActionHash(bc.dao.kvstore, h)
+	return bc.dao.getBlockHashByActionHash(h)
 }
 
 // GetReceiptsByHeight returns action receipts by block height

@@ -12,7 +12,6 @@ import (
 	"math"
 	"math/big"
 	"net"
-	"sort"
 	"strconv"
 	"time"
 
@@ -712,12 +711,12 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 
 func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {
 	var actionInfo []*iotexapi.ActionInfo
-	for i := start; i < start+count; i++ {
-		hash, err := api.bc.GetActionHashFromIndex(i)
-		if err != nil {
-			continue
-		}
-		act, err := api.getAction(hash, false)
+	hashes, err := api.bc.GetActionsFromIndex(start, count)
+	if err != nil {
+		return nil, status.Error(codes.Unavailable, err.Error())
+	}
+	for i := range hashes {
+		act, err := api.getAction(hash.BytesToHash256(hashes[i]), false)
 		if err != nil {
 			return nil, status.Error(codes.Unavailable, err.Error())
 		}
@@ -730,7 +729,6 @@ func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iote
 }
 
 // GetActions returns actions within the range
-// This is a workaround for the slow access issue if the start index is very big
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
 	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
@@ -740,11 +738,14 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	if totalActions == uint64(0) {
-		return &iotexapi.GetActionsResponse{}, nil
-	}
 	if start >= totalActions {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
+	}
+	if totalActions == uint64(0) || count == 0 {
+		return &iotexapi.GetActionsResponse{}, nil
+	}
+	if start+count > totalActions {
+		count = totalActions - start
 	}
 	if api.hasActionIndex {
 		return api.getActionsFromIndex(totalActions, start, count)
@@ -802,55 +803,22 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
-	actions, err := api.getTotalActionsByAddress(address)
+	actions, err := api.bc.GetActionsByAddress(address, start, count)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	if len(actions) == 0 {
 		return &iotexapi.GetActionsResponse{}, nil
 	}
-	if start >= uint64(len(actions)) {
-		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
-	}
 
 	res := &iotexapi.GetActionsResponse{Total: uint64(len(actions))}
-
-	account, err := api.bc.StateByAddr(address)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to get account state by address")
-	}
-
-	// In the case of contract address, do not sort in order to save db I/O performance
-	// TODO: This is a workaround to keep actions in correct order while not affecting db I/O performance too much
-	if account.IsContract() {
-		for i := start; i < uint64(len(actions)) && i < start+count; i++ {
-			act, err := api.getAction(actions[i], false)
-			if err != nil {
-				continue
-			}
-			res.ActionInfo = append(res.ActionInfo, act)
-		}
-		return res, nil
-	}
-
-	// sort action by timestamp
-	for _, action := range actions {
-		act, err := api.getAction(action, false)
+	for i := range actions {
+		act, err := api.getAction(hash.BytesToHash256(actions[i]), false)
 		if err != nil {
 			continue
 		}
 		res.ActionInfo = append(res.ActionInfo, act)
 	}
-	sort.Slice(res.ActionInfo, func(i, j int) bool {
-		return res.ActionInfo[i].Timestamp.Seconds < res.ActionInfo[j].Timestamp.Seconds
-	})
-
-	end := start + count
-	if end > uint64(len(res.ActionInfo)) {
-		end = uint64(len(res.ActionInfo))
-	}
-	res.ActionInfo = res.ActionInfo[start:end]
-
 	return res, nil
 }
 
@@ -1140,18 +1108,6 @@ func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi
 		return nil, err
 	}
 	return api.pendingAction(selp)
-}
-
-func (api *Server) getTotalActionsByAddress(address string) ([]hash.Hash256, error) {
-	actions, err := api.bc.GetActionsFromAddress(address)
-	if err != nil {
-		return nil, err
-	}
-	actionsToAddress, err := api.bc.GetActionsToAddress(address)
-	if err != nil {
-		return nil, err
-	}
-	return append(actions, actionsToAddress...), nil
 }
 
 func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iotexapi.ActionInfo {

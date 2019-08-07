@@ -525,10 +525,12 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(err)
 		require.Equal(eHash, exe.Hash())
 
-		exes, err := bc.GetActionsFromAddress(identityset.Address(27).String())
+		total, err := bc.GetActionCountByAddress(identityset.Address(27).String())
+		require.NoError(err)
+		exes, err := bc.GetActionsByAddress(identityset.Address(27).String(), 0, total)
 		require.Nil(err)
 		require.Equal(1, len(exes))
-		require.Equal(eHash, exes[0])
+		require.Equal(eHash[:], exes[0])
 
 		blkHash, err := bc.GetBlockHashByActionHash(eHash)
 		require.Nil(err)
