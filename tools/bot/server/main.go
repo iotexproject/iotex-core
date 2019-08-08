@@ -10,7 +10,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	glog "log"
 	"os"
 
 	_ "go.uber.org/automaxprocs"
@@ -25,7 +24,7 @@ import (
 func init() {
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
-			"usage: server -config-path=[string]\n")
+			"usage: bot -config-path=[string]\n")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
@@ -35,10 +34,13 @@ func init() {
 func main() {
 	cfg, err := config.New()
 	if err != nil {
-		glog.Fatalln("Failed to new config.", zap.Error(err))
+		fmt.Println("Failed to new config.", zap.Error(err))
+		return
 	}
-	initLogger(cfg)
-
+	err = initLogger(cfg)
+	if err != nil {
+		return
+	}
 	b, err := bot.NewServer(cfg)
 	if err != nil {
 		log.L().Fatal("new server:", zap.Error(err))
@@ -75,8 +77,10 @@ func main() {
 	select {}
 }
 
-func initLogger(cfg config.Config) {
+func initLogger(cfg config.Config) error {
 	if err := log.InitLoggers(cfg.Log, cfg.SubLogs); err != nil {
-		glog.Println("Cannot config global logger, use default one: ", err)
+		fmt.Println("Cannot config global logger, use default one: ", err)
+		return err
 	}
+	return nil
 }

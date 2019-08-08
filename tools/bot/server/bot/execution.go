@@ -71,11 +71,11 @@ func (s *Execution) Name() string {
 }
 
 func (s *Execution) start() error {
-	if len(s.cfg.Execution.From) != 2 {
+	if len(s.cfg.Execution.Sender) != 2 {
 		return errors.New("signer needs password")
 	}
 	// load keystore
-	pri, err := util.GetPrivateKey(s.cfg.Wallet, s.cfg.Execution.From[0], s.cfg.Execution.From[1])
+	pri, err := util.GetPrivateKey(s.cfg.Wallet, s.cfg.Execution.Sender[0], s.cfg.Execution.Sender[1])
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (s *Execution) start() error {
 	return nil
 }
 func (s *Execution) checkAndAlert(hs string) {
-	d := time.Duration(s.cfg.Execution.AlertThreshold) * time.Second
+	d := time.Duration(s.cfg.AlertThreshold) * time.Second
 	t := time.NewTicker(d)
 	defer t.Stop()
 
@@ -106,11 +106,11 @@ func (s *Execution) checkAndAlert(hs string) {
 	}
 }
 func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
-	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Execution.From[0])
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Execution.Sender[0])
 	if err != nil {
 		return
 	}
-	gasprice := big.NewInt(0).SetUint64(s.cfg.Execution.GasPrice)
+	gasprice := big.NewInt(0).SetUint64(s.cfg.GasPrice)
 
 	dataBytes, err := hex.DecodeString(s.cfg.Execution.Data)
 	if err != nil {
@@ -122,13 +122,13 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 		return
 	}
 	tx, err := action.NewExecution(s.cfg.Execution.Contract, nonce, amount,
-		s.cfg.Execution.GasLimit, gasprice, dataBytes)
+		s.cfg.GasLimit, gasprice, dataBytes)
 	if err != nil {
 		return
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
-		SetGasLimit(s.cfg.Execution.GasLimit).
+		SetGasLimit(s.cfg.GasLimit).
 		SetGasPrice(gasprice).
 		SetAction(tx).Build()
 	selp, err := action.Sign(elp, pri)
@@ -142,6 +142,6 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp.Proto())))
 	txhash = hex.EncodeToString(shash[:])
-	log.L().Info("Execution: ", zap.String("Execution hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", s.cfg.Execution.From[0]))
+	log.L().Info("Execution: ", zap.String("Execution hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", s.cfg.Execution.Sender[0]))
 	return
 }

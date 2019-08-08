@@ -72,10 +72,10 @@ func (s *Transfer) Name() string {
 
 func (s *Transfer) startTransfer() error {
 	// load keystore
-	if len(s.cfg.Transfer.From) != 2 {
+	if len(s.cfg.Transfer.Sender) != 2 {
 		return errors.New("signer needs password")
 	}
-	pri, err := util.GetPrivateKey(s.cfg.Wallet, s.cfg.Transfer.From[0], s.cfg.Transfer.From[1])
+	pri, err := util.GetPrivateKey(s.cfg.Wallet, s.cfg.Transfer.Sender[0], s.cfg.Transfer.Sender[1])
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (s *Transfer) startTransfer() error {
 	return nil
 }
 func (s *Transfer) checkAndAlert(hs string) {
-	d := time.Duration(s.cfg.Transfer.AlertThreshold) * time.Second
+	d := time.Duration(s.cfg.AlertThreshold) * time.Second
 	t := time.NewTicker(d)
 	defer t.Stop()
 
@@ -106,8 +106,8 @@ func (s *Transfer) checkAndAlert(hs string) {
 	}
 }
 func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
-	gasprice := big.NewInt(0).SetUint64(s.cfg.Transfer.GasPrice)
-	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Transfer.From[0])
+	gasprice := big.NewInt(0).SetUint64(s.cfg.GasPrice)
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Transfer.Sender[0])
 	if err != nil {
 		return
 	}
@@ -126,15 +126,15 @@ func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 		return
 	}
 	cli := iotex.NewAuthedClient(iotexapi.NewAPIServiceClient(conn), acc)
-	addr, err := address.FromString(s.cfg.Transfer.To[0])
+	addr, err := address.FromString(s.cfg.Transfer.Sender[0])
 	if err != nil {
 		return
 	}
-	shash, err := cli.Transfer(addr, amount).SetNonce(nonce).SetGasLimit(s.cfg.Transfer.GasLimit).SetGasPrice(gasprice).Call(context.Background())
+	shash, err := cli.Transfer(addr, amount).SetNonce(nonce).SetGasLimit(s.cfg.GasLimit).SetGasPrice(gasprice).Call(context.Background())
 	if err != nil {
 		return
 	}
 	txhash = hex.EncodeToString(shash[:])
-	log.L().Info("transfer:", zap.String("transfer hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", s.cfg.Transfer.From[0]), zap.String("to", s.cfg.Transfer.To[0]))
+	log.L().Info("transfer:", zap.String("transfer hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", s.cfg.Transfer.Sender[0]), zap.String("to", s.cfg.Transfer.Sender[0]))
 	return
 }

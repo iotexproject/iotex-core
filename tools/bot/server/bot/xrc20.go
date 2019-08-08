@@ -81,11 +81,11 @@ func (s *Xrc20) Name() string {
 }
 
 func (s *Xrc20) startTransfer() error {
-	if len(s.cfg.Xrc20.From) != 2 {
+	if len(s.cfg.Xrc20.Sender) != 2 {
 		return errors.New("signer needs password")
 	}
 	// load keystore
-	pri, err := util.GetPrivateKey(s.cfg.Wallet, s.cfg.Xrc20.From[0], s.cfg.Xrc20.From[1])
+	pri, err := util.GetPrivateKey(s.cfg.Wallet, s.cfg.Xrc20.Sender[0], s.cfg.Xrc20.Sender[1])
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (s *Xrc20) startTransfer() error {
 	return nil
 }
 func (s *Xrc20) checkAndAlert(hs string) {
-	d := time.Duration(s.cfg.Xrc20.AlertThreshold) * time.Second
+	d := time.Duration(s.cfg.AlertThreshold) * time.Second
 	t := time.NewTicker(d)
 	defer t.Stop()
 
@@ -116,11 +116,11 @@ func (s *Xrc20) checkAndAlert(hs string) {
 	}
 }
 func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
-	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Xrc20.From[0])
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Xrc20.Sender[0])
 	if err != nil {
 		return
 	}
-	gasprice := big.NewInt(0).SetUint64(s.cfg.Xrc20.GasPrice)
+	gasprice := big.NewInt(0).SetUint64(s.cfg.GasPrice)
 	amount, ok := big.NewInt(0).SetString(s.cfg.Xrc20.Amount, 10)
 	if !ok {
 		err = errors.New("amount convert error")
@@ -128,7 +128,7 @@ func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	}
 	amountHex := amount.Text(16)
 	amountParams := strings.Repeat("0", paramsLen-len(amountHex)) + amountHex
-	to, err := address.FromString(s.cfg.Xrc20.To[0])
+	to, err := address.FromString(s.cfg.Xrc20.Sender[0])
 	if err != nil {
 		return
 	}
@@ -137,14 +137,19 @@ func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
+
 	tx, err := action.NewExecution(s.cfg.Xrc20.Contract, nonce, big.NewInt(0),
-		s.cfg.Xrc20.GasLimit, gasprice, dataBytes)
+		s.cfg.GasLimit, gasprice, dataBytes)
+	if err != nil {
+		return
+	}
+	gas, err := grpcutil.EstimateActionGas(s.cfg.API.URL, s.cfg.Xrc20.Sender[0], tx)
 	if err != nil {
 		return
 	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
-		SetGasLimit(s.cfg.Xrc20.GasLimit).
+		SetGasLimit(gas).
 		SetGasPrice(gasprice).
 		SetAction(tx).Build()
 	selp, err := action.Sign(elp, pri)
@@ -157,6 +162,6 @@ func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp.Proto())))
 	txhash = hex.EncodeToString(shash[:])
-	log.L().Info("xrc20 transfer:", zap.String("xrc20 transfer hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", s.cfg.Xrc20.From[0]), zap.String("to", s.cfg.Xrc20.To[0]))
+	log.L().Info("xrc20 transfer:", zap.String("xrc20 transfer hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", s.cfg.Xrc20.Sender[0]), zap.String("to", s.cfg.Xrc20.Sender[0]))
 	return
 }

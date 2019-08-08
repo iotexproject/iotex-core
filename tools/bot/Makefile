@@ -70,4 +70,4 @@ license:
 .PHONY: clean
 clean:
 	@echo "Cleaning..."
-	$(ECHO_V)rm -rf ./bin/$(BUILD_TARGET_SERVER)
+	$(ECHO_V)rm -rf ./$(BUILD_TARGET_SERVER)
