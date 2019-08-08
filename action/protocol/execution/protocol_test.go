@@ -389,7 +389,9 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 				expectedBalance.Balance(),
 			)
 		}
-		r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
+		if receipt.Status == action.SuccessReceiptStatus {
+			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
+		}
 		// TODO: check value of logs
 	}
 }
@@ -691,16 +693,20 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("cashier", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/cashier.json")
 	})
-	// wireconnection 
-	// [Issue #1422] This unit test proves that there is no problem when we want to deploy and execute the contract 
-	// which inherits abstract contract and implements abstract functions and call each other (Utterance() calls utterance()) 
+	// wireconnection
+	// [Issue #1422] This unit test proves that there is no problem when we want to deploy and execute the contract
+	// which inherits abstract contract and implements abstract functions and call each other (Utterance() calls utterance())
 	t.Run("wireconnection", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/wireconnection.json")
 	})
-  // gas-test
+	// gas-test
 	t.Run("gas-test", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/gas-test.json")
-  })
+	})
+	// storage-test
+	t.Run("storage-test", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/storage-test.json")
+	})
 }
 
 func TestProtocol_Validate(t *testing.T) {
