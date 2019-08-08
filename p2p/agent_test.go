@@ -64,7 +64,7 @@ func TestBroadcast(t *testing.T) {
 		return err == nil, nil
 	}))
 	for i := 0; i < n; i++ {
-		port := testutil.RandomPort()
+		port := bootnodePort + i + 1
 		cfg := config.Config{
 			Network: config.Network{
 				Host:           "127.0.0.1",
