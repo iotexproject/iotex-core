@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	uconfig "go.uber.org/config"
 
-	"github.com/iotexproject/iotex-core/tools/bot/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 func init() {
@@ -44,39 +44,32 @@ type (
 	}
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		API         API              `yaml:"api"`
-		Log         log.GlobalConfig `yaml:"log"`
-		RunInterval uint64           `yaml:"runInterval"`
-		Transfer    transfer         `yaml:"transfer"`
-		Wallet      string           `yaml:"wallet"`
-		Xrc20       xrc20            `yaml:"xrc20"`
-		Execution   execution        `yaml:"execution"`
+		API            API                         `yaml:"api"`
+		Log            log.GlobalConfig            `yaml:"log"`
+		SubLogs        map[string]log.GlobalConfig `yaml:"subLogs"`
+		RunInterval    uint64                      `yaml:"runInterval"`
+		Wallet         string                      `yaml:"wallet"`
+		GasLimit       uint64                      `yaml:"gaslimit"`
+		GasPrice       uint64                      `yaml:"gasprice"`
+		AlertThreshold uint64                      `yaml:"alertThreshold"`
+		Transfer       transfer                    `yaml:"transfer"`
+		Xrc20          xrc20                       `yaml:"xrc20"`
+		Execution      execution                   `yaml:"execution"`
 	}
 	transfer struct {
-		From           []string `yaml:"from"`
-		To             []string `yaml:"to"`
-		AmountInRau    string   `yaml:"amountInRau"`
-		GasLimit       uint64   `yaml:"gaslimit"`
-		GasPrice       uint64   `yaml:"gasprice"`
-		AlertThreshold uint64   `yaml:"alertThreshold"`
+		Sender      []string `yaml:"address"`
+		AmountInRau string   `yaml:"amountInRau"`
 	}
 	xrc20 struct {
-		Contract       string   `yaml:"contract"`
-		From           []string `yaml:"from"`
-		To             []string `yaml:"to"`
-		Amount         string   `yaml:"amount"` // amount in smallest unit
-		GasLimit       uint64   `yaml:"gaslimit"`
-		GasPrice       uint64   `yaml:"gasprice"`
-		AlertThreshold uint64   `yaml:"alertThreshold"`
+		Contract string   `yaml:"contract"`
+		Sender   []string `yaml:"address"`
+		Amount   string   `yaml:"amount"` // amount in smallest unit
 	}
 	execution struct {
-		Contract       string   `yaml:"contract"`
-		From           []string `yaml:"from"`
-		Amount         string   `yaml:"amount"` // amount in smallest unit
-		GasLimit       uint64   `yaml:"gaslimit"`
-		GasPrice       uint64   `yaml:"gasprice"`
-		AlertThreshold uint64   `yaml:"alertThreshold"`
-		Data           string   `yaml:"data"`
+		Contract string   `yaml:"contract"`
+		Sender   []string `yaml:"address"`
+		Amount   string   `yaml:"amount"` // amount in smallest unit
+		Data     string   `yaml:"data"`
 	}
 )
 
