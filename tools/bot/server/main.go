@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/tools/bot/config"
-	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/mailutil"
 	"github.com/iotexproject/iotex-core/tools/bot/server/bot"
 )
 
@@ -64,11 +63,9 @@ func main() {
 		log.L().Fatal("new multisend:", zap.Error(err))
 	}
 
-	alert := &mailutil.Email{}
 	b.Register(transfer)
 	b.Register(xrc20)
 	b.Register(multisend)
-	b.RegisterAlert(alert)
 
 	if err := b.Start(context.Background()); err != nil {
 		log.L().Fatal("Failed to start server.", zap.Error(err))

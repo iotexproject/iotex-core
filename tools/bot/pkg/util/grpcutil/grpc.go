@@ -81,8 +81,8 @@ func GetNonce(url string, address string) (nonce uint64, err error) {
 	return
 }
 
-// EstimateActionGas estimate action gas
-func EstimateActionGas(url, caller string, execution *action.Execution) (gas uint64, err error) {
+// FixGasLimit estimate action gas
+func FixGasLimit(url string, caller string, execution *action.Execution) (exec *action.Execution, err error) {
 	conn, err := ConnectToEndpoint(url)
 	if err != nil {
 		return
@@ -99,6 +99,5 @@ func EstimateActionGas(url, caller string, execution *action.Execution) (gas uin
 	if err != nil {
 		return
 	}
-	gas = res.Gas
-	return
+	return action.NewExecution(execution.Contract(), execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), execution.Data())
 }

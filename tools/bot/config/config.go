@@ -66,10 +66,14 @@ type (
 		Amount   string   `yaml:"amount"` // amount in smallest unit
 	}
 	execution struct {
-		Contract string   `yaml:"contract"`
-		Sender   []string `yaml:"address"`
-		Amount   string   `yaml:"amount"` // amount in smallest unit
-		Data     string   `yaml:"data"`
+		Contract string      `yaml:"contract"`
+		Sender   []string    `yaml:"address"`
+		Amount   string      `yaml:"amount"` // amount in smallest unit
+		To       multiSendTo `yaml:"to"`
+	}
+	multiSendTo struct {
+		Address []string `yaml:"address"`
+		Amount  []string `yaml:"amount"`
 	}
 )
 
