@@ -48,9 +48,7 @@ func TestBroadcast(t *testing.T) {
 		}
 	}
 	u := func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {}
-	allPort := make(map[int]bool)
 	bootnodePort := testutil.RandomPort()
-	allPort[bootnodePort] = true
 	cfg := config.Config{
 		Network: config.Network{Host: "127.0.0.1", Port: bootnodePort},
 	}
@@ -66,11 +64,7 @@ func TestBroadcast(t *testing.T) {
 		return err == nil, nil
 	}))
 	for i := 0; i < n; i++ {
-		port := testutil.RandomPort()
-		if _, ok := allPort[port]; ok {
-			port = testutil.RandomPort()
-		}
-		allPort[port] = true
+		port := bootnodePort + i + 1
 		cfg := config.Config{
 			Network: config.Network{
 				Host:           "127.0.0.1",
@@ -96,7 +90,7 @@ func TestBroadcast(t *testing.T) {
 		require.NoError(t, agents[i].BroadcastOutbound(WitContext(ctx, Context{ChainID: 1}), &testingpb.TestPayload{
 			MsgBody: []byte{uint8(i)},
 		}))
-		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 50*time.Second, func() (bool, error) {
+		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
 			mutex.RLock()
 			defer mutex.RUnlock()
 			// Broadcast message will be skipped by the source node
