@@ -48,7 +48,9 @@ func TestBroadcast(t *testing.T) {
 		}
 	}
 	u := func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {}
-	bootnodePort := 14689
+	allPort := make(map[int]bool)
+	bootnodePort := testutil.RandomPort()
+	allPort[bootnodePort] = true
 	cfg := config.Config{
 		Network: config.Network{Host: "127.0.0.1", Port: bootnodePort},
 	}
@@ -64,7 +66,11 @@ func TestBroadcast(t *testing.T) {
 		return err == nil, nil
 	}))
 	for i := 0; i < n; i++ {
-		port := bootnodePort + i + 1
+		port := testutil.RandomPort()
+		if _, ok := allPort[port]; ok {
+			port = testutil.RandomPort()
+		}
+		allPort[port] = true
 		cfg := config.Config{
 			Network: config.Network{
 				Host:           "127.0.0.1",
