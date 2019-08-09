@@ -113,7 +113,7 @@ func (m *ErrorMessage) String() string {
 
 // Error implements error interface
 func (m ErrorMessage) Error() string {
-	return fmt.Sprintf("%d, %s", m.Code, m.Info)
+	return m.Info
 }
 
 // StringMessage is the Message for string
@@ -181,13 +181,10 @@ func NewError(code ErrorCode, info string, pre error) error {
 
 // PrintError prints Error Message in format, only used at top layer of a command
 func PrintError(err error) error {
-	if err == nil {
-		return nil
+	if err == nil || Format == "" {
+		return err
 	}
 	newErr := NewError(0, "", err)
-	if Format == "" {
-		return newErr
-	}
 	message := newErr.(ErrorMessage)
 	fmt.Println(message.String())
 	return nil
