@@ -99,5 +99,7 @@ func FixGasLimit(url string, caller string, execution *action.Execution) (exec *
 	if err != nil {
 		return
 	}
-	return action.NewExecution(execution.Contract(), execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), execution.Data())
+	contract := execution.Contract()
+	data := execution.Data()
+	return action.NewExecution(contract, execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), data)
 }

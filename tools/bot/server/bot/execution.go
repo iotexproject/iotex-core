@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -70,9 +70,8 @@ func (s *Execution) Start(ctx context.Context) error {
 }
 
 // Stop stops the server
-func (s *Execution) Stop() error {
+func (s *Execution) Stop() {
 	s.cancel()
-	return nil
 }
 
 // Name returns name
@@ -107,12 +106,11 @@ func (s *Execution) checkAndAlert(hs string) {
 		err := grpcutil.GetReceiptByActionHash(s.cfg.API.URL, hs)
 		if err != nil {
 			log.L().Fatal("Execution timeout:", zap.String("Execution hash", hs), zap.Error(err))
-			if s.alert != nil {
-				s.alert.Send("Execution timeout: " + hs + ":" + err.Error())
-			}
 			return
 		}
 		log.L().Info("Execution success:", zap.String("Execution hash", hs))
+	case <-s.ctx.Done():
+		return
 	}
 }
 func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {

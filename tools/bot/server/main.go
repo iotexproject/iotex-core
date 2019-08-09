@@ -63,9 +63,18 @@ func main() {
 		log.L().Fatal("new multisend:", zap.Error(err))
 	}
 
-	b.Register(transfer)
-	b.Register(xrc20)
-	b.Register(multisend)
+	err = b.Register(transfer)
+	if err != nil {
+		log.L().Fatal("Register transfer:", zap.Error(err))
+	}
+	err = b.Register(xrc20)
+	if err != nil {
+		log.L().Fatal("Register xrc20 transfer:", zap.Error(err))
+	}
+	err = b.Register(multisend)
+	if err != nil {
+		log.L().Fatal("Register multisend:", zap.Error(err))
+	}
 
 	if err := b.Start(context.Background()); err != nil {
 		log.L().Fatal("Failed to start server.", zap.Error(err))

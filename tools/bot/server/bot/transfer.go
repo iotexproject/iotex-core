@@ -60,9 +60,8 @@ func (s *Transfer) Start(ctx context.Context) error {
 }
 
 // Stop stops the server
-func (s *Transfer) Stop() error {
+func (s *Transfer) Stop() {
 	s.cancel()
-	return nil
 }
 
 // Name returns name
@@ -97,12 +96,11 @@ func (s *Transfer) checkAndAlert(hs string) {
 		err := grpcutil.GetReceiptByActionHash(s.cfg.API.URL, hs)
 		if err != nil {
 			log.L().Fatal("transfer timeout:", zap.String("transfer hash", hs), zap.Error(err))
-			if s.alert != nil {
-				s.alert.Send("transfer timeout: " + hs + ":" + err.Error())
-			}
 			return
 		}
 		log.L().Info("transfer success:", zap.String("transfer hash", hs))
+	case <-s.ctx.Done():
+		return
 	}
 }
 func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {

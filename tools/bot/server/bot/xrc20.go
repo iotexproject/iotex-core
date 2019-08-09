@@ -31,7 +31,6 @@ import (
 const (
 	//000000000000000000000000da7e12ef57c236a06117c5e0d04a228e7181cf36
 	paramsLen     = 64
-	addressLen    = 40
 	addressPrefix = "000000000000000000000000"
 	transferSha3  = "a9059cbb"
 )
@@ -70,9 +69,8 @@ func (s *Xrc20) Start(ctx context.Context) error {
 }
 
 // Stop stops the server
-func (s *Xrc20) Stop() error {
+func (s *Xrc20) Stop() {
 	s.cancel()
-	return nil
 }
 
 // Name returns name
@@ -107,12 +105,11 @@ func (s *Xrc20) checkAndAlert(hs string) {
 		err := grpcutil.GetReceiptByActionHash(s.cfg.API.URL, hs)
 		if err != nil {
 			log.L().Fatal("xrc20 transfer timeout:", zap.String("xrc20 transfer hash", hs), zap.Error(err))
-			if s.alert != nil {
-				s.alert.Send("xrc20 transfer timeout: " + hs + ":" + err.Error())
-			}
 			return
 		}
 		log.L().Info("xrc20 transfer success:", zap.String("xrc20 transfer hash", hs))
+	case <-s.ctx.Done():
+		return
 	}
 }
 func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {

@@ -19,7 +19,7 @@ import (
 // Service defines service interface
 type Service interface {
 	Start(ctx context.Context) error
-	Stop() error
+	Stop()
 	Name() string
 	Alert(a Alert)
 }
@@ -39,10 +39,6 @@ type Server struct {
 
 // NewServer creates a new server
 func NewServer(cfg config.Config) (*Server, error) {
-	return newServer(cfg, false)
-}
-
-func newServer(cfg config.Config, testing bool) (*Server, error) {
 	rs := make(map[string]Service)
 	svr := Server{
 		cfg:         cfg,
@@ -58,12 +54,11 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // Stop stops the server
-func (s *Server) Stop() error {
+func (s *Server) Stop() {
 	s.cancel()
 	for _, service := range s.runServices {
 		service.Stop()
 	}
-	return nil
 }
 
 // Register register services
