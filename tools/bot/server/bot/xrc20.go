@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/tools/bot/config"
-	"github.com/iotexproject/iotex-core/tools/bot/pkg/util"
 	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/grpcutil"
 )
 
@@ -41,7 +40,6 @@ type Xrc20 struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	name   string
-	alert  Alert
 }
 
 // NewXrc20 make a new transfer
@@ -55,11 +53,6 @@ func newXrc20(cfg config.Config, name string) (Service, error) {
 		name: name,
 	}
 	return &svr, nil
-}
-
-// Alert add a alert
-func (s *Xrc20) Alert(a Alert) {
-	s.alert = a
 }
 
 // Start starts the server
@@ -79,15 +72,11 @@ func (s *Xrc20) Name() string {
 }
 
 func (s *Xrc20) startTransfer() error {
-	if len(s.cfg.Xrc20.Sender) != 2 {
-		return errors.New("signer needs password")
-	}
-	// load keystore
-	pri, err := util.GetPrivateKey(s.cfg.Wallet, s.cfg.Xrc20.Sender[0], s.cfg.Xrc20.Sender[1])
+	sk, err := crypto.HexStringToPrivateKey(s.cfg.Xrc20.Signer)
 	if err != nil {
 		return err
 	}
-	hs, err := s.transfer(pri)
+	hs, err := s.transfer(sk)
 	if err != nil {
 		return err
 	}
@@ -113,7 +102,11 @@ func (s *Xrc20) checkAndAlert(hs string) {
 	}
 }
 func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
-	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Xrc20.Sender[0])
+	addr, err := address.FromBytes(pri.PublicKey().Hash())
+	if err != nil {
+		return
+	}
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, addr.String())
 	if err != nil {
 		return
 	}
@@ -125,11 +118,8 @@ func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	}
 	amountHex := amount.Text(16)
 	amountParams := strings.Repeat("0", paramsLen-len(amountHex)) + amountHex
-	to, err := address.FromString(s.cfg.Xrc20.Sender[0])
-	if err != nil {
-		return
-	}
-	data := transferSha3 + addressPrefix + hex.EncodeToString(to.Bytes()) + amountParams
+
+	data := transferSha3 + addressPrefix + hex.EncodeToString(addr.Bytes()) + amountParams
 	dataBytes, err := hex.DecodeString(data)
 	if err != nil {
 		return
@@ -140,7 +130,7 @@ func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	tx, err = grpcutil.FixGasLimit(s.cfg.API.URL, s.cfg.Xrc20.Sender[0], tx)
+	tx, err = grpcutil.FixGasLimit(s.cfg.API.URL, addr.String(), tx)
 	if err != nil {
 		return
 	}
@@ -159,6 +149,6 @@ func (s *Xrc20) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp.Proto())))
 	txhash = hex.EncodeToString(shash[:])
-	log.L().Info("xrc20 transfer:", zap.String("xrc20 transfer hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", s.cfg.Xrc20.Sender[0]), zap.String("to", s.cfg.Xrc20.Sender[0]))
+	log.L().Info("xrc20 transfer:", zap.String("xrc20 transfer hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", addr.String()), zap.String("to", addr.String()))
 	return
 }

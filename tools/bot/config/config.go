@@ -32,9 +32,6 @@ var (
 			URL: "api.testnet.iotex.one:80",
 		},
 	}
-
-	// ErrInvalidCfg indicates the invalid config value
-	ErrInvalidCfg = errors.New("invalid config value")
 )
 
 type (
@@ -48,7 +45,6 @@ type (
 		Log            log.GlobalConfig            `yaml:"log"`
 		SubLogs        map[string]log.GlobalConfig `yaml:"subLogs"`
 		RunInterval    uint64                      `yaml:"runInterval"`
-		Wallet         string                      `yaml:"wallet"`
 		GasLimit       uint64                      `yaml:"gaslimit"`
 		GasPrice       uint64                      `yaml:"gasprice"`
 		AlertThreshold uint64                      `yaml:"alertThreshold"`
@@ -57,17 +53,17 @@ type (
 		Execution      execution                   `yaml:"execution"`
 	}
 	transfer struct {
-		Sender      []string `yaml:"address"`
-		AmountInRau string   `yaml:"amountInRau"`
+		Signer      string `yaml:"signer"`
+		AmountInRau string `yaml:"amountInRau"`
 	}
 	xrc20 struct {
-		Contract string   `yaml:"contract"`
-		Sender   []string `yaml:"address"`
-		Amount   string   `yaml:"amount"` // amount in smallest unit
+		Contract string `yaml:"contract"`
+		Signer   string `yaml:"signer"`
+		Amount   string `yaml:"amount"` // amount in smallest unit
 	}
 	execution struct {
 		Contract string      `yaml:"contract"`
-		Sender   []string    `yaml:"address"`
+		Signer   string      `yaml:"signer"`
 		Amount   string      `yaml:"amount"` // amount in smallest unit
 		To       multiSendTo `yaml:"to"`
 	}

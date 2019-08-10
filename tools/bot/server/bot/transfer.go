@@ -22,7 +22,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/tools/bot/config"
-	"github.com/iotexproject/iotex-core/tools/bot/pkg/util"
 	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/grpcutil"
 )
 
@@ -32,7 +31,6 @@ type Transfer struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	name   string
-	alert  Alert
 }
 
 // NewTransfer make new transfer
@@ -46,11 +44,6 @@ func newTransfer(cfg config.Config, name string) (Service, error) {
 		name: name,
 	}
 	return &svr, nil
-}
-
-// Alert add a alert
-func (s *Transfer) Alert(a Alert) {
-	s.alert = a
 }
 
 // Start starts the server
@@ -70,15 +63,11 @@ func (s *Transfer) Name() string {
 }
 
 func (s *Transfer) startTransfer() error {
-	// load keystore
-	if len(s.cfg.Transfer.Sender) != 2 {
-		return errors.New("signer needs password")
-	}
-	pri, err := util.GetPrivateKey(s.cfg.Wallet, s.cfg.Transfer.Sender[0], s.cfg.Transfer.Sender[1])
+	sk, err := crypto.HexStringToPrivateKey(s.cfg.Xrc20.Signer)
 	if err != nil {
 		return err
 	}
-	hs, err := s.transfer(pri)
+	hs, err := s.transfer(sk)
 	if err != nil {
 		return err
 	}
@@ -104,8 +93,12 @@ func (s *Transfer) checkAndAlert(hs string) {
 	}
 }
 func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
+	addr, err := address.FromBytes(pri.PublicKey().Hash())
+	if err != nil {
+		return
+	}
 	gasprice := big.NewInt(0).SetUint64(s.cfg.GasPrice)
-	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Transfer.Sender[0])
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, addr.String())
 	if err != nil {
 		return
 	}
@@ -124,15 +117,12 @@ func (s *Transfer) transfer(pri crypto.PrivateKey) (txhash string, err error) {
 		return
 	}
 	cli := iotex.NewAuthedClient(iotexapi.NewAPIServiceClient(conn), acc)
-	addr, err := address.FromString(s.cfg.Transfer.Sender[0])
-	if err != nil {
-		return
-	}
+
 	shash, err := cli.Transfer(addr, amount).SetNonce(nonce).SetGasLimit(s.cfg.GasLimit).SetGasPrice(gasprice).Call(context.Background())
 	if err != nil {
 		return
 	}
 	txhash = hex.EncodeToString(shash[:])
-	log.L().Info("transfer:", zap.String("transfer hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", s.cfg.Transfer.Sender[0]), zap.String("to", s.cfg.Transfer.Sender[0]))
+	log.L().Info("transfer:", zap.String("transfer hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", addr.String()), zap.String("to", addr.String()))
 	return
 }

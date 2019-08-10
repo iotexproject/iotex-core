@@ -21,12 +21,6 @@ type Service interface {
 	Start(ctx context.Context) error
 	Stop()
 	Name() string
-	Alert(a Alert)
-}
-
-// Alert defines alert interface
-type Alert interface {
-	Send(string) error
 }
 
 // Server is the iotex server instance containing all components.
@@ -65,14 +59,6 @@ func (s *Server) Stop() {
 func (s *Server) Register(ss ...Service) error {
 	for _, service := range ss {
 		s.runServices[service.Name()] = service
-	}
-	return nil
-}
-
-// RegisterAlert register alert
-func (s *Server) RegisterAlert(alert Alert) error {
-	for _, service := range s.runServices {
-		service.Alert(alert)
 	}
 	return nil
 }

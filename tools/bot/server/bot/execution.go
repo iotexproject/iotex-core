@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/tools/bot/config"
-	"github.com/iotexproject/iotex-core/tools/bot/pkg/util"
 	"github.com/iotexproject/iotex-core/tools/bot/pkg/util/grpcutil"
 )
 
@@ -42,7 +41,6 @@ type Execution struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	name   string
-	alert  Alert
 }
 
 // NewExecution make a new execution
@@ -56,11 +54,6 @@ func newExecution(cfg config.Config, name string) (Service, error) {
 		name: name,
 	}
 	return &svr, nil
-}
-
-// Alert add alert
-func (s *Execution) Alert(a Alert) {
-	s.alert = a
 }
 
 // Start starts the server
@@ -80,15 +73,11 @@ func (s *Execution) Name() string {
 }
 
 func (s *Execution) start() error {
-	if len(s.cfg.Execution.Sender) != 2 {
-		return errors.New("signer needs password")
-	}
-	// load keystore
-	pri, err := util.GetPrivateKey(s.cfg.Wallet, s.cfg.Execution.Sender[0], s.cfg.Execution.Sender[1])
+	sk, err := crypto.HexStringToPrivateKey(s.cfg.Xrc20.Signer)
 	if err != nil {
 		return err
 	}
-	hs, err := s.exec(pri)
+	hs, err := s.exec(sk)
 	if err != nil {
 		return err
 	}
@@ -114,7 +103,11 @@ func (s *Execution) checkAndAlert(hs string) {
 	}
 }
 func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
-	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, s.cfg.Execution.Sender[0])
+	addr, err := address.FromBytes(pri.PublicKey().Hash())
+	if err != nil {
+		return
+	}
+	nonce, err := grpcutil.GetNonce(s.cfg.API.URL, addr.String())
 	if err != nil {
 		return
 	}
@@ -167,7 +160,7 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 	if err != nil {
 		return
 	}
-	tx, err = grpcutil.FixGasLimit(s.cfg.API.URL, s.cfg.Execution.Sender[0], tx)
+	tx, err = grpcutil.FixGasLimit(s.cfg.API.URL, addr.String(), tx)
 	if err != nil {
 		return
 	}
@@ -187,6 +180,6 @@ func (s *Execution) exec(pri crypto.PrivateKey) (txhash string, err error) {
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp.Proto())))
 	txhash = hex.EncodeToString(shash[:])
-	log.L().Info("Execution: ", zap.String("Execution hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", s.cfg.Execution.Sender[0]))
+	log.L().Info("Execution: ", zap.String("Execution hash", txhash), zap.Uint64("nonce", nonce), zap.String("from", addr.String()))
 	return
 }

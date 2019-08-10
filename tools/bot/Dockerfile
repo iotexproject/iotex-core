@@ -9,3 +9,5 @@ RUN cd iotex-core/tools/bot && \
     cp ./bot /usr/local/bin/bot  && \
     mkdir -p /etc/iotex/ && \
     rm -rf apps/iotex-bot
+
+CMD [ "bot -config-path=/etc/iotex/config.yaml"]
