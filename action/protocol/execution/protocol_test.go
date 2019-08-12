@@ -736,6 +736,11 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("cashier-bering", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/cashier-bering.json")
 	})
+	// infiniteloop-bering
+	t.Run("infiniteloop-bering", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/infiniteloop-bering.json")
+	})
+
 
 }
 
