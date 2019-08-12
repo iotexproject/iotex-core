@@ -364,22 +364,22 @@ var (
 	}{
 		{
 			hex.EncodeToString(transferHash1[:]),
-			action.SuccessReceiptStatus,
+			uint64(iotextypes.ReceiptStatus_Success),
 			1,
 		},
 		{
 			hex.EncodeToString(transferHash2[:]),
-			action.SuccessReceiptStatus,
+			uint64(iotextypes.ReceiptStatus_Success),
 			2,
 		},
 		{
 			hex.EncodeToString(executionHash2[:]),
-			action.SuccessReceiptStatus,
+			uint64(iotextypes.ReceiptStatus_Success),
 			2,
 		},
 		{
 			hex.EncodeToString(executionHash3[:]),
-			action.SuccessReceiptStatus,
+			uint64(iotextypes.ReceiptStatus_Success),
 			4,
 		},
 	}

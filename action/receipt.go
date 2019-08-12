@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
+
 // Error Variables from Go-ethereum "github.com/go-ethereum/core/vm/instructions.go"
 var (
 	ErrWriteProtection       = errors.New("evm: write protection")

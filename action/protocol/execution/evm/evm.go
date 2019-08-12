@@ -200,21 +200,21 @@ func getChainConfig() *params.ChainConfig {
 
 //Error in executeInEVM is a consensus issue
 func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, raCtx protocol.RunActionsCtx, hu config.HeightUpgrade) ([]byte, uint64, uint64, string, uint64, error) {
-	isPostBering := hu.IsPost(config.Bering, raCtx.BlockHeight)
+	isBering := hu.IsPost(config.Bering, raCtx.BlockHeight)
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
-		return nil, 0, 0, action.EmptyAddress, action.FailureReceiptStatus, err
+		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.FailureReceiptStatus, err
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.FailureReceiptStatus, action.ErrOutOfGas
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), action.ErrOutOfGas
 	}
 	remainingGas -= intriGas
 	contractRawAddress := action.EmptyAddress
@@ -241,8 +241,8 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, r
 		// The only possible consensus-error would be if there wasn't
 		// sufficient balance to make the transfer happen.
 		// Should be a hard fork (Bering)
-		if evmErr == vm.ErrInsufficientBalance && isPostBering {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, action.FailureReceiptStatus, evmErr
+		if evmErr == vm.ErrInsufficientBalance && isBering {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), evmErr
 		}
 	}
 	if stateDB.Error() != nil {
@@ -255,37 +255,37 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, r
 	remainingGas += refund
 
 	if evmErr != nil {
-		return ret, evmParams.gas, remainingGas, contractRawAddress, evmErrToErrStatusCode(evmErr, isPostBering), nil
+		return ret, evmParams.gas, remainingGas, contractRawAddress, evmErrToErrStatusCode(evmErr, isBering), nil
 	}
-	return ret, evmParams.gas, remainingGas, contractRawAddress, iotextypes.ReceiptStatus_SuccessReceiptStatus, nil
+	return ret, evmParams.gas, remainingGas, contractRawAddress, uint64(iotextypes.ReceiptStatus_Success), nil
 }
 
 // evmErrToErrStatusCode returns ReceiptStatuscode which describes error type
-func evmErrToErrStatusCode(evmErr error, isPostBering bool) (errStatusCode uint64) {
-	if isPostBering {
+func evmErrToErrStatusCode(evmErr error, isBering bool) (errStatusCode uint64) {
+	if isBering {
 		switch evmErr {
 		case vm.ErrOutOfGas:
-			errStatusCode = iotextypes.ReceiptStatus_FailureErrOutOfGas
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrOutOfGas)
 		case vm.ErrCodeStoreOutOfGas:
-			errStatusCode = iotextypes.ReceiptStatus_FailureErrCodeStoreOutOfGas
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas)
 		case vm.ErrDepth:
-			errStatusCode = iotextypes.ReceiptStatus_FailureErrDepth
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrDepth)
 		case vm.ErrContractAddressCollision:
-			errStatusCode = iotextypes.ReceiptStatus_FailureErrContractAddressCollision
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
 		case vm.ErrNoCompatibleInterpreter:
-			errStatusCode = iotextypes.ReceiptStatus_FailureErrNoCompatibleInterpreter
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
 		case action.ErrExecutionReverted:
-			errStatusCode = iotextypes.ReceiptStatus_FailureErrExecutionReverted
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
 		case action.ErrMaxCodeSizeExceeded:
-			errStatusCode = iotextypes.ReceiptStatus_FailureErrMaxCodeSizeExceeded
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
 		case action.ErrWriteProtection:
-			errStatusCode = iotextypes.ReceiptStatus_FailureErrWriteProtection
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
 		default:
-			errStatusCode = iotextypes.ReceiptStatus_FailureUnknown
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
 		}
 	} else {
 		// it prevents from breaking chain
-		errStatusCode = iotextypes.ReceiptStatus_FailureReceiptStatus
+		errStatusCode = uint64(iotextypes.ReceiptStatus_Failure)
 	}
 	return
 }

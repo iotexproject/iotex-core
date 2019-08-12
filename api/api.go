@@ -1176,7 +1176,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	if receipt.Status != action.SuccessReceiptStatus {
+	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return nil, status.Error(codes.Internal, "receipt status failed")
 	}
 	return &iotexapi.EstimateActionGasConsumptionResponse{

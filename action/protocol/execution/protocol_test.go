@@ -41,6 +41,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ExpectedBalance defines an account-balance pair
@@ -50,8 +51,8 @@ type ExpectedBalance struct {
 }
 
 // BlockConfig defines an blockHeight
-type BlockConfig struct {
-	BlockHeight uint64 `json:"blockHeight"`
+type BlockHeightConfig struct {
+	BeringHeight uint64 `json:"beringHeight"`
 }
 
 func (eb *ExpectedBalance) Balance() *big.Int {
@@ -82,7 +83,8 @@ type ExecutionConfig struct {
 	Failed                  bool              `json:"failed"`
 	RawReturnValue          string            `json:"rawReturnValue"`
 	RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
-//	ExpectedStatus          uint64            `json:"expectedStatus"`
+	IsBering                bool              `json:"isBering"`
+	ExpectedStatus          uint64            `json:"expectedStatus"`
 	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
 	ExpectedLogs            []Log             `json:"expectedLogs"`
 }
@@ -181,7 +183,7 @@ func (cfg *ExecutionConfig) ExpectedReturnValue() []byte {
 
 type SmartContractTest struct {
 	// the order matters
-//	InitBlockHeight []BlockConfig     `json:"initBlockHeight`
+	InitBlockHeight BlockHeightConfig `json:"initBlockHeight"`
 	InitBalances    []ExpectedBalance `json:"initBalances"`
 	Deployments     []ExecutionConfig `json:"deployments"`
 	Executions      []ExecutionConfig `json:"executions"`
@@ -264,6 +266,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
+	if sct.InitBlockHeight.BeringHeight != 0 {
+		cfg.Genesis.Blockchain.BeringBlockHeight = sct.InitBlockHeight.BeringHeight
+	}
 	registry := protocol.Registry{}
 	hu := config.NewHeightUpgrade(cfg)
 	acc := account.NewProtocol(hu)
@@ -300,11 +305,6 @@ func (sct *SmartContractTest) prepareBlockchain(
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
-
-//	raCtx := protocol.MustGetRunActionsCtx(ctx)
-//	for _, e := range sct.InitBlockHeight {
-//		raCtx.height = e.BlockHeight
-//	}
 	return bc
 }
 
@@ -319,9 +319,18 @@ func (sct *SmartContractTest) deployContracts(
 		_, receipt, err := runExecution(bc, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
-		if sct.Deployments[i].Failed {
-			r.Equal(action.FailureReceiptStatus, receipt.Status)
-			return []string{}
+		if sct.Deployments[i].IsBering {
+			r.Equal(sct.Deployments[i].ExpectedStatus, receipt.Status)
+			if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+				return []string{}
+			}
+		} else {
+			if !sct.Deployments[i].Failed {
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+			} else {
+				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
+				return []string{}
+			}
 		}
 		if sct.Deployments[i].ExpectedGasConsumed() != 0 {
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
@@ -359,7 +368,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	}
 
 	// run executions
-	for _, exec := range sct.Executions {
+	for i, exec := range sct.Executions {
 		contractAddr := contractAddresses[exec.ContractIndex]
 		if exec.AppendContractAddress {
 			exec.ContractAddressToAppend = contractAddresses[exec.ContractIndexToAppend]
@@ -367,16 +376,16 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		retval, receipt, err := runExecution(bc, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
-//		if exec.Bering {
-//			r.Equal(exec.ExpectedStatus, recipt.Status)
-//		} else {
-//			if exec.Failed {
-//				r.Equal(action.FailureReceiptStatus, receipt.Status)
-//			} else {
-//				r.Equal(action.SuccessReceiptStatus, receipt.Status)
-//			}
-//		}
 
+		if exec.IsBering {
+			r.Equal(exec.ExpectedStatus, receipt.Status, i)
+		} else {
+			if exec.Failed {
+				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
+			} else {
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+			}
+		}
 		if exec.ExpectedGasConsumed() != 0 {
 			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed)
 		}
@@ -723,6 +732,11 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("storage-test", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/storage-test.json")
 	})
+	// cashier-bering
+	t.Run("cashier-bering", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/cashier-bering.json")
+	})
+
 }
 
 func TestProtocol_Validate(t *testing.T) {
