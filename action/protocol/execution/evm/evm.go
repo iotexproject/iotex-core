@@ -274,7 +274,7 @@ func evmErrToErrStatusCode(evmErr error, isBering bool) (errStatusCode uint64) {
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
 		case vm.ErrNoCompatibleInterpreter:
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
-		default :
+		default:
 			//This errors from go-ethereum, are not-accessible variable.
 			switch evmErr.Error() {
 			case "evm: execution reverted":

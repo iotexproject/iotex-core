@@ -50,7 +50,7 @@ type ExpectedBalance struct {
 	RawBalance string `json:"rawBalance"`
 }
 
-// GensisBlockHeight defines an gensis blockHeight 
+// GensisBlockHeight defines an gensis blockHeight
 type GenesisBlockHeight struct {
 	IsBering bool `json:"isBering"`
 }
@@ -182,10 +182,10 @@ func (cfg *ExecutionConfig) ExpectedReturnValue() []byte {
 
 type SmartContractTest struct {
 	// the order matters
-	InitGenesis 	GenesisBlockHeight `json:"initGenesis"`
-	InitBalances    []ExpectedBalance `json:"initBalances"`
-	Deployments     []ExecutionConfig `json:"deployments"`
-	Executions      []ExecutionConfig `json:"executions"`
+	InitGenesis  GenesisBlockHeight `json:"initGenesis"`
+	InitBalances []ExpectedBalance  `json:"initBalances"`
+	Deployments  []ExecutionConfig  `json:"deployments"`
+	Executions   []ExecutionConfig  `json:"executions"`
 }
 
 func NewSmartContractTest(t *testing.T, file string) {
@@ -740,7 +740,6 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("infiniteloop-bering", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/infiniteloop-bering.json")
 	})
-
 
 }
 

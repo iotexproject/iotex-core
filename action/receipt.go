@@ -7,8 +7,6 @@
 package action
 
 import (
-	"errors"
-
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
