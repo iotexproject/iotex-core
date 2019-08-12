@@ -413,11 +413,10 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 				expectedBalance.Balance(),
 			)
 		}
-		if receipt.Status == action.SuccessReceiptStatus {
+		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
+			// TODO: check value of logs
 		}
-
-		// TODO: check value of logs
 	}
 }
 
