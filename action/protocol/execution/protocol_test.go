@@ -50,9 +50,9 @@ type ExpectedBalance struct {
 	RawBalance string `json:"rawBalance"`
 }
 
-// BlockConfig defines an blockHeight
-type BlockHeightConfig struct {
-	BeringHeight uint64 `json:"beringHeight"`
+// GensisBlockHeight defines an gensis blockHeight 
+type GenesisBlockHeight struct {
+	IsBering bool `json:"isBering"`
 }
 
 func (eb *ExpectedBalance) Balance() *big.Int {
@@ -83,7 +83,6 @@ type ExecutionConfig struct {
 	Failed                  bool              `json:"failed"`
 	RawReturnValue          string            `json:"rawReturnValue"`
 	RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
-	IsBering                bool              `json:"isBering"`
 	ExpectedStatus          uint64            `json:"expectedStatus"`
 	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
 	ExpectedLogs            []Log             `json:"expectedLogs"`
@@ -183,7 +182,7 @@ func (cfg *ExecutionConfig) ExpectedReturnValue() []byte {
 
 type SmartContractTest struct {
 	// the order matters
-	InitBlockHeight BlockHeightConfig `json:"initBlockHeight"`
+	InitGenesis 	GenesisBlockHeight `json:"initGenesis"`
 	InitBalances    []ExpectedBalance `json:"initBalances"`
 	Deployments     []ExecutionConfig `json:"deployments"`
 	Executions      []ExecutionConfig `json:"executions"`
@@ -266,8 +265,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
-	if sct.InitBlockHeight.BeringHeight != 0 {
-		cfg.Genesis.Blockchain.BeringBlockHeight = sct.InitBlockHeight.BeringHeight
+	if sct.InitGenesis.IsBering {
+		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
 	registry := protocol.Registry{}
 	hu := config.NewHeightUpgrade(cfg)
@@ -319,7 +318,8 @@ func (sct *SmartContractTest) deployContracts(
 		_, receipt, err := runExecution(bc, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
-		if sct.Deployments[i].IsBering {
+		if sct.InitGenesis.IsBering {
+			// if it is post bering, it compares the status with expected status
 			r.Equal(sct.Deployments[i].ExpectedStatus, receipt.Status)
 			if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 				return []string{}
@@ -368,7 +368,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	}
 
 	// run executions
-	for i, exec := range sct.Executions {
+	for _, exec := range sct.Executions {
 		contractAddr := contractAddresses[exec.ContractIndex]
 		if exec.AppendContractAddress {
 			exec.ContractAddressToAppend = contractAddresses[exec.ContractIndexToAppend]
@@ -377,8 +377,9 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		r.NoError(err)
 		r.NotNil(receipt)
 
-		if exec.IsBering {
-			r.Equal(exec.ExpectedStatus, receipt.Status, i)
+		if sct.InitGenesis.IsBering {
+			// if it is post bering, it compares the status with expected status
+			r.Equal(exec.ExpectedStatus, receipt.Status)
 		} else {
 			if exec.Failed {
 				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
