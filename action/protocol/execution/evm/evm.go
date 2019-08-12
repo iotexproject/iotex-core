@@ -152,7 +152,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, raCtx.GasLimit, raCtx, hu)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, raCtx.GasLimit, raCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -199,8 +199,8 @@ func getChainConfig() *params.ChainConfig {
 }
 
 //Error in executeInEVM is a consensus issue
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, raCtx protocol.RunActionsCtx, hu config.HeightUpgrade) ([]byte, uint64, uint64, string, uint64, error) {
-	isBering := hu.IsPost(config.Bering, raCtx.BlockHeight)
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, raCtx protocol.RunActionsCtx) ([]byte, uint64, uint64, string, uint64, error) {
+	isBering := stateDB.hu.IsPost(config.Bering, raCtx.BlockHeight)
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
