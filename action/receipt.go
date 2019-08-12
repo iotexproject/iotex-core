@@ -16,15 +16,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
-// Error Variables from Go-ethereum "github.com/go-ethereum/core/vm/instructions.go"
-var (
-	ErrWriteProtection       = errors.New("evm: write protection")
-	ErrReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
-	ErrExecutionReverted     = errors.New("evm: execution reverted")
-	ErrMaxCodeSizeExceeded   = errors.New("evm: max code size exceeded")
-	ErrInvalidJump           = errors.New("evm: invalid jump destination")
-)
-
 // Receipt represents the result of a contract
 type Receipt struct {
 	Status          uint64

@@ -274,14 +274,18 @@ func evmErrToErrStatusCode(evmErr error, isBering bool) (errStatusCode uint64) {
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
 		case vm.ErrNoCompatibleInterpreter:
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
-		case action.ErrExecutionReverted:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
-		case action.ErrMaxCodeSizeExceeded:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
-		case action.ErrWriteProtection:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
-		default:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
+		default :
+			//This errors from go-ethereum, are not-accessible variable.
+			switch evmErr.Error() {
+			case "evm: execution reverted":
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
+			case "evm: max code size exceeded":
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
+			case "evm: write protection":
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
+			default:
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
+			}
 		}
 	} else {
 		// it prevents from breaking chain

@@ -56,7 +56,7 @@
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
         "failed": true,
-        "expectedStatus" : 100, 
+        "expectedStatus" : 106, 
         "expectedBalances": [{
             "account": "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6",
             "rawBalance": "210000"
@@ -73,7 +73,7 @@
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
         "failed": true,
-        "expectedStatus": 100,
+        "expectedStatus": 106,
         "expectedBalances": [{
             "account": "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6",
             "rawBalance": "210000"
@@ -106,7 +106,7 @@
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
         "failed": true,
-        "expectedStatus": 100,
+        "expectedStatus": 106,
         "expectedBalances": [{
             "account": "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6",
             "rawBalance": "210000"
