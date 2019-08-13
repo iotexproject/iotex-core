@@ -1145,6 +1145,11 @@ func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*io
 		if err != nil {
 			return logs, status.Error(codes.InvalidArgument, err.Error())
 		}
+		receipts, err := api.bc.GetReceiptsByHeight(i)
+		if err != nil {
+			return logs, status.Error(codes.InvalidArgument, err.Error())
+		}
+		blk.Receipts = receipts
 		logs = append(logs, filter.MatchBlock(blk)...)
 	}
 	return logs, nil
