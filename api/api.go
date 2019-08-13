@@ -943,6 +943,7 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 			TxRoot:           hex.EncodeToString(txRoot[:]),
 			ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
 			DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
+			LogsBloom:		  blk.Header.LogsBloomfilter(),
 		}
 		res = append(res, blockMeta)
 		count--
@@ -980,6 +981,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 		TxRoot:           hex.EncodeToString(txRoot[:]),
 		ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
+		LogsBloom:		  blk.Header.LogsBloomfilter(),
 	}
 	return &iotexapi.GetBlockMetasResponse{
 		Total:    1,
