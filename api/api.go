@@ -1145,7 +1145,7 @@ func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*io
 		if err != nil {
 			return logs, status.Error(codes.InvalidArgument, err.Error())
 		}
-		logs = append(logs, filter.MatchBlock(receipts)...)
+		logs = append(logs, filter.MatchLogs(receipts)...)
 	}
 	return logs, nil
 }

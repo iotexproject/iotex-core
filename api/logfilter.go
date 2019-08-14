@@ -41,7 +41,7 @@ func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogs
 
 // Respond to new block
 func (l *LogFilter) Respond(blk *block.Block) error {
-	logs := l.MatchBlock(blk.Receipts)
+	logs := l.MatchLogs(blk.Receipts)
 	if len(logs) == 0 {
 		return nil
 	}
@@ -63,8 +63,8 @@ func (l *LogFilter) Exit() {
 	l.errChan <- nil
 }
 
-// MatchBlock returns matching logs in a given block
-func (l *LogFilter) MatchBlock(receipts []*action.Receipt) []*iotextypes.Log {
+// MatchLogs returns matching logs in a given block
+func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*iotextypes.Log {
 	var logs []*iotextypes.Log
 	for _, r := range receipts {
 		for _, v := range r.Logs {
