@@ -11,11 +11,13 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/mock/gomock"
@@ -246,12 +248,17 @@ func runExecution(
 	if err != nil {
 		return nil, nil, err
 	}
+	t := time.Now()
 	if err := bc.ValidateBlock(blk); err != nil {
 		return nil, nil, err
 	}
+	t1 := time.Now()
 	if err := bc.CommitBlock(blk); err != nil {
 		return nil, nil, err
 	}
+	t2 := time.Now()
+	fmt.Println("exec time:", t1.Sub(t))
+	fmt.Println("commit time:", t2.Sub(t1))
 	receipt, err := bc.GetReceiptByActionHash(exec.Hash())
 
 	return nil, receipt, err
@@ -781,4 +788,10 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), ex)
 	require.Equal(action.ErrGasPrice, errors.Cause(err))
+}
+
+func TestMaxTime(t *testing.T) {
+	t.Run("max-time", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/maxtime.json")
+	})
 }
