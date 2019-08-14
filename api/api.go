@@ -1141,16 +1141,11 @@ func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*io
 		end = api.bc.TipHeight()
 	}
 	for i := start; i <= end; i++ {
-		blk, err := api.bc.GetBlockByHeight(i)
-		if err != nil {
-			return logs, status.Error(codes.InvalidArgument, err.Error())
-		}
 		receipts, err := api.bc.GetReceiptsByHeight(i)
 		if err != nil {
 			return logs, status.Error(codes.InvalidArgument, err.Error())
 		}
-		blk.Receipts = receipts
-		logs = append(logs, filter.MatchBlock(blk)...)
+		logs = append(logs, filter.MatchBlock(receipts)...)
 	}
 	return logs, nil
 }
