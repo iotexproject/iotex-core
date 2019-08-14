@@ -7,6 +7,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -40,7 +41,7 @@ func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogs
 
 // Respond to new block
 func (l *LogFilter) Respond(blk *block.Block) error {
-	logs := l.MatchBlock(blk)
+	logs := l.MatchLogs(blk.Receipts)
 	if len(logs) == 0 {
 		return nil
 	}
@@ -62,10 +63,10 @@ func (l *LogFilter) Exit() {
 	l.errChan <- nil
 }
 
-// MatchBlock returns matching logs in a given block
-func (l *LogFilter) MatchBlock(blk *block.Block) []*iotextypes.Log {
+// MatchLogs returns matching logs in a given block
+func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*iotextypes.Log {
 	var logs []*iotextypes.Log
-	for _, r := range blk.Receipts {
+	for _, r := range receipts {
 		for _, v := range r.Logs {
 			log := v.ConvertToLogPb()
 			if l.match(log) {

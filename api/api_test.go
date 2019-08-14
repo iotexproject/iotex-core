@@ -615,6 +615,24 @@ var (
 			9,
 		},
 	}
+
+	getLogsTest = []struct {
+		// Arguments
+		address   []string
+		topics    []*iotexapi.Topics
+		fromBlock uint64
+		count     uint64
+		// Expected Values
+		numLogs int
+	}{
+		{
+			address:   []string{},
+			topics:    []*iotexapi.Topics{},
+			fromBlock: 1,
+			count:     100,
+			numLogs:   0,
+		},
+	}
 )
 
 func TestServer_GetAccount(t *testing.T) {
@@ -1394,6 +1412,33 @@ func TestServer_GetRawBlocks(t *testing.T) {
 		}
 		require.Equal(test.numActions, numActions)
 		require.Equal(test.numReceipts, numReceipts)
+	}
+}
+
+func TestServer_GetLogs(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+
+	for _, test := range getLogsTest {
+		request := &iotexapi.GetLogsRequest{
+			Filter: &iotexapi.LogsFilter{
+				Address: test.address,
+				Topics:  test.topics,
+			},
+			Lookup: &iotexapi.GetLogsRequest_ByRange{
+				ByRange: &iotexapi.GetLogsByRange{
+					FromBlock: test.fromBlock,
+					Count:     test.count,
+				},
+			},
+		}
+		res, err := svr.GetLogs(context.Background(), request)
+		require.NoError(err)
+		logs := res.Logs
+		require.Equal(test.numLogs, len(logs))
 	}
 }
 
