@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type claimTestCaseID int
@@ -512,7 +513,7 @@ func updateExpectationWithPendingClaimList(
 			require.NoError(t, err)
 			amount := act.Amount()
 
-			if receipt.Status == action.SuccessReceiptStatus {
+			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr.String()], amount)
 				exptUnclaimed[addr.String()] = newExpectUnclaimed
 
@@ -564,7 +565,7 @@ func waitActionToSettle(
 				if newExpectUnclaimed.Cmp(unClaimedBalances[rewardAddrStr]) != 0 {
 					continue
 				}
-				require.Equal(t, receipt.Status, action.SuccessReceiptStatus)
+				require.Equal(t, receipt.Status, uint64(iotextypes.ReceiptStatus_Success))
 
 				exptUnclaimed[addr.String()] = newExpectUnclaimed
 

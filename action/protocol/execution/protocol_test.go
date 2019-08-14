@@ -41,6 +41,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ExpectedBalance defines an account-balance pair
@@ -49,12 +50,16 @@ type ExpectedBalance struct {
 	RawBalance string `json:"rawBalance"`
 }
 
+// GensisBlockHeight defines an gensis blockHeight
+type GenesisBlockHeight struct {
+	IsBering bool `json:"isBering"`
+}
+
 func (eb *ExpectedBalance) Balance() *big.Int {
 	balance, ok := new(big.Int).SetString(eb.RawBalance, 10)
 	if !ok {
 		log.L().Panic("invalid balance", zap.String("balance", eb.RawBalance))
 	}
-
 	return balance
 }
 
@@ -78,6 +83,7 @@ type ExecutionConfig struct {
 	Failed                  bool              `json:"failed"`
 	RawReturnValue          string            `json:"rawReturnValue"`
 	RawExpectedGasConsumed  uint              `json:"rawExpectedGasConsumed"`
+	ExpectedStatus          uint64            `json:"expectedStatus"`
 	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
 	ExpectedLogs            []Log             `json:"expectedLogs"`
 }
@@ -176,9 +182,10 @@ func (cfg *ExecutionConfig) ExpectedReturnValue() []byte {
 
 type SmartContractTest struct {
 	// the order matters
-	InitBalances []ExpectedBalance `json:"initBalances"`
-	Deployments  []ExecutionConfig `json:"deployments"`
-	Executions   []ExecutionConfig `json:"executions"`
+	InitGenesis  GenesisBlockHeight `json:"initGenesis"`
+	InitBalances []ExpectedBalance  `json:"initBalances"`
+	Deployments  []ExecutionConfig  `json:"deployments"`
+	Executions   []ExecutionConfig  `json:"executions"`
 }
 
 func NewSmartContractTest(t *testing.T, file string) {
@@ -258,6 +265,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
+	if sct.InitGenesis.IsBering {
+		cfg.Genesis.Blockchain.BeringBlockHeight = 0
+	}
 	registry := protocol.Registry{}
 	hu := config.NewHeightUpgrade(cfg)
 	acc := account.NewProtocol(hu)
@@ -294,7 +304,6 @@ func (sct *SmartContractTest) prepareBlockchain(
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
-
 	return bc
 }
 
@@ -309,9 +318,19 @@ func (sct *SmartContractTest) deployContracts(
 		_, receipt, err := runExecution(bc, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
-		if sct.Deployments[i].Failed {
-			r.Equal(action.FailureReceiptStatus, receipt.Status)
-			return []string{}
+		if sct.InitGenesis.IsBering {
+			// if it is post bering, it compares the status with expected status
+			r.Equal(sct.Deployments[i].ExpectedStatus, receipt.Status)
+			if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+				return []string{}
+			}
+		} else {
+			if !sct.Deployments[i].Failed {
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+			} else {
+				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
+				return []string{}
+			}
 		}
 		if sct.Deployments[i].ExpectedGasConsumed() != 0 {
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
@@ -357,10 +376,16 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		retval, receipt, err := runExecution(bc, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
-		if exec.Failed {
-			r.Equal(action.FailureReceiptStatus, receipt.Status)
+
+		if sct.InitGenesis.IsBering {
+			// if it is post bering, it compares the status with expected status
+			r.Equal(exec.ExpectedStatus, receipt.Status)
 		} else {
-			r.Equal(action.SuccessReceiptStatus, receipt.Status)
+			if exec.Failed {
+				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
+			} else {
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+			}
 		}
 		if exec.ExpectedGasConsumed() != 0 {
 			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed)
@@ -389,10 +414,10 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 				expectedBalance.Balance(),
 			)
 		}
-		if receipt.Status == action.SuccessReceiptStatus {
+		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
+			// TODO: check value of logs
 		}
-		// TODO: check value of logs
 	}
 }
 
@@ -707,6 +732,15 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("storage-test", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/storage-test.json")
 	})
+	// cashier-bering
+	t.Run("cashier-bering", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/cashier-bering.json")
+	})
+	// infiniteloop-bering
+	t.Run("infiniteloop-bering", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/infiniteloop-bering.json")
+	})
+
 }
 
 func TestProtocol_Validate(t *testing.T) {

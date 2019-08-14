@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -151,7 +152,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, failed, err := executeInEVM(ps, stateDB, raCtx.GasLimit)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, raCtx.GasLimit, raCtx.BlockHeight)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -161,11 +162,9 @@ func ExecuteContract(
 		ActionHash:      execution.Hash(),
 		ContractAddress: contractAddress,
 	}
-	if failed {
-		receipt.Status = action.FailureReceiptStatus
-	} else {
-		receipt.Status = action.SuccessReceiptStatus
-	}
+
+	receipt.Status = statusCode
+
 	if hu.IsPost(config.Pacific, raCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
@@ -199,21 +198,23 @@ func getChainConfig() *params.ChainConfig {
 	return &chainConfig
 }
 
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) ([]byte, uint64, uint64, string, bool, error) {
+//Error in executeInEVM is a consensus issue
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
+	isBering := stateDB.hu.IsPost(config.Bering, blockHeight)
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
-		return nil, 0, 0, action.EmptyAddress, true, err
+		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
 	chainConfig := getChainConfig()
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, err
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	if remainingGas < intriGas {
-		return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, action.ErrOutOfGas
+		return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), action.ErrOutOfGas
 	}
 	remainingGas -= intriGas
 	contractRawAddress := action.EmptyAddress
@@ -236,9 +237,12 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) (
 		ret, remainingGas, evmErr = evm.Call(executor, *evmParams.contract, evmParams.data, remainingGas, evmParams.amount)
 	}
 	if evmErr != nil {
-		log.L().Debug("evm error", zap.Error(err))
-		if err == vm.ErrInsufficientBalance {
-			return nil, evmParams.gas, remainingGas, action.EmptyAddress, true, evmErr
+		log.L().Debug("evm error", zap.Error(evmErr))
+		// The only possible consensus-error would be if there wasn't
+		// sufficient balance to make the transfer happen.
+		// Should be a hard fork (Bering)
+		if evmErr == vm.ErrInsufficientBalance && isBering {
+			return nil, evmParams.gas, remainingGas, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), evmErr
 		}
 	}
 	if stateDB.Error() != nil {
@@ -250,7 +254,44 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64) (
 	}
 	remainingGas += refund
 
-	return ret, evmParams.gas, remainingGas, contractRawAddress, evmErr != nil, nil
+	if evmErr != nil {
+		return ret, evmParams.gas, remainingGas, contractRawAddress, evmErrToErrStatusCode(evmErr, isBering), nil
+	}
+	return ret, evmParams.gas, remainingGas, contractRawAddress, uint64(iotextypes.ReceiptStatus_Success), nil
+}
+
+// evmErrToErrStatusCode returns ReceiptStatuscode which describes error type
+func evmErrToErrStatusCode(evmErr error, isBering bool) (errStatusCode uint64) {
+	if isBering {
+		switch evmErr {
+		case vm.ErrOutOfGas:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrOutOfGas)
+		case vm.ErrCodeStoreOutOfGas:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas)
+		case vm.ErrDepth:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrDepth)
+		case vm.ErrContractAddressCollision:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
+		case vm.ErrNoCompatibleInterpreter:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
+		default:
+			//This errors from go-ethereum, are not-accessible variable.
+			switch evmErr.Error() {
+			case "evm: execution reverted":
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
+			case "evm: max code size exceeded":
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
+			case "evm: write protection":
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
+			default:
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
+			}
+		}
+	} else {
+		// it prevents from breaking chain
+		errStatusCode = uint64(iotextypes.ReceiptStatus_Failure)
+	}
+	return
 }
 
 // intrinsicGas returns the intrinsic gas of an execution

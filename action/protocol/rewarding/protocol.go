@@ -21,6 +21,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -75,16 +76,16 @@ func (p *Protocol) Handle(
 		si := sm.Snapshot()
 		if err := p.Deposit(ctx, sm, act.Amount()); err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
+			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
 		}
-		return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
 	case *action.ClaimFromRewardingFund:
 		si := sm.Snapshot()
 		if err := p.Claim(ctx, sm, act.Amount()); err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
+			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
 		}
-		return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
@@ -92,20 +93,20 @@ func (p *Protocol) Handle(
 			rewardLog, err := p.GrantBlockReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
+				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
 			}
 			if rewardLog == nil {
-				return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si)
+				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
 			}
-			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si, rewardLog)
+			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rewardLog)
 		case action.EpochReward:
 			si := sm.Snapshot()
 			rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleAction(ctx, sm, action.FailureReceiptStatus, si)
+				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
 			}
-			return p.settleAction(ctx, sm, action.SuccessReceiptStatus, si, rewardLogs...)
+			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs...)
 		}
 	}
 	return nil, nil
@@ -181,7 +182,7 @@ func (p *Protocol) settleAction(
 	logs ...*action.Log,
 ) (*action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if status == action.FailureReceiptStatus {
+	if status == uint64(iotextypes.ReceiptStatus_Failure) {
 		if err := sm.Revert(si); err != nil {
 			return nil, err
 		}
