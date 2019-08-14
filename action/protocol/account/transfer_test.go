@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestProtocol_HandleTransfer(t *testing.T) {
@@ -109,7 +110,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		})
 	receipt, err := p.Handle(ctx, transfer, ws)
 	require.NoError(err)
-	require.Equal(action.SuccessReceiptStatus, receipt.Status)
+	require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	require.NoError(sf.Commit(ws))
 
 	var acct state.Account
@@ -136,7 +137,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	// Assume that the gas of this transfer is the same as previous one
 	receipt, err = p.Handle(ctx, transfer, ws)
 	require.NoError(err)
-	require.Equal(action.FailureReceiptStatus, receipt.Status)
+	require.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 	require.NoError(sf.Commit(ws))
 	require.NoError(sf.State(pubKeyAlfa, &acct))
 	require.Equal(uint64(2), acct.Nonce)

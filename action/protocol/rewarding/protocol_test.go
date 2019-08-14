@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.Factory, *Protocol), withExempt bool) {
@@ -289,10 +290,10 @@ func TestProtocol_Handle(t *testing.T) {
 
 	receipt, err = p.Handle(ctx, se2.Action(), ws)
 	require.NoError(t, err)
-	assert.Equal(t, action.SuccessReceiptStatus, receipt.Status)
+	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs))
 	// Grant the block reward again should fail
 	receipt, err = p.Handle(ctx, se2.Action(), ws)
 	require.NoError(t, err)
-	assert.Equal(t, action.FailureReceiptStatus, receipt.Status)
+	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 }
