@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -426,7 +427,7 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, pr
 		return nil, errors.Wrap(err, "failed to set candidates")
 	}
 	return &action.Receipt{
-		Status:          action.SuccessReceiptStatus,
+		Status:          uint64(iotextypes.ReceiptStatus_Success),
 		ActionHash:      raCtx.ActionHash,
 		BlockHeight:     raCtx.BlockHeight,
 		GasConsumed:     raCtx.IntrinsicGas,

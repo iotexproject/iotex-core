@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -617,7 +618,7 @@ func CheckPendingActionList(
 				retErr = err
 				return false
 			}
-			if receipt.Status == action.SuccessReceiptStatus {
+			if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 
 				pbAct := selp.Envelope.Proto()
 

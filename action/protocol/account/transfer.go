@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // TransferSizeLimit is the maximum size of transfer allowed
@@ -81,7 +82,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 			}
 		}
 		return &action.Receipt{
-			Status:          action.FailureReceiptStatus,
+			Status:          uint64(iotextypes.ReceiptStatus_Failure),
 			BlockHeight:     raCtx.BlockHeight,
 			ActionHash:      raCtx.ActionHash,
 			GasConsumed:     raCtx.IntrinsicGas,
@@ -119,7 +120,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 	}
 	return &action.Receipt{
-		Status:          action.SuccessReceiptStatus,
+		Status:          uint64(iotextypes.ReceiptStatus_Success),
 		BlockHeight:     raCtx.BlockHeight,
 		ActionHash:      raCtx.ActionHash,
 		GasConsumed:     raCtx.IntrinsicGas,
