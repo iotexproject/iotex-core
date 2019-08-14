@@ -43,7 +43,7 @@ func GetReceiptByActionHash(url, hs string) error {
 	if err != nil {
 		return err
 	}
-	if response.ReceiptInfo.Receipt.Status != action.SuccessReceiptStatus {
+	if response.ReceiptInfo.Receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return errors.New("action fail:" + hs)
 	}
 	return nil
