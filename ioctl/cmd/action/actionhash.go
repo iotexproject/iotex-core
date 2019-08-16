@@ -226,10 +226,29 @@ func Match(in string, matchType string) string {
 		}
 		return "(" + alias + ")"
 	case "status":
-		if in == "0" {
+		switch in {
+		case "0":
 			return "(Failure)"
-		} else if in == "1" {
+		case "1":
 			return "(Success)"
+		case "100":
+			return "(Failure : Unknown)"
+		case "101":
+			return "(Failure : Execution out of gas)"
+		case "102":
+			return "(Failure : Deployment out of gas - not enough gas to store code)"
+		case "103":
+			return "(Failure : Max call depth exceeded)"
+		case "104":
+			return "(Failure : Contract address collision)"
+		case "105":
+			return "(Failure : No compatible interpreter)"
+		case "106":
+			return "(Failure : Execution reverted)"
+		case "107":
+			return "(Failure : Max code size exceeded)"
+		case "108":
+			return "(Failure : Write protection)"
 		}
 	}
 	return ""
