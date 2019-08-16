@@ -932,6 +932,7 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 		receiptRoot := blk.ReceiptRoot()
 		deltaStateDigest := blk.DeltaStateDigest()
 		transferAmount := getTranferAmountInBlock(blk)
+		logsBloom := blk.Header.LogsBloomfilter()
 
 		blockMeta := &iotextypes.BlockMeta{
 			Hash:             hex.EncodeToString(hash[:]),
@@ -943,6 +944,9 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 			TxRoot:           hex.EncodeToString(txRoot[:]),
 			ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
 			DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
+		}
+		if logsBloom != nil {
+			blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
 		}
 		res = append(res, blockMeta)
 		count--
@@ -969,6 +973,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	receiptRoot := blk.ReceiptRoot()
 	deltaStateDigest := blk.DeltaStateDigest()
 	transferAmount := getTranferAmountInBlock(blk)
+	logsBloom := blk.Header.LogsBloomfilter()
 
 	blockMeta := &iotextypes.BlockMeta{
 		Hash:             blkHash,
@@ -981,6 +986,10 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 		ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
 	}
+	if logsBloom != nil {
+		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
+	}
+
 	return &iotexapi.GetBlockMetasResponse{
 		Total:    1,
 		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
