@@ -282,16 +282,19 @@ var (
 		blkHeight      uint64
 		numActions     int64
 		transferAmount string
+		logsBloom 	   string
 	}{
 		{
 			2,
 			7,
 			"6",
+			"",
 		},
 		{
 			4,
 			5,
 			"2",
+			"",
 		},
 	}
 
@@ -871,6 +874,8 @@ func TestServer_GetBlockMeta(t *testing.T) {
 		blkPb := res.BlkMetas[0]
 		require.Equal(test.numActions, blkPb.NumActions)
 		require.Equal(test.transferAmount, blkPb.TransferAmount)
+		require.Equal(header.LogsBloomfilter(), nil)
+		require.Equal(test.logsBloom, blkPb.LogsBloom)
 	}
 }
 
