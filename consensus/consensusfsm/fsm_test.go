@@ -134,7 +134,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 					require.Equal(eStopReceivingLockEndorsement, evt.Type())
 					mockClock.Add(cfsm.cfg.CommitTTL)
 					evt = <-cfsm.evtq
-					require.Equal(ePrepare, evt.Type())
+					require.Equal(eStopReceivingPreCommitEndorsement, evt.Type())
 				})
 				t.Run("ready-to-commit", func(t *testing.T) {
 					mockEndorsement := NewMockEndorsement(ctrl)
@@ -155,7 +155,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 					require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
 					mockClock.Add(cfsm.cfg.CommitTTL)
 					evt = <-cfsm.evtq
-					require.Equal(ePrepare, evt.Type())
+					require.Equal(eStopReceivingPreCommitEndorsement, evt.Type())
 				})
 			})
 			t.Run("is-not-locked", func(t *testing.T) {
@@ -176,7 +176,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 				require.Equal(eStopReceivingLockEndorsement, evt.Type())
 				mockClock.Add(cfsm.cfg.CommitTTL)
 				evt = <-cfsm.evtq
-				require.Equal(ePrepare, evt.Type())
+				require.Equal(eStopReceivingPreCommitEndorsement, evt.Type())
 			})
 		})
 		t.Run("is-proposer", func(t *testing.T) {
