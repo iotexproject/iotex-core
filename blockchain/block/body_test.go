@@ -75,16 +75,34 @@ func TestCalculateTxRoot(t *testing.T) {
 	require.NotEqual(h, hash.ZeroHash256)
 }
 
+func TestCalculateTransferAmount(t *testing.T) {
+	require := require.New(t)
+	body := Body{}
+	i := body.CalculateTransferAmount()
+	require.Equal(i, big.NewInt(0))
+
+	body, err := makeBody()
+	require.NoError(err)
+	i = body.CalculateTransferAmount()
+	require.NotEqual(i, big.NewInt(0))
+	require.Equal(i, big.NewInt(20))
+}
+
 func makeBody() (body Body, err error) {
 	A := make([]action.SealedEnvelope, 0)
 	v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), []byte("data"))
 	if err != nil {
 		return
 	}
+	t, err := action.NewTransfer(0, big.NewInt(20), "", []byte("payload"), uint64(20), big.NewInt(20))
+	if err != nil {
+		return
+	}
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetGasPrice(big.NewInt(10)).
 		SetGasLimit(uint64(100000)).
-		SetAction(v).Build()
+		SetAction(v).
+		SetAction(t).Build()
 
 	selp, err := action.Sign(elp, identityset.PrivateKey(28))
 	if err != nil {

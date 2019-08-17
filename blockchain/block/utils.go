@@ -7,6 +7,8 @@
 package block
 
 import (
+	"math/big"
+
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -21,4 +23,17 @@ func calculateTxRoot(acts []action.SealedEnvelope) hash.Hash256 {
 		return hash.ZeroHash256
 	}
 	return crypto.NewMerkleTree(h).HashTree()
+}
+
+// calculateTransferAmount returns the calculated transfer amount
+func calculateTransferAmount(acts []action.SealedEnvelope) *big.Int {
+	transferAmount := big.NewInt(0)
+	for _, act := range acts {
+		transfer, ok := act.Action().(*action.Transfer)
+		if !ok {
+			continue
+		}
+		transferAmount.Add(transferAmount, transfer.Amount())
+	}
+	return transferAmount
 }

@@ -282,7 +282,7 @@ var (
 		blkHeight      uint64
 		numActions     int64
 		transferAmount string
-		logsBloom 	   string
+		logsBloom      string
 	}{
 		{
 			2,
@@ -872,11 +872,23 @@ func TestServer_GetBlockMeta(t *testing.T) {
 		require.NoError(err)
 		require.Equal(1, len(res.BlkMetas))
 		blkPb := res.BlkMetas[0]
+		require.Equal(test.blkHeight, blkPb.Height)
 		require.Equal(test.numActions, blkPb.NumActions)
 		require.Equal(test.transferAmount, blkPb.TransferAmount)
 		require.Equal(header.LogsBloomfilter(), nil)
 		require.Equal(test.logsBloom, blkPb.LogsBloom)
 	}
+}
+
+func TestServer_GetBlockMetaUpgrade(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+
+	err = svr.getBlockMetaUpgrade(1000)
+	require.Equal(action.ErrNotFound, errors.Cause(err))
 }
 
 func TestServer_GetChainMeta(t *testing.T) {
