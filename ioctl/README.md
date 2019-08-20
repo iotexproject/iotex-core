@@ -4,6 +4,9 @@ ioctl is a command-line interface for interacting with IoTeX blockchains.
 # Build
 `./buildcli.sh`
 
+If you want to build ioctl on Windows, you need to install mingw. Package manager [Chocolatey](https://chocolatey.org/) provides an easy way to intall latest mingw.
+`C:\Windows\system32> choco install mingw`
+
 After this command, target bin files will be placed in ./release/ folder, upload them to
 specific release so install-cli.sh can download them.
 
