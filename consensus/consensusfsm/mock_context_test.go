@@ -214,18 +214,18 @@ func (mr *MockContextMockRecorder) Proposal() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proposal", reflect.TypeOf((*MockContext)(nil).Proposal))
 }
 
-// WaitUntil mocks base method
-func (m *MockContext) WaitUntil() time.Duration {
+// WaitUntilRoundStart mocks base method
+func (m *MockContext) WaitUntilRoundStart() time.Duration {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WaitUntil")
+	ret := m.ctrl.Call(m, "WaitUntilRoundStart")
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
 }
 
-// WaitUntil indicates an expected call of WaitUntil
-func (mr *MockContextMockRecorder) WaitUntil() *gomock.Call {
+// WaitUntilRoundStart indicates an expected call of WaitUntilRoundStart
+func (mr *MockContextMockRecorder) WaitUntilRoundStart() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitUntil", reflect.TypeOf((*MockContext)(nil).WaitUntil))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitUntilRoundStart", reflect.TypeOf((*MockContext)(nil).WaitUntilRoundStart))
 }
 
 // PreCommitEndorsement mocks base method

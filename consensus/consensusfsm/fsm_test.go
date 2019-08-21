@@ -117,7 +117,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 				t.Run("not-ready-to-commit", func(t *testing.T) {
 					mockCtx.EXPECT().Prepare().Return(nil).Times(1)
 					mockCtx.EXPECT().Proposal().Return(nil, nil).Times(1)
-					mockCtx.EXPECT().WaitUntil().Return(time.Duration(0)).Times(1)
+					mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(1)
 					mockCtx.EXPECT().PreCommitEndorsement().Return(nil).Times(1)
 					state, err := cfsm.prepare(nil)
 					require.NoError(err)
@@ -134,12 +134,14 @@ func TestStateTransitionFunctions(t *testing.T) {
 					evt = <-cfsm.evtq
 					require.Equal(eStopReceivingLockEndorsement, evt.Type())
 					mockClock.Add(cfsm.cfg.CommitTTL)
+					evt = <-cfsm.evtq
+					require.Equal(eStopReceivingPreCommitEndorsement, evt.Type())
 				})
 				t.Run("ready-to-commit", func(t *testing.T) {
 					mockEndorsement := NewMockEndorsement(ctrl)
 					mockCtx.EXPECT().Prepare().Return(nil).Times(1)
 					mockCtx.EXPECT().Proposal().Return(nil, nil).Times(1)
-					mockCtx.EXPECT().WaitUntil().Return(time.Duration(0)).Times(1)
+					mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(1)
 					mockCtx.EXPECT().PreCommitEndorsement().Return(mockEndorsement).Times(1)
 					state, err := cfsm.prepare(nil)
 					require.NoError(err)
@@ -174,7 +176,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 					mockProposal := NewMockEndorsement(ctrl)
 					mockCtx.EXPECT().Prepare().Return(nil).Times(1)
 					mockCtx.EXPECT().Proposal().Return(mockProposal, nil).Times(1)
-					mockCtx.EXPECT().WaitUntil().Return(time.Duration(0)).Times(1)
+					mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(1)
 					mockCtx.EXPECT().PreCommitEndorsement().Return(nil).Times(1)
 					mockCtx.EXPECT().Broadcast(gomock.Any()).Return().Times(1)
 					state, err := cfsm.prepare(nil)
