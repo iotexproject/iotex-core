@@ -176,7 +176,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		LatestEpoch:         round.EpochNum(),
 		LatestHeight:        height,
 		LatestDelegates:     round.Delegates(),
-		LatestBlockProducer: r.ctx.round.proposer,
+		LatestBlockProducer: round.proposer,
 		Candidates:          candidateAddresses,
 	}, nil
 }

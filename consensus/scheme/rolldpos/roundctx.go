@@ -121,13 +121,25 @@ func (ctx *roundCtx) IsUnlocked() bool {
 	return ctx.status == unlocked
 }
 
-func (ctx *roundCtx) ReadyToCommit(addr string) *endorsement.Endorsement {
+func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
 	c := ctx.eManager.CollectionByBlockHash(ctx.blockInLock)
 	if c == nil {
 		return nil
 	}
-
-	return c.Endorsement(addr, COMMIT)
+	en := c.Endorsement(addr, COMMIT)
+	if en == nil {
+		return nil
+	}
+	blk := c.Block()
+	if blk == nil {
+		return nil
+	}
+	blkHash := blk.HashBlock()
+	return NewEndorsedConsensusMessage(
+		blk.Height(),
+		NewConsensusVote(blkHash[:], COMMIT),
+		en,
+	)
 }
 
 func (ctx *roundCtx) HashOfBlockInLock() []byte {

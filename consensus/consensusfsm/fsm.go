@@ -45,16 +45,17 @@ const (
 	sAcceptPreCommitEndorsement fsm.State = "S_ACCEPT_PRECOMMIT_ENDORSEMENT"
 
 	// consensus event types
-	eCalibrate                        fsm.EventType = "E_CALIBRATE"
-	ePrepare                          fsm.EventType = "E_PREPARE"
-	eReceiveBlock                     fsm.EventType = "E_RECEIVE_BLOCK"
-	eFailedToReceiveBlock             fsm.EventType = "E_FAILED_TO_RECEIVE_BLOCK"
-	eReceiveProposalEndorsement       fsm.EventType = "E_RECEIVE_PROPOSAL_ENDORSEMENT"
-	eStopReceivingProposalEndorsement fsm.EventType = "E_STOP_RECEIVING_PROPOSAL_ENDORSEMENT"
-	eReceiveLockEndorsement           fsm.EventType = "E_RECEIVE_LOCK_ENDORSEMENT"
-	eStopReceivingLockEndorsement     fsm.EventType = "E_STOP_RECEIVING_LOCK_ENDORSEMENT"
-	eReceivePreCommitEndorsement      fsm.EventType = "E_RECEIVE_PRECOMMIT_ENDORSEMENT"
-	eBroadcastPreCommitEndorsement    fsm.EventType = "E_BROADCAST_PRECOMMIT_ENDORSEMENT"
+	eCalibrate                         fsm.EventType = "E_CALIBRATE"
+	ePrepare                           fsm.EventType = "E_PREPARE"
+	eReceiveBlock                      fsm.EventType = "E_RECEIVE_BLOCK"
+	eFailedToReceiveBlock              fsm.EventType = "E_FAILED_TO_RECEIVE_BLOCK"
+	eReceiveProposalEndorsement        fsm.EventType = "E_RECEIVE_PROPOSAL_ENDORSEMENT"
+	eStopReceivingProposalEndorsement  fsm.EventType = "E_STOP_RECEIVING_PROPOSAL_ENDORSEMENT"
+	eReceiveLockEndorsement            fsm.EventType = "E_RECEIVE_LOCK_ENDORSEMENT"
+	eStopReceivingLockEndorsement      fsm.EventType = "E_STOP_RECEIVING_LOCK_ENDORSEMENT"
+	eReceivePreCommitEndorsement       fsm.EventType = "E_RECEIVE_PRECOMMIT_ENDORSEMENT"
+	eStopReceivingPreCommitEndorsement fsm.EventType = "E_STOP_RECEIVING_PRECOMMIT_ENDORSEMENT"
+	eBroadcastPreCommitEndorsement     fsm.EventType = "E_BROADCAST_PRECOMMIT_ENDORSEMENT"
 
 	// BackdoorEvent indicates a backdoor event type
 	BackdoorEvent fsm.EventType = "E_BACKDOOR"
@@ -182,6 +183,13 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 				sAcceptPreCommitEndorsement, // reach commit agreement, jump to next step
 			}).
 		AddTransition(
+			sAcceptLockEndorsement,
+			eStopReceivingLockEndorsement,
+			cm.onStopReceivingLockEndorsement,
+			[]fsm.State{
+				sPrepare, // timeout, jump to next round
+			}).
+		AddTransition(
 			sAcceptPreCommitEndorsement,
 			eBroadcastPreCommitEndorsement,
 			cm.onBroadcastPreCommitEndorsement,
@@ -189,11 +197,11 @@ func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM,
 				sAcceptPreCommitEndorsement,
 			}).
 		AddTransition(
-			sAcceptLockEndorsement,
-			eStopReceivingLockEndorsement,
-			cm.onStopReceivingLockEndorsement,
+			sAcceptPreCommitEndorsement,
+			eStopReceivingPreCommitEndorsement,
+			cm.onStopReceivingPreCommitEndorsement,
 			[]fsm.State{
-				sPrepare, // timeout, jump to next round
+				sPrepare,
 			}).
 		AddTransition(
 			sAcceptPreCommitEndorsement,
@@ -385,54 +393,48 @@ func (m *ConsensusFSM) calibrate(evt fsm.Event) (fsm.State, error) {
 }
 
 func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
-	isDelegate, proposal, isProposer, locked, preCommitEndorsement, delay, err := m.ctx.Prepare()
-	switch {
-	case err != nil:
+	if err := m.ctx.Prepare(); err != nil {
 		m.ctx.Logger().Error("Error during prepare", zap.Error(err))
-		fallthrough
-	case !isDelegate:
-		return m.BackToPrepare(delay)
+		return m.BackToPrepare(0)
 	}
-	m.ctx.Logger().Info("Start a new round", zap.Duration("delay", delay))
+	if !m.ctx.IsDelegate() {
+		return m.BackToPrepare(0)
+	}
+	proposal, err := m.ctx.Proposal()
+	if err != nil {
+		m.ctx.Logger().Error("failed to generate block proposal", zap.Error(err))
+		return m.BackToPrepare(0)
+	}
+	m.ctx.Logger().Info("Start a new round")
+	overtime := m.ctx.WaitUntilRoundStart()
+	if proposal != nil {
+		m.ctx.Broadcast(proposal)
+		m.ProduceReceiveBlockEvent(proposal)
+	}
 	ttl := m.cfg.AcceptBlockTTL
-	if delay > 0 {
-		time.Sleep(delay)
-	} else {
-		ttl -= delay
+	if overtime > 0 {
+		ttl -= overtime
 	}
 	// Setup timeouts
-	if preCommitEndorsement != nil {
+	if preCommitEndorsement := m.ctx.PreCommitEndorsement(); preCommitEndorsement != nil {
 		cEvt := m.ctx.NewConsensusEvent(eBroadcastPreCommitEndorsement, preCommitEndorsement)
 		m.produce(cEvt, ttl)
 		ttl += m.cfg.AcceptProposalEndorsementTTL
 		m.produce(cEvt, ttl)
 		ttl += m.cfg.AcceptLockEndorsementTTL
 		m.produce(cEvt, ttl)
-	} else {
-		m.produceConsensusEvent(eFailedToReceiveBlock, ttl)
-		ttl += m.cfg.AcceptProposalEndorsementTTL
-		m.produceConsensusEvent(eStopReceivingProposalEndorsement, ttl)
-		ttl += m.cfg.AcceptLockEndorsementTTL
-		m.produceConsensusEvent(eStopReceivingLockEndorsement, ttl)
+		ttl += m.cfg.CommitTTL
+		m.produceConsensusEvent(eStopReceivingPreCommitEndorsement, ttl)
+
+		return sAcceptPreCommitEndorsement, nil
 	}
+	m.produceConsensusEvent(eFailedToReceiveBlock, ttl)
+	ttl += m.cfg.AcceptProposalEndorsementTTL
+	m.produceConsensusEvent(eStopReceivingProposalEndorsement, ttl)
+	ttl += m.cfg.AcceptLockEndorsementTTL
+	m.produceConsensusEvent(eStopReceivingLockEndorsement, ttl)
 	ttl += m.cfg.CommitTTL
-	m.produceConsensusEvent(ePrepare, ttl)
-	if isProposer {
-		if proposal == nil {
-			return sPrepare, errors.New("no proposal")
-		}
-		m.ctx.Broadcast(proposal)
-		m.ProduceReceiveBlockEvent(proposal)
-	}
-	if locked {
-		if preCommitEndorsement != nil {
-			return sAcceptPreCommitEndorsement, nil
-		}
-		if proposal == nil {
-			return sPrepare, errors.New("no proposal")
-		}
-		m.ProduceReceiveBlockEvent(proposal)
-	}
+	m.produceConsensusEvent(eStopReceivingPreCommitEndorsement, ttl)
 
 	return sAcceptBlockProposal, nil
 }
@@ -540,6 +542,12 @@ func (m *ConsensusFSM) onReceivePreCommitEndorsement(evt fsm.Event) (fsm.State, 
 	if err != nil || !committed {
 		return sAcceptPreCommitEndorsement, err
 	}
+	return m.BackToPrepare(0)
+}
+
+func (m *ConsensusFSM) onStopReceivingPreCommitEndorsement(evt fsm.Event) (fsm.State, error) {
+	m.ctx.Logger().Warn("Not enough pre-commit endorsements")
+
 	return m.BackToPrepare(0)
 }
 
