@@ -406,7 +406,7 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 		return m.BackToPrepare(0)
 	}
 	m.ctx.Logger().Info("Start a new round")
-	overtime := m.ctx.WaitUntil()
+	overtime := m.ctx.WaitUntilRoundStart()
 	if proposal != nil {
 		m.ctx.Broadcast(proposal)
 		m.ProduceReceiveBlockEvent(proposal)
@@ -433,6 +433,8 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 	m.produceConsensusEvent(eStopReceivingProposalEndorsement, ttl)
 	ttl += m.cfg.AcceptLockEndorsementTTL
 	m.produceConsensusEvent(eStopReceivingLockEndorsement, ttl)
+	ttl += m.cfg.CommitTTL
+	m.produceConsensusEvent(eStopReceivingPreCommitEndorsement, ttl)
 
 	return sAcceptBlockProposal, nil
 }

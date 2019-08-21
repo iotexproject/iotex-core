@@ -305,7 +305,7 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	return ctx.mintNewBlock()
 }
 
-func (ctx *rollDPoSCtx) WaitUntil() time.Duration {
+func (ctx *rollDPoSCtx) WaitUntilRoudnStart() time.Duration {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 	now := ctx.clock.Now()
@@ -322,7 +322,7 @@ func (ctx *rollDPoSCtx) PreCommitEndorsement() interface{} {
 	defer ctx.mutex.RUnlock()
 	endorsement := ctx.round.ReadyToCommit(ctx.encodedAddr)
 	if endorsement == nil {
-		// DON'T CHANGE, this is on purpose, because endorsement as nil won't result in a nil interface
+		// DON'T CHANGE, this is on purpose, because endorsement as nil won't result in a nil "interface {}"
 		return nil
 	}
 	return endorsement

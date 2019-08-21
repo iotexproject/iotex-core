@@ -134,7 +134,7 @@ func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
 	if blk == nil {
 		return nil
 	}
-	blkHash := c.Block().HashBlock()
+	blkHash := blk.HashBlock()
 	return NewEndorsedConsensusMessage(
 		blk.Height(),
 		NewConsensusVote(blkHash[:], COMMIT),

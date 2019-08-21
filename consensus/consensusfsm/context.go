@@ -32,7 +32,7 @@ type Context interface {
 	Prepare() error
 	IsDelegate() bool
 	Proposal() (interface{}, error)
-	WaitUntil() time.Duration
+	WaitUntilRoundStart() time.Duration
 	PreCommitEndorsement() interface{}
 	NewProposalEndorsement(interface{}) (interface{}, error)
 	NewLockEndorsement(interface{}) (interface{}, error)
