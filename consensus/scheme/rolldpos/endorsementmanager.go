@@ -28,12 +28,12 @@ var (
 	ErrExpiredEndorsement = errors.New("the endorsement has been replaced or expired")
 	cfg                   = config.Default.DB
 	namespace             = "endorsementManager"
-	key                   = []byte("managerKey")
+	key                   = []byte("KEY")
 	collectionDB          db.KVStore
 )
 
 func init() {
-	path := "consensus-status.bolt"
+	path := "consensus-status-db.bolt"
 	cfg.DbPath = path
 	collectionDB = db.NewBoltDB(cfg)
 	ctx := context.Background()
@@ -230,15 +230,25 @@ func (bc *blockEndorsementCollection) Endorsements(
 }
 
 type endorsementManager struct {
+	//if this flag is true, it will read/write to/from db because it is a status of consensus 
+	dbflag bool 
 	collections map[string]*blockEndorsementCollection
 }
 
-func newEndorsementManager() *endorsementManager {
+func newEndorsementManager(dbflag bool) *endorsementManager {
+	if !dbflag {
+		return &endorsementManager {
+			dbflag : false,
+			collections : map[string]*blockEndorsementCollection{},
+		}
+	}
+
 	bytes, err := collectionDB.Get(namespace, key)
 	if err != nil {
 		fmt.Println(err)
 		//If DB doesn't have any information
 		return &endorsementManager{
+			dbflag: true,
 			collections: map[string]*blockEndorsementCollection{},
 		}
 	}
@@ -256,9 +266,7 @@ func newEndorsementManager() *endorsementManager {
 		fmt.Println(err)
 		return nil
 	}
-	if manager.collections == nil {
-		return manager
-	}
+	manager.dbflag = true
 	return manager
 }
 
@@ -297,7 +305,6 @@ func (m *endorsementManager) CollectionByBlockHash(blkHash []byte) *blockEndorse
 	if !exists {
 		return nil
 	}
-	fmt.Println(collections)
 	return collections
 }
 
@@ -323,22 +330,20 @@ func (m *endorsementManager) RegisterBlock(blk *block.Block) error {
 	}
 	m.collections[encodedBlockHash] = newBlockEndorsementCollection(blk)
 
-	managerProto, err := m.toProto()
-	if err != nil {
-		return err
-	}
-	valBytes, err := proto.Marshal(managerProto)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	err = collectionDB.Delete(namespace, key)
-	if err != nil {
-		return err
-	}
-	err = collectionDB.Put(namespace, key, valBytes)
-	if err != nil {
-		return err
+	if m.dbflag {
+		managerProto, err := m.toProto()
+		if err != nil {
+			return err
+		}
+		valBytes, err := proto.Marshal(managerProto)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+		err = collectionDB.Put(namespace, key, valBytes)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -357,28 +362,26 @@ func (m *endorsementManager) AddVoteEndorsement(
 	}
 	m.collections[encoded] = c
 
-	managerProto, err := m.toProto()
-	if err != nil {
-		return err
-	}
-	valBytes, err := proto.Marshal(managerProto)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	err = collectionDB.Delete(namespace, key)
-	if err != nil {
-		return err
-	}
-	err = collectionDB.Put(namespace, key, valBytes)
-	if err != nil {
-		return err
+	if m.dbflag {
+		managerProto, err := m.toProto()
+		if err != nil {
+			return err
+		}
+		valBytes, err := proto.Marshal(managerProto)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+		err = collectionDB.Put(namespace, key, valBytes)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (m *endorsementManager) Cleanup(timestamp time.Time) error {
-	cleaned := newEndorsementManager()
+	cleaned := newEndorsementManager(m.dbflag)
 	for encoded, c := range m.collections {
 		cleaned.collections[encoded] = c.Cleanup(timestamp)
 	}
@@ -386,19 +389,18 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 	if err != nil {
 		return err
 	}
-	valBytes, err := proto.Marshal(managerProto)
-	if err != nil {
-		return err
-	}
-	err = collectionDB.Delete(namespace, key)
-	if err != nil {
-		return err
-	}
-	err = collectionDB.Put(namespace, key, valBytes)
-	if err != nil {
-		return err
-	}
 	m = cleaned
+
+	if m.dbflag {
+		valBytes, err := proto.Marshal(managerProto)
+		if err != nil {
+			return err
+		}
+		err = collectionDB.Put(namespace, key, valBytes)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

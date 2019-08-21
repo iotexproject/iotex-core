@@ -73,8 +73,8 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 		status = round.status
 		blockInLock = round.blockInLock
 		proofOfLock = round.proofOfLock
-	} else {
-		eManager = newEndorsementManager()
+	} else {	
+		eManager = round.eManager
 	}
 	return &roundCtx{
 		epochNum:             epochNum,
@@ -205,7 +205,7 @@ func (c *roundCalculator) NewRound(
 func (c *roundCalculator) newRound(
 	height uint64,
 	now time.Time,
-	withToleration bool,
+	withToleration bool, 
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
 	epochStartHeight := uint64(0)
@@ -236,7 +236,7 @@ func (c *roundCalculator) newRound(
 		height:             height,
 		roundNum:           roundNum,
 		proposer:           proposer,
-		eManager:           newEndorsementManager(),
+		eManager:           newEndorsementManager(withToleration),
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(c.blockInterval),
 		status:             open,
