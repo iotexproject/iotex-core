@@ -282,7 +282,7 @@ var (
 		blkHeight      uint64
 		numActions     int64
 		transferAmount string
-		logsBloom 	   string
+		logsBloom      string
 	}{
 		{
 			2,
