@@ -148,6 +148,8 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	vote *ConsensusVote,
 	en *endorsement.Endorsement,
 ) error {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
 	endorserAddr, err := address.FromBytes(en.Endorser().Hash())
 	if err != nil {
 		return err
@@ -164,6 +166,8 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	proposal *blockProposal,
 	en *endorsement.Endorsement,
 ) error {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
 	if height != proposal.block.Height() {
 		return errors.Errorf(
 			"block height %d different from expected %d",
@@ -253,21 +257,13 @@ func (ctx *rollDPoSCtx) Logger() *zap.Logger {
 	return ctx.logger()
 }
 
-func (ctx *rollDPoSCtx) Prepare() (
-	isDelegate bool,
-	proposal interface{},
-	isProposer bool,
-	locked bool,
-	precommitEndorsement interface{},
-	delay time.Duration,
-	err error,
-) {
+func (ctx *rollDPoSCtx) Prepare() error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	height := ctx.chain.TipHeight() + 1
 	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.clock.Now())
 	if err != nil {
-		return
+		return err
 	}
 	ctx.logger().Debug(
 		"new round",
@@ -279,41 +275,57 @@ func (ctx *rollDPoSCtx) Prepare() (
 		zap.String("roundStartTime", newRound.roundStartTime.String()),
 	)
 	ctx.round = newRound
-	if active := ctx.active; !active {
-		ctx.logger().Info("current node is in standby mode")
-		delay = ctx.round.NextRoundStartTime().Sub(ctx.clock.Now())
-		isDelegate = false
-		return
-	}
-	if isDelegate = ctx.round.IsDelegate(ctx.encodedAddr); !isDelegate {
-		ctx.logger().Info("current node is not an active consensus delegate")
-		delay = ctx.round.NextRoundStartTime().Sub(ctx.clock.Now())
-		return
-	}
-	if locked = ctx.round.IsLocked(); locked {
-		if proposal, err = ctx.endorseBlockProposal(newBlockProposal(
-			ctx.round.Block(ctx.round.HashOfBlockInLock()),
-			ctx.round.ProofOfLock(),
-		)); err != nil {
-			return
-		}
-		precommitEndorsement = ctx.round.ReadyToCommit(ctx.encodedAddr)
-	}
-	if isProposer = ctx.round.Proposer() == ctx.encodedAddr; isProposer {
-		ctx.logger().Info("current node is a proposer")
-		if proposal == nil {
-			if proposal, err = ctx.mintNewBlock(); err != nil {
-				return
-			}
-		}
-	} else {
-		ctx.logger().Info("current node is an active consensus delegate")
-	}
-	delay = ctx.round.StartTime().Sub(ctx.clock.Now())
-
 	consensusHeightMtc.WithLabelValues().Set(float64(ctx.round.height))
 	timeSlotMtc.WithLabelValues().Set(float64(ctx.round.roundNum))
-	return
+	return nil
+}
+
+func (ctx *rollDPoSCtx) IsDelegate() bool {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	if active := ctx.active; !active {
+		ctx.logger().Info("current node is in standby mode")
+		return false
+	}
+	return ctx.round.IsDelegate(ctx.encodedAddr)
+}
+
+func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	if ctx.round.Proposer() != ctx.encodedAddr {
+		return nil, nil
+	}
+	if ctx.round.IsLocked() {
+		return ctx.endorseBlockProposal(newBlockProposal(
+			ctx.round.Block(ctx.round.HashOfBlockInLock()),
+			ctx.round.ProofOfLock(),
+		))
+	}
+	return ctx.mintNewBlock()
+}
+
+func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	now := ctx.clock.Now()
+	startTime := ctx.round.StartTime()
+	if now.Before(startTime) {
+		time.Sleep(startTime.Sub(now))
+		return 0
+	}
+	return now.Sub(startTime)
+}
+
+func (ctx *rollDPoSCtx) PreCommitEndorsement() interface{} {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	endorsement := ctx.round.ReadyToCommit(ctx.encodedAddr)
+	if endorsement == nil {
+		// DON'T CHANGE, this is on purpose, because endorsement as nil won't result in a nil "interface {}"
+		return nil
+	}
+	return endorsement
 }
 
 func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, error) {

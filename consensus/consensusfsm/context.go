@@ -29,7 +29,11 @@ type Context interface {
 
 	Broadcast(interface{})
 
-	Prepare() (bool, interface{}, bool, bool, interface{}, time.Duration, error)
+	Prepare() error
+	IsDelegate() bool
+	Proposal() (interface{}, error)
+	WaitUntilRoundStart() time.Duration
+	PreCommitEndorsement() interface{}
 	NewProposalEndorsement(interface{}) (interface{}, error)
 	NewLockEndorsement(interface{}) (interface{}, error)
 	NewPreCommitEndorsement(interface{}) (interface{}, error)
