@@ -305,7 +305,7 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	return ctx.mintNewBlock()
 }
 
-func (ctx *rollDPoSCtx) WaitUntilRoudnStart() time.Duration {
+func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 	now := ctx.clock.Now()
