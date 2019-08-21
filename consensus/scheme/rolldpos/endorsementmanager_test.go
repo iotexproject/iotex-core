@@ -49,10 +49,11 @@ func TestEndorserEndorsementCollection(t *testing.T) {
 		require.Equal(mockCommit, eec.Endorsement(COMMIT))
 	})
 	t.Run("cleanup", func(t *testing.T) {
-		cleaned := eec.Cleanup(now)
-		require.Nil(cleaned.Endorsement(PROPOSAL))
-		require.Nil(cleaned.Endorsement(LOCK))
-		require.NotNil(cleaned.Endorsement(COMMIT))
+		err := eec.Cleanup(now)
+		require.Nil(err)
+		require.Nil(eec.Endorsement(PROPOSAL))
+		require.Nil(eec.Endorsement(LOCK))
+		require.NotNil(eec.Endorsement(COMMIT))
 	})
 	t.Run("failure-to-replace", func(t *testing.T) {
 		mockProposal2 := endorsement.NewEndorsement(
@@ -87,10 +88,11 @@ func TestBlockEndorsementCollection(t *testing.T) {
 	require.Equal(1, len(ends))
 	require.Equal(end, ends[0])
 
-	cleaned := ec.Cleanup(time.Now().Add(time.Second * 10 * -1))
-	require.Equal(1, len(cleaned.endorsers))
-	require.Equal(1, len(cleaned.endorsers[b.PublicKey().HexString()].endorsements))
-	require.Equal(end, cleaned.endorsers[b.PublicKey().HexString()].Endorsement(PROPOSAL))
+	err := ec.Cleanup(time.Now().Add(time.Second * 10 * -1))
+	require.Nil(err)
+	require.Equal(1, len(ec.endorsers))
+	require.Equal(1, len(ec.endorsers[b.PublicKey().HexString()].endorsements))
+	require.Equal(end, ec.endorsers[b.PublicKey().HexString()].Endorsement(PROPOSAL))
 }
 
 func TestEndorsementManager(t *testing.T) {
@@ -123,12 +125,13 @@ func TestEndorsementManager(t *testing.T) {
 	l := em.Log(log.L(), nil)
 	require.NotNil(l)
 	l.Info("test output")
-	cleaned := em.Cleanup(time.Now().Add(time.Second * 10 * -1))
-	require.NotNil(cleaned)
-	require.Equal(1, len(cleaned.collections))
+	err := em.Cleanup(time.Now().Add(time.Second * 10 * -1))
+	require.Nil(err)
+	require.NotNil(em)
+	require.Equal(1, len(em.collections))
 	encoded := encodeToString(cv.BlockHash())
-	require.Equal(1, len(cleaned.collections[encoded].endorsers))
+	require.Equal(1, len(em.collections[encoded].endorsers))
 
-	collection := cleaned.collections[encoded].endorsers[end.Endorser().HexString()]
+	collection := em.collections[encoded].endorsers[end.Endorser().HexString()]
 	require.Equal(end, collection.endorsements[PROPOSAL])
 }
