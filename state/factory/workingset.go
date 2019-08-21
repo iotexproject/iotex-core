@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/iotexproject/iotex-core/state/tracker"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -66,6 +68,8 @@ type (
 		DelState(pkHash hash.Hash160) error
 		GetDB() db.KVStore
 		GetCachedBatch() db.CachedBatch
+		// State track
+		Track(tracker.StateChange)
 	}
 
 	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache

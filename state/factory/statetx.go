@@ -72,8 +72,10 @@ func (stx *stateTX) RunActions(
 		raCtx = protocol.MustGetRunActionsCtx(ctx)
 	}
 	for _, elp := range elps {
+		stx.track.Snapshot()
 		receipt, err := stx.RunAction(raCtx, elp)
 		if err != nil {
+			stx.track.Recover()
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
@@ -81,6 +83,9 @@ func (stx *stateTX) RunActions(
 		}
 	}
 	stx.UpdateBlockLevelInfo(blockHeight)
+	if err := stx.track.Commit(int(blockHeight)); err != nil {
+		return receipts, errors.Wrap(err, "failed to commit state changes")
+	}
 	return receipts, nil
 }
 
@@ -189,4 +194,9 @@ func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 	stx.cb.Delete(AccountKVNameSpace, pkHash[:], "error when deleting k = %x", pkHash)
 	return nil
+}
+
+// Track tracks new state change
+func (stx *stateTX) Track(c tracker.StateChange) {
+	stx.track.Append(c)
 }

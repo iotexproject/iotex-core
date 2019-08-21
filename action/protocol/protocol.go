@@ -9,6 +9,8 @@ package protocol
 import (
 	"context"
 
+	"github.com/iotexproject/iotex-core/state/tracker"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -74,4 +76,6 @@ type StateManager interface {
 	DelState(pkHash hash.Hash160) error
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch
+	// State track
+	Track(tracker.StateChange)
 }

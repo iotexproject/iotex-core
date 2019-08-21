@@ -11,6 +11,8 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/state/tracker"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
@@ -45,6 +47,18 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool 
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
+	outAddr, _ := address.FromBytes(fromHash.Bytes())
+	inAddr, _ := address.FromBytes(toHash.Bytes())
+	sdb, ok := db.(*StateDBAdapter)
+	if !ok {
+		log.L().Panic("failed to get StateDBAdapter")
+	}
+	sdb.sm.Track(tracker.BalanceChange{
+		Amount:     amount.String(),
+		InAddr:     inAddr.String(),
+		OutAddr:    outAddr.String(),
+		ActionHash: sdb.executionHash,
+	})
 }
 
 type (
