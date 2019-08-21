@@ -33,7 +33,7 @@ func TestUpdateRound(t *testing.T) {
 	require := require.New(t)
 	bc, roll := makeChain(t)
 	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
-	ra, err := rc.NewRound(1, time.Unix(1562382392, 0))
+	ra, err := rc.NewRoundWithToleration(1, time.Unix(1562382392, 0))
 	require.NoError(err)
 
 	// height < round.Height()
