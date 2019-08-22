@@ -9,8 +9,6 @@ package factory
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/state/tracker"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -21,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/tracker"
 )
 
 // stateTX implements stateTX interface, tracks pending changes to account/contract in local cache
@@ -30,7 +29,7 @@ type stateTX struct {
 	cb             db.CachedBatch // cached batch for pending writes
 	dao            db.KVStore     // the underlying DB for account/contract storage
 	actionHandlers []protocol.ActionHandler
-	track          tracker.StateTracker
+	st             tracker.StateTracker
 }
 
 // newStateTX creates a new state tx
@@ -38,12 +37,14 @@ func newStateTX(
 	version uint64,
 	kv db.KVStore,
 	actionHandlers []protocol.ActionHandler,
+	st tracker.StateTracker,
 ) *stateTX {
 	return &stateTX{
 		ver:            version,
 		cb:             db.NewCachedBatch(),
 		dao:            kv,
 		actionHandlers: actionHandlers,
+		st:             st,
 	}
 }
 
@@ -72,10 +73,10 @@ func (stx *stateTX) RunActions(
 		raCtx = protocol.MustGetRunActionsCtx(ctx)
 	}
 	for _, elp := range elps {
-		stx.track.Snapshot()
+		stx.st.Snapshot()
 		receipt, err := stx.RunAction(raCtx, elp)
 		if err != nil {
-			stx.track.Recover()
+			stx.st.Recover()
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
@@ -83,7 +84,7 @@ func (stx *stateTX) RunActions(
 		}
 	}
 	stx.UpdateBlockLevelInfo(blockHeight)
-	if err := stx.track.Commit(int(blockHeight)); err != nil {
+	if err := stx.st.Commit(int(blockHeight)); err != nil {
 		return receipts, errors.Wrap(err, "failed to commit state changes")
 	}
 	return receipts, nil
@@ -198,5 +199,5 @@ func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 
 // Track tracks new state change
 func (stx *stateTX) Track(c tracker.StateChange) {
-	stx.track.Append(c)
+	stx.st.Append(c)
 }
