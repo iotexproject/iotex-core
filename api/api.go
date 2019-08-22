@@ -39,6 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -909,7 +910,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	}, nil
 }
 
-// getBlockMetas gets block within the height range
+// getBlockMetas returns blockmetas response within the height range
 func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlockMetasResponse, error) {
 	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
@@ -921,32 +922,14 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 	}
 	var res []*iotextypes.BlockMeta
 	for height := start; height <= tipHeight && count > 0; height++ {
-		blk, err := api.bc.GetBlockByHeight(height)
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-
-		hash := blk.HashBlock()
-		ts, _ := ptypes.TimestampProto(blk.Header.Timestamp())
-		txRoot := blk.TxRoot()
-		receiptRoot := blk.ReceiptRoot()
-		deltaStateDigest := blk.DeltaStateDigest()
-		transferAmount := getTranferAmountInBlock(blk)
-		logsBloom := blk.Header.LogsBloomfilter()
-
-		blockMeta := &iotextypes.BlockMeta{
-			Hash:             hex.EncodeToString(hash[:]),
-			Height:           blk.Height(),
-			Timestamp:        ts,
-			NumActions:       int64(len(blk.Actions)),
-			ProducerAddress:  blk.ProducerAddress(),
-			TransferAmount:   transferAmount.String(),
-			TxRoot:           hex.EncodeToString(txRoot[:]),
-			ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
-			DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
-		}
-		if logsBloom != nil {
-			blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
+		blockMeta, err := api.getBlockMetasByHeader(height)
+		if errors.Cause(err) == action.ErrNotFound {
+			blockMeta, err = api.getBlockMetasByBlock(height)
+			if err != nil {
+				return nil, err
+			}
+		} else if err != nil {
+			return nil, err
 		}
 		res = append(res, blockMeta)
 		count--
@@ -957,31 +940,129 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 	}, nil
 }
 
-// getBlockMeta returns block by block hash
+// getBlockMeta returns blockmetas response by block hash
 func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse, error) {
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	blk, err := api.bc.GetBlockByHash(hash)
+	blockMeta, err := api.getBlockMetaByHeader(hash)
+	if errors.Cause(err) == action.ErrNotFound {
+		blockMeta, err = api.getBlockMetaByBlock(hash)
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		return nil, err
+	}
+	return &iotexapi.GetBlockMetasResponse{
+		Total:    1,
+		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
+	}, nil
+}
+
+// getBlockMetasUpgrade checks the upgrade of numActions and transferAmount from DB
+func (api *Server) getBlockMetaUpgrade(height uint64) error {
+	if _, err := api.bc.GetTranferAmount(height); errors.Cause(err) == db.ErrNotExist {
+		return errors.Wrapf(action.ErrNotFound, "missing transfer amount by actions with height %d", height)
+	} else if err != nil {
+		return err
+	}
+	if _, err := api.bc.GetNumActions(height); errors.Cause(err) == db.ErrNotExist {
+		return errors.Wrapf(action.ErrNotFound, "missing num actions by actions with height %d", height)
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+// putBlockMetaUpgradeByBlock puts numActions and transferAmount for blockmeta by block
+func (api *Server) putBlockMetaUpgradeByBlock(blk *block.Block, blockMeta *iotextypes.BlockMeta) *iotextypes.BlockMeta {
+	blockMeta.NumActions = int64(len(blk.Actions))
+	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
+	return blockMeta
+}
+
+// putBlockMetaUpgradeByHeader puts numActions and transferAmount for blockmeta by header height
+func (api *Server) putBlockMetaUpgradeByHeader(height uint64, blockMeta *iotextypes.BlockMeta) *iotextypes.BlockMeta {
+	numActions, _ := api.bc.GetNumActions(height)
+	transferAmount, _ := api.bc.GetTranferAmount(height)
+	blockMeta.NumActions = int64(numActions)
+	blockMeta.TransferAmount = transferAmount.String()
+	return blockMeta
+}
+
+// getBlockMetasByHeader gets block header by height
+func (api *Server) getBlockMetasByHeader(height uint64) (*iotextypes.BlockMeta, error) {
+	header, err := api.bc.BlockHeaderByHeight(height)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
+	if err := api.getBlockMetaUpgrade(header.Height()); err != nil {
+		return nil, err
+	}
+	blockMeta := api.getCommonBlockMeta(header)
+	blockMeta = api.putBlockMetaUpgradeByHeader(header.Height(), blockMeta)
+	return blockMeta, nil
+}
 
-	ts, _ := ptypes.TimestampProto(blk.Header.Timestamp())
-	txRoot := blk.TxRoot()
-	receiptRoot := blk.ReceiptRoot()
-	deltaStateDigest := blk.DeltaStateDigest()
-	transferAmount := getTranferAmountInBlock(blk)
-	logsBloom := blk.Header.LogsBloomfilter()
+// getBlockMetasByBlock gets block by height
+func (api *Server) getBlockMetasByBlock(height uint64) (*iotextypes.BlockMeta, error) {
+	blk, err := api.bc.GetBlockByHeight(height)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	blockMeta := api.getCommonBlockMeta(blk)
+	blockMeta = api.putBlockMetaUpgradeByBlock(blk, blockMeta)
+	return blockMeta, nil
+}
+
+// getBlockMetaByHeader gets block header by hash
+func (api *Server) getBlockMetaByHeader(h hash.Hash256) (*iotextypes.BlockMeta, error) {
+	header, err := api.bc.BlockHeaderByHash(h)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if err := api.getBlockMetaUpgrade(header.Height()); err != nil {
+		return nil, err
+	}
+	blockMeta := api.getCommonBlockMeta(header)
+	blockMeta = api.putBlockMetaUpgradeByHeader(header.Height(), blockMeta)
+	return blockMeta, nil
+}
+
+// getBlockMetaByBlock gets block by hash
+func (api *Server) getBlockMetaByBlock(h hash.Hash256) (*iotextypes.BlockMeta, error) {
+	blk, err := api.bc.GetBlockByHash(h)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	blockMeta := api.getCommonBlockMeta(blk)
+	blockMeta = api.putBlockMetaUpgradeByBlock(blk, blockMeta)
+	return blockMeta, nil
+}
+
+// getCommonBlockMeta gets blockmeta by empty interface
+func (api *Server) getCommonBlockMeta(common interface{}) *iotextypes.BlockMeta {
+	header, ok := common.(*block.Header)
+	if !ok {
+		blk := common.(*block.Block)
+		header = &blk.Header
+	}
+	hash := header.HashBlock()
+	height := header.Height()
+	ts, _ := ptypes.TimestampProto(header.Timestamp())
+	producerAddress := header.ProducerAddress()
+	txRoot := header.TxRoot()
+	receiptRoot := header.ReceiptRoot()
+	deltaStateDigest := header.DeltaStateDigest()
+	logsBloom := header.LogsBloomfilter()
 
 	blockMeta := &iotextypes.BlockMeta{
-		Hash:             blkHash,
-		Height:           blk.Height(),
+		Hash:             hex.EncodeToString(hash[:]),
+		Height:           height,
 		Timestamp:        ts,
-		NumActions:       int64(len(blk.Actions)),
-		ProducerAddress:  blk.ProducerAddress(),
-		TransferAmount:   transferAmount.String(),
+		ProducerAddress:  producerAddress,
 		TxRoot:           hex.EncodeToString(txRoot[:]),
 		ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
 		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
@@ -989,11 +1070,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	if logsBloom != nil {
 		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
 	}
-
-	return &iotexapi.GetBlockMetasResponse{
-		Total:    1,
-		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
-	}, nil
+	return blockMeta
 }
 
 func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
@@ -1128,18 +1205,6 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 		}, res...)
 	}
 	return res
-}
-
-func getTranferAmountInBlock(blk *block.Block) *big.Int {
-	totalAmount := big.NewInt(0)
-	for _, selp := range blk.Actions {
-		transfer, ok := selp.Action().(*action.Transfer)
-		if !ok {
-			continue
-		}
-		totalAmount.Add(totalAmount, transfer.Amount())
-	}
-	return totalAmount
 }
 
 func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*iotextypes.Log, error) {

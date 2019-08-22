@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"path"
 	"strconv"
@@ -48,6 +49,8 @@ const (
 	blockBodyNS                      = "bbd"
 	blockFooterNS                    = "bfr"
 	receiptsNS                       = "rpt"
+	numActionsNS                     = "nac"
+	transferAmountNS                 = "tfa"
 
 	hashOffset = 12
 )
@@ -531,9 +534,17 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 		return errors.Wrap(err, "failed to get total actions")
 	}
 	totalActions := enc.MachineEndian.Uint64(value)
-	totalActions += uint64(len(blk.Actions))
+	numActions := uint64(len(blk.Actions))
+	totalActions += numActions
 	totalActionsBytes := byteutil.Uint64ToBytes(totalActions)
 	batch.Put(blockNS, totalActionsKey, totalActionsBytes, "failed to put total actions")
+
+	numActionsBytes := byteutil.Uint64ToBytes(numActions)
+	batch.Put(numActionsNS, heightKey, numActionsBytes, "Failed to put num actions of block %d", blk.Height())
+
+	transferAmount := blk.CalculateTransferAmount()
+	transferAmountBytes := transferAmount.Bytes()
+	batch.Put(transferAmountNS, heightKey, transferAmountBytes, "Failed to put transfer amount of block %d", blk.Height())
 
 	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
@@ -542,6 +553,40 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 		return err
 	}
 	return dao.kvstore.Commit(batch)
+}
+
+// getNumActions returns the number of actions by height
+func (dao *blockDAO) getNumActions(height uint64) (uint64, error) {
+	kvstore, _, err := dao.getDBFromHeight(height)
+	if err != nil {
+		return 0, err
+	}
+	heightKey := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
+	value, err := kvstore.Get(numActionsNS, heightKey)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get num actions")
+	}
+	if len(value) == 0 {
+		return 0, errors.Wrapf(db.ErrNotExist, "num actions missing for block with height %d", height)
+	}
+	return enc.MachineEndian.Uint64(value), nil
+}
+
+// getTranferAmount returns the transfer amount by height
+func (dao *blockDAO) getTranferAmount(height uint64) (*big.Int, error) {
+	kvstore, _, err := dao.getDBFromHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	heightKey := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
+	value, err := kvstore.Get(transferAmountNS, heightKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get transfer amount")
+	}
+	if len(value) == 0 {
+		return nil, errors.Wrapf(db.ErrNotExist, "transfer amount missing for block with height %d", height)
+	}
+	return new(big.Int).SetBytes(value), nil
 }
 
 // putReceipts store receipt into db
