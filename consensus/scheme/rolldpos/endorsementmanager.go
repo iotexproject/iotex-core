@@ -32,7 +32,8 @@ var (
 	collectionDB          db.KVStore
 )
 
-type EndorsedByMajority func(blockHash []byte, topics []ConsensusVoteTopic) bool
+//EndorsedByMajorityFunc defines a function to give an information of consensus status
+type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
 
 func init() {
 	path := "consensus-status-db.bolt"
@@ -232,7 +233,7 @@ func (bc *blockEndorsementCollection) Endorsements(
 }
 
 type endorsementManager struct {
-	isMajorityFunc EndorsedByMajority
+	isMajorityFunc EndorsedByMajorityFunc
 	dbflag         bool
 	//if dbflag flag is true, it will read/write to/from db because it is about consensus status changing
 	collections map[string]*blockEndorsementCollection
@@ -271,7 +272,7 @@ func newEndorsementManager(dbflag bool) *endorsementManager {
 	return manager
 }
 
-func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajority) {
+func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorityFunc) {
 	m.isMajorityFunc = isMajorityFunc
 }
 
