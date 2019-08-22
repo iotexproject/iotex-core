@@ -9,14 +9,14 @@ package protocol
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/state/tracker"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/tracker"
 )
 
 var (
