@@ -204,7 +204,7 @@ func (c *roundCalculator) NewRound(
 func (c *roundCalculator) newRound(
 	height uint64,
 	now time.Time,
-	withToleration bool, 
+	withToleration bool,
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
 	epochStartHeight := uint64(0)

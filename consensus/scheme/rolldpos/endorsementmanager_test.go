@@ -7,24 +7,15 @@
 package rolldpos
 
 import (
-	"encoding/hex"
-	"fmt"
-	"hash/fnv"
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestEndorserEndorsementCollection(t *testing.T) {
@@ -104,10 +95,10 @@ func TestBlockEndorsementCollection(t *testing.T) {
 
 func TestEndorsementManager(t *testing.T) {
 	require := require.New(t)
-	em := newEndorsementManager(true)
+	em := newEndorsementManager(false)
 	require.NotNil(em)
-	//require.Equal(0, em.Size())
-	//require.Equal(0, em.SizeWithBlock())
+	require.Equal(0, em.Size())
+	require.Equal(0, em.SizeWithBlock())
 
 	b := getBlock(t)
 
@@ -136,128 +127,10 @@ func TestEndorsementManager(t *testing.T) {
 	err := em.Cleanup(time.Now().Add(time.Second * 10 * -1))
 	require.Nil(err)
 	require.NotNil(em)
-	//require.Equal(1, len(em.collections))
+	require.Equal(1, len(em.collections))
 	encoded := encodeToString(cv.BlockHash())
 	require.Equal(1, len(em.collections[encoded].endorsers))
 
 	collection := em.collections[encoded].endorsers[end.Endorser().HexString()]
 	require.Equal(end, collection.endorsements[PROPOSAL])
-}
-
-func TestEndorsementManagerDB(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	now := time.Now()
-	priKey1 := identityset.PrivateKey(0)
-	priKey2 := identityset.PrivateKey(1)
-	mockProposal := endorsement.NewEndorsement(
-		now.Add(-2*time.Second),
-		priKey1.PublicKey(),
-		[]byte{},
-	)
-	mockLock := endorsement.NewEndorsement(
-		now.Add(-2*time.Second),
-		priKey1.PublicKey(),
-		[]byte{},
-	)
-	mockCommit := endorsement.NewEndorsement(
-		now.Add(-2*time.Second),
-		priKey2.PublicKey(),
-		[]byte{},
-	)
-	eec := newEndorserEndorsementCollection()
-	require.NoError(eec.AddEndorsement(PROPOSAL, mockProposal))
-	require.NoError(eec.AddEndorsement(LOCK, mockLock))
-
-	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(28), 1, big.NewInt(int64(0)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	require.NoError(err)
-
-	// tsf2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), 2, big.NewInt(int64(0)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	// require.NoError(err)
-
-	// tsf3, err := testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 3, big.NewInt(int64(0)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	// require.NoError(err)
-
-	tsf4, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(28), 2, big.NewInt(int64(0)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	require.NoError(err)
-
-	// tsf5, err := testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(29), 3, big.NewInt(int64(0)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	// require.NoError(err)
-
-	// tsf6, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), 4, big.NewInt(int64(0)), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
-	// require.NoError(err)
-
-	execution1, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 1, big.NewInt(1), 0, big.NewInt(0), nil)
-	require.NoError(err)
-	// execution2, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(29), 2, big.NewInt(0), 0, big.NewInt(0), nil)
-	// require.NoError(err)
-	// execution3, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 3, big.NewInt(2), 0, big.NewInt(0), nil)
-	// require.NoError(err)
-
-	// create testing create deposit actions
-	deposit1 := action.NewCreateDeposit(
-		4,
-		2,
-		big.NewInt(1),
-		identityset.Address(31).String(),
-		testutil.TestGasLimit,
-		big.NewInt(0),
-	)
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(4).
-		SetGasLimit(testutil.TestGasLimit).
-		SetAction(deposit1).Build()
-	sdeposit1, err := action.Sign(elp, identityset.PrivateKey(28))
-	require.NoError(err)
-
-	deposit2 := action.NewCreateDeposit(
-		5,
-		2,
-		big.NewInt(2),
-		identityset.Address(31).String(),
-		testutil.TestGasLimit,
-		big.NewInt(0),
-	)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(5).
-		SetGasLimit(testutil.TestGasLimit).
-		SetAction(deposit2).Build()
-	// sdeposit2, err := action.Sign(elp, identityset.PrivateKey(29))
-	// require.NoError(err)
-
-	deposit3 := action.NewCreateDeposit(
-		6,
-		2,
-		big.NewInt(3),
-		identityset.Address(31).String(),
-		testutil.TestGasLimit,
-		big.NewInt(0),
-	)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(6).
-		SetGasLimit(testutil.TestGasLimit).
-		SetAction(deposit3).Build()
-	// sdeposit3, err := action.Sign(elp, identityset.PrivateKey(30))
-	// require.NoError(err)
-
-	hash1 := hash.Hash256{}
-	fnv.New32().Sum(hash1[:])
-	blk1, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(hash1).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1, tsf4, execution1, sdeposit1).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
-	em := newEndorsementManager(true)
-	blkHash := blk1.HashBlock()
-	encodedHashBlock := encodeToString(blkHash[:])
-	bytes, _ := hex.DecodeString(encodedHashBlock)
-	vote1 := NewConsensusVote(bytes, PROPOSAL)
-	vote2 := NewConsensusVote(bytes, COMMIT)
-	em.AddVoteEndorsement(vote1, mockProposal)
-	em.AddVoteEndorsement(vote2, mockCommit)
-	em.RegisterBlock(&blk1)
-
 }
