@@ -115,6 +115,7 @@ func newRollDPoSCtx(
 		toleratedOvertime:      toleratedOvertime,
 	}
 	round, err := roundCalc.NewRoundWithToleration(0, clock.Now())
+	round.eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
 	if err != nil {
 		log.Logger("consensus").Panic("failed to generate round context", zap.Error(err))
 	}
