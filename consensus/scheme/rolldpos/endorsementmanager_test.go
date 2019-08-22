@@ -25,9 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-
-
-
 )
 
 func TestEndorserEndorsementCollection(t *testing.T) {
@@ -128,11 +125,7 @@ func TestEndorsementManager(t *testing.T) {
 	}, "endorsement is nil")
 
 	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
-	before := time.Now() 
 	require.NoError(em.AddVoteEndorsement(cv, end))
-	after := time.Now() 
-	elapsed := after.Sub(before)
-	fmt.Println("writing takes..", elapsed.String())
 
 	require.Panics(func() {
 		em.Log(nil, nil)
@@ -150,7 +143,6 @@ func TestEndorsementManager(t *testing.T) {
 	collection := em.collections[encoded].endorsers[end.Endorser().HexString()]
 	require.Equal(end, collection.endorsements[PROPOSAL])
 }
-
 
 func TestEndorsementManagerDB(t *testing.T) {
 	require := require.New(t)
@@ -266,7 +258,6 @@ func TestEndorsementManagerDB(t *testing.T) {
 	vote2 := NewConsensusVote(bytes, COMMIT)
 	em.AddVoteEndorsement(vote1, mockProposal)
 	em.AddVoteEndorsement(vote2, mockCommit)
-	//require.Equal(1, em.SizeWithBlock())
 	em.RegisterBlock(&blk1)
 
 }

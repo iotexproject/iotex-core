@@ -32,6 +32,8 @@ var (
 	collectionDB          db.KVStore
 )
 
+type EndorsedByMajority func(blockHash []byte, topics []ConsensusVoteTopic) bool
+
 func init() {
 	path := "consensus-status-db.bolt"
 	cfg.DbPath = path
@@ -230,31 +232,30 @@ func (bc *blockEndorsementCollection) Endorsements(
 }
 
 type endorsementManager struct {
-	//if this flag is true, it will read/write to/from db because it is a status of consensus 
-	dbflag bool 
+	isMajorityFunc EndorsedByMajority
+	dbflag         bool
+	//if dbflag flag is true, it will read/write to/from db because it is about consensus status changing
 	collections map[string]*blockEndorsementCollection
 }
 
 func newEndorsementManager(dbflag bool) *endorsementManager {
 	if !dbflag {
-		return &endorsementManager {
-			dbflag : false,
-			collections : map[string]*blockEndorsementCollection{},
+		return &endorsementManager{
+			dbflag:      false,
+			collections: map[string]*blockEndorsementCollection{},
 		}
 	}
-
 	bytes, err := collectionDB.Get(namespace, key)
 	if err != nil {
-		fmt.Println(err)
 		//If DB doesn't have any information
+		fmt.Println(err)
 		return &endorsementManager{
-			dbflag: true,
+			dbflag:      true,
 			collections: map[string]*blockEndorsementCollection{},
 		}
 	}
 	//Get from DB
 	manager := &endorsementManager{}
-	//manager.Deserialize(bytes)
 	managerProto := &endorsementpb.EndorsementManager{}
 	err = proto.Unmarshal(bytes, managerProto)
 	if err != nil {
@@ -268,6 +269,10 @@ func newEndorsementManager(dbflag bool) *endorsementManager {
 	}
 	manager.dbflag = true
 	return manager
+}
+
+func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajority) {
+	m.isMajorityFunc = isMajorityFunc
 }
 
 func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
@@ -352,6 +357,10 @@ func (m *endorsementManager) AddVoteEndorsement(
 	vote *ConsensusVote,
 	en *endorsement.Endorsement,
 ) error {
+	var beforeVote, afterVote bool
+	if m.isMajorityFunc != nil {
+		beforeVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
+	}
 	encoded := encodeToString(vote.BlockHash())
 	c, exists := m.collections[encoded]
 	if !exists {
@@ -362,19 +371,23 @@ func (m *endorsementManager) AddVoteEndorsement(
 	}
 	m.collections[encoded] = c
 
-	if m.dbflag {
-		managerProto, err := m.toProto()
-		if err != nil {
-			return err
-		}
-		valBytes, err := proto.Marshal(managerProto)
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
-		err = collectionDB.Put(namespace, key, valBytes)
-		if err != nil {
-			return err
+	if m.dbflag && m.isMajorityFunc != nil {
+		afterVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
+		if !beforeVote && afterVote {
+			//put into DB only it changes the status of consensus
+			managerProto, err := m.toProto()
+			if err != nil {
+				return err
+			}
+			valBytes, err := proto.Marshal(managerProto)
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+			err = collectionDB.Put(namespace, key, valBytes)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
