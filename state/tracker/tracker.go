@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
+// StateTracker defines an interface for state change track
 type StateTracker interface {
 	lifecycle.StartStopper
 
@@ -39,39 +40,47 @@ type stateTracker struct {
 	snapshot int
 }
 
+// New creates a state tracker
 func New(connectStr string, dbName string) StateTracker {
 	tracker := &stateTracker{}
 	tracker.store = asql.NewMySQL(connectStr, dbName)
 	return tracker
 }
 
+// Start starts state tracker
 func (t *stateTracker) Start(ctx context.Context) error {
 	t.changes = make([]StateChange, 0)
 	t.snapshot = 0
 	return t.store.Start(ctx)
 }
 
+// Stop stops state tracker
 func (t *stateTracker) Stop(ctx context.Context) error {
 	return t.store.Stop(ctx)
 }
 
+// Append appends new state change
 func (t *stateTracker) Append(c StateChange) {
 	t.changes = append(t.changes, c)
 }
 
+// Snapshot records current status of changes
 func (t *stateTracker) Snapshot() {
 	t.snapshot = len(t.changes)
 }
 
+// Recover recovers state change to snapshot
 func (t *stateTracker) Recover() {
 	t.changes = t.changes[:t.snapshot]
 }
 
+// Clear deletes all state changes
 func (t *stateTracker) Clear() {
 	t.changes = make([]StateChange, 0)
 	t.snapshot = 0
 }
 
+// Commit stores all state changes into db
 func (t *stateTracker) Commit(height int) error {
 	if err := t.store.Transact(func(tx *sql.Tx) error {
 		for _, c := range t.changes {
@@ -88,11 +97,13 @@ func (t *stateTracker) Commit(height int) error {
 	return nil
 }
 
+// StateChange represents state change of state db
 type StateChange interface {
 	Type() reflect.Type
 	handle(*sql.Tx, int) error
 }
 
+// BalanceChange records balance change of accounts
 type BalanceChange struct {
 	Amount     string
 	InAddr     string
@@ -100,6 +111,7 @@ type BalanceChange struct {
 	ActionHash hash.Hash256
 }
 
+// Type returns the type of state change
 func (b BalanceChange) Type() reflect.Type {
 	return reflect.TypeOf(b)
 }

@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"strconv"
 	"sync"
 
@@ -18,6 +19,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
@@ -26,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/tracker"
 )
 
 // stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -35,6 +38,7 @@ type stateDB struct {
 	dao                db.KVStore               // the underlying DB for account/contract storage
 	actionHandlers     []protocol.ActionHandler // the handlers to handle actions
 	timerFactory       *prometheustimer.TimerFactory
+	st                 tracker.StateTracker
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -60,6 +64,18 @@ func DefaultStateDBOption() StateDBOption {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sdb.dao = db.NewBoltDB(cfg.DB)
+
+		connectionStr := os.Getenv("CONNECTION_STRING")
+		if connectionStr == "" {
+			connectionStr = "root:rootuser@tcp(127.0.0.1:3306)/"
+		}
+
+		dbName := os.Getenv("DB_NAME")
+		if dbName == "" {
+			dbName = "analytics"
+		}
+		sdb.st = tracker.New(connectionStr, dbName)
+
 		return nil
 	}
 }
@@ -100,12 +116,18 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 func (sdb *stateDB) Start(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
+	if err := sdb.st.Start(ctx); err != nil {
+		return errors.Wrap(err, "failed to start state tracker")
+	}
 	return sdb.dao.Start(ctx)
 }
 
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
+	if err := sdb.st.Stop(ctx); err != nil {
+		return errors.Wrap(err, "failed to stop state tracker")
+	}
 	return sdb.dao.Stop(ctx)
 }
 
@@ -170,7 +192,7 @@ func (sdb *stateDB) Height() (uint64, error) {
 func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers), nil
+	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers, sdb.st), nil
 }
 
 // Commit persists all changes in RunActions() into the DB
