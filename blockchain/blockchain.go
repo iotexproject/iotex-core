@@ -96,6 +96,10 @@ type Blockchain interface {
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
 	// GetTotalActions returns the total number of actions
 	GetTotalActions() (uint64, error)
+	// GetNumActions returns the number of actions
+	GetNumActions(height uint64) (uint64, error)
+	// GetTranferAmount returns the transfer amount
+	GetTranferAmount(height uint64) (*big.Int, error)
 	// GetReceiptByActionHash returns the receipt by action hash
 	GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error)
 	// GetActionsFromAddress returns actions from address
@@ -488,6 +492,16 @@ func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 // GetTotalActions returns the total number of actions
 func (bc *blockchain) GetTotalActions() (uint64, error) {
 	return bc.dao.getTotalActions()
+}
+
+// GetNumActions returns the number of actions
+func (bc *blockchain) GetNumActions(height uint64) (uint64, error) {
+	return bc.dao.getNumActions(height)
+}
+
+// GetTranferAmount returns the transfer amount
+func (bc *blockchain) GetTranferAmount(height uint64) (*big.Int, error) {
+	return bc.dao.getTranferAmount(height)
 }
 
 // GetReceiptByActionHash returns the receipt by action hash
