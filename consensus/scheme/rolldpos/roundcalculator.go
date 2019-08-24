@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
@@ -25,6 +26,7 @@ type roundCalculator struct {
 	timeBasedRotation      bool
 	rp                     *rolldpos.Protocol
 	candidatesByHeightFunc CandidatesByHeightFunc
+	eManagerDB             db.KVStore
 }
 
 func (c *roundCalculator) BlockInterval() time.Duration {
@@ -69,12 +71,13 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 		if err != nil {
 			return nil, err
 		}
+		eManager = round.eManager
 		status = round.status
 		blockInLock = round.blockInLock
 		proofOfLock = round.proofOfLock
+	} else {
+		eManager = round.eManager
 	}
-	eManager = round.eManager
-
 	return &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
@@ -212,6 +215,7 @@ func (c *roundCalculator) newRound(
 	var roundNum uint32
 	var proposer string
 	var roundStartTime time.Time
+	var eManager *endorsementManager
 	if height != 0 {
 		epochNum = c.rp.GetEpochNum(height)
 		epochStartHeight := c.rp.GetEpochHeight(epochNum)
@@ -225,6 +229,14 @@ func (c *roundCalculator) newRound(
 			return
 		}
 	}
+	if withToleration {
+		eManager, err = newEndorsementManager(c.eManagerDB)
+	} else {
+		eManager, err = newEndorsementManager(nil)
+	}
+	if err != nil {
+		return nil, err
+	}
 
 	return &roundCtx{
 		epochNum:             epochNum,
@@ -235,7 +247,7 @@ func (c *roundCalculator) newRound(
 		height:             height,
 		roundNum:           roundNum,
 		proposer:           proposer,
-		eManager:           newEndorsementManager(withToleration),
+		eManager:           eManager,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(c.blockInterval),
 		status:             open,
