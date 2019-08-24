@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -61,6 +63,11 @@ var (
 		},
 		[]string{},
 	)
+)
+
+var (
+	dbconfig   = config.Default.DB
+	eManagerDB db.KVStore
 )
 
 func init() {
@@ -106,6 +113,14 @@ func newRollDPoSCtx(
 	if candidatesByHeightFunc == nil {
 		candidatesByHeightFunc = chain.CandidatesByHeight
 	}
+	dbPath := "consensus-status-db.bolt"
+	dbconfig.DbPath = dbPath
+	eManagerDB = db.NewBoltDB(dbconfig)
+	ctx := context.Background()
+	err := eManagerDB.Start(ctx)
+	if err != nil {
+		log.L().Panic("Error when starting the collectionDB")
+	}
 	roundCalc := &roundCalculator{
 		blockInterval:          blockInterval,
 		candidatesByHeightFunc: candidatesByHeightFunc,
@@ -113,6 +128,7 @@ func newRollDPoSCtx(
 		rp:                     rp,
 		timeBasedRotation:      timeBasedRotation,
 		toleratedOvertime:      toleratedOvertime,
+		eManagerDB:             eManagerDB,
 	}
 	round, err := roundCalc.NewRoundWithToleration(0, clock.Now())
 	round.eManager.SetIsMarjorityFunc(round.EndorsedByMajority)

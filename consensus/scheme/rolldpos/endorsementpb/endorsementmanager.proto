@@ -14,10 +14,11 @@ message endorserEndorsementCollection{
 }
 
 message blockEndorsementCollection{
-    iotextypes.Block blk=1;
-    repeated endorserEndorsementCollection blockMap=2;
+    iotextypes.Block blk = 1;
+    repeated endorserEndorsementCollection blockMap = 2;
 }
 
 message endorsementManager{
-    repeated blockEndorsementCollection blockEndorsements=1;
+	repeated string blkHash = 1;
+    repeated blockEndorsementCollection blockEndorsements = 2;
 }

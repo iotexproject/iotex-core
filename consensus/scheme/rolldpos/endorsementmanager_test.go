@@ -95,7 +95,8 @@ func TestBlockEndorsementCollection(t *testing.T) {
 
 func TestEndorsementManager(t *testing.T) {
 	require := require.New(t)
-	em := newEndorsementManager(false)
+	em, err := newEndorsementManager(nil)
+	require.Nil(err)
 	require.NotNil(em)
 	require.Equal(0, em.Size())
 	require.Equal(0, em.SizeWithBlock())
@@ -124,7 +125,7 @@ func TestEndorsementManager(t *testing.T) {
 	l := em.Log(log.L(), nil)
 	require.NotNil(l)
 	l.Info("test output")
-	err := em.Cleanup(time.Now().Add(time.Second * 10 * -1))
+	err = em.Cleanup(time.Now().Add(time.Second * 10 * -1))
 	require.Nil(err)
 	require.NotNil(em)
 	require.Equal(1, len(em.collections))
