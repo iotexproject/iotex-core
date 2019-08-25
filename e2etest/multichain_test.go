@@ -28,6 +28,8 @@ func TestTwoChains(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), "idx.db")
+	testIndexDBPath := testIndexDBFile.Name()
 
 	cfg := config.Default
 	cfg.Plugins[config.GatewayPlugin] = true
@@ -36,6 +38,7 @@ func TestTwoChains(t *testing.T) {
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(1).HexString()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.System.EnableExperimentalActions = true
 

@@ -32,6 +32,7 @@ func (s *Server) runSubChain(addr address.Address, subChain *mainchain.SubChain)
 	cfg.Chain.ID = subChain.ChainID
 	cfg.Chain.Address = addr.String()
 	cfg.Chain.ChainDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.ChainDBPath)
+	cfg.DB.IndexDBPath = getSubChainDBPath(subChain.ChainID, cfg.DB.IndexDBPath)
 	cfg.Chain.TrieDBPath = getSubChainDBPath(subChain.ChainID, cfg.Chain.TrieDBPath)
 	cfg.Chain.EmptyGenesis = true
 	if err := s.newSubChainService(cfg); err != nil {

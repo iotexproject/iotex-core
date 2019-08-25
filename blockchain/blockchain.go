@@ -233,13 +233,14 @@ func PrecreatedDaoOption(dao *blockDAO) Option {
 	}
 }
 
-// BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
+// BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath and cfg.DB.IndexDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		bc.dao = newBlockDAO(
-			db.NewBoltDB(cfg.DB),
+			db.NewBoltDB(cfg.DB, cfg.DB.DbPath),
+			db.NewBoltDB(cfg.DB, cfg.DB.IndexDBPath),
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 			cfg.Chain.MaxCacheSize,
@@ -254,6 +255,7 @@ func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		bc.dao = newBlockDAO(
+			db.NewMemKVStore(),
 			db.NewMemKVStore(),
 			gateway && !cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
@@ -550,7 +552,7 @@ func (bc *blockchain) GetActionCountByAddress(addrStr string) (uint64, error) {
 }
 
 func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256, error) {
-	return getBlockHashByActionHash(bc.dao.kvstore, h)
+	return getBlockHashByActionHash(bc.dao.kvistore, h)
 }
 
 // GetActionByActionHash returns action by action hash
@@ -574,7 +576,7 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 
 // GetBlockHashByActionHash returns Block hash by action hash
 func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	return getBlockHashByActionHash(bc.dao.kvstore, h)
+	return getBlockHashByActionHash(bc.dao.kvistore, h)
 }
 
 // GetReceiptsByHeight returns action receipts by block height

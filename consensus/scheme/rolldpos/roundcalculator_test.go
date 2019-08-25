@@ -143,13 +143,17 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	cfg := config.Default
 
 	dBPath := "db.test"
+	indexDBPath := "idx.db.test"
 	triePath := "trie.test"
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), indexDBPath)
+	testIndexDBPath := testIndexDBFile.Name()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Network.Port = testutil.RandomPort()
@@ -178,7 +182,8 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	chain := blockchain.NewBlockchain(
 		cfg,
 		blockchain.DefaultStateFactoryOption(),
-		blockchain.BoltDBDaoOption(),
+		blockchain.BoltDBDaoOption(cfg.Chain.ChainDBPath),
+		blockchain.BoltDBDaoOption(cfg.DB.IndexDBPath),
 		blockchain.RegistryOption(&registry),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(

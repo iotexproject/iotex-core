@@ -144,9 +144,9 @@ func TestBlockDAO(t *testing.T) {
 	blks := getBlocks()
 	assert.Equal(t, 3, len(blks))
 
-	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
+	testBlockDao := func(kvstore, kvistore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, false, false, 0, config.Default.DB)
+		dao := newBlockDAO(kvstore, kvistore, false, false, 0, config.Default.DB)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -216,9 +216,9 @@ func TestBlockDAO(t *testing.T) {
 		assert.Equal(t, blks[2].Height(), height)
 	}
 
-	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
+	testActionsDao := func(kvstore, kvistore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false, 0, config.Default.DB)
+		dao := newBlockDAO(kvstore, kvistore, true, false, 0, config.Default.DB)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -264,63 +264,63 @@ func TestBlockDAO(t *testing.T) {
 		}
 
 		// Test getBlockHashByActionHash
-		blkHash, err := getBlockHashByActionHash(dao.kvstore, depositHash1)
+		blkHash, err := getBlockHashByActionHash(dao.kvistore, depositHash1)
 		require.NoError(t, err)
 		require.Equal(t, blkHash1, blkHash)
-		blkHash, err = getBlockHashByActionHash(dao.kvstore, depositHash2)
+		blkHash, err = getBlockHashByActionHash(dao.kvistore, depositHash2)
 		require.NoError(t, err)
 		require.Equal(t, blkHash2, blkHash)
-		blkHash, err = getBlockHashByActionHash(dao.kvstore, depositHash3)
+		blkHash, err = getBlockHashByActionHash(dao.kvistore, depositHash3)
 		require.NoError(t, err)
 		require.Equal(t, blkHash3, blkHash)
 
 		// Test get actions
-		senderActionCount, err := getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(28).Bytes()))
+		senderActionCount, err := getActionCountBySenderAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(28).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err := getActionsBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(28).Bytes()))
+		senderActions, err := getActionsBySenderAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(28).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash1, senderActions[3])
-		recipientActionCount, err := getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(28).Bytes()))
+		recipientActionCount, err := getActionCountByRecipientAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(28).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientActionCount)
-		recipientActions, err := getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(28).Bytes()))
+		recipientActions, err := getActionsByRecipientAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(28).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientActions))
 
-		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
+		senderActionCount, err = getActionCountBySenderAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = getActionsBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
+		senderActions, err = getActionsBySenderAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash2, senderActions[3])
-		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
+		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientActionCount)
-		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
+		recipientActions, err = getActionsByRecipientAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientActions))
 
-		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
+		senderActionCount, err = getActionCountBySenderAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(4), senderActionCount)
-		senderActions, err = getActionsBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
+		senderActions, err = getActionsBySenderAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 4, len(senderActions))
 		require.Equal(t, depositHash3, senderActions[3])
-		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
+		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientActionCount)
-		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
+		recipientActions, err = getActionsByRecipientAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(recipientActions))
 
-		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(31).Bytes()))
+		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(31).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(6), recipientActionCount)
-		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(31).Bytes()))
+		recipientActions, err = getActionsByRecipientAddress(dao.kvistore, hash.BytesToHash160(identityset.Address(31).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, 6, len(recipientActions))
 		require.Equal(t, depositHash1, recipientActions[1])
@@ -350,11 +350,11 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, blkTransferAmount3, transferAmount)
 	}
 
-	testDeleteDao := func(kvstore db.KVStore, t *testing.T) {
+	testDeleteDao := func(kvstore, kvistore db.KVStore, t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false, 0, config.Default.DB)
+		dao := newBlockDAO(kvstore, kvistore, true, false, 0, config.Default.DB)
 		err := dao.Start(ctx)
 		require.NoError(err)
 		defer func() {
@@ -389,7 +389,7 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	t.Run("In-memory KV Store for blocks", func(t *testing.T) {
-		testBlockDao(db.NewMemKVStore(), t)
+		testBlockDao(db.NewMemKVStore(), db.NewMemKVStore(), t)
 	})
 
 	path := "test-kv-store"
@@ -397,26 +397,30 @@ func TestBlockDAO(t *testing.T) {
 	testPath := testFile.Name()
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
+	path = "test-kvi-store"
+	testFile, _ = ioutil.TempFile(os.TempDir(), path)
+	testPath = testFile.Name()
+	cfg.IndexDBPath = testPath
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
-		testBlockDao(db.NewBoltDB(cfg), t)
+		testBlockDao(db.NewBoltDB(cfg, cfg.DbPath), db.NewBoltDB(cfg, cfg.IndexDBPath), t)
 	})
 	t.Run("In-memory KV Store for actions", func(t *testing.T) {
-		testActionsDao(db.NewMemKVStore(), t)
+		testActionsDao(db.NewMemKVStore(), db.NewMemKVStore(), t)
 	})
 	t.Run("Bolt DB for actions", func(t *testing.T) {
-		testActionsDao(db.NewBoltDB(cfg), t)
+		testActionsDao(db.NewBoltDB(cfg, cfg.DbPath), db.NewBoltDB(cfg, cfg.IndexDBPath), t)
 	})
 	t.Run("In-memory KV Store deletions", func(t *testing.T) {
-		testDeleteDao(db.NewMemKVStore(), t)
+		testDeleteDao(db.NewMemKVStore(), db.NewMemKVStore(), t)
 	})
 
 	t.Run("Bolt DB deletions", func(t *testing.T) {
-		testDeleteDao(db.NewBoltDB(cfg), t)
+		testDeleteDao(db.NewBoltDB(cfg, cfg.DbPath), db.NewBoltDB(cfg, cfg.IndexDBPath), t)
 	})
 }
 
 func TestBlockDao_putReceipts(t *testing.T) {
-	blkDao := newBlockDAO(db.NewMemKVStore(), true, false, 0, config.Default.DB)
+	blkDao := newBlockDAO(db.NewMemKVStore(), db.NewMemKVStore(), true, false, 0, config.Default.DB)
 	receipts := []*action.Receipt{
 		{
 			BlockHeight:     1,
@@ -447,19 +451,26 @@ func BenchmarkBlockCache(b *testing.B) {
 	test := func(cacheSize int, b *testing.B) {
 		b.StopTimer()
 		path := filepath.Join(os.TempDir(), fmt.Sprintf("test-%d.db", rand.Int()))
+		indexPath := filepath.Join(os.TempDir(), fmt.Sprintf("test-index%d.db", rand.Int()))
 		cfg := config.DB{
-			DbPath:     path,
-			NumRetries: 1,
+			DbPath:      path,
+			IndexDBPath: indexPath,
+			NumRetries:  1,
 		}
 		defer func() {
 			if !fileutil.FileExists(path) {
 				return
 			}
 			require.NoError(b, os.RemoveAll(path))
+			if !fileutil.FileExists(indexPath) {
+				return
+			}
+			require.NoError(b, os.RemoveAll(indexPath))
 		}()
-		store := db.NewBoltDB(cfg)
+		store := db.NewBoltDB(cfg, cfg.DbPath)
+		istore := db.NewBoltDB(cfg, cfg.IndexDBPath)
 
-		blkDao := newBlockDAO(store, false, false, cacheSize, config.Default.DB)
+		blkDao := newBlockDAO(store, istore, false, false, cacheSize, config.Default.DB)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))

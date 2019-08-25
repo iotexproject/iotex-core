@@ -131,7 +131,7 @@ func newRollDPoSCtx(
 	}
 	var eManagerDB db.KVStore
 	if len(consensusDBConfig.DbPath) > 0 {
-		eManagerDB = db.NewBoltDB(consensusDBConfig)
+		eManagerDB = db.NewBoltDB(consensusDBConfig, consensusDBConfig.DbPath)
 	}
 	roundCalc := &roundCalculator{
 		blockInterval:          blockInterval,

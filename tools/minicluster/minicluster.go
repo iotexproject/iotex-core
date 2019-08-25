@@ -83,13 +83,15 @@ func main() {
 	for i := 0; i < numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, chainDBPath)
+		indexDBPath := fmt.Sprintf("./index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, indexDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, trieDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
-		config := newConfig(chainDBPath, trieDBPath, chainAddrs[i].PriKey,
+		config := newConfig(chainDBPath, indexDBPath, trieDBPath, chainAddrs[i].PriKey,
 			networkPort, apiPort)
 		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		if i == 0 {
@@ -372,6 +374,7 @@ func main() {
 
 func newConfig(
 	chainDBPath,
+	indexDBPath,
 	trieDBPath string,
 	producerPriKey crypto.PrivateKey,
 	networkPort,
@@ -387,6 +390,7 @@ func newConfig(
 
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
+	cfg.DB.IndexDBPath = indexDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()

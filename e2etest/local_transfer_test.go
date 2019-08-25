@@ -261,10 +261,12 @@ func TestLocalTransfer(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), "idx.db")
+	testIndexDBPath := testIndexDBFile.Name()
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testIndexDBPath, testTriePath, networkPort, apiPort)
 	require.NoError(err)
 
 	// create server
@@ -497,6 +499,7 @@ func preProcessTestCases(
 
 func newTransferConfig(
 	chainDBPath,
+	indexDBPath,
 	trieDBPath string,
 	networkPort,
 	apiPort int,
@@ -507,6 +510,7 @@ func newTransferConfig(
 	cfg.Network.Port = networkPort
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
+	cfg.DB.IndexDBPath = indexDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"

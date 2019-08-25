@@ -696,14 +696,18 @@ func TestConstantinople(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), "idx.db")
+	testIndexDBPath := testIndexDBFile.Name()
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testIndexDBPath)
 	}()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Plugins[config.GatewayPlugin] = true
@@ -916,14 +920,18 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), "idx.db")
+	testIndexDBPath := testIndexDBFile.Name()
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testIndexDBPath)
 	}()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Plugins[config.GatewayPlugin] = false
 
@@ -935,14 +943,18 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	testTriePath2 := testTrieFile.Name()
 	testDBFile, _ = ioutil.TempFile(os.TempDir(), "db")
 	testDBPath2 := testDBFile.Name()
+	testIndexDBFile, _ = ioutil.TempFile(os.TempDir(), "idx.db")
+	testIndexDBPath2 := testIndexDBFile.Name()
 	defer func() {
 		testutil.CleanupPath(t, testTriePath2)
 		testutil.CleanupPath(t, testDBPath2)
+		testutil.CleanupPath(t, testIndexDBPath2)
 	}()
 
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	cfg.DB.IndexDBPath = testIndexDBPath2
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.AleutianBlockHeight = 3
 
@@ -978,10 +990,13 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), "idx.db")
+	testIndexDBPath := testIndexDBFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
@@ -1043,9 +1058,12 @@ func TestBlocks(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), "idx.db")
+	testIndexDBPath := testIndexDBFile.Name()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 
@@ -1104,9 +1122,12 @@ func TestActions(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), "idx.db")
+	testIndexDBPath := testIndexDBFile.Name()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 

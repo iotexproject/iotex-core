@@ -85,7 +85,8 @@ type blockDAO struct {
 	writeIndex    bool
 	compressBlock bool
 	kvstore       db.KVStore
-	kvstores      sync.Map //store like map[index]db.KVStore,index from 1...N
+	kvistore      db.KVStore // key value index store
+	kvstores      sync.Map   // store like map[index]db.KVStore,index from 1...N
 	topIndex      atomic.Value
 	timerFactory  *prometheustimer.TimerFactory
 	lifecycle     lifecycle.Lifecycle
@@ -97,11 +98,12 @@ type blockDAO struct {
 }
 
 // newBlockDAO instantiates a block DAO
-func newBlockDAO(kvstore db.KVStore, writeIndex bool, compressBlock bool, maxCacheSize int, cfg config.DB) *blockDAO {
+func newBlockDAO(kvstore, kvistore db.KVStore, writeIndex, compressBlock bool, maxCacheSize int, cfg config.DB) *blockDAO {
 	blockDAO := &blockDAO{
 		writeIndex:    writeIndex,
 		compressBlock: compressBlock,
 		kvstore:       kvstore,
+		kvistore:      kvistore,
 		cfg:           cfg,
 	}
 	if maxCacheSize > 0 {
@@ -120,6 +122,7 @@ func newBlockDAO(kvstore db.KVStore, writeIndex bool, compressBlock bool, maxCac
 	}
 	blockDAO.timerFactory = timerFactory
 	blockDAO.lifecycle.Add(kvstore)
+	blockDAO.lifecycle.Add(kvistore)
 	return blockDAO
 }
 
@@ -395,7 +398,7 @@ func (dao *blockDAO) footer(h hash.Hash256) (*block.Footer, error) {
 func (dao *blockDAO) getActionHashFromIndex(index uint64) (hash.Hash256, error) {
 	hash := hash.ZeroHash256
 	indexActionsBytes := byteutil.Uint64ToBytes(index)
-	value, err := dao.kvstore.Get(blockActionBlockMappingNS, indexActionsBytes)
+	value, err := dao.kvistore.Get(blockActionBlockMappingNS, indexActionsBytes)
 	if err != nil {
 		return hash, errors.Wrap(err, "failed to get action hash")
 	}
@@ -549,7 +552,11 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
 	}
-	if err := indexBlock(dao.kvstore, blk, batch); err != nil {
+	batchForIndex := db.NewBatch()
+	if err := indexBlock(dao.kvistore, blk, batchForIndex); err != nil {
+		return err
+	}
+	if err = dao.kvistore.Commit(batchForIndex); err != nil {
 		return err
 	}
 	return dao.kvstore.Commit(batch)
@@ -663,12 +670,13 @@ func (dao *blockDAO) deleteTipBlock() error {
 	batchForBlock := db.NewBatch()
 	// First obtain tip height from db
 	heightValue, err := dao.kvstore.Get(blockNS, topHeightKey)
+	height := enc.MachineEndian.Uint64(heightValue)
 	if err != nil {
 		return errors.Wrap(err, "failed to get tip height")
 	}
 
 	// Obtain tip block hash
-	hash, err := dao.getBlockHash(enc.MachineEndian.Uint64(heightValue))
+	hash, err := dao.getBlockHash(height)
 	if err != nil {
 		return errors.Wrap(err, "failed to get tip block hash")
 	}
@@ -711,14 +719,14 @@ func (dao *blockDAO) deleteTipBlock() error {
 	batch.Delete(blockHashHeightMappingNS, heightKey, "failed to delete height -> hash mapping")
 
 	// Update tip height
-	topHeight := enc.MachineEndian.Uint64(heightValue) - 1
+	topHeight := height - 1
 	topHeightValue := byteutil.Uint64ToBytes(topHeight)
 	batch.Put(blockNS, topHeightKey, topHeightValue, "failed to put top height")
 
 	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
 	}
-
+	batchForIndex := db.NewBatch()
 	// update total action count
 	value, err := dao.kvstore.Get(blockNS, totalActionsKey)
 	if err != nil {
@@ -732,7 +740,11 @@ func (dao *blockDAO) deleteTipBlock() error {
 	// Delete action hash -> block hash mapping
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
-		batch.Delete(blockActionBlockMappingNS, actHash[hashOffset:], "failed to delete actions f")
+		batchForIndex.Delete(blockActionBlockMappingNS, actHash[hashOffset:], "failed to delete actions f")
+	}
+	err = dao.kvistore.Commit(batchForIndex)
+	if err != nil {
+		return err
 	}
 
 	if err = deleteActions(dao, blk, batch); err != nil {
@@ -762,16 +774,14 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	if blkHeight <= dao.cfg.SplitDBHeight {
 		return dao.kvstore, 0, nil
 	}
-	topIndex := dao.topIndex.Load().(uint64)
-	file, dir := getFileNameAndDir(dao.cfg.DbPath)
-	if err != nil {
-		return
-	}
-	longFileName := dir + "/" + file + fmt.Sprintf("-%08d", topIndex) + ".db"
+	cfg := dao.cfg
+	file, dir := getFileNameAndDir(cfg.DbPath)
+	idx := dao.topIndex.Load().(uint64)
+	longFileName := dir + "/" + file + fmt.Sprintf("-%08d", idx) + ".db"
 	dat, err := os.Stat(longFileName)
 	if err != nil && os.IsNotExist(err) {
 		// db file is not exist,this will create
-		return dao.openDB(topIndex)
+		return dao.openDB(idx)
 	}
 	// other errors except file is not exist
 	if err != nil {
@@ -779,23 +789,24 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	}
 	// file exists,but need create new db
 	if uint64(dat.Size()) > dao.cfg.SplitDBSize() {
-		kvstore, index, err = dao.openDB(topIndex + 1)
-		dao.topIndex.Store(index)
+		kvstore, index, err = dao.openDB(idx + 1)
+		dao.topIndex.Store(idx)
 		return
 	}
 	// db exist,need load from kvstores
-	kv, ok := dao.kvstores.Load(topIndex)
+	kv, ok := dao.kvstores.Load(idx)
 	if ok {
 		kvstore, ok = kv.(db.KVStore)
 		if !ok {
 			err = errors.New("db convert error")
 		}
-		index = topIndex
+		index = idx
 		return
 	}
 	// file exists,but not opened
-	return dao.openDB(topIndex)
+	return dao.openDB(idx)
 }
+
 func (dao *blockDAO) getTopDBOfOpened(blkHeight uint64) (kvstore db.KVStore, err error) {
 	if dao.cfg.SplitDBSizeMB == 0 {
 		return dao.kvstore, nil
@@ -803,8 +814,8 @@ func (dao *blockDAO) getTopDBOfOpened(blkHeight uint64) (kvstore db.KVStore, err
 	if blkHeight <= dao.cfg.SplitDBHeight {
 		return dao.kvstore, nil
 	}
-	topIndex := dao.topIndex.Load().(uint64)
-	kv, ok := dao.kvstores.Load(topIndex)
+	idx := dao.topIndex.Load().(uint64)
+	kv, ok := dao.kvstores.Load(idx)
 	if ok {
 		kvstore, ok = kv.(db.KVStore)
 		if !ok {
@@ -879,11 +890,11 @@ func (dao *blockDAO) openDB(idx uint64) (kvstore db.KVStore, index uint64, err e
 	defer dao.mutex.Unlock()
 	cfg := dao.cfg
 	model, _ := getFileNameAndDir(cfg.DbPath)
-	name := model + fmt.Sprintf("-%08d", idx) + ".db"
 
 	// open or create this db file
+	name := model + fmt.Sprintf("-%08d", idx) + ".db"
 	cfg.DbPath = path.Dir(cfg.DbPath) + "/" + name
-	kvstore = db.NewBoltDB(cfg)
+	kvstore = db.NewBoltDB(cfg, cfg.DbPath)
 	dao.kvstores.Store(idx, kvstore)
 	err = kvstore.Start(context.Background())
 	if err != nil {

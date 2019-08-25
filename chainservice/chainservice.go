@@ -105,7 +105,7 @@ func New(
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
-		kvstore := db.NewBoltDB(cfg.Chain.GravityChainDB)
+		kvstore := db.NewBoltDB(cfg.Chain.GravityChainDB, cfg.Chain.GravityChainDB.DbPath)
 		if committeeConfig.GravityChainStartHeight != 0 {
 			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
 				kvstore,
@@ -121,9 +121,12 @@ func New(
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
 	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
-		log.L().Warn("Chain db and trie db are falling back to fresh ones.")
+		log.L().Warn("Chain db, index db and trie db are falling back to fresh ones.")
 		if err := os.Rename(cfg.Chain.ChainDBPath, cfg.Chain.ChainDBPath+".old"); err != nil {
 			return nil, errors.Wrap(err, "failed to rename old chain db")
+		}
+		if err := os.Rename(cfg.DB.IndexDBPath, cfg.DB.IndexDBPath+".old"); err != nil {
+			return nil, errors.Wrap(err, "failed to rename old index db")
 		}
 		if err := os.Rename(cfg.Chain.TrieDBPath, cfg.Chain.TrieDBPath+".old"); err != nil {
 			return nil, errors.Wrap(err, "failed to rename old trie db")

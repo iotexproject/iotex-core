@@ -61,6 +61,8 @@ func TestBlockReward(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), "idx.db")
+	testIndexDBPath := testIndexDBFile.Name()
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.StandaloneScheme
@@ -69,6 +71,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 	cfg.Network.Port = testutil.RandomPort()
 
 	svr, err := itx.NewServer(cfg)
@@ -135,6 +138,8 @@ func TestBlockEpochReward(t *testing.T) {
 	for i := 0; i < numNodes; i++ {
 		chainDBPath := fmt.Sprintf("./chain%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, chainDBPath)
+		indexDBPath := fmt.Sprintf("./index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, indexDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, trieDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
@@ -143,7 +148,7 @@ func TestBlockEpochReward(t *testing.T) {
 		apiPort := 14014 + i
 		HTTPStatsPort := 8080 + i
 		HTTPAdminPort := 9009 + i
-		cfg := newConfig(chainDBPath, trieDBPath, identityset.PrivateKey(i),
+		cfg := newConfig(chainDBPath, indexDBPath, trieDBPath, identityset.PrivateKey(i),
 			networkPort, apiPort, uint64(numNodes))
 		cfg.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		if i == 0 {
@@ -590,6 +595,7 @@ func waitActionToSettle(
 
 func newConfig(
 	chainDBPath,
+	indexDBPath,
 	trieDBPath string,
 	producerPriKey crypto.PrivateKey,
 	networkPort,
@@ -605,6 +611,7 @@ func newConfig(
 
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
+	cfg.DB.IndexDBPath = indexDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()

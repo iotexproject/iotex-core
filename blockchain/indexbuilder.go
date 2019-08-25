@@ -40,6 +40,7 @@ func init() {
 // IndexBuilder defines the index builder
 type IndexBuilder struct {
 	store        db.KVStore
+	istore       db.KVStore
 	pendingBlks  chan *block.Block
 	cancelChan   chan interface{}
 	timerFactory *prometheustimer.TimerFactory
@@ -69,6 +70,7 @@ func NewIndexBuilder(chain Blockchain, reindex bool) (*IndexBuilder, error) {
 	}
 	return &IndexBuilder{
 		store:        bc.dao.kvstore,
+		istore:       bc.dao.kvistore,
 		pendingBlks:  make(chan *block.Block, 64), // Actually 1 should be enough
 		cancelChan:   make(chan interface{}),
 		timerFactory: timerFactory,
@@ -90,7 +92,8 @@ func (ib *IndexBuilder) Start(_ context.Context) error {
 			case blk := <-ib.pendingBlks:
 				timer := ib.timerFactory.NewTimer("indexBlock")
 				batch := db.NewBatch()
-				if err := indexBlock(ib.store, blk, batch); err != nil {
+				batchForIndex := db.NewBatch()
+				if err := indexBlock(ib.istore, blk, batchForIndex); err != nil {
 					log.L().Info(
 						"Error when indexing the block",
 						zap.Uint64("height", blk.Height()),
@@ -143,12 +146,12 @@ func initIndexActionsKey(store db.KVStore) error {
 }
 func (ib *IndexBuilder) getStartHeightAndIndex() (startHeight, startIndex uint64, err error) {
 	// get index that already builded
-	startIndex, err = getNextIndex(ib.store)
+	startIndex, err = getNextIndex(ib.istore)
 	if err != nil {
 		return
 	}
 	// get height that already builded
-	startHeight, err = getNextHeight(ib.store)
+	startHeight, err = getNextHeight(ib.istore)
 	if err != nil {
 		return
 	}
@@ -159,7 +162,7 @@ func (ib *IndexBuilder) commitBatchAndClear(tipIndex, tipHeight uint64, batch db
 	batch.Put(blockActionBlockMappingNS, indexActionsTipIndexKey, tipIndexBytes, "failed to put tip index of actions")
 	tipHeightBytes := byteutil.Uint64ToBytes(tipHeight)
 	batch.Put(blockActionBlockMappingNS, indexActionsTipHeightKey, tipHeightBytes, "failed to put tip height")
-	if err := ib.store.Commit(batch); err != nil {
+	if err := ib.istore.Commit(batch); err != nil {
 		return err
 	}
 	actDelta.senderDelta = make(map[hash.Hash160]uint64)
@@ -167,7 +170,7 @@ func (ib *IndexBuilder) commitBatchAndClear(tipIndex, tipHeight uint64, batch db
 	return nil
 }
 func (ib *IndexBuilder) initAndLoadActions() error {
-	err := initIndexActionsKey(ib.store)
+	err := initIndexActionsKey(ib.istore)
 	if err != nil {
 		return err
 	}
@@ -191,6 +194,7 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 	}
 	zap.L().Info("Loading actions", zap.Uint64("startHeight", startHeight), zap.Uint64("startIndex", startIndex))
 	batch := db.NewBatch()
+	batchForIndex := db.NewBatch()
 	actDelta := &actionDelta{
 		senderDelta:    make(map[hash.Hash160]uint64),
 		recipientDelta: make(map[hash.Hash160]uint64),
@@ -208,7 +212,7 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 		blk := &block.Block{
 			Body: *body,
 		}
-		err = indexBlockHash(startIndex, hash, ib.store, blk, batch, actDelta)
+		err = indexBlockHash(startIndex, hash, ib.istore, blk, batchForIndex, actDelta)
 		if err != nil {
 			return err
 		}
@@ -221,7 +225,7 @@ func (ib *IndexBuilder) initAndLoadActions() error {
 		startIndex += uint64(len(blk.Actions))
 		// commit once every 10000 heights
 		if i%10000 == 0 || i == tipHeight {
-			if err := ib.commitBatchAndClear(startIndex, i, batch, actDelta); err != nil {
+			if err := ib.commitBatchAndClear(startIndex, i, batchForIndex, actDelta); err != nil {
 				return err
 			}
 		}

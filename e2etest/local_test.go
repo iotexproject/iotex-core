@@ -34,10 +34,12 @@ import (
 )
 
 const (
-	dBPath    = "db.test"
-	dBPath2   = "db.test2"
-	triePath  = "trie.test"
-	triePath2 = "trie.test2"
+	dBPath       = "db.test"
+	dBPath2      = "db.test2"
+	triePath     = "trie.test"
+	triePath2    = "trie.test2"
+	indexDBPath  = "idx.db.test"
+	indexDBPath2 = "idx.db.test2"
 )
 
 func TestLocalCommit(t *testing.T) {
@@ -50,8 +52,12 @@ func TestLocalCommit(t *testing.T) {
 
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testDBPath := testDBFile.Name()
+
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), indexDBPath)
+	testIndexDBPath := testIndexDBFile.Name()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 
 	// create server
 	ctx := context.Background()
@@ -151,15 +157,20 @@ func TestLocalCommit(t *testing.T) {
 
 	testDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
 	testDBPath2 := testDBFile2.Name()
+
+	testIndexDBFile2, _ := ioutil.TempFile(os.TempDir(), indexDBPath2)
+	testIndexDBPath2 := testIndexDBFile2.Name()
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	cfg.DB.IndexDBPath = testIndexDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	registry := protocol.Registry{}
 	chain := blockchain.NewBlockchain(
 		cfg,
 		blockchain.DefaultStateFactoryOption(),
-		blockchain.BoltDBDaoOption(),
+		blockchain.BoltDBDaoOption(cfg.Chain.ChainDBPath),
+		blockchain.BoltDBDaoOption(cfg.DB.IndexDBPath),
 		blockchain.RegistryOption(&registry),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
@@ -361,8 +372,12 @@ func TestLocalSync(t *testing.T) {
 
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testDBPath := testDBFile.Name()
+
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), indexDBPath)
+	testIndexDBPath := testIndexDBFile.Name()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 
 	// Create server
 	ctx := context.Background()
@@ -395,6 +410,8 @@ func TestLocalSync(t *testing.T) {
 
 	testDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
 	testDBPath2 := testDBFile2.Name()
+	testIndexDBFile2, _ := ioutil.TempFile(os.TempDir(), indexDBPath2)
+	testIndexDBPath2 := testIndexDBFile2.Name()
 	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
 	testTriePath2 := testTrieFile2.Name()
 
@@ -402,6 +419,7 @@ func TestLocalSync(t *testing.T) {
 	require.Nil(err)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	cfg.DB.IndexDBPath = testIndexDBPath2
 
 	// Create client
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
@@ -483,12 +501,16 @@ func TestStartExistingBlockchain(t *testing.T) {
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testDBPath := testDBFile.Name()
 
+	testIndexDBFile, _ := ioutil.TempFile(os.TempDir(), indexDBPath)
+	testIndexDBPath := testIndexDBFile.Name()
+
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
@@ -552,6 +574,7 @@ func newTestConfig() (config.Config, error) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.ChainDBPath = dBPath
+	cfg.DB.IndexDBPath = indexDBPath
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()

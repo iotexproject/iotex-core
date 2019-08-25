@@ -459,10 +459,16 @@ func newTestConfig() (config.Config, error) {
 		return config.Config{}, err
 	}
 	testDBPath := testDBFile.Name()
+	testIndexDBFile, err := ioutil.TempFile(os.TempDir(), "idx.db")
+	if err != nil {
+		return config.Config{}, err
+	}
+	testIndexDBPath := testIndexDBFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.DB.IndexDBPath = testIndexDBPath
 	cfg.BlockSync.Interval = 100 * time.Millisecond
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Host = "127.0.0.1"

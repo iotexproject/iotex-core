@@ -17,7 +17,9 @@ func TestGetSubChainDBPath(t *testing.T) {
 	t.Parallel()
 
 	chainDBPath := getSubChainDBPath(1, config.Default.Chain.ChainDBPath)
+	indexDBPath := getSubChainDBPath(1, config.Default.DB.IndexDBPath)
 	trieDBPath := getSubChainDBPath(1, config.Default.Chain.TrieDBPath)
 	assert.Equal(t, "chain-1-chain.db", chainDBPath)
+	assert.Equal(t, "chain-1-index.db", indexDBPath)
 	assert.Equal(t, "chain-1-trie.db", trieDBPath)
 }

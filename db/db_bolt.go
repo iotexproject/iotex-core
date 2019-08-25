@@ -25,8 +25,8 @@ type boltDB struct {
 }
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
-func NewBoltDB(cfg config.DB) KVStore {
-	return &boltDB{db: nil, path: cfg.DbPath, config: cfg}
+func NewBoltDB(cfg config.DB, path string) KVStore {
+	return &boltDB{db: nil, path: path, config: cfg}
 }
 
 // Start opens the BoltDB (creates new file if not existing yet)
