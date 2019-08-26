@@ -18,6 +18,7 @@ import (
 
 const fileMode = 0600
 
+// ContractKVNameSpace for ignore delete
 var ContractKVNameSpace = "Contract"
 
 // boltDB is KVStore implementation based bolt DB
