@@ -21,24 +21,21 @@ require (
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.0
 	github.com/iotexproject/iotex-election v0.1.18-0.20190720010220-fddc58c26ff5
 	github.com/iotexproject/iotex-proto v0.2.1-0.20190814190638-f74c55ffedf5
-	github.com/libp2p/go-libp2p-kad-dht v0.2.0 // indirect
-	github.com/libp2p/go-libp2p-peer v0.2.0 // indirect
-	github.com/libp2p/go-libp2p-peerstore v0.1.3
+	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
-	github.com/multiformats/go-multiaddr v0.0.4
+	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0
 	github.com/rs/zerolog v1.14.3
-	github.com/spf13/cobra v0.0.5
+	github.com/spf13/cobra v0.0.4
 	github.com/stretchr/testify v1.3.0
-	github.com/whyrusleeping/yamux v1.2.0 // indirect
 	go.etcd.io/bbolt v1.3.2
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/config v1.3.1
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190618222545-ea8f1a30c443
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
+	golang.org/x/crypto v0.0.0-20190530122614-20be4c3c3ed5
+	golang.org/x/net v0.0.0-20190603091049-60506f45cf65
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7 // indirect
 	google.golang.org/grpc v1.21.0
