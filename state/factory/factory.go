@@ -44,9 +44,10 @@ const (
 )
 
 var (
-	//AccountIndexPrefix
+	// AccountMaxVersionPrefix is for account history
 	AccountMaxVersionPrefix = []byte("vp.")
 )
+
 type (
 	// Factory defines an interface for managing states
 	Factory interface {
