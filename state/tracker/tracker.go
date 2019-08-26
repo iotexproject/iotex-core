@@ -16,11 +16,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-analytics/indexprotocol/accounts"
 	asql "github.com/iotexproject/iotex-analytics/sql"
 
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+)
+
+const (
+	AccountHistoryTableName = "account_history"
 )
 
 // StateTracker defines an interface for state change track
@@ -123,7 +126,7 @@ func (b BalanceChange) handle(tx *sql.Tx, blockHeight int) error {
 	}
 	if b.InAddr != "" {
 		insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, address, `in`) VALUES (?, ?, ?, ?, ?)",
-			accounts.AccountHistoryTableName)
+			AccountHistoryTableName)
 		result, e := tx.Exec(insertQuery, epochNumber, blockHeight, hex.EncodeToString(b.ActionHash[:]), b.InAddr, b.Amount)
 		if _, err := result, e; err != nil {
 			return errors.Wrapf(err, "failed to update account history for address %s", b.InAddr)
@@ -131,7 +134,7 @@ func (b BalanceChange) handle(tx *sql.Tx, blockHeight int) error {
 	}
 	if b.OutAddr != "" {
 		insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, address, `out`) VALUES (?, ?, ?, ?, ?)",
-			accounts.AccountHistoryTableName)
+			AccountHistoryTableName)
 		if _, err := tx.Exec(insertQuery, epochNumber, blockHeight, hex.EncodeToString(b.ActionHash[:]), b.OutAddr, b.Amount); err != nil {
 			return errors.Wrapf(err, "failed to update account history for address %s", b.OutAddr)
 		}
