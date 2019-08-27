@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/crypto"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
@@ -26,7 +25,6 @@ type roundCalculator struct {
 	timeBasedRotation      bool
 	rp                     *rolldpos.Protocol
 	candidatesByHeightFunc CandidatesByHeightFunc
-	eManagerDB             db.KVStore
 }
 
 func (c *roundCalculator) BlockInterval() time.Duration {
@@ -97,7 +95,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 }
 
 func (c *roundCalculator) Proposer(height uint64, roundStartTime time.Time) string {
-	round, err := c.newRound(height, roundStartTime, false)
+	round, err := c.newRound(height, roundStartTime, nil, false)
 	if err != nil {
 		return ""
 	}
@@ -193,20 +191,23 @@ func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 func (c *roundCalculator) NewRoundWithToleration(
 	height uint64,
 	now time.Time,
+	eManager *endorsementManager,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, now, true)
+	return c.newRound(height, now, eManager, true)
 }
 
 func (c *roundCalculator) NewRound(
 	height uint64,
 	now time.Time,
+	eManager *endorsementManager,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, now, false)
+	return c.newRound(height, now, eManager, false)
 }
 
 func (c *roundCalculator) newRound(
 	height uint64,
 	now time.Time,
+	eManager *endorsementManager,
 	withToleration bool,
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
@@ -215,7 +216,6 @@ func (c *roundCalculator) newRound(
 	var roundNum uint32
 	var proposer string
 	var roundStartTime time.Time
-	var eManager *endorsementManager
 	if height != 0 {
 		epochNum = c.rp.GetEpochNum(height)
 		epochStartHeight := c.rp.GetEpochHeight(epochNum)
@@ -229,16 +229,12 @@ func (c *roundCalculator) newRound(
 			return
 		}
 	}
-	if withToleration {
-		eManager, err = newEndorsementManager(c.eManagerDB)
-	} else {
-		eManager, err = newEndorsementManager(nil)
+	if eManager == nil {
+		if eManager, err = newEndorsementManager(nil); err != nil {
+			return nil, err
+		}
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &roundCtx{
+	round = &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
@@ -251,7 +247,10 @@ func (c *roundCalculator) newRound(
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(c.blockInterval),
 		status:             open,
-	}, nil
+	}
+	eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
+
+	return round, nil
 }
 
 func (c *roundCalculator) calculateProposer(

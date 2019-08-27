@@ -129,6 +129,7 @@ var (
 				},
 				ToleratedOvertime: 2 * time.Second,
 				Delay:             5 * time.Second,
+				ConsensusDBPath:   "./consensus.db",
 			},
 		},
 		BlockSync: BlockSync{
@@ -249,6 +250,7 @@ type (
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
 		FSM               consensusfsm.Config `yaml:"fsm"`
+		ConsensusDBPath   string              `yaml:"consensusDBPath"`
 		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
 		Delay             time.Duration       `yaml:"delay"`
 	}

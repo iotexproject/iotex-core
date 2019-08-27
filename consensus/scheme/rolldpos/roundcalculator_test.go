@@ -32,8 +32,8 @@ import (
 func TestUpdateRound(t *testing.T) {
 	require := require.New(t)
 	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight, nil}
-	ra, err := rc.NewRound(1, time.Unix(1562382392, 0))
+	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
+	ra, err := rc.NewRound(1, time.Unix(1562382392, 0), nil)
 	require.NoError(err)
 
 	// height < round.Height()
@@ -56,7 +56,7 @@ func TestUpdateRound(t *testing.T) {
 func TestNewRound(t *testing.T) {
 	require := require.New(t)
 	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight, nil}
+	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
 	proposer, err := rc.calculateProposer(5, 1, []string{"1", "2", "3", "4", "5"})
 	require.Error(err)
 	var validDelegates [24]string
@@ -72,7 +72,7 @@ func TestNewRound(t *testing.T) {
 	require.NoError(err)
 	require.Equal(validDelegates[2], proposer)
 
-	ra, err := rc.NewRound(1, time.Unix(1562382392, 0))
+	ra, err := rc.NewRound(1, time.Unix(1562382392, 0), nil)
 	require.NoError(err)
 	require.Equal(uint32(19), ra.roundNum)
 	require.Equal(uint64(1), ra.height)
@@ -80,7 +80,7 @@ func TestNewRound(t *testing.T) {
 	require.Equal(identityset.Address(16).String(), ra.proposer)
 
 	rc.timeBasedRotation = true
-	ra, err = rc.NewRound(1, time.Unix(1562382392, 0))
+	ra, err = rc.NewRound(1, time.Unix(1562382392, 0), nil)
 	require.NoError(err)
 	require.Equal(uint32(19), ra.roundNum)
 	require.Equal(uint64(1), ra.height)
@@ -89,7 +89,7 @@ func TestNewRound(t *testing.T) {
 func TestDelegates(t *testing.T) {
 	require := require.New(t)
 	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight, nil}
+	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
 	_, err := rc.Delegates(361)
 	require.Error(err)
 
@@ -102,11 +102,11 @@ func TestDelegates(t *testing.T) {
 }
 func TestRoundInfo(t *testing.T) {
 	require := require.New(t)
-	rc := &roundCalculator{nil, time.Second, time.Second, true, nil, nil, nil}
+	rc := &roundCalculator{nil, time.Second, time.Second, true, nil, nil}
 	require.NotNil(rc)
 	require.Equal(time.Second, rc.BlockInterval())
 	bc, roll := makeChain(t)
-	rc = &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight, nil}
+	rc = &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
 
 	// error for lastBlockTime.Before(now)
 	_, _, err := rc.RoundInfo(1, time.Unix(1562382300, 0))
