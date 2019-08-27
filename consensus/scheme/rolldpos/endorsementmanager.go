@@ -369,12 +369,14 @@ func (m *endorsementManager) AddVoteEndorsement(
 }
 
 func (m *endorsementManager) Cleanup(timestamp time.Time) error {
-	cleaned, err := newEndorsementManager(m.eManagerDB)
-	if err != nil {
-		return err
+	cleaned := &endorsementManager{
+		eManagerDB:  m.eManagerDB,
+		collections: map[string]*blockEndorsementCollection{},
 	}
-	for encoded, c := range m.collections {
-		cleaned.collections[encoded] = c.Cleanup(timestamp)
+	if !timestamp.IsZero() {
+		for encoded, c := range m.collections {
+			cleaned.collections[encoded] = c.Cleanup(timestamp)
+		}
 	}
 	m = cleaned
 	if m.eManagerDB != nil {
