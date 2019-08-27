@@ -65,17 +65,20 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 	var blockInLock []byte
 	var proofOfLock []*endorsement.Endorsement
 	if height == round.Height() {
-		err := round.eManager.Cleanup(roundStartTime)
+		err = round.eManager.Cleanup(roundStartTime)
 		if err != nil {
 			return nil, err
 		}
-		eManager = round.eManager
 		status = round.status
 		blockInLock = round.blockInLock
 		proofOfLock = round.proofOfLock
 	} else {
-		eManager = round.eManager
+		err = round.eManager.Cleanup(time.Time{})
+		if err != nil {
+			return nil, err
+		}
 	}
+	eManager = round.eManager
 	return &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
