@@ -794,6 +794,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			header, err := bc.BlockHeaderByHash(hash)
 			require.NoError(err)
 			require.Equal(hash, header.HashBlock())
+			header, err = bc.BlockHeaderByHeight(height)
+			require.NoError(err)
+			require.Equal(height, header.Height())
 
 			// bloomfilter only exists after aleutian height
 			require.Equal(height >= cfg.Genesis.AleutianBlockHeight, header.LogsBloomfilter() != nil)
@@ -889,6 +892,24 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.True(f.Exist(setTopic))
 			require.True(f.Exist(getTopic))
 		}
+
+		// verify getting number of actions
+		blk, err = bc.GetBlockByHeight(h)
+		require.NoError(err)
+		numActs := uint64(len(blk.Actions))
+		na, err := bc.GetNumActions(h)
+		require.NoError(err)
+		require.Equal(na, numActs)
+
+		// verify getting transfer amount
+		tsfs, _ := action.ClassifyActions(blk.Actions)
+		tsfa := big.NewInt(0)
+		for _, tsf := range tsfs {
+			tsfa.Add(tsfa, tsf.Amount())
+		}
+		ta, err := bc.GetTranferAmount(h)
+		require.NoError(err)
+		require.Equal(ta, tsfa)
 	}
 
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")

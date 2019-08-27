@@ -7,6 +7,8 @@
 package block
 
 import (
+	"math/big"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -62,4 +64,9 @@ func (b *Body) Deserialize(buf []byte) error {
 // CalculateTxRoot returns the Merkle root of all txs and actions in this block.
 func (b *Body) CalculateTxRoot() hash.Hash256 {
 	return calculateTxRoot(b.Actions)
+}
+
+// CalculateTransferAmount returns the calculated transfer amount in this block.
+func (b *Body) CalculateTransferAmount() *big.Int {
+	return calculateTransferAmount(b.Actions)
 }

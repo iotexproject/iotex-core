@@ -240,6 +240,29 @@ func TestBlockDAO(t *testing.T) {
 		blkHash2 := blks[1].HashBlock()
 		blkHash3 := blks[2].HashBlock()
 
+		blkActions1 := blks[0].Actions
+		blkActions2 := blks[1].Actions
+		blkActions3 := blks[2].Actions
+
+		blkNumActions1 := uint64(len(blkActions1))
+		blkNumActions2 := uint64(len(blkActions2))
+		blkNumActions3 := uint64(len(blkActions3))
+
+		blkTransferAmount1, blkTransferAmount2, blkTransferAmount3 := big.NewInt(0), big.NewInt(0), big.NewInt(0)
+
+		tsfs, _ := action.ClassifyActions(blkActions1)
+		for _, tsf := range tsfs {
+			blkTransferAmount1.Add(blkTransferAmount1, tsf.Amount())
+		}
+		tsfs, _ = action.ClassifyActions(blkActions2)
+		for _, tsf := range tsfs {
+			blkTransferAmount2.Add(blkTransferAmount2, tsf.Amount())
+		}
+		tsfs, _ = action.ClassifyActions(blkActions3)
+		for _, tsf := range tsfs {
+			blkTransferAmount3.Add(blkTransferAmount3, tsf.Amount())
+		}
+
 		// Test getBlockHashByActionHash
 		blkHash, err := getBlockHashByActionHash(dao.kvstore, depositHash1)
 		require.NoError(t, err)
@@ -303,6 +326,28 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(t, depositHash1, recipientActions[1])
 		require.Equal(t, depositHash2, recipientActions[3])
 		require.Equal(t, depositHash3, recipientActions[5])
+
+		// test getNumActions
+		numActions, err := dao.getNumActions(blks[0].Height())
+		require.NoError(t, err)
+		require.Equal(t, blkNumActions1, numActions)
+		numActions, err = dao.getNumActions(blks[1].Height())
+		require.NoError(t, err)
+		require.Equal(t, blkNumActions2, numActions)
+		numActions, err = dao.getNumActions(blks[2].Height())
+		require.NoError(t, err)
+		require.Equal(t, blkNumActions3, numActions)
+
+		// test getTranferAmount
+		transferAmount, err := dao.getTranferAmount(blks[0].Height())
+		require.NoError(t, err)
+		require.Equal(t, blkTransferAmount1, transferAmount)
+		transferAmount, err = dao.getTranferAmount(blks[1].Height())
+		require.NoError(t, err)
+		require.Equal(t, blkTransferAmount2, transferAmount)
+		transferAmount, err = dao.getTranferAmount(blks[2].Height())
+		require.NoError(t, err)
+		require.Equal(t, blkTransferAmount3, transferAmount)
 	}
 
 	testDeleteDao := func(kvstore db.KVStore, t *testing.T) {
