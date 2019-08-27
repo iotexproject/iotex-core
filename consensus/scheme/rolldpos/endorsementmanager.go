@@ -21,11 +21,14 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
+const (
+	eManagerNS = "edm"
+)
+
 var (
 	// ErrExpiredEndorsement indicates that the endorsement is expired
 	ErrExpiredEndorsement = errors.New("the endorsement has been replaced or expired")
-	namespace             = "endorsementManager"
-	key                   = []byte("KEY")
+	statusKey             = []byte("status")
 )
 
 //EndorsedByMajorityFunc defines a function to give an information of consensus status
@@ -41,17 +44,16 @@ func newEndorserEndorsementCollection() *endorserEndorsementCollection {
 	}
 }
 
-func (ee *endorserEndorsementCollection) fromProto(endorserPro *endorsementpb.EndorserEndorsementCollection) (string, error) {
+func (ee *endorserEndorsementCollection) fromProto(endorserPro *endorsementpb.EndorserEndorsementCollection) error {
 	ee.endorsements = make(map[ConsensusVoteTopic]*endorsement.Endorsement)
 	for index := range endorserPro.Topics {
 		endorse := &endorsement.Endorsement{}
-		err := endorse.LoadProto(endorserPro.Endorsements[index])
-		if err != nil {
-			return "", err
+		if err := endorse.LoadProto(endorserPro.Endorsements[index]); err != nil {
+			return err
 		}
 		ee.endorsements[ConsensusVoteTopic(endorserPro.Topics[index])] = endorse
 	}
-	return endorserPro.Endorser, nil
+	return nil
 }
 
 func (ee *endorserEndorsementCollection) toProto(endorser string) (*endorsementpb.EndorserEndorsementCollection, error) {
@@ -124,19 +126,17 @@ func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEnd
 		bc.blk = nil
 	} else {
 		blk := &block.Block{}
-		err := blk.ConvertFromBlockPb(blockPro.Blk)
-		if err != nil {
+		if err := blk.ConvertFromBlockPb(blockPro.Blk); err != nil {
 			return err
 		}
 		bc.blk = blk
 	}
 	for _, endorsement := range blockPro.BlockMap {
 		ee := &endorserEndorsementCollection{}
-		endorser, err := ee.fromProto(endorsement)
-		if err != nil {
+		if err := ee.fromProto(endorsement); err != nil {
 			return err
 		}
-		bc.endorsers[endorser] = ee
+		bc.endorsers[endorsement.Endorser] = ee
 	}
 	return nil
 }
@@ -230,7 +230,7 @@ func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
 			collections: map[string]*blockEndorsementCollection{},
 		}, nil
 	}
-	bytes, err := eManagerDB.Get(namespace, key)
+	bytes, err := eManagerDB.Get(eManagerNS, statusKey)
 	switch errors.Cause(err) {
 	case nil:
 		// Get from DB
@@ -265,7 +265,7 @@ func (m *endorsementManager) PutEndorsementManagerToDB() error {
 	if err != nil {
 		return err
 	}
-	err = m.eManagerDB.Put(namespace, key, valBytes)
+	err = m.eManagerDB.Put(eManagerNS, statusKey, valBytes)
 	if err != nil {
 		return err
 	}
@@ -281,8 +281,7 @@ func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementMana
 	m.collections = make(map[string]*blockEndorsementCollection)
 	for i, block := range managerPro.BlockEndorsements {
 		bc := &blockEndorsementCollection{}
-		err := bc.fromProto(block)
-		if err != nil {
+		if err := bc.fromProto(block); err != nil {
 			return err
 		}
 		m.collections[managerPro.BlkHash[i]] = bc

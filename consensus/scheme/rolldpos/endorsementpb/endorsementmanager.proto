@@ -8,17 +8,17 @@ option go_package = "github.com/iotexproject/iotex-core/consensus/scheme/rolldpo
 
 
 message endorserEndorsementCollection{
-    string endorser = 1;
-    repeated uint32 topics = 2;
-    repeated iotextypes.Endorsement endorsements = 3;
+	string endorser = 1;
+	repeated uint32 topics = 2;
+	repeated iotextypes.Endorsement endorsements = 3;
 }
 
 message blockEndorsementCollection{
-    iotextypes.Block blk = 1;
-    repeated endorserEndorsementCollection blockMap = 2;
+	iotextypes.Block blk = 1;
+	repeated endorserEndorsementCollection blockMap = 2;
 }
 
 message endorsementManager{
 	repeated string blkHash = 1;
-    repeated blockEndorsementCollection blockEndorsements = 2;
+	repeated blockEndorsementCollection blockEndorsements = 2;
 }

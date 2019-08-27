@@ -250,9 +250,9 @@ type (
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
 		FSM               consensusfsm.Config `yaml:"fsm"`
-		ConsensusDBPath   string              `yaml:"consensusDBPath"`
 		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
 		Delay             time.Duration       `yaml:"delay"`
+		ConsensusDBPath   string              `yaml:"consensusDBPath"`
 	}
 
 	// Dispatcher is the dispatcher config

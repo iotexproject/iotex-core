@@ -135,3 +135,27 @@ func TestEndorsementManager(t *testing.T) {
 	collection := em.collections[encoded].endorsers[end.Endorser().HexString()]
 	require.Equal(end, collection.endorsements[PROPOSAL])
 }
+
+func TestEndorsementManagerProto(t *testing.T) {
+	require := require.New(t)
+	em, err := newEndorsementManager(nil)
+	require.Nil(err)
+	require.NotNil(em)
+
+	b := getBlock(t)
+
+	require.NoError(em.RegisterBlock(&b))
+	blkHash := b.HashBlock()
+	cv := NewConsensusVote(blkHash[:], PROPOSAL)
+	require.NotNil(cv)
+	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
+	require.NoError(em.AddVoteEndorsement(cv, end))
+
+	emProto, err := em.toProto()
+	require.Nil(err)
+
+	em2, err := newEndorsementManager(nil)
+	require.NoError(em2.fromProto(emProto))
+
+	require.Equal(len(em.collections), len(em2.collections))
+}
