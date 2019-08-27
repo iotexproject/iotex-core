@@ -230,27 +230,30 @@ func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
 			collections: map[string]*blockEndorsementCollection{},
 		}, nil
 	}
-
 	bytes, err := eManagerDB.Get(namespace, key)
-	if err != nil {
-		//If DB doesn't have any information
+	switch errors.Cause(err) {
+	case nil:
+		// Get from DB
+		manager := &endorsementManager{eManagerDB: eManagerDB}
+		managerProto := &endorsementpb.EndorsementManager{}
+		if err = proto.Unmarshal(bytes, managerProto); err != nil {
+			return nil, err
+		}
+		if err = manager.fromProto(managerProto); err != nil {
+			return nil, err
+		}
+		manager.eManagerDB = eManagerDB
+		return manager, nil
+	case db.ErrNotExist:
+		// If DB doesn't have any information
 		log.L().Info("First initializing DB")
 		return &endorsementManager{
 			eManagerDB:  eManagerDB,
 			collections: map[string]*blockEndorsementCollection{},
 		}, nil
-	}
-	//Get from DB
-	manager := &endorsementManager{}
-	managerProto := &endorsementpb.EndorsementManager{}
-	if err = proto.Unmarshal(bytes, managerProto); err != nil {
+	default:
 		return nil, err
 	}
-	if err = manager.fromProto(managerProto); err != nil {
-		return nil, err
-	}
-	manager.eManagerDB = eManagerDB
-	return manager, nil
 }
 
 func (m *endorsementManager) PutEndorsementManagerToDB() error {
