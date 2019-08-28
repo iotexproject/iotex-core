@@ -62,6 +62,7 @@ func (b BalanceChange) init(db *sql.DB, tx *sql.Tx) error {
 			"FROM %s GROUP BY epoch_number, address", AccountBalanceViewName, AccountHistoryTableName)); err != nil {
 			return err
 		}
+
 		initBalance := initBalanceMap()
 		for addr, amount := range initBalance {
 			insertQuery := fmt.Sprintf("INSERT IGNORE INTO %s (epoch_number, block_height, action_hash, address, `in`) VALUES (?, ?, ?, ?, ?)",
