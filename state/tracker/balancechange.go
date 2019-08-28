@@ -70,7 +70,6 @@ func (b BalanceChange) init(db *sql.DB, tx *sql.Tx) error {
 				return errors.Wrapf(err, "failed to update account history for address %s", addr)
 			}
 		}
-		return nil
 	}
 	return nil
 }
