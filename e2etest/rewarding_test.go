@@ -137,12 +137,15 @@ func TestBlockEpochReward(t *testing.T) {
 		dbFilePaths = append(dbFilePaths, chainDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, trieDBPath)
+		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, consensusDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		HTTPStatsPort := 8080 + i
 		HTTPAdminPort := 9009 + i
 		cfg := newConfig(chainDBPath, trieDBPath, identityset.PrivateKey(i),
 			networkPort, apiPort, uint64(numNodes))
+		cfg.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		if i == 0 {
 			cfg.Network.BootstrapNodes = []string{}
 			cfg.Network.MasterKey = "bootnode"

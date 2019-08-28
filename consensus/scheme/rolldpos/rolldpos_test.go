@@ -303,6 +303,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	clock.Add(r.ctx.RoundCalc().BlockInterval())
+	require.NoError(t, r.ctx.Start(context.Background()))
 	r.ctx.round, err = r.ctx.RoundCalc().UpdateRound(r.ctx.round, blockHeight+1, clock.Now())
 	require.NoError(t, err)
 
@@ -353,6 +354,7 @@ func (o *directOverlay) GetPeers() []net.Addr {
 func TestRollDPoSConsensus(t *testing.T) {
 	newConsensusComponents := func(numNodes int) ([]*RollDPoS, []*directOverlay, []blockchain.Blockchain) {
 		cfg := config.Default
+		cfg.Consensus.RollDPoS.ConsensusDBPath = ""
 		cfg.Consensus.RollDPoS.Delay = 300 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 800 * time.Millisecond
 		cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 400 * time.Millisecond

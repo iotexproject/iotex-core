@@ -57,7 +57,7 @@ func NewEndorsement(
 	cs := make([]byte, len(sig))
 	copy(cs, sig)
 	return &Endorsement{
-		ts:        ts,
+		ts:        ts.UTC(),
 		endorser:  endorserPubKey,
 		signature: cs,
 	}
@@ -129,15 +129,15 @@ func (en *Endorsement) Proto() (*iotextypes.Endorsement, error) {
 // LoadProto converts a protobuf message to endorsement
 func (en *Endorsement) LoadProto(ePb *iotextypes.Endorsement) (err error) {
 	if en.ts, err = ptypes.Timestamp(ePb.Timestamp); err != nil {
-		return
+		return err
 	}
 	eb := make([]byte, len(ePb.Endorser))
 	copy(eb, ePb.Endorser)
 	if en.endorser, err = crypto.BytesToPublicKey(eb); err != nil {
-		return
+		return err
 	}
 	en.signature = make([]byte, len(ePb.Signature))
 	copy(en.signature, ePb.Signature)
 
-	return
+	return nil
 }

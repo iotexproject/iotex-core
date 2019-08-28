@@ -129,6 +129,7 @@ var (
 				},
 				ToleratedOvertime: 2 * time.Second,
 				Delay:             5 * time.Second,
+				ConsensusDBPath:   "./consensus.db",
 			},
 		},
 		BlockSync: BlockSync{
@@ -251,6 +252,7 @@ type (
 		FSM               consensusfsm.Config `yaml:"fsm"`
 		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
 		Delay             time.Duration       `yaml:"delay"`
+		ConsensusDBPath   string              `yaml:"consensusDBPath"`
 	}
 
 	// Dispatcher is the dispatcher config
