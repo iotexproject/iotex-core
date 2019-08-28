@@ -151,11 +151,20 @@ func TestEndorsementManagerProto(t *testing.T) {
 	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
 	require.NoError(em.AddVoteEndorsement(cv, end))
 
+	//test converting endorsement pb
+	endProto, err := end.Proto()
+	require.Nil(err)
+	end2 := &endorsement.Endorsement{}
+	require.NoError(end2.LoadProto(endProto))
+	require.Equal(end, end2)
+
+	//test converting emanager pb
 	emProto, err := em.toProto()
 	require.Nil(err)
-
 	em2, err := newEndorsementManager(nil)
 	require.NoError(em2.fromProto(emProto))
 
 	require.Equal(len(em.collections), len(em2.collections))
+	encoded := encodeToString(cv.BlockHash())
+	require.Equal(em.collections[encoded].endorsers, em2.collections[encoded].endorsers)
 }
