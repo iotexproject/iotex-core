@@ -300,7 +300,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	}
 	b.cfg.DB.DbPath = b.cfg.Consensus.RollDPoS.ConsensusDBPath
 	ctx, err := newRollDPoSCtx(
-		b.cfg.Consensus.RollDPoS.FSM,
+		b.cfg.Consensus.RollDPoS,
 		b.cfg.DB,
 		b.cfg.System.Active,
 		b.cfg.Genesis.Blockchain.BlockInterval,

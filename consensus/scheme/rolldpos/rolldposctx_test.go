@@ -24,7 +24,7 @@ import (
 
 func TestRollDPoSCtx(t *testing.T) {
 	require := require.New(t)
-	cfg := config.Default.Consensus.RollDPoS.FSM
+	cfg := config.Default.Consensus.RollDPoS
 	dbConfig := config.Default.DB
 	dbConfig.DbPath = config.Default.Consensus.RollDPoS.ConsensusDBPath
 	b, _ := makeChain(t)
@@ -50,10 +50,10 @@ func TestRollDPoSCtx(t *testing.T) {
 	})
 
 	c := clock.New()
-	cfg.AcceptBlockTTL = time.Second * 10
-	cfg.AcceptProposalEndorsementTTL = time.Second
-	cfg.AcceptLockEndorsementTTL = time.Second
-	cfg.CommitTTL = time.Second
+	cfg.FSM.AcceptBlockTTL = time.Second * 10
+	cfg.FSM.AcceptProposalEndorsementTTL = time.Second
+	cfg.FSM.AcceptLockEndorsementTTL = time.Second
+	cfg.FSM.CommitTTL = time.Second
 	t.Run("case 4:panic because of fsm time bigger than block interval", func(t *testing.T) {
 		_, err := newRollDPoSCtx(cfg, dbConfig, true, time.Second*10, time.Second, true, b, nil, rp, nil, nil, "", nil, c)
 		require.Error(err)
@@ -68,7 +68,7 @@ func TestRollDPoSCtx(t *testing.T) {
 
 func TestCheckVoteEndorser(t *testing.T) {
 	require := require.New(t)
-	cfg := config.Default.Consensus.RollDPoS.FSM
+	cfg := config.Default.Consensus.RollDPoS
 	b, _ := makeChain(t)
 	rp := rolldpos.NewProtocol(
 		config.Default.Genesis.NumCandidateDelegates,
@@ -94,7 +94,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 
 func TestCheckBlockProposer(t *testing.T) {
 	require := require.New(t)
-	cfg := config.Default.Consensus.RollDPoS.FSM
+	cfg := config.Default.Consensus.RollDPoS
 	b, rp := makeChain(t)
 	c := clock.New()
 	rctx, err := newRollDPoSCtx(cfg, config.Default.DB, true, time.Second*20, time.Second, true, b, nil, rp, nil, nil, "", nil, c)

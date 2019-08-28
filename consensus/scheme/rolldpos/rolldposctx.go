@@ -75,7 +75,7 @@ func init() {
 // CandidatesByHeightFunc defines a function to overwrite candidates
 type CandidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 type rollDPoSCtx struct {
-	cfg consensusfsm.Config
+	cfg config.RollDPoS
 	// TODO: explorer dependency deleted at #1085, need to add api params here
 	chain            blockchain.Blockchain
 	actPool          actpool.ActPool
@@ -92,7 +92,7 @@ type rollDPoSCtx struct {
 }
 
 func newRollDPoSCtx(
-	cfg consensusfsm.Config,
+	cfg config.RollDPoS,
 	consensusDBConfig config.DB,
 	active bool,
 	blockInterval time.Duration,
@@ -119,13 +119,13 @@ func newRollDPoSCtx(
 	if candidatesByHeightFunc == nil {
 		candidatesByHeightFunc = chain.CandidatesByHeight
 	}
-	if cfg.AcceptBlockTTL+cfg.AcceptProposalEndorsementTTL+cfg.AcceptLockEndorsementTTL+cfg.CommitTTL > blockInterval {
+	if cfg.FSM.AcceptBlockTTL+cfg.FSM.AcceptProposalEndorsementTTL+cfg.FSM.AcceptLockEndorsementTTL+cfg.FSM.CommitTTL > blockInterval {
 		return nil, errors.Errorf(
 			"invalid ttl config, the sum of ttls should be equal to block interval. acceptBlockTTL %d, acceptProposalEndorsementTTL %d, acceptLockEndorsementTTL %d, commitTTL %d, blockInterval %d",
-			cfg.AcceptBlockTTL,
-			cfg.AcceptProposalEndorsementTTL,
-			cfg.AcceptLockEndorsementTTL,
-			cfg.CommitTTL,
+			cfg.FSM.AcceptBlockTTL,
+			cfg.FSM.AcceptProposalEndorsementTTL,
+			cfg.FSM.AcceptLockEndorsementTTL,
+			cfg.FSM.CommitTTL,
 			blockInterval,
 		)
 	}
@@ -391,7 +391,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 	return ctx.newEndorsement(
 		blockHash,
 		PROPOSAL,
-		ctx.round.StartTime().Add(ctx.cfg.AcceptBlockTTL),
+		ctx.round.StartTime().Add(ctx.cfg.FSM.AcceptBlockTTL),
 	)
 }
 
@@ -414,7 +414,7 @@ func (ctx *rollDPoSCtx) NewLockEndorsement(
 				blkHash,
 				LOCK,
 				ctx.round.StartTime().Add(
-					ctx.cfg.AcceptBlockTTL+ctx.cfg.AcceptProposalEndorsementTTL,
+					ctx.cfg.FSM.AcceptBlockTTL+ctx.cfg.FSM.AcceptProposalEndorsementTTL,
 				),
 			)
 		}
@@ -441,7 +441,7 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 			blkHash,
 			COMMIT,
 			ctx.round.StartTime().Add(
-				ctx.cfg.AcceptBlockTTL+ctx.cfg.AcceptProposalEndorsementTTL+ctx.cfg.AcceptLockEndorsementTTL,
+				ctx.cfg.FSM.AcceptBlockTTL+ctx.cfg.FSM.AcceptProposalEndorsementTTL+ctx.cfg.FSM.AcceptLockEndorsementTTL,
 			),
 		)
 	default:
@@ -470,7 +470,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	if err := pendingBlock.Finalize(
 		ctx.round.Endorsements(blkHash, []ConsensusVoteTopic{COMMIT}),
 		ctx.round.StartTime().Add(
-			ctx.cfg.AcceptBlockTTL+ctx.cfg.AcceptProposalEndorsementTTL+ctx.cfg.AcceptLockEndorsementTTL,
+			ctx.cfg.FSM.AcceptBlockTTL+ctx.cfg.FSM.AcceptProposalEndorsementTTL+ctx.cfg.FSM.AcceptLockEndorsementTTL,
 		),
 	); err != nil {
 		return false, errors.Wrap(err, "failed to add endorsements to block")
@@ -556,7 +556,7 @@ func (ctx *rollDPoSCtx) IsStaleUnmatchedEvent(evt *consensusfsm.ConsensusEvent) 
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	return ctx.clock.Now().Sub(evt.Timestamp()) > ctx.cfg.UnmatchedEventTTL
+	return ctx.clock.Now().Sub(evt.Timestamp()) > ctx.cfg.FSM.UnmatchedEventTTL
 }
 
 func (ctx *rollDPoSCtx) Height() uint64 {
