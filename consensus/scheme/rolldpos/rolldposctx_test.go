@@ -25,41 +25,45 @@ import (
 func TestRollDPoSCtx(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default.Consensus.RollDPoS
-
-	// case 1:panic because of chain is nil
-	require.Panics(func() {
-		newRollDPoSCtx(cfg, true, time.Second*10, time.Second, true, nil, nil, nil, nil, nil, "", nil, nil)
-	}, "chain is nil")
-
-	// case 2:panic because of rp is nil
+	dbConfig := config.Default.DB
+	dbConfig.DbPath = config.Default.Consensus.RollDPoS.ConsensusDBPath
 	b, _ := makeChain(t)
-	require.Panics(func() {
-		newRollDPoSCtx(cfg, true, time.Second*10, time.Second, true, b, nil, nil, nil, nil, "", nil, nil)
-	}, "rp is nil")
 
-	// case 3:panic because of clock is nil
+	t.Run("case 1:panic because of chain is nil", func(t *testing.T) {
+		_, err := newRollDPoSCtx(cfg, dbConfig, true, time.Second*10, time.Second, true, nil, nil, nil, nil, nil, "", nil, nil)
+		require.Error(err)
+	})
+
+	t.Run("case 2:panic because of rp is nil", func(t *testing.T) {
+		_, err := newRollDPoSCtx(cfg, dbConfig, true, time.Second*10, time.Second, true, b, nil, nil, nil, nil, "", nil, nil)
+		require.Error(err)
+	})
+
 	rp := rolldpos.NewProtocol(
 		config.Default.Genesis.NumCandidateDelegates,
 		config.Default.Genesis.NumDelegates,
 		config.Default.Genesis.NumSubEpochs,
 	)
-	require.Panics(func() {
-		newRollDPoSCtx(cfg, true, time.Second*10, time.Second, true, b, nil, rp, nil, nil, "", nil, nil)
-	}, "clock is nil")
+	t.Run("case 3:panic because of clock is nil", func(t *testing.T) {
+		_, err := newRollDPoSCtx(cfg, dbConfig, true, time.Second*10, time.Second, true, b, nil, rp, nil, nil, "", nil, nil)
+		require.Error(err)
+	})
 
-	// case 4:panic because of fsm time bigger than block interval
 	c := clock.New()
 	cfg.FSM.AcceptBlockTTL = time.Second * 10
 	cfg.FSM.AcceptProposalEndorsementTTL = time.Second
 	cfg.FSM.AcceptLockEndorsementTTL = time.Second
 	cfg.FSM.CommitTTL = time.Second
-	require.Panics(func() {
-		newRollDPoSCtx(cfg, true, time.Second*10, time.Second, true, b, nil, rp, nil, nil, "", nil, c)
-	}, "fsm's time is bigger than block interval")
+	t.Run("case 4:panic because of fsm time bigger than block interval", func(t *testing.T) {
+		_, err := newRollDPoSCtx(cfg, dbConfig, true, time.Second*10, time.Second, true, b, nil, rp, nil, nil, "", nil, c)
+		require.Error(err)
+	})
 
-	// case 5:normal
-	rctx := newRollDPoSCtx(cfg, true, time.Second*20, time.Second, true, b, nil, rp, nil, nil, "", nil, c)
-	require.NotNil(rctx)
+	t.Run("case 5:normal", func(t *testing.T) {
+		rctx, err := newRollDPoSCtx(cfg, dbConfig, true, time.Second*20, time.Second, true, b, nil, rp, nil, nil, "", nil, c)
+		require.NoError(err)
+		require.NotNil(rctx)
+	})
 }
 
 func TestCheckVoteEndorser(t *testing.T) {
@@ -72,7 +76,8 @@ func TestCheckVoteEndorser(t *testing.T) {
 		config.Default.Genesis.NumSubEpochs,
 	)
 	c := clock.New()
-	rctx := newRollDPoSCtx(cfg, true, time.Second*20, time.Second, true, b, nil, rp, nil, nil, "", nil, c)
+	rctx, err := newRollDPoSCtx(cfg, config.Default.DB, true, time.Second*20, time.Second, true, b, nil, rp, nil, nil, "", nil, c)
+	require.NoError(err)
 	require.NotNil(rctx)
 
 	// case 1:endorser nil caused panic
@@ -92,7 +97,8 @@ func TestCheckBlockProposer(t *testing.T) {
 	cfg := config.Default.Consensus.RollDPoS
 	b, rp := makeChain(t)
 	c := clock.New()
-	rctx := newRollDPoSCtx(cfg, true, time.Second*20, time.Second, true, b, nil, rp, nil, nil, "", nil, c)
+	rctx, err := newRollDPoSCtx(cfg, config.Default.DB, true, time.Second*20, time.Second, true, b, nil, rp, nil, nil, "", nil, c)
+	require.NoError(err)
 	require.NotNil(rctx)
 	block := getBlockforctx(t, 0, false)
 	en := endorsement.NewEndorsement(time.Unix(1562382392, 0), identityset.PrivateKey(10).PublicKey(), nil)
@@ -135,7 +141,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	block = getBlockforctx(t, 5, true)
 	hash := block.HashBlock()
 	vote := NewConsensusVote(hash[:], COMMIT)
-	en2, err := endorsement.Endorse(identityset.PrivateKey(7), vote, time.Unix(1562382592, 0))
+	en2, err = endorsement.Endorse(identityset.PrivateKey(7), vote, time.Unix(1562382592, 0))
 	require.NoError(err)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2})
 	require.Error(rctx.CheckBlockProposer(21, bp, en2))
