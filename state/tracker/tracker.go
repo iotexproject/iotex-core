@@ -11,10 +11,9 @@ import (
 	"database/sql"
 	"reflect"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	asql "github.com/iotexproject/iotex-analytics/sql"
 
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
