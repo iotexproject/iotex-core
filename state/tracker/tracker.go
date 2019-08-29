@@ -107,6 +107,6 @@ func (t *stateTracker) Commit(height int) error {
 // StateChange represents state change of state db
 type StateChange interface {
 	Type() reflect.Type
-	init(*sql.DB) error
+	init(*sql.DB, *sql.Tx) error
 	handle(*sql.Tx, int) error
 }
