@@ -8,6 +8,7 @@ package rolldpos
 
 import (
 	"context"
+	"time"
 
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-fsm"
@@ -38,17 +39,21 @@ var (
 
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
-	cfsm  *consensusfsm.ConsensusFSM
-	ctx   *rollDPoSCtx
-	ready chan interface{}
+	cfsm       *consensusfsm.ConsensusFSM
+	ctx        *rollDPoSCtx
+	startDelay time.Duration
+	ready      chan interface{}
 }
 
 // Start starts RollDPoS consensus
 func (r *RollDPoS) Start(ctx context.Context) error {
+	if err := r.ctx.Start(ctx); err != nil {
+		return errors.Wrap(err, "error when starting the roll dpos context")
+	}
 	if err := r.cfsm.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting the consensus FSM")
 	}
-	if _, err := r.cfsm.BackToPrepare(r.ctx.cfg.Delay); err != nil {
+	if _, err := r.cfsm.BackToPrepare(r.startDelay); err != nil {
 		return err
 	}
 	close(r.ready)
@@ -57,6 +62,9 @@ func (r *RollDPoS) Start(ctx context.Context) error {
 
 // Stop stops RollDPoS consensus
 func (r *RollDPoS) Stop(ctx context.Context) error {
+	if err := r.ctx.Stop(ctx); err != nil {
+		return errors.Wrap(r.ctx.Stop(ctx), "error when stopping the roll dpos context")
+	}
 	return errors.Wrap(r.cfsm.Stop(ctx), "error when stopping the consensus FSM")
 }
 
@@ -124,7 +132,7 @@ func (r *RollDPoS) Calibrate(height uint64) {
 
 // ValidateBlockFooter validates the signatures in the block footer
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
-	round, err := r.ctx.RoundCalc().NewRound(blk.Height(), blk.Timestamp())
+	round, err := r.ctx.RoundCalc().NewRound(blk.Height(), blk.Timestamp(), nil)
 	if err != nil {
 		return err
 	}
@@ -158,7 +166,7 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
 	height := r.ctx.chain.TipHeight()
-	round, err := r.ctx.RoundCalc().NewRound(height+1, r.ctx.clock.Now())
+	round, err := r.ctx.RoundCalc().NewRound(height+1, r.ctx.clock.Now(), nil)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating round")
 	}
@@ -290,8 +298,10 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if b.clock == nil {
 		b.clock = clock.New()
 	}
-	ctx := newRollDPoSCtx(
+	b.cfg.DB.DbPath = b.cfg.Consensus.RollDPoS.ConsensusDBPath
+	ctx, err := newRollDPoSCtx(
 		b.cfg.Consensus.RollDPoS,
+		b.cfg.DB,
 		b.cfg.System.Active,
 		b.cfg.Genesis.Blockchain.BlockInterval,
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
@@ -305,13 +315,17 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.priKey,
 		b.clock,
 	)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when constructing consensus context")
+	}
 	cfsm, err := consensusfsm.NewConsensusFSM(b.cfg.Consensus.RollDPoS.FSM, ctx, b.clock)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
 	}
 	return &RollDPoS{
-		cfsm:  cfsm,
-		ctx:   ctx,
-		ready: make(chan interface{}),
+		cfsm:       cfsm,
+		ctx:        ctx,
+		startDelay: b.cfg.Consensus.RollDPoS.Delay,
+		ready:      make(chan interface{}),
 	}, nil
 }

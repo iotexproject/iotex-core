@@ -56,22 +56,29 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 	if err != nil {
 		return nil, err
 	}
+	proposer, err := c.calculateProposer(height, roundNum, delegates)
+	if err != nil {
+		return nil, err
+	}
 	var eManager *endorsementManager
 	var status status
 	var blockInLock []byte
 	var proofOfLock []*endorsement.Endorsement
 	if height == round.Height() {
-		eManager = round.eManager.Cleanup(roundStartTime)
+		err = round.eManager.Cleanup(roundStartTime)
+		if err != nil {
+			return nil, err
+		}
 		status = round.status
 		blockInLock = round.blockInLock
 		proofOfLock = round.proofOfLock
 	} else {
-		eManager = newEndorsementManager()
+		err = round.eManager.Cleanup(time.Time{})
+		if err != nil {
+			return nil, err
+		}
 	}
-	proposer, err := c.calculateProposer(height, roundNum, delegates)
-	if err != nil {
-		return nil, err
-	}
+	eManager = round.eManager
 	return &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
@@ -91,7 +98,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 }
 
 func (c *roundCalculator) Proposer(height uint64, roundStartTime time.Time) string {
-	round, err := c.newRound(height, roundStartTime, false)
+	round, err := c.newRound(height, roundStartTime, nil, false)
 	if err != nil {
 		return ""
 	}
@@ -187,20 +194,23 @@ func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 func (c *roundCalculator) NewRoundWithToleration(
 	height uint64,
 	now time.Time,
+	eManager *endorsementManager,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, now, true)
+	return c.newRound(height, now, eManager, true)
 }
 
 func (c *roundCalculator) NewRound(
 	height uint64,
 	now time.Time,
+	eManager *endorsementManager,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, now, false)
+	return c.newRound(height, now, eManager, false)
 }
 
 func (c *roundCalculator) newRound(
 	height uint64,
 	now time.Time,
+	eManager *endorsementManager,
 	withToleration bool,
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
@@ -222,8 +232,12 @@ func (c *roundCalculator) newRound(
 			return
 		}
 	}
-
-	return &roundCtx{
+	if eManager == nil {
+		if eManager, err = newEndorsementManager(nil); err != nil {
+			return nil, err
+		}
+	}
+	round = &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
@@ -232,11 +246,14 @@ func (c *roundCalculator) newRound(
 		height:             height,
 		roundNum:           roundNum,
 		proposer:           proposer,
-		eManager:           newEndorsementManager(),
+		eManager:           eManager,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(c.blockInterval),
 		status:             open,
-	}, nil
+	}
+	eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
+
+	return round, nil
 }
 
 func (c *roundCalculator) calculateProposer(

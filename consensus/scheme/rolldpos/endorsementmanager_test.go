@@ -87,20 +87,22 @@ func TestBlockEndorsementCollection(t *testing.T) {
 	require.Equal(1, len(ends))
 	require.Equal(end, ends[0])
 
-	cleaned := ec.Cleanup(time.Now().Add(time.Second * 10 * -1))
-	require.Equal(1, len(cleaned.endorsers))
-	require.Equal(1, len(cleaned.endorsers[b.PublicKey().HexString()].endorsements))
-	require.Equal(end, cleaned.endorsers[b.PublicKey().HexString()].Endorsement(PROPOSAL))
+	ec = ec.Cleanup(time.Now().Add(time.Second * 10 * -1))
+	require.Equal(1, len(ec.endorsers))
+	require.Equal(1, len(ec.endorsers[b.PublicKey().HexString()].endorsements))
+	require.Equal(end, ec.endorsers[b.PublicKey().HexString()].Endorsement(PROPOSAL))
 }
 
 func TestEndorsementManager(t *testing.T) {
 	require := require.New(t)
-	em := newEndorsementManager()
+	em, err := newEndorsementManager(nil)
+	require.Nil(err)
 	require.NotNil(em)
 	require.Equal(0, em.Size())
 	require.Equal(0, em.SizeWithBlock())
 
 	b := getBlock(t)
+
 	require.NoError(em.RegisterBlock(&b))
 
 	require.Panics(func() {
@@ -123,12 +125,46 @@ func TestEndorsementManager(t *testing.T) {
 	l := em.Log(log.L(), nil)
 	require.NotNil(l)
 	l.Info("test output")
-	cleaned := em.Cleanup(time.Now().Add(time.Second * 10 * -1))
-	require.NotNil(cleaned)
-	require.Equal(1, len(cleaned.collections))
+	err = em.Cleanup(time.Now().Add(time.Second * 10 * -1))
+	require.Nil(err)
+	require.NotNil(em)
+	require.Equal(1, len(em.collections))
 	encoded := encodeToString(cv.BlockHash())
-	require.Equal(1, len(cleaned.collections[encoded].endorsers))
+	require.Equal(1, len(em.collections[encoded].endorsers))
 
-	collection := cleaned.collections[encoded].endorsers[end.Endorser().HexString()]
+	collection := em.collections[encoded].endorsers[end.Endorser().HexString()]
 	require.Equal(end, collection.endorsements[PROPOSAL])
+}
+
+func TestEndorsementManagerProto(t *testing.T) {
+	require := require.New(t)
+	em, err := newEndorsementManager(nil)
+	require.Nil(err)
+	require.NotNil(em)
+
+	b := getBlock(t)
+
+	require.NoError(em.RegisterBlock(&b))
+	blkHash := b.HashBlock()
+	cv := NewConsensusVote(blkHash[:], PROPOSAL)
+	require.NotNil(cv)
+	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
+	require.NoError(em.AddVoteEndorsement(cv, end))
+
+	//test converting endorsement pb
+	endProto, err := end.Proto()
+	require.Nil(err)
+	end2 := &endorsement.Endorsement{}
+	require.NoError(end2.LoadProto(endProto))
+	require.Equal(end, end2)
+
+	//test converting emanager pb
+	emProto, err := em.toProto()
+	require.Nil(err)
+	em2, err := newEndorsementManager(nil)
+	require.NoError(em2.fromProto(emProto))
+
+	require.Equal(len(em.collections), len(em2.collections))
+	encoded := encodeToString(cv.BlockHash())
+	require.Equal(em.collections[encoded].endorsers, em2.collections[encoded].endorsers)
 }

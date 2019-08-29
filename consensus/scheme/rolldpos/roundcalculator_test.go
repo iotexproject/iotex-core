@@ -33,7 +33,7 @@ func TestUpdateRound(t *testing.T) {
 	require := require.New(t)
 	bc, roll := makeChain(t)
 	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
-	ra, err := rc.NewRound(1, time.Unix(1562382392, 0))
+	ra, err := rc.NewRound(1, time.Unix(1562382392, 0), nil)
 	require.NoError(err)
 
 	// height < round.Height()
@@ -72,7 +72,7 @@ func TestNewRound(t *testing.T) {
 	require.NoError(err)
 	require.Equal(validDelegates[2], proposer)
 
-	ra, err := rc.NewRound(1, time.Unix(1562382392, 0))
+	ra, err := rc.NewRound(1, time.Unix(1562382392, 0), nil)
 	require.NoError(err)
 	require.Equal(uint32(19), ra.roundNum)
 	require.Equal(uint64(1), ra.height)
@@ -80,7 +80,7 @@ func TestNewRound(t *testing.T) {
 	require.Equal(identityset.Address(16).String(), ra.proposer)
 
 	rc.timeBasedRotation = true
-	ra, err = rc.NewRound(1, time.Unix(1562382392, 0))
+	ra, err = rc.NewRound(1, time.Unix(1562382392, 0), nil)
 	require.NoError(err)
 	require.Equal(uint32(19), ra.roundNum)
 	require.Equal(uint64(1), ra.height)

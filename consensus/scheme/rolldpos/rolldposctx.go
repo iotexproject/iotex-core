@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -79,6 +81,7 @@ type rollDPoSCtx struct {
 	actPool          actpool.ActPool
 	broadcastHandler scheme.Broadcast
 	roundCalc        *roundCalculator
+	eManagerDB       db.KVStore
 
 	encodedAddr string
 	priKey      crypto.PrivateKey
@@ -90,6 +93,7 @@ type rollDPoSCtx struct {
 
 func newRollDPoSCtx(
 	cfg config.RollDPoS,
+	consensusDBConfig config.DB,
 	active bool,
 	blockInterval time.Duration,
 	toleratedOvertime time.Duration,
@@ -102,9 +106,32 @@ func newRollDPoSCtx(
 	encodedAddr string,
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
-) *rollDPoSCtx {
+) (*rollDPoSCtx, error) {
+	if chain == nil {
+		return nil, errors.New("chain cannot be nil")
+	}
+	if rp == nil {
+		return nil, errors.New("roll dpos protocal cannot be nil")
+	}
+	if clock == nil {
+		return nil, errors.New("clock cannot be nil")
+	}
 	if candidatesByHeightFunc == nil {
 		candidatesByHeightFunc = chain.CandidatesByHeight
+	}
+	if cfg.FSM.AcceptBlockTTL+cfg.FSM.AcceptProposalEndorsementTTL+cfg.FSM.AcceptLockEndorsementTTL+cfg.FSM.CommitTTL > blockInterval {
+		return nil, errors.Errorf(
+			"invalid ttl config, the sum of ttls should be equal to block interval. acceptBlockTTL %d, acceptProposalEndorsementTTL %d, acceptLockEndorsementTTL %d, commitTTL %d, blockInterval %d",
+			cfg.FSM.AcceptBlockTTL,
+			cfg.FSM.AcceptProposalEndorsementTTL,
+			cfg.FSM.AcceptLockEndorsementTTL,
+			cfg.FSM.CommitTTL,
+			blockInterval,
+		)
+	}
+	var eManagerDB db.KVStore
+	if len(consensusDBConfig.DbPath) > 0 {
+		eManagerDB = db.NewBoltDB(consensusDBConfig)
 	}
 	roundCalc := &roundCalculator{
 		blockInterval:          blockInterval,
@@ -114,21 +141,6 @@ func newRollDPoSCtx(
 		timeBasedRotation:      timeBasedRotation,
 		toleratedOvertime:      toleratedOvertime,
 	}
-	round, err := roundCalc.NewRoundWithToleration(0, clock.Now())
-	if err != nil {
-		log.Logger("consensus").Panic("failed to generate round context", zap.Error(err))
-	}
-	if cfg.FSM.AcceptBlockTTL+cfg.FSM.AcceptProposalEndorsementTTL+cfg.FSM.AcceptLockEndorsementTTL+cfg.FSM.CommitTTL > blockInterval {
-		log.Logger("consensus").Panic(
-			"invalid ttl config, the sum of ttls should be equal to block interval",
-			zap.Duration("acceptBlockTTL", cfg.FSM.AcceptBlockTTL),
-			zap.Duration("acceptProposalEndorsementTTL", cfg.FSM.AcceptProposalEndorsementTTL),
-			zap.Duration("acceptLockEndorsementTTL", cfg.FSM.AcceptLockEndorsementTTL),
-			zap.Duration("commitTTL", cfg.FSM.CommitTTL),
-			zap.Duration("blockInterval", blockInterval),
-		)
-	}
-
 	return &rollDPoSCtx{
 		cfg:              cfg,
 		active:           active,
@@ -139,8 +151,28 @@ func newRollDPoSCtx(
 		broadcastHandler: broadcastHandler,
 		clock:            clock,
 		roundCalc:        roundCalc,
-		round:            round,
+		eManagerDB:       eManagerDB,
+	}, nil
+}
+
+func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
+	var eManager *endorsementManager
+	if ctx.eManagerDB != nil {
+		if err := ctx.eManagerDB.Start(c); err != nil {
+			return errors.Wrap(err, "Error when starting the collectionDB")
+		}
+		eManager, err = newEndorsementManager(ctx.eManagerDB)
 	}
+	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.clock.Now(), eManager)
+
+	return err
+}
+
+func (ctx *rollDPoSCtx) Stop(c context.Context) error {
+	if ctx.eManagerDB != nil {
+		return ctx.eManagerDB.Stop(c)
+	}
+	return nil
 }
 
 func (ctx *rollDPoSCtx) CheckVoteEndorser(
@@ -194,7 +226,7 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 		return errors.Errorf("invalid block signature")
 	}
 	if proposerAddr != endorserAddr.String() {
-		round, err := ctx.roundCalc.NewRound(height, en.Timestamp())
+		round, err := ctx.roundCalc.NewRound(height, en.Timestamp(), nil)
 		if err != nil {
 			return err
 		}
