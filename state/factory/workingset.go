@@ -288,3 +288,8 @@ func (ws *workingSet) clear() {
 	ws.trieRoots = nil
 	ws.trieRoots = make(map[int]hash.Hash256)
 }
+
+// Track tracks new state change
+func (ws *workingSet) Track(c tracker.StateChange) {
+	// mock function
+}
