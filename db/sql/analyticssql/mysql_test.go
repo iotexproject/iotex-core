@@ -7,9 +7,9 @@
 package sql
 
 import (
+	"database/sql"
+	"fmt"
 	"testing"
-
-	"github.com/iotexproject/iotex-analytics/testutil"
 )
 
 const (
@@ -18,19 +18,34 @@ const (
 )
 
 func TestMySQLStorePutGet(t *testing.T) {
-	testutil.CleanupDatabase(t, connectStr, dbName)
+	CleanupDatabase(t, connectStr, dbName)
 	testRDSStorePutGet := TestStorePutGet
 	t.Run("MySQL Store", func(t *testing.T) {
 		testRDSStorePutGet(NewMySQL(connectStr, dbName), t)
 	})
-	testutil.CleanupDatabase(t, connectStr, dbName)
+	CleanupDatabase(t, connectStr, dbName)
 }
 
 func TestMySQLStoreTransaction(t *testing.T) {
-	testutil.CleanupDatabase(t, connectStr, dbName)
+	CleanupDatabase(t, connectStr, dbName)
 	testSQLite3StoreTransaction := TestStoreTransaction
 	t.Run("MySQL Store", func(t *testing.T) {
 		testSQLite3StoreTransaction(NewMySQL(connectStr, dbName), t)
 	})
-	testutil.CleanupDatabase(t, connectStr, dbName)
+	CleanupDatabase(t, connectStr, dbName)
+}
+
+// CleanupDatabase detects the existence of a MySQL database and drops it if found
+func CleanupDatabase(t *testing.T, connectStr string, dbName string) {
+	db, err := sql.Open("mysql", connectStr)
+	if err != nil {
+		t.Error("Failed to open the database")
+	}
+	if _, err := db.Exec("DROP DATABASE IF EXISTS " + dbName); err != nil {
+		fmt.Println(err)
+		t.Error("Failed to drop the database")
+	}
+	if err := db.Close(); err != nil {
+		t.Error("Failed to close the database")
+	}
 }
