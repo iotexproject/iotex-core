@@ -14,8 +14,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	asql "github.com/iotexproject/iotex-analytics/sql"
 
+	asql "github.com/iotexproject/iotex-core/db/sql/analyticssql"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
