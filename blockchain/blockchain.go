@@ -316,10 +316,15 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	if err != nil {
 		log.L().Panic("Failed to get block producer address.", zap.Error(err))
 	}
+	senderBlackList := make(map[string]bool)
+	for _, bannedSender := range cfg.ActPool.BlackList {
+		senderBlackList[bannedSender] = true
+	}
 	chain.validator = &validator{
 		sf:                        chain.sf,
 		validatorAddr:             cfg.ProducerAddress().String(),
 		enableExperimentalActions: chain.enableExperimentalActions,
+		senderBlackList: 		   senderBlackList,
 	}
 
 	if chain.dao != nil {

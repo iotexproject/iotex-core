@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-address/address"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -294,4 +295,51 @@ func TestWrongAddress(t *testing.T) {
 	)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating contract's address"))
+}
+
+
+func TestBlackListAddress(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.Default
+	recipientAddr := identityset.Address(28)
+	senderKey := identityset.PrivateKey(27)
+	addr, err := address.FromBytes(senderKey.PublicKey().Hash())
+	if err != nil {
+		require.Error(t, err)
+	}
+	cfg.ActPool.BlackList = []string{addr.String()}
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	hu := config.NewHeightUpgrade(cfg)
+	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu))
+	require.NoError(t, bc.Start(ctx))
+	require.NotNil(t, bc)
+	defer func() {
+		err := bc.Stop(ctx)
+		require.NoError(t, err)
+	}()
+	val := &validator{sf: bc.GetFactory(), validatorAddr: "", enableExperimentalActions: true}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
+	tsf, err := action.NewTransfer(1, big.NewInt(1), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
+	require.NoError(t, err)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(tsf).SetGasLimit(100000).
+		SetGasPrice(big.NewInt(10)).
+		SetNonce(1).Build()
+	selp, err := action.Sign(elp, senderKey)
+	require.NoError(t, err)
+	blk1, err := block.NewTestingBuilder().
+		SetHeight(3).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(selp).
+		SignAndBuild(senderKey)
+	require.NoError(t, err)
+	err = val.validateActionsOnly(
+		blk1.Actions,
+		blk1.PublicKey(),
+		blk1.Height(),
+	)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "error when validating recipient's address"))
 }
