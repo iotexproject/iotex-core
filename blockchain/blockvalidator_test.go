@@ -8,7 +8,6 @@ package blockchain
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-address/address"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -28,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-address/address"
 )
 
 func TestWrongRootHash(t *testing.T) {
