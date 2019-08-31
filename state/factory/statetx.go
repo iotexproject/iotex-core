@@ -84,7 +84,7 @@ func (stx *stateTX) RunActions(
 		}
 	}
 	stx.UpdateBlockLevelInfo(blockHeight)
-	if err := stx.st.Commit(int(blockHeight)); err != nil {
+	if err := stx.st.Commit(blockHeight); err != nil {
 		return receipts, errors.Wrap(err, "failed to commit state changes")
 	}
 	return receipts, nil

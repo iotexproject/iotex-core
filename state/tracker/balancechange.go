@@ -75,10 +75,10 @@ func (b BalanceChange) init(db *sql.DB, tx *sql.Tx) error {
 	return nil
 }
 
-func (b BalanceChange) handle(tx *sql.Tx, blockHeight int) error {
-	epochNumber := 0
+func (b BalanceChange) handle(tx *sql.Tx, blockHeight uint64) error {
+	epochNumber := uint64(0)
 	if blockHeight != 0 {
-		epochNumber = (blockHeight-1)/int(genesis.Default.NumDelegates)/int(genesis.Default.NumSubEpochs) + 1
+		epochNumber = (blockHeight-1)/genesis.Default.NumDelegates/genesis.Default.NumSubEpochs + 1
 	}
 	if b.InAddr != "" {
 		insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, address, `in`) VALUES (?, ?, ?, ?, ?)",

@@ -29,7 +29,7 @@ type StateTracker interface {
 	Snapshot()
 	Recover()
 	Clear()
-	Commit(int) error
+	Commit(uint64) error
 }
 
 type stateTracker struct {
@@ -88,11 +88,10 @@ func (t *stateTracker) Clear() {
 }
 
 // Commit stores all state changes into db
-func (t *stateTracker) Commit(height int) error {
+func (t *stateTracker) Commit(height uint64) error {
 	if err := t.store.Transact(func(tx *sql.Tx) error {
 		for _, c := range t.changes {
-			err := c.handle(tx, height)
-			if err != nil {
+			if err := c.handle(tx, height); err != nil {
 				return errors.Wrap(err, "failed to handle state change")
 			}
 		}
@@ -108,5 +107,5 @@ func (t *stateTracker) Commit(height int) error {
 type StateChange interface {
 	Type() reflect.Type
 	init(*sql.DB, *sql.Tx) error
-	handle(*sql.Tx, int) error
+	handle(*sql.Tx, uint64) error
 }
