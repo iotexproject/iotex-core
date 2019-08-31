@@ -38,26 +38,26 @@ type stateTracker struct {
 	snapshot int
 }
 
+// InitStore initializes state tracker store
+func InitStore(store asql.Store) error {
+	if err := store.Transact(func(tx *sql.Tx) error {
+		// TODO: we may need other initializations later
+		return BalanceChange{}.init(store.GetDB(), tx)
+	}); err != nil {
+		return errors.Wrap(err, "failed to init balance change tracker")
+	}
+	return nil
+}
+
 // New creates a state tracker
-func New(connectStr string, dbName string) StateTracker {
-	tracker := &stateTracker{}
-	tracker.store = asql.NewMySQL(connectStr, dbName)
-	return tracker
+func New(store asql.Store) StateTracker {
+	return &stateTracker{store: store}
 }
 
 // Start starts state tracker
 func (t *stateTracker) Start(ctx context.Context) error {
 	t.changes = make([]StateChange, 0)
 	t.snapshot = 0
-
-	if err := t.store.Start(ctx); err != nil {
-		return errors.Wrap(err, "failed to start store")
-	}
-	if err := t.store.Transact(func(tx *sql.Tx) error {
-		return BalanceChange{}.init(t.store.GetDB(), tx)
-	}); err != nil {
-		return errors.Wrap(err, "failed to init balance change tracker")
-	}
 	return nil
 }
 

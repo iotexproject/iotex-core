@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	asql "github.com/iotexproject/iotex-core/db/sql/analyticssql"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -37,14 +38,14 @@ func newStateTX(
 	version uint64,
 	kv db.KVStore,
 	actionHandlers []protocol.ActionHandler,
-	st tracker.StateTracker,
+	store asql.Store,
 ) *stateTX {
 	return &stateTX{
 		ver:            version,
 		cb:             db.NewCachedBatch(),
 		dao:            kv,
 		actionHandlers: actionHandlers,
-		st:             st,
+		st:             tracker.New(store),
 	}
 }
 
@@ -66,6 +67,7 @@ func (stx *stateTX) RunActions(
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
+	stx.st.Snapshot()
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	var raCtx protocol.RunActionsCtx
@@ -73,7 +75,6 @@ func (stx *stateTX) RunActions(
 		raCtx = protocol.MustGetRunActionsCtx(ctx)
 	}
 	for _, elp := range elps {
-		stx.st.Snapshot()
 		receipt, err := stx.RunAction(raCtx, elp)
 		if err != nil {
 			stx.st.Recover()
@@ -84,9 +85,6 @@ func (stx *stateTX) RunActions(
 		}
 	}
 	stx.UpdateBlockLevelInfo(blockHeight)
-	if err := stx.st.Commit(blockHeight); err != nil {
-		return receipts, errors.Wrap(err, "failed to commit state changes")
-	}
 	return receipts, nil
 }
 
@@ -148,6 +146,9 @@ func (stx *stateTX) Commit() error {
 	dbBatchSizelMtc.WithLabelValues().Set(float64(stx.cb.Size()))
 	if err := stx.dao.Commit(stx.cb); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
+	}
+	if err := stx.st.Commit(stx.Height()); err != nil {
+		return errors.Wrap(err, "failed to commit state changes")
 	}
 	return nil
 }
