@@ -7,7 +7,6 @@
 package tracker
 
 import (
-	"context"
 	"database/sql"
 	"reflect"
 
@@ -16,32 +15,36 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	asql "github.com/iotexproject/iotex-core/db/sql/analyticssql"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 var specialActionHash = hash.ZeroHash256
 
+// StateChange represents state change of state db
+type StateChange interface {
+	Type() reflect.Type
+	init(*sql.DB, *sql.Tx) error
+	handle(*sql.Tx, uint64) error
+}
+
 // StateTracker defines an interface for state change track
 type StateTracker interface {
-	lifecycle.StartStopper
-
 	Append(StateChange)
 	Snapshot()
-	Recover()
+	Revert(int) error
 	Clear()
 	Commit(uint64) error
 }
 
 type stateTracker struct {
-	store    asql.Store
-	changes  []StateChange
-	snapshot int
+	store     asql.Store
+	changes   []StateChange
+	snapshots []int
 }
 
 // InitStore initializes state tracker store
 func InitStore(store asql.Store) error {
 	if err := store.Transact(func(tx *sql.Tx) error {
-		// TODO: we may need other initializations later
+		// TODO: we may need other state changes' initializations later
 		return BalanceChange{}.init(store.GetDB(), tx)
 	}); err != nil {
 		return errors.Wrap(err, "failed to init balance change tracker")
@@ -51,19 +54,10 @@ func InitStore(store asql.Store) error {
 
 // New creates a state tracker
 func New(store asql.Store) StateTracker {
-	return &stateTracker{store: store}
-}
-
-// Start starts state tracker
-func (t *stateTracker) Start(ctx context.Context) error {
-	t.changes = make([]StateChange, 0)
-	t.snapshot = 0
-	return nil
-}
-
-// Stop stops state tracker
-func (t *stateTracker) Stop(ctx context.Context) error {
-	return t.store.Stop(ctx)
+	return &stateTracker{store: store,
+		changes:   make([]StateChange, 0),
+		snapshots: make([]int, 0),
+	}
 }
 
 // Append appends new state change
@@ -73,18 +67,23 @@ func (t *stateTracker) Append(c StateChange) {
 
 // Snapshot records current status of changes
 func (t *stateTracker) Snapshot() {
-	t.snapshot = len(t.changes)
+	t.snapshots = append(t.snapshots, len(t.changes))
 }
 
 // Recover recovers state change to snapshot
-func (t *stateTracker) Recover() {
-	t.changes = t.changes[:t.snapshot]
+func (t *stateTracker) Revert(snapshot int) error {
+	if snapshot < 0 || snapshot >= len(t.snapshots) {
+		return errors.Errorf("invalid state tracker snapshot number = %d", snapshot)
+	}
+	t.snapshots = t.snapshots[:snapshot+1]
+	t.changes = t.changes[:t.snapshots[snapshot]]
+	return nil
 }
 
 // Clear deletes all state changes
 func (t *stateTracker) Clear() {
 	t.changes = make([]StateChange, 0)
-	t.snapshot = 0
+	t.snapshots = make([]int, 0)
 }
 
 // Commit stores all state changes into db
@@ -101,11 +100,4 @@ func (t *stateTracker) Commit(height uint64) error {
 	}
 	t.Clear()
 	return nil
-}
-
-// StateChange represents state change of state db
-type StateChange interface {
-	Type() reflect.Type
-	init(*sql.DB, *sql.Tx) error
-	handle(*sql.Tx, uint64) error
 }

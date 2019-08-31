@@ -67,7 +67,6 @@ func (stx *stateTX) RunActions(
 	blockHeight uint64,
 	elps []action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
-	stx.st.Snapshot()
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	var raCtx protocol.RunActionsCtx
@@ -77,7 +76,6 @@ func (stx *stateTX) RunActions(
 	for _, elp := range elps {
 		receipt, err := stx.RunAction(raCtx, elp)
 		if err != nil {
-			stx.st.Recover()
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
@@ -136,9 +134,18 @@ func (stx *stateTX) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
 	return hash.ZeroHash256
 }
 
-func (stx *stateTX) Snapshot() int { return stx.cb.Snapshot() }
+func (stx *stateTX) Snapshot() int {
+	// TODO: check out whether state tracker gets the same snapshot number
+	stx.st.Snapshot()
+	return stx.cb.Snapshot()
+}
 
-func (stx *stateTX) Revert(snapshot int) error { return stx.cb.Revert(snapshot) }
+func (stx *stateTX) Revert(snapshot int) error {
+	if err := stx.st.Revert(snapshot); err != nil {
+		return err
+	}
+	return stx.cb.Revert(snapshot)
+}
 
 // Commit persists all changes in RunActions() into the DB
 func (stx *stateTX) Commit() error {
