@@ -102,6 +102,8 @@ func TestStateTransitionFunctions(t *testing.T) {
 		})
 		t.Run("stand-by-or-is-not-delegate", func(t *testing.T) {
 			mockCtx.EXPECT().Prepare().Return(nil).Times(1)
+			mockCtx.EXPECT().Proposal().Return(nil, nil).Times(1)
+			mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(1)
 			mockCtx.EXPECT().IsDelegate().Return(false).Times(1)
 			state, err := cfsm.prepare(nil)
 			require.NoError(err)
