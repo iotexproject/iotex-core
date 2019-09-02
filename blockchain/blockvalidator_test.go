@@ -304,9 +304,7 @@ func TestBlackListAddress(t *testing.T) {
 	recipientAddr := identityset.Address(28)
 	senderKey := identityset.PrivateKey(27)
 	addr, err := address.FromBytes(senderKey.PublicKey().Hash())
-	if err != nil {
-		require.Error(t, err)
-	}
+	require.NoError(t, err)
 	cfg.ActPool.BlackList = []string{addr.String()}
 	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
 	hu := config.NewHeightUpgrade(cfg)
@@ -317,7 +315,11 @@ func TestBlackListAddress(t *testing.T) {
 		err := bc.Stop(ctx)
 		require.NoError(t, err)
 	}()
-	val := &validator{sf: bc.GetFactory(), validatorAddr: "", enableExperimentalActions: true}
+	senderBlackList := make(map[string]bool)
+	for _, bannedSender := range cfg.ActPool.BlackList {
+		senderBlackList[bannedSender] = true
+	}
+	val := &validator{sf: bc.GetFactory(), validatorAddr: "", enableExperimentalActions: true, senderBlackList: senderBlackList}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 	tsf, err := action.NewTransfer(1, big.NewInt(1), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
@@ -341,5 +343,5 @@ func TestBlackListAddress(t *testing.T) {
 		blk1.Height(),
 	)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "error when validating recipient's address"))
+	require.True(t, strings.Contains(err.Error(), "action source address is blacklisted"))
 }
