@@ -57,6 +57,7 @@ const (
 
 var (
 	topHeightKey             = []byte("th")
+	topHashKey               = []byte("ts")
 	totalActionsKey          = []byte("ta")
 	indexActionsTipIndexKey  = []byte("iati")
 	indexActionsTipHeightKey = []byte("iath")
@@ -418,6 +419,15 @@ func (dao *blockDAO) getBlockchainHeight() (uint64, error) {
 	return enc.MachineEndian.Uint64(value), nil
 }
 
+// getTipHash returns the blockchain tip hash
+func (dao *blockDAO) getTipHash() (hash.Hash256, error) {
+	value, err := dao.kvstore.Get(blockNS, topHashKey)
+	if err != nil {
+		return hash.ZeroHash256, errors.Wrap(err, "failed to get tip hash")
+	}
+	return hash.BytesToHash256(value), nil
+}
+
 // getTotalActions returns the total number of actions
 func (dao *blockDAO) getTotalActions() (uint64, error) {
 	value, err := dao.kvstore.Get(blockNS, totalActionsKey)
@@ -527,6 +537,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	topHeight := enc.MachineEndian.Uint64(value)
 	if blk.Height() > topHeight {
 		batch.Put(blockNS, topHeightKey, height, "failed to put top height")
+		batch.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
 	}
 
 	value, err = dao.kvstore.Get(blockNS, totalActionsKey)

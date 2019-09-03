@@ -214,6 +214,11 @@ func TestBlockDAO(t *testing.T) {
 		height, err = dao.getBlockHeight(blks[2].HashBlock())
 		assert.Nil(t, err)
 		assert.Equal(t, blks[2].Height(), height)
+
+		// test getTipHash
+		hash, err = dao.getTipHash()
+		assert.Nil(t, err)
+		assert.Equal(t, blks[2].HashBlock(), hash)
 	}
 
 	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
