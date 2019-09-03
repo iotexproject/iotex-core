@@ -259,7 +259,8 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	// get deployed contract address
 	var contract string
 	cfg := bc.(*blockchain).config
-	if cfg.Plugins[config.GatewayPlugin] == true {
+	_, gateway := cfg.Plugins[config.GatewayPlugin]
+	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
 		r, err := bc.GetReceiptByActionHash(deployHash)
 		if err != nil {
 			return err
@@ -705,18 +706,24 @@ func TestConstantinople(t *testing.T) {
 		}
 	}
 
+	cfg := config.Default
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath := testIndexFile.Name()
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testIndexPath)
+		// clear the gateway
+		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
-	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Plugins[config.GatewayPlugin] = true
@@ -876,7 +883,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.Equal(uint64(0), act.Nonce)
 		require.Equal(big.NewInt(0), act.Balance)
 
-		if cfg.Plugins[config.GatewayPlugin] == true && !cfg.Chain.EnableAsyncIndexWrite {
+		_, gateway := cfg.Plugins[config.GatewayPlugin]
+		if gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// verify deployed contract
 			r, err := bc.GetReceiptByActionHash(deployHash)
 			require.NoError(err)
@@ -927,16 +935,19 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath := testIndexFile.Name()
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testIndexPath)
 	}()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Plugins[config.GatewayPlugin] = false
 
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
@@ -946,14 +957,20 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	testTriePath2 := testTrieFile.Name()
 	testDBFile, _ = ioutil.TempFile(os.TempDir(), "db")
 	testDBPath2 := testDBFile.Name()
+	testIndexFile2, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath2 := testIndexFile2.Name()
 	defer func() {
 		testutil.CleanupPath(t, testTriePath2)
 		testutil.CleanupPath(t, testDBPath2)
+		testutil.CleanupPath(t, testIndexPath2)
+		// clear the gateway
+		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	cfg.Chain.IndexDBPath = testIndexPath2
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.AleutianBlockHeight = 3
 
@@ -989,10 +1006,13 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath := testIndexFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
@@ -1054,9 +1074,12 @@ func TestBlocks(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath := testIndexFile.Name()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
 
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 
@@ -1115,9 +1138,12 @@ func TestActions(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath := testIndexFile.Name()
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
 
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 

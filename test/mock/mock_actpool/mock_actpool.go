@@ -37,19 +37,16 @@ func (m *MockActPool) EXPECT() *MockActPoolMockRecorder {
 
 // Reset mocks base method
 func (m *MockActPool) Reset() {
-	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Reset")
 }
 
 // Reset indicates an expected call of Reset
 func (mr *MockActPoolMockRecorder) Reset() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockActPool)(nil).Reset))
 }
 
 // PendingActionMap mocks base method
 func (m *MockActPool) PendingActionMap() map[string][]action.SealedEnvelope {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PendingActionMap")
 	ret0, _ := ret[0].(map[string][]action.SealedEnvelope)
 	return ret0
@@ -57,13 +54,11 @@ func (m *MockActPool) PendingActionMap() map[string][]action.SealedEnvelope {
 
 // PendingActionMap indicates an expected call of PendingActionMap
 func (mr *MockActPoolMockRecorder) PendingActionMap() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingActionMap", reflect.TypeOf((*MockActPool)(nil).PendingActionMap))
 }
 
 // Add mocks base method
 func (m *MockActPool) Add(act action.SealedEnvelope) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Add", act)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -71,13 +66,11 @@ func (m *MockActPool) Add(act action.SealedEnvelope) error {
 
 // Add indicates an expected call of Add
 func (mr *MockActPoolMockRecorder) Add(act interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockActPool)(nil).Add), act)
 }
 
 // GetPendingNonce mocks base method
 func (m *MockActPool) GetPendingNonce(addr string) (uint64, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPendingNonce", addr)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
@@ -86,13 +79,11 @@ func (m *MockActPool) GetPendingNonce(addr string) (uint64, error) {
 
 // GetPendingNonce indicates an expected call of GetPendingNonce
 func (mr *MockActPoolMockRecorder) GetPendingNonce(addr interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingNonce", reflect.TypeOf((*MockActPool)(nil).GetPendingNonce), addr)
 }
 
 // GetUnconfirmedActs mocks base method
 func (m *MockActPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnconfirmedActs", addr)
 	ret0, _ := ret[0].([]action.SealedEnvelope)
 	return ret0
@@ -100,13 +91,11 @@ func (m *MockActPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 
 // GetUnconfirmedActs indicates an expected call of GetUnconfirmedActs
 func (mr *MockActPoolMockRecorder) GetUnconfirmedActs(addr interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnconfirmedActs", reflect.TypeOf((*MockActPool)(nil).GetUnconfirmedActs), addr)
 }
 
 // GetActionByHash mocks base method
 func (m *MockActPool) GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetActionByHash", hash)
 	ret0, _ := ret[0].(action.SealedEnvelope)
 	ret1, _ := ret[1].(error)
@@ -115,13 +104,11 @@ func (m *MockActPool) GetActionByHash(hash hash.Hash256) (action.SealedEnvelope,
 
 // GetActionByHash indicates an expected call of GetActionByHash
 func (mr *MockActPoolMockRecorder) GetActionByHash(hash interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByHash", reflect.TypeOf((*MockActPool)(nil).GetActionByHash), hash)
 }
 
 // GetSize mocks base method
 func (m *MockActPool) GetSize() uint64 {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSize")
 	ret0, _ := ret[0].(uint64)
 	return ret0
@@ -129,13 +116,11 @@ func (m *MockActPool) GetSize() uint64 {
 
 // GetSize indicates an expected call of GetSize
 func (mr *MockActPoolMockRecorder) GetSize() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSize", reflect.TypeOf((*MockActPool)(nil).GetSize))
 }
 
 // GetCapacity mocks base method
 func (m *MockActPool) GetCapacity() uint64 {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCapacity")
 	ret0, _ := ret[0].(uint64)
 	return ret0
@@ -143,13 +128,11 @@ func (m *MockActPool) GetCapacity() uint64 {
 
 // GetCapacity indicates an expected call of GetCapacity
 func (mr *MockActPoolMockRecorder) GetCapacity() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCapacity", reflect.TypeOf((*MockActPool)(nil).GetCapacity))
 }
 
 // GetGasSize mocks base method
 func (m *MockActPool) GetGasSize() uint64 {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetGasSize")
 	ret0, _ := ret[0].(uint64)
 	return ret0
@@ -157,13 +140,11 @@ func (m *MockActPool) GetGasSize() uint64 {
 
 // GetGasSize indicates an expected call of GetGasSize
 func (mr *MockActPoolMockRecorder) GetGasSize() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGasSize", reflect.TypeOf((*MockActPool)(nil).GetGasSize))
 }
 
 // GetGasCapacity mocks base method
 func (m *MockActPool) GetGasCapacity() uint64 {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetGasCapacity")
 	ret0, _ := ret[0].(uint64)
 	return ret0
@@ -171,13 +152,11 @@ func (m *MockActPool) GetGasCapacity() uint64 {
 
 // GetGasCapacity indicates an expected call of GetGasCapacity
 func (mr *MockActPoolMockRecorder) GetGasCapacity() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGasCapacity", reflect.TypeOf((*MockActPool)(nil).GetGasCapacity))
 }
 
 // AddActionValidators mocks base method
 func (m *MockActPool) AddActionValidators(arg0 ...protocol.ActionValidator) {
-	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
@@ -187,13 +166,11 @@ func (m *MockActPool) AddActionValidators(arg0 ...protocol.ActionValidator) {
 
 // AddActionValidators indicates an expected call of AddActionValidators
 func (mr *MockActPoolMockRecorder) AddActionValidators(arg0 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionValidators", reflect.TypeOf((*MockActPool)(nil).AddActionValidators), arg0...)
 }
 
 // AddActionEnvelopeValidators mocks base method
 func (m *MockActPool) AddActionEnvelopeValidators(arg0 ...protocol.ActionEnvelopeValidator) {
-	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
@@ -203,6 +180,5 @@ func (m *MockActPool) AddActionEnvelopeValidators(arg0 ...protocol.ActionEnvelop
 
 // AddActionEnvelopeValidators indicates an expected call of AddActionEnvelopeValidators
 func (mr *MockActPoolMockRecorder) AddActionEnvelopeValidators(arg0 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionEnvelopeValidators", reflect.TypeOf((*MockActPool)(nil).AddActionEnvelopeValidators), arg0...)
 }

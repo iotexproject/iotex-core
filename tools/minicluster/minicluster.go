@@ -85,12 +85,16 @@ func main() {
 		dbFilePaths = append(dbFilePaths, chainDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, trieDBPath)
+		indexDBPath := fmt.Sprintf("./index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, indexDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
-		config := newConfig(chainDBPath, trieDBPath, chainAddrs[i].PriKey,
-			networkPort, apiPort)
+		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort)
+		config.Chain.ChainDBPath = chainDBPath
+		config.Chain.TrieDBPath = trieDBPath
+		config.Chain.IndexDBPath = indexDBPath
 		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
@@ -371,8 +375,6 @@ func main() {
 }
 
 func newConfig(
-	chainDBPath,
-	trieDBPath string,
 	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
@@ -386,8 +388,6 @@ func newConfig(
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
-	cfg.Chain.ChainDBPath = chainDBPath
-	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 

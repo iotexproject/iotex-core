@@ -138,7 +138,7 @@ func New(
 
 	var indexBuilder *blockdao.IndexBuilder
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), chain.GetBlockDAO(), cfg.DB.Reindex); err != nil {
+		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), chain.GetBlockDAO(), chain.GetIndexer()); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {

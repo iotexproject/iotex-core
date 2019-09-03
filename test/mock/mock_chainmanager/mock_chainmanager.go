@@ -41,7 +41,6 @@ func (m *MockProtocol) EXPECT() *MockProtocolMockRecorder {
 
 // Validate mocks base method
 func (m *MockProtocol) Validate(arg0 context.Context, arg1 action.Action) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -49,13 +48,11 @@ func (m *MockProtocol) Validate(arg0 context.Context, arg1 action.Action) error 
 
 // Validate indicates an expected call of Validate
 func (mr *MockProtocolMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockProtocol)(nil).Validate), arg0, arg1)
 }
 
 // Handle mocks base method
 func (m *MockProtocol) Handle(arg0 context.Context, arg1 action.Action, arg2 protocol.StateManager) (*action.Receipt, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*action.Receipt)
 	ret1, _ := ret[1].(error)
@@ -64,13 +61,11 @@ func (m *MockProtocol) Handle(arg0 context.Context, arg1 action.Action, arg2 pro
 
 // Handle indicates an expected call of Handle
 func (mr *MockProtocolMockRecorder) Handle(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockProtocol)(nil).Handle), arg0, arg1, arg2)
 }
 
 // ReadState mocks base method
 func (m *MockProtocol) ReadState(arg0 context.Context, arg1 protocol.StateManager, arg2 []byte, arg3 ...[]byte) ([]byte, error) {
-	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
 		varargs = append(varargs, a)
@@ -83,7 +78,6 @@ func (m *MockProtocol) ReadState(arg0 context.Context, arg1 protocol.StateManage
 
 // ReadState indicates an expected call of ReadState
 func (mr *MockProtocolMockRecorder) ReadState(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadState", reflect.TypeOf((*MockProtocol)(nil).ReadState), varargs...)
 }
@@ -113,7 +107,6 @@ func (m *MockActionValidator) EXPECT() *MockActionValidatorMockRecorder {
 
 // Validate mocks base method
 func (m *MockActionValidator) Validate(arg0 context.Context, arg1 action.Action) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -121,7 +114,6 @@ func (m *MockActionValidator) Validate(arg0 context.Context, arg1 action.Action)
 
 // Validate indicates an expected call of Validate
 func (mr *MockActionValidatorMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0, arg1)
 }
 
@@ -150,7 +142,6 @@ func (m *MockActionEnvelopeValidator) EXPECT() *MockActionEnvelopeValidatorMockR
 
 // Validate mocks base method
 func (m *MockActionEnvelopeValidator) Validate(arg0 context.Context, arg1 action.SealedEnvelope) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -158,7 +149,6 @@ func (m *MockActionEnvelopeValidator) Validate(arg0 context.Context, arg1 action
 
 // Validate indicates an expected call of Validate
 func (mr *MockActionEnvelopeValidatorMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionEnvelopeValidator)(nil).Validate), arg0, arg1)
 }
 
@@ -187,7 +177,6 @@ func (m *MockActionHandler) EXPECT() *MockActionHandlerMockRecorder {
 
 // Handle mocks base method
 func (m *MockActionHandler) Handle(arg0 context.Context, arg1 action.Action, arg2 protocol.StateManager) (*action.Receipt, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*action.Receipt)
 	ret1, _ := ret[1].(error)
@@ -196,7 +185,6 @@ func (m *MockActionHandler) Handle(arg0 context.Context, arg1 action.Action, arg
 
 // Handle indicates an expected call of Handle
 func (mr *MockActionHandlerMockRecorder) Handle(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockActionHandler)(nil).Handle), arg0, arg1, arg2)
 }
 
@@ -225,7 +213,6 @@ func (m *MockChainManager) EXPECT() *MockChainManagerMockRecorder {
 
 // ChainID mocks base method
 func (m *MockChainManager) ChainID() uint32 {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ChainID")
 	ret0, _ := ret[0].(uint32)
 	return ret0
@@ -233,13 +220,11 @@ func (m *MockChainManager) ChainID() uint32 {
 
 // ChainID indicates an expected call of ChainID
 func (mr *MockChainManagerMockRecorder) ChainID() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockChainManager)(nil).ChainID))
 }
 
 // GetHashByHeight mocks base method
 func (m *MockChainManager) GetHashByHeight(height uint64) (hash.Hash256, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHashByHeight", height)
 	ret0, _ := ret[0].(hash.Hash256)
 	ret1, _ := ret[1].(error)
@@ -248,13 +233,11 @@ func (m *MockChainManager) GetHashByHeight(height uint64) (hash.Hash256, error) 
 
 // GetHashByHeight indicates an expected call of GetHashByHeight
 func (mr *MockChainManagerMockRecorder) GetHashByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHashByHeight", reflect.TypeOf((*MockChainManager)(nil).GetHashByHeight), height)
 }
 
 // StateByAddr mocks base method
 func (m *MockChainManager) StateByAddr(address string) (*state.Account, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateByAddr", address)
 	ret0, _ := ret[0].(*state.Account)
 	ret1, _ := ret[1].(error)
@@ -263,13 +246,11 @@ func (m *MockChainManager) StateByAddr(address string) (*state.Account, error) {
 
 // StateByAddr indicates an expected call of StateByAddr
 func (mr *MockChainManagerMockRecorder) StateByAddr(address interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateByAddr", reflect.TypeOf((*MockChainManager)(nil).StateByAddr), address)
 }
 
 // Nonce mocks base method
 func (m *MockChainManager) Nonce(addr string) (uint64, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Nonce", addr)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
@@ -278,13 +259,11 @@ func (m *MockChainManager) Nonce(addr string) (uint64, error) {
 
 // Nonce indicates an expected call of Nonce
 func (mr *MockChainManagerMockRecorder) Nonce(addr interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockChainManager)(nil).Nonce), addr)
 }
 
 // CandidatesByHeight mocks base method
 func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CandidatesByHeight", height)
 	ret0, _ := ret[0].([]*state.Candidate)
 	ret1, _ := ret[1].(error)
@@ -293,13 +272,11 @@ func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate
 
 // CandidatesByHeight indicates an expected call of CandidatesByHeight
 func (mr *MockChainManagerMockRecorder) CandidatesByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockChainManager)(nil).CandidatesByHeight), height)
 }
 
 // ProductivityByEpoch mocks base method
 func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProductivityByEpoch", epochNum)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(map[string]uint64)
@@ -309,13 +286,11 @@ func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[str
 
 // ProductivityByEpoch indicates an expected call of ProductivityByEpoch
 func (mr *MockChainManagerMockRecorder) ProductivityByEpoch(epochNum interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockChainManager)(nil).ProductivityByEpoch), epochNum)
 }
 
 // ExecuteContractRead mocks base method
 func (m *MockChainManager) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExecuteContractRead", caller, ex)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
@@ -325,7 +300,6 @@ func (m *MockChainManager) ExecuteContractRead(caller address.Address, ex *actio
 
 // ExecuteContractRead indicates an expected call of ExecuteContractRead
 func (mr *MockChainManagerMockRecorder) ExecuteContractRead(caller, ex interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockChainManager)(nil).ExecuteContractRead), caller, ex)
 }
 
@@ -354,7 +328,6 @@ func (m *MockStateManager) EXPECT() *MockStateManagerMockRecorder {
 
 // Height mocks base method
 func (m *MockStateManager) Height() uint64 {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Height")
 	ret0, _ := ret[0].(uint64)
 	return ret0
@@ -362,13 +335,11 @@ func (m *MockStateManager) Height() uint64 {
 
 // Height indicates an expected call of Height
 func (mr *MockStateManagerMockRecorder) Height() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockStateManager)(nil).Height))
 }
 
 // Snapshot mocks base method
 func (m *MockStateManager) Snapshot() int {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Snapshot")
 	ret0, _ := ret[0].(int)
 	return ret0
@@ -376,13 +347,11 @@ func (m *MockStateManager) Snapshot() int {
 
 // Snapshot indicates an expected call of Snapshot
 func (mr *MockStateManagerMockRecorder) Snapshot() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockStateManager)(nil).Snapshot))
 }
 
 // Revert mocks base method
 func (m *MockStateManager) Revert(arg0 int) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Revert", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -390,13 +359,11 @@ func (m *MockStateManager) Revert(arg0 int) error {
 
 // Revert indicates an expected call of Revert
 func (mr *MockStateManagerMockRecorder) Revert(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockStateManager)(nil).Revert), arg0)
 }
 
 // State mocks base method
 func (m *MockStateManager) State(arg0 hash.Hash160, arg1 interface{}) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "State", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -404,13 +371,11 @@ func (m *MockStateManager) State(arg0 hash.Hash160, arg1 interface{}) error {
 
 // State indicates an expected call of State
 func (mr *MockStateManagerMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateManager)(nil).State), arg0, arg1)
 }
 
 // PutState mocks base method
 func (m *MockStateManager) PutState(arg0 hash.Hash160, arg1 interface{}) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PutState", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -418,13 +383,11 @@ func (m *MockStateManager) PutState(arg0 hash.Hash160, arg1 interface{}) error {
 
 // PutState indicates an expected call of PutState
 func (mr *MockStateManagerMockRecorder) PutState(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockStateManager)(nil).PutState), arg0, arg1)
 }
 
 // DelState mocks base method
 func (m *MockStateManager) DelState(pkHash hash.Hash160) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DelState", pkHash)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -432,13 +395,11 @@ func (m *MockStateManager) DelState(pkHash hash.Hash160) error {
 
 // DelState indicates an expected call of DelState
 func (mr *MockStateManagerMockRecorder) DelState(pkHash interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockStateManager)(nil).DelState), pkHash)
 }
 
 // GetDB mocks base method
 func (m *MockStateManager) GetDB() db.KVStore {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDB")
 	ret0, _ := ret[0].(db.KVStore)
 	return ret0
@@ -446,13 +407,11 @@ func (m *MockStateManager) GetDB() db.KVStore {
 
 // GetDB indicates an expected call of GetDB
 func (mr *MockStateManagerMockRecorder) GetDB() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockStateManager)(nil).GetDB))
 }
 
 // GetCachedBatch mocks base method
 func (m *MockStateManager) GetCachedBatch() db.CachedBatch {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCachedBatch")
 	ret0, _ := ret[0].(db.CachedBatch)
 	return ret0
@@ -460,6 +419,5 @@ func (m *MockStateManager) GetCachedBatch() db.CachedBatch {
 
 // GetCachedBatch indicates an expected call of GetCachedBatch
 func (mr *MockStateManagerMockRecorder) GetCachedBatch() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedBatch", reflect.TypeOf((*MockStateManager)(nil).GetCachedBatch))
 }

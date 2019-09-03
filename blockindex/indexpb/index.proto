@@ -17,5 +17,4 @@ message BlockIndex {
 
 message ActionIndex {
     uint64 blkHeight = 1;
-    bytes blkHash = 2;
 }

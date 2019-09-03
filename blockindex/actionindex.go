@@ -16,17 +16,11 @@ import (
 
 type actionIndex struct {
 	blkHeight uint64
-	blkHash   []byte
 }
 
 // Height returns the block height of action
 func (a *actionIndex) BlockHeight() uint64 {
 	return a.blkHeight
-}
-
-// BlockHash returns the block hash of action
-func (a *actionIndex) BlockHash() []byte {
-	return a.blkHash
 }
 
 // Serialize into byte stream
@@ -47,7 +41,6 @@ func (a *actionIndex) Deserialize(buf []byte) error {
 func (a *actionIndex) toProto() *indexpb.ActionIndex {
 	return &indexpb.ActionIndex{
 		BlkHeight: a.blkHeight,
-		BlkHash:   a.blkHash,
 	}
 }
 
@@ -57,10 +50,5 @@ func (a *actionIndex) fromProto(pbIndex *indexpb.ActionIndex) error {
 		return errors.New("empty protobuf")
 	}
 	a.blkHeight = pbIndex.BlkHeight
-	a.blkHash = nil
-	if len(pbIndex.BlkHash) > 0 {
-		a.blkHash = make([]byte, len(pbIndex.BlkHash))
-		copy(a.blkHash, pbIndex.BlkHash)
-	}
 	return nil
 }

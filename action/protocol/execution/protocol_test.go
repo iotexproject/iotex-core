@@ -269,6 +269,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r *require.Assertions,
 ) blockchain.Blockchain {
 	cfg := config.Default
+	defer func() {
+		delete(cfg.Plugins, config.GatewayPlugin)
+	}()
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
@@ -435,15 +438,21 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ctx := context.Background()
 		cfg := config.Default
+		defer func() {
+			delete(cfg.Plugins, config.GatewayPlugin)
+		}()
 
 		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 		testTriePath := testTrieFile.Name()
 		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 		testDBPath := testDBFile.Name()
+		testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+		testIndexPath := testIndexFile.Name()
 
 		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
+		cfg.Chain.IndexDBPath = testIndexPath
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
 		registry := protocol.Registry{}

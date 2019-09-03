@@ -54,59 +54,13 @@ func getTestBlocks(t *testing.T) []*block.Block {
 	execution3, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 3, big.NewInt(2), 0, big.NewInt(0), nil)
 	require.NoError(t, err)
 
-	// create testing create deposit actions
-	deposit1 := action.NewCreateDeposit(
-		4,
-		2,
-		big.NewInt(1),
-		identityset.Address(31).String(),
-		testutil.TestGasLimit,
-		big.NewInt(0),
-	)
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(4).
-		SetGasLimit(testutil.TestGasLimit).
-		SetAction(deposit1).Build()
-	sdeposit1, err := action.Sign(elp, identityset.PrivateKey(28))
-	require.NoError(t, err)
-
-	deposit2 := action.NewCreateDeposit(
-		5,
-		2,
-		big.NewInt(2),
-		identityset.Address(31).String(),
-		testutil.TestGasLimit,
-		big.NewInt(0),
-	)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(5).
-		SetGasLimit(testutil.TestGasLimit).
-		SetAction(deposit2).Build()
-	sdeposit2, err := action.Sign(elp, identityset.PrivateKey(29))
-	require.NoError(t, err)
-
-	deposit3 := action.NewCreateDeposit(
-		6,
-		2,
-		big.NewInt(3),
-		identityset.Address(31).String(),
-		testutil.TestGasLimit,
-		big.NewInt(0),
-	)
-	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(6).
-		SetGasLimit(testutil.TestGasLimit).
-		SetAction(deposit3).Build()
-	sdeposit3, err := action.Sign(elp, identityset.PrivateKey(30))
-	require.NoError(t, err)
-
 	hash1 := hash.Hash256{}
 	fnv.New32().Sum(hash1[:])
 	blk1, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash1).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1, tsf4, execution1, sdeposit1).
+		AddActions(tsf1, tsf4, execution1).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
@@ -116,7 +70,7 @@ func getTestBlocks(t *testing.T) []*block.Block {
 		SetHeight(2).
 		SetPrevBlockHash(hash2).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf2, tsf5, execution2, sdeposit2).
+		AddActions(tsf2, tsf5, execution2).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
@@ -126,7 +80,7 @@ func getTestBlocks(t *testing.T) []*block.Block {
 		SetHeight(3).
 		SetPrevBlockHash(hash3).
 		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf3, tsf6, execution3, sdeposit3).
+		AddActions(tsf3, tsf6, execution3).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	return []*block.Block{&blk1, &blk2, &blk3}
@@ -137,15 +91,12 @@ func TestIndexer(t *testing.T) {
 	t1Hash := blks[0].Actions[0].Hash()
 	t4Hash := blks[0].Actions[1].Hash()
 	e1Hash := blks[0].Actions[2].Hash()
-	d1Hash := blks[0].Actions[3].Hash()
 	t2Hash := blks[1].Actions[0].Hash()
 	t5Hash := blks[1].Actions[1].Hash()
 	e2Hash := blks[1].Actions[2].Hash()
-	d2Hash := blks[1].Actions[3].Hash()
 	t3Hash := blks[2].Actions[0].Hash()
 	t6Hash := blks[2].Actions[1].Hash()
 	e3Hash := blks[2].Actions[2].Hash()
-	d3Hash := blks[2].Actions[3].Hash()
 
 	addr28 := hash.BytesToHash160(identityset.Address(28).Bytes())
 	addr29 := hash.BytesToHash160(identityset.Address(29).Bytes())
@@ -163,33 +114,33 @@ func TestIndexer(t *testing.T) {
 		actions   [4]index
 	}{
 		{
-			12,
-			[][]byte{t1Hash[:], t4Hash[:], e1Hash[:], d1Hash[:], t2Hash[:], t5Hash[:], e2Hash[:], d2Hash[:], t3Hash[:], t6Hash[:], e3Hash[:], d3Hash[:]},
+			9,
+			[][]byte{t1Hash[:], t4Hash[:], e1Hash[:], t2Hash[:], t5Hash[:], e2Hash[:], t3Hash[:], t6Hash[:], e3Hash[:]},
 			[4]index{
-				{addr28, [][]byte{t1Hash[:], t4Hash[:], e1Hash[:], d1Hash[:], t6Hash[:]}},
-				{addr29, [][]byte{t4Hash[:], t2Hash[:], t5Hash[:], e2Hash[:], d2Hash[:]}},
-				{addr30, [][]byte{t5Hash[:], t3Hash[:], t6Hash[:], e3Hash[:], d3Hash[:]}},
-				{addr31, [][]byte{e1Hash[:], d1Hash[:], e2Hash[:], d2Hash[:], e3Hash[:], d3Hash[:]}},
+				{addr28, [][]byte{t1Hash[:], t4Hash[:], e1Hash[:], t6Hash[:]}},
+				{addr29, [][]byte{t4Hash[:], t2Hash[:], t5Hash[:], e2Hash[:]}},
+				{addr30, [][]byte{t5Hash[:], t3Hash[:], t6Hash[:], e3Hash[:]}},
+				{addr31, [][]byte{e1Hash[:], e2Hash[:], e3Hash[:]}},
 			},
 		},
 		{
-			8,
-			[][]byte{t1Hash[:], t4Hash[:], e1Hash[:], d1Hash[:], t2Hash[:], t5Hash[:], e2Hash[:], d2Hash[:]},
+			6,
+			[][]byte{t1Hash[:], t4Hash[:], e1Hash[:], t2Hash[:], t5Hash[:], e2Hash[:]},
 			[4]index{
-				{addr28, [][]byte{t1Hash[:], t4Hash[:], e1Hash[:], d1Hash[:]}},
-				{addr29, [][]byte{t4Hash[:], t2Hash[:], t5Hash[:], e2Hash[:], d2Hash[:]}},
+				{addr28, [][]byte{t1Hash[:], t4Hash[:], e1Hash[:]}},
+				{addr29, [][]byte{t4Hash[:], t2Hash[:], t5Hash[:], e2Hash[:]}},
 				{addr30, [][]byte{t5Hash[:]}},
-				{addr31, [][]byte{e1Hash[:], d1Hash[:], e2Hash[:], d2Hash[:]}},
+				{addr31, [][]byte{e1Hash[:], e2Hash[:]}},
 			},
 		},
 		{
-			4,
-			[][]byte{t1Hash[:], t4Hash[:], e1Hash[:], d1Hash[:]},
+			3,
+			[][]byte{t1Hash[:], t4Hash[:], e1Hash[:]},
 			[4]index{
-				{addr28, [][]byte{t1Hash[:], t4Hash[:], e1Hash[:], d1Hash[:]}},
+				{addr28, [][]byte{t1Hash[:], t4Hash[:], e1Hash[:]}},
 				{addr29, [][]byte{t4Hash[:]}},
 				{addr30, nil},
-				{addr31, [][]byte{e1Hash[:], d1Hash[:]}},
+				{addr31, [][]byte{e1Hash[:]}},
 			},
 		},
 		{
@@ -220,16 +171,25 @@ func TestIndexer(t *testing.T) {
 
 		require.NoError(indexer.IndexBlock(blks[0], true))
 		require.NoError(indexer.IndexAction(blks[0]))
+		// cannot skip block when indexing
+		err = indexer.IndexBlock(blks[2], true)
+		require.Equal(db.ErrInvalid, errors.Cause(err))
 		require.NoError(indexer.IndexBlock(blks[1], true))
 		require.NoError(indexer.IndexAction(blks[1]))
 		// height still == 0 before Commit()
 		height, err = indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(0, height)
+		total, err := indexer.GetTotalActions()
+		require.NoError(err)
+		require.EqualValues(0, total)
 		require.NoError(indexer.Commit())
 		height, err = indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(2, height)
+		total, err = indexer.GetTotalActions()
+		require.NoError(err)
+		require.EqualValues(6, total)
 
 		require.NoError(indexer.IndexBlock(blks[2], false))
 		require.NoError(indexer.IndexAction(blks[2]))
@@ -259,11 +219,11 @@ func TestIndexer(t *testing.T) {
 			}
 			require.Equal(amount, bd.TsfAmount())
 
-			// Test GetBlockHashByActionHash
-			for j := 0; j < 4; j++ {
-				blkHash, err := indexer.GetBlockHashByActionHash(hash.BytesToHash256(indexTests[0].hashTotal[i*4+j]))
+			// Test GetBlockHeightByActionHash
+			for j := 0; j < 3; j++ {
+				height, err := indexer.GetBlockHeightByActionHash(hash.BytesToHash256(indexTests[0].hashTotal[i*3+j]))
 				require.NoError(err)
-				require.Equal(h, blkHash)
+				require.Equal(blks[i].Height(), height)
 			}
 		}
 
@@ -273,7 +233,7 @@ func TestIndexer(t *testing.T) {
 		require.EqualValues(0, actionCount)
 
 		// Test get actions
-		total, err := indexer.GetTotalActions()
+		total, err = indexer.GetTotalActions()
 		require.NoError(err)
 		require.EqualValues(indexTests[0].total, total)
 		_, err = indexer.GetActionHashFromIndex(1, total)
@@ -324,10 +284,19 @@ func TestIndexer(t *testing.T) {
 				// tests[0] is the whole address/action data at block height 3
 				continue
 			}
-			require.NoError(indexer.DeleteIndex(blks[3-i]))
+			require.NoError(indexer.DeleteBlockIndex(blks[3-i]))
+			require.NoError(indexer.DeleteActionIndex(blks[3-i]))
 			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)
+			h, err := indexer.GetBlockHash(tipHeight)
+			require.NoError(err)
+			if i <= 2 {
+				require.Equal(blks[2-i].HashBlock(), h)
+			} else {
+				require.Equal(hash.ZeroHash256, h)
+			}
+
 			total, err := indexer.GetTotalActions()
 			require.NoError(err)
 			require.EqualValues(indexTests[i].total, total)

@@ -73,7 +73,6 @@ func TestAction_Negative(t *testing.T) {
 func prepareBlockchain(
 	ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
 	cfg := config.Default
-	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}

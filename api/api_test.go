@@ -898,13 +898,13 @@ func TestServer_GetBlockMeta(t *testing.T) {
 
 func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
+		cfg := newConfig()
 		if test.pollProtocolType == lld {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else if test.pollProtocolType == "governanceChainCommittee" {
@@ -1666,6 +1666,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 	if bc == nil {
 		return nil, nil, errors.New("failed to create blockchain")
 	}
+	defer func() {
+		delete(cfg.Plugins, config.GatewayPlugin)
+	}()
 
 	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
 	evm := execution.NewProtocol(bc, config.NewHeightUpgrade(cfg))
@@ -1717,10 +1720,13 @@ func newConfig() config.Config {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath := testIndexFile.Name()
 
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"

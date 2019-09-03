@@ -74,9 +74,9 @@ func (b *blockIndex) fromProto(pbIndex *indexpb.BlockIndex) error {
 		b.hash = make([]byte, len(pbIndex.Hash))
 		copy(b.hash, pbIndex.Hash)
 	}
-	b.tsfAmount = nil
+	b.tsfAmount = big.NewInt(0)
 	if len(pbIndex.TsfAmount) > 0 {
-		b.tsfAmount = big.NewInt(0).SetBytes(pbIndex.TsfAmount)
+		b.tsfAmount.SetBytes(pbIndex.TsfAmount)
 	}
 	return nil
 }
