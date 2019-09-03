@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/go-fsm"
+	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -77,11 +77,12 @@ type CandidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 type rollDPoSCtx struct {
 	cfg config.RollDPoS
 	// TODO: explorer dependency deleted at #1085, need to add api params here
-	chain            blockchain.Blockchain
-	actPool          actpool.ActPool
-	broadcastHandler scheme.Broadcast
-	roundCalc        *roundCalculator
-	eManagerDB       db.KVStore
+	chain             blockchain.Blockchain
+	actPool           actpool.ActPool
+	broadcastHandler  scheme.Broadcast
+	roundCalc         *roundCalculator
+	eManagerDB        db.KVStore
+	toleratedOvertime time.Duration
 
 	encodedAddr string
 	priKey      crypto.PrivateKey
@@ -139,19 +140,19 @@ func newRollDPoSCtx(
 		chain:                  chain,
 		rp:                     rp,
 		timeBasedRotation:      timeBasedRotation,
-		toleratedOvertime:      toleratedOvertime,
 	}
 	return &rollDPoSCtx{
-		cfg:              cfg,
-		active:           active,
-		encodedAddr:      encodedAddr,
-		priKey:           priKey,
-		chain:            chain,
-		actPool:          actPool,
-		broadcastHandler: broadcastHandler,
-		clock:            clock,
-		roundCalc:        roundCalc,
-		eManagerDB:       eManagerDB,
+		cfg:               cfg,
+		active:            active,
+		encodedAddr:       encodedAddr,
+		priKey:            priKey,
+		chain:             chain,
+		actPool:           actPool,
+		broadcastHandler:  broadcastHandler,
+		clock:             clock,
+		roundCalc:         roundCalc,
+		eManagerDB:        eManagerDB,
+		toleratedOvertime: toleratedOvertime,
 	}, nil
 }
 
@@ -163,7 +164,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		}
 		eManager, err = newEndorsementManager(ctx.eManagerDB)
 	}
-	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.clock.Now(), eManager)
+	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 
 	return err
 }
@@ -293,7 +294,7 @@ func (ctx *rollDPoSCtx) Prepare() error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	height := ctx.chain.TipHeight() + 1
-	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.clock.Now())
+	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.clock.Now(), ctx.toleratedOvertime)
 	if err != nil {
 		return err
 	}
@@ -315,11 +316,8 @@ func (ctx *rollDPoSCtx) Prepare() error {
 func (ctx *rollDPoSCtx) IsDelegate() bool {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	if active := ctx.active; !active {
-		ctx.logger().Info("current node is in standby mode")
-		return false
-	}
-	return ctx.round.IsDelegate(ctx.encodedAddr)
+
+	return ctx.isDelegate()
 }
 
 func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
@@ -346,7 +344,12 @@ func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 		time.Sleep(startTime.Sub(now))
 		return 0
 	}
-	return now.Sub(startTime)
+	overTime := now.Sub(startTime)
+	if !ctx.isDelegate() && ctx.toleratedOvertime > overTime {
+		time.Sleep(ctx.toleratedOvertime - overTime)
+		return 0
+	}
+	return overTime
 }
 
 func (ctx *rollDPoSCtx) PreCommitEndorsement() interface{} {
@@ -599,6 +602,14 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 		proofOfUnlock = ctx.round.ProofOfLock()
 	}
 	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock))
+}
+
+func (ctx *rollDPoSCtx) isDelegate() bool {
+	if active := ctx.active; !active {
+		ctx.logger().Info("current node is in standby mode")
+		return false
+	}
+	return ctx.round.IsDelegate(ctx.encodedAddr)
 }
 
 func (ctx *rollDPoSCtx) endorseBlockProposal(proposal *blockProposal) (*EndorsedConsensusMessage, error) {

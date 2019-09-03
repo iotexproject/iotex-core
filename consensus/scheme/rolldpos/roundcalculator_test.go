@@ -32,31 +32,32 @@ import (
 func TestUpdateRound(t *testing.T) {
 	require := require.New(t)
 	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
+	rc := &roundCalculator{bc, time.Second, true, roll, bc.CandidatesByHeight}
 	ra, err := rc.NewRound(1, time.Unix(1562382392, 0), nil)
 	require.NoError(err)
 
 	// height < round.Height()
-	_, err = rc.UpdateRound(ra, 0, time.Unix(1562382492, 0))
+	_, err = rc.UpdateRound(ra, 0, time.Unix(1562382492, 0), time.Second)
 	require.Error(err)
 
 	// height == round.Height() and now.Before(round.StartTime())
-	_, err = rc.UpdateRound(ra, 1, time.Unix(1562382092, 0))
-	require.Error(err)
+	_, err = rc.UpdateRound(ra, 1, time.Unix(1562382092, 0), time.Second)
+	require.NoError(err)
 
 	// height >= round.NextEpochStartHeight() Delegates error
-	_, err = rc.UpdateRound(ra, 500, time.Unix(1562382092, 0))
+	_, err = rc.UpdateRound(ra, 500, time.Unix(1562382092, 0), time.Second)
 	require.Error(err)
 
 	// (31+120)%24
-	ra, err = rc.UpdateRound(ra, 31, time.Unix(1562382522, 0))
+	ra, err = rc.UpdateRound(ra, 31, time.Unix(1562382522, 0), time.Second)
 	require.NoError(err)
 	require.Equal(identityset.Address(7).String(), ra.proposer)
 }
+
 func TestNewRound(t *testing.T) {
 	require := require.New(t)
 	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
+	rc := &roundCalculator{bc, time.Second, true, roll, bc.CandidatesByHeight}
 	proposer, err := rc.calculateProposer(5, 1, []string{"1", "2", "3", "4", "5"})
 	require.Error(err)
 	var validDelegates [24]string
@@ -86,10 +87,11 @@ func TestNewRound(t *testing.T) {
 	require.Equal(uint64(1), ra.height)
 	require.Equal(identityset.Address(5).String(), ra.proposer)
 }
+
 func TestDelegates(t *testing.T) {
 	require := require.New(t)
 	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
+	rc := &roundCalculator{bc, time.Second, true, roll, bc.CandidatesByHeight}
 	_, err := rc.Delegates(361)
 	require.Error(err)
 
@@ -100,13 +102,14 @@ func TestDelegates(t *testing.T) {
 	require.False(rc.IsDelegate(identityset.Address(25).String(), 2))
 	require.True(rc.IsDelegate(identityset.Address(5).String(), 2))
 }
+
 func TestRoundInfo(t *testing.T) {
 	require := require.New(t)
-	rc := &roundCalculator{nil, time.Second, time.Second, true, nil, nil}
+	rc := &roundCalculator{nil, time.Second, true, nil, nil}
 	require.NotNil(rc)
 	require.Equal(time.Second, rc.BlockInterval())
 	bc, roll := makeChain(t)
-	rc = &roundCalculator{bc, time.Second, time.Second, true, roll, bc.CandidatesByHeight}
+	rc = &roundCalculator{bc, time.Second, true, roll, bc.CandidatesByHeight}
 
 	// error for lastBlockTime.Before(now)
 	_, _, err := rc.RoundInfo(1, time.Unix(1562382300, 0))
@@ -119,25 +122,24 @@ func TestRoundInfo(t *testing.T) {
 	require.True(roundStartTime.Equal(time.Unix(1562382392, 0)))
 
 	// height is 1 with withToleration true and duration%c.blockInterval < c.toleratedOvertime
-	roundNum, roundStartTime, err = rc.roundInfo(1, time.Unix(1562382392, 0), true)
+	roundNum, roundStartTime, err = rc.roundInfo(1, time.Unix(1562382392, 500000), 501*time.Microsecond)
 	require.NoError(err)
 	require.Equal(uint32(19), roundNum)
 	require.True(roundStartTime.Equal(time.Unix(1562382392, 0)))
 
 	// height is 1 with withToleration true and duration%c.blockInterval >= c.toleratedOvertime
-	rc.toleratedOvertime = 0
-	roundNum, roundStartTime, err = rc.roundInfo(1, time.Unix(1562382392, 0), true)
+	roundNum, roundStartTime, err = rc.roundInfo(1, time.Unix(1562382392, 500000), 500*time.Microsecond)
 	require.NoError(err)
 	require.Equal(uint32(20), roundNum)
 	require.True(roundStartTime.After(time.Unix(1562382392, 0)))
 
 	// height is 4 with withToleration true and duration%c.blockInterval >= c.toleratedOvertime
-	rc.toleratedOvertime = 20
-	roundNum, roundStartTime, err = rc.roundInfo(4, time.Unix(1562382392, 0), true)
+	roundNum, roundStartTime, err = rc.roundInfo(4, time.Unix(1562382392, 500000), 500*time.Microsecond)
 	require.NoError(err)
-	require.Equal(uint32(17), roundNum)
-	require.True(roundStartTime.Equal(time.Unix(1562382392, 0)))
+	require.Equal(uint32(18), roundNum)
+	require.True(roundStartTime.Equal(time.Unix(1562382393, 0)))
 }
+
 func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	require := require.New(t)
 	cfg := config.Default
