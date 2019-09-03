@@ -39,6 +39,7 @@ type validator struct {
 	actionEnvelopeValidators  []protocol.ActionEnvelopeValidator
 	actionValidators          []protocol.ActionValidator
 	enableExperimentalActions bool
+	senderBlackList           map[string]bool
 }
 
 var (
@@ -157,6 +158,9 @@ func (v *validator) validateActions(
 		caller, err := address.FromBytes(selp.SrcPubkey().Hash())
 		if err != nil {
 			return err
+		}
+		if _, ok := v.senderBlackList[caller.String()]; ok {
+			return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 		}
 		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
 		ctx := protocol.WithValidateActionsCtx(
