@@ -21,7 +21,6 @@ import (
 type roundCalculator struct {
 	chain                  blockchain.Blockchain
 	blockInterval          time.Duration
-	toleratedOvertime      time.Duration
 	timeBasedRotation      bool
 	rp                     *rolldpos.Protocol
 	candidatesByHeightFunc CandidatesByHeightFunc
@@ -31,7 +30,7 @@ func (c *roundCalculator) BlockInterval() time.Duration {
 	return c.blockInterval
 }
 
-func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.Time) (*roundCtx, error) {
+func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.Time, toleratedOvertime time.Duration) (*roundCtx, error) {
 	epochNum := round.EpochNum()
 	epochStartHeight := round.EpochStartHeight()
 	delegates := round.Delegates()
@@ -40,7 +39,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 		return nil, errors.New("cannot update to a lower height")
 	case height == round.Height():
 		if now.Before(round.StartTime()) {
-			return nil, errors.New("cannot update to a past time")
+			return round, nil
 		}
 	default:
 		if height >= round.NextEpochStartHeight() {
@@ -52,7 +51,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 			}
 		}
 	}
-	roundNum, roundStartTime, err := c.roundInfo(height, now, true)
+	roundNum, roundStartTime, err := c.roundInfo(height, now, toleratedOvertime)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +97,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 }
 
 func (c *roundCalculator) Proposer(height uint64, roundStartTime time.Time) string {
-	round, err := c.newRound(height, roundStartTime, nil, false)
+	round, err := c.newRound(height, roundStartTime, nil, 0)
 	if err != nil {
 		return ""
 	}
@@ -124,13 +123,13 @@ func (c *roundCalculator) RoundInfo(
 	height uint64,
 	now time.Time,
 ) (roundNum uint32, roundStartTime time.Time, err error) {
-	return c.roundInfo(height, now, false)
+	return c.roundInfo(height, now, 0)
 }
 
 func (c *roundCalculator) roundInfo(
 	height uint64,
 	now time.Time,
-	withToleration bool,
+	toleratedOvertime time.Duration,
 ) (roundNum uint32, roundStartTime time.Time, err error) {
 	lastBlockTime := time.Unix(c.chain.GenesisTimestamp(), 0)
 	if height > 1 {
@@ -152,7 +151,7 @@ func (c *roundCalculator) roundInfo(
 	duration := now.Sub(lastBlockTime)
 	if duration > c.blockInterval {
 		roundNum = uint32(duration / c.blockInterval)
-		if !withToleration || duration%c.blockInterval < c.toleratedOvertime {
+		if toleratedOvertime == 0 || duration%c.blockInterval < toleratedOvertime {
 			roundNum--
 		}
 	}
@@ -195,8 +194,9 @@ func (c *roundCalculator) NewRoundWithToleration(
 	height uint64,
 	now time.Time,
 	eManager *endorsementManager,
+	toleratedOvertime time.Duration,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, now, eManager, true)
+	return c.newRound(height, now, eManager, toleratedOvertime)
 }
 
 func (c *roundCalculator) NewRound(
@@ -204,14 +204,14 @@ func (c *roundCalculator) NewRound(
 	now time.Time,
 	eManager *endorsementManager,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, now, eManager, false)
+	return c.newRound(height, now, eManager, 0)
 }
 
 func (c *roundCalculator) newRound(
 	height uint64,
 	now time.Time,
 	eManager *endorsementManager,
-	withToleration bool,
+	toleratedOvertime time.Duration,
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
 	epochStartHeight := uint64(0)
@@ -225,7 +225,7 @@ func (c *roundCalculator) newRound(
 		if delegates, err = c.Delegates(epochStartHeight); err != nil {
 			return
 		}
-		if roundNum, roundStartTime, err = c.roundInfo(height, now, withToleration); err != nil {
+		if roundNum, roundStartTime, err = c.roundInfo(height, now, toleratedOvertime); err != nil {
 			return
 		}
 		if proposer, err = c.calculateProposer(height, roundNum, delegates); err != nil {
