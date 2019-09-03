@@ -14,8 +14,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotexproject/iotex-core/state/tracker"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -31,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/tracker"
 )
 
 // stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB

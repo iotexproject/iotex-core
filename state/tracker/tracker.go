@@ -9,6 +9,7 @@ package tracker
 import (
 	"database/sql"
 	"reflect"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -31,7 +32,6 @@ type StateTracker interface {
 	Append(StateChange)
 	Snapshot()
 	Revert(int) error
-	Clear()
 	Commit(uint64) error
 }
 
@@ -39,6 +39,7 @@ type stateTracker struct {
 	store     asql.Store
 	changes   []StateChange
 	snapshots []int
+	mutex     sync.RWMutex
 }
 
 // InitStore initializes state tracker store
@@ -62,16 +63,22 @@ func New(store asql.Store) StateTracker {
 
 // Append appends new state change
 func (t *stateTracker) Append(c StateChange) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	t.changes = append(t.changes, c)
 }
 
 // Snapshot records current status of changes
 func (t *stateTracker) Snapshot() {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 	t.snapshots = append(t.snapshots, len(t.changes))
 }
 
 // Recover recovers state change to snapshot
 func (t *stateTracker) Revert(snapshot int) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	if snapshot < 0 || snapshot >= len(t.snapshots) {
 		return errors.Errorf("invalid state tracker snapshot number = %d", snapshot)
 	}
@@ -80,14 +87,10 @@ func (t *stateTracker) Revert(snapshot int) error {
 	return nil
 }
 
-// Clear deletes all state changes
-func (t *stateTracker) Clear() {
-	t.changes = make([]StateChange, 0)
-	t.snapshots = make([]int, 0)
-}
-
 // Commit stores all state changes into db
 func (t *stateTracker) Commit(height uint64) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	if err := t.store.Transact(func(tx *sql.Tx) error {
 		for _, c := range t.changes {
 			if err := c.handle(tx, height); err != nil {
@@ -98,6 +101,7 @@ func (t *stateTracker) Commit(height uint64) error {
 	}); err != nil {
 		return errors.Wrap(err, "failed to store state changes")
 	}
-	t.Clear()
+	t.changes = make([]StateChange, 0)
+	t.snapshots = make([]int, 0)
 	return nil
 }
