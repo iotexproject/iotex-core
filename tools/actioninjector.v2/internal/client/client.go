@@ -2,8 +2,11 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -15,8 +18,18 @@ type Client struct {
 }
 
 // New creates a new Client.
-func New(serverAddr string) (*Client, error) {
-	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
+func New(serverAddr string, insecure bool) (*Client, error) {
+	grpcctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var conn *grpc.ClientConn
+	var err error
+
+	if insecure {
+		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithInsecure())
+	} else {
+		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+	}
 	if err != nil {
 		return nil, err
 	}

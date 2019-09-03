@@ -54,7 +54,7 @@ type injectProcessor struct {
 }
 
 func newInjectionProcessor() (*injectProcessor, error) {
-	c, err := client.New(injectCfg.serverAddr)
+	c, err := client.New(injectCfg.serverAddr, injectCfg.insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +94,22 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 		if err != nil {
 			return err
 		}
+		fmt.Println(addr.String())
+
+		addr2, err := address.FromBytes(sk.PublicKey().Hash())
+		if err != nil {
+			return err
+		}
+		if addr.String() != addr2.String() {
+			fmt.Println("wrong pk :", addr2.String())
+		}
+
+		resp, err := p.c.GetAccount(context.Background(), addr.String())
+		if err != nil {
+			return err
+		}
+		fmt.Printf("balance : %x\n", resp.GetAccountMeta().Balance)
+		fmt.Printf("nonce: %x\n", resp.GetAccountMeta().GetPendingNonce())
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 	p.accounts = addrKeys
@@ -184,12 +200,17 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 
 func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 	var nonce uint64
-	sender := p.accounts[rand.Intn(len(p.accounts))]
+	randNum := rand.Intn(len(p.accounts))
+	sender := p.accounts[randNum]
+	fmt.Println("index :", randNum)
+	fmt.Println("sender :", sender.EncodedAddr)
 	val, ok := p.nonces.Load(sender.EncodedAddr)
 	if ok {
 		nonce = val.(uint64)
 	}
-	p.nonces.Store(sender.EncodedAddr, nonce+1)
+	fmt.Println("nonce: ", nonce)
+
+	p.nonces.Store(sender.EncodedAddr, nonce)
 
 	bd := &action.EnvelopeBuilder{}
 	var elp action.Envelope
@@ -287,6 +308,7 @@ var injectCfg = struct {
 	aps                  int
 	workers              uint64
 	maximum              bool
+	insecure             bool
 }{}
 
 func inject(args []string) string {
@@ -356,5 +378,6 @@ func init() {
 	flag.IntVar(&injectCfg.aps, "aps", 30, "actions to be injected per second")
 	flag.Uint64Var(&injectCfg.workers, "workers", 10, "number of workers")
 	flag.BoolVarP(&injectCfg.maximum, "maximum", "m", false, "maximum flag which injects maximum executions with aps")
+	flag.BoolVar(&injectCfg.insecure, "insecure", false, "insecure network")
 	rootCmd.AddCommand(injectCmd)
 }
