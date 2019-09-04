@@ -95,20 +95,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 			return err
 		}
 		fmt.Println(addr.String())
-		/*	addr2, err := address.FromBytes(sk.PublicKey().Hash())
-			if err != nil {
-				return err
-			}
-			if addr.String() != addr2.String() {
-				fmt.Println("wrong pk :", addr2.String())
-			}
-
-			resp, err := p.c.GetAccount(context.Background(), addr.String())
-			if err != nil {
-				return err
-			}
-			fmt.Printf("balance : %x\n", resp.GetAccountMeta().Balance)
-			fmt.Printf("nonce: %x\n", resp.GetAccountMeta().GetPendingNonce())*/
+		p.nonces.Store(addr.String(), 0)
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 	p.accounts = addrKeys
@@ -135,8 +122,8 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 			if err != nil {
 				return err
 			}
-			//fmt.Println("addr:", addr)
-			//fmt.Printf("nonce: %x\n", resp.GetAccountMeta().GetPendingNonce())
+			fmt.Println("addr:", addr)
+			fmt.Printf("nonce: %x\n", resp.GetAccountMeta().GetPendingNonce())
 			p.nonces.Store(addr, resp.GetAccountMeta().GetPendingNonce())
 			return nil
 		}, backoff.NewExponentialBackOff())
@@ -277,8 +264,8 @@ func (p *injectProcessor) pickRandomAction() (action.SealedEnvelope, error) {
 // injectCmd represents the inject command
 var injectCmd = &cobra.Command{
 	Use:   "inject",
-	Short: "inject actions [options] (default:random)",
-	Long:  `inject actions [options] (default:random).`,
+	Short: "inject actions [options : -m] (default:random)",
+	Long:  `inject actions [options : -m] (default:random).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(inject(args))
 	},
@@ -329,7 +316,7 @@ func inject(args []string) string {
 			injectCfg.executionGasLimit = uint64(20000)
 			injectCfg.rawExecutionData = "66e41cb7"
 		default:
-			return fmt.Sprintf("fail to match execution by aps %s, aps should be 20, 50, or 100", injectCfg.aps)
+			return fmt.Sprintf("fail to match execution by aps %v, aps should be 20, 50, or 100", injectCfg.aps)
 		}
 	}
 

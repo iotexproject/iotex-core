@@ -27,10 +27,10 @@ func New(serverAddr string, insecure bool) (*Client, error) {
 	var err error
 
 	if insecure {
-		fmt.Println("insecure connection")
+		fmt.Println("insecure connection: ", serverAddr)
 		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithInsecure())
 	} else {
-		fmt.Println("secure connection")
+		fmt.Println("secure connection: ", serverAddr)
 		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {
