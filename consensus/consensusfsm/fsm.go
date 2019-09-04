@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/go-fsm"
+	fsm "github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -397,16 +397,16 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 		m.ctx.Logger().Error("Error during prepare", zap.Error(err))
 		return m.BackToPrepare(0)
 	}
-	if !m.ctx.IsDelegate() {
-		return m.BackToPrepare(0)
-	}
+	m.ctx.Logger().Info("Start a new round")
 	proposal, err := m.ctx.Proposal()
 	if err != nil {
 		m.ctx.Logger().Error("failed to generate block proposal", zap.Error(err))
 		return m.BackToPrepare(0)
 	}
-	m.ctx.Logger().Info("Start a new round")
 	overtime := m.ctx.WaitUntilRoundStart()
+	if !m.ctx.IsDelegate() {
+		return m.BackToPrepare(0)
+	}
 	if proposal != nil {
 		m.ctx.Broadcast(proposal)
 		m.ProduceReceiveBlockEvent(proposal)
