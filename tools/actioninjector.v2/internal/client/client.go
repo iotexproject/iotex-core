@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"time"
 
 	"google.golang.org/grpc"
@@ -26,8 +27,10 @@ func New(serverAddr string, insecure bool) (*Client, error) {
 	var err error
 
 	if insecure {
+		fmt.Println("insecure connection")
 		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithInsecure())
 	} else {
+		fmt.Println("secure connection")
 		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {

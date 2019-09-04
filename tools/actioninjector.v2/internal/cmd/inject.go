@@ -95,21 +95,20 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 			return err
 		}
 		fmt.Println(addr.String())
+		/*	addr2, err := address.FromBytes(sk.PublicKey().Hash())
+			if err != nil {
+				return err
+			}
+			if addr.String() != addr2.String() {
+				fmt.Println("wrong pk :", addr2.String())
+			}
 
-		addr2, err := address.FromBytes(sk.PublicKey().Hash())
-		if err != nil {
-			return err
-		}
-		if addr.String() != addr2.String() {
-			fmt.Println("wrong pk :", addr2.String())
-		}
-
-		resp, err := p.c.GetAccount(context.Background(), addr.String())
-		if err != nil {
-			return err
-		}
-		fmt.Printf("balance : %x\n", resp.GetAccountMeta().Balance)
-		fmt.Printf("nonce: %x\n", resp.GetAccountMeta().GetPendingNonce())
+			resp, err := p.c.GetAccount(context.Background(), addr.String())
+			if err != nil {
+				return err
+			}
+			fmt.Printf("balance : %x\n", resp.GetAccountMeta().Balance)
+			fmt.Printf("nonce: %x\n", resp.GetAccountMeta().GetPendingNonce())*/
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 	p.accounts = addrKeys
@@ -136,6 +135,8 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 			if err != nil {
 				return err
 			}
+			//fmt.Println("addr:", addr)
+			//fmt.Printf("nonce: %x\n", resp.GetAccountMeta().GetPendingNonce())
 			p.nonces.Store(addr, resp.GetAccountMeta().GetPendingNonce())
 			return nil
 		}, backoff.NewExponentialBackOff())
@@ -200,9 +201,7 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 
 func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 	var nonce uint64
-	randNum := rand.Intn(len(p.accounts))
-	sender := p.accounts[randNum]
-	fmt.Println("index :", randNum)
+	sender := p.accounts[rand.Intn(len(p.accounts))]
 	fmt.Println("sender :", sender.EncodedAddr)
 	val, ok := p.nonces.Load(sender.EncodedAddr)
 	if ok {
@@ -210,7 +209,7 @@ func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 	}
 	fmt.Println("nonce: ", nonce)
 
-	p.nonces.Store(sender.EncodedAddr, nonce)
+	p.nonces.Store(sender.EncodedAddr, nonce+1)
 
 	bd := &action.EnvelopeBuilder{}
 	var elp action.Envelope
@@ -314,7 +313,7 @@ var injectCfg = struct {
 func inject(args []string) string {
 	var err error
 	if injectCfg.maximum {
-		injectCfg.contract = "io1k42uxle8v0dwafekduwcl45tuphe8u8y9hec3q"
+		//injectCfg.contract = "io1k42uxle8v0dwafekduwcl45tuphe8u8y9hec3q"
 		//according to aps, execution data and gas limit will be set
 		switch injectCfg.aps {
 		case 20:
