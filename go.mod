@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/cenkalti/backoff v2.1.1+incompatible
+	github.com/dgraph-io/badger v1.6.0-rc1
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
@@ -17,7 +18,6 @@ require (
 	github.com/iotexproject/go-p2p v0.2.10
 	github.com/iotexproject/go-pkgs v0.1.1-0.20190708233003-85a24189bbd4
 	github.com/iotexproject/iotex-address v0.2.1-0.20190725020429-99e5492ea0c3
-	github.com/iotexproject/iotex-antenna-go/v2 v2.3.0
 	github.com/iotexproject/iotex-election v0.1.18-0.20190720010220-fddc58c26ff5
 	github.com/iotexproject/iotex-proto v0.2.1-0.20190814190638-f74c55ffedf5
 	github.com/libp2p/go-libp2p-connmgr v0.1.1 // indirect
