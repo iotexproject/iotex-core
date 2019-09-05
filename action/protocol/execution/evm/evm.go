@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/tracker"
 )
 
 var (
@@ -51,6 +52,18 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	db.AddLog(&types.Log{
 		Topics: []common.Hash{action.InContractTransfer, common.BytesToHash(fromHash[:]), common.BytesToHash(toHash[:])},
 		Data:   amount.Bytes(),
+	})
+	outAddr, _ := address.FromBytes(fromHash.Bytes())
+	inAddr, _ := address.FromBytes(toHash.Bytes())
+	sdb, ok := db.(*StateDBAdapter)
+	if !ok {
+		log.L().Panic("failed to get StateDBAdapter")
+	}
+	sdb.sm.Track(tracker.BalanceChange{
+		Amount:     amount.String(),
+		InAddr:     inAddr.String(),
+		OutAddr:    outAddr.String(),
+		ActionHash: sdb.executionHash,
 	})
 }
 

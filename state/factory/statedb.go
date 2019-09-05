@@ -9,6 +9,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -28,10 +29,12 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
+	asql "github.com/iotexproject/iotex-core/db/sql/analyticssql"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/tracker"
 )
 
 // stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -44,6 +47,7 @@ type stateDB struct {
 	timerFactory       *prometheustimer.TimerFactory
 	workingsets        *lru.Cache // lru cache for workingsets
 	protocolView       protocol.Dock
+	store              asql.Store
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -70,6 +74,16 @@ func DefaultStateDBOption() StateDBOption {
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sdb.dao = db.NewBoltDB(cfg.DB)
 
+		connectionStr := os.Getenv("CONNECTION_STRING")
+		if connectionStr == "" {
+			connectionStr = "root:rootuser@tcp(127.0.0.1:3306)/"
+		}
+
+		dbName := os.Getenv("DB_NAME")
+		if dbName == "" {
+			dbName = "analytics"
+		}
+		sdb.store = asql.NewMySQL(connectionStr, dbName)
 		return nil
 	}
 }
@@ -159,12 +173,19 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	}
 
 	return nil
+	if err := sdb.store.Start(ctx); err != nil {
+		return errors.Wrap(err, "failed to start state tracker store")
+	}
+	return tracker.InitStore(sdb.store)
 }
 
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Purge()
+	if err := sdb.store.Stop(ctx); err != nil {
+		return errors.Wrap(err, "failed to stop state tracker store")
+	}
 	return sdb.dao.Stop(ctx)
 }
 
@@ -189,6 +210,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 		height:    height,
 		finalized: false,
 		dock:      protocol.NewDock(),
+		st:        tracker.New(sdb.store),
 		getStateFunc: func(ns string, key []byte, s interface{}) error {
 			data, err := flusher.KVStoreWithBuffer().Get(ns, key)
 			if err != nil {

@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/tracker"
 )
 
 var (
@@ -45,6 +46,7 @@ type (
 	workingSet struct {
 		height        uint64
 		finalized     bool
+		st            tracker.StateTracker
 		dock          protocol.Dock
 		commitFunc    func(uint64) error
 		readviewFunc  func(name string) (interface{}, error)
@@ -503,4 +505,9 @@ func (ws *workingSet) CreateBuilder(
 		SetReceiptRoot(calculateReceiptRoot(rc)).
 		SetLogsBloom(calculateLogsBloom(ctx, rc))
 	return blkBuilder, nil
+}
+
+// Track tracks new state change
+func (ws *workingSet) Track(c tracker.StateChange) {
+	ws.st.Append(c)
 }
