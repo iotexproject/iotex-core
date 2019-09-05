@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"reflect"
 
 	"github.com/pkg/errors"
@@ -19,9 +20,13 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
-const (
+var (
 	// AccountHistoryTableName is the table name of account history
-	AccountHistoryTableName = "account_history"
+	AccountHistoryTableName string
+)
+
+const (
+
 	// AccountBalanceViewName is the view name of account balance
 	AccountBalanceViewName = "account_balance"
 	// EpochAddressIndexName is the index name of epoch number and address on account history table
@@ -34,6 +39,13 @@ type BalanceChange struct {
 	InAddr     string
 	OutAddr    string
 	ActionHash hash.Hash256
+}
+
+func init() {
+	AccountHistoryTableName := os.Getenv("ACCOUNT_HISTORY_TABLE_NAME")
+	if AccountHistoryTableName == "" {
+		AccountHistoryTableName = "account_history"
+	}
 }
 
 // Type returns the type of state change
