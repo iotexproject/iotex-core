@@ -42,7 +42,7 @@ type BalanceChange struct {
 }
 
 func init() {
-	AccountHistoryTableName := os.Getenv("ACCOUNT_HISTORY_TABLE_NAME")
+	AccountHistoryTableName = os.Getenv("ACCOUNT_HISTORY_TABLE_NAME")
 	if AccountHistoryTableName == "" {
 		AccountHistoryTableName = "account_history"
 	}
