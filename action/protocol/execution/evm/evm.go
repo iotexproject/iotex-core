@@ -18,11 +18,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/tracker"
 )
 
 var (
@@ -43,6 +45,18 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool 
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
+	outAddr, _ := address.FromBytes(fromHash.Bytes())
+	inAddr, _ := address.FromBytes(toHash.Bytes())
+	sdb, ok := db.(*StateDBAdapter)
+	if !ok {
+		log.L().Panic("failed to get StateDBAdapter")
+	}
+	sdb.sm.Track(tracker.BalanceChange{
+		Amount:     amount.String(),
+		InAddr:     inAddr.String(),
+		OutAddr:    outAddr.String(),
+		ActionHash: sdb.executionHash,
+	})
 }
 
 type (
