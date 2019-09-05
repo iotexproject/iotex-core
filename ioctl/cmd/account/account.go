@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -24,11 +24,12 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Errors
@@ -54,9 +55,7 @@ func init() {
 	AccountCmd.AddCommand(accountListCmd)
 	AccountCmd.AddCommand(accountNonceCmd)
 	AccountCmd.AddCommand(accountUpdateCmd)
-	AccountCmd.AddCommand(accountVerifyCmd)
 	AccountCmd.AddCommand(accountSignCmd)
-	AccountCmd.AddCommand(accountGetVotesCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
@@ -97,7 +96,8 @@ func KsAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 	}
 	address, err := address.FromString(addr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert bytes into address")
+		log.L().Error("failed to convert string into address", zap.Error(err))
+		return nil, err
 	}
 	// find the account in keystore
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
@@ -114,7 +114,7 @@ func KsAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -124,67 +124,73 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return nil, fmt.Errorf(sta.Message())
 		}
-		return nil, output.NewError(output.NetworkError, "failed to invoke GetAccount api", err)
+		return nil, err
 	}
 	return response.AccountMeta, nil
 }
 
 func newAccount(alias string, walletDir string) (string, error) {
-	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
+	fmt.Printf("#%s: Set password\n", alias)
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		log.L().Error("failed to get password", zap.Error(err))
+		return "", err
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
+	fmt.Printf("#%s: Enter password again\n", alias)
 	passwordAgain, err := util.ReadSecretFromStdin()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		log.L().Error("failed to get password", zap.Error(err))
+		return "", err
 	}
 	if password != passwordAgain {
-		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+		return "", ErrPasswdNotMatch
 	}
 	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
 	account, err := ks.NewAccount(password)
 	if err != nil {
-		return "", output.NewError(output.KeystoreError, "failed to create new keystore", err)
+		return "", err
 	}
 	addr, err := address.FromBytes(account.Address.Bytes())
 	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+		log.L().Error("failed to convert bytes into address", zap.Error(err))
+		return "", err
 	}
 	return addr.String(), nil
 }
 
 func newAccountByKey(alias string, privateKey string, walletDir string) (string, error) {
-	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
+	fmt.Printf("#%s: Set password\n", alias)
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		log.L().Error("failed to get password", zap.Error(err))
+		return "", err
 	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
+	fmt.Printf("#%s: Enter password again\n", alias)
 	passwordAgain, err := util.ReadSecretFromStdin()
 	if err != nil {
-		return "", output.NewError(output.InputError, "failed to get password", err)
+		log.L().Error("failed to get password", zap.Error(err))
+		return "", err
 	}
 	if password != passwordAgain {
-		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+		return "", ErrPasswdNotMatch
 	}
 	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
 	priKey, err := crypto.HexStringToPrivateKey(privateKey)
 	if err != nil {
-		return "", output.NewError(output.CryptoError, "failed to generate private key from hex string ", err)
+		return "", err
 	}
 	defer priKey.Zero()
 	account, err := ks.ImportECDSA(priKey.EcdsaPrivateKey(), password)
 	priKey.Zero()
 	if err != nil {
-		return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
+		return "", err
 	}
 	addr, err := address.FromBytes(account.Address.Bytes())
 	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+		log.L().Error("failed to convert bytes into address", zap.Error(err))
+		return "", err
 	}
 	return addr.String(), nil
 }
@@ -192,8 +198,7 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
 	keyJSON, err := ioutil.ReadFile(keyStorePath)
 	if err != nil {
-		return "", output.NewError(output.ReadFileError,
-			fmt.Sprintf("keystore file \"%s\" read error", keyStorePath), nil)
+		return "", fmt.Errorf("keystore file \"%s\" read error", keyStorePath)
 	}
 	key, err := keystore.DecryptKey(keyJSON, passwordOfKeyStore)
 	if key != nil && key.PrivateKey != nil {
@@ -206,7 +211,7 @@ func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, wallet
 		}(key.PrivateKey)
 	}
 	if err != nil {
-		return "", output.NewError(output.KeystoreError, "failed to decrypt key", err)
+		return "", err
 	}
 	return newAccountByKey(alias, hex.EncodeToString(ecrypto.FromECDSA(key.PrivateKey)), walletDir)
 }
