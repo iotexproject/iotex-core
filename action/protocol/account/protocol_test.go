@@ -69,10 +69,10 @@ func TestProtocol_Initialize(t *testing.T) {
 	// set env for mysql
 	connectionStr := os.Getenv("CONNECTION_STRING")
 	dbName := os.Getenv("DB_NAME")
-	CONNECTION_STRING := "ba8df54bd3754e:9cd1f263@tcp(us-cdbr-iron-east-02.cleardb.net:3306)/"
-	DB_NAME := "heroku_7fed0b046078f80"
-	os.Setenv("CONNECTION_STRING", CONNECTION_STRING)
-	os.Setenv("DB_NAME", DB_NAME)
+	CONNECTIONSTRING := "ba8df54bd3754e:9cd1f263@tcp(us-cdbr-iron-east-02.cleardb.net:3306)/"
+	DBNAME := "heroku_7fed0b046078f80"
+	os.Setenv("CONNECTION_STRING", CONNECTIONSTRING)
+	os.Setenv("DB_NAME", DBNAME)
 	defer func() {
 		os.Setenv("CONNECTION_STRING", connectionStr)
 		os.Setenv("DB_NAME", dbName)
