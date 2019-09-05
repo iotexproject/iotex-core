@@ -9,6 +9,7 @@ package account
 import (
 	"context"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,6 +66,17 @@ func TestProtocol_Initialize(t *testing.T) {
 	cfg := config.Default
 	stateDB, err := factory.NewStateDB(cfg, factory.InMemStateDBOption())
 	require.NoError(t, err)
+	// set env for mysql
+	connectionStr := os.Getenv("CONNECTION_STRING")
+	dbName := os.Getenv("DB_NAME")
+	CONNECTION_STRING := "ba8df54bd3754e:9cd1f263@tcp(us-cdbr-iron-east-02.cleardb.net:3306)/"
+	DB_NAME := "heroku_7fed0b046078f80"
+	os.Setenv("CONNECTION_STRING", CONNECTION_STRING)
+	os.Setenv("DB_NAME", DB_NAME)
+	defer func() {
+		os.Setenv("CONNECTION_STRING", connectionStr)
+		os.Setenv("DB_NAME", dbName)
+	}()
 	require.NoError(t, stateDB.Start(context.Background()))
 	defer func() {
 		require.NoError(t, stateDB.Stop(context.Background()))
