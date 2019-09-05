@@ -105,11 +105,13 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 func (sdb *stateDB) Start(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	if err := sdb.store.Start(ctx); err != nil {
-		return errors.Wrap(err, "failed to start state tracker store")
-	}
-	if err := tracker.InitStore(sdb.store); err != nil {
-		return errors.Wrap(err, "failed to init state tracker store")
+	if sdb.store != nil {
+		if err := sdb.store.Start(ctx); err != nil {
+			return errors.Wrap(err, "failed to start state tracker store")
+		}
+		if err := tracker.InitStore(sdb.store); err != nil {
+			return errors.Wrap(err, "failed to init state tracker store")
+		}
 	}
 	return sdb.dao.Start(ctx)
 }
@@ -117,8 +119,10 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	if err := sdb.store.Stop(ctx); err != nil {
-		return errors.Wrap(err, "failed to stop state tracker store")
+	if sdb.store != nil {
+		if err := sdb.store.Stop(ctx); err != nil {
+			return errors.Wrap(err, "failed to stop state tracker store")
+		}
 	}
 	return sdb.dao.Stop(ctx)
 }
