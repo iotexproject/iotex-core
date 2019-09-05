@@ -13,11 +13,14 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
+	asql "github.com/iotexproject/iotex-core/db/sql/analyticssql"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/tracker"
 )
 
 // stateTX implements stateTX interface, tracks pending changes to account/contract in local cache
@@ -27,6 +30,7 @@ type stateTX struct {
 	cb             db.CachedBatch // cached batch for pending writes
 	dao            db.KVStore     // the underlying DB for account/contract storage
 	actionHandlers []protocol.ActionHandler
+	st             tracker.StateTracker
 }
 
 // newStateTX creates a new state tx
@@ -34,12 +38,14 @@ func newStateTX(
 	version uint64,
 	kv db.KVStore,
 	actionHandlers []protocol.ActionHandler,
+	store asql.Store,
 ) *stateTX {
 	return &stateTX{
 		ver:            version,
 		cb:             db.NewCachedBatch(),
 		dao:            kv,
 		actionHandlers: actionHandlers,
+		st:             tracker.New(store),
 	}
 }
 
@@ -128,9 +134,18 @@ func (stx *stateTX) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
 	return hash.ZeroHash256
 }
 
-func (stx *stateTX) Snapshot() int { return stx.cb.Snapshot() }
+func (stx *stateTX) Snapshot() int {
+	// TODO: check out whether state tracker gets the same snapshot number
+	stx.st.Snapshot()
+	return stx.cb.Snapshot()
+}
 
-func (stx *stateTX) Revert(snapshot int) error { return stx.cb.Revert(snapshot) }
+func (stx *stateTX) Revert(snapshot int) error {
+	if err := stx.st.Revert(snapshot); err != nil {
+		return err
+	}
+	return stx.cb.Revert(snapshot)
+}
 
 // Commit persists all changes in RunActions() into the DB
 func (stx *stateTX) Commit() error {
@@ -138,6 +153,9 @@ func (stx *stateTX) Commit() error {
 	dbBatchSizelMtc.WithLabelValues().Set(float64(stx.cb.Size()))
 	if err := stx.dao.Commit(stx.cb); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
+	}
+	if err := stx.st.Commit(stx.Height()); err != nil {
+		return errors.Wrap(err, "failed to commit state changes")
 	}
 	return nil
 }
@@ -185,4 +203,9 @@ func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 	stx.cb.Delete(AccountKVNameSpace, pkHash[:], "error when deleting k = %x", pkHash)
 	return nil
+}
+
+// Track tracks new state change
+func (stx *stateTX) Track(c tracker.StateChange) {
+	stx.st.Append(c)
 }
