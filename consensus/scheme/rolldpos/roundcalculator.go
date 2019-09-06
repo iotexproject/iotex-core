@@ -24,6 +24,7 @@ type roundCalculator struct {
 	timeBasedRotation      bool
 	rp                     *rolldpos.Protocol
 	candidatesByHeightFunc CandidatesByHeightFunc
+	beringHeight           uint64
 }
 
 func (c *roundCalculator) BlockInterval() time.Duration {
@@ -59,7 +60,6 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 	if err != nil {
 		return nil, err
 	}
-	var eManager *endorsementManager
 	var status status
 	var blockInLock []byte
 	var proofOfLock []*endorsement.Endorsement
@@ -77,7 +77,6 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 			return nil, err
 		}
 	}
-	eManager = round.eManager
 	return &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
@@ -89,7 +88,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, now time.T
 		proposer:           proposer,
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(c.blockInterval),
-		eManager:           eManager,
+		eManager:           round.eManager,
 		status:             status,
 		blockInLock:        blockInLock,
 		proofOfLock:        proofOfLock,
@@ -133,11 +132,19 @@ func (c *roundCalculator) roundInfo(
 ) (roundNum uint32, roundStartTime time.Time, err error) {
 	lastBlockTime := time.Unix(c.chain.GenesisTimestamp(), 0)
 	if height > 1 {
-		var lastBlock *block.Header
-		if lastBlock, err = c.chain.BlockHeaderByHeight(height - 1); err != nil {
-			return
+		if height >= c.beringHeight {
+			var lastBlock *block.Header
+			if lastBlock, err = c.chain.BlockHeaderByHeight(height - 1); err != nil {
+				return
+			}
+			lastBlockTime = lastBlockTime.Add(lastBlock.Timestamp().Sub(lastBlockTime) / c.blockInterval * c.blockInterval)
+		} else {
+			var lastBlock *block.Footer
+			if lastBlock, err = c.chain.BlockFooterByHeight(height - 1); err != nil {
+				return
+			}
+			lastBlockTime = lastBlockTime.Add(lastBlock.CommitTime().Sub(lastBlockTime) / c.blockInterval * c.blockInterval)
 		}
-		lastBlockTime = lastBlockTime.Add(lastBlock.Timestamp().Sub(lastBlockTime) / c.blockInterval * c.blockInterval)
 	}
 	if !lastBlockTime.Before(now) {
 		err = errors.Errorf(

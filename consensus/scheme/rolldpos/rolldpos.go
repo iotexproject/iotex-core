@@ -313,6 +313,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.encodedAddr,
 		b.priKey,
 		b.clock,
+		b.cfg.Genesis.BeringBlockHeight,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing consensus context")
