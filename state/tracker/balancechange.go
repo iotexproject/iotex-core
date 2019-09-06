@@ -21,16 +21,8 @@ import (
 )
 
 var (
-	// AccountHistoryTableName is the table name of account history
-	AccountHistoryTableName string
-)
-
-const (
-
-	// AccountBalanceViewName is the view name of account balance
-	AccountBalanceViewName = "account_balance"
-	// EpochAddressIndexName is the index name of epoch number and address on account history table
-	EpochAddressIndexName = "epoch_address_index"
+	// BalanceHistoryTableName is the table name of account history
+	BalanceHistoryTableName string
 )
 
 // BalanceChange records balance change of accounts
@@ -42,9 +34,9 @@ type BalanceChange struct {
 }
 
 func init() {
-	AccountHistoryTableName = os.Getenv("ACCOUNT_HISTORY_TABLE_NAME")
-	if AccountHistoryTableName == "" {
-		AccountHistoryTableName = "account_history"
+	BalanceHistoryTableName = os.Getenv("BALANCE_HISTORY_TABLE_NAME")
+	if BalanceHistoryTableName == "" {
+		BalanceHistoryTableName = "balance_history"
 	}
 }
 
@@ -54,34 +46,28 @@ func (b BalanceChange) Type() reflect.Type {
 }
 
 func (b BalanceChange) init(db *sql.DB, tx *sql.Tx) error {
-	var exist uint64
-	if err := db.QueryRow(fmt.Sprintf("SELECT COUNT(1) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = "+
-		"DATABASE() AND TABLE_NAME = '%s' AND INDEX_NAME = '%s'", AccountHistoryTableName, EpochAddressIndexName)).Scan(&exist); err != nil {
+	if _, err := db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s "+
+		"(epoch_number DECIMAL(65, 0) NOT NULL, block_height DECIMAL(65, 0) NOT NULL, action_hash VARCHAR(64) NOT NULL, "+
+		"action_type TEXT NOT NULL, `from` VARCHAR(41) NOT NULL, `to` VARCHAR(41) NOT NULL, amount DECIMAL(65, 0) NOT NULL)", BalanceHistoryTableName)); err != nil {
 		return err
 	}
-	if exist == 0 {
-		if _, err := db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s "+
-			"(epoch_number DECIMAL(65, 0) NOT NULL, block_height DECIMAL(65, 0) NOT NULL, action_hash VARCHAR(64) NOT NULL, "+
-			"address VARCHAR(41) NOT NULL, `in` DECIMAL(65, 0) DEFAULT 0, `out` DECIMAL(65, 0) DEFAULT 0)", AccountHistoryTableName)); err != nil {
-			return err
-		}
 
-		if _, err := db.Exec(fmt.Sprintf("CREATE INDEX %s ON %s (epoch_number, address)", EpochAddressIndexName, AccountHistoryTableName)); err != nil {
-			return err
-		}
+	// Check existence
+	exist, err := rowExists(db, fmt.Sprintf("SELECT * FROM %s WHERE action_hash = ?",
+		BalanceHistoryTableName), hex.EncodeToString(specialActionHash[:]))
+	if err != nil {
+		return errors.Wrap(err, "failed to check if the row exists")
+	}
+	if exist {
+		return nil
+	}
 
-		if _, err := db.Exec(fmt.Sprintf("CREATE OR REPLACE VIEW %s AS SELECT epoch_number, address, (SUM(`in`)-SUM(`out`)) AS balance_change "+
-			"FROM %s GROUP BY epoch_number, address", AccountBalanceViewName, AccountHistoryTableName)); err != nil {
-			return err
-		}
-
-		initBalance := initBalanceMap()
-		for addr, amount := range initBalance {
-			insertQuery := fmt.Sprintf("INSERT IGNORE INTO %s (epoch_number, block_height, action_hash, address, `in`) VALUES (?, ?, ?, ?, ?)",
-				AccountHistoryTableName)
-			if _, err := tx.Exec(insertQuery, uint64(0), uint64(0), hex.EncodeToString(specialActionHash[:]), addr, amount); err != nil {
-				return errors.Wrapf(err, "failed to update account history for address %s", addr)
-			}
+	initBalance := initBalanceMap()
+	for addr, amount := range initBalance {
+		insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, action_type, `from`, `to`, amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			BalanceHistoryTableName)
+		if _, err := tx.Exec(insertQuery, uint64(0), uint64(0), hex.EncodeToString(specialActionHash[:]), "genesis", "", addr, amount); err != nil {
+			return errors.Wrapf(err, "failed to update balance history for address %s", addr)
 		}
 	}
 	return nil
@@ -92,20 +78,11 @@ func (b BalanceChange) handle(tx *sql.Tx, blockHeight uint64) error {
 	if blockHeight != 0 {
 		epochNumber = (blockHeight-1)/genesis.Default.NumDelegates/genesis.Default.NumSubEpochs + 1
 	}
-	if b.InAddr != "" {
-		insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, address, `in`) VALUES (?, ?, ?, ?, ?)",
-			AccountHistoryTableName)
-		result, e := tx.Exec(insertQuery, epochNumber, blockHeight, hex.EncodeToString(b.ActionHash[:]), b.InAddr, b.Amount)
-		if _, err := result, e; err != nil {
-			return errors.Wrapf(err, "failed to update account history for address %s", b.InAddr)
-		}
-	}
-	if b.OutAddr != "" {
-		insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, address, `out`) VALUES (?, ?, ?, ?, ?)",
-			AccountHistoryTableName)
-		if _, err := tx.Exec(insertQuery, epochNumber, blockHeight, hex.EncodeToString(b.ActionHash[:]), b.OutAddr, b.Amount); err != nil {
-			return errors.Wrapf(err, "failed to update account history for address %s", b.OutAddr)
-		}
+	actionType := "execution"
+	insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, action_type, `from`, `to`, amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		BalanceHistoryTableName)
+	if _, err := tx.Exec(insertQuery, epochNumber, blockHeight, hex.EncodeToString(b.ActionHash[:]), actionType, b.OutAddr, b.InAddr, b.Amount); err != nil {
+		return errors.Wrap(err, "failed to update balance history")
 	}
 	return nil
 }
@@ -141,4 +118,21 @@ func initBalanceMap() map[string]string {
 		"io1eq4ehs6xx6zj9gcsax7h3qydwlxut9xcfcjras": "100000000000000000000000000",
 		"io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he": "100000000000000000000000000",
 	}
+}
+
+// rowExists checks whether a row exists
+func rowExists(db *sql.DB, query string, args ...interface{}) (bool, error) {
+	var exists bool
+	query = fmt.Sprintf("SELECT exists (%s)", query)
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to prepare query")
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(args...).Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return false, errors.Wrap(err, "failed to query the row")
+	}
+	return exists, nil
 }
