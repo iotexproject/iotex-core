@@ -133,12 +133,11 @@ func (c *roundCalculator) roundInfo(
 ) (roundNum uint32, roundStartTime time.Time, err error) {
 	lastBlockTime := time.Unix(c.chain.GenesisTimestamp(), 0)
 	if height > 1 {
-		var lastBlock *block.Footer
-		if lastBlock, err = c.chain.BlockFooterByHeight(height - 1); err != nil {
+		var lastBlock *block.Header
+		if lastBlock, err = c.chain.BlockHeaderByHeight(height - 1); err != nil {
 			return
 		}
-		lastBlockCommitTime := lastBlock.CommitTime()
-		lastBlockTime = lastBlockTime.Add(lastBlockCommitTime.Sub(lastBlockTime) / c.blockInterval * c.blockInterval)
+		lastBlockTime = lastBlockTime.Add(lastBlock.Timestamp().Sub(lastBlockTime) / c.blockInterval * c.blockInterval)
 	}
 	if !lastBlockTime.Before(now) {
 		err = errors.Errorf(

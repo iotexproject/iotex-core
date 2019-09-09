@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/go-fsm"
+	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -136,11 +136,10 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	if round.Proposer() != blk.ProducerAddress() {
+	if !round.IsDelegate(blk.ProducerAddress()) {
 		return errors.Errorf(
-			"block proposer %s is invalid, %s expected",
+			"block proposer %s is not a valid delegate",
 			blk.ProducerAddress(),
-			round.proposer,
 		)
 	}
 	if err := round.AddBlock(blk); err != nil {
