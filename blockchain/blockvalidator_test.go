@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -27,7 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-address/address"
 )
 
 func TestWrongRootHash(t *testing.T) {
@@ -296,7 +296,6 @@ func TestWrongAddress(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating contract's address"))
 }
-
 
 func TestBlackListAddress(t *testing.T) {
 	ctx := context.Background()

@@ -324,7 +324,7 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		sf:                        chain.sf,
 		validatorAddr:             cfg.ProducerAddress().String(),
 		enableExperimentalActions: chain.enableExperimentalActions,
-		senderBlackList: 		   senderBlackList,
+		senderBlackList:           senderBlackList,
 	}
 
 	if chain.dao != nil {
