@@ -125,19 +125,37 @@ func TestEndorsementManager(t *testing.T) {
 	l := em.Log(log.L(), nil)
 	require.NotNil(l)
 	l.Info("test output")
-	err = em.Cleanup(time.Now().Add(time.Second * 10 * -1))
+
+	cv2 := NewConsensusVote(blkHash[:], LOCK)
+	require.NotNil(cv2)
+	end2 := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("456"))
+	require.NoError(em.AddVoteEndorsement(cv2, end2))
+	l = em.Log(log.L(), nil)
+	require.NotNil(l)
+	l.Info("test output2")	
+
+	encoded := encodeToString(cv.BlockHash())
+	require.Equal(1, len(em.collections[encoded].endorsers))
+	collection := em.collections[encoded].endorsers[end.Endorser().HexString()]
+	require.Equal(2, len(collection.endorsements))
+	require.Equal(end, collection.endorsements[PROPOSAL])
+	require.Equal(end2, collection.endorsements[LOCK])
+
+	//cleanup
+	err = em.Cleanup(time.Now().Add(time.Nanosecond * -1 * 100000))
 	require.Nil(err)
 	require.NotNil(em)
 	require.Equal(1, len(em.collections))
-	encoded := encodeToString(cv.BlockHash())
 	require.Equal(1, len(em.collections[encoded].endorsers))
 
-	collection := em.collections[encoded].endorsers[end.Endorser().HexString()]
-	require.Equal(end, collection.endorsements[PROPOSAL])
+	collection = em.collections[encoded].endorsers[end.Endorser().HexString()] //ee 
+	require.Equal(1, len(collection.endorsements))
+	require.Equal(end2, collection.endorsements[LOCK])
 
-	ti := time.Time{}
-	require.Equal(ti.IsZero(), true)
-	err = em.Cleanup(ti)
+	//when the time is zero, it should generate empty eManager 
+	zerotime := time.Time{}
+	require.Equal(zerotime.IsZero(), true)
+	err = em.Cleanup(zerotime)
 	require.Nil(err)
 	require.Equal(0, len(em.collections))
 }
