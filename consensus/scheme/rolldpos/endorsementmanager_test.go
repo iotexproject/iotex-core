@@ -134,6 +134,12 @@ func TestEndorsementManager(t *testing.T) {
 
 	collection := em.collections[encoded].endorsers[end.Endorser().HexString()]
 	require.Equal(end, collection.endorsements[PROPOSAL])
+
+	ti := time.Time{}
+	require.Equal(ti.IsZero(), true)
+	err = em.Cleanup(ti)
+	require.Nil(err)
+	require.Equal(0, len(em.collections))
 }
 
 func TestEndorsementManagerProto(t *testing.T) {
