@@ -129,7 +129,7 @@ func TestEndorsementManager(t *testing.T) {
 
 	cv2 := NewConsensusVote(blkHash[:], LOCK)
 	require.NotNil(cv2)
-	end2 := endorsement.NewEndorsement(timestamp.Add(time.Second * 10), b.PublicKey(), []byte("456"))
+	end2 := endorsement.NewEndorsement(timestamp.Add(time.Second*10), b.PublicKey(), []byte("456"))
 	require.NoError(em.AddVoteEndorsement(cv2, end2))
 	l.Info("test output2")
 

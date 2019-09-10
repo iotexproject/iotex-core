@@ -11,6 +11,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -129,7 +131,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		var config vm.Config
-		chainConfig := getChainConfig()
+		chainConfig := getChainConfig(genesis.Default.BeringBlockHeight)
 		evm := vm.NewEVM(ps.context, stateDB, chainConfig, config)
 
 		require.Equal(false, evm.ChainConfig().IsHomestead(evm.BlockNumber))
@@ -143,5 +145,8 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(false, chainRules.IsByzantium)
 		require.Equal(true, chainRules.IsConstantinople)
 		require.Equal(true, chainRules.IsPetersburg)
+
+		// verify iotex configs in chain config block
+		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evm.ChainConfig().BeringBlock)
 	}
 }
