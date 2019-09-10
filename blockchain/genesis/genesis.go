@@ -48,7 +48,7 @@ func defaultConfig() Genesis {
 			TimeBasedRotation:     false,
 			PacificBlockHeight:    432001,
 			AleutianBlockHeight:   864001,
-			BeringBlockHeight:     1106641,
+			BeringBlockHeight:     1382401,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
