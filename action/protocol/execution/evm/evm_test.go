@@ -11,14 +11,13 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
-
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
