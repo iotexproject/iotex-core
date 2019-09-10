@@ -107,6 +107,7 @@ func newRollDPoSCtx(
 	encodedAddr string,
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
+	beringHeight uint64,
 ) (*rollDPoSCtx, error) {
 	if chain == nil {
 		return nil, errors.New("chain cannot be nil")
@@ -140,6 +141,7 @@ func newRollDPoSCtx(
 		chain:                  chain,
 		rp:                     rp,
 		timeBasedRotation:      timeBasedRotation,
+		beringHeight:           beringHeight,
 	}
 	return &rollDPoSCtx{
 		cfg:               cfg,

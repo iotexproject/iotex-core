@@ -189,10 +189,10 @@ func TestValidateBlockFooter(t *testing.T) {
 	}
 	clock := clock.NewMock()
 	blockHeight := uint64(8)
-	header := &block.Header{}
+	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
 	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(5)
-	blockchain.EXPECT().BlockHeaderByHeight(blockHeight).Return(header, nil).Times(5)
+	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
 		{Address: candidates[1]},
@@ -265,11 +265,11 @@ func TestRollDPoS_Metrics(t *testing.T) {
 
 	clock := clock.NewMock()
 	blockHeight := uint64(8)
-	header := &block.Header{}
+	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
 	blockchain.EXPECT().TipHeight().Return(blockHeight).Times(1)
 	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(2)
-	blockchain.EXPECT().BlockHeaderByHeight(blockHeight).Return(header, nil).Times(2)
+	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
 		{Address: candidates[1]},
