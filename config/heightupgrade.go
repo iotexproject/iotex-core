@@ -62,7 +62,7 @@ func (hu *HeightUpgrade) IsPre(name HeightName, height uint64) bool {
 func (hu *HeightUpgrade) PacificBlockHeight() uint64 { return hu.pacificHeight }
 
 // AleutianBlockHeight returns the aleutian height
-func (hu *HeightUpgrade) PacificAleutianBlockHeight() uint64 { return hu.aleutianHeight }
+func (hu *HeightUpgrade) AleutianBlockHeight() uint64 { return hu.aleutianHeight }
 
 // BeringBlockHeight returns the bering height
 func (hu *HeightUpgrade) BeringBlockHeight() uint64 { return hu.beringHeight }
