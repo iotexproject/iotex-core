@@ -116,7 +116,7 @@ type Blockchain interface {
 	GetReceiptsByHeight(height uint64) ([]*action.Receipt, error)
 	// GetFactory returns the state factory
 	GetFactory() factory.Factory
-	// GetChainID returns the chain ID
+	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
 	ChainAddress() string
