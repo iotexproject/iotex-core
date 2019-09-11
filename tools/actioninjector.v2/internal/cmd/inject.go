@@ -54,7 +54,7 @@ type injectProcessor struct {
 }
 
 func newInjectionProcessor() (*injectProcessor, error) {
-	c, err := client.New(injectCfg.serverAddr)
+	c, err := client.New(injectCfg.serverAddr, injectCfg.insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +94,8 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 		if err != nil {
 			return err
 		}
+		fmt.Println(addr.String())
+		p.nonces.Store(addr.String(), 0)
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 	p.accounts = addrKeys
@@ -120,6 +122,8 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 			if err != nil {
 				return err
 			}
+			fmt.Println("addr:", addr)
+			fmt.Printf("nonce: %x\n", resp.GetAccountMeta().GetPendingNonce())
 			p.nonces.Store(addr, resp.GetAccountMeta().GetPendingNonce())
 			return nil
 		}, backoff.NewExponentialBackOff())
@@ -162,21 +166,57 @@ func (p *injectProcessor) injectProcess(ctx context.Context) {
 func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 	defer workers.Done()
 	for range ticks {
-		selp, err := p.pickAction()
+		var selp action.SealedEnvelope
+		var err error
+		if !injectCfg.maximum {
+			selp, err = p.pickRandomAction()
+		} else {
+			selp, err = p.pickAction()
+		}
 		if err != nil {
 			log.L().Error("Failed to create an action", zap.Error(err))
 		}
 		bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(injectCfg.retryInterval), injectCfg.retryNum)
-		if err := backoff.Retry(func() error {
+		if err = backoff.Retry(func() error {
 			return p.c.SendAction(context.Background(), selp)
 		}, bo); err != nil {
 			log.L().Error("Failed to inject.", zap.Error(err))
 		}
-		log.L().Debug("Sent out the action.")
+		log.L().Info("Sent out the action.")
 	}
 }
 
 func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
+	var nonce uint64
+	sender := p.accounts[rand.Intn(len(p.accounts))]
+	fmt.Println("sender :", sender.EncodedAddr)
+	val, ok := p.nonces.Load(sender.EncodedAddr)
+	if ok {
+		nonce = val.(uint64)
+	}
+	fmt.Println("nonce: ", nonce)
+
+	p.nonces.Store(sender.EncodedAddr, nonce+1)
+
+	bd := &action.EnvelopeBuilder{}
+	var elp action.Envelope
+	execution, err := action.NewExecution(injectCfg.contract, nonce, injectCfg.executionAmount, injectCfg.executionGasLimit, injectCfg.executionGasPrice, injectCfg.executionData)
+	if err != nil {
+		return action.SealedEnvelope{}, errors.Wrap(err, "failed to create raw execution")
+	}
+	elp = bd.SetNonce(nonce).
+		SetGasPrice(injectCfg.executionGasPrice).
+		SetGasLimit(injectCfg.executionGasLimit).
+		SetAction(execution).Build()
+
+	selp, err := action.Sign(elp, sender.PriKey)
+	if err != nil {
+		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer %v", elp)
+	}
+	return selp, nil
+}
+
+func (p *injectProcessor) pickRandomAction() (action.SealedEnvelope, error) {
 	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
 	val, ok := p.nonces.Load(sender.EncodedAddr)
@@ -223,9 +263,9 @@ func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 
 // injectCmd represents the inject command
 var injectCmd = &cobra.Command{
-	Use:   "random",
-	Short: "inject random actions",
-	Long:  `inject random actions.`,
+	Use:   "inject",
+	Short: "inject actions [options : -m] (default:random)",
+	Long:  `inject actions [options : -m] (default:random).`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(inject(args))
 	},
@@ -253,10 +293,33 @@ var injectCfg = struct {
 	resetInterval        time.Duration
 	aps                  int
 	workers              uint64
+	maximum              bool
+	insecure             bool
 }{}
 
-func inject(_ []string) string {
+func inject(args []string) string {
 	var err error
+	if injectCfg.maximum {
+		//injectCfg.contract = "io1k42uxle8v0dwafekduwcl45tuphe8u8y9hec3q"
+		//according to aps, execution data and gas limit will be set
+		switch injectCfg.aps {
+		case 20:
+			//100k gas limit
+			injectCfg.executionGasLimit = uint64(100000)
+			injectCfg.rawExecutionData = "8f0d282d"
+		case 50:
+			//40k gas limit
+			injectCfg.executionGasLimit = uint64(40000)
+			injectCfg.rawExecutionData = "6b59084d"
+		case 100:
+			//20k gas limit
+			injectCfg.executionGasLimit = uint64(20000)
+			injectCfg.rawExecutionData = "66e41cb7"
+		default:
+			return fmt.Sprintf("fail to match execution by aps %v, aps should be 20, 50, or 100", injectCfg.aps)
+		}
+	}
+
 	injectCfg.transferPayload, err = hex.DecodeString(injectCfg.rawTransferPayload)
 	if err != nil {
 		return fmt.Sprintf("failed to decode payload %s: %v.", injectCfg.transferPayload, err)
@@ -285,12 +348,12 @@ func init() {
 	flag := injectCmd.Flags()
 	flag.StringVar(&injectCfg.configPath, "injector-config-path", "./tools/actioninjector.v2/gentsfaddrs.yaml",
 		"path of config file of genesis transfer addresses")
-	flag.StringVar(&injectCfg.serverAddr, "addr", "127.0.0.1:14004", "target ip:port for grpc connection")
+	flag.StringVar(&injectCfg.serverAddr, "addr", "127.0.0.1:14014", "target ip:port for grpc connection")
 	flag.Uint64Var(&injectCfg.transferGasLimit, "transfer-gas-limit", 20000, "transfer gas limit")
 	flag.Int64Var(&injectCfg.rawTransferGasPrice, "transfer-gas-price", unit.Qev, "transfer gas price")
 	flag.StringVar(&injectCfg.rawTransferPayload, "transfer-payload", "", "transfer payload")
 	flag.StringVar(&injectCfg.contract, "contract", "io1pmjhyksxmz2xpxn2qmz4gx9qq2kn2gdr8un4xq", "smart contract address")
-	flag.Int64Var(&injectCfg.rawExecutionAmount, "execution-amount", 50, "execution amount")
+	flag.Int64Var(&injectCfg.rawExecutionAmount, "execution-amount", 0, "execution amount")
 	flag.Uint64Var(&injectCfg.executionGasLimit, "execution-gas-limit", 20000, "execution gas limit")
 	flag.Int64Var(&injectCfg.rawExecutionGasPrice, "execution-gas-price", unit.Qev, "execution gas price")
 	flag.StringVar(&injectCfg.rawExecutionData, "execution-data", "2885ad2c", "execution data")
@@ -300,6 +363,7 @@ func init() {
 	flag.DurationVar(&injectCfg.resetInterval, "reset-interval", 10*time.Second, "time interval to reset nonce counter")
 	flag.IntVar(&injectCfg.aps, "aps", 30, "actions to be injected per second")
 	flag.Uint64Var(&injectCfg.workers, "workers", 10, "number of workers")
-
+	flag.BoolVarP(&injectCfg.maximum, "maximum", "m", false, "maximum flag which injects maximum executions with aps")
+	flag.BoolVar(&injectCfg.insecure, "insecure", false, "insecure network")
 	rootCmd.AddCommand(injectCmd)
 }
