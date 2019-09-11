@@ -946,6 +946,18 @@ func (bc *blockchain) startExistingBlockchain() error {
 		if err != nil {
 			return err
 		}
+
+		_, err = bc.GetReceiptsByHeight(i)
+		if errors.Cause(err) == db.ErrNotExist {
+			// write smart contract receipt into DB
+			receiptTimer := bc.timerFactory.NewTimer("putReceipt")
+			err = bc.dao.putReceipts(blk.Height(), blk.Receipts)
+			receiptTimer.End()
+			if err != nil {
+				return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
+			}
+		}
+
 		ws, err := bc.sf.NewWorkingSet()
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
@@ -1031,6 +1043,14 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	bc.tipHash = blk.HashBlock()
 
 	if bc.sf != nil {
+		// write smart contract receipt into DB
+		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
+		err = bc.dao.putReceipts(blk.Height(), blk.Receipts)
+		receiptTimer.End()
+		if err != nil {
+			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
+		}
+
 		sfTimer := bc.timerFactory.NewTimer("sf.Commit")
 		err := bc.sf.Commit(blk.WorkingSet)
 		sfTimer.End()
@@ -1038,14 +1058,6 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		blk.WorkingSet = nil
 		if err != nil {
 			log.L().Panic("Error when committing states.", zap.Error(err))
-		}
-
-		// write smart contract receipt into DB
-		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
-		err = bc.dao.putReceipts(blk.Height(), blk.Receipts)
-		receiptTimer.End()
-		if err != nil {
-			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 		}
 	}
 	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", bc.tipHash[:]))
