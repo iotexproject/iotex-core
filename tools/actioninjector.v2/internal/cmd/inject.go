@@ -297,10 +297,9 @@ var injectCfg = struct {
 	insecure             bool
 }{}
 
-func inject(args []string) string {
+func inject(_ []string) string {
 	var err error
 	if injectCfg.maximum {
-		//injectCfg.contract = "io1k42uxle8v0dwafekduwcl45tuphe8u8y9hec3q"
 		//according to aps, execution data and gas limit will be set
 		switch injectCfg.aps {
 		case 20:

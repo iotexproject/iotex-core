@@ -343,7 +343,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 			log.Hex("hash", hash[:]),
 			zap.Uint64("startNonce", confirmedNonce+1),
 			zap.Uint64("actNonce", actNonce))
-		return errors.Wrapf(action.ErrNonce, "nonce too large , sender is %s, actNonce : %x", sender, actNonce)
+		return errors.Wrapf(action.ErrNonce, "nonce too large ,actNonce : %x", actNonce)
 	}
 
 	cost, err := act.Cost()
