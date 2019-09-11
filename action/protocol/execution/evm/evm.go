@@ -190,11 +190,11 @@ func ExecuteContract(
 	return retval, receipt, nil
 }
 
-func getChainConfig() *params.ChainConfig {
+func getChainConfig(beringHeight uint64) *params.ChainConfig {
 	var chainConfig params.ChainConfig
 	// chainConfig.ChainID
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
-
+	chainConfig.BeringBlock = new(big.Int).SetUint64(beringHeight)
 	return &chainConfig
 }
 
@@ -207,7 +207,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, b
 		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
-	chainConfig := getChainConfig()
+	chainConfig := getChainConfig(stateDB.hu.BeringBlockHeight())
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
