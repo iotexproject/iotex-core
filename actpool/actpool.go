@@ -9,6 +9,7 @@ package actpool
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/pkg/errors"
@@ -64,17 +65,32 @@ func EnableExperimentalActions() Option {
 
 // actPool implements ActPool interface
 type actPool struct {
-	mutex                     sync.RWMutex
-	cfg                       config.ActPool
-	bc                        blockchain.Blockchain
-	accountActs               map[string]ActQueue
-	allActions                map[hash.Hash256]action.SealedEnvelope
-	gasInPool                 uint64
-	actionEnvelopeValidators  []protocol.ActionEnvelopeValidator
-	validators                []protocol.ActionValidator
-	timerFactory              *prometheustimer.TimerFactory
-	enableExperimentalActions bool
-	senderBlackList           map[string]bool
+	mutex                         sync.RWMutex
+	cfg                           config.ActPool
+	bc                            blockchain.Blockchain
+	accountActs                   map[string]ActQueue
+	allActions                    map[hash.Hash256]action.SealedEnvelope
+	gasInPool                     uint64
+	actionEnvelopeValidators      []protocol.ActionEnvelopeValidator
+	validators                    []protocol.ActionValidator
+	timerFactory                  *prometheustimer.TimerFactory
+	enableExperimentalActions     bool
+	senderBlackList               map[string]bool
+	actionEnvelopeValidatorsCache map[*actionEnvelopeValidatorsKey]time.Time
+	validatorsCache               map[*validatorsKey]time.Time
+	validatorsCacheTime           time.Duration
+}
+
+type actionEnvelopeValidatorsKey struct {
+	ct        context.Context
+	act       action.SealedEnvelope
+	validator protocol.ActionEnvelopeValidator
+}
+
+type validatorsKey struct {
+	ct        context.Context
+	act       action.SealedEnvelope
+	validator protocol.ActionValidator
 }
 
 // NewActPool constructs a new actpool
@@ -89,11 +105,14 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 	}
 
 	ap := &actPool{
-		cfg:             cfg,
-		bc:              bc,
-		senderBlackList: senderBlackList,
-		accountActs:     make(map[string]ActQueue),
-		allActions:      make(map[hash.Hash256]action.SealedEnvelope),
+		cfg:                           cfg,
+		bc:                            bc,
+		senderBlackList:               senderBlackList,
+		accountActs:                   make(map[string]ActQueue),
+		allActions:                    make(map[hash.Hash256]action.SealedEnvelope),
+		actionEnvelopeValidatorsCache: make(map[*actionEnvelopeValidatorsKey]time.Time),
+		validatorsCache:               make(map[*validatorsKey]time.Time),
+		validatorsCacheTime:           cfg.ValidatorsCacheTime,
 	}
 	for _, opt := range opts {
 		if err := opt(ap); err != nil {
@@ -204,9 +223,21 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 				Caller: caller,
 			},
 		)
+		actionEnvelopeValidatorsKey := &actionEnvelopeValidatorsKey{
+			ct:        ctx,
+			act:       act,
+			validator: validator,
+		}
+		now := time.Now()
+		if overTime, ok := ap.actionEnvelopeValidatorsCache[actionEnvelopeValidatorsKey]; ok {
+			if now.Before(overTime) {
+				continue
+			}
+		}
 		if err := validator.Validate(ctx, act); err != nil {
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
+		ap.actionEnvelopeValidatorsCache[actionEnvelopeValidatorsKey] = now.Add(ap.validatorsCacheTime)
 	}
 	// Reject action if it's invalid
 	for _, validator := range ap.validators {
@@ -216,9 +247,21 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 				Caller: caller,
 			},
 		)
+		validatorsKey := &validatorsKey{
+			ct:        ctx,
+			act:       act,
+			validator: validator,
+		}
+		now := time.Now()
+		if overTime, ok := ap.validatorsCache[validatorsKey]; ok {
+			if now.Before(overTime) {
+				continue
+			}
+		}
 		if err := validator.Validate(ctx, act.Action()); err != nil {
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
+		ap.validatorsCache[validatorsKey] = now.Add(ap.validatorsCacheTime)
 	}
 	return ap.enqueueAction(caller.String(), act, hash, act.Nonce())
 }

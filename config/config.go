@@ -108,12 +108,13 @@ var (
 			PollInitialCandidatesInterval: 10 * time.Second,
 		},
 		ActPool: ActPool{
-			MaxNumActsPerPool:  32000,
-			MaxGasLimitPerPool: 320000000,
-			MaxNumActsPerAcct:  2000,
-			ActionExpiry:       10 * time.Minute,
-			MinGasPriceStr:     big.NewInt(unit.Qev).String(),
-			BlackList:          []string{},
+			MaxNumActsPerPool:   32000,
+			MaxGasLimitPerPool:  320000000,
+			MaxNumActsPerAcct:   2000,
+			ActionExpiry:        10 * time.Minute,
+			MinGasPriceStr:      big.NewInt(unit.Qev).String(),
+			BlackList:           []string{},
+			ValidatorsCacheTime: time.Second * time.Duration(5),
 		},
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
@@ -304,7 +305,8 @@ type (
 		// MinGasPriceStr defines the minimal gas price the delegate will accept for an action
 		MinGasPriceStr string `yaml:"minGasPrice"`
 		// BlackList lists the account address that are banned from initiating actions
-		BlackList []string `yaml:"blackList"`
+		BlackList           []string      `yaml:"blackList"`
+		ValidatorsCacheTime time.Duration `yaml:"validatorsCacheTime"`
 	}
 
 	// DB is the config for database
