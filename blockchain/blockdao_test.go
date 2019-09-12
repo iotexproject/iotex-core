@@ -351,6 +351,13 @@ func TestBlockDAO(t *testing.T) {
 			tipHeight, err := dao.getBlockchainHeight()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)
+			h, err := dao.getTipHash()
+			require.NoError(err)
+			if i <= 2 {
+				require.Equal(blks[2-i].HashBlock(), h)
+			} else {
+				require.Equal(hash.ZeroHash256, h)
+			}
 			total, err := dao.getTotalActions()
 			require.NoError(err)
 			require.EqualValues(daoTests[i].total, total)

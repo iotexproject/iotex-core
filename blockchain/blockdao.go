@@ -445,7 +445,7 @@ func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, er
 func (dao *blockDAO) putBlock(blk *block.Block) error {
 	batch := db.NewBatch()
 	batchForBlock := db.NewBatch()
-	height := byteutil.Uint64ToBytes(blk.Height())
+	heightValue := byteutil.Uint64ToBytes(blk.Height())
 	hash := blk.HashBlock()
 	serHeader, err := blk.Header.Serialize()
 	if err != nil {
@@ -491,12 +491,12 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	}
 
 	hashKey := append(hashPrefix, hash[:]...)
-	batch.Put(blockHashHeightMappingNS, hashKey, height, "failed to put hash -> height mapping")
+	batch.Put(blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
 
-	heightKey := append(heightPrefix, height...)
+	heightKey := append(heightPrefix, heightValue...)
 	batch.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
 
-	heightToFile := append(heightToFilePrefix, height...)
+	heightToFile := append(heightToFilePrefix, heightValue...)
 	fileindexBytes := byteutil.Uint64ToBytes(fileindex)
 	batch.Put(blockNS, heightToFile, fileindexBytes, "failed to put height -> file index mapping")
 
@@ -506,7 +506,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	}
 	topHeight := enc.MachineEndian.Uint64(value)
 	if blk.Height() > topHeight {
-		batch.Put(blockNS, topHeightKey, height, "failed to put top height")
+		batch.Put(blockNS, topHeightKey, heightValue, "failed to put top height")
 		batch.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
 	}
 
@@ -528,12 +528,8 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 
 // getNumActions returns the number of actions by height
 func (dao *blockDAO) getNumActions(height uint64) (uint64, error) {
-	kvstore, _, err := dao.getDBFromHeight(height)
-	if err != nil {
-		return 0, err
-	}
 	heightKey := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
-	value, err := kvstore.Get(numActionsNS, heightKey)
+	value, err := dao.kvstore.Get(numActionsNS, heightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get num actions")
 	}
@@ -545,12 +541,8 @@ func (dao *blockDAO) getNumActions(height uint64) (uint64, error) {
 
 // getTranferAmount returns the transfer amount by height
 func (dao *blockDAO) getTranferAmount(height uint64) (*big.Int, error) {
-	kvstore, _, err := dao.getDBFromHeight(height)
-	if err != nil {
-		return nil, err
-	}
 	heightKey := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
-	value, err := kvstore.Get(transferAmountNS, heightKey)
+	value, err := dao.kvstore.Get(transferAmountNS, heightKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get transfer amount")
 	}
@@ -645,6 +637,8 @@ func (dao *blockDAO) deleteTipBlock() error {
 	if dao.footerCache != nil {
 		dao.footerCache.Remove(hash)
 	}
+	// delete receipt
+	batchForBlock.Delete(receiptsNS, heightValue, "failed to delete receipt")
 
 	whichDB, _, err := dao.getDBFromHash(hash)
 	if err != nil {
@@ -665,6 +659,13 @@ func (dao *blockDAO) deleteTipBlock() error {
 
 	// Update tip height
 	batch.Put(blockNS, topHeightKey, byteutil.Uint64ToBytes(height-1), "failed to put top height")
+
+	// Update tip hash
+	hash, err = dao.getBlockHash(height - 1)
+	if err != nil {
+		return errors.Wrap(err, "failed to get previous block hash")
+	}
+	batch.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
 
 	if !dao.writeIndex {
 		return dao.kvstore.Commit(batch)
