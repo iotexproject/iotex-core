@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
@@ -129,7 +130,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		var config vm.Config
-		chainConfig := getChainConfig()
+		chainConfig := getChainConfig(genesis.Default.BeringBlockHeight)
 		evm := vm.NewEVM(ps.context, stateDB, chainConfig, config)
 
 		require.Equal(false, evm.ChainConfig().IsHomestead(evm.BlockNumber))
@@ -143,5 +144,9 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(false, chainRules.IsByzantium)
 		require.Equal(true, chainRules.IsConstantinople)
 		require.Equal(true, chainRules.IsPetersburg)
+
+		// verify iotex configs in chain config block
+		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evm.ChainConfig().BeringBlock)
+		require.True(evm.IsPreBering())
 	}
 }
