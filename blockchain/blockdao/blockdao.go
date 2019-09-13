@@ -46,11 +46,10 @@ const (
 )
 
 var (
-	topHeightKey       = []byte("th")
-	topHashKey         = []byte("ts")
-	hashPrefix         = []byte("ha.")
-	heightPrefix       = []byte("he.")
-	heightToFilePrefix = []byte("hf.")
+	topHeightKey = []byte("th")
+	topHashKey   = []byte("ts")
+	hashPrefix   = []byte("ha.")
+	heightPrefix = []byte("he.")
 )
 
 var (
@@ -553,11 +552,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 		return err
 	}
 
-	// TODO: handle fileindex
-	//heightToFile := append(heightToFilePrefix, height...)
-	//fileindexBytes := byteutil.Uint64ToBytes(fileindex)
-	//batch.Put(blockNS, heightToFile, fileindexBytes, "failed to put height -> file index mapping")
-
+	// index block and actions
 	if !dao.writeBlockIndex {
 		return nil
 	}
@@ -678,10 +673,7 @@ func (dao *blockDAO) getDBFromHash(h hash.Hash256) (db.KVStore, uint64, error) {
 }
 
 func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint64, err error) {
-	if dao.cfg.SplitDBSizeMB == 0 {
-		return dao.kvstore, 0, nil
-	}
-	if blkHeight <= dao.cfg.SplitDBHeight {
+	if dao.cfg.SplitDBSizeMB == 0 || blkHeight <= dao.cfg.SplitDBHeight {
 		return dao.kvstore, 0, nil
 	}
 	topIndex := dao.topIndex.Load().(uint64)
@@ -692,10 +684,14 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	longFileName := dir + "/" + file + fmt.Sprintf("-%08d", topIndex) + ".db"
 	dat, err := os.Stat(longFileName)
 	if err != nil && os.IsNotExist(err) {
-		// db file is not exist,this will create
+		// index the height --> file index mapping
+		if err = dao.indexer.IndexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex)); err != nil {
+			return
+		}
+		// db file does not exist, create it
 		return dao.openDB(topIndex)
 	}
-	// other errors except file is not exist
+	// other errors except file does not exist
 	if err != nil {
 		return
 	}
@@ -703,6 +699,8 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	if uint64(dat.Size()) > dao.cfg.SplitDBSize() {
 		kvstore, index, err = dao.openDB(topIndex + 1)
 		dao.topIndex.Store(index)
+		// index the height --> file index mapping
+		err = dao.indexer.IndexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex))
 		return
 	}
 	// db exist,need load from kvstores
@@ -746,14 +744,12 @@ func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvstore db.KVStore, inde
 	if blkHeight <= dao.cfg.SplitDBHeight {
 		return dao.kvstore, 0, nil
 	}
-	hei := byteutil.Uint64ToBytes(blkHeight)
-	heightToFile := append(heightToFilePrefix, hei...)
-	value, err := dao.kvstore.Get(blockNS, heightToFile[:])
+	// get file index
+	value, err := dao.indexer.GetFileIndex(blkHeight)
 	if err != nil {
 		return
 	}
-	heiIndex := enc.MachineEndian.Uint64(value)
-	return dao.getDBFromIndex(heiIndex)
+	return dao.getDBFromIndex(byteutil.BytesToUint64BigEndian(value))
 }
 
 func (dao *blockDAO) getDBFromIndex(idx uint64) (kvstore db.KVStore, index uint64, err error) {

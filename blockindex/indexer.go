@@ -23,6 +23,7 @@ import (
 )
 
 const (
+	// first 12-byte of hash is cut off, only last 20-byte is saved to reduce storage
 	hashOffset          = 12
 	blockHashToHeightNS = "hh"
 	actionToBlockHashNS = "ab"
@@ -31,6 +32,7 @@ const (
 var (
 	totalBlocksBucket  = []byte("tbk")
 	totalActionsBucket = []byte("tac")
+	heightToFileBucket = []byte("h2f")
 )
 
 type (
@@ -43,6 +45,7 @@ type (
 		Commit() error
 		IndexBlock(*block.Block, bool) error
 		IndexAction(*block.Block) error
+		IndexFile(uint64, []byte) error
 		DeleteBlockIndex(*block.Block) error
 		DeleteActionIndex(*block.Block) error
 		RevertBlocks(uint64) error
@@ -51,6 +54,7 @@ type (
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
 		GetBlockIndex(uint64) (*blockIndex, error)
 		GetActionIndex([]byte) (*actionIndex, error)
+		GetFileIndex(uint64) ([]byte, error)
 		GetTotalActions() (uint64, error)
 		GetActionHashFromIndex(uint64, uint64) ([][]byte, error)
 		GetBlockHeightByActionHash(hash.Hash256) (uint64, error)
@@ -66,6 +70,7 @@ type (
 		dirtyAddr addrIndex
 		tbk       db.CountingIndex
 		tac       db.CountingIndex
+		htf       db.RangeIndex
 	}
 )
 
@@ -92,6 +97,15 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 	if x.tbk, err = x.kvstore.CreateCountingIndexNX(totalBlocksBucket); err != nil {
 		return err
 	}
+	if x.tbk.Size() == 0 {
+		// insert genesis block
+		if err = x.tbk.Add((&blockIndex{
+			hash.ZeroHash256[:],
+			0,
+			big.NewInt(0)}).Serialize(), false); err != nil {
+			return err
+		}
+	}
 	x.tac, err = x.kvstore.CreateCountingIndexNX(totalActionsBucket)
 	return err
 }
@@ -116,8 +130,8 @@ func (x *blockIndexer) IndexBlock(blk *block.Block, batch bool) error {
 
 	// the block to be indexed must be exactly current top + 1, otherwise counting index would not work correctly
 	height := blk.Height()
-	if height != x.tbk.Size()+1 {
-		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size()+1)
+	if height != x.tbk.Size() {
+		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size())
 	}
 	// index hash --> height
 	hash := blk.HashBlock()
@@ -161,6 +175,20 @@ func (x *blockIndexer) IndexAction(blk *block.Block) error {
 	return nil
 }
 
+// IndexFile index the start height of a new file
+func (x *blockIndexer) IndexFile(height uint64, index []byte) error {
+	x.mutex.Lock()
+	defer x.mutex.Unlock()
+
+	if x.htf == nil {
+		var err error
+		if x.htf, err = x.kvstore.CreateRangeIndexNX(heightToFileBucket, make([]byte, 8)); err != nil {
+			return err
+		}
+	}
+	return x.htf.Insert(height, index)
+}
+
 // DeleteBlockIndex deletes a block's index
 func (x *blockIndexer) DeleteBlockIndex(blk *block.Block) error {
 	x.mutex.Lock()
@@ -168,8 +196,8 @@ func (x *blockIndexer) DeleteBlockIndex(blk *block.Block) error {
 
 	// the block to be deleted must be exactly current top, otherwise counting index would not work correctly
 	height := blk.Height()
-	if height != x.tbk.Size() {
-		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size())
+	if height != x.tbk.Size()-1 {
+		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size()-1)
 	}
 	// delete hash --> height
 	hash := blk.HashBlock()
@@ -222,7 +250,7 @@ func (x *blockIndexer) GetBlockchainHeight() (uint64, error) {
 		}
 		return 0, err
 	}
-	return index.Size(), nil
+	return index.Size() - 1, nil
 }
 
 // GetBlockHash returns the block hash by height
@@ -254,10 +282,7 @@ func (x *blockIndexer) GetBlockIndex(height uint64) (*blockIndex, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	if height == 0 {
-		return &blockIndex{hash.ZeroHash256[:], 0, big.NewInt(0)}, nil
-	}
-	v, err := x.tbk.Get(height - 1)
+	v, err := x.tbk.Get(height)
 	if err != nil {
 		return nil, err
 	}
@@ -282,6 +307,20 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
 		return nil, err
 	}
 	return a, nil
+}
+
+// GetFileIndex return the db filename
+func (x *blockIndexer) GetFileIndex(height uint64) ([]byte, error) {
+	x.mutex.RLock()
+	defer x.mutex.RUnlock()
+
+	if x.htf == nil {
+		var err error
+		if x.htf, err = x.kvstore.CreateRangeIndexNX(heightToFileBucket, make([]byte, 8)); err != nil {
+			return nil, err
+		}
+	}
+	return x.htf.Get(height)
 }
 
 // GetTotalActions return total number of all actions
