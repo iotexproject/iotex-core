@@ -3,13 +3,13 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
@@ -27,10 +27,10 @@ func New(serverAddr string, insecure bool) (*Client, error) {
 	var err error
 
 	if insecure {
-		fmt.Println("insecure connection: ", serverAddr)
+		log.L().Info("insecure connection")
 		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithInsecure())
 	} else {
-		fmt.Println("secure connection: ", serverAddr)
+		log.L().Info("secure connection")
 		conn, err = grpc.DialContext(grpcctx, serverAddr, grpc.WithBlock(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 	if err != nil {
