@@ -282,7 +282,7 @@ func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action
 	}
 	err := cs.actpool.Add(act)
 	if err != nil {
-		log.L().Info(err.Error())
+		log.L().Debug(err.Error())
 	}
 	return err
 }

@@ -94,7 +94,6 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(addr.String())
 		p.nonces.Store(addr.String(), 0)
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
@@ -122,8 +121,6 @@ func (p *injectProcessor) syncNonces(ctx context.Context) {
 			if err != nil {
 				return err
 			}
-			fmt.Println("addr:", addr)
-			fmt.Printf("nonce: %x\n", resp.GetAccountMeta().GetPendingNonce())
 			p.nonces.Store(addr, resp.GetAccountMeta().GetPendingNonce())
 			return nil
 		}, backoff.NewExponentialBackOff())
@@ -182,20 +179,17 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 		}, bo); err != nil {
 			log.L().Error("Failed to inject.", zap.Error(err))
 		}
-		log.L().Info("Sent out the action.")
+		log.L().Debug("Sent out the action.")
 	}
 }
 
 func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
-	fmt.Println("sender :", sender.EncodedAddr)
 	val, ok := p.nonces.Load(sender.EncodedAddr)
 	if ok {
 		nonce = val.(uint64)
 	}
-	fmt.Println("nonce: ", nonce)
-
 	p.nonces.Store(sender.EncodedAddr, nonce+1)
 
 	bd := &action.EnvelopeBuilder{}
