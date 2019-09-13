@@ -343,7 +343,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 			log.Hex("hash", hash[:]),
 			zap.Uint64("startNonce", confirmedNonce+1),
 			zap.Uint64("actNonce", actNonce))
-		return errors.Wrapf(action.ErrNonce, "nonce too large")
+		return errors.Wrapf(action.ErrNonce, "nonce too large ,actNonce : %x", actNonce)
 	}
 
 	cost, err := act.Cost()
@@ -354,10 +354,11 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 		// Pending balance is insufficient
 		return errors.Wrapf(
 			action.ErrBalance,
-			"insufficient balance for action %x, cost = %s, pending balance = %s",
+			"insufficient balance for action %x, cost = %s, pending balance = %s, sender = %s",
 			hash,
 			cost.String(),
 			queue.PendingBalance().String(),
+			sender,
 		)
 	}
 
