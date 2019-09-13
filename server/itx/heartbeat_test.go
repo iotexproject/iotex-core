@@ -15,11 +15,13 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/probe"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestNewHeartbeatHandler(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
+	cfg.API.Port = testutil.RandomPort()
 	s, err := NewServer(cfg)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.EnableGravityChainVoting = true
