@@ -961,21 +961,6 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	}, nil
 }
 
-// getBlockMetasUpgrade checks the upgrade of numActions and transferAmount from DB
-func (api *Server) getBlockMetaUpgrade(height uint64) error {
-	if _, err := api.bc.GetTranferAmount(height); errors.Cause(err) == db.ErrNotExist {
-		return errors.Wrapf(db.ErrNotExist, "missing transfer amount by actions with height %d", height)
-	} else if err != nil {
-		return err
-	}
-	if _, err := api.bc.GetNumActions(height); errors.Cause(err) == db.ErrNotExist {
-		return errors.Wrapf(db.ErrNotExist, "missing num actions by actions with height %d", height)
-	} else if err != nil {
-		return err
-	}
-	return nil
-}
-
 // putBlockMetaUpgradeByBlock puts numActions and transferAmount for blockmeta by block
 func (api *Server) putBlockMetaUpgradeByBlock(blk *block.Block, blockMeta *iotextypes.BlockMeta) *iotextypes.BlockMeta {
 	blockMeta.NumActions = int64(len(blk.Actions))
