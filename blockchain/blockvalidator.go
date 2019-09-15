@@ -31,7 +31,6 @@ type Validator interface {
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
-	SetAllActions(allactions map[hash.Hash256]action.SealedEnvelope)
 }
 
 type validator struct {
@@ -85,11 +84,6 @@ func (v *validator) AddActionValidators(validators ...protocol.ActionValidator) 
 // AddActionEnvelopeValidators add action envelope validators
 func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnvelopeValidator) {
 	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
-}
-
-// SetAllActions set action pool
-func (v *validator) SetAllActions(allactions map[hash.Hash256]action.SealedEnvelope) {
-	v.allactions = allactions
 }
 
 func (v *validator) validateActionsOnly(

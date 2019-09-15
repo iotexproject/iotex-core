@@ -670,3 +670,17 @@ func (mr *MockBlockchainMockRecorder) GetActionHashFromIndex(index interface{}) 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionHashFromIndex", reflect.TypeOf((*MockBlockchain)(nil).GetActionHashFromIndex), index)
 }
+
+// GetAllActions mocks base method
+func (m *MockBlockchain) GetAllActions() map[hash.Hash256]action.SealedEnvelope {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllActions")
+	ret0, _ := ret[0].(map[hash.Hash256]action.SealedEnvelope)
+	return ret0
+}
+
+// GetAllActions indicates an expected call of GetAllActions
+func (mr *MockBlockchainMockRecorder) GetAllActions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllActions", reflect.TypeOf((*MockBlockchain)(nil).GetAllActions))
+}

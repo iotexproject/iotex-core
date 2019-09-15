@@ -92,9 +92,8 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 		bc:              bc,
 		senderBlackList: senderBlackList,
 		accountActs:     make(map[string]ActQueue),
-		allActions:      make(map[hash.Hash256]action.SealedEnvelope),
+		allActions:      bc.GetAllActions(),
 	}
-	bc.Validator().SetAllActions(ap.allActions)
 	for _, opt := range opts {
 		if err := opt(ap); err != nil {
 			return nil, err

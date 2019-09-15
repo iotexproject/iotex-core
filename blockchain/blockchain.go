@@ -161,6 +161,9 @@ type Blockchain interface {
 	RemoveSubscriber(BlockCreationSubscriber) error
 	// GetActionHashFromIndex returns action hash from index
 	GetActionHashFromIndex(index uint64) (hash.Hash256, error)
+
+	// GetAllActions returns allActions
+	GetAllActions() map[hash.Hash256]action.SealedEnvelope
 }
 
 // blockchain implements the Blockchain interface
@@ -182,6 +185,8 @@ type blockchain struct {
 	registry *protocol.Registry
 
 	enableExperimentalActions bool
+
+	allActions map[hash.Hash256]action.SealedEnvelope
 }
 
 // Option sets blockchain construction parameter
@@ -320,11 +325,13 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	for _, bannedSender := range cfg.ActPool.BlackList {
 		senderBlackList[bannedSender] = true
 	}
+	chain.allActions = make(map[hash.Hash256]action.SealedEnvelope)
 	chain.validator = &validator{
 		sf:                        chain.sf,
 		validatorAddr:             cfg.ProducerAddress().String(),
 		enableExperimentalActions: chain.enableExperimentalActions,
 		senderBlackList:           senderBlackList,
+		allactions:                chain.allActions,
 	}
 
 	if chain.dao != nil {
@@ -526,6 +533,11 @@ func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, err
 // GetActionsFromIndex returns actions from index
 func (bc *blockchain) GetActionHashFromIndex(index uint64) (hash.Hash256, error) {
 	return bc.dao.getActionHashFromIndex(index)
+}
+
+// GetAllActions returns allActions
+func (bc *blockchain) GetAllActions() map[hash.Hash256]action.SealedEnvelope {
+	return bc.allActions
 }
 
 // GetActionToAddress returns action to address
