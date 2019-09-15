@@ -947,24 +947,24 @@ func (bc *blockchain) startExistingBlockchain() error {
 			return err
 		}
 
+		ws, err := bc.sf.NewWorkingSet()
+		if err != nil {
+			return errors.Wrap(err, "failed to obtain working set from state factory")
+		}
+		receipts, err := bc.runActions(blk.RunnableActions(), ws)
+		if err != nil {
+			return err
+		}
+
 		_, err = bc.GetReceiptsByHeight(i)
 		if errors.Cause(err) == db.ErrNotExist {
 			// write smart contract receipt into DB
-			receiptTimer := bc.timerFactory.NewTimer("putReceipt")
-			err = bc.dao.putReceipts(blk.Height(), blk.Receipts)
-			receiptTimer.End()
+			err = bc.dao.putReceipts(blk.Height(), receipts)
 			if err != nil {
 				return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 			}
 		}
 
-		ws, err := bc.sf.NewWorkingSet()
-		if err != nil {
-			return errors.Wrap(err, "failed to obtain working set from state factory")
-		}
-		if _, err := bc.runActions(blk.RunnableActions(), ws); err != nil {
-			return err
-		}
 		if err := bc.sf.Commit(ws); err != nil {
 			return err
 		}
