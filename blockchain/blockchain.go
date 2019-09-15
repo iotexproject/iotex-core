@@ -164,6 +164,10 @@ type Blockchain interface {
 
 	// GetAllActions returns allActions
 	GetAllActions() map[hash.Hash256]action.SealedEnvelope
+	// SetAllAction to add action
+	SetAllAction(hash hash.Hash256, action action.SealedEnvelope)
+	// DeleteAction to delete action
+	DeleteAllAction(hash hash.Hash256)
 }
 
 // blockchain implements the Blockchain interface
@@ -538,6 +542,16 @@ func (bc *blockchain) GetActionHashFromIndex(index uint64) (hash.Hash256, error)
 // GetAllActions returns allActions
 func (bc *blockchain) GetAllActions() map[hash.Hash256]action.SealedEnvelope {
 	return bc.allActions
+}
+
+// SetAllAction set add Action
+func (bc *blockchain) SetAllAction(hash hash.Hash256, action action.SealedEnvelope) {
+	bc.allActions[hash] = action
+}
+
+// DeleteAllAction to delete Action
+func (bc *blockchain) DeleteAllAction(hash hash.Hash256) {
+	delete(bc.allActions, hash)
 }
 
 // GetActionToAddress returns action to address

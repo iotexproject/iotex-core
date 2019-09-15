@@ -92,7 +92,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 		bc:              bc,
 		senderBlackList: senderBlackList,
 		accountActs:     make(map[string]ActQueue),
-		allActions:      bc.GetAllActions(),
+		allActions:      make(map[hash.Hash256]action.SealedEnvelope),
 	}
 	for _, opt := range opts {
 		if err := opt(ap); err != nil {
@@ -364,6 +364,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 		return errors.Wrapf(err, "cannot put action %x into ActQueue", hash)
 	}
 	ap.allActions[hash] = act
+	ap.bc.SetAllAction(hash, act)
 
 	intrinsicGas, _ := act.IntrinsicGas()
 	ap.gasInPool += intrinsicGas
@@ -400,6 +401,7 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 		hash := act.Hash()
 		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		delete(ap.allActions, hash)
+		ap.bc.DeleteAllAction(hash)
 		intrinsicGas, _ := act.IntrinsicGas()
 		ap.gasInPool -= intrinsicGas
 	}

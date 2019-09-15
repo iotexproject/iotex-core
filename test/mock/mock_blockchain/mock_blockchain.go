@@ -684,3 +684,27 @@ func (mr *MockBlockchainMockRecorder) GetAllActions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllActions", reflect.TypeOf((*MockBlockchain)(nil).GetAllActions))
 }
+
+// SetAllAction mocks base method
+func (m *MockBlockchain) SetAllAction(hash hash.Hash256, action action.SealedEnvelope) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetAllAction", hash, action)
+}
+
+// SetAllAction indicates an expected call of SetAllAction
+func (mr *MockBlockchainMockRecorder) SetAllAction() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAllAction", reflect.TypeOf((*MockBlockchain)(nil).SetAllAction))
+}
+
+// DeleteAllAction mocks base method
+func (m *MockBlockchain) DeleteAllAction(hash hash.Hash256) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "DeleteAllAction", hash)
+}
+
+// DeleteAllAction indicates an expected call of DeleteAllAction
+func (mr *MockBlockchainMockRecorder) DeleteAllAction() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAllAction", reflect.TypeOf((*MockBlockchain)(nil).DeleteAllAction))
+}
