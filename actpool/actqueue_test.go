@@ -7,7 +7,6 @@ package actpool
 
 import (
 	"container/heap"
-	"github.com/iotexproject/go-pkgs/hash"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -136,7 +135,6 @@ func TestActQueuePendingActs(t *testing.T) {
 	cfg := config.Default
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	bc.EXPECT().Nonce(gomock.Any()).Return(uint64(1), nil).Times(1)
-	bc.EXPECT().GetAllActions().Return(map[hash.Hash256]action.SealedEnvelope{}).Times(1)
 	ap, err := NewActPool(bc, cfg.ActPool, EnableExperimentalActions())
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), "").(*actQueue)
