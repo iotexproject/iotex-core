@@ -31,6 +31,7 @@ type Validator interface {
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
+	SetAllActions(allactions map[hash.Hash256]action.SealedEnvelope)
 }
 
 type validator struct {
@@ -40,6 +41,7 @@ type validator struct {
 	actionValidators          []protocol.ActionValidator
 	enableExperimentalActions bool
 	senderBlackList           map[string]bool
+	allactions                map[hash.Hash256]action.SealedEnvelope
 }
 
 var (
@@ -83,6 +85,11 @@ func (v *validator) AddActionValidators(validators ...protocol.ActionValidator) 
 // AddActionEnvelopeValidators add action envelope validators
 func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnvelopeValidator) {
 	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
+}
+
+// SetAllActions set action pool
+func (v *validator) SetAllActions(allactions map[hash.Hash256]action.SealedEnvelope) {
+	v.allactions = allactions
 }
 
 func (v *validator) validateActionsOnly(
@@ -163,6 +170,10 @@ func (v *validator) validateActions(
 			return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 		}
 		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
+		// not need validate action if it already exists in pool
+		if _, exist := v.allactions[selp.Hash()]; exist {
+			continue
+		}
 		ctx := protocol.WithValidateActionsCtx(
 			context.Background(),
 			protocol.ValidateActionsCtx{
