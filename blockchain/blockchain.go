@@ -1072,6 +1072,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 }
 
 func (bc *blockchain) saveHistory(heightToKeyCache db.KVStoreBatch, height uint64) error {
+	if heightToKeyCache == nil {
+		return nil
+	}
 	// commit to chain.db
 	err := bc.dao.kvstore.Commit(heightToKeyCache)
 	if err != nil {
