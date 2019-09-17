@@ -180,8 +180,6 @@ type blockchain struct {
 	sf factory.Factory
 
 	registry *protocol.Registry
-
-	enableExperimentalActions bool
 }
 
 // Option sets blockchain construction parameter
@@ -282,14 +280,6 @@ func RegistryOption(registry *protocol.Registry) Option {
 	}
 }
 
-// EnableExperimentalActions enables the blockchain to process experimental actions
-func EnableExperimentalActions() Option {
-	return func(bc *blockchain, conf config.Config) error {
-		bc.enableExperimentalActions = true
-		return nil
-	}
-}
-
 // NewBlockchain creates a new blockchain and DB instance
 func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	// create the Blockchain
@@ -321,10 +311,9 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		senderBlackList[bannedSender] = true
 	}
 	chain.validator = &validator{
-		sf:                        chain.sf,
-		validatorAddr:             cfg.ProducerAddress().String(),
-		enableExperimentalActions: chain.enableExperimentalActions,
-		senderBlackList:           senderBlackList,
+		sf:              chain.sf,
+		validatorAddr:   cfg.ProducerAddress().String(),
+		senderBlackList: senderBlackList,
 	}
 
 	if chain.dao != nil {

@@ -121,16 +121,6 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_Transfer{Transfer: act.Proto()}
 	case *Execution:
 		actCore.Action = &iotextypes.ActionCore_Execution{Execution: act.Proto()}
-	case *PutBlock:
-		actCore.Action = &iotextypes.ActionCore_PutBlock{PutBlock: act.Proto()}
-	case *StartSubChain:
-		actCore.Action = &iotextypes.ActionCore_StartSubChain{StartSubChain: act.Proto()}
-	case *StopSubChain:
-		actCore.Action = &iotextypes.ActionCore_StopSubChain{StopSubChain: act.Proto()}
-	case *CreateDeposit:
-		actCore.Action = &iotextypes.ActionCore_CreateDeposit{CreateDeposit: act.Proto()}
-	case *SettleDeposit:
-		actCore.Action = &iotextypes.ActionCore_SettleDeposit{SettleDeposit: act.Proto()}
 	case *GrantReward:
 		actCore.Action = &iotextypes.ActionCore_GrantReward{GrantReward: act.Proto()}
 	case *ClaimFromRewardingFund:
@@ -170,36 +160,6 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	case pbAct.GetExecution() != nil:
 		act := &Execution{}
 		if err := act.LoadProto(pbAct.GetExecution()); err != nil {
-			return err
-		}
-		elp.payload = act
-	case pbAct.GetPutBlock() != nil:
-		act := &PutBlock{}
-		if err := act.LoadProto(pbAct.GetPutBlock()); err != nil {
-			return err
-		}
-		elp.payload = act
-	case pbAct.GetStartSubChain() != nil:
-		act := &StartSubChain{}
-		if err := act.LoadProto(pbAct.GetStartSubChain()); err != nil {
-			return err
-		}
-		elp.payload = act
-	case pbAct.GetStopSubChain() != nil:
-		act := &StopSubChain{}
-		if err := act.LoadProto(pbAct.GetStopSubChain()); err != nil {
-			return err
-		}
-		elp.payload = act
-	case pbAct.GetCreateDeposit() != nil:
-		act := &CreateDeposit{}
-		if err := act.LoadProto(pbAct.GetCreateDeposit()); err != nil {
-			return err
-		}
-		elp.payload = act
-	case pbAct.GetSettleDeposit() != nil:
-		act := &SettleDeposit{}
-		if err := act.LoadProto(pbAct.GetSettleDeposit()); err != nil {
 			return err
 		}
 		elp.payload = act
@@ -365,21 +325,4 @@ func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Execution) {
 		}
 	}
 	return tsfs, exes
-}
-
-// IsExperimentalAction test it the action is experimental
-func IsExperimentalAction(action Action) bool {
-	switch action.(type) {
-	case *StartSubChain:
-		return true
-	case *StopSubChain:
-		return true
-	case *PutBlock:
-		return true
-	case *CreateDeposit:
-		return true
-	case *SettleDeposit:
-		return true
-	}
-	return false
 }

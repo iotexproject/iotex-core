@@ -155,9 +155,6 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 func (ap *actPool) Add(act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
-	if !ap.enableExperimentalActions && action.IsExperimentalAction(act.Action()) {
-		return errors.New("Experimental action is not enabled")
-	}
 	// Reject action if action source address is blacklisted
 	pubKeyHash := act.SrcPubkey().Hash()
 	srcAddr, err := address.FromBytes(pubKeyHash)
