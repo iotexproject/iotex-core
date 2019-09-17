@@ -923,7 +923,7 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 	var res []*iotextypes.BlockMeta
 	for height := start; height <= tipHeight && count > 0; height++ {
 		blockMeta, err := api.getBlockMetasByHeader(height)
-		if errors.Cause(err) == action.ErrNotFound {
+		if errors.Cause(err) == db.ErrNotExist {
 			blockMeta, err = api.getBlockMetasByBlock(height)
 			if err != nil {
 				return nil, err
@@ -947,7 +947,7 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	blockMeta, err := api.getBlockMetaByHeader(hash)
-	if errors.Cause(err) == action.ErrNotFound {
+	if errors.Cause(err) == db.ErrNotExist {
 		blockMeta, err = api.getBlockMetaByBlock(hash)
 		if err != nil {
 			return nil, err
@@ -961,21 +961,6 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	}, nil
 }
 
-// getBlockMetasUpgrade checks the upgrade of numActions and transferAmount from DB
-func (api *Server) getBlockMetaUpgrade(height uint64) error {
-	if _, err := api.bc.GetTranferAmount(height); errors.Cause(err) == db.ErrNotExist {
-		return errors.Wrapf(action.ErrNotFound, "missing transfer amount by actions with height %d", height)
-	} else if err != nil {
-		return err
-	}
-	if _, err := api.bc.GetNumActions(height); errors.Cause(err) == db.ErrNotExist {
-		return errors.Wrapf(action.ErrNotFound, "missing num actions by actions with height %d", height)
-	} else if err != nil {
-		return err
-	}
-	return nil
-}
-
 // putBlockMetaUpgradeByBlock puts numActions and transferAmount for blockmeta by block
 func (api *Server) putBlockMetaUpgradeByBlock(blk *block.Block, blockMeta *iotextypes.BlockMeta) *iotextypes.BlockMeta {
 	blockMeta.NumActions = int64(len(blk.Actions))
@@ -984,12 +969,23 @@ func (api *Server) putBlockMetaUpgradeByBlock(blk *block.Block, blockMeta *iotex
 }
 
 // putBlockMetaUpgradeByHeader puts numActions and transferAmount for blockmeta by header height
-func (api *Server) putBlockMetaUpgradeByHeader(height uint64, blockMeta *iotextypes.BlockMeta) *iotextypes.BlockMeta {
-	numActions, _ := api.bc.GetNumActions(height)
-	transferAmount, _ := api.bc.GetTranferAmount(height)
+func (api *Server) putBlockMetaUpgradeByHeader(height uint64, blockMeta *iotextypes.BlockMeta) (*iotextypes.BlockMeta, error) {
+	var transferAmount *big.Int
+	var numActions uint64
+	var err error
+	if transferAmount, err = api.bc.GetTranferAmount(height); errors.Cause(err) == db.ErrNotExist {
+		return nil, errors.Wrapf(db.ErrNotExist, "missing transfer amount by actions with height %d", height)
+	} else if err != nil {
+		return nil, err
+	}
+	if numActions, err = api.bc.GetNumActions(height); errors.Cause(err) == db.ErrNotExist {
+		return nil, errors.Wrapf(db.ErrNotExist, "missing num actions by actions with height %d", height)
+	} else if err != nil {
+		return nil, err
+	}
 	blockMeta.NumActions = int64(numActions)
 	blockMeta.TransferAmount = transferAmount.String()
-	return blockMeta
+	return blockMeta, nil
 }
 
 // getBlockMetasByHeader gets block header by height
@@ -998,11 +994,11 @@ func (api *Server) getBlockMetasByHeader(height uint64) (*iotextypes.BlockMeta, 
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	if err := api.getBlockMetaUpgrade(header.Height()); err != nil {
+	blockMeta := api.getCommonBlockMeta(header)
+	blockMeta, err = api.putBlockMetaUpgradeByHeader(header.Height(), blockMeta)
+	if err != nil {
 		return nil, err
 	}
-	blockMeta := api.getCommonBlockMeta(header)
-	blockMeta = api.putBlockMetaUpgradeByHeader(header.Height(), blockMeta)
 	return blockMeta, nil
 }
 
@@ -1023,11 +1019,11 @@ func (api *Server) getBlockMetaByHeader(h hash.Hash256) (*iotextypes.BlockMeta, 
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	if err := api.getBlockMetaUpgrade(header.Height()); err != nil {
+	blockMeta := api.getCommonBlockMeta(header)
+	blockMeta, err = api.putBlockMetaUpgradeByHeader(header.Height(), blockMeta)
+	if err != nil {
 		return nil, err
 	}
-	blockMeta := api.getCommonBlockMeta(header)
-	blockMeta = api.putBlockMetaUpgradeByHeader(header.Height(), blockMeta)
 	return blockMeta, nil
 }
 

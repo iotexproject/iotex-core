@@ -880,17 +880,6 @@ func TestServer_GetBlockMeta(t *testing.T) {
 	}
 }
 
-func TestServer_GetBlockMetaUpgrade(t *testing.T) {
-	require := require.New(t)
-	cfg := newConfig()
-
-	svr, err := createServer(cfg, false)
-	require.NoError(err)
-
-	err = svr.getBlockMetaUpgrade(1000)
-	require.Equal(action.ErrNotFound, errors.Cause(err))
-}
-
 func TestServer_GetChainMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
