@@ -8,6 +8,8 @@ package db
 
 import (
 	"context"
+	"encoding/binary"
+	"strings"
 
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
@@ -16,6 +18,9 @@ import (
 )
 
 const fileMode = 0600
+
+// ContractKVNameSpace for ignore delete
+var ContractKVNameSpace = "Contract"
 
 // boltDB is KVStore implementation based bolt DB
 type boltDB struct {
@@ -67,6 +72,9 @@ func (b *boltDB) Put(namespace string, key, value []byte) (err error) {
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
+}
+func (b *boltDB) DB() interface{} {
+	return b.db
 }
 
 // Get retrieves a record
@@ -156,12 +164,14 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 					}
 				} else if write.writeType == Delete {
-					bucket := tx.Bucket([]byte(write.namespace))
-					if bucket == nil {
-						continue
-					}
-					if err := bucket.Delete(write.key); err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					if !strings.EqualFold(write.namespace, ContractKVNameSpace) {
+						bucket := tx.Bucket([]byte(write.namespace))
+						if bucket == nil {
+							continue
+						}
+						if err := bucket.Delete(write.key); err != nil {
+							return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+						}
 					}
 				}
 			}
@@ -176,6 +186,33 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
+}
+
+// SaveDeletedTrieNode help save trie node that will be deleted in this block
+func (b *boltDB) SaveDeletedTrieNode(batch KVStoreBatch, hei uint64, trieNodeNameSpace string, trieNodeKeyPrefix []byte) (heightToKeyCache KVStoreBatch, err error) {
+	heightToKeyCache = NewCachedBatch()
+	heightBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(heightBytes, hei)
+	err = b.db.Update(func(tx *bolt.Tx) error {
+		for i := 0; i < batch.Size(); i++ {
+			write, err := batch.Entry(i)
+			if err != nil {
+				return err
+			}
+			// only save trie node in evm's name space
+			if (write.writeType == Delete) && (strings.EqualFold(write.namespace, ContractKVNameSpace)) {
+				bucket := tx.Bucket([]byte(write.namespace))
+				if bucket == nil {
+					continue
+				}
+				heightTo := append(trieNodeKeyPrefix, heightBytes...)
+				heightTo = append(heightTo, write.key...)
+				heightToKeyCache.Put(trieNodeNameSpace, heightTo, []byte(""), write.errorFormat, write.errorArgs)
+			}
+		}
+		return nil
+	})
+	return
 }
 
 //======================================

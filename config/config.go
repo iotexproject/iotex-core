@@ -166,8 +166,10 @@ var (
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
-			SplitDBSizeMB: 0,
-			SplitDBHeight: 900000,
+			SplitDBSizeMB:      0,
+			SplitDBHeight:      900000,
+			EnableHistoryState: true,
+			HistoryStateHeight: 2000,
 		},
 		Genesis: genesis.Default,
 		Reindex: false,
@@ -324,6 +326,12 @@ type (
 
 		// SplitDBHeight is the config for DB's split start height
 		SplitDBHeight uint64 `yaml:"splitDBHeight"`
+
+		// EnableHistoryState is the config enable history state
+		EnableHistoryState bool `yaml:"enableHistoryState"`
+
+		// HistoryStateHeight is the config for DB history height
+		HistoryStateHeight uint64 `yaml:"historyStateHeight"`
 	}
 
 	// RDS is the cloud rds config
