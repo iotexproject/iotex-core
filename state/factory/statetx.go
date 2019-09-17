@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	// 30 block heights to check if history needs to delete
+	// CheckHistoryDeleteInterval 30 block heights to check if history needs to delete
 	CheckHistoryDeleteInterval = 30
 )
 
