@@ -158,9 +158,9 @@ func (vt VoteTally) tally(buckets []*types.Bucket, now time.Time) error {
 
 func to12Bytes(b []byte) [12]byte {
 	var h [12]byte
-	if len(b) > 12 {
-		b = b[len(b)-12:]
+	if len(b) != 12 {
+		panic("invalid CanName: abi stipulates CanName must be [12]byte")
 	}
-	copy(h[12-len(b):], b)
+	copy(h[:], b)
 	return h
 }
