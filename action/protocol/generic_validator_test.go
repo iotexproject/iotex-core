@@ -13,13 +13,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -100,38 +97,4 @@ func TestActionProto(t *testing.T) {
 		require.Error(err)
 		require.True(strings.Contains(err.Error(), "nonce is too low"))
 	}
-}
-
-type MockChainManager struct {
-}
-
-// Nonce mocks base method
-func (m *MockChainManager) Nonce(addr string) (uint64, error) {
-	if strings.EqualFold("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", addr) {
-		return 0, errors.New("MockChainManager nonce error")
-	}
-	return 2, nil
-}
-func (m *MockChainManager) ChainID() uint32 {
-	return 0
-}
-
-// GetHashByHeight returns Block's hash by height
-func (m *MockChainManager) GetHashByHeight(height uint64) (hash.Hash256, error) {
-	return hash.ZeroHash256, nil
-}
-
-// StateByAddr returns account of a given address
-func (m *MockChainManager) StateByAddr(address string) (*state.Account, error) {
-	return nil, nil
-}
-
-// CandidatesByHeight returns the candidate list by a given height
-func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	return nil, nil
-}
-
-// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
-func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
-	return 0, nil, nil
 }

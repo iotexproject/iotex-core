@@ -283,13 +283,13 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 	}
 	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
-		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol
 		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
-			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
+			if pollProtocol, err = poll.NewStakingCommittee(
+				config.NewHeightUpgrade(cfg),
 				cs.Blockchain(),
 				electionCommittee,
-				gravityChainStartHeight,
+				genesisConfig.GravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
 					header, err := cs.Blockchain().BlockHeaderByHeight(height)
 					if err != nil {
@@ -305,6 +305,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 				genesisConfig.NumCandidateDelegates,
 				genesisConfig.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				cfg.Genesis.NativeStakingContractAddress,
 			); err != nil {
 				return
 			}

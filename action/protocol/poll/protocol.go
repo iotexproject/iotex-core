@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -187,7 +187,6 @@ func NewGovernanceChainCommitteeProtocol(
 	if err != nil {
 		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
 	}
-
 	return &governanceChainCommitteeProtocol{
 		cm:                        cm,
 		electionCommittee:         electionCommittee,
@@ -268,6 +267,7 @@ func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height 
 			Address:       operatorAddress,
 			Votes:         c.Score(),
 			RewardAddress: rewardAddress,
+			CanName:       c.Name(),
 		})
 	}
 	return l, nil
