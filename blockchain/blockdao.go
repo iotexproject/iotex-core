@@ -51,7 +51,7 @@ const (
 	receiptsNS                       = "rpt"
 	numActionsNS                     = "nac"
 	transferAmountNS                 = "tfa"
-
+	heightToTrieNodeKeyNS            = "htn"
 	hashOffset = 12
 )
 
@@ -66,6 +66,7 @@ var (
 	actionFromPrefix         = []byte("fr.")
 	actionToPrefix           = []byte("to.")
 	heightToFilePrefix       = []byte("hf.")
+	heightToTrieNodeKeyPrefix = []byte("hnk.")
 )
 
 var (
