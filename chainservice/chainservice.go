@@ -8,14 +8,14 @@ package chainservice
 
 import (
 	"context"
+	"database/sql"
 	"os"
 
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
-
-	"github.com/iotexproject/iotex-election/committee"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -105,11 +106,52 @@ func New(
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
-		kvstore := db.NewBoltDB(cfg.Chain.GravityChainDB)
 		if committeeConfig.GravityChainStartHeight != 0 {
-			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
-				kvstore,
+			fileExists := func(path string) bool {
+				_, err := os.Stat(path)
+				if os.IsNotExist(err) {
+					return false
+				}
+				if err != nil {
+					log.L().Panic("unexpected error", zap.Error(err))
+				}
+				return true
+			}
+			isOldCommitteeDB := func(dbCfg config.DB) bool {
+				if !fileExists(dbCfg.DbPath) {
+					return false
+				}
+				db, err := bolt.Open(dbCfg.DbPath, 0666, nil)
+				if err != nil {
+					if err == bolt.ErrInvalid {
+						return false
+					}
+					log.L().Panic("unexpected error", zap.Error(err))
+				}
+				if err = db.Close(); err != nil {
+					log.L().Panic("unexpected error", zap.Error(err))
+				}
+				return true
+			}
+			oldDBCfg := cfg.Chain.GravityChainDB
+			oldDBCfg.DbPath = oldDBCfg.DbPath + ".old"
+			var kvstore db.KVStore
+			if isOldCommitteeDB(cfg.Chain.GravityChainDB) {
+				if err = os.Rename(cfg.Chain.GravityChainDB.DbPath, oldDBCfg.DbPath); err != nil {
+					return nil, err
+				}
+			}
+			if fileExists(oldDBCfg.DbPath) {
+				kvstore = db.NewBoltDB(oldDBCfg)
+			}
+			sqlDB, err := sql.Open("sqlite3", cfg.Chain.GravityChainDB.DbPath)
+			if err != nil {
+				return nil, err
+			}
+			if electionCommittee, err = committee.NewCommittee(
+				sqlDB,
 				committeeConfig,
+				kvstore,
 			); err != nil {
 				return nil, err
 			}
