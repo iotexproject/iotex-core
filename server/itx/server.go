@@ -283,13 +283,13 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 	}
 	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
-		gravityChainStartHeight := genesisConfig.GravityChainStartHeight
 		var pollProtocol poll.Protocol
 		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
-			if pollProtocol, err = poll.NewGovernanceChainCommitteeProtocol(
+			var governance poll.Protocol
+			if governance, err = poll.NewGovernanceChainCommitteeProtocol(
 				cs.Blockchain(),
 				electionCommittee,
-				gravityChainStartHeight,
+				genesisConfig.GravityChainStartHeight,
 				func(height uint64) (time.Time, error) {
 					header, err := cs.Blockchain().BlockHeaderByHeight(height)
 					if err != nil {
@@ -305,6 +305,25 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 				genesisConfig.NumCandidateDelegates,
 				genesisConfig.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+			); err != nil {
+				return
+			}
+			if pollProtocol, err = poll.NewStakingCommittee(
+				config.NewHeightUpgrade(cfg),
+				governance,
+				cs.Blockchain(),
+				func() (time.Time, error) {
+					chain := cs.Blockchain()
+					header, err := chain.BlockHeaderByHeight(chain.TipHeight())
+					if err != nil {
+						return time.Now(), errors.Wrapf(
+							err, "error when getting the block at height: %d",
+							chain.TipHeight(),
+						)
+					}
+					return header.Timestamp(), nil
+				},
+				cfg.Genesis.NativeStakingContractAddress,
 			); err != nil {
 				return
 			}
