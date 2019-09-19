@@ -154,7 +154,6 @@ func TestActPool_AddActs(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.EnableExperimentalActions(),
 	)
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1, big.NewInt(100))
@@ -410,7 +409,6 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.EnableExperimentalActions(),
 	)
 	hu := config.NewHeightUpgrade(config.Default)
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
@@ -852,7 +850,6 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.EnableExperimentalActions(),
 	)
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1, big.NewInt(100))
@@ -901,7 +898,6 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.EnableExperimentalActions(),
 	)
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.CreateState(addr1, big.NewInt(100))
@@ -1046,7 +1042,6 @@ func TestActPool_GetSize(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.EnableExperimentalActions(),
 	)
 	hu := config.NewHeightUpgrade(config.Default)
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
@@ -1104,7 +1099,6 @@ func TestActPool_AddActionNotEnoughGasPride(t *testing.T) {
 		config.Default,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
-		blockchain.EnableExperimentalActions(),
 	)
 	require.NoError(t, bc.Start(context.Background()))
 	defer func() {

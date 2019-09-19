@@ -293,8 +293,10 @@ func TestLocalCommit(t *testing.T) {
 		height := bc.TipHeight()
 		return int(height) == 9, nil
 	})
-	require.Nil(err)
+	require.NoError(err)
 	require.True(9 == bc.TipHeight())
+	// State may not be committed when the block is committed already
+	time.Sleep(2 * time.Second)
 
 	// check balance
 	s, err = bc.StateByAddr(identityset.Address(28).String())
@@ -556,7 +558,6 @@ func newTestConfig() (config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.API.Port = testutil.RandomPort()
-	cfg.System.EnableExperimentalActions = true
 	cfg.Genesis.EnableGravityChainVoting = false
 	sk, err := crypto.GenerateKey()
 

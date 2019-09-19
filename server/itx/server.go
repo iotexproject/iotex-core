@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
-	"github.com/iotexproject/iotex-core/action/protocol/multichain/mainchain"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -43,7 +42,6 @@ type Server struct {
 	chainservices        map[uint32]*chainservice.ChainService
 	p2pAgent             *p2p.Agent
 	dispatcher           dispatcher.Dispatcher
-	mainChainProtocol    *mainchain.Protocol
 	initializedSubChains map[uint32]bool
 	mutex                sync.RWMutex
 	subModuleCancel      context.CancelFunc
@@ -93,10 +91,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err := registerDefaultProtocols(cs, cfg); err != nil {
 		return nil, err
 	}
-	mainChainProtocol := mainchain.NewProtocol(cs.Blockchain())
-	if err := cs.RegisterProtocol(mainchain.ProtocolID, mainChainProtocol); err != nil {
-		return nil, err
-	}
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
 	dispatcher.AddSubscriber(cs.ChainID(), cs)
@@ -106,7 +100,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		dispatcher:           dispatcher,
 		rootChainService:     cs,
 		chainservices:        chains,
-		mainChainProtocol:    mainChainProtocol,
 		initializedSubChains: map[uint32]bool{},
 	}
 	// Setup sub-chain starter
@@ -120,9 +113,6 @@ func (s *Server) Start(ctx context.Context) error {
 	s.subModuleCancel = cancel
 	if err := s.p2pAgent.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting P2P agent")
-	}
-	if err := s.rootChainService.Blockchain().AddSubscriber(s); err != nil {
-		return errors.Wrap(err, "error when starting sub-chain starter")
 	}
 	for _, cs := range s.chainservices {
 		if err := cs.Start(cctx); err != nil {
@@ -144,9 +134,6 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 	if err := s.dispatcher.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping dispatcher")
-	}
-	if err := s.rootChainService.Blockchain().RemoveSubscriber(s); err != nil {
-		return errors.Wrap(err, "error when unsubscribing root chain block creation")
 	}
 	for _, cs := range s.chainservices {
 		if err := cs.Stop(ctx); err != nil {

@@ -63,59 +63,13 @@ func TestBlockDAO(t *testing.T) {
 		execution3, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 3, big.NewInt(2), 0, big.NewInt(0), nil)
 		require.NoError(t, err)
 
-		// create testing create deposit actions
-		deposit1 := action.NewCreateDeposit(
-			4,
-			2,
-			big.NewInt(1),
-			identityset.Address(31).String(),
-			testutil.TestGasLimit,
-			big.NewInt(0),
-		)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetNonce(4).
-			SetGasLimit(testutil.TestGasLimit).
-			SetAction(deposit1).Build()
-		sdeposit1, err := action.Sign(elp, identityset.PrivateKey(28))
-		require.NoError(t, err)
-
-		deposit2 := action.NewCreateDeposit(
-			5,
-			2,
-			big.NewInt(2),
-			identityset.Address(31).String(),
-			testutil.TestGasLimit,
-			big.NewInt(0),
-		)
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetNonce(5).
-			SetGasLimit(testutil.TestGasLimit).
-			SetAction(deposit2).Build()
-		sdeposit2, err := action.Sign(elp, identityset.PrivateKey(29))
-		require.NoError(t, err)
-
-		deposit3 := action.NewCreateDeposit(
-			6,
-			2,
-			big.NewInt(3),
-			identityset.Address(31).String(),
-			testutil.TestGasLimit,
-			big.NewInt(0),
-		)
-		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetNonce(6).
-			SetGasLimit(testutil.TestGasLimit).
-			SetAction(deposit3).Build()
-		sdeposit3, err := action.Sign(elp, identityset.PrivateKey(30))
-		require.NoError(t, err)
-
 		hash1 := hash.Hash256{}
 		fnv.New32().Sum(hash1[:])
 		blk1, err := block.NewTestingBuilder().
 			SetHeight(1).
 			SetPrevBlockHash(hash1).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(tsf1, tsf4, execution1, sdeposit1).
+			AddActions(tsf1, tsf4, execution1).
 			SignAndBuild(identityset.PrivateKey(27))
 		require.NoError(t, err)
 
@@ -125,7 +79,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(2).
 			SetPrevBlockHash(hash2).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(tsf2, tsf5, execution2, sdeposit2).
+			AddActions(tsf2, tsf5, execution2).
 			SignAndBuild(identityset.PrivateKey(27))
 		require.NoError(t, err)
 
@@ -135,7 +89,7 @@ func TestBlockDAO(t *testing.T) {
 			SetHeight(3).
 			SetPrevBlockHash(hash3).
 			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(tsf3, tsf6, execution3, sdeposit3).
+			AddActions(tsf3, tsf6, execution3).
 			SignAndBuild(identityset.PrivateKey(27))
 		require.NoError(t, err)
 		return []*block.Block{&blk1, &blk2, &blk3}
@@ -237,14 +191,6 @@ func TestBlockDAO(t *testing.T) {
 		assert.Nil(t, err)
 		err = dao.putBlock(blks[2])
 
-		depositHash1 := blks[0].Actions[3].Hash()
-		depositHash2 := blks[1].Actions[3].Hash()
-		depositHash3 := blks[2].Actions[3].Hash()
-
-		blkHash1 := blks[0].HashBlock()
-		blkHash2 := blks[1].HashBlock()
-		blkHash3 := blks[2].HashBlock()
-
 		blkActions1 := blks[0].Actions
 		blkActions2 := blks[1].Actions
 		blkActions3 := blks[2].Actions
@@ -268,25 +214,13 @@ func TestBlockDAO(t *testing.T) {
 			blkTransferAmount3.Add(blkTransferAmount3, tsf.Amount())
 		}
 
-		// Test getBlockHashByActionHash
-		blkHash, err := getBlockHashByActionHash(dao.kvstore, depositHash1)
-		require.NoError(t, err)
-		require.Equal(t, blkHash1, blkHash)
-		blkHash, err = getBlockHashByActionHash(dao.kvstore, depositHash2)
-		require.NoError(t, err)
-		require.Equal(t, blkHash2, blkHash)
-		blkHash, err = getBlockHashByActionHash(dao.kvstore, depositHash3)
-		require.NoError(t, err)
-		require.Equal(t, blkHash3, blkHash)
-
 		// Test get actions
 		senderActionCount, err := getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(28).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, uint64(4), senderActionCount)
+		require.Equal(t, uint64(3), senderActionCount)
 		senderActions, err := getActionsBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(28).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, 4, len(senderActions))
-		require.Equal(t, depositHash1, senderActions[3])
+		require.Equal(t, 3, len(senderActions))
 		recipientActionCount, err := getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(28).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientActionCount)
@@ -296,11 +230,10 @@ func TestBlockDAO(t *testing.T) {
 
 		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, uint64(4), senderActionCount)
+		require.Equal(t, uint64(3), senderActionCount)
 		senderActions, err = getActionsBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, 4, len(senderActions))
-		require.Equal(t, depositHash2, senderActions[3])
+		require.Equal(t, 3, len(senderActions))
 		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(29).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientActionCount)
@@ -310,11 +243,10 @@ func TestBlockDAO(t *testing.T) {
 
 		senderActionCount, err = getActionCountBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, uint64(4), senderActionCount)
+		require.Equal(t, uint64(3), senderActionCount)
 		senderActions, err = getActionsBySenderAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, 4, len(senderActions))
-		require.Equal(t, depositHash3, senderActions[3])
+		require.Equal(t, 3, len(senderActions))
 		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(30).Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), recipientActionCount)
@@ -324,13 +256,10 @@ func TestBlockDAO(t *testing.T) {
 
 		recipientActionCount, err = getActionCountByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(31).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, uint64(6), recipientActionCount)
+		require.Equal(t, uint64(3), recipientActionCount)
 		recipientActions, err = getActionsByRecipientAddress(dao.kvstore, hash.BytesToHash160(identityset.Address(31).Bytes()))
 		require.NoError(t, err)
-		require.Equal(t, 6, len(recipientActions))
-		require.Equal(t, depositHash1, recipientActions[1])
-		require.Equal(t, depositHash2, recipientActions[3])
-		require.Equal(t, depositHash3, recipientActions[5])
+		require.Equal(t, 3, len(recipientActions))
 
 		// test getNumActions
 		numActions, err := dao.getNumActions(blks[0].Height())

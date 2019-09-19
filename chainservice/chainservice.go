@@ -157,9 +157,6 @@ func New(
 			}
 		}
 	}
-	if cfg.System.EnableExperimentalActions {
-		chainOpts = append(chainOpts, blockchain.EnableExperimentalActions())
-	}
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
 	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
@@ -173,9 +170,6 @@ func New(
 		chainOpts = []blockchain.Option{
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
-		}
-		if cfg.System.EnableExperimentalActions {
-			chainOpts = append(chainOpts, blockchain.EnableExperimentalActions())
 		}
 		chain = blockchain.NewBlockchain(cfg, chainOpts...)
 	}
@@ -192,9 +186,6 @@ func New(
 
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)
-	if cfg.System.EnableExperimentalActions {
-		actOpts = append(actOpts, actpool.EnableExperimentalActions())
-	}
 	actPool, err := actpool.NewActPool(chain, cfg.ActPool, actOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")

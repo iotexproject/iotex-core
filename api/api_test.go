@@ -1646,7 +1646,6 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
-		blockchain.EnableExperimentalActions(),
 	)
 	if bc == nil {
 		return nil, nil, errors.New("failed to create blockchain")
