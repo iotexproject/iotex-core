@@ -34,6 +34,7 @@ type Candidate struct {
 	Address       string
 	Votes         *big.Int
 	RewardAddress string
+	CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
 }
 
 // Equal compares two candidate instances

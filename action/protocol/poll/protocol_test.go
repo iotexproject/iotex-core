@@ -200,8 +200,8 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(p3.Initialize(ctx3, ws3))
 	var sc3 state.CandidateList
 	require.NoError(ws3.State(candidatesutil.ConstructKey(1), &sc3))
-	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2"})
-	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2"})
+	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
+	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	act3 := action.NewPutPollResult(1, 1, sc3)
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
@@ -225,7 +225,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(p4.Initialize(ctx4, ws4))
 	var sc4 state.CandidateList
 	require.NoError(ws4.State(candidatesutil.ConstructKey(1), &sc4))
-	sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2"})
+	sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	act4 := action.NewPutPollResult(1, 1, sc4)
 	bd4 := &action.EnvelopeBuilder{}
 	elp4 := bd4.SetGasLimit(uint64(100000)).
