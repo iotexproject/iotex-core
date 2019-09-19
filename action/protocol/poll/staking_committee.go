@@ -8,9 +8,6 @@ package poll
 
 import (
 	"context"
-	"time"
-
-	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -28,37 +25,23 @@ type stakingCommittee struct {
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
 func NewStakingCommittee(
 	hu config.HeightUpgrade,
+	gs Protocol,
 	cm protocol.ChainManager,
-	electionCommittee committee.Committee,
-	initGravityChainHeight uint64,
-	getBlockTime GetBlockTime,
-	getEpochHeight GetEpochHeight,
-	getEpochNum GetEpochNum,
-	numCandidateDelegates uint64,
-	numDelegates uint64,
-	initialCandidatesInterval time.Duration,
+	getTipBlockTime GetTipBlockTime,
 	staking string,
 ) (Protocol, error) {
-	gs, err := NewGovernanceChainCommitteeProtocol(
-		cm,
-		electionCommittee,
-		initGravityChainHeight,
-		getBlockTime,
-		getEpochHeight,
-		getEpochNum,
-		numCandidateDelegates,
-		numDelegates,
-		initialCandidatesInterval)
-	if err != nil {
-		return nil, err
-	}
 	var ns *NativeStaking
 	if staking != "" {
-		if ns, err = NewNativeStaking(cm, getBlockTime, staking); err != nil {
+		var err error
+		if ns, err = NewNativeStaking(cm, getTipBlockTime, staking); err != nil {
 			return nil, errors.New("failed to create native staking")
 		}
 	}
-	return &stakingCommittee{hu, gs, ns}, nil
+	return &stakingCommittee{
+		hu: hu,
+		governanceStaking: gs,
+		nativeStaking: ns,
+	}, nil
 }
 
 func (sc *stakingCommittee) Initialize(ctx context.Context, sm protocol.StateManager) error {

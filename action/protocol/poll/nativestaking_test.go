@@ -37,7 +37,7 @@ func TestStaking(t *testing.T) {
 	require := require.New(t)
 
 	mcm := &protocol.MockChainManager{}
-	getTime := func(uint64) (time.Time, error) { return time.Now(), nil }
+	getTime := func() (time.Time, error) { return time.Now(), nil }
 	ns, err := NewNativeStaking(nil, getTime, "")
 	require.Error(err)
 	ns, err = NewNativeStaking(mcm, nil, "")

@@ -32,10 +32,10 @@ var (
 type (
 	// NativeStaking represents native staking struct
 	NativeStaking struct {
-		cm           protocol.ChainManager
-		getBlockTime GetBlockTime
-		contract     string
-		abi          abi.ABI
+		cm              protocol.ChainManager
+		getTipBlockTime GetTipBlockTime
+		contract        string
+		abi             abi.ABI
 	}
 
 	pygg struct {
@@ -54,7 +54,7 @@ type (
 )
 
 // NewNativeStaking creates a NativeStaking instance
-func NewNativeStaking(cm protocol.ChainManager, getBlockTime GetBlockTime, staking string) (*NativeStaking, error) {
+func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime, staking string) (*NativeStaking, error) {
 	abi, err := abi.JSON(strings.NewReader(NsAbi))
 	if err != nil {
 		return nil, err
@@ -62,13 +62,13 @@ func NewNativeStaking(cm protocol.ChainManager, getBlockTime GetBlockTime, staki
 	if cm == nil {
 		return nil, errors.New("failed to create native staking: empty chain manager")
 	}
-	if getBlockTime == nil {
+	if getTipBlockTime == nil {
 		return nil, errors.New("failed to create native staking: empty getBlockTime")
 	}
 	if _, err := address.FromString(staking); err != nil {
 		return nil, errors.Errorf("invalid staking contract %s", staking)
 	}
-	return &NativeStaking{cm, getBlockTime, staking, abi}, nil
+	return &NativeStaking{cm, getTipBlockTime, staking, abi}, nil
 }
 
 // Votes returns the votes on height
@@ -77,7 +77,7 @@ func (ns *NativeStaking) Votes(height uint64) (VoteTally, error) {
 		return nil, ErrNoData
 	}
 
-	now, err := ns.getBlockTime(height)
+	now, err := ns.getTipBlockTime()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get current block time")
 	}
@@ -88,6 +88,10 @@ func (ns *NativeStaking) Votes(height uint64) (VoteTally, error) {
 
 	for {
 		vote, err := ns.readBuckets(prevIndex, limit)
+		if err == ErrNoData {
+			// all data been read
+			break
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +111,10 @@ func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket,
 	}
 
 	// read the staking contract
-	ex, _ := action.NewExecution(ns.contract, 1, big.NewInt(0), 1000000, big.NewInt(0), data)
+	ex, err := action.NewExecution(ns.contract, 1, big.NewInt(0), 1000000, big.NewInt(0), data)
+	if err != nil {
+		return nil, err
+	}
 	data, _, err = ns.cm.ExecuteContractRead(dummyCaller, ex)
 	if err != nil {
 		return nil, err

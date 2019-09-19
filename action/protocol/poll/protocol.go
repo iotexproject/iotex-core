@@ -48,6 +48,9 @@ var ErrDelegatesNotAsExpected = errors.New("delegates are not as expected")
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
 
+// GetTipBlockTime defines a function to get tip block creation time
+type GetTipBlockTime func() (time.Time, error)
+
 // GetEpochHeight defines a function to get the corresponding epoch height given an epoch number
 type GetEpochHeight func(uint64) uint64
 
