@@ -8,7 +8,9 @@ package protocol
 
 import (
 	"context"
+	"strings"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -60,6 +62,8 @@ type ChainManager interface {
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
+	// ExecuteContractRead runs a read-only smart contract operation
+	ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
 }
 
 // StateManager defines the state DB interface atop IoTeX blockchain
@@ -74,4 +78,46 @@ type StateManager interface {
 	DelState(pkHash hash.Hash160) error
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch
+}
+
+// MockChainManager mocks ChainManager interface
+type MockChainManager struct {
+}
+
+// Nonce mocks base method
+func (m *MockChainManager) Nonce(addr string) (uint64, error) {
+	if strings.EqualFold("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", addr) {
+		return 0, errors.New("MockChainManager nonce error")
+	}
+	return 2, nil
+}
+
+// ChainID return chain ID
+func (m *MockChainManager) ChainID() uint32 {
+	return 0
+}
+
+// GetHashByHeight returns Block's hash by height
+func (m *MockChainManager) GetHashByHeight(height uint64) (hash.Hash256, error) {
+	return hash.ZeroHash256, nil
+}
+
+// StateByAddr returns account of a given address
+func (m *MockChainManager) StateByAddr(address string) (*state.Account, error) {
+	return nil, nil
+}
+
+// CandidatesByHeight returns the candidate list by a given height
+func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
+	return nil, nil
+}
+
+// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
+func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
+	return 0, nil, nil
+}
+
+// ExecuteContractRead runs a read-only smart contract operation
+func (m *MockChainManager) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+	return nil, nil, nil
 }
