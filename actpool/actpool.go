@@ -8,10 +8,10 @@ package actpool
 
 import (
 	"context"
+	"sync"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
