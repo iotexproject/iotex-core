@@ -17,7 +17,7 @@ require (
 	github.com/iotexproject/go-p2p v0.2.10
 	github.com/iotexproject/go-pkgs v0.1.1
 	github.com/iotexproject/iotex-address v0.2.1
-	github.com/iotexproject/iotex-election v0.2.0
+	github.com/iotexproject/iotex-election v0.2.1
 	github.com/iotexproject/iotex-proto v0.2.1-0.20190814190638-f74c55ffedf5
 	github.com/ipfs/go-datastore v0.0.5 // indirect
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
