@@ -184,7 +184,6 @@ type blockchain struct {
 
 	registry *protocol.Registry
 
-	enableExperimentalActions bool
 	// make sure there's only one goroutine deleting
 	deletingTrieHistory chan struct{}
 }
@@ -283,14 +282,6 @@ func ClockOption(clk clock.Clock) Option {
 func RegistryOption(registry *protocol.Registry) Option {
 	return func(bc *blockchain, conf config.Config) error {
 		bc.registry = registry
-		return nil
-	}
-}
-
-// EnableExperimentalActions enables the blockchain to process experimental actions
-func EnableExperimentalActions() Option {
-	return func(bc *blockchain, conf config.Config) error {
-		bc.enableExperimentalActions = true
 		return nil
 	}
 }
