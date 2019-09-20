@@ -681,6 +681,10 @@ func TestServer_GetActions(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		if test.numActions == 0 {
+			// returns empty response body in case of no result
+			require.Equal(&iotexapi.GetActionsResponse{}, res)
+		}
 	}
 }
 
@@ -742,6 +746,10 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		if test.numActions == 0 {
+			// returns empty response body in case of no result
+			require.Equal(&iotexapi.GetActionsResponse{}, res)
+		}
 		var prevAct *iotexapi.ActionInfo
 		for _, act := range res.ActionInfo {
 			if prevAct != nil {
@@ -788,6 +796,10 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 		require.Equal(test.numActions, len(res.ActionInfo))
 		if test.numActions > 0 {
 			require.Equal(test.address, res.ActionInfo[0].Sender)
+		} else {
+			// returns empty response body in case of no result
+			res.Total = 0
+			require.Equal(&iotexapi.GetActionsResponse{}, res)
 		}
 	}
 }
@@ -817,6 +829,10 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 		require.Equal(test.numActions, len(res.ActionInfo))
 		if test.numActions > 0 {
 			require.Equal(test.blkHeight, res.ActionInfo[0].BlkHeight)
+		} else {
+			// returns empty response body in case of no result
+			res.Total = 0
+			require.Equal(&iotexapi.GetActionsResponse{}, res)
 		}
 	}
 }

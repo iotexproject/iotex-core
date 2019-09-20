@@ -668,16 +668,19 @@ func TestConstantinople(t *testing.T) {
 			},
 		}
 
-		for i := 0; i < len(hashTopic); i++ {
-			r, err := bc.GetReceiptByActionHash(hashTopic[i].h)
+		// test getReceipt
+		for i := range hashTopic {
+			actHash := hashTopic[i].h
+			r, err := bc.GetReceiptByActionHash(actHash)
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
+			require.Equal(actHash, r.ActionHash)
+			require.Equal(uint64(i)+1, r.BlockHeight)
 
-			blk, err := bc.GetBlockByHeight(uint64(i) + 1)
+			blkHash, err := bc.GetBlockHashByActionHash(actHash)
 			require.NoError(err)
-			h := blk.HashBlock()
-			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(h[:]))
+			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(blkHash[:]))
 
 			if hashTopic[i].topic != nil {
 				funcSig := hash.Hash256b([]byte("Set(uint256)"))
@@ -688,6 +691,17 @@ func TestConstantinople(t *testing.T) {
 				require.True(f.Exist(funcSig[:]))
 				require.True(f.Exist(hashTopic[i].topic))
 			}
+		}
+
+		// test getActions
+		addr0 := identityset.Address(27).String()
+		total, err := bc.GetActionCountByAddress(addr0)
+		require.NoError(err)
+		require.EqualValues(7, total)
+		actions, err := bc.GetActionsByAddress(addr0, 0, total)
+		require.EqualValues(total, len(actions))
+		for i := range actions {
+			require.Equal(hashTopic[i].h[:], actions[i])
 		}
 	}
 
