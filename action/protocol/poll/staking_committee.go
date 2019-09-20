@@ -23,7 +23,6 @@ type stakingCommittee struct {
 	governanceStaking    Protocol
 	nativeStaking        *NativeStaking
 	scoreThreshold       *big.Int
-	selfStakingThreshold *big.Int
 }
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
