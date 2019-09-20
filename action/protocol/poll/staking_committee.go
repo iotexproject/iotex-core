@@ -8,6 +8,8 @@ package poll
 
 import (
 	"context"
+	"math/big"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -17,9 +19,10 @@ import (
 )
 
 type stakingCommittee struct {
-	hu                config.HeightUpgrade
-	governanceStaking Protocol
-	nativeStaking     *NativeStaking
+	hu                   config.HeightUpgrade
+	governanceStaking    Protocol
+	nativeStaking        *NativeStaking
+	scoreThreshold       *big.Int
 }
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
@@ -29,6 +32,7 @@ func NewStakingCommittee(
 	cm protocol.ChainManager,
 	getTipBlockTime GetTipBlockTime,
 	staking string,
+	scoreThreshold *big.Int,
 ) (Protocol, error) {
 	var ns *NativeStaking
 	if staking != "" {
@@ -41,6 +45,7 @@ func NewStakingCommittee(
 		hu:                hu,
 		governanceStaking: gs,
 		nativeStaking:     ns,
+		scoreThreshold:    scoreThreshold,
 	}, nil
 }
 
@@ -53,7 +58,7 @@ func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm pr
 }
 
 func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) error {
-	return sc.governanceStaking.Validate(ctx, act)
+	return validate(ctx, sc, act)
 }
 
 func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateList, error) {
@@ -61,9 +66,12 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	if err != nil {
 		return nil, err
 	}
-	// native staking starts from Bering
-	if sc.nativeStaking == nil || sc.hu.IsPre(config.Bering, height) {
+	if sc.hu.IsPre(config.Bering, height) {
 		return cand, nil
+	}
+	// native staking starts from Bering
+	if sc.nativeStaking == nil {
+		return nil, errors.New("native staking was not set after bering height")
 	}
 	// as of now, native staking result does not respect height (will be in the future)
 	nativeVotes, err := sc.nativeStaking.Votes(height)
@@ -74,26 +82,27 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get native chain candidates")
 	}
-	// merge the candidates
-	if err := sc.mergeDelegates(cand, nativeVotes); err != nil {
-		return nil, errors.Wrap(err, "failed to merge candidates")
-	}
-	return cand, nil
+	return sc.mergeDelegates(cand, nativeVotes), nil
 }
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {
 	return sc.governanceStaking.ReadState(ctx, sm, method, args...)
 }
 
-func (sc *stakingCommittee) mergeDelegates(cand state.CandidateList, votes VoteTally) error {
+func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes VoteTally) state.CandidateList {
 	// as of now, native staking does not have register contract, only voting/staking contract
 	// it is assumed that all votes done on native staking target for delegates registered on Ethereum
 	// votes cast to all outside address will not be counted and simply ignored
-	for i, c := range cand {
-		name := to12Bytes(c.CanName)
+	var merged state.CandidateList
+	for _, cand := range list {
+		clone := cand.Clone()
+		name := to12Bytes(clone.CanName)
 		if v, ok := votes[name]; ok {
-			cand[i].Votes.Add(c.Votes, v.Votes)
+			clone.Votes.Add(clone.Votes, v.Votes)
+		}
+		if clone.Votes.Cmp(sc.scoreThreshold) >= 0 {
+			merged = append(merged, clone)
 		}
 	}
-	return nil
+	return merged
 }

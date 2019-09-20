@@ -50,6 +50,21 @@ func (c *Candidate) Equal(d *Candidate) bool {
 		c.Votes.Cmp(d.Votes) == 0
 }
 
+// Clone makes a copy of the candidate
+func (c *Candidate) Clone() *Candidate {
+	if c == nil {
+		return nil
+	}
+	name := make([]byte, len(c.CanName))
+	copy(name, c.CanName)
+	return &Candidate{
+		Address:       c.Address,
+		Votes:         new(big.Int).Set(c.Votes),
+		RewardAddress: c.RewardAddress,
+		CanName:       name,
+	}
+}
+
 // CandidateList indicates the list of Candidates which is sortable
 type CandidateList []*Candidate
 

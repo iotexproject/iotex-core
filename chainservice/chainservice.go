@@ -102,7 +102,7 @@ func New(
 		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
-		committeeConfig.ScoreThreshold = cfg.Genesis.ScoreThreshold
+		committeeConfig.ScoreThreshold = "0"
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
