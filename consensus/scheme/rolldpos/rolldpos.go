@@ -272,8 +272,8 @@ func (b *Builder) SetPriKey(priKey crypto.PrivateKey) *Builder {
 	return b
 }
 
-// SetBlockchain sets the blockchain APIs
-func (b *Builder) SetBlockchain(chain ChainManager) *Builder {
+// SetChainManager sets the blockchain APIs
+func (b *Builder) SetChainManager(chain ChainManager) *Builder {
 	b.chain = chain
 	return b
 }
