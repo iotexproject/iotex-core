@@ -281,6 +281,9 @@ func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	var candidates state.CandidateList
+	if height == 0 {
+		return candidates, nil
+	}
 	// Load Candidates on the given height from underlying db
 	candidatesKey := candidatesutil.ConstructKey(height)
 	err := sf.state(candidatesKey, &candidates)
