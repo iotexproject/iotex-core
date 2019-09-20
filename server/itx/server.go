@@ -9,6 +9,7 @@ package itx
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/pprof"
 	"runtime"
@@ -308,6 +309,10 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 			); err != nil {
 				return
 			}
+			scoreThreshold, ok := new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
+			if !ok {
+				return errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
+			}
 			if pollProtocol, err = poll.NewStakingCommittee(
 				config.NewHeightUpgrade(cfg),
 				governance,
@@ -324,6 +329,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 					return header.Timestamp(), nil
 				},
 				cfg.Genesis.NativeStakingContractAddress,
+				scoreThreshold,
 			); err != nil {
 				return
 			}
