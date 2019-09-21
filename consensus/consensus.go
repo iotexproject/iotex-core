@@ -121,7 +121,7 @@ func NewConsensus(
 			SetAddr(cfg.ProducerAddress().String()).
 			SetPriKey(cfg.ProducerPrivateKey()).
 			SetConfig(cfg).
-			SetBlockchain(bc).
+			SetChainManager(bc).
 			SetActPool(ap).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).

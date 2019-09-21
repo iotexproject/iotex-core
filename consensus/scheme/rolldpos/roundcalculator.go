@@ -12,14 +12,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
 type roundCalculator struct {
-	chain                  blockchain.Blockchain
+	chain                  ChainManager
 	blockInterval          time.Duration
 	timeBasedRotation      bool
 	rp                     *rolldpos.Protocol

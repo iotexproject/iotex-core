@@ -19,10 +19,10 @@ import (
 )
 
 type stakingCommittee struct {
-	hu                   config.HeightUpgrade
-	governanceStaking    Protocol
-	nativeStaking        *NativeStaking
-	scoreThreshold       *big.Int
+	hu                config.HeightUpgrade
+	governanceStaking Protocol
+	nativeStaking     *NativeStaking
+	scoreThreshold    *big.Int
 }
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking

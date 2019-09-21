@@ -50,7 +50,7 @@ type ActionHandler interface {
 
 // ChainManager defines the blockchain interface
 type ChainManager interface {
-	// GetChainID returns the chain ID
+	// ChainID returns the chain ID
 	ChainID() uint32
 	// GetHashByHeight returns Block's hash by height
 	GetHashByHeight(height uint64) (hash.Hash256, error)
