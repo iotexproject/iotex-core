@@ -31,6 +31,9 @@ type Validator interface {
 	// AddActionValidators add validators
 	AddActionValidators(...protocol.ActionValidator)
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
+
+	// SetActPool set ActPoolManager
+	SetActPool(actPool protocol.ActPoolManager)
 }
 
 type validator struct {
@@ -40,7 +43,7 @@ type validator struct {
 	actionValidators          []protocol.ActionValidator
 	enableExperimentalActions bool
 	senderBlackList           map[string]bool
-	allactions                map[hash.Hash256]action.SealedEnvelope
+	actPool                   protocol.ActPoolManager
 }
 
 var (
@@ -84,6 +87,11 @@ func (v *validator) AddActionValidators(validators ...protocol.ActionValidator) 
 // AddActionEnvelopeValidators add action envelope validators
 func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnvelopeValidator) {
 	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
+}
+
+// SetActPool set ActPool
+func (v *validator) SetActPool(actPool protocol.ActPoolManager) {
+	v.actPool = actPool
 }
 
 func (v *validator) validateActionsOnly(
@@ -165,8 +173,10 @@ func (v *validator) validateActions(
 		}
 		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
 		// not need validate action if it already exists in pool
-		if _, exist := v.allactions[selp.Hash()]; exist {
-			continue
+		if v.actPool != nil {
+			if _, err = v.actPool.GetActionByHash(selp.Hash()); err == nil {
+				continue
+			}
 		}
 		ctx := protocol.WithValidateActionsCtx(
 			context.Background(),

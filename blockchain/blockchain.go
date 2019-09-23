@@ -161,13 +161,6 @@ type Blockchain interface {
 	RemoveSubscriber(BlockCreationSubscriber) error
 	// GetActionHashFromIndex returns action hash from index
 	GetActionHashFromIndex(index uint64) (hash.Hash256, error)
-
-	// GetAllActions returns allActions
-	GetAllActions() map[hash.Hash256]action.SealedEnvelope
-	// SetAllAction to add action
-	SetAllAction(hash hash.Hash256, action action.SealedEnvelope)
-	// DeleteAction to delete action
-	DeleteAllAction(hash hash.Hash256)
 }
 
 // blockchain implements the Blockchain interface
@@ -189,8 +182,6 @@ type blockchain struct {
 	registry *protocol.Registry
 
 	enableExperimentalActions bool
-
-	allActions map[hash.Hash256]action.SealedEnvelope
 }
 
 // Option sets blockchain construction parameter
@@ -329,13 +320,11 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	for _, bannedSender := range cfg.ActPool.BlackList {
 		senderBlackList[bannedSender] = true
 	}
-	chain.allActions = make(map[hash.Hash256]action.SealedEnvelope)
 	chain.validator = &validator{
 		sf:                        chain.sf,
 		validatorAddr:             cfg.ProducerAddress().String(),
 		enableExperimentalActions: chain.enableExperimentalActions,
 		senderBlackList:           senderBlackList,
-		allactions:                chain.allActions,
 	}
 
 	if chain.dao != nil {
@@ -537,21 +526,6 @@ func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, err
 // GetActionsFromIndex returns actions from index
 func (bc *blockchain) GetActionHashFromIndex(index uint64) (hash.Hash256, error) {
 	return bc.dao.getActionHashFromIndex(index)
-}
-
-// GetAllActions returns allActions
-func (bc *blockchain) GetAllActions() map[hash.Hash256]action.SealedEnvelope {
-	return bc.allActions
-}
-
-// SetAllAction set add Action
-func (bc *blockchain) SetAllAction(hash hash.Hash256, action action.SealedEnvelope) {
-	bc.allActions[hash] = action
-}
-
-// DeleteAllAction to delete Action
-func (bc *blockchain) DeleteAllAction(hash hash.Hash256) {
-	delete(bc.allActions, hash)
 }
 
 // GetActionToAddress returns action to address
