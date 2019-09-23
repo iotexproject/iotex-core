@@ -681,6 +681,10 @@ func TestServer_GetActions(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		if test.numActions == 0 {
+			// returns empty response body in case of no result
+			require.Equal(&iotexapi.GetActionsResponse{}, res)
+		}
 	}
 }
 
@@ -742,6 +746,10 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 		res, err := svr.GetActions(context.Background(), request)
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
+		if test.numActions == 0 {
+			// returns empty response body in case of no result
+			require.Equal(&iotexapi.GetActionsResponse{}, res)
+		}
 		var prevAct *iotexapi.ActionInfo
 		for _, act := range res.ActionInfo {
 			if prevAct != nil {
@@ -788,6 +796,10 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 		require.Equal(test.numActions, len(res.ActionInfo))
 		if test.numActions > 0 {
 			require.Equal(test.address, res.ActionInfo[0].Sender)
+		} else {
+			// returns empty response body in case of no result
+			res.Total = 0
+			require.Equal(&iotexapi.GetActionsResponse{}, res)
 		}
 	}
 }
@@ -817,6 +829,10 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 		require.Equal(test.numActions, len(res.ActionInfo))
 		if test.numActions > 0 {
 			require.Equal(test.blkHeight, res.ActionInfo[0].BlkHeight)
+		} else {
+			// returns empty response body in case of no result
+			res.Total = 0
+			require.Equal(&iotexapi.GetActionsResponse{}, res)
 		}
 	}
 }
@@ -878,17 +894,6 @@ func TestServer_GetBlockMeta(t *testing.T) {
 		require.Equal(header.LogsBloomfilter(), nil)
 		require.Equal(test.logsBloom, blkPb.LogsBloom)
 	}
-}
-
-func TestServer_GetBlockMetaUpgrade(t *testing.T) {
-	require := require.New(t)
-	cfg := newConfig()
-
-	svr, err := createServer(cfg, false)
-	require.NoError(err)
-
-	err = svr.getBlockMetaUpgrade(1000)
-	require.Equal(action.ErrNotFound, errors.Cause(err))
 }
 
 func TestServer_GetChainMeta(t *testing.T) {
@@ -1657,7 +1662,6 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, *protocol.Registry, e
 		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
-		blockchain.EnableExperimentalActions(),
 	)
 	if bc == nil {
 		return nil, nil, errors.New("failed to create blockchain")

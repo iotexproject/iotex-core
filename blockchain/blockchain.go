@@ -96,16 +96,16 @@ type Blockchain interface {
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
 	// GetTotalActions returns the total number of actions
 	GetTotalActions() (uint64, error)
-	// GetNumActions returns the number of actions
+	// GetNumActions returns the number of actions in certain block
 	GetNumActions(height uint64) (uint64, error)
 	// GetTranferAmount returns the transfer amount
 	GetTranferAmount(height uint64) (*big.Int, error)
 	// GetReceiptByActionHash returns the receipt by action hash
 	GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error)
-	// GetActionsFromAddress returns actions from address
-	GetActionsFromAddress(address string) ([]hash.Hash256, error)
-	// GetActionsToAddress returns actions to address
-	GetActionsToAddress(address string) ([]hash.Hash256, error)
+	// GetActionsFromIndex returns action hash from index
+	GetActionsFromIndex(uint64, uint64) ([][]byte, error)
+	// GetActionsByAddress returns actions by address
+	GetActionsByAddress(string, uint64, uint64) ([][]byte, error)
 	// GetActionCountByAddress returns action count by address
 	GetActionCountByAddress(address string) (uint64, error)
 	// GetActionByActionHash returns action by action hash
@@ -116,7 +116,7 @@ type Blockchain interface {
 	GetReceiptsByHeight(height uint64) ([]*action.Receipt, error)
 	// GetFactory returns the state factory
 	GetFactory() factory.Factory
-	// GetChainID returns the chain ID
+	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
 	ChainAddress() string
@@ -159,8 +159,6 @@ type Blockchain interface {
 
 	// RemoveSubscriber make you listen to every single produced block
 	RemoveSubscriber(BlockCreationSubscriber) error
-	// GetActionHashFromIndex returns action hash from index
-	GetActionHashFromIndex(index uint64) (hash.Hash256, error)
 }
 
 // blockchain implements the Blockchain interface
@@ -180,8 +178,6 @@ type blockchain struct {
 	sf factory.Factory
 
 	registry *protocol.Registry
-
-	enableExperimentalActions bool
 }
 
 // Option sets blockchain construction parameter
@@ -282,14 +278,6 @@ func RegistryOption(registry *protocol.Registry) Option {
 	}
 }
 
-// EnableExperimentalActions enables the blockchain to process experimental actions
-func EnableExperimentalActions() Option {
-	return func(bc *blockchain, conf config.Config) error {
-		bc.enableExperimentalActions = true
-		return nil
-	}
-}
-
 // NewBlockchain creates a new blockchain and DB instance
 func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	// create the Blockchain
@@ -321,10 +309,9 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 		senderBlackList[bannedSender] = true
 	}
 	chain.validator = &validator{
-		sf:                        chain.sf,
-		validatorAddr:             cfg.ProducerAddress().String(),
-		enableExperimentalActions: chain.enableExperimentalActions,
-		senderBlackList:           senderBlackList,
+		sf:              chain.sf,
+		validatorAddr:   cfg.ProducerAddress().String(),
+		senderBlackList: senderBlackList,
 	}
 
 	if chain.dao != nil {
@@ -514,27 +501,23 @@ func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 	return bc.dao.getReceiptByActionHash(h)
 }
 
-// GetActionsFromAddress returns actions from address
-func (bc *blockchain) GetActionsFromAddress(addrStr string) ([]hash.Hash256, error) {
+// GetActionsFromIndex returns action hash from index
+func (bc *blockchain) GetActionsFromIndex(start, count uint64) ([][]byte, error) {
+	return bc.dao.getActionHashFromIndex(start, count)
+}
+
+// GetActionsByAddress returns action hash by address
+func (bc *blockchain) GetActionsByAddress(addrStr string, start, count uint64) ([][]byte, error) {
 	addr, err := address.FromString(addrStr)
 	if err != nil {
 		return nil, err
 	}
-	return getActionsBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
-}
-
-// GetActionsFromIndex returns actions from index
-func (bc *blockchain) GetActionHashFromIndex(index uint64) (hash.Hash256, error) {
-	return bc.dao.getActionHashFromIndex(index)
-}
-
-// GetActionToAddress returns action to address
-func (bc *blockchain) GetActionsToAddress(addrStr string) ([]hash.Hash256, error) {
-	addr, err := address.FromString(addrStr)
-	if err != nil {
-		return nil, err
+	actions, err := bc.dao.getActionsByAddress(hash.BytesToHash160(addr.Bytes()), start, count)
+	if err != nil && errors.Cause(err) == db.ErrBucketNotExist {
+		// no actions associated with address, return nil
+		return nil, nil
 	}
-	return getActionsByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
+	return actions, err
 }
 
 // GetActionCountByAddress returns action count by address
@@ -543,24 +526,12 @@ func (bc *blockchain) GetActionCountByAddress(addrStr string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	fromCount, err := getActionCountBySenderAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
-	if err != nil {
-		return 0, err
-	}
-	toCount, err := getActionCountByRecipientAddress(bc.dao.kvstore, hash.BytesToHash160(addr.Bytes()))
-	if err != nil {
-		return 0, err
-	}
-	return fromCount + toCount, nil
-}
-
-func (bc *blockchain) getActionByActionHashHelper(h hash.Hash256) (hash.Hash256, error) {
-	return getBlockHashByActionHash(bc.dao.kvstore, h)
+	return bc.dao.getActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
 }
 
 // GetActionByActionHash returns action by action hash
 func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	blkHash, err := bc.getActionByActionHashHelper(h)
+	blkHash, err := bc.dao.getBlockHashByActionHash(h)
 	if err != nil {
 		return action.SealedEnvelope{}, err
 	}
@@ -579,7 +550,7 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 
 // GetBlockHashByActionHash returns Block hash by action hash
 func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	return getBlockHashByActionHash(bc.dao.kvstore, h)
+	return bc.dao.getBlockHashByActionHash(h)
 }
 
 // GetReceiptsByHeight returns action receipts by block height
@@ -946,13 +917,25 @@ func (bc *blockchain) startExistingBlockchain() error {
 		if err != nil {
 			return err
 		}
+
 		ws, err := bc.sf.NewWorkingSet()
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
-		if _, err := bc.runActions(blk.RunnableActions(), ws); err != nil {
+		receipts, err := bc.runActions(blk.RunnableActions(), ws)
+		if err != nil {
 			return err
 		}
+
+		_, err = bc.GetReceiptsByHeight(i)
+		if errors.Cause(err) == db.ErrNotExist {
+			// write smart contract receipt into DB
+			err = bc.dao.putReceipts(blk.Height(), receipts)
+			if err != nil {
+				return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
+			}
+		}
+
 		if err := bc.sf.Commit(ws); err != nil {
 			return err
 		}
@@ -1031,6 +1014,14 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	bc.tipHash = blk.HashBlock()
 
 	if bc.sf != nil {
+		// write smart contract receipt into DB
+		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
+		err = bc.dao.putReceipts(blk.Height(), blk.Receipts)
+		receiptTimer.End()
+		if err != nil {
+			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
+		}
+
 		sfTimer := bc.timerFactory.NewTimer("sf.Commit")
 		err := bc.sf.Commit(blk.WorkingSet)
 		sfTimer.End()
@@ -1038,14 +1029,6 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		blk.WorkingSet = nil
 		if err != nil {
 			log.L().Panic("Error when committing states.", zap.Error(err))
-		}
-
-		// write smart contract receipt into DB
-		receiptTimer := bc.timerFactory.NewTimer("putReceipt")
-		err = bc.dao.putReceipts(blk.Height(), blk.Receipts)
-		receiptTimer.End()
-		if err != nil {
-			return errors.Wrapf(err, "failed to put smart contract receipts into DB on height %d", blk.Height())
 		}
 	}
 	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", bc.tipHash[:]))

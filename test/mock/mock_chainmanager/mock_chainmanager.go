@@ -8,6 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
+	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	db "github.com/iotexproject/iotex-core/db"
@@ -286,6 +287,20 @@ func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[str
 // ProductivityByEpoch indicates an expected call of ProductivityByEpoch
 func (mr *MockChainManagerMockRecorder) ProductivityByEpoch(epochNum interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockChainManager)(nil).ProductivityByEpoch), epochNum)
+}
+
+// ExecuteContractRead mocks base method
+func (m *MockChainManager) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+	ret := m.ctrl.Call(m, "ExecuteContractRead", caller, ex)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(*action.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ExecuteContractRead indicates an expected call of ExecuteContractRead
+func (mr *MockChainManagerMockRecorder) ExecuteContractRead(caller, ex interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockChainManager)(nil).ExecuteContractRead), caller, ex)
 }
 
 // MockStateManager is a mock of StateManager interface

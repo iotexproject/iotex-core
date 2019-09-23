@@ -8,14 +8,14 @@ package chainservice
 
 import (
 	"context"
+	"database/sql"
 	"os"
 
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
-
-	"github.com/iotexproject/iotex-election/committee"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -101,22 +102,60 @@ func New(
 		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
-		committeeConfig.ScoreThreshold = cfg.Genesis.ScoreThreshold
+		committeeConfig.ScoreThreshold = "0"
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
-		kvstore := db.NewBoltDB(cfg.Chain.GravityChainDB)
 		if committeeConfig.GravityChainStartHeight != 0 {
-			if electionCommittee, err = committee.NewCommitteeWithKVStoreWithNamespace(
-				kvstore,
+			fileExists := func(path string) bool {
+				_, err := os.Stat(path)
+				if os.IsNotExist(err) {
+					return false
+				}
+				if err != nil {
+					log.L().Panic("unexpected error", zap.Error(err))
+				}
+				return true
+			}
+			isOldCommitteeDB := func(dbCfg config.DB) bool {
+				if !fileExists(dbCfg.DbPath) {
+					return false
+				}
+				db, err := bolt.Open(dbCfg.DbPath, 0666, nil)
+				if err != nil {
+					if err == bolt.ErrInvalid {
+						return false
+					}
+					log.L().Panic("unexpected error", zap.Error(err))
+				}
+				if err = db.Close(); err != nil {
+					log.L().Panic("unexpected error", zap.Error(err))
+				}
+				return true
+			}
+			oldDBCfg := cfg.Chain.GravityChainDB
+			oldDBCfg.DbPath = oldDBCfg.DbPath + ".old"
+			var kvstore db.KVStore
+			if isOldCommitteeDB(cfg.Chain.GravityChainDB) {
+				if err = os.Rename(cfg.Chain.GravityChainDB.DbPath, oldDBCfg.DbPath); err != nil {
+					return nil, err
+				}
+			}
+			if fileExists(oldDBCfg.DbPath) {
+				kvstore = db.NewBoltDB(oldDBCfg)
+			}
+			sqlDB, err := sql.Open("sqlite3", cfg.Chain.GravityChainDB.DbPath)
+			if err != nil {
+				return nil, err
+			}
+			if electionCommittee, err = committee.NewCommittee(
+				sqlDB,
 				committeeConfig,
+				kvstore,
 			); err != nil {
 				return nil, err
 			}
 		}
-	}
-	if cfg.System.EnableExperimentalActions {
-		chainOpts = append(chainOpts, blockchain.EnableExperimentalActions())
 	}
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
@@ -132,15 +171,12 @@ func New(
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
 		}
-		if cfg.System.EnableExperimentalActions {
-			chainOpts = append(chainOpts, blockchain.EnableExperimentalActions())
-		}
 		chain = blockchain.NewBlockchain(cfg, chainOpts...)
 	}
 
 	var indexBuilder *blockchain.IndexBuilder
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockchain.NewIndexBuilder(chain, cfg.Reindex); err != nil {
+		if indexBuilder, err = blockchain.NewIndexBuilder(chain, cfg.DB.Reindex); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {
@@ -150,9 +186,6 @@ func New(
 
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)
-	if cfg.System.EnableExperimentalActions {
-		actOpts = append(actOpts, actpool.EnableExperimentalActions())
-	}
 	actPool, err := actpool.NewActPool(chain, cfg.ActPool, actOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
@@ -280,7 +313,11 @@ func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action
 	if err := act.LoadProto(actPb); err != nil {
 		return err
 	}
-	return cs.actpool.Add(act)
+	err := cs.actpool.Add(act)
+	if err != nil {
+		log.L().Debug(err.Error())
+	}
+	return err
 }
 
 // HandleBlock handles incoming block request.

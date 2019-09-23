@@ -333,9 +333,9 @@ func (sct *SmartContractTest) deployContracts(
 			}
 		} else {
 			if !sct.Deployments[i].Failed {
-				r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
+				r.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status, i)
 			} else {
-				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
+				r.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status, i)
 				return []string{}
 			}
 		}
@@ -375,7 +375,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 	}
 
 	// run executions
-	for _, exec := range sct.Executions {
+	for i, exec := range sct.Executions {
 		contractAddr := contractAddresses[exec.ContractIndex]
 		if exec.AppendContractAddress {
 			exec.ContractAddressToAppend = contractAddresses[exec.ContractIndexToAppend]
@@ -395,7 +395,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			}
 		}
 		if exec.ExpectedGasConsumed() != 0 {
-			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed)
+			r.Equal(exec.ExpectedGasConsumed(), receipt.GasConsumed, i)
 		}
 		if exec.ReadOnly {
 			expected := exec.ExpectedReturnValue()
@@ -422,7 +422,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			)
 		}
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
-			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs))
+			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs), i)
 			// TODO: check value of logs
 		}
 	}
@@ -525,10 +525,12 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(err)
 		require.Equal(eHash, exe.Hash())
 
-		exes, err := bc.GetActionsFromAddress(identityset.Address(27).String())
+		total, err := bc.GetActionCountByAddress(identityset.Address(27).String())
+		require.NoError(err)
+		exes, err := bc.GetActionsByAddress(identityset.Address(27).String(), 0, total)
 		require.Nil(err)
 		require.Equal(1, len(exes))
-		require.Equal(eHash, exes[0])
+		require.Equal(eHash[:], exes[0])
 
 		blkHash, err := bc.GetBlockHashByActionHash(eHash)
 		require.Nil(err)
@@ -793,5 +795,9 @@ func TestProtocol_Validate(t *testing.T) {
 func TestMaxTime(t *testing.T) {
 	t.Run("max-time", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/maxtime.json")
+	})
+
+	t.Run("max-time-2", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/maxtime2.json")
 	})
 }

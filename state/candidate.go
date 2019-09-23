@@ -34,6 +34,7 @@ type Candidate struct {
 	Address       string
 	Votes         *big.Int
 	RewardAddress string
+	CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
 }
 
 // Equal compares two candidate instances
@@ -47,6 +48,21 @@ func (c *Candidate) Equal(d *Candidate) bool {
 	return strings.Compare(c.Address, d.Address) == 0 &&
 		c.RewardAddress == d.RewardAddress &&
 		c.Votes.Cmp(d.Votes) == 0
+}
+
+// Clone makes a copy of the candidate
+func (c *Candidate) Clone() *Candidate {
+	if c == nil {
+		return nil
+	}
+	name := make([]byte, len(c.CanName))
+	copy(name, c.CanName)
+	return &Candidate{
+		Address:       c.Address,
+		Votes:         new(big.Int).Set(c.Votes),
+		RewardAddress: c.RewardAddress,
+		CanName:       name,
+	}
 }
 
 // CandidateList indicates the list of Candidates which is sortable

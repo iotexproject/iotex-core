@@ -17,7 +17,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "injector [command] [flags]",
 	Short: "Command-line interface for injecting actions",
-	Long:  "injector is a a command-line interface to generate address.",
+	Long:  "injector is a command-line interface to generate address.",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

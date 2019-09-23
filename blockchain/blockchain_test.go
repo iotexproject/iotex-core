@@ -420,7 +420,7 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry), EnableExperimentalActions())
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	exec := execution.NewProtocol(bc, hu)
 	require.NoError(registry.Register(execution.ProtocolID, exec))
@@ -517,7 +517,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	hu := config.NewHeightUpgrade(cfg)
 	acc := account.NewProtocol(hu)
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry), EnableExperimentalActions())
+	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
@@ -612,7 +612,6 @@ func TestConstantinople(t *testing.T) {
 			PrecreatedStateFactoryOption(sf),
 			BoltDBDaoOption(),
 			RegistryOption(&registry),
-			EnableExperimentalActions(),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		exec := execution.NewProtocol(bc, hc)
@@ -669,16 +668,19 @@ func TestConstantinople(t *testing.T) {
 			},
 		}
 
-		for i := 0; i < len(hashTopic); i++ {
-			r, err := bc.GetReceiptByActionHash(hashTopic[i].h)
+		// test getReceipt
+		for i := range hashTopic {
+			actHash := hashTopic[i].h
+			r, err := bc.GetReceiptByActionHash(actHash)
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
+			require.Equal(actHash, r.ActionHash)
+			require.Equal(uint64(i)+1, r.BlockHeight)
 
-			blk, err := bc.GetBlockByHeight(uint64(i) + 1)
+			blkHash, err := bc.GetBlockHashByActionHash(actHash)
 			require.NoError(err)
-			h := blk.HashBlock()
-			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(h[:]))
+			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(blkHash[:]))
 
 			if hashTopic[i].topic != nil {
 				funcSig := hash.Hash256b([]byte("Set(uint256)"))
@@ -689,6 +691,17 @@ func TestConstantinople(t *testing.T) {
 				require.True(f.Exist(funcSig[:]))
 				require.True(f.Exist(hashTopic[i].topic))
 			}
+		}
+
+		// test getActions
+		addr0 := identityset.Address(27).String()
+		total, err := bc.GetActionCountByAddress(addr0)
+		require.NoError(err)
+		require.EqualValues(7, total)
+		actions, err := bc.GetActionsByAddress(addr0, 0, total)
+		require.EqualValues(total, len(actions))
+		for i := range actions {
+			require.Equal(hashTopic[i].h[:], actions[i])
 		}
 	}
 
@@ -735,7 +748,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			PrecreatedStateFactoryOption(sf),
 			BoltDBDaoOption(),
 			RegistryOption(&registry),
-			EnableExperimentalActions(),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		exec := execution.NewProtocol(bc, hu)
@@ -767,7 +779,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			PrecreatedStateFactoryOption(sf),
 			BoltDBDaoOption(),
 			RegistryOption(&registry),
-			EnableExperimentalActions(),
 		)
 		rolldposProtocol := rolldpos.NewProtocol(
 			genesis.Default.NumCandidateDelegates,
@@ -1111,7 +1122,7 @@ func TestActions(t *testing.T) {
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), EnableExperimentalActions())
+	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1137,7 +1148,7 @@ func TestActions(t *testing.T) {
 	require.NoError(err)
 	require.NoError(sf.Commit(ws))
 
-	val := &validator{sf: sf, validatorAddr: "", enableExperimentalActions: true}
+	val := &validator{sf: sf, validatorAddr: ""}
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	actionMap := make(map[string][]action.SealedEnvelope)

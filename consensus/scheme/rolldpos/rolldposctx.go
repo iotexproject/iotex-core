@@ -77,7 +77,7 @@ type CandidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 type rollDPoSCtx struct {
 	cfg config.RollDPoS
 	// TODO: explorer dependency deleted at #1085, need to add api params here
-	chain             blockchain.Blockchain
+	chain             ChainManager
 	actPool           actpool.ActPool
 	broadcastHandler  scheme.Broadcast
 	roundCalc         *roundCalculator
@@ -99,7 +99,7 @@ func newRollDPoSCtx(
 	blockInterval time.Duration,
 	toleratedOvertime time.Duration,
 	timeBasedRotation bool,
-	chain blockchain.Blockchain,
+	chain ChainManager,
 	actPool actpool.ActPool,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,

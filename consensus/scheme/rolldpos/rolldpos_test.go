@@ -69,7 +69,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
@@ -85,7 +85,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
@@ -105,7 +105,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetConfig(cfg).
 			SetAddr(identityset.Address(0).String()).
 			SetPriKey(sk).
-			SetBlockchain(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
 			SetActPool(mock_actpool.NewMockActPool(ctrl)).
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
@@ -215,7 +215,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetConfig(cfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetBlockchain(blockchain).
+		SetChainManager(blockchain).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
@@ -292,7 +292,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SetConfig(cfg).
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
-		SetBlockchain(blockchain).
+		SetChainManager(blockchain).
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
@@ -452,7 +452,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetAddr(chainAddrs[i].encodedAddr).
 				SetPriKey(chainAddrs[i].priKey).
 				SetConfig(cfg).
-				SetBlockchain(chain).
+				SetChainManager(chain).
 				SetActPool(actPool).
 				SetBroadcast(p2p.Broadcast).
 				SetCandidatesByHeightFunc(candidatesByHeightFunc).

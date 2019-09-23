@@ -61,7 +61,7 @@ func TestClient(t *testing.T) {
 	require.NoError(apiServer.Start())
 	// test New()
 	serverAddr := fmt.Sprintf("127.0.0.1:%d", cfg.API.Port)
-	cli, err := New(serverAddr)
+	cli, err := New(serverAddr, true)
 	require.NoError(err)
 
 	// test GetAccount()

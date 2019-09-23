@@ -154,12 +154,11 @@ var (
 			RangeQueryLimit: 1000,
 		},
 		System: System{
-			Active:                    true,
-			HeartbeatInterval:         10 * time.Second,
-			HTTPStatsPort:             8080,
-			HTTPAdminPort:             9009,
-			StartSubChainInterval:     10 * time.Second,
-			EnableExperimentalActions: false,
+			Active:                true,
+			HeartbeatInterval:     10 * time.Second,
+			HTTPStatsPort:         8080,
+			HTTPAdminPort:         9009,
+			StartSubChainInterval: 10 * time.Second,
 		},
 		DB: DB{
 			NumRetries: 3,
@@ -168,9 +167,9 @@ var (
 			},
 			SplitDBSizeMB: 0,
 			SplitDBHeight: 900000,
+			Reindex:       false,
 		},
 		Genesis: genesis.Default,
-		Reindex: false,
 	}
 
 	// ErrInvalidCfg indicates the invalid config value
@@ -287,8 +286,6 @@ type (
 		HTTPAdminPort         int           `yaml:"httpAdminPort"`
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
-		// EnableExperimentalActions is the flag to enable experimental actions
-		EnableExperimentalActions bool `yaml:"enableExperimentalActions"`
 	}
 
 	// ActPool is the actpool config
@@ -312,18 +309,16 @@ type (
 		DbPath string `yaml:"dbPath"`
 		// NumRetries is the number of retries
 		NumRetries uint8 `yaml:"numRetries"`
-
 		// RDS is the config for rds
 		RDS RDS `yaml:"RDS"`
-
 		// SQLite3 is the config for SQLITE3
 		SQLITE3 SQLITE3 `yaml:"SQLITE3"`
-
 		// SplitDBSize is the config for DB's split file size
 		SplitDBSizeMB uint64 `yaml:"splitDBSizeMB"`
-
 		// SplitDBHeight is the config for DB's split start height
 		SplitDBHeight uint64 `yaml:"splitDBHeight"`
+		// Reindex will rebuild index if set to true
+		Reindex bool `yaml:"reindex"`
 	}
 
 	// RDS is the cloud rds config
@@ -361,7 +356,6 @@ type (
 		Log        log.GlobalConfig            `yaml:"log"`
 		SubLogs    map[string]log.GlobalConfig `yaml:"subLogs"`
 		Genesis    genesis.Genesis             `yaml:"genesis"`
-		Reindex    bool                        `yaml:"reindex"`
 	}
 
 	// Validate is the interface of validating the config
@@ -395,7 +389,7 @@ func New(validates ...Validate) (Config, error) {
 	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
 	}
-	cfg.Reindex = _reindex
+	cfg.DB.Reindex = _reindex
 	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
