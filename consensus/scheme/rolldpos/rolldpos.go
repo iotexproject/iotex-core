@@ -17,15 +17,16 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -36,6 +37,32 @@ var (
 	// ErrNotEnoughCandidates indicates there are not enough candidates from the candidate pool
 	ErrNotEnoughCandidates = errors.New("Candidate pool does not have enough candidates")
 )
+
+// ChainManager defines the blockchain interface
+type ChainManager interface {
+	// CandidatesByHeight returns the candidate list by a given height
+	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
+	// GenesisTimestamp returns the timestamp of genesis
+	GenesisTimestamp() int64
+	// BlockHeaderByHeight return block header by height
+	BlockHeaderByHeight(height uint64) (*block.Header, error)
+	// BlockFooterByHeight return block footer by height
+	BlockFooterByHeight(height uint64) (*block.Footer, error)
+	// MintNewBlock creates a new block with given actions
+	// Note: the coinbase transfer will be added to the given transfers when minting a new block
+	MintNewBlock(
+		actionMap map[string][]action.SealedEnvelope,
+		timestamp time.Time,
+	) (*block.Block, error)
+	// CommitBlock validates and appends a block to the chain
+	CommitBlock(blk *block.Block) error
+	// ValidateBlock validates a new block before adding it to the blockchain
+	ValidateBlock(blk *block.Block) error
+	// TipHeight returns tip block's height
+	TipHeight() uint64
+	// ChainAddress returns chain address on parent chain, the root chain return empty.
+	ChainAddress() string
+}
 
 // RollDPoS is Roll-DPoS consensus main entrance
 type RollDPoS struct {
@@ -213,7 +240,7 @@ type Builder struct {
 	// TODO: we should use keystore in the future
 	encodedAddr      string
 	priKey           crypto.PrivateKey
-	chain            blockchain.Blockchain
+	chain            ChainManager
 	actPool          actpool.ActPool
 	broadcastHandler scheme.Broadcast
 	clock            clock.Clock
@@ -245,8 +272,8 @@ func (b *Builder) SetPriKey(priKey crypto.PrivateKey) *Builder {
 	return b
 }
 
-// SetBlockchain sets the blockchain APIs
-func (b *Builder) SetBlockchain(chain blockchain.Blockchain) *Builder {
+// SetChainManager sets the blockchain APIs
+func (b *Builder) SetChainManager(chain ChainManager) *Builder {
 	b.chain = chain
 	return b
 }
