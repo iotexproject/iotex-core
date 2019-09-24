@@ -27,7 +27,7 @@ type stakingCommittee struct {
 	scoreThreshold    *big.Int
 }
 
-// NewStakingCommittee creates a staking committee which fetches result from governance chain and native staking
+// NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
 func NewStakingCommittee(
 	hu config.HeightUpgrade,
 	gs Protocol,
