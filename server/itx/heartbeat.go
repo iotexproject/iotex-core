@@ -116,10 +116,10 @@ func (h *HeartbeatHandler) Log() {
 			if err != nil {
 				if height == 0 && errors.Cause(err) == statedb.ErrStateNotExist {
 					log.L().Warn("consensus metrics are not ready yet, candidates are empty")
+				} else {
+					log.L().Error("failed to read consensus metrics", zap.Error(err))
 					return
 				}
-				log.L().Error("failed to read consensus metrics", zap.Error(err))
-				return
 			}
 			consensusEpoch = consensusMetrics.LatestEpoch
 			consensusHeight = consensusMetrics.LatestHeight
