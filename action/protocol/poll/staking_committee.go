@@ -22,6 +22,8 @@ type stakingCommittee struct {
 	hu                config.HeightUpgrade
 	governanceStaking Protocol
 	nativeStaking     *NativeStaking
+	getEpochHeight    GetEpochHeight
+	getEpochNum       GetEpochNum
 	scoreThreshold    *big.Int
 }
 
@@ -31,9 +33,17 @@ func NewStakingCommittee(
 	gs Protocol,
 	cm protocol.ChainManager,
 	getTipBlockTime GetTipBlockTime,
+	getEpochHeight GetEpochHeight,
+	getEpochNum GetEpochNum,
 	staking string,
 	scoreThreshold *big.Int,
 ) (Protocol, error) {
+	if getEpochHeight == nil {
+		return nil, errors.New("failed to create native staking: empty getEpochHeight")
+	}
+	if getEpochNum == nil {
+		return nil, errors.New("failed to create native staking: empty getEpochNum")
+	}
 	var ns *NativeStaking
 	if staking != "" {
 		var err error
@@ -45,6 +55,8 @@ func NewStakingCommittee(
 		hu:                hu,
 		governanceStaking: gs,
 		nativeStaking:     ns,
+		getEpochHeight:    getEpochHeight,
+		getEpochNum:       getEpochNum,
 		scoreThreshold:    scoreThreshold,
 	}, nil
 }
@@ -66,15 +78,16 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	if err != nil {
 		return nil, err
 	}
-	if sc.hu.IsPre(config.Bering, height) {
+	// convert to epoch start height
+	epochHeight := sc.getEpochHeight(sc.getEpochNum(height))
+	if sc.hu.IsPre(config.Bering, epochHeight) {
 		return cand, nil
 	}
 	// native staking starts from Bering
 	if sc.nativeStaking == nil {
 		return nil, errors.New("native staking was not set after bering height")
 	}
-	// as of now, native staking result does not respect height (will be in the future)
-	nativeVotes, err := sc.nativeStaking.Votes(height)
+	nativeVotes, err := sc.nativeStaking.Votes()
 	if err == ErrNoData {
 		// no native staking data
 		return cand, nil
