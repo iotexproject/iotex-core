@@ -221,10 +221,6 @@ func (sdb *stateDB) CandidatesByHeight(height uint64) ([]*state.Candidate, error
 		}
 		err = state.ErrStateNotExist
 	}
-	if height == 0 && errors.Cause(err) == state.ErrStateNotExist {
-		log.L().Warn("candidates didn't get fetched yet", zap.Error(err))
-		return candidates, nil
-	}
 	return nil, errors.Wrapf(
 		err,
 		"failed to get state of candidateList for height %d",
