@@ -72,7 +72,7 @@ func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime,
 }
 
 // Votes returns the votes on height
-func (ns *NativeStaking) Votes(height uint64) (VoteTally, error) {
+func (ns *NativeStaking) Votes() (VoteTally, error) {
 	if ns.contract == "" {
 		return nil, ErrNoData
 	}
