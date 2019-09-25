@@ -114,9 +114,7 @@ func (h *HeartbeatHandler) Log() {
 			// RollDpos Concensus Metrics
 			consensusMetrics, err = rolldpos.Metrics()
 			if err != nil {
-				if height == 0 && errors.Cause(err) == statedb.ErrStateNotExist {
-					//error handling for empty blockchain
-				} else {
+				if height > 0 || errors.Cause(err) != statedb.ErrStateNotExist {
 					log.L().Error("failed to read consensus metrics", zap.Error(err))
 					return
 				}
