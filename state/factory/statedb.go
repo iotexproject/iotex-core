@@ -35,6 +35,7 @@ type stateDB struct {
 	dao                db.KVStore               // the underlying DB for account/contract storage
 	actionHandlers     []protocol.ActionHandler // the handlers to handle actions
 	timerFactory       *prometheustimer.TimerFactory
+	branches           []BranchDB
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -68,6 +69,14 @@ func DefaultStateDBOption() StateDBOption {
 func InMemStateDBOption() StateDBOption {
 	return func(sdb *stateDB, cfg config.Config) error {
 		sdb.dao = db.NewMemKVStore()
+		return nil
+	}
+}
+
+// BranchDBOption appends a branch db to state db
+func BranchDBOption(branch BranchDB) StateDBOption {
+	return func(sdb *stateDB, _ config.Config) error {
+		sdb.branches = append(sdb.branches, branch)
 		return nil
 	}
 }
@@ -170,7 +179,15 @@ func (sdb *stateDB) Height() (uint64, error) {
 func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers), nil
+	txs := make([]protocol.Transaction, 0, len(sdb.branches))
+	for _, branch := range sdb.branches {
+		tx, err := branch.NewTransaction()
+		if err != nil {
+			return nil, err
+		}
+		txs = append(txs, tx)
+	}
+	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers, txs), nil
 }
 
 // Commit persists all changes in RunActions() into the DB

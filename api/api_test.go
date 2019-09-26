@@ -44,8 +44,8 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
+	"github.com/iotexproject/iotex-core/test/mock/mock_poll"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -908,19 +908,17 @@ func TestServer_GetChainMeta(t *testing.T) {
 		if test.pollProtocolType == lld {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else if test.pollProtocolType == "governanceChainCommittee" {
-			committee := mock_committee.NewMockCommittee(ctrl)
+			committee := mock_poll.NewMockElectionCommittee(ctrl)
+			gravityChainStartHeight := test.epoch.GravityChainStartHeight
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				nil,
 				committee,
-				uint64(123456),
-				func(uint64) (time.Time, error) { return time.Now(), nil },
 				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
+				func(uint64) (uint64, error) { return gravityChainStartHeight, nil },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
 			)
-			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
 
 		cfg.API.TpsWindow = test.tpsWindow
@@ -1147,7 +1145,7 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mbc := mock_blockchain.NewMockBlockchain(ctrl)
-	committee := mock_committee.NewMockCommittee(ctrl)
+	committee := mock_poll.NewMockElectionCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1171,10 +1169,8 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				mbc,
 				committee,
-				uint64(123456),
-				func(uint64) (time.Time, error) { return time.Now(), nil },
 				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
+				func(uint64) (uint64, error) { return 1, nil },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
@@ -1203,7 +1199,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mbc := mock_blockchain.NewMockBlockchain(ctrl)
-	committee := mock_committee.NewMockCommittee(ctrl)
+	committee := mock_poll.NewMockElectionCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1227,10 +1223,8 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				mbc,
 				committee,
-				uint64(123456),
-				func(uint64) (time.Time, error) { return time.Now(), nil },
 				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
+				func(uint64) (uint64, error) { return 1, nil },
 				test.numCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
@@ -1259,7 +1253,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mbc := mock_blockchain.NewMockBlockchain(ctrl)
-	committee := mock_committee.NewMockCommittee(ctrl)
+	committee := mock_poll.NewMockElectionCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1283,10 +1277,8 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				mbc,
 				committee,
-				uint64(123456),
-				func(uint64) (time.Time, error) { return time.Now(), nil },
 				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
+				func(uint64) (uint64, error) { return 1, nil },
 				cfg.Genesis.NumCandidateDelegates,
 				test.numDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
@@ -1322,22 +1314,20 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
-			committee := mock_committee.NewMockCommittee(ctrl)
+			committee := mock_poll.NewMockElectionCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			msf := mock_factory.NewMockFactory(ctrl)
+			gravityChainStartHeight := test.epochData.GravityChainStartHeight
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
 				mbc,
 				committee,
-				uint64(123456),
-				func(uint64) (time.Time, error) { return time.Now(), nil },
 				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
+				func(uint64) (uint64, error) { return gravityChainStartHeight, nil },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
 			)
 			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
-			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			mbc.EXPECT().GetFactory().Return(msf).Times(2)
 			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)

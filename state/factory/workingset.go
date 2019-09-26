@@ -68,6 +68,11 @@ type (
 		GetCachedBatch() db.CachedBatch
 	}
 
+	// TransactionIterator defines an iterator for transaction array
+	TransactionIterator struct {
+		txs []protocol.Transaction
+	}
+
 	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
 	workingSet struct {
 		ver            uint64
@@ -79,6 +84,16 @@ type (
 		actionHandlers []protocol.ActionHandler
 	}
 )
+
+// Loop loops the
+func (ti *TransactionIterator) Loop(handler func(protocol.Transaction) error) error {
+	for _, tx := range ti.txs {
+		if err := handler(tx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // NewWorkingSet creates a new working set
 func NewWorkingSet(
@@ -176,7 +191,7 @@ func (ws *workingSet) RunAction(
 	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
 
 	for _, actionHandler := range ws.actionHandlers {
-		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
+		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws, nil)
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,

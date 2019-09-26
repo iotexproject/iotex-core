@@ -46,7 +46,7 @@ func NewProtocol(hu config.HeightUpgrade) *Protocol {
 }
 
 // Handle handles an account
-func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager, _ protocol.TransactionIterator) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.Transfer:
 		return p.handleTransfer(ctx, act, sm)

@@ -65,8 +65,13 @@ func (sc *stakingCommittee) Initialize(ctx context.Context, sm protocol.StateMan
 	return sc.governanceStaking.Initialize(ctx, sm)
 }
 
-func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	return sc.governanceStaking.Handle(ctx, act, sm)
+func (sc *stakingCommittee) Handle(
+	ctx context.Context,
+	act action.Action,
+	sm protocol.StateManager,
+	sti protocol.TransactionIterator,
+) (*action.Receipt, error) {
+	return sc.governanceStaking.Handle(ctx, act, sm, sti)
 }
 
 func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) error {

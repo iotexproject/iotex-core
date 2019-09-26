@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-election/db"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -57,12 +56,15 @@ type GetEpochHeight func(uint64) uint64
 // GetEpochNum defines a function to get epoch number given a block height
 type GetEpochNum func(uint64) uint64
 
+// GetGravityChainHeight defines a function to get the corresponding gravity chain height
+type GetGravityChainHeight func(uint64) (uint64, error)
+
 // Protocol defines the protocol of handling votes
 type Protocol interface {
 	// Initialize fetches the poll result for genesis block
 	Initialize(context.Context, protocol.StateManager) error
 	// Handle handles a vote
-	Handle(context.Context, action.Action, protocol.StateManager) (*action.Receipt, error)
+	Handle(context.Context, action.Action, protocol.StateManager, protocol.TransactionIterator) (*action.Receipt, error)
 	// Validate validates a vote
 	Validate(context.Context, action.Action) error
 	// DelegatesByHeight returns the delegates by chain height
@@ -107,7 +109,12 @@ func (p *lifeLongDelegatesProtocol) Initialize(
 	return setCandidates(sm, p.delegates, uint64(1))
 }
 
-func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *lifeLongDelegatesProtocol) Handle(
+	ctx context.Context,
+	act action.Action,
+	sm protocol.StateManager,
+	_ protocol.TransactionIterator,
+) (*action.Receipt, error) {
 	return handle(ctx, act, sm, p.addr.String())
 }
 
@@ -148,11 +155,9 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 
 type governanceChainCommitteeProtocol struct {
 	cm                        protocol.ChainManager
-	getBlockTime              GetBlockTime
+	electionCommittee         ElectionCommittee
 	getEpochHeight            GetEpochHeight
-	getEpochNum               GetEpochNum
-	electionCommittee         committee.Committee
-	initGravityChainHeight    uint64
+	getGravityChainHeight     GetGravityChainHeight
 	numCandidateDelegates     uint64
 	numDelegates              uint64
 	addr                      address.Address
@@ -162,27 +167,15 @@ type governanceChainCommitteeProtocol struct {
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
 func NewGovernanceChainCommitteeProtocol(
 	cm protocol.ChainManager,
-	electionCommittee committee.Committee,
-	initGravityChainHeight uint64,
-	getBlockTime GetBlockTime,
+	electionCommittee ElectionCommittee,
 	getEpochHeight GetEpochHeight,
-	getEpochNum GetEpochNum,
+	getGravityChainHeight GetGravityChainHeight,
 	numCandidateDelegates uint64,
 	numDelegates uint64,
 	initialCandidatesInterval time.Duration,
 ) (Protocol, error) {
 	if electionCommittee == nil {
 		return nil, ErrNoElectionCommittee
-	}
-	if getBlockTime == nil {
-		return nil, errors.New("getBlockTime api is not provided")
-	}
-	if getEpochHeight == nil {
-		return nil, errors.New("getEpochHeight api is not provided")
-	}
-
-	if getEpochNum == nil {
-		return nil, errors.New("getEpochNum api is not provided")
 	}
 
 	h := hash.Hash160b([]byte(ProtocolID))
@@ -193,10 +186,8 @@ func NewGovernanceChainCommitteeProtocol(
 	return &governanceChainCommitteeProtocol{
 		cm:                        cm,
 		electionCommittee:         electionCommittee,
-		initGravityChainHeight:    initGravityChainHeight,
-		getBlockTime:              getBlockTime,
+		getGravityChainHeight:     getGravityChainHeight,
 		getEpochHeight:            getEpochHeight,
-		getEpochNum:               getEpochNum,
 		numCandidateDelegates:     numCandidateDelegates,
 		numDelegates:              numDelegates,
 		addr:                      addr,
@@ -208,11 +199,9 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) (err error) {
-	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initGravityChainHeight))
 	var ds state.CandidateList
-
 	for {
-		ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight)
+		ds, err = p.DelegatesByHeight(0)
 		if err == nil || errors.Cause(err) != db.ErrNotExist {
 			break
 		}
@@ -231,7 +220,12 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	return setCandidates(sm, ds, uint64(1))
 }
 
-func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *governanceChainCommitteeProtocol) Handle(
+	ctx context.Context,
+	act action.Action,
+	sm protocol.StateManager,
+	_ protocol.TransactionIterator,
+) (*action.Receipt, error) {
 	return handle(ctx, act, sm, p.addr.String())
 }
 
@@ -239,7 +233,7 @@ func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act act
 	return validate(ctx, p, act)
 }
 
-func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) DelegatesByHeight(height uint64) (state.CandidateList, error) {
 	r, err := p.electionCommittee.ResultByHeight(height)
 	if err != nil {
 		return nil, err
@@ -274,18 +268,6 @@ func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height 
 		})
 	}
 	return l, nil
-}
-
-func (p *governanceChainCommitteeProtocol) DelegatesByHeight(height uint64) (state.CandidateList, error) {
-	gravityHeight, err := p.getGravityHeight(height)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get gravity chain height")
-	}
-	log.L().Debug(
-		"fetch delegates from gravity chain",
-		zap.Uint64("gravityChainHeight", gravityHeight),
-	)
-	return p.delegatesByGravityChainHeight(gravityHeight)
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(
@@ -326,7 +308,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		gravityStartheight, err := p.getGravityHeight(byteutil.BytesToUint64(args[0]))
+		gravityStartheight, err := p.getGravityChainHeight(byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -383,20 +365,6 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(epoch
 		activeBlockProducers = append(activeBlockProducers, blockProducerMap[blockProducerList[i]])
 	}
 	return activeBlockProducers, nil
-}
-
-func (p *governanceChainCommitteeProtocol) getGravityHeight(height uint64) (uint64, error) {
-	epochNumber := p.getEpochNum(height)
-	epochHeight := p.getEpochHeight(epochNumber)
-	blkTime, err := p.getBlockTime(epochHeight)
-	if err != nil {
-		return 0, err
-	}
-	log.L().Debug(
-		"get gravity chain height by time",
-		zap.Time("time", blkTime),
-	)
-	return p.electionCommittee.HeightByTime(blkTime)
 }
 
 func validateDelegates(cs state.CandidateList) error {

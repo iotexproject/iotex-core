@@ -47,7 +47,12 @@ func NewProtocol(cm protocol.ChainManager, hu config.HeightUpgrade) *Protocol {
 }
 
 // Handle handles an execution
-func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(
+	ctx context.Context,
+	act action.Action,
+	sm protocol.StateManager,
+	_ protocol.TransactionIterator,
+) (*action.Receipt, error) {
 	exec, ok := act.(*action.Execution)
 	if !ok {
 		return nil, nil

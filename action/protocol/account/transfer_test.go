@@ -108,7 +108,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			IntrinsicGas: gas,
 			Registry:     &registry,
 		})
-	receipt, err := p.Handle(ctx, transfer, ws)
+	receipt, err := p.Handle(ctx, transfer, ws, nil)
 	require.NoError(err)
 	require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	require.NoError(sf.Commit(ws))
@@ -135,7 +135,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	)
 	require.NoError(err)
 	// Assume that the gas of this transfer is the same as previous one
-	receipt, err = p.Handle(ctx, transfer, ws)
+	receipt, err = p.Handle(ctx, transfer, ws, nil)
 	require.NoError(err)
 	require.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 	require.NoError(sf.Commit(ws))

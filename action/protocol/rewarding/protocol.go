@@ -69,6 +69,7 @@ func (p *Protocol) Handle(
 	ctx context.Context,
 	act action.Action,
 	sm protocol.StateManager,
+	_ protocol.TransactionIterator,
 ) (*action.Receipt, error) {
 	// TODO: simplify the boilerplate
 	switch act := act.(type) {

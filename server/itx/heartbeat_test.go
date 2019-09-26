@@ -25,6 +25,7 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	s, err := NewServer(cfg)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.EnableGravityChainVoting = true
+	cfg.Genesis.GravityChainStartHeight = 12345
 	require.NoError(err)
 	require.NotNil(s)
 	handler := NewHeartbeatHandler(s)
