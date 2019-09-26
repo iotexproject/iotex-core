@@ -124,12 +124,11 @@ func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket,
 
 	// decode the contract read result
 	pygg := &pygg{}
-	err = ns.abi.Unpack(pygg, "getActivePyggs", data)
-	if err.Error() == "abi: unmarshalling empty output" {
-		// no data in contract (one possible reason is that contract does not exist yet)
-		return nil, ErrNoData
-	}
-	if err != nil {
+	if err = ns.abi.Unpack(pygg, "getActivePyggs", data); err != nil {
+		if err.Error() == "abi: unmarshalling empty output" {
+			// no data in contract (one possible reason is that contract does not exist yet)
+			return nil, ErrNoData
+		}
 		return nil, err
 	}
 	if len(pygg.CanNames) == 0 {
