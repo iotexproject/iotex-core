@@ -10,6 +10,7 @@ import (
 	"context"
 	"database/sql"
 	"os"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api"
@@ -38,12 +40,13 @@ import (
 
 // ChainService is a blockchain service with all blockchain components.
 type ChainService struct {
-	actpool           actpool.ActPool
-	blocksync         blocksync.BlockSync
-	consensus         consensus.Consensus
-	chain             blockchain.Blockchain
-	electionCommittee committee.Committee
-	rDPoSProtocol     *rolldpos.Protocol
+	actpool               actpool.ActPool
+	blocksync             blocksync.BlockSync
+	consensus             consensus.Consensus
+	chain                 blockchain.Blockchain
+	electionCommittee     poll.ElectionCommittee
+	getGravityChainHeight poll.GetGravityChainHeight
+	rDPoSProtocol         *rolldpos.Protocol
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
 	indexBuilder *blockchain.IndexBuilder
@@ -94,69 +97,7 @@ func New(
 	}
 	registry := protocol.Registry{}
 	chainOpts = append(chainOpts, blockchain.RegistryOption(&registry))
-	var electionCommittee committee.Committee
-	if cfg.Genesis.EnableGravityChainVoting {
-		committeeConfig := cfg.Chain.Committee
-		committeeConfig.GravityChainStartHeight = cfg.Genesis.GravityChainStartHeight
-		committeeConfig.GravityChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
-		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
-		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
-		committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
-		committeeConfig.ScoreThreshold = "0"
-		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
-		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
-		if committeeConfig.GravityChainStartHeight != 0 {
-			fileExists := func(path string) bool {
-				_, err := os.Stat(path)
-				if os.IsNotExist(err) {
-					return false
-				}
-				if err != nil {
-					log.L().Panic("unexpected error", zap.Error(err))
-				}
-				return true
-			}
-			isOldCommitteeDB := func(dbCfg config.DB) bool {
-				if !fileExists(dbCfg.DbPath) {
-					return false
-				}
-				db, err := bolt.Open(dbCfg.DbPath, 0666, nil)
-				if err != nil {
-					if err == bolt.ErrInvalid {
-						return false
-					}
-					log.L().Panic("unexpected error", zap.Error(err))
-				}
-				if err = db.Close(); err != nil {
-					log.L().Panic("unexpected error", zap.Error(err))
-				}
-				return true
-			}
-			oldDBCfg := cfg.Chain.GravityChainDB
-			oldDBCfg.DbPath = oldDBCfg.DbPath + ".old"
-			var kvstore db.KVStore
-			if isOldCommitteeDB(cfg.Chain.GravityChainDB) {
-				if err = os.Rename(cfg.Chain.GravityChainDB.DbPath, oldDBCfg.DbPath); err != nil {
-					return nil, err
-				}
-			}
-			if fileExists(oldDBCfg.DbPath) {
-				kvstore = db.NewBoltDB(oldDBCfg)
-			}
-			sqlDB, err := sql.Open("sqlite3", cfg.Chain.GravityChainDB.DbPath)
-			if err != nil {
-				return nil, err
-			}
-			if electionCommittee, err = committee.NewCommittee(
-				sqlDB,
-				committeeConfig,
-				kvstore,
-			); err != nil {
-				return nil, err
-			}
-		}
-	}
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
 	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
@@ -220,6 +161,37 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
 	}
+	var electionCommittee poll.ElectionCommittee
+	var getGravityChainHeight poll.GetGravityChainHeight
+	gravityCommittee, err := createGravityCommittee(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if gravityCommittee != nil {
+		getEpochStartBlockTime := func(height uint64) (time.Time, error) {
+			epochStartHeight := rDPoSProtocol.GetEpochHeight(rDPoSProtocol.GetEpochNum(height))
+			header, err := chain.BlockHeaderByHeight(epochStartHeight)
+			if err != nil {
+				return time.Now(), errors.Wrapf(
+					err, "error when getting the block at height: %d",
+					epochStartHeight,
+				)
+			}
+			return header.Timestamp(), nil
+		}
+		electionCommittee = poll.NewElectionCommittee(
+			gravityCommittee,
+			getEpochStartBlockTime,
+			cfg.Genesis.GravityChainStartHeight,
+		)
+		getGravityChainHeight = func(height uint64) (uint64, error) {
+			ts, err := getEpochStartBlockTime(height)
+			if err != nil {
+				return 0, err
+			}
+			return gravityCommittee.HeightByTime(ts)
+		}
+	}
 
 	var apiSvr *api.Server
 	apiSvr, err = api.NewServer(
@@ -238,16 +210,88 @@ func New(
 	}
 
 	return &ChainService{
-		actpool:           actPool,
-		chain:             chain,
-		blocksync:         bs,
-		consensus:         consensus,
-		rDPoSProtocol:     rDPoSProtocol,
-		electionCommittee: electionCommittee,
-		indexBuilder:      indexBuilder,
-		api:               apiSvr,
-		registry:          &registry,
+		actpool:               actPool,
+		chain:                 chain,
+		blocksync:             bs,
+		consensus:             consensus,
+		rDPoSProtocol:         rDPoSProtocol,
+		electionCommittee:     electionCommittee,
+		getGravityChainHeight: getGravityChainHeight,
+		indexBuilder:          indexBuilder,
+		api:                   apiSvr,
+		registry:              &registry,
 	}, nil
+}
+
+func createGravityCommittee(cfg config.Config) (committee.Committee, error) {
+	if !cfg.Genesis.EnableGravityChainVoting || cfg.Genesis.GravityChainStartHeight == 0 {
+		// TODO (zhi): return error if gravity chain start height is 0
+		return nil, nil
+	}
+	committeeConfig := cfg.Chain.Committee
+	committeeConfig.GravityChainStartHeight = cfg.Genesis.GravityChainStartHeight
+	committeeConfig.GravityChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
+	committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
+	committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
+	committeeConfig.VoteThreshold = cfg.Genesis.VoteThreshold
+	committeeConfig.ScoreThreshold = "0"
+	committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
+	committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
+
+	fileExists := func(path string) bool {
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			return false
+		}
+		if err != nil {
+			log.L().Panic("unexpected error", zap.Error(err))
+		}
+		return true
+	}
+	isOldCommitteeDB := func(dbCfg config.DB) bool {
+		if !fileExists(dbCfg.DbPath) {
+			return false
+		}
+		db, err := bolt.Open(dbCfg.DbPath, 0666, nil)
+		if err != nil {
+			if err == bolt.ErrInvalid {
+				return false
+			}
+			log.L().Panic("unexpected error", zap.Error(err))
+		}
+		if err = db.Close(); err != nil {
+			log.L().Panic("unexpected error", zap.Error(err))
+		}
+		return true
+	}
+	oldDBCfg := cfg.Chain.GravityChainDB
+	oldDBCfg.DbPath = oldDBCfg.DbPath + ".old"
+	var kvstore db.KVStore
+	if isOldCommitteeDB(cfg.Chain.GravityChainDB) {
+		if err := os.Rename(cfg.Chain.GravityChainDB.DbPath, oldDBCfg.DbPath); err != nil {
+			return nil, err
+		}
+	}
+	if fileExists(oldDBCfg.DbPath) {
+		kvstore = db.NewBoltDB(oldDBCfg)
+	}
+	sqlDB, err := sql.Open("sqlite3", cfg.Chain.GravityChainDB.DbPath)
+	if err != nil {
+		return nil, err
+	}
+	arch, err := committee.NewArchive(
+		sqlDB,
+		committeeConfig.GravityChainStartHeight,
+		committeeConfig.GravityChainHeightInterval,
+		kvstore,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return committee.NewCommittee(
+		arch,
+		committeeConfig,
+	)
 }
 
 // Start starts the server
@@ -371,8 +415,13 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 }
 
 // ElectionCommittee returns the election committee
-func (cs *ChainService) ElectionCommittee() committee.Committee {
+func (cs *ChainService) ElectionCommittee() poll.ElectionCommittee {
 	return cs.electionCommittee
+}
+
+// GravityChainHeight returns the corresponding gravity chain height
+func (cs *ChainService) GravityChainHeight(height uint64) (uint64, error) {
+	return cs.getGravityChainHeight(height)
 }
 
 // RollDPoSProtocol returns the roll dpos protocol

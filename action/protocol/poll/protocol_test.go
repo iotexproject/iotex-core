@@ -27,7 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-core/test/mock/mock_poll"
 	"github.com/iotexproject/iotex-election/types"
 )
 
@@ -51,17 +51,14 @@ func initConstruct(t *testing.T) (Protocol, context.Context, factory.WorkingSet,
 	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	committee := mock_committee.NewMockCommittee(ctrl)
+	committee := mock_poll.NewMockElectionCommittee(ctrl)
 	r := types.NewElectionResultForTest(time.Now())
-	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
-	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
+	committee.EXPECT().ResultByHeight(gomock.Any()).Return(r, nil).AnyTimes()
 	p, err := NewGovernanceChainCommitteeProtocol(
 		nil,
 		committee,
-		uint64(123456),
-		func(uint64) (time.Time, error) { return time.Now(), nil },
 		func(uint64) uint64 { return 1 },
-		func(uint64) uint64 { return 1 },
+		func(uint64) (uint64, error) { return 1, nil },
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,

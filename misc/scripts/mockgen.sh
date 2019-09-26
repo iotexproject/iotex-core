@@ -83,3 +83,8 @@ mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go 
         -package=mock_apiserviceclient \
         APIServiceClient
 
+mkdir -p ./test/mock/mock_poll
+mockgen -destination=./test/mock/mock_poll/mock_electioncommittee.go \
+        -source=./action/protocol/poll/electioncommittee.go \
+        -package=mock_poll \
+        ElectionCommittee
