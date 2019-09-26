@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/iotexproject/go-fsm"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/version"
+	statedb "github.com/iotexproject/iotex-core/state"
 )
 
 // TODO: HeartbeatHandler opens encapsulation of a few structs to inspect the internal status, we need to find a better
@@ -101,6 +103,7 @@ func (h *HeartbeatHandler) Log() {
 		numPendingEvts := 0
 		consensusEpoch := uint64(0)
 		consensusHeight := uint64(0)
+		height := c.Blockchain().TipHeight()
 
 		var consensusMetrics scheme.ConsensusMetrics
 		var state fsm.State
@@ -111,8 +114,10 @@ func (h *HeartbeatHandler) Log() {
 			// RollDpos Concensus Metrics
 			consensusMetrics, err = rolldpos.Metrics()
 			if err != nil {
-				log.L().Error("failed to read consensus metrics", zap.Error(err))
-				return
+				if height > 0 || errors.Cause(err) != statedb.ErrStateNotExist {
+					log.L().Error("failed to read consensus metrics", zap.Error(err))
+					return
+				}
 			}
 			consensusEpoch = consensusMetrics.LatestEpoch
 			consensusHeight = consensusMetrics.LatestHeight
@@ -121,8 +126,6 @@ func (h *HeartbeatHandler) Log() {
 		}
 
 		// Block metrics
-		height := c.Blockchain().TipHeight()
-
 		actPoolSize := c.ActionPool().GetSize()
 		actPoolCapacity := c.ActionPool().GetCapacity()
 		targetHeight := c.BlockSync().TargetHeight()
