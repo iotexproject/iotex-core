@@ -228,7 +228,6 @@ func New(
 		dispatcher,
 		actPool,
 		&registry,
-		electionCommittee,
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 			return p2pAgent.BroadcastOutbound(ctx, msg)
