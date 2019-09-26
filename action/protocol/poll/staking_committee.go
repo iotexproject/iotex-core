@@ -20,10 +20,10 @@ import (
 
 type stakingCommittee struct {
 	hu                config.HeightUpgrade
-	governanceStaking Protocol
-	nativeStaking     *NativeStaking
 	getEpochHeight    GetEpochHeight
 	getEpochNum       GetEpochNum
+	governanceStaking Protocol
+	nativeStaking     *NativeStaking
 	scoreThreshold    *big.Int
 }
 

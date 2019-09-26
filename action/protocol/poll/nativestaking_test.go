@@ -81,7 +81,12 @@ func TestStaking(t *testing.T) {
 		}
 	}
 
+	// test empty data from contract
 	require.NoError(ns.abi.Unpack(pygg, "getActivePyggs", empty))
 	require.EqualValues(0, pygg.Count.Int64())
 	require.Equal(0, len(pygg.CanNames))
+
+	// test no data from contract
+	err = ns.abi.Unpack(pygg, "getActivePyggs", []byte{})
+	require.Equal(err.Error(), "abi: unmarshalling empty output")
 }
