@@ -64,7 +64,7 @@ type Protocol interface {
 	// Initialize fetches the poll result for genesis block
 	Initialize(context.Context, protocol.StateManager) error
 	// Handle handles a vote
-	Handle(context.Context, action.Action, protocol.StateManager, protocol.TransactionIterator) (*action.Receipt, error)	
+	Handle(context.Context, action.Action, protocol.StateManager, protocol.TransactionIterator) (*action.Receipt, error)
 	// Validate validates a vote
 	Validate(context.Context, action.Action) error
 	// DelegatesByHeight returns the delegates by chain height
