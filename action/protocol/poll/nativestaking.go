@@ -24,9 +24,10 @@ import (
 
 var (
 	dummyCaller, _ = address.FromString(address.ZeroAddress)
-
 	// ErrNoData is an error that there's no data in the contract
 	ErrNoData = errors.New("no data")
+	// ErrEndOfData is an error that reaching end of data in the contract
+	ErrEndOfData = errors.New("end of data")
 )
 
 type (
@@ -88,7 +89,7 @@ func (ns *NativeStaking) Votes() (VoteTally, error) {
 
 	for {
 		vote, err := ns.readBuckets(prevIndex, limit)
-		if err == ErrNoData {
+		if err == ErrEndOfData {
 			// all data been read
 			break
 		}
@@ -97,6 +98,7 @@ func (ns *NativeStaking) Votes() (VoteTally, error) {
 		}
 		votes.tally(vote, now)
 		if len(vote) < int(limit.Int64()) {
+			// all data been read
 			break
 		}
 		prevIndex.Add(prevIndex, limit)
@@ -122,11 +124,16 @@ func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket,
 
 	// decode the contract read result
 	pygg := &pygg{}
-	if err := ns.abi.Unpack(pygg, "getActivePyggs", data); err != nil {
+	err = ns.abi.Unpack(pygg, "getActivePyggs", data)
+	if err.Error() == "abi: unmarshalling empty output" {
+		// no data in contract (one possible reason is that contract does not exist yet)
+		return nil, ErrNoData
+	}
+	if err != nil {
 		return nil, err
 	}
 	if len(pygg.CanNames) == 0 {
-		return nil, ErrNoData
+		return nil, ErrEndOfData
 	}
 	buckets := make([]*types.Bucket, len(pygg.CanNames))
 	for i := range pygg.CanNames {
