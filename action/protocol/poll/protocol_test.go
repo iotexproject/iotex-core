@@ -113,7 +113,7 @@ func TestHandle(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(selp)
 	// Case 1: wrong action type
-	receipt, err := p.Handle(ctx, selp.Action(), nil)
+	receipt, err := p.Handle(ctx, selp.Action(), nil, nil)
 	require.NoError(err)
 	require.Nil(receipt)
 	// Case 2: right action type,setCandidates error
@@ -126,7 +126,7 @@ func TestHandle(t *testing.T) {
 	selp, err = action.Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp)
-	receipt, err = p.Handle(ctx, selp.Action(), sm)
+	receipt, err = p.Handle(ctx, selp.Action(), sm, nil)
 	require.Error(err)
 	require.Nil(receipt)
 	// Case 3: all right
@@ -141,7 +141,7 @@ func TestHandle(t *testing.T) {
 	selp3, err := action.Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp3)
-	receipt, err = p.Handle(ctx3, selp3.Action(), sm)
+	receipt, err = p.Handle(ctx3, selp3.Action(), sm, nil)
 	require.NoError(err)
 	require.NotNil(receipt)
 }

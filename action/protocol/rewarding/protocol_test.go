@@ -268,7 +268,7 @@ func TestProtocol_Handle(t *testing.T) {
 	se1, err := action.Sign(e1, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err := p.Handle(ctx, se1.Action(), ws)
+	receipt, err := p.Handle(ctx, se1.Action(), ws, nil)
 	require.NoError(t, err)
 	balance, err := p.TotalBalance(ctx, ws)
 	require.NoError(t, err)
@@ -288,12 +288,12 @@ func TestProtocol_Handle(t *testing.T) {
 	se2, err := action.Sign(e2, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err = p.Handle(ctx, se2.Action(), ws)
+	receipt, err = p.Handle(ctx, se2.Action(), ws, nil)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs))
 	// Grant the block reward again should fail
-	receipt, err = p.Handle(ctx, se2.Action(), ws)
+	receipt, err = p.Handle(ctx, se2.Action(), ws, nil)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 }

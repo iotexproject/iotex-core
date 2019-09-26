@@ -45,7 +45,7 @@ type ActionEnvelopeValidator interface {
 // called one by one to process it. ActionHandler implementation is supposed to parse the sub-type of the action to
 // decide if it wants to handle this action or not.
 type ActionHandler interface {
-	Handle(context.Context, action.Action, StateManager) (*action.Receipt, error)
+	Handle(context.Context, action.Action, StateManager, TransactionIterator) (*action.Receipt, error)
 }
 
 // ChainManager defines the blockchain interface
@@ -78,6 +78,17 @@ type StateManager interface {
 	DelState(pkHash hash.Hash160) error
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch
+}
+
+// Transaction defines the state db transaction interface
+type Transaction interface {
+	Commit() error
+	Rollback() error
+}
+
+// TransactionIterator defines an interface to iterate state txs
+type TransactionIterator interface {
+	Loop(handler func(tx Transaction) error) error
 }
 
 // MockChainManager mocks ChainManager interface

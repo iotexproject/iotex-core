@@ -618,7 +618,7 @@ func TestCachedBatch(t *testing.T) {
 }
 
 func TestSTXCachedBatch(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))}, nil)
 	testCachedBatch(ws, t, true)
 }
 
@@ -668,7 +668,7 @@ func TestGetDB(t *testing.T) {
 }
 
 func TestSTXGetDB(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))}, nil)
 	testGetDB(ws, t)
 }
 
@@ -699,7 +699,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
-		ws := newStateTX(0, db.NewMemKVStore(), nil)
+		ws := newStateTX(0, db.NewMemKVStore(), nil, nil)
 		testDeleteAndPutSameKey(t, ws)
 	})
 }

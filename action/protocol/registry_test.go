@@ -53,7 +53,7 @@ type MockProtocol struct {
 }
 
 // Handle handles an execution
-func (p *MockProtocol) Handle(ctx context.Context, act action.Action, sm StateManager) (*action.Receipt, error) {
+func (p *MockProtocol) Handle(ctx context.Context, act action.Action, sm StateManager, _ TransactionIterator) (*action.Receipt, error) {
 	return nil, nil
 }
 

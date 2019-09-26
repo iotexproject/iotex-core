@@ -64,7 +64,7 @@ type Protocol interface {
 	// Initialize fetches the poll result for genesis block
 	Initialize(context.Context, protocol.StateManager) error
 	// Handle handles a vote
-	Handle(context.Context, action.Action, protocol.StateManager) (*action.Receipt, error)
+	Handle(context.Context, action.Action, protocol.StateManager, protocol.TransactionIterator) (*action.Receipt, error)	
 	// Validate validates a vote
 	Validate(context.Context, action.Action) error
 	// DelegatesByHeight returns the delegates by chain height
@@ -109,7 +109,12 @@ func (p *lifeLongDelegatesProtocol) Initialize(
 	return setCandidates(sm, p.delegates, uint64(1))
 }
 
-func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *lifeLongDelegatesProtocol) Handle(
+	ctx context.Context,
+	act action.Action,
+	sm protocol.StateManager,
+	_ protocol.TransactionIterator,
+) (*action.Receipt, error) {
 	return handle(ctx, act, sm, p.addr.String())
 }
 
@@ -214,7 +219,12 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	return setCandidates(sm, ds, uint64(1))
 }
 
-func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *governanceChainCommitteeProtocol) Handle(
+	ctx context.Context,
+	act action.Action,
+	sm protocol.StateManager,
+	_ protocol.TransactionIterator,
+) (*action.Receipt, error) {
 	return handle(ctx, act, sm, p.addr.String())
 }
 

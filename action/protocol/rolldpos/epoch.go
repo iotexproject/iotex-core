@@ -36,7 +36,7 @@ func NewProtocol(numCandidateDelegates uint64, numDelegates uint64, numSubEpochs
 }
 
 // Handle handles a modification
-func (p *Protocol) Handle(context.Context, action.Action, protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) Handle(context.Context, action.Action, protocol.StateManager, protocol.TransactionIterator) (*action.Receipt, error) {
 	return nil, nil
 }
 

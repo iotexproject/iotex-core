@@ -27,6 +27,7 @@ type stateTX struct {
 	cb             db.CachedBatch // cached batch for pending writes
 	dao            db.KVStore     // the underlying DB for account/contract storage
 	actionHandlers []protocol.ActionHandler
+	txs            []protocol.Transaction
 }
 
 // newStateTX creates a new state tx
@@ -34,12 +35,14 @@ func newStateTX(
 	version uint64,
 	kv db.KVStore,
 	actionHandlers []protocol.ActionHandler,
+	txs []protocol.Transaction,
 ) *stateTX {
 	return &stateTX{
 		ver:            version,
 		cb:             db.NewCachedBatch(),
 		dao:            kv,
 		actionHandlers: actionHandlers,
+		txs:            txs,
 	}
 }
 
@@ -102,7 +105,7 @@ func (stx *stateTX) RunAction(
 	raCtx.Nonce = elp.Nonce()
 	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
 	for _, actionHandler := range stx.actionHandlers {
-		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
+		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx, &TransactionIterator{txs: stx.txs})
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
@@ -134,6 +137,12 @@ func (stx *stateTX) Revert(snapshot int) error { return stx.cb.Revert(snapshot) 
 
 // Commit persists all changes in RunActions() into the DB
 func (stx *stateTX) Commit() error {
+	// Commit branch db transactions first
+	for _, tx := range stx.txs {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
 	// Commit all changes in a batch
 	dbBatchSizelMtc.WithLabelValues().Set(float64(stx.cb.Size()))
 	if err := stx.dao.Commit(stx.cb); err != nil {
