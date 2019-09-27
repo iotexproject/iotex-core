@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -22,6 +23,17 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
+
+var (
+	actpoolMtc = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "iotex_actpool_rejection_metrics",
+		Help: "actpool metrics.",
+	}, []string{"type"})
+)
+
+func init() {
+	prometheus.MustRegister(actpoolMtc)
+}
 
 // ActPool is the interface of actpool
 type ActPool interface {
@@ -159,29 +171,36 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	pubKeyHash := act.SrcPubkey().Hash()
 	srcAddr, err := address.FromBytes(pubKeyHash)
 	if err != nil {
+		actpoolMtc.WithLabelValues("invalidCallerPk").Inc()
 		return errors.Wrap(err, "failed to get address from bytes")
 	}
 	if _, ok := ap.senderBlackList[srcAddr.String()]; ok {
+		actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
+		actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
 		return errors.Wrap(action.ErrActPool, "insufficient space for action")
 	}
 	intrinsicGas, err := act.IntrinsicGas()
 	if err != nil {
+		actpoolMtc.WithLabelValues("failedGetIntrinsicGas").Inc()
 		return errors.Wrap(err, "failed to get action's intrinsic gas")
 	}
 	if ap.gasInPool+intrinsicGas > ap.cfg.MaxGasLimitPerPool {
+		actpoolMtc.WithLabelValues("overMaxGasLimitPerPool").Inc()
 		return errors.Wrap(action.ErrActPool, "insufficient gas space for action")
 	}
 	hash := act.Hash()
 	// Reject action if it already exists in pool
 	if _, exist := ap.allActions[hash]; exist {
+		actpoolMtc.WithLabelValues("existedAction").Inc()
 		return errors.Errorf("reject existed action: %x", hash)
 	}
 	// Reject action if the gas price is lower than the threshold
 	if act.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
+		actpoolMtc.WithLabelValues("gasPriceLower").Inc()
 		return errors.Errorf(
 			"reject the action %x whose gas price %s is lower than minimal gas price threshold",
 			hash,
@@ -202,6 +221,7 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 			},
 		)
 		if err := validator.Validate(ctx, act); err != nil {
+			actpoolMtc.WithLabelValues("invalidAction").Inc()
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
 	}
@@ -214,6 +234,7 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 			},
 		)
 		if err := validator.Validate(ctx, act.Action()); err != nil {
+			actpoolMtc.WithLabelValues("invalidAction").Inc()
 			return errors.Wrapf(err, "reject invalid action: %x", hash)
 		}
 	}
@@ -311,6 +332,7 @@ func (ap *actPool) GetGasCapacity() uint64 {
 func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash hash.Hash256, actNonce uint64) error {
 	confirmedNonce, err := ap.bc.Nonce(sender)
 	if err != nil {
+		actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", hash)
 	}
 
@@ -325,12 +347,14 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 		// Initialize balance for new account
 		balance, err := ap.bc.Balance(sender)
 		if err != nil {
+			actpoolMtc.WithLabelValues("failedToGetBalance").Inc()
 			return errors.Wrapf(err, "failed to get sender's balance for action %x", hash)
 		}
 		queue.SetPendingBalance(balance)
 	}
 	if queue.Overlaps(act) {
 		// Nonce already exists
+		actpoolMtc.WithLabelValues("nonceUsed").Inc()
 		return errors.Wrapf(action.ErrNonce, "duplicate nonce for action %x", hash)
 	}
 
@@ -340,15 +364,18 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 			log.Hex("hash", hash[:]),
 			zap.Uint64("startNonce", confirmedNonce+1),
 			zap.Uint64("actNonce", actNonce))
+		actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
 		return errors.Wrapf(action.ErrNonce, "nonce too large ,actNonce : %x", actNonce)
 	}
 
 	cost, err := act.Cost()
 	if err != nil {
+		actpoolMtc.WithLabelValues("failedToGetCost").Inc()
 		return errors.Wrapf(err, "failed to get cost of action %x", hash)
 	}
 	if queue.PendingBalance().Cmp(cost) < 0 {
 		// Pending balance is insufficient
+		actpoolMtc.WithLabelValues("insufficientBalance").Inc()
 		return errors.Wrapf(
 			action.ErrBalance,
 			"insufficient balance for action %x, cost = %s, pending balance = %s, sender = %s",
@@ -360,6 +387,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 	}
 
 	if err := queue.Put(act); err != nil {
+		actpoolMtc.WithLabelValues("failedPutActQueue").Inc()
 		return errors.Wrapf(err, "cannot put action %x into ActQueue", hash)
 	}
 	ap.allActions[hash] = act
