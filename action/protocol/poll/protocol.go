@@ -8,14 +8,19 @@ package poll
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
+	"strconv"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-election/db"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -331,10 +336,60 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 			return nil, err
 		}
 		return byteutil.Uint64ToBytes(gravityStartheight), nil
+	case "GetVotes":
+		if len(args) != 4 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		return p.getVotes(string(args[0]), string(args[1]), byteutil.BytesToUint64(args[2]), byteutil.BytesToUint64(args[3]))
 	default:
 		return nil, errors.New("corresponding method isn't found")
 
 	}
+}
+
+func (p *governanceChainCommitteeProtocol) getVotes(votee, height string, offset, limit uint64) ([]byte, error) {
+	hei, err := strconv.ParseUint(height, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	result, err := p.electionCommittee.ResultByHeight(hei)
+	if err != nil {
+		return nil, err
+	}
+	name, err := hex.DecodeString(votee)
+	if err != nil {
+		return nil, err
+	}
+	if len(name) != 12 {
+		return nil, errors.New("invalid candidate name")
+	}
+	votes := result.VotesByDelegate(name)
+	if votes == nil {
+		return nil, errors.New("No buckets for the candidate")
+	}
+	if int(offset) >= len(votes) {
+		return nil, errors.New("offset is out of range")
+	}
+	// If limit is missing, return all buckets with indices starting from the offset
+	if limit == uint64(0) {
+		limit = math.MaxUint32
+	}
+	if int(offset+limit) >= len(votes) {
+		limit = uint64(len(votes)) - offset
+	}
+	response := &iotexapi.GetVotesResponse{
+		Buckets: make([]*iotexapi.Bucket, limit),
+	}
+	for i := uint64(0); i < limit; i++ {
+		vote := votes[offset+i]
+		response.Buckets[i] = &iotexapi.Bucket{
+			Voter:             hex.EncodeToString(vote.Voter()),
+			Votes:             vote.Amount().Text(10),
+			WeightedVotes:     vote.WeightedAmount().Text(10),
+			RemainingDuration: vote.RemainingTime(result.MintTime()).String(),
+		}
+	}
+	return proto.Marshal(response)
 }
 
 func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(epochNum uint64) (state.CandidateList, error) {
