@@ -11,31 +11,42 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/iotexproject/iotex-election/types"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type stakingCommittee struct {
-	hu                config.HeightUpgrade
-	getEpochHeight    GetEpochHeight
-	getEpochNum       GetEpochNum
-	governanceStaking Protocol
-	nativeStaking     *NativeStaking
-	scoreThreshold    *big.Int
+	hu                   config.HeightUpgrade
+	getEpochHeight       GetEpochHeight
+	getEpochNum          GetEpochNum
+	electionCommittee    committee.Committee
+	governanceStaking    Protocol
+	nativeStaking        *NativeStaking
+	rp                   *rolldpos.Protocol
+	scoreThreshold       *big.Int
+	currentNativeBuckets []*types.Bucket
 }
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
 func NewStakingCommittee(
 	hu config.HeightUpgrade,
+	ec committee.Committee,
 	gs Protocol,
 	cm protocol.ChainManager,
 	getTipBlockTime GetTipBlockTime,
 	getEpochHeight GetEpochHeight,
 	getEpochNum GetEpochNum,
 	staking string,
+	rp *rolldpos.Protocol,
 	scoreThreshold *big.Int,
 ) (Protocol, error) {
 	if getEpochHeight == nil {
@@ -53,10 +64,12 @@ func NewStakingCommittee(
 	}
 	return &stakingCommittee{
 		hu:                hu,
+		electionCommittee: ec,
 		governanceStaking: gs,
 		nativeStaking:     ns,
 		getEpochHeight:    getEpochHeight,
 		getEpochNum:       getEpochNum,
+		rp:                rp,
 		scoreThreshold:    scoreThreshold,
 	}, nil
 }
@@ -66,7 +79,24 @@ func (sc *stakingCommittee) Initialize(ctx context.Context, sm protocol.StateMan
 }
 
 func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	return sc.governanceStaking.Handle(ctx, act, sm)
+	receipt, err := sc.governanceStaking.Handle(ctx, act, sm)
+	if err != nil {
+		return receipt, err
+	}
+	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+		return receipt, err
+	}
+	log.L().Info("Store native buckets", zap.Int("size", len(sc.currentNativeBuckets)))
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if err := sc.electionCommittee.PutNativePollByEpoch(
+		sc.rp.GetEpochNum(raCtx.BlockHeight),
+		raCtx.BlockTimeStamp,
+		sc.currentNativeBuckets,
+	); err != nil {
+		return receipt, err
+	}
+	sc.currentNativeBuckets = nil
+	return receipt, err
 }
 
 func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) error {
@@ -95,6 +125,7 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get native chain candidates")
 	}
+	sc.currentNativeBuckets = nativeVotes.Bucketes
 	return sc.mergeDelegates(cand, nativeVotes), nil
 }
 
@@ -102,7 +133,7 @@ func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateMana
 	return sc.governanceStaking.ReadState(ctx, sm, method, args...)
 }
 
-func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes VoteTally) state.CandidateList {
+func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes *VoteTally) state.CandidateList {
 	// as of now, native staking does not have register contract, only voting/staking contract
 	// it is assumed that all votes done on native staking target for delegates registered on Ethereum
 	// votes cast to all outside address will not be counted and simply ignored
@@ -110,7 +141,7 @@ func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes VoteT
 	for _, cand := range list {
 		clone := cand.Clone()
 		name := to12Bytes(clone.CanName)
-		if v, ok := votes[name]; ok {
+		if v, ok := votes.Candidates[name]; ok {
 			clone.Votes.Add(clone.Votes, v.Votes)
 		}
 		if clone.Votes.Cmp(sc.scoreThreshold) >= 0 {

@@ -148,10 +148,18 @@ func New(
 			if err != nil {
 				return nil, err
 			}
-			if electionCommittee, err = committee.NewCommittee(
-				sqlDB,
-				committeeConfig,
+
+			archive, err := committee.NewArchive(
+				sqlDB, committeeConfig.GravityChainStartHeight,
+				committeeConfig.GravityChainHeightInterval,
 				kvstore,
+			)
+			if err != nil {
+				return nil, err
+			}
+			if electionCommittee, err = committee.NewCommittee(
+				archive,
+				committeeConfig,
 			); err != nil {
 				return nil, err
 			}
