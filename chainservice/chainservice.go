@@ -240,6 +240,7 @@ func New(
 			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 			return p2pAgent.BroadcastOutbound(ctx, msg)
 		}),
+		api.WithNativeElection(electionCommittee),
 	)
 	if err != nil {
 		return nil, err
