@@ -110,12 +110,12 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	}
 	// convert to epoch start height
 	epochHeight := sc.getEpochHeight(sc.getEpochNum(height))
-	if sc.hu.IsPre(config.Bering, epochHeight) {
+	if sc.hu.IsPre(config.Cook, epochHeight) {
 		return cand, nil
 	}
-	// native staking starts from Bering
+	// native staking starts from Cook
 	if sc.nativeStaking == nil {
-		return nil, errors.New("native staking was not set after bering height")
+		return nil, errors.New("native staking was not set after cook height")
 	}
 	nativeVotes, err := sc.nativeStaking.Votes()
 	if err == ErrNoData {
