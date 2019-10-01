@@ -16,15 +16,18 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -43,7 +46,9 @@ const (
 func TestLocalCommit(t *testing.T) {
 	require := require.New(t)
 
-	cfg, err := newTestConfig()
+	sk, err := crypto.GenerateKey()
+	require.Nil(err)
+	cfg, err := newTestConfig(sk)
 	require.Nil(err)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
@@ -61,12 +66,12 @@ func TestLocalCommit(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
-	require.NoError(addTestingTsfBlocks(bc))
+	require.NoError(addTestingTsfBlocks(bc, sk))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 	require.NotNil(svr.P2PAgent())
 
 	// create client
-	cfg, err = newTestConfig()
+	cfg, err = newTestConfig(sk)
 	require.Nil(err)
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	p := p2p.NewAgent(
@@ -172,9 +177,14 @@ func TestLocalCommit(t *testing.T) {
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
 	registry.Register(account.ProtocolID, acc)
+
+	delegates := cfg.Genesis.Delegates
+	pol := poll.NewLifeLongDelegatesProtocol(delegates)
+	registry.Register(poll.ProtocolID, pol)
+
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
-	chain.Validator().AddActionValidators(acc, rewardingProtocol)
-	chain.GetFactory().AddActionHandlers(acc, rewardingProtocol)
+	chain.Validator().AddActionValidators(acc, rewardingProtocol, pol)
+	chain.GetFactory().AddActionHandlers(acc, rewardingProtocol, pol)
 	require.NoError(chain.Start(ctx))
 	require.True(5 == bc.TipHeight())
 	defer func() {
@@ -204,6 +214,10 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
+
+	blk1, err = addBlockFooter(blk1, sk)
+	require.Nil(err)
+
 	require.Nil(chain.CommitBlock(blk1))
 
 	// transfer 2
@@ -219,6 +233,10 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
+
+	blk2, err = addBlockFooter(blk2, sk)
+	require.Nil(err)
+
 	require.Nil(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act2 := tsf2.Proto()
@@ -244,6 +262,10 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
+
+	blk3, err = addBlockFooter(blk3, sk)
+	require.Nil(err)
+
 	require.Nil(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act3 := tsf3.Proto()
@@ -269,6 +291,10 @@ func TestLocalCommit(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.Nil(err)
+
+	blk4, err = addBlockFooter(blk4, sk)
+	require.Nil(err)
+
 	require.Nil(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act4 := tsf4.Proto()
@@ -356,7 +382,9 @@ func TestLocalCommit(t *testing.T) {
 func TestLocalSync(t *testing.T) {
 	require := require.New(t)
 
-	cfg, err := newTestConfig()
+	sk, err := crypto.GenerateKey()
+	require.Nil(err)
+	cfg, err := newTestConfig(sk)
 	require.Nil(err)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
@@ -376,7 +404,7 @@ func TestLocalSync(t *testing.T) {
 	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
 	require.NotNil(svr.P2PAgent())
-	require.Nil(addTestingTsfBlocks(bc))
+	require.Nil(addTestingTsfBlocks(bc, sk))
 
 	blk, err := bc.GetBlockByHeight(1)
 	require.Nil(err)
@@ -400,7 +428,7 @@ func TestLocalSync(t *testing.T) {
 	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
 	testTriePath2 := testTrieFile2.Name()
 
-	cfg, err = newTestConfig()
+	cfg, err = newTestConfig(sk)
 	require.Nil(err)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
@@ -481,6 +509,9 @@ func TestLocalSync(t *testing.T) {
 
 func TestStartExistingBlockchain(t *testing.T) {
 	require := require.New(t)
+	sk, err := crypto.GenerateKey()
+	require.Nil(err)
+
 	ctx := context.Background()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testDBPath := testDBFile.Name()
@@ -506,7 +537,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 		require.NoError(svr.Stop(ctx))
 	}()
 
-	require.NoError(addTestingTsfBlocks(bc))
+	require.NoError(addTestingTsfBlocks(bc, sk))
 	require.Equal(uint64(5), bc.TipHeight())
 
 	// Delete state db and recover to tip
@@ -550,7 +581,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.Equal(uint64(2), height)
 }
 
-func newTestConfig() (config.Config, error) {
+func newTestConfig(sk crypto.PrivateKey) (config.Config, error) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = triePath
 	cfg.Chain.ChainDBPath = dBPath
@@ -558,12 +589,14 @@ func newTestConfig() (config.Config, error) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.API.Port = testutil.RandomPort()
-	cfg.Genesis.EnableGravityChainVoting = false
-	sk, err := crypto.GenerateKey()
+	cfg.Genesis.EnableGravityChainVoting = true
 
+	cfg.Chain.ProducerPrivKey = sk.HexString()
+	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	if err != nil {
 		return config.Config{}, err
 	}
-	cfg.Chain.ProducerPrivKey = sk.HexString()
+	cfg.Genesis.Delegates = []genesis.Delegate{{OperatorAddrStr: addr.String(), RewardAddrStr: addr.String(), VotesStr: "100"}}
+	cfg.Genesis.NumDelegates = 1
 	return cfg, nil
 }

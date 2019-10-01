@@ -9,8 +9,10 @@ package rolldpos
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
+	"github.com/iotexproject/iotex-core/endorsement"
 )
 
 // EndorsedConsensusMessage is an endorsement on document
@@ -59,7 +61,7 @@ func (ecm *EndorsedConsensusMessage) Proto() (*iotextypes.ConsensusMessage, erro
 		Endorsement: ebp,
 	}
 	switch message := ecm.message.(type) {
-	case *ConsensusVote:
+	case *endorsementmanager.ConsensusVote:
 		mbp, err := message.Proto()
 		if err != nil {
 			return nil, err
@@ -82,7 +84,7 @@ func (ecm *EndorsedConsensusMessage) Proto() (*iotextypes.ConsensusMessage, erro
 func (ecm *EndorsedConsensusMessage) LoadProto(msg *iotextypes.ConsensusMessage) error {
 	switch {
 	case msg.GetVote() != nil:
-		vote := &ConsensusVote{}
+		vote := &endorsementmanager.ConsensusVote{}
 		if err := vote.LoadProto(msg.GetVote()); err != nil {
 			return err
 		}

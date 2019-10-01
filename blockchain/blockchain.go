@@ -1112,7 +1112,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		}
 	}
 	var lastBlkHeight uint64
-	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
+	if bc.config.Consensus.Scheme == config.RollDPoSScheme || bc.config.Consensus.Scheme == config.NOOPScheme {
 		rp := bc.mustGetRollDPoSProtocol()
 		epochNum := rp.GetEpochNum(raCtx.BlockHeight)
 		lastBlkHeight = rp.GetEpochLastBlockHeight(epochNum)
@@ -1325,7 +1325,7 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
 		return err
 	}
-	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
+	if bc.config.Consensus.Scheme == config.RollDPoSScheme || bc.config.Consensus.Scheme == config.NOOPScheme {
 		if err := bc.createPollGenesisStates(ctx, ws); err != nil {
 			return err
 		}

@@ -24,11 +24,11 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -72,8 +72,6 @@ func init() {
 	prometheus.MustRegister(consensusHeightMtc)
 }
 
-// CandidatesByHeightFunc defines a function to overwrite candidates
-type CandidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
 type rollDPoSCtx struct {
 	cfg config.RollDPoS
 	// TODO: explorer dependency deleted at #1085, need to add api params here
@@ -103,7 +101,7 @@ func newRollDPoSCtx(
 	actPool actpool.ActPool,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
-	candidatesByHeightFunc CandidatesByHeightFunc,
+	candidatesByHeightFunc scheme.CandidatesByHeightFunc,
 	encodedAddr string,
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
@@ -159,12 +157,12 @@ func newRollDPoSCtx(
 }
 
 func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
-	var eManager *endorsementManager
+	var eManager *endorsementmanager.EndorsementManager
 	if ctx.eManagerDB != nil {
 		if err := ctx.eManagerDB.Start(c); err != nil {
 			return errors.Wrap(err, "Error when starting the collectionDB")
 		}
-		eManager, err = newEndorsementManager(ctx.eManagerDB)
+		eManager, err = endorsementmanager.NewEndorsementManager(ctx.eManagerDB)
 	}
 	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 
@@ -180,7 +178,7 @@ func (ctx *rollDPoSCtx) Stop(c context.Context) error {
 
 func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	height uint64,
-	vote *ConsensusVote,
+	vote *endorsementmanager.ConsensusVote,
 	en *endorsement.Endorsement,
 ) error {
 	ctx.mutex.RLock()
@@ -239,20 +237,20 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 		blkHash := proposal.block.HashBlock()
 		for _, e := range proposal.proofOfLock {
 			if err := round.AddVoteEndorsement(
-				NewConsensusVote(blkHash[:], PROPOSAL),
+				endorsementmanager.NewConsensusVote(blkHash[:], endorsementmanager.PROPOSAL),
 				e,
 			); err == nil {
 				continue
 			}
 			if err := round.AddVoteEndorsement(
-				NewConsensusVote(blkHash[:], COMMIT),
+				endorsementmanager.NewConsensusVote(blkHash[:], endorsementmanager.COMMIT),
 				e,
 			); err != nil {
 				return err
 			}
 		}
-		if !round.EndorsedByMajority(blkHash[:], []ConsensusVoteTopic{PROPOSAL, COMMIT}) {
-			return errors.Wrap(ErrInsufficientEndorsements, "failed to verify proof of lock")
+		if !round.EndorsedByMajority(blkHash[:], []endorsementmanager.ConsensusVoteTopic{endorsementmanager.PROPOSAL, endorsementmanager.COMMIT}) {
+			return errors.Wrap(scheme.ErrInsufficientEndorsements, "failed to verify proof of lock")
 		}
 	}
 	return nil
@@ -395,7 +393,7 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 
 	return ctx.newEndorsement(
 		blockHash,
-		PROPOSAL,
+		endorsementmanager.PROPOSAL,
 		ctx.round.StartTime().Add(ctx.cfg.FSM.AcceptBlockTTL),
 	)
 }
@@ -407,17 +405,17 @@ func (ctx *rollDPoSCtx) NewLockEndorsement(
 	defer ctx.mutex.RUnlock()
 	blkHash, err := ctx.verifyVote(
 		msg,
-		[]ConsensusVoteTopic{PROPOSAL, COMMIT}, // commit is counted as one proposal
+		[]endorsementmanager.ConsensusVoteTopic{endorsementmanager.PROPOSAL, endorsementmanager.COMMIT}, // commit is counted as one proposal
 	)
 	switch errors.Cause(err) {
-	case ErrInsufficientEndorsements:
+	case scheme.ErrInsufficientEndorsements:
 		return nil, nil
 	case nil:
 		if len(blkHash) != 0 {
 			ctx.loggerWithStats().Debug("Locked", log.Hex("block", blkHash))
 			return ctx.newEndorsement(
 				blkHash,
-				LOCK,
+				endorsementmanager.LOCK,
 				ctx.round.StartTime().Add(
 					ctx.cfg.FSM.AcceptBlockTTL+ctx.cfg.FSM.AcceptProposalEndorsementTTL,
 				),
@@ -435,16 +433,16 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 	defer ctx.mutex.RUnlock()
 	blkHash, err := ctx.verifyVote(
 		msg,
-		[]ConsensusVoteTopic{LOCK, COMMIT}, // commit endorse is counted as one lock endorse
+		[]endorsementmanager.ConsensusVoteTopic{endorsementmanager.LOCK, endorsementmanager.COMMIT}, // commit endorse is counted as one lock endorse
 	)
 	switch errors.Cause(err) {
-	case ErrInsufficientEndorsements:
+	case scheme.ErrInsufficientEndorsements:
 		return nil, nil
 	case nil:
 		ctx.loggerWithStats().Debug("Ready to pre-commit")
 		return ctx.newEndorsement(
 			blkHash,
-			COMMIT,
+			endorsementmanager.COMMIT,
 			ctx.round.StartTime().Add(
 				ctx.cfg.FSM.AcceptBlockTTL+ctx.cfg.FSM.AcceptProposalEndorsementTTL+ctx.cfg.FSM.AcceptLockEndorsementTTL,
 			),
@@ -457,9 +455,9 @@ func (ctx *rollDPoSCtx) NewPreCommitEndorsement(
 func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
-	blkHash, err := ctx.verifyVote(msg, []ConsensusVoteTopic{COMMIT})
+	blkHash, err := ctx.verifyVote(msg, []endorsementmanager.ConsensusVoteTopic{endorsementmanager.COMMIT})
 	switch errors.Cause(err) {
-	case ErrInsufficientEndorsements:
+	case scheme.ErrInsufficientEndorsements:
 		return false, nil
 	case nil:
 		ctx.loggerWithStats().Debug("Ready to commit")
@@ -473,7 +471,7 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	}
 	ctx.logger().Info("consensus reached", zap.Uint64("blockHeight", ctx.round.Height()))
 	if err := pendingBlock.Finalize(
-		ctx.round.Endorsements(blkHash, []ConsensusVoteTopic{COMMIT}),
+		ctx.round.Endorsements(blkHash, []endorsementmanager.ConsensusVoteTopic{endorsementmanager.COMMIT}),
 		ctx.round.StartTime().Add(
 			ctx.cfg.FSM.AcceptBlockTTL+ctx.cfg.FSM.AcceptProposalEndorsementTTL+ctx.cfg.FSM.AcceptLockEndorsementTTL,
 		),
@@ -668,13 +666,13 @@ func (ctx *rollDPoSCtx) loggerWithStats() *zap.Logger {
 
 func (ctx *rollDPoSCtx) verifyVote(
 	msg interface{},
-	topics []ConsensusVoteTopic,
+	topics []endorsementmanager.ConsensusVoteTopic,
 ) ([]byte, error) {
 	consensusMsg, ok := msg.(*EndorsedConsensusMessage)
 	if !ok {
 		return nil, errors.New("invalid msg")
 	}
-	vote, ok := consensusMsg.Document().(*ConsensusVote)
+	vote, ok := consensusMsg.Document().(*endorsementmanager.ConsensusVote)
 	if !ok {
 		return nil, errors.New("invalid msg")
 	}
@@ -690,17 +688,17 @@ func (ctx *rollDPoSCtx) verifyVote(
 		zap.String("endorser", endorsement.Endorser().HexString()),
 	)
 	if !ctx.round.EndorsedByMajority(blkHash, topics) {
-		return blkHash, ErrInsufficientEndorsements
+		return blkHash, scheme.ErrInsufficientEndorsements
 	}
 	return blkHash, nil
 }
 
 func (ctx *rollDPoSCtx) newEndorsement(
 	blkHash []byte,
-	topic ConsensusVoteTopic,
+	topic endorsementmanager.ConsensusVoteTopic,
 	timestamp time.Time,
 ) (*EndorsedConsensusMessage, error) {
-	vote := NewConsensusVote(
+	vote := endorsementmanager.NewConsensusVote(
 		blkHash,
 		topic,
 	)

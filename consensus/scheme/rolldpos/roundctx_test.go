@@ -13,6 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
@@ -67,17 +68,17 @@ func TestRoundCtx(t *testing.T) {
 		)))
 		require.True(round.IsStale(blockHeight+1, 2, NewEndorsedConsensusMessage(
 			blockHeight+1,
-			NewConsensusVote(
+			endorsementmanager.NewConsensusVote(
 				blkHash,
-				PROPOSAL,
+				endorsementmanager.PROPOSAL,
 			),
 			&endorsement.Endorsement{},
 		)))
 		require.False(round.IsStale(blockHeight+1, 2, NewEndorsedConsensusMessage(
 			blockHeight+1,
-			NewConsensusVote(
+			endorsementmanager.NewConsensusVote(
 				blkHash,
-				COMMIT,
+				endorsementmanager.COMMIT,
 			),
 			&endorsement.Endorsement{},
 		)))

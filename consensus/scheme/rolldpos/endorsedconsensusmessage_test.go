@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -22,7 +23,7 @@ func TestEndorsedConsensusMessage(t *testing.T) {
 	hash := []byte("abcdefg")
 	sig := []byte("signature")
 	priKey := identityset.PrivateKey(0)
-	vote := NewConsensusVote(hash, PROPOSAL)
+	vote := endorsementmanager.NewConsensusVote(hash, endorsementmanager.PROPOSAL)
 	now := time.Now()
 	en := endorsement.NewEndorsement(
 		now,
@@ -35,9 +36,9 @@ func TestEndorsedConsensusMessage(t *testing.T) {
 	cem := &EndorsedConsensusMessage{}
 	require.NoError(cem.LoadProto(pb))
 	require.Equal(uint64(10), cem.Height())
-	cvote, ok := cem.Document().(*ConsensusVote)
+	cvote, ok := cem.Document().(*endorsementmanager.ConsensusVote)
 	require.True(ok)
-	require.Equal(PROPOSAL, cvote.Topic())
+	require.Equal(endorsementmanager.PROPOSAL, cvote.Topic())
 	require.Equal(0, bytes.Compare(hash, cvote.BlockHash()))
 	cen := cem.Endorsement()
 	require.Equal(0, bytes.Compare(sig, cen.Signature()))

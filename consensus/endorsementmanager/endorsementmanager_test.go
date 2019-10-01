@@ -4,15 +4,18 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package endorsementmanager
 
 import (
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -95,7 +98,7 @@ func TestBlockEndorsementCollection(t *testing.T) {
 
 func TestEndorsementManager(t *testing.T) {
 	require := require.New(t)
-	em, err := newEndorsementManager(nil)
+	em, err := NewEndorsementManager(nil)
 	require.Nil(err)
 	require.NotNil(em)
 	require.Equal(0, em.Size())
@@ -161,7 +164,7 @@ func TestEndorsementManager(t *testing.T) {
 
 func TestEndorsementManagerProto(t *testing.T) {
 	require := require.New(t)
-	em, err := newEndorsementManager(nil)
+	em, err := NewEndorsementManager(nil)
 	require.Nil(err)
 	require.NotNil(em)
 
@@ -184,10 +187,29 @@ func TestEndorsementManagerProto(t *testing.T) {
 	//test converting emanager pb
 	emProto, err := em.toProto()
 	require.Nil(err)
-	em2, err := newEndorsementManager(nil)
+	em2, err := NewEndorsementManager(nil)
 	require.NoError(em2.fromProto(emProto))
 
 	require.Equal(len(em.collections), len(em2.collections))
 	encoded := encodeToString(cv.BlockHash())
 	require.Equal(em.collections[encoded].endorsers, em2.collections[encoded].endorsers)
+}
+
+func getBlock(t *testing.T) block.Block {
+	require := require.New(t)
+	ts := &timestamp.Timestamp{Seconds: 10, Nanos: 10}
+	hcore := &iotextypes.BlockHeaderCore{
+		Version:          1,
+		Height:           123,
+		Timestamp:        ts,
+		PrevBlockHash:    []byte(""),
+		TxRoot:           []byte(""),
+		DeltaStateDigest: []byte(""),
+		ReceiptRoot:      []byte(""),
+	}
+	header := block.Header{}
+	require.NoError(header.LoadFromBlockHeaderProto(&iotextypes.BlockHeader{Core: hcore, ProducerPubkey: identityset.PrivateKey(0).PublicKey().Bytes()}))
+
+	b := block.Block{Header: header}
+	return b
 }

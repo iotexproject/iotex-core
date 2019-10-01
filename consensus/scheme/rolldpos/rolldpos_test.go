@@ -35,6 +35,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/p2p/node"
@@ -158,11 +159,11 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 	for i := 0; i < numOfEndosements; i++ {
 		timeTime := time.Unix(int64(unixTime), 0)
 		hs := blk.HashBlock()
-		var consensusVote *ConsensusVote
+		var consensusVote *endorsementmanager.ConsensusVote
 		if makeInvalidEndorse {
-			consensusVote = NewConsensusVote(hs[:], LOCK)
+			consensusVote = endorsementmanager.NewConsensusVote(hs[:], endorsementmanager.LOCK)
 		} else {
-			consensusVote = NewConsensusVote(hs[:], COMMIT)
+			consensusVote = endorsementmanager.NewConsensusVote(hs[:], endorsementmanager.COMMIT)
 		}
 		en, err := endorsement.Endorse(identityset.PrivateKey(i), consensusVote, timeTime)
 		require.NoError(t, err)

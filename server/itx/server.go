@@ -269,7 +269,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
 		return
 	}
-	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
+	if (cfg.Consensus.Scheme == config.RollDPoSScheme || cfg.Consensus.Scheme == config.NOOPScheme) && genesisConfig.EnableGravityChainVoting {
 		electionCommittee := cs.ElectionCommittee()
 		var pollProtocol poll.Protocol
 		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {

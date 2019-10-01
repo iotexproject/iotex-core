@@ -4,14 +4,13 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package endorsementmanager
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	blake2b "github.com/minio/blake2b-simd"
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ConsensusVoteTopic defines the topic of an consensus vote

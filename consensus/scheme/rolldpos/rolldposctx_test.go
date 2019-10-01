@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -142,7 +143,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	// case 8:Insufficient endorsements
 	block = getBlockforctx(t, 5, true)
 	hash := block.HashBlock()
-	vote := NewConsensusVote(hash[:], COMMIT)
+	vote := endorsementmanager.NewConsensusVote(hash[:], endorsementmanager.COMMIT)
 	en2, err = endorsement.Endorse(identityset.PrivateKey(7), vote, time.Unix(1562382592, 0))
 	require.NoError(err)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2})

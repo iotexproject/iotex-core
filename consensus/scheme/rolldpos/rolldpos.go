@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -133,16 +134,16 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		}
 		r.cfsm.ProduceReceiveBlockEvent(endorsedMessage)
 		return nil
-	case *ConsensusVote:
+	case *endorsementmanager.ConsensusVote:
 		if err := r.ctx.CheckVoteEndorser(endorsedMessage.Height(), consensusMessage, en); err != nil {
 			return errors.Wrapf(err, "failed to verify vote")
 		}
 		switch consensusMessage.Topic() {
-		case PROPOSAL:
+		case endorsementmanager.PROPOSAL:
 			r.cfsm.ProduceReceiveProposalEndorsementEvent(endorsedMessage)
-		case LOCK:
+		case endorsementmanager.LOCK:
 			r.cfsm.ProduceReceiveLockEndorsementEvent(endorsedMessage)
-		case COMMIT:
+		case endorsementmanager.COMMIT:
 			r.cfsm.ProduceReceivePreCommitEndorsementEvent(endorsedMessage)
 		}
 		return nil
@@ -175,14 +176,14 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	blkHash := blk.HashBlock()
 	for _, en := range blk.Endorsements() {
 		if err := round.AddVoteEndorsement(
-			NewConsensusVote(blkHash[:], COMMIT),
+			endorsementmanager.NewConsensusVote(blkHash[:], endorsementmanager.COMMIT),
 			en,
 		); err != nil {
 			return err
 		}
 	}
-	if !round.EndorsedByMajority(blkHash[:], []ConsensusVoteTopic{COMMIT}) {
-		return ErrInsufficientEndorsements
+	if !round.EndorsedByMajority(blkHash[:], []endorsementmanager.ConsensusVoteTopic{endorsementmanager.COMMIT}) {
+		return scheme.ErrInsufficientEndorsements
 	}
 
 	return nil
@@ -246,7 +247,7 @@ type Builder struct {
 	clock            clock.Clock
 	// TODO: explorer dependency deleted at #1085, need to add api params
 	rp                     *rolldpos.Protocol
-	candidatesByHeightFunc CandidatesByHeightFunc
+	candidatesByHeightFunc scheme.CandidatesByHeightFunc
 }
 
 // NewRollDPoSBuilder instantiates a Builder instance
@@ -298,7 +299,7 @@ func (b *Builder) SetClock(clock clock.Clock) *Builder {
 
 // SetCandidatesByHeightFunc sets candidatesByHeightFunc
 func (b *Builder) SetCandidatesByHeightFunc(
-	candidatesByHeightFunc CandidatesByHeightFunc,
+	candidatesByHeightFunc scheme.CandidatesByHeightFunc,
 ) *Builder {
 	b.candidatesByHeightFunc = candidatesByHeightFunc
 	return b

@@ -13,7 +13,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/crypto"
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
+	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
@@ -22,7 +23,7 @@ type roundCalculator struct {
 	blockInterval          time.Duration
 	timeBasedRotation      bool
 	rp                     *rolldpos.Protocol
-	candidatesByHeightFunc CandidatesByHeightFunc
+	candidatesByHeightFunc scheme.CandidatesByHeightFunc
 	beringHeight           uint64
 }
 
@@ -166,39 +167,13 @@ func (c *roundCalculator) roundInfo(
 }
 
 func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
-	epochStartHeight := c.rp.GetEpochHeight(c.rp.GetEpochNum(height))
-	numDelegates := c.rp.NumDelegates()
-	candidates, err := c.candidatesByHeightFunc(epochStartHeight)
-	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"failed to get candidates on height %d",
-			epochStartHeight,
-		)
-	}
-	if len(candidates) < int(numDelegates) {
-		return nil, errors.Errorf(
-			"# of candidates %d is less than from required number %d",
-			len(candidates),
-			numDelegates,
-		)
-	}
-	addrs := []string{}
-	for i, candidate := range candidates {
-		if uint64(i) >= c.rp.NumCandidateDelegates() {
-			break
-		}
-		addrs = append(addrs, candidate.Address)
-	}
-	crypto.SortCandidates(addrs, epochStartHeight, crypto.CryptoSeed)
-
-	return addrs[:numDelegates], nil
+	return scheme.GetDelegates(c.rp, c.candidatesByHeightFunc, height)
 }
 
 func (c *roundCalculator) NewRoundWithToleration(
 	height uint64,
 	now time.Time,
-	eManager *endorsementManager,
+	eManager *endorsementmanager.EndorsementManager,
 	toleratedOvertime time.Duration,
 ) (round *roundCtx, err error) {
 	return c.newRound(height, now, eManager, toleratedOvertime)
@@ -207,7 +182,7 @@ func (c *roundCalculator) NewRoundWithToleration(
 func (c *roundCalculator) NewRound(
 	height uint64,
 	now time.Time,
-	eManager *endorsementManager,
+	eManager *endorsementmanager.EndorsementManager,
 ) (round *roundCtx, err error) {
 	return c.newRound(height, now, eManager, 0)
 }
@@ -215,7 +190,7 @@ func (c *roundCalculator) NewRound(
 func (c *roundCalculator) newRound(
 	height uint64,
 	now time.Time,
-	eManager *endorsementManager,
+	eManager *endorsementmanager.EndorsementManager,
 	toleratedOvertime time.Duration,
 ) (round *roundCtx, err error) {
 	epochNum := uint64(0)
@@ -238,7 +213,7 @@ func (c *roundCalculator) newRound(
 		}
 	}
 	if eManager == nil {
-		if eManager, err = newEndorsementManager(nil); err != nil {
+		if eManager, err = endorsementmanager.NewEndorsementManager(nil); err != nil {
 			return nil, err
 		}
 	}

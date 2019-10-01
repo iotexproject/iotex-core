@@ -132,7 +132,7 @@ func NewConsensus(
 			log.Logger("consensus").Panic("Error when constructing RollDPoS.", zap.Error(err))
 		}
 	case config.NOOPScheme:
-		cs.scheme = scheme.NewNoop()
+		cs.scheme = scheme.NewNoop(bc, nil, cfg.DB, ops.rp)
 	case config.StandaloneScheme:
 		cs.scheme = scheme.NewStandalone(
 			mintBlockCB,

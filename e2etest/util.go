@@ -10,17 +10,20 @@ import (
 	"io/ioutil"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/test/identityset"
-
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
+	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func addTestingTsfBlocks(bc blockchain.Blockchain) error {
+func addTestingTsfBlocks(bc blockchain.Blockchain, sk crypto.PrivateKey) error {
 	// Add block 1
 	tsf0, _ := action.NewTransfer(
 		1,
@@ -47,6 +50,11 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+
+	if blk, err = addBlockFooter(blk, sk); err != nil {
+		return err
+	}
+
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -98,6 +106,11 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+
+	if blk, err = addBlockFooter(blk, sk); err != nil {
+		return err
+	}
+
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -134,6 +147,11 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+
+	if blk, err = addBlockFooter(blk, sk); err != nil {
+		return err
+	}
+
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -166,6 +184,11 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+
+	if blk, err = addBlockFooter(blk, sk); err != nil {
+		return err
+	}
+
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -206,6 +229,11 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+
+	if blk, err = addBlockFooter(blk, sk); err != nil {
+		return err
+	}
+
 	return bc.CommitBlock(blk)
 }
 
@@ -218,4 +246,18 @@ func copyDB(srcDB, dstDB string) error {
 		return errors.Wrap(err, "failed to copy db file")
 	}
 	return nil
+}
+
+func addBlockFooter(blk *block.Block, sk crypto.PrivateKey) (*block.Block, error) {
+	blkHash := blk.HashBlock()
+	v := endorsementmanager.NewConsensusVote(blkHash[:], endorsementmanager.COMMIT)
+	endor, err := endorsement.Endorse(sk, v, testutil.TimestampNow())
+	if err != nil {
+		return nil, err
+	}
+	endorsements := []*endorsement.Endorsement{endor}
+	if err := blk.Finalize(endorsements, testutil.TimestampNow()); err != nil {
+		return nil, err
+	}
+	return blk, nil
 }

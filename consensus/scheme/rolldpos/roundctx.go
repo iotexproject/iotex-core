@@ -9,15 +9,13 @@ package rolldpos
 import (
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager"
+	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
-
-// ErrInsufficientEndorsements represents the error that not enough endorsements
-var ErrInsufficientEndorsements = errors.New("Insufficient endorsements")
 
 type status int
 
@@ -43,7 +41,7 @@ type roundCtx struct {
 	blockInLock []byte
 	proofOfLock []*endorsement.Endorsement
 	status      status
-	eManager    *endorsementManager
+	eManager    *endorsementmanager.EndorsementManager
 }
 
 func (ctx *roundCtx) Log(l *zap.Logger) *zap.Logger {
@@ -106,11 +104,11 @@ func (ctx *roundCtx) IsDelegate(addr string) bool {
 }
 
 func (ctx *roundCtx) Block(blkHash []byte) *block.Block {
-	return ctx.block(blkHash)
+	return scheme.Block(ctx.eManager, blkHash)
 }
 
-func (ctx *roundCtx) Endorsements(blkHash []byte, topics []ConsensusVoteTopic) []*endorsement.Endorsement {
-	return ctx.endorsements(blkHash, topics)
+func (ctx *roundCtx) Endorsements(blkHash []byte, topics []endorsementmanager.ConsensusVoteTopic) []*endorsement.Endorsement {
+	return scheme.Endorsements(ctx.eManager, blkHash, topics)
 }
 
 func (ctx *roundCtx) IsLocked() bool {
@@ -126,7 +124,7 @@ func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
 	if c == nil {
 		return nil
 	}
-	en := c.Endorsement(addr, COMMIT)
+	en := c.Endorsement(addr, endorsementmanager.COMMIT)
 	if en == nil {
 		return nil
 	}
@@ -137,7 +135,7 @@ func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {
 	blkHash := blk.HashBlock()
 	return NewEndorsedConsensusMessage(
 		blk.Height(),
-		NewConsensusVote(blkHash[:], COMMIT),
+		endorsementmanager.NewConsensusVote(blkHash[:], endorsementmanager.COMMIT),
 		en,
 	)
 }
@@ -163,12 +161,12 @@ func (ctx *roundCtx) IsStale(height uint64, num uint32, data interface{}) bool {
 		if !ok {
 			return true
 		}
-		vote, ok := msg.Document().(*ConsensusVote)
+		vote, ok := msg.Document().(*endorsementmanager.ConsensusVote)
 		if !ok {
 			return true
 		}
 
-		return vote.Topic() != COMMIT
+		return vote.Topic() != endorsementmanager.COMMIT
 	}
 }
 
@@ -181,9 +179,9 @@ func (ctx *roundCtx) IsFuture(height uint64, num uint32) bool {
 
 func (ctx *roundCtx) EndorsedByMajority(
 	blockHash []byte,
-	topics []ConsensusVoteTopic,
+	topics []endorsementmanager.ConsensusVoteTopic,
 ) bool {
-	return ctx.endorsedByMajority(blockHash, topics)
+	return scheme.EndorsedByMajority(ctx.eManager, blockHash, topics, len(ctx.delegates))
 }
 
 func (ctx *roundCtx) AddBlock(blk *block.Block) error {
@@ -191,31 +189,24 @@ func (ctx *roundCtx) AddBlock(blk *block.Block) error {
 }
 
 func (ctx *roundCtx) AddVoteEndorsement(
-	vote *ConsensusVote,
+	vote *endorsementmanager.ConsensusVote,
 	en *endorsement.Endorsement,
 ) error {
-	if !endorsement.VerifyEndorsement(vote, en) {
-		return errors.New("invalid endorsement for the vote")
-	}
-	blockHash := vote.BlockHash()
-	// TODO: (zhi) request for block
-	if len(blockHash) != 0 && ctx.block(blockHash) == nil {
-		return errors.New("the corresponding block not received")
-	}
-	if err := ctx.eManager.AddVoteEndorsement(vote, en); err != nil {
+	if err := scheme.AddVoteEndorsement(ctx.eManager, vote, en); err != nil {
 		return err
 	}
-	if vote.Topic() == LOCK {
+	if vote.Topic() == endorsementmanager.LOCK {
 		return nil
 	}
+	blockHash := vote.BlockHash()
 	if len(blockHash) != 0 && ctx.status == locked {
 		return nil
 	}
-	endorsements := ctx.endorsements(
+	endorsements := ctx.Endorsements(
 		blockHash,
-		[]ConsensusVoteTopic{PROPOSAL, COMMIT},
+		[]endorsementmanager.ConsensusVoteTopic{endorsementmanager.PROPOSAL, endorsementmanager.COMMIT},
 	)
-	if !ctx.isMajority(endorsements) {
+	if !scheme.IsMajority(endorsements, len(ctx.delegates)) {
 		return nil
 	}
 	if len(blockHash) == 0 {
@@ -228,30 +219,4 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	ctx.proofOfLock = endorsements
 
 	return nil
-}
-
-// private functions
-
-func (ctx *roundCtx) endorsements(blkHash []byte, topics []ConsensusVoteTopic) []*endorsement.Endorsement {
-	c := ctx.eManager.CollectionByBlockHash(blkHash)
-	if c == nil {
-		return []*endorsement.Endorsement{}
-	}
-	return c.Endorsements(topics)
-}
-
-func (ctx *roundCtx) endorsedByMajority(blockHash []byte, topics []ConsensusVoteTopic) bool {
-	return ctx.isMajority(ctx.endorsements(blockHash, topics))
-}
-
-func (ctx *roundCtx) isMajority(endorsements []*endorsement.Endorsement) bool {
-	return 3*len(endorsements) > 2*len(ctx.delegates)
-}
-
-func (ctx *roundCtx) block(blkHash []byte) *block.Block {
-	c := ctx.eManager.CollectionByBlockHash(blkHash)
-	if c == nil {
-		return nil
-	}
-	return c.Block()
 }

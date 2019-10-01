@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package rolldpos
+package endorsementmanager
 
 import (
 	"encoding/hex"
@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos/endorsementpb"
+	"github.com/iotexproject/iotex-core/consensus/endorsementmanager/endorsementpb"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -33,6 +33,193 @@ var (
 
 //EndorsedByMajorityFunc defines a function to give an information of consensus status
 type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
+
+type EndorsementManager struct {
+	isMajorityFunc EndorsedByMajorityFunc
+	eManagerDB     db.KVStore
+	collections    map[string]*blockEndorsementCollection
+}
+
+func NewEndorsementManager(eManagerDB db.KVStore) (*EndorsementManager, error) {
+	if eManagerDB == nil {
+		return &EndorsementManager{
+			eManagerDB:  nil,
+			collections: map[string]*blockEndorsementCollection{},
+		}, nil
+	}
+	bytes, err := eManagerDB.Get(eManagerNS, statusKey)
+	switch errors.Cause(err) {
+	case nil:
+		// Get from DB
+		manager := &EndorsementManager{eManagerDB: eManagerDB}
+		managerProto := &endorsementpb.EndorsementManager{}
+		if err = proto.Unmarshal(bytes, managerProto); err != nil {
+			return nil, err
+		}
+		if err = manager.fromProto(managerProto); err != nil {
+			return nil, err
+		}
+		manager.eManagerDB = eManagerDB
+		return manager, nil
+	case db.ErrNotExist:
+		// If DB doesn't have any information
+		log.L().Info("First initializing DB")
+		return &EndorsementManager{
+			eManagerDB:  eManagerDB,
+			collections: map[string]*blockEndorsementCollection{},
+		}, nil
+	default:
+		return nil, err
+	}
+}
+
+func (m *EndorsementManager) PutEndorsementManagerToDB() error {
+	managerProto, err := m.toProto()
+	if err != nil {
+		return err
+	}
+	valBytes, err := proto.Marshal(managerProto)
+	if err != nil {
+		return err
+	}
+	err = m.eManagerDB.Put(eManagerNS, statusKey, valBytes)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *EndorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorityFunc) {
+	m.isMajorityFunc = isMajorityFunc
+	return
+}
+
+func (m *EndorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
+	m.collections = make(map[string]*blockEndorsementCollection)
+	for i, block := range managerPro.BlockEndorsements {
+		bc := &blockEndorsementCollection{}
+		if err := bc.fromProto(block); err != nil {
+			return err
+		}
+		m.collections[managerPro.BlkHash[i]] = bc
+	}
+	return nil
+}
+
+func (m *EndorsementManager) toProto() (*endorsementpb.EndorsementManager, error) {
+	mc := &endorsementpb.EndorsementManager{}
+	for encodedBlockHash, block := range m.collections {
+		ioBlockEndorsement, err := block.toProto()
+		if err != nil {
+			return nil, err
+		}
+		mc.BlkHash = append(mc.BlkHash, encodedBlockHash)
+		mc.BlockEndorsements = append(mc.BlockEndorsements, ioBlockEndorsement)
+	}
+	return mc, nil
+}
+
+func (m *EndorsementManager) CollectionByBlockHash(blkHash []byte) *blockEndorsementCollection {
+	encodedBlockHash := encodeToString(blkHash)
+	collections, exists := m.collections[encodedBlockHash]
+	if !exists {
+		return nil
+	}
+	return collections
+}
+
+func (m *EndorsementManager) Size() int {
+	return len(m.collections)
+}
+
+func (m *EndorsementManager) SizeWithBlock() int {
+	size := 0
+	for _, c := range m.collections {
+		if c.Block() != nil {
+			size++
+		}
+	}
+	return size
+}
+
+func (m *EndorsementManager) RegisterBlock(blk *block.Block) error {
+	blkHash := blk.HashBlock()
+	encodedBlockHash := encodeToString(blkHash[:])
+	if c, exists := m.collections[encodedBlockHash]; exists {
+		return c.SetBlock(blk)
+	}
+	m.collections[encodedBlockHash] = newBlockEndorsementCollection(blk)
+
+	if m.eManagerDB != nil {
+		return m.PutEndorsementManagerToDB()
+	}
+	return nil
+}
+
+func (m *EndorsementManager) AddVoteEndorsement(
+	vote *ConsensusVote,
+	en *endorsement.Endorsement,
+) error {
+	var beforeVote, afterVote bool
+	if m.isMajorityFunc != nil {
+		beforeVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
+	}
+	encoded := encodeToString(vote.BlockHash())
+	c, exists := m.collections[encoded]
+	if !exists {
+		c = newBlockEndorsementCollection(nil)
+	}
+	if err := c.AddEndorsement(vote.Topic(), en); err != nil {
+		return err
+	}
+	m.collections[encoded] = c
+
+	if m.eManagerDB != nil && m.isMajorityFunc != nil {
+		afterVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
+		if !beforeVote && afterVote {
+			//put into DB only it changes the status of consensus
+			return m.PutEndorsementManagerToDB()
+		}
+	}
+	return nil
+}
+
+func (m *EndorsementManager) Cleanup(timestamp time.Time) error {
+	if !timestamp.IsZero() {
+		for encoded, c := range m.collections {
+			m.collections[encoded] = c.Cleanup(timestamp)
+		}
+	} else {
+		m.collections = map[string]*blockEndorsementCollection{}
+	}
+	if m.eManagerDB != nil {
+		return m.PutEndorsementManagerToDB()
+	}
+	return nil
+}
+
+func (m *EndorsementManager) Log(
+	logger *zap.Logger,
+	delegates []string,
+) *zap.Logger {
+	for encoded, c := range m.collections {
+		proposalEndorsements := c.Endorsements(
+			[]ConsensusVoteTopic{PROPOSAL},
+		)
+		lockEndorsements := c.Endorsements(
+			[]ConsensusVoteTopic{LOCK},
+		)
+		commitEndorsments := c.Endorsements(
+			[]ConsensusVoteTopic{COMMIT},
+		)
+		return logger.With(
+			zap.Int("numProposals:"+encoded, len(proposalEndorsements)),
+			zap.Int("numLocks:"+encoded, len(lockEndorsements)),
+			zap.Int("numCommits:"+encoded, len(commitEndorsments)),
+		)
+	}
+	return logger
+}
 
 type endorserEndorsementCollection struct {
 	endorsements map[ConsensusVoteTopic]*endorsement.Endorsement
@@ -215,193 +402,6 @@ func (bc *blockEndorsementCollection) Endorsements(
 		}
 	}
 	return endorsements
-}
-
-type endorsementManager struct {
-	isMajorityFunc EndorsedByMajorityFunc
-	eManagerDB     db.KVStore
-	collections    map[string]*blockEndorsementCollection
-}
-
-func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
-	if eManagerDB == nil {
-		return &endorsementManager{
-			eManagerDB:  nil,
-			collections: map[string]*blockEndorsementCollection{},
-		}, nil
-	}
-	bytes, err := eManagerDB.Get(eManagerNS, statusKey)
-	switch errors.Cause(err) {
-	case nil:
-		// Get from DB
-		manager := &endorsementManager{eManagerDB: eManagerDB}
-		managerProto := &endorsementpb.EndorsementManager{}
-		if err = proto.Unmarshal(bytes, managerProto); err != nil {
-			return nil, err
-		}
-		if err = manager.fromProto(managerProto); err != nil {
-			return nil, err
-		}
-		manager.eManagerDB = eManagerDB
-		return manager, nil
-	case db.ErrNotExist:
-		// If DB doesn't have any information
-		log.L().Info("First initializing DB")
-		return &endorsementManager{
-			eManagerDB:  eManagerDB,
-			collections: map[string]*blockEndorsementCollection{},
-		}, nil
-	default:
-		return nil, err
-	}
-}
-
-func (m *endorsementManager) PutEndorsementManagerToDB() error {
-	managerProto, err := m.toProto()
-	if err != nil {
-		return err
-	}
-	valBytes, err := proto.Marshal(managerProto)
-	if err != nil {
-		return err
-	}
-	err = m.eManagerDB.Put(eManagerNS, statusKey, valBytes)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorityFunc) {
-	m.isMajorityFunc = isMajorityFunc
-	return
-}
-
-func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
-	m.collections = make(map[string]*blockEndorsementCollection)
-	for i, block := range managerPro.BlockEndorsements {
-		bc := &blockEndorsementCollection{}
-		if err := bc.fromProto(block); err != nil {
-			return err
-		}
-		m.collections[managerPro.BlkHash[i]] = bc
-	}
-	return nil
-}
-
-func (m *endorsementManager) toProto() (*endorsementpb.EndorsementManager, error) {
-	mc := &endorsementpb.EndorsementManager{}
-	for encodedBlockHash, block := range m.collections {
-		ioBlockEndorsement, err := block.toProto()
-		if err != nil {
-			return nil, err
-		}
-		mc.BlkHash = append(mc.BlkHash, encodedBlockHash)
-		mc.BlockEndorsements = append(mc.BlockEndorsements, ioBlockEndorsement)
-	}
-	return mc, nil
-}
-
-func (m *endorsementManager) CollectionByBlockHash(blkHash []byte) *blockEndorsementCollection {
-	encodedBlockHash := encodeToString(blkHash)
-	collections, exists := m.collections[encodedBlockHash]
-	if !exists {
-		return nil
-	}
-	return collections
-}
-
-func (m *endorsementManager) Size() int {
-	return len(m.collections)
-}
-
-func (m *endorsementManager) SizeWithBlock() int {
-	size := 0
-	for _, c := range m.collections {
-		if c.Block() != nil {
-			size++
-		}
-	}
-	return size
-}
-
-func (m *endorsementManager) RegisterBlock(blk *block.Block) error {
-	blkHash := blk.HashBlock()
-	encodedBlockHash := encodeToString(blkHash[:])
-	if c, exists := m.collections[encodedBlockHash]; exists {
-		return c.SetBlock(blk)
-	}
-	m.collections[encodedBlockHash] = newBlockEndorsementCollection(blk)
-
-	if m.eManagerDB != nil {
-		return m.PutEndorsementManagerToDB()
-	}
-	return nil
-}
-
-func (m *endorsementManager) AddVoteEndorsement(
-	vote *ConsensusVote,
-	en *endorsement.Endorsement,
-) error {
-	var beforeVote, afterVote bool
-	if m.isMajorityFunc != nil {
-		beforeVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
-	}
-	encoded := encodeToString(vote.BlockHash())
-	c, exists := m.collections[encoded]
-	if !exists {
-		c = newBlockEndorsementCollection(nil)
-	}
-	if err := c.AddEndorsement(vote.Topic(), en); err != nil {
-		return err
-	}
-	m.collections[encoded] = c
-
-	if m.eManagerDB != nil && m.isMajorityFunc != nil {
-		afterVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
-		if !beforeVote && afterVote {
-			//put into DB only it changes the status of consensus
-			return m.PutEndorsementManagerToDB()
-		}
-	}
-	return nil
-}
-
-func (m *endorsementManager) Cleanup(timestamp time.Time) error {
-	if !timestamp.IsZero() {
-		for encoded, c := range m.collections {
-			m.collections[encoded] = c.Cleanup(timestamp)
-		}
-	} else {
-		m.collections = map[string]*blockEndorsementCollection{}
-	}
-	if m.eManagerDB != nil {
-		return m.PutEndorsementManagerToDB()
-	}
-	return nil
-}
-
-func (m *endorsementManager) Log(
-	logger *zap.Logger,
-	delegates []string,
-) *zap.Logger {
-	for encoded, c := range m.collections {
-		proposalEndorsements := c.Endorsements(
-			[]ConsensusVoteTopic{PROPOSAL},
-		)
-		lockEndorsements := c.Endorsements(
-			[]ConsensusVoteTopic{LOCK},
-		)
-		commitEndorsments := c.Endorsements(
-			[]ConsensusVoteTopic{COMMIT},
-		)
-		return logger.With(
-			zap.Int("numProposals:"+encoded, len(proposalEndorsements)),
-			zap.Int("numLocks:"+encoded, len(lockEndorsements)),
-			zap.Int("numCommits:"+encoded, len(commitEndorsments)),
-		)
-	}
-	return logger
 }
 
 func encodeToString(hash []byte) string {
