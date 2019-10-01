@@ -71,6 +71,7 @@ func TestStaking(t *testing.T) {
 
 	tallies := VoteTally{
 		Candidates: make(map[[12]byte]*state.Candidate),
+		Buckets:    make([]*types.Bucket, 0),
 	}
 	require.NoError(tallies.tally(buckets, time.Unix(1568755225, 0)))
 	require.Equal(6, len(tallies.Candidates))
@@ -83,7 +84,7 @@ func TestStaking(t *testing.T) {
 			}
 		}
 	}
-	require.Equal(len(buckets), len(tallies.Bucketes))
+	require.Equal(len(buckets), len(tallies.Buckets))
 
 	// test empty data from contract
 	require.NoError(ns.abi.Unpack(pygg, "getActivePyggs", empty))

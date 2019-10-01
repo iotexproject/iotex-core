@@ -11,6 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -53,7 +57,7 @@ type (
 	// VoteTally is a map of candidates on native chain
 	VoteTally struct {
 		Candidates map[[12]byte]*state.Candidate
-		Bucketes   []*types.Bucket
+		Buckets    []*types.Bucket
 	}
 )
 
@@ -88,12 +92,14 @@ func (ns *NativeStaking) Votes() (*VoteTally, error) {
 	// read voter list from staking contract
 	votes := VoteTally{
 		Candidates: make(map[[12]byte]*state.Candidate),
+		Buckets:    make([]*types.Bucket, 0),
 	}
 	prevIndex := big.NewInt(0)
 	limit := big.NewInt(256)
 
 	for {
 		vote, err := ns.readBuckets(prevIndex, limit)
+		log.L().Info("Read native buckets from contract", zap.Int("size", len(vote)))
 		if err == ErrEndOfData {
 			// all data been read
 			break
@@ -175,7 +181,7 @@ func (vt *VoteTally) tally(buckets []*types.Bucket, now time.Time) error {
 			// add up the votes
 			c.Votes.Add(c.Votes, weighted)
 		}
-		vt.Bucketes = append(vt.Bucketes, v)
+		vt.Buckets = append(vt.Buckets, v)
 	}
 	return nil
 }

@@ -112,7 +112,7 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get native chain candidates")
 	}
-	sc.currentNativeBuckets = nativeVotes.Bucketes
+	sc.currentNativeBuckets = nativeVotes.Buckets
 	return sc.mergeDelegates(cand, nativeVotes), nil
 }
 
