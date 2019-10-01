@@ -80,22 +80,9 @@ func (sc *stakingCommittee) Initialize(ctx context.Context, sm protocol.StateMan
 
 func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	receipt, err := sc.governanceStaking.Handle(ctx, act, sm)
-	if err != nil {
-		return receipt, err
+	if err := sc.persistNativeBuckets(ctx, receipt, err); err != nil {
+		return nil, err
 	}
-	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return receipt, err
-	}
-	log.L().Info("Store native buckets", zap.Int("size", len(sc.currentNativeBuckets)))
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if err := sc.electionCommittee.PutNativePollByEpoch(
-		sc.rp.GetEpochNum(raCtx.BlockHeight),
-		raCtx.BlockTimeStamp,
-		sc.currentNativeBuckets,
-	); err != nil {
-		return receipt, err
-	}
-	sc.currentNativeBuckets = nil
 	return receipt, err
 }
 
@@ -149,4 +136,29 @@ func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes *Vote
 		}
 	}
 	return merged
+}
+
+func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *action.Receipt, err error) error {
+	// Start to write native buckets archive after cook and only when the action is executed successfully
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	epochHeight := sc.getEpochHeight(sc.getEpochNum(raCtx.BlockHeight))
+	if sc.hu.IsPre(config.Cook, epochHeight) {
+		return nil
+	}
+	if err != nil {
+		return nil
+	}
+	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+		return nil
+	}
+	log.L().Info("Store native buckets", zap.Int("size", len(sc.currentNativeBuckets)))
+	if err := sc.electionCommittee.PutNativePollByEpoch(
+		sc.rp.GetEpochNum(raCtx.BlockHeight),
+		raCtx.BlockTimeStamp,
+		sc.currentNativeBuckets,
+	); err != nil {
+		return err
+	}
+	sc.currentNativeBuckets = nil
+	return nil
 }
