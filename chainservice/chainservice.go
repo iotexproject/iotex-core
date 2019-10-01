@@ -113,10 +113,11 @@ func New(
 			if err != nil {
 				return nil, err
 			}
-			if electionCommittee, err = committee.NewCommittee(
-				archive,
-				committeeConfig,
-			); err != nil {
+			arch, err := committee.NewArchive(sqlDB, cfg.Genesis.GravityChainStartHeight, cfg.Genesis.GravityChainHeightInterval, kvstore)
+			if err != nil {
+				return nil, err
+			}
+			if electionCommittee, err = committee.NewCommittee(arch, committeeConfig); err != nil {
 				return nil, err
 			}
 		}
