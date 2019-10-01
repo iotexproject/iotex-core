@@ -26,6 +26,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/cache"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -65,6 +66,8 @@ const (
 	unicastTopic      = "unicast"
 	numDialRetries    = 8
 	dialRetryInterval = 2 * time.Second
+	blackListLen      = 1000
+	blackListTTL      = 15 * time.Minute
 )
 
 type (
@@ -82,6 +85,7 @@ type Agent struct {
 	broadcastInboundHandler    HandleBroadcastInbound
 	unicastInboundAsyncHandler HandleUnicastInboundAsync
 	host                       *p2p.Host
+	unicastBlacklist           *cache.ThreadSafeLruCache
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -93,6 +97,7 @@ func NewAgent(cfg config.Config, broadcastHandler HandleBroadcastInbound, unicas
 		topicSuffix:                hex.EncodeToString(gh[22:]), // last 10 bytes of genesis hash
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
+		unicastBlacklist:           cache.NewThreadSafeLruCache(blackListLen),
 	}
 }
 
@@ -364,6 +369,7 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 	}
 	if err = p.host.Unicast(ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
+		p.unicastBlacklist.Add(peer.ID.Pretty(), time.Now().Add(blackListTTL))
 		return err
 	}
 	return err
@@ -377,7 +383,24 @@ func (p *Agent) Self() []multiaddr.Multiaddr { return p.host.Addresses() }
 
 // Neighbors returns the neighbors' peer info
 func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
-	return p.host.Neighbors(ctx)
+	var res []peerstore.PeerInfo
+	nbs, err := p.host.Neighbors(ctx)
+	if err != nil {
+		return nbs, err
+	}
+
+	for i, nb := range nbs {
+		if v, ok := p.unicastBlacklist.Get(nb.ID.Pretty()); ok {
+			if t, isT := v.(time.Time); isT {
+				if time.Now().After(t) {
+					p.unicastBlacklist.Remove(nb.ID.Pretty())
+				}
+			}
+			continue
+		}
+		res = append(res, nbs[i])
+	}
+	return res, nil
 }
 
 func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {
