@@ -34,17 +34,19 @@ var (
 //EndorsedByMajorityFunc defines a function to give an information of consensus status
 type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
 
+// EndorsementManager defines the endorsement manager
 type EndorsementManager struct {
 	isMajorityFunc EndorsedByMajorityFunc
 	eManagerDB     db.KVStore
-	collections    map[string]*blockEndorsementCollection
+	collections    map[string]*BlockEndorsementCollection
 }
 
+// NewEndorsementManager creates a new endorsement manager
 func NewEndorsementManager(eManagerDB db.KVStore) (*EndorsementManager, error) {
 	if eManagerDB == nil {
 		return &EndorsementManager{
 			eManagerDB:  nil,
-			collections: map[string]*blockEndorsementCollection{},
+			collections: map[string]*BlockEndorsementCollection{},
 		}, nil
 	}
 	bytes, err := eManagerDB.Get(eManagerNS, statusKey)
@@ -66,13 +68,14 @@ func NewEndorsementManager(eManagerDB db.KVStore) (*EndorsementManager, error) {
 		log.L().Info("First initializing DB")
 		return &EndorsementManager{
 			eManagerDB:  eManagerDB,
-			collections: map[string]*blockEndorsementCollection{},
+			collections: map[string]*BlockEndorsementCollection{},
 		}, nil
 	default:
 		return nil, err
 	}
 }
 
+// PutEndorsementManagerToDB stores endorsement manager to database
 func (m *EndorsementManager) PutEndorsementManagerToDB() error {
 	managerProto, err := m.toProto()
 	if err != nil {
@@ -89,37 +92,14 @@ func (m *EndorsementManager) PutEndorsementManagerToDB() error {
 	return nil
 }
 
-func (m *EndorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorityFunc) {
+// SetIsMajorityFunc sets IsMajority function
+func (m *EndorsementManager) SetIsMajorityFunc(isMajorityFunc EndorsedByMajorityFunc) {
 	m.isMajorityFunc = isMajorityFunc
 	return
 }
 
-func (m *EndorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
-	m.collections = make(map[string]*blockEndorsementCollection)
-	for i, block := range managerPro.BlockEndorsements {
-		bc := &blockEndorsementCollection{}
-		if err := bc.fromProto(block); err != nil {
-			return err
-		}
-		m.collections[managerPro.BlkHash[i]] = bc
-	}
-	return nil
-}
-
-func (m *EndorsementManager) toProto() (*endorsementpb.EndorsementManager, error) {
-	mc := &endorsementpb.EndorsementManager{}
-	for encodedBlockHash, block := range m.collections {
-		ioBlockEndorsement, err := block.toProto()
-		if err != nil {
-			return nil, err
-		}
-		mc.BlkHash = append(mc.BlkHash, encodedBlockHash)
-		mc.BlockEndorsements = append(mc.BlockEndorsements, ioBlockEndorsement)
-	}
-	return mc, nil
-}
-
-func (m *EndorsementManager) CollectionByBlockHash(blkHash []byte) *blockEndorsementCollection {
+// CollectionByBlockHash gets block endorsement collection by block hash
+func (m *EndorsementManager) CollectionByBlockHash(blkHash []byte) *BlockEndorsementCollection {
 	encodedBlockHash := encodeToString(blkHash)
 	collections, exists := m.collections[encodedBlockHash]
 	if !exists {
@@ -128,10 +108,12 @@ func (m *EndorsementManager) CollectionByBlockHash(blkHash []byte) *blockEndorse
 	return collections
 }
 
+// Size gets the size of collection
 func (m *EndorsementManager) Size() int {
 	return len(m.collections)
 }
 
+// SizeWithBlock gets the size of collection in terms of number of blocks
 func (m *EndorsementManager) SizeWithBlock() int {
 	size := 0
 	for _, c := range m.collections {
@@ -142,6 +124,7 @@ func (m *EndorsementManager) SizeWithBlock() int {
 	return size
 }
 
+// RegisterBlock registers a block
 func (m *EndorsementManager) RegisterBlock(blk *block.Block) error {
 	blkHash := blk.HashBlock()
 	encodedBlockHash := encodeToString(blkHash[:])
@@ -156,6 +139,7 @@ func (m *EndorsementManager) RegisterBlock(blk *block.Block) error {
 	return nil
 }
 
+// AddVoteEndorsement adds a vote for endorsement
 func (m *EndorsementManager) AddVoteEndorsement(
 	vote *ConsensusVote,
 	en *endorsement.Endorsement,
@@ -184,13 +168,14 @@ func (m *EndorsementManager) AddVoteEndorsement(
 	return nil
 }
 
+// Cleanup cleans up block endorsement collection
 func (m *EndorsementManager) Cleanup(timestamp time.Time) error {
 	if !timestamp.IsZero() {
 		for encoded, c := range m.collections {
 			m.collections[encoded] = c.Cleanup(timestamp)
 		}
 	} else {
-		m.collections = map[string]*blockEndorsementCollection{}
+		m.collections = map[string]*BlockEndorsementCollection{}
 	}
 	if m.eManagerDB != nil {
 		return m.PutEndorsementManagerToDB()
@@ -198,6 +183,7 @@ func (m *EndorsementManager) Cleanup(timestamp time.Time) error {
 	return nil
 }
 
+// Log creates logs for endorsements
 func (m *EndorsementManager) Log(
 	logger *zap.Logger,
 	delegates []string,
@@ -221,43 +207,44 @@ func (m *EndorsementManager) Log(
 	return logger
 }
 
-type endorserEndorsementCollection struct {
-	endorsements map[ConsensusVoteTopic]*endorsement.Endorsement
-}
-
-func newEndorserEndorsementCollection() *endorserEndorsementCollection {
-	return &endorserEndorsementCollection{
-		endorsements: map[ConsensusVoteTopic]*endorsement.Endorsement{},
-	}
-}
-
-func (ee *endorserEndorsementCollection) fromProto(endorserPro *endorsementpb.EndorserEndorsementCollection) error {
-	ee.endorsements = make(map[ConsensusVoteTopic]*endorsement.Endorsement)
-	for index := range endorserPro.Topics {
-		endorse := &endorsement.Endorsement{}
-		if err := endorse.LoadProto(endorserPro.Endorsements[index]); err != nil {
+func (m *EndorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
+	m.collections = make(map[string]*BlockEndorsementCollection)
+	for i, block := range managerPro.BlockEndorsements {
+		bc := &BlockEndorsementCollection{}
+		if err := bc.fromProto(block); err != nil {
 			return err
 		}
-		ee.endorsements[ConsensusVoteTopic(endorserPro.Topics[index])] = endorse
+		m.collections[managerPro.BlkHash[i]] = bc
 	}
 	return nil
 }
 
-func (ee *endorserEndorsementCollection) toProto(endorser string) (*endorsementpb.EndorserEndorsementCollection, error) {
-	eeProto := &endorsementpb.EndorserEndorsementCollection{}
-	eeProto.Endorser = endorser
-	for topic, endorse := range ee.endorsements {
-		eeProto.Topics = append(eeProto.Topics, uint32(topic))
-		ioEndorsement, err := endorse.Proto()
+func (m *EndorsementManager) toProto() (*endorsementpb.EndorsementManager, error) {
+	mc := &endorsementpb.EndorsementManager{}
+	for encodedBlockHash, block := range m.collections {
+		ioBlockEndorsement, err := block.toProto()
 		if err != nil {
 			return nil, err
 		}
-		eeProto.Endorsements = append(eeProto.Endorsements, ioEndorsement)
+		mc.BlkHash = append(mc.BlkHash, encodedBlockHash)
+		mc.BlockEndorsements = append(mc.BlockEndorsements, ioBlockEndorsement)
 	}
-	return eeProto, nil
+	return mc, nil
 }
 
-func (ee *endorserEndorsementCollection) AddEndorsement(
+// EndorserEndorsementCollection defines the structure of endorser endorsement collection
+type EndorserEndorsementCollection struct {
+	endorsements map[ConsensusVoteTopic]*endorsement.Endorsement
+}
+
+func newEndorserEndorsementCollection() *EndorserEndorsementCollection {
+	return &EndorserEndorsementCollection{
+		endorsements: map[ConsensusVoteTopic]*endorsement.Endorsement{},
+	}
+}
+
+// AddEndorsement adds an endorsement
+func (ee *EndorserEndorsementCollection) AddEndorsement(
 	topic ConsensusVoteTopic,
 	en *endorsement.Endorsement,
 ) error {
@@ -271,7 +258,8 @@ func (ee *endorserEndorsementCollection) AddEndorsement(
 	return nil
 }
 
-func (ee *endorserEndorsementCollection) Cleanup(timestamp time.Time) *endorserEndorsementCollection {
+// Cleanup cleans up endorser endorsement collections
+func (ee *EndorserEndorsementCollection) Cleanup(timestamp time.Time) *EndorserEndorsementCollection {
 	cleaned := newEndorserEndorsementCollection()
 	if e, exists := ee.endorsements[PROPOSAL]; exists {
 		if !e.Timestamp().Before(timestamp) {
@@ -289,71 +277,65 @@ func (ee *endorserEndorsementCollection) Cleanup(timestamp time.Time) *endorserE
 	return cleaned
 }
 
-func (ee *endorserEndorsementCollection) Endorsement(
+// Endorsement returns an endorsement by topic
+func (ee *EndorserEndorsementCollection) Endorsement(
 	topic ConsensusVoteTopic,
 ) *endorsement.Endorsement {
 	return ee.endorsements[topic]
 }
 
-type blockEndorsementCollection struct {
-	blk       *block.Block
-	endorsers map[string]*endorserEndorsementCollection
-}
-
-func newBlockEndorsementCollection(blk *block.Block) *blockEndorsementCollection {
-	return &blockEndorsementCollection{
-		blk:       blk,
-		endorsers: map[string]*endorserEndorsementCollection{},
-	}
-}
-
-func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection) error {
-	bc.endorsers = make(map[string]*endorserEndorsementCollection)
-	if blockPro.Blk == nil {
-		bc.blk = nil
-	} else {
-		blk := &block.Block{}
-		if err := blk.ConvertFromBlockPb(blockPro.Blk); err != nil {
+func (ee *EndorserEndorsementCollection) fromProto(endorserPro *endorsementpb.EndorserEndorsementCollection) error {
+	ee.endorsements = make(map[ConsensusVoteTopic]*endorsement.Endorsement)
+	for index := range endorserPro.Topics {
+		endorse := &endorsement.Endorsement{}
+		if err := endorse.LoadProto(endorserPro.Endorsements[index]); err != nil {
 			return err
 		}
-		bc.blk = blk
-	}
-	for _, endorsement := range blockPro.BlockMap {
-		ee := &endorserEndorsementCollection{}
-		if err := ee.fromProto(endorsement); err != nil {
-			return err
-		}
-		bc.endorsers[endorsement.Endorser] = ee
+		ee.endorsements[ConsensusVoteTopic(endorserPro.Topics[index])] = endorse
 	}
 	return nil
 }
 
-func (bc *blockEndorsementCollection) toProto() (*endorsementpb.BlockEndorsementCollection, error) {
-	bcProto := &endorsementpb.BlockEndorsementCollection{}
-	if bc.blk != nil {
-		bcProto.Blk = bc.blk.ConvertToBlockPb()
-	}
-
-	for s, endorse := range bc.endorsers {
-		ioEndorsement, err := endorse.toProto(s)
+func (ee *EndorserEndorsementCollection) toProto(endorser string) (*endorsementpb.EndorserEndorsementCollection, error) {
+	eeProto := &endorsementpb.EndorserEndorsementCollection{}
+	eeProto.Endorser = endorser
+	for topic, endorse := range ee.endorsements {
+		eeProto.Topics = append(eeProto.Topics, uint32(topic))
+		ioEndorsement, err := endorse.Proto()
 		if err != nil {
 			return nil, err
 		}
-		bcProto.BlockMap = append(bcProto.BlockMap, ioEndorsement)
+		eeProto.Endorsements = append(eeProto.Endorsements, ioEndorsement)
 	}
-	return bcProto, nil
+	return eeProto, nil
 }
 
-func (bc *blockEndorsementCollection) SetBlock(blk *block.Block) error {
+// BlockEndorsementCollection defines the structure of block endorsement collections
+type BlockEndorsementCollection struct {
+	blk       *block.Block
+	endorsers map[string]*EndorserEndorsementCollection
+}
+
+func newBlockEndorsementCollection(blk *block.Block) *BlockEndorsementCollection {
+	return &BlockEndorsementCollection{
+		blk:       blk,
+		endorsers: map[string]*EndorserEndorsementCollection{},
+	}
+}
+
+// SetBlock sets a block
+func (bc *BlockEndorsementCollection) SetBlock(blk *block.Block) error {
 	bc.blk = blk
 	return nil
 }
 
-func (bc *blockEndorsementCollection) Block() *block.Block {
+// Block returns a block
+func (bc *BlockEndorsementCollection) Block() *block.Block {
 	return bc.blk
 }
 
-func (bc *blockEndorsementCollection) AddEndorsement(
+// AddEndorsement adds an endorsement
+func (bc *BlockEndorsementCollection) AddEndorsement(
 	topic ConsensusVoteTopic,
 	en *endorsement.Endorsement,
 ) error {
@@ -370,7 +352,8 @@ func (bc *blockEndorsementCollection) AddEndorsement(
 	return nil
 }
 
-func (bc *blockEndorsementCollection) Endorsement(
+// Endorsement returns an endorsement
+func (bc *BlockEndorsementCollection) Endorsement(
 	endorser string,
 	topic ConsensusVoteTopic,
 ) *endorsement.Endorsement {
@@ -381,7 +364,8 @@ func (bc *blockEndorsementCollection) Endorsement(
 	return ee.Endorsement(topic)
 }
 
-func (bc *blockEndorsementCollection) Cleanup(timestamp time.Time) *blockEndorsementCollection {
+// Cleanup cleans up block endorsement collection
+func (bc *BlockEndorsementCollection) Cleanup(timestamp time.Time) *BlockEndorsementCollection {
 	cleaned := newBlockEndorsementCollection(bc.blk)
 	for endorser, ee := range bc.endorsers {
 		cleaned.endorsers[endorser] = ee.Cleanup(timestamp)
@@ -389,7 +373,8 @@ func (bc *blockEndorsementCollection) Cleanup(timestamp time.Time) *blockEndorse
 	return cleaned
 }
 
-func (bc *blockEndorsementCollection) Endorsements(
+// Endorsements returns endorsements
+func (bc *BlockEndorsementCollection) Endorsements(
 	topics []ConsensusVoteTopic,
 ) []*endorsement.Endorsement {
 	endorsements := []*endorsement.Endorsement{}
@@ -402,6 +387,43 @@ func (bc *blockEndorsementCollection) Endorsements(
 		}
 	}
 	return endorsements
+}
+
+func (bc *BlockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection) error {
+	bc.endorsers = make(map[string]*EndorserEndorsementCollection)
+	if blockPro.Blk == nil {
+		bc.blk = nil
+	} else {
+		blk := &block.Block{}
+		if err := blk.ConvertFromBlockPb(blockPro.Blk); err != nil {
+			return err
+		}
+		bc.blk = blk
+	}
+	for _, endorsement := range blockPro.BlockMap {
+		ee := &EndorserEndorsementCollection{}
+		if err := ee.fromProto(endorsement); err != nil {
+			return err
+		}
+		bc.endorsers[endorsement.Endorser] = ee
+	}
+	return nil
+}
+
+func (bc *BlockEndorsementCollection) toProto() (*endorsementpb.BlockEndorsementCollection, error) {
+	bcProto := &endorsementpb.BlockEndorsementCollection{}
+	if bc.blk != nil {
+		bcProto.Blk = bc.blk.ConvertToBlockPb()
+	}
+
+	for s, endorse := range bc.endorsers {
+		ioEndorsement, err := endorse.toProto(s)
+		if err != nil {
+			return nil, err
+		}
+		bcProto.BlockMap = append(bcProto.BlockMap, ioEndorsement)
+	}
+	return bcProto, nil
 }
 
 func encodeToString(hash []byte) string {
