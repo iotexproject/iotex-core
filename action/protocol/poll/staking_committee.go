@@ -26,6 +26,7 @@ import (
 
 type stakingCommittee struct {
 	hu                   config.HeightUpgrade
+	getTipBlockTime      GetTipBlockTime
 	getEpochHeight       GetEpochHeight
 	getEpochNum          GetEpochNum
 	electionCommittee    committee.Committee
@@ -67,6 +68,7 @@ func NewStakingCommittee(
 		electionCommittee: ec,
 		governanceStaking: gs,
 		nativeStaking:     ns,
+		getTipBlockTime:   getTipBlockTime,
 		getEpochHeight:    getEpochHeight,
 		getEpochNum:       getEpochNum,
 		rp:                rp,
@@ -152,9 +154,13 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 		return nil
 	}
 	log.L().Info("Store native buckets to election db", zap.Int("size", len(sc.currentNativeBuckets)))
+	ts, err := sc.getTipBlockTime()
+	if err != nil {
+		return err
+	}
 	if err := sc.electionCommittee.PutNativePollByEpoch(
 		sc.rp.GetEpochNum(raCtx.BlockHeight)+1, // The native buckets recorded in this epoch will be used in next one
-		raCtx.BlockTimeStamp,
+		ts,                                     // The timestamp of last block is used to represent the current buckets timestamp
 		sc.currentNativeBuckets,
 	); err != nil {
 		return err
