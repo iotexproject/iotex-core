@@ -13,13 +13,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-election/types"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-election/types"
 )
 
 var (
@@ -51,7 +53,10 @@ type (
 	}
 
 	// VoteTally is a map of candidates on native chain
-	VoteTally map[[12]byte]*state.Candidate
+	VoteTally struct {
+		Candidates map[[12]byte]*state.Candidate
+		Buckets    []*types.Bucket
+	}
 )
 
 // NewNativeStaking creates a NativeStaking instance
@@ -73,7 +78,7 @@ func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime,
 }
 
 // Votes returns the votes on height
-func (ns *NativeStaking) Votes() (VoteTally, error) {
+func (ns *NativeStaking) Votes() (*VoteTally, error) {
 	if ns.contract == "" {
 		return nil, ErrNoData
 	}
@@ -83,12 +88,16 @@ func (ns *NativeStaking) Votes() (VoteTally, error) {
 		return nil, errors.Wrap(err, "failed to get current block time")
 	}
 	// read voter list from staking contract
-	votes := make(VoteTally)
+	votes := VoteTally{
+		Candidates: make(map[[12]byte]*state.Candidate),
+		Buckets:    make([]*types.Bucket, 0),
+	}
 	prevIndex := big.NewInt(0)
 	limit := big.NewInt(256)
 
 	for {
 		vote, err := ns.readBuckets(prevIndex, limit)
+		log.L().Debug("Read native buckets from contract", zap.Int("size", len(vote)))
 		if err == ErrEndOfData {
 			// all data been read
 			break
@@ -103,7 +112,7 @@ func (ns *NativeStaking) Votes() (VoteTally, error) {
 		}
 		prevIndex.Add(prevIndex, limit)
 	}
-	return votes, nil
+	return &votes, nil
 }
 
 func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket, error) {
@@ -151,7 +160,7 @@ func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket,
 	return buckets, nil
 }
 
-func (vt VoteTally) tally(buckets []*types.Bucket, now time.Time) error {
+func (vt *VoteTally) tally(buckets []*types.Bucket, now time.Time) error {
 	for i := range buckets {
 		v := buckets[i]
 		weighted := types.CalcWeightedVotes(v, now)
@@ -159,12 +168,18 @@ func (vt VoteTally) tally(buckets []*types.Bucket, now time.Time) error {
 			return errors.Errorf("weighted amount %s cannot be negative", weighted)
 		}
 		k := to12Bytes(v.Candidate())
-		if c, ok := vt[k]; !ok {
-			vt[k] = &state.Candidate{"", weighted, "", v.Candidate()}
+		if c, ok := vt.Candidates[k]; !ok {
+			vt.Candidates[k] = &state.Candidate{
+				Address:       "",
+				Votes:         weighted,
+				RewardAddress: "",
+				CanName:       v.Candidate(),
+			}
 		} else {
 			// add up the votes
 			c.Votes.Add(c.Votes, weighted)
 		}
+		vt.Buckets = append(vt.Buckets, v)
 	}
 	return nil
 }

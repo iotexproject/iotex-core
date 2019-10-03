@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-election/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-election/types"
 )
 
 var (
@@ -68,10 +69,13 @@ func TestStaking(t *testing.T) {
 		)
 	}
 
-	tallies := make(VoteTally)
+	tallies := VoteTally{
+		Candidates: make(map[[12]byte]*state.Candidate),
+		Buckets:    make([]*types.Bucket, 0),
+	}
 	require.NoError(tallies.tally(buckets, time.Unix(1568755225, 0)))
-	require.Equal(6, len(tallies))
-	for _, v := range tallies {
+	require.Equal(6, len(tallies.Candidates))
+	for _, v := range tallies.Candidates {
 		for i := range votes {
 			if bytes.Compare(votes[i].name, v.CanName) == 0 {
 				amount := big.NewInt(unit.Iotx)
@@ -80,6 +84,7 @@ func TestStaking(t *testing.T) {
 			}
 		}
 	}
+	require.Equal(len(buckets), len(tallies.Buckets))
 
 	// test empty data from contract
 	require.NoError(ns.abi.Unpack(pygg, "getActivePyggs", empty))

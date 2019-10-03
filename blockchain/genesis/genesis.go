@@ -49,6 +49,7 @@ func defaultConfig() Genesis {
 			PacificBlockHeight:    432001,
 			AleutianBlockHeight:   864001,
 			BeringBlockHeight:     1382401,
+			CookBlockHeight:       1555201,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -119,8 +120,10 @@ type (
 		PacificBlockHeight uint64 `yaml:"pacificHeight"`
 		// AleutianBlockHeight is the start height of adding bloom filter of all events into block header
 		AleutianBlockHeight uint64 `yaml:"aleutianHeight"`
-		// BeringBlockHeight is the start height of reducing block interval to 5 seconds
+		// BeringBlockHeight is the start height of evm upgrade
 		BeringBlockHeight uint64 `yaml:"beringHeight"`
+		// CookBlockHeight is the start height of native staking
+		CookBlockHeight uint64 `yaml:"cookHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
